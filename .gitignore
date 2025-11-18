@@ -1,5 +1,2 @@
-*.log
 ./.env
-*.json
-cloudflared-credentials/
 docker/pihole/
