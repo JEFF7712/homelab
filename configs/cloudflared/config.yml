@@ -1,5 +1,5 @@
-tunnel: ac82eb54-55d1-45d9-9ddd-60abe28d1f50
-credentials-file: /home/rupan/.cloudflared/ac82eb54-55d1-45d9-9ddd-60abe28d1f50.json
+tunnel: <tunnel-id>
+credentials-file: /home/rupan/.cloudflared/<tunnel-id>.json
 
 ingress:
   - hostname: grafana.rupan.dev
