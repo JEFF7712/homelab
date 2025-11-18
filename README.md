@@ -9,15 +9,7 @@ observability on minimal hardware.
 
 ## Overview
 
-This project converts an old and unused Chromebook into a fully functional
-homelab server. After wiping ChromeOS and installing a lightweight Linux
-distribution, the device now hosts a set of containerized services
-accessible through secure Cloudflare Tunnels and monitored through a
-full observability stack.
-
-The machine runs continuously, exposes multiple custom subdomains, and
-provides real-time insight into its own CPU, RAM, disk, temperature,
-network throughput, workloads, and uptime.
+This project repurposes a low-power Chromebook into a reliable homelab server by wiping ChromeOS and installing a lightweight Linux distribution. The server now runs containerized services exposed through Cloudflare Tunnels on custom subdomains, along with monitoring dashboards, workflow automation, and a clean GitOps-style deployment pipeline using CI + Tailscale SSH.
 
 ## Key Features
 
@@ -134,6 +126,39 @@ This provides a clean, reliable GitOps process suitable for homelab infrastructu
 -   Glance
 -   SSH, systemd, Bash
 -   GitHub Actions (CI + Deploy workflows)  
+
+---
+
+## Repository Structure
+
+```
+
+homelab/
+├── assets
+│   └── homelab.gif
+├── configs
+│   ├── cloudflared
+│   │   └── config.yml
+│   └── grafana
+│       └── main-dashboard.json
+├── docker
+│   ├── docker-compose.yml
+│   ├── glance
+│   │   └── config
+│   │       ├── dashboard.yml
+│   │       └── glance.yml
+│   └── monitoring
+│       ├── grafana
+│       │   └── grafana.ini
+│       └── prometheus
+│           └── prometheus.yml
+├── README.md
+└── scripts
+    ├── deploy.sh
+    ├── report-temp.sh
+    ├── test-watchdog.sh
+    └── thermal-watchdog.sh
+```
 
 ---
 
