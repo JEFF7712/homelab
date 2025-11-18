@@ -2,24 +2,23 @@ name: Deploy Homelab
 
 on:
   push:
-    branches: [ main ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: SSH deploy to homelab
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Authenticate to Tailscale
+        uses: tailscale/github-action@v2
         with:
-          host: ${{ secrets.HOMELAB_HOST }}
-          username: ${{ secrets.HOMELAB_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd ~/homelab
-            git pull --ff-only
-            ./scripts/deploy.sh
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: deploy
+
+      - name: SSH into homelab and deploy
+        run: |
+          tailscale ssh rupan@chromebook-server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
