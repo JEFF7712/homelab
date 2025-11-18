@@ -27,11 +27,17 @@ network throughput, workloads, and uptime.
 -   Real-time system metrics dashboards: CPU, memory, disk I/O, network, temperature
 -   Container-level analytics
 -   GitOps automated deployments (CI + deploy pipeline)
+-   SSH automation through **Tailscale** (no port forwarding, private network)  
 -   Remote SSH administration
 -   Hardware monitoring + system optimization for 24/7 uptime
 
 ## Architecture
 
+```
+Developer → Git Push → CI Workflow → Deploy Workflow → Homelab (via Tailscale)
+```
+
+```
                       +------------------------------+
                       |     Cloudflare Zero Trust    |
                       |  Auth + Secure Tunnel Proxy  |
@@ -49,8 +55,13 @@ network throughput, workloads, and uptime.
                     |  + Grafana (dashboards)            |
                     |  + Glance (status dashboard)       |
                     |  + n8n (automation workflows)      |
-                    |  + node_exporter                   |
+                    |  + node_exporter / cAdvisor        |
+                    |                                    |
+                    |  Tailscale SSH (GitHub → Server)   |
                     +------------------------------------+
+```
+
+---
 
 ## Services Included
 
@@ -70,66 +81,80 @@ Lightweight status dashboard for services + system state.
 
 Automation engine for workflows, webhooks, and tasks.
 
+### Pi-hole
+
+Network-wide ad blocking. (I am only using per device though as I was unable to access router DHCP options)
+
+---
 
 ## GitOps Workflow (CI + Automated Deployment)
 
 This homelab uses a GitOps-style pipeline so all infrastructure changes flow through Git and deploy automatically to the server.
 
-### Workflow Summary
+The server itself is never edited directly.  
+All changes occur through Git commits.
 
-1. All configs live in this repo  
-2. Push to `main` triggers CI validation  
-3. If CI passes, GitHub Actions SSHes into the server via tailscale  
-4. The server pulls the repo and redeploys via Docker Compose  
-5. The live server always matches what is in Git  
+### How It Works
 
-This removes all manual editing and prevents configuration drift.
+1. All Docker and service configs live in the repo  
+2. Every push triggers the **CI workflow (`ci.yml`)**  
+3. CI validates main Compose file
+4. If CI succeeds, the **Deploy workflow (`deploy.yml`)** runs  
+5. GitHub Actions brings up a temporary Tailscale node  
+6. The workflow SSHes into the homelab (over Tailscale) and runs:
 
-### CI Validation
-
-GitHub Actions automatically:
-
-- Validates Docker Compose stacks with `docker compose config`
-- Ensures all configs are syntactically correct before deployment
-
-If CI fails, the Deploy workflow is never triggered.
-
-### Automated Deployment
-
-When validation succeeds:
-
-- GitHub Actions connects to the server via tailscale ssh
-- Executes the deploy script that redeploys all services:
 ```
 cd ~/homelab
 git pull --ff-only
 ./scripts/deploy.sh
 ```
+
+### Why This Matters
+
+- Automated, repeatable deployments  
+- No manual edits on the server  
+- Zero exposed ports  
+- Private, encrypted SSH via Tailscale  
+- Eliminates configuration drift  
+
+This provides a clean, reliable GitOps process suitable for homelab infrastructure.
+
+---
+
 ## Tools & Technologies
 
 -   Linux (Lubuntu)
 -   Docker / Docker Compose
 -   Cloudflare Tunnels + Zero Trust
+-   Tailscale SSH
 -   Grafana
 -   Prometheus
 -   node_exporter
+-   cAdvisor  
 -   Glance
 -   SSH, systemd, Bash
--   lm-sensors
+-   GitHub Actions (CI + Deploy workflows)  
+
+---
 
 ## Future Improvements
 
 -   Add more services
--   Add backups (restic/Borg)
+-   Add automated backups
 -   Add Portainer
 -   Add Blackbox Exporter
--   Host APIs or microservices
 -   Get an actual PC 😂
+
+---
 
 ## Resources
 - [Chrultrabook](https://docs.chrultrabook.com/) tools and guides for converting Chromebooks into full Linux laptops
 - [Lubuntu](https://lubuntu.me/) lightweight Ubuntu-based Linux distribution
 - [Docker](https://www.docker.com/) container platform used to run services
+- [Tailscale](https://tailscale.com/) private, secure SSH access
+- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/) secure remote access to local services
 - [Grafana](https://grafana.com/) visualization and monitoring dashboards
 - [Prometheus](https://prometheus.io/) metrics collection and time-series monitoring
-- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/) secure remote access to local services
+- [Pi-hole](https://pi-hole.net/) network-wide ad blocking
+
+
