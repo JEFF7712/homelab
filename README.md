@@ -168,6 +168,7 @@ homelab/
 -   Add automated backups
 -   Add Portainer
 -   Add Blackbox Exporter
+-   Check out Kubernetes
 -   Get an actual PC 😂
 
 ---
