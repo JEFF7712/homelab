@@ -19,7 +19,7 @@ This project repurposes a low-power Chromebook into a reliable homelab server by
 -   Real-time system metrics dashboards: CPU, memory, disk I/O, network, temperature
 -   Container-level analytics
 -   GitOps automated deployments (CI + deploy pipeline)
--   SSH automation through **Tailscale** (no port forwarding, private network)  
+-   SSH automation through Tailscale (no port forwarding, private network)  
 -   Remote SSH administration
 -   Hardware monitoring + system optimization for 24/7 uptime
 
