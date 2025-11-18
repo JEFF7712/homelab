@@ -20,6 +20,7 @@ jobs:
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
           tags: tag:server
 
-      - name: SSH into homelab and deploy
+      - name: SSH and deploy
         run: |
-          tailscale ssh rupan@chromebook-server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
+          set -euo pipefail
+          tailscale ssh --accept-risk=risky-allow-all rupan@chromebook-server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
