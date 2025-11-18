@@ -1,21 +1,42 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 REPO_DIR="$HOME/homelab"
 
+echo "[deploy] Changing to repo directory..."
 cd "$REPO_DIR"
+
 echo "[deploy] Pulling latest changes..."
 git pull --ff-only
 
-set -a
-source $HOME/homelab/.env
-set +a
+if [[ -f "$REPO_DIR/.env" ]]; then
+  echo "[deploy] Loading environment variables from .env..."
+  set -a
+  source "$REPO_DIR/.env"
+  set +a
+else
+  echo "[deploy] ERROR: .env file not found at $REPO_DIR/.env" >&2
+  exit 1
+fi
 
-envsubst < "$REPO_DIR/configs/cloudflared/config.yml.template" \
-  > "$REPO_DIR/configs/cloudflared/config.yml"
+CLOUDFLARED_TEMPLATE="$REPO_DIR/configs/cloudflared/config.yml.template"
+CLOUDFLARED_RENDERED="$REPO_DIR/configs/cloudflared/config.yml"
 
-sudo cp "$REPO_DIR/configs/cloudflared/config.yml" /etc/cloudflared/config.yml
-sudo systemctl restart cloudflared
+if [[ -f "$CLOUDFLARED_TEMPLATE" ]]; then
+  echo "[deploy] Rendering cloudflared config from template..."
+  envsubst < "$CLOUDFLARED_TEMPLATE" > "$CLOUDFLARED_RENDERED"
+
+  echo "[deploy] Copying cloudflared config to /etc/cloudflared/config.yml..."
+  sudo mkdir -p /etc/cloudflared
+  sudo cp "$CLOUDFLARED_RENDERED" /etc/cloudflared/config.yml
+  sudo chown root:root /etc/cloudflared/config.yml
+  sudo chmod 640 /etc/cloudflared/config.yml
+
+  echo "[deploy] Restarting cloudflared service..."
+  sudo systemctl restart cloudflared
+else
+  echo "[deploy] WARNING: cloudflared template not found at $CLOUDFLARED_TEMPLATE, skipping."
+fi
 
 echo "[deploy] Deploying main stack..."
 cd "$REPO_DIR/docker"
