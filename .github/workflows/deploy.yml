@@ -23,4 +23,4 @@ jobs:
       - name: SSH and deploy
         run: |
           set -euo pipefail
-          tailscale ssh --accept-risk=all rupan@chromebook-server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
+          tailscale ssh rupan@chromebook-server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
