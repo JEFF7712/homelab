@@ -1,0 +1,100 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - TZ=America/Chicago
+      - WEBHOOK_URL=https://n8n.rupan.dev/
+      - N8N_HOST=n8n.rupan.dev
+      - N8N_PORT=5678
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  glance:
+    container_name: glance
+    image: glanceapp/glance
+    restart: unless-stopped
+    volumes:
+      - ./glance/config:/app/config
+      - ./glance/assets:/app/assets
+      - /etc/localtime:/etc/localtime:ro
+      # Optionally, also mount docker socket if you wa>
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 8080:8080
+    env_file: ./glance/.env
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "80:80/tcp"
+      - "443:443/tcp"
+      # Uncomment the line below if you are using Pi-hole as your DHCP server
+      #- "67:67/udp"
+      # Uncomment the line below if you are using Pi-hole as your NTP server
+      #- "123:123/udp"
+    environment:
+      TZ: 'America/Chicago'
+      FTLCONF_webserver_api_password: 'password'
+      FTLCONF_dns_listeningMode: 'all'
+    volumes:
+      - './pihole/etc-pihole:/etc/pihole'
+      - './pihole/etc-dnsmasq.d:/etc/dnsmasq.d'
+    cap_add:
+      - NET_ADMIN
+      - SYS_TIME
+      - SYS_NICE
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+volumes:
+  prometheus-data:
+    external: true
+    name: monitoring_prometheus-data
+  grafana-data:
+    external: true
+    name: monitoring_grafana-data
+  n8n_data:
+    external: true
+    name: n8n_n8n_data

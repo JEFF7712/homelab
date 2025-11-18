@@ -1,0 +1,16 @@
+tunnel: ac82eb54-55d1-45d9-9ddd-60abe28d1f50
+credentials-file: /home/rupan/.cloudflared/ac82eb54-55d1-45d9-9ddd-60abe28d1f50.json
+
+ingress:
+  - hostname: grafana.rupan.dev
+    service: http://localhost:3000
+  - hostname: n8n.rupan.dev
+    service: http://localhost:5678
+  - hostname: glance.rupan.dev
+    service: http://localhost:8080
+  - hostname: pihole.rupan.dev
+    service: http://localhost:80
+    originRequest:
+      httpHostHeader: pihole.rupan.dev
+      noTLSVerify: true
+  - service: http_status:404

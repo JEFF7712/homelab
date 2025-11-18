@@ -1,0 +1,28 @@
+- name: Startpage
+  width: slim
+  hide-desktop-navigation: true
+  center-vertically: true
+  columns:
+    - size: full
+      widgets:
+        - type: monitor
+          cache: 1m
+          title: Services
+          sites:
+            - title: Grafana
+              url: https://grafana.rupan.dev/
+              icon: si:grafana
+            - title: n8n
+              url: https://n8n.rupan.dev/
+              icon: si:n8n
+            - title: Pi-hole
+              url: https://pihole.rupan.dev/
+#              icon: si:pi-hole
+            - title: rupan.dev
+              url: https://rupan.dev/
+#            - title: AdGuard Home
+#              url: https://yourdomain.com/
+#              icon: si:adguard
+#            - title: Vaultwarden
+#              url: https://yourdomain.com/
+#              icon: si:vaultwarden
