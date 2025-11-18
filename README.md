@@ -134,26 +134,26 @@ This provides a clean, reliable GitOps process suitable for homelab infrastructu
 ```
 
 homelab/
-├── assets
+├── assets/
 │   └── homelab.gif
-├── configs
-│   ├── cloudflared
+├── configs/
+│   ├── cloudflared/
 │   │   └── config.yml
-│   └── grafana
+│   └── grafana/
 │       └── main-dashboard.json
-├── docker
+├── docker/
 │   ├── docker-compose.yml
-│   ├── glance
-│   │   └── config
+│   ├── glance/
+│   │   └── config/
 │   │       ├── dashboard.yml
 │   │       └── glance.yml
-│   └── monitoring
-│       ├── grafana
+│   └── monitoring/
+│       ├── grafana/
 │       │   └── grafana.ini
-│       └── prometheus
+│       └── prometheus/
 │           └── prometheus.yml
 ├── README.md
-└── scripts
+└── scripts/
     ├── deploy.sh
     ├── report-temp.sh
     ├── test-watchdog.sh
