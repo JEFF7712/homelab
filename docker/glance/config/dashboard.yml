@@ -20,7 +20,7 @@
               icon: si:pihole
             - title: rupan.dev
               url: https://rupan.dev/
-              icon: si:globe
+              icon: mdi:web
 #            - title: AdGuard Home
 #              url: https://yourdomain.com/
 #              icon: si:adguard
