@@ -16,8 +16,8 @@
               url: https://n8n.rupan.dev/
               icon: si:n8n
             - title: Pi-hole
-              url: https://pihole.rupan.dev/
-#              icon: si:pi-hole
+              url: https://pihole.rupan.dev/admin
+#              icon: logos:pi-hole
             - title: rupan.dev
               url: https://rupan.dev/
 #            - title: AdGuard Home
