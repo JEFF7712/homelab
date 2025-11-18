@@ -182,6 +182,3 @@ homelab/
 - [Grafana](https://grafana.com/) visualization and monitoring dashboards
 - [Prometheus](https://prometheus.io/) metrics collection and time-series monitoring
 - [Pi-hole](https://pi-hole.net/) network-wide ad blocking
-
-
-# TEST 
