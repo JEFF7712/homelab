@@ -58,4 +58,7 @@ cd "$REPO_DIR/docker/pihole"
 docker compose pull
 docker compose up -d
 
+echo "[deploy] Cleaning up old images..."
+docker image prune -f
+
 echo "[deploy] Done."
