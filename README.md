@@ -175,7 +175,6 @@ homelab
 
 -   Add more services
 -   Add automated backups
--   Add Blackbox Exporter
 -   Check out Kubernetes
 -   Get an actual PC 😂
 
