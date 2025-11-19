@@ -38,8 +38,23 @@ else
   echo "[deploy] WARNING: cloudflared template not found at $CLOUDFLARED_TEMPLATE, skipping."
 fi
 
-echo "[deploy] Deploying main stack..."
-cd "$REPO_DIR/docker"
+echo "[deploy] Deploying monitoring stack..."
+cd "$REPO_DIR/docker/monitoring"
+docker compose pull
+docker compose up -d
+
+echo "[deploy] Deploying glance..."
+cd "$REPO_DIR/docker/glance"
+docker compose pull
+docker compose up -d
+
+echo "[deploy] Deploying n8n..."
+cd "$REPO_DIR/docker/n8n"
+docker compose pull
+docker compose up -d
+
+echo "[deploy] Deploying pihole..."
+cd "$REPO_DIR/docker/pihole"
 docker compose pull
 docker compose up -d
 

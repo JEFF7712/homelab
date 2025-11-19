@@ -1,0 +1,29 @@
+name: Homelab CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate monitoring stack
+        working-directory: docker/monitoring
+        run: docker compose config
+
+      - name: Validate glance
+        working-directory: docker/glance
+        run: docker compose config
+
+      - name: Validate n8n
+        working-directory: docker/n8n
+        run: docker compose config
+
+      - name: Validate pihole
+        working-directory: docker/pihole
+        run: docker compose config
