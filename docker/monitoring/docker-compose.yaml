@@ -8,7 +8,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yaml:ro
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
 
   grafana:
