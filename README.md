@@ -4,7 +4,7 @@ Dockerized services, monitoring dashboards, and secure Cloudflare Zero
 Trust tunnels. This project demonstrates lightweight DevOps, Linux
 administration, service orchestration, and production-style
 observability on minimal hardware.
-test
+
 ![Demo](./assets/homelab.gif)
 
 ## Overview
