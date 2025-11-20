@@ -1,4 +1,4 @@
 .env
 docker/pihole/pihole
-configs/cloudflared/config.yml
+docker/homeassistant/config
 configs/cloudflared/config.yml
