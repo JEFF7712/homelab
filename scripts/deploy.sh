@@ -58,6 +58,11 @@ cd "$REPO_DIR/docker/pihole"
 docker compose pull
 docker compose up -d
 
+echo "[deploy] Deploying homeassistant..."
+cd "$REPO_DIR/docker/homeassistant"
+docker compose pull
+docker compose up -d
+
 echo "[deploy] Cleaning up old images..."
 docker image prune -f
 
