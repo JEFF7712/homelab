@@ -13,4 +13,9 @@ ingress:
     originRequest:
       httpHostHeader: pihole.rupan.dev
       noTLSVerify: true
+  - hostname: ha.rupan.dev
+    service: http://localhost:8123
+    originRequest:
+      noTLSVerify: true
+
   - service: http_status:404
