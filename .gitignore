@@ -1,3 +1,4 @@
 .env
 docker/pihole/pihole
 configs/cloudflared/config.yml
+configs/cloudflared/config.yml
