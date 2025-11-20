@@ -21,9 +21,9 @@
             - title: rupan.dev
               url: https://rupan.dev/
               icon: mdi:web
-#            - title: AdGuard Home
-#              url: https://yourdomain.com/
-#              icon: si:adguard
+            - title: Home Assistant
+              url: https://ha.rupan.dev/
+              icon: mdi:assistant
 #            - title: Vaultwarden
 #              url: https://yourdomain.com/
 #              icon: si:vaultwarden
