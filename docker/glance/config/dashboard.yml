@@ -23,7 +23,7 @@
               icon: mdi:web
             - title: Home Assistant
               url: https://ha.rupan.dev/
-              icon: mdi:assistant
+              icon: si:homeassistant
 #            - title: Vaultwarden
 #              url: https://yourdomain.com/
 #              icon: si:vaultwarden
