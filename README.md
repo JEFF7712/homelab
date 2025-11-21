@@ -200,7 +200,7 @@ homelab
 
 ---
 
-## Resources
+## References
 - [Chrultrabook](https://docs.chrultrabook.com/) tools and guides for converting Chromebooks into full Linux laptops
 - [Lubuntu](https://lubuntu.me/) lightweight Ubuntu-based Linux distribution
 - [Docker](https://www.docker.com/) container platform used to run services
@@ -208,6 +208,7 @@ homelab
 - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/) secure remote access to local services
 - [Grafana](https://grafana.com/) visualization and monitoring dashboards
 - [Prometheus](https://prometheus.io/) metrics collection and time-series monitoring
+- [n8n](https://n8n.io/) workflow automation platform
 - [Pi-hole](https://pi-hole.net/) network-wide ad blocking
 - [Home Assistant](https://www.home-assistant.io/) Open source home automation
 - [FastAPI](https://fastapi.tiangolo.com/)Web framework for building APIs with Python
