@@ -24,6 +24,6 @@
             - title: Home Assistant
               url: http://10.1.34.48:8123
               icon: si:homeassistant
-#            - title: Vaultwarden
-#              url: https://yourdomain.com/
-#              icon: si:vaultwarden
+            - title: rupan-api
+              url: http://api.rupan.dev
+              icon: si:fastapi
