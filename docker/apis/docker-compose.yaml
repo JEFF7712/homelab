@@ -1,0 +1,13 @@
+services:
+  name-api:
+    build: ./services/name-api
+    container_name: name-api
+    restart: unless-stopped
+    expose:
+      - "9000"
+    networks:
+      - homelab
+
+networks:
+  homelab:
+    external: true
