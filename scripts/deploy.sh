@@ -63,6 +63,18 @@ cd "$REPO_DIR/docker/homeassistant"
 docker compose pull
 docker compose up -d
 
+echo "[deploy] Deploying homeassistant..."
+cd "$REPO_DIR/docker/homeassistant"
+docker compose pull
+docker compose up -d
+
+echo "[deploy] Building rupan-api..."
+cd "$REPO_DIR/docker/apis"
+docker compose build --no-cache
+
+echo "[deploy] Deploying rupan-api..."
+docker compose up -d
+
 echo "[deploy] Cleaning up old images..."
 docker image prune -f
 

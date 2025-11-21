@@ -27,3 +27,13 @@ jobs:
       - name: Validate pihole
         working-directory: docker/pihole
         run: docker compose config
+
+      - name: Validate home assistant
+        working-directory: docker/homeassistant
+        run: docker compose config
+
+      - name: Validate APIs
+        working-directory: docker/apis
+        run: docker compose config
+
+
