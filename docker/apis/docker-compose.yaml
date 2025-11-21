@@ -6,8 +6,8 @@ services:
     expose:
       - "9000"
     networks:
-      - homelab
+      - homelab_default
 
 networks:
-  homelab:
+  homelab_default:
     external: true
