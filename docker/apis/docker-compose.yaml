@@ -1,7 +1,7 @@
 services:
-  name-api:
-    build: ./services/name-api
-    container_name: name-api
+  rupan-api:
+    build: ./rupan-api
+    container_name: rupan-api
     restart: unless-stopped
     expose:
       - "9000"
