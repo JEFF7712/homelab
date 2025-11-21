@@ -13,4 +13,6 @@ ingress:
     originRequest:
       httpHostHeader: pihole.rupan.dev
       noTLSVerify: true
+  - hostname: api.rupan.dev
+    service: http://localhost:9000
   - service: http_status:404
