@@ -84,8 +84,8 @@ def status():
     # Processes
     proc_running = query_prometheus("node_procs_running")
     # Memory bytes
-    mem_total = query_prometheus("node_memory_MemTotal_bytes")
-    mem_avail = query_prometheus("node_memory_MemAvailable_bytes")
+    mem_total = query_prometheus("node_memory_MemTotal_bytes{instance=\"host.docker.internal:9100\"}")
+    mem_avail = query_prometheus("node_memory_MemAvailable_bytes{instance=\"host.docker.internal:9100\"}")
 
     # Root filesystem bytes
     disk_total = query_prometheus(
