@@ -12,7 +12,7 @@ services:
     container_name: homelab-api
     restart: unless-stopped
     ports:
-      - "9200:9000"
+      - "9200:9200"
     environment:
     - API_KEY=${API_KEY}
     volumes:
