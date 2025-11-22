@@ -3,6 +3,7 @@ from enum import Enum
 import os 
 import docker
 from docker.errors import NotFound, APIError, DockerException
+import arrow
 
 API = os.getenv("API_KEY")
 
@@ -32,7 +33,7 @@ def list_services():
                 "Name": f"{container.name}",
                 "Image": f"{container.image.tags[0] if container.image.tags else 'N/A'}",
                 "Status": f"{container.status}",
-                "Runtime": f"{container.attrs['State']['StartedAt']}",
+                "Runtime": f"{arrow.get(container.attrs['State']['StartedAt']).humanize()}",
             })
         return containers_info
     except DockerException:
