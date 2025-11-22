@@ -13,6 +13,8 @@ services:
     restart: unless-stopped
     ports:
       - "9200:9200"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - homelab_default
 
