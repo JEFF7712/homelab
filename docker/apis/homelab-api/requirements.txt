@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 docker
 arrow
+requests

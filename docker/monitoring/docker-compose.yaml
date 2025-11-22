@@ -10,6 +10,8 @@ services:
     volumes:
       - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
+    networks:
+      - homelab_default
 
   grafana:
     image: grafana/grafana-oss:latest
@@ -22,7 +24,8 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana:/etc/grafana
-
+    networks:
+      - homelab_default
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -35,6 +38,12 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - homelab_default
+      
+networks:
+  homelab_default:
+    external: true
 
 volumes:
   prometheus-data:
