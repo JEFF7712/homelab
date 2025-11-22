@@ -47,39 +47,39 @@ jobs:
         run: docker compose build --no-cache
 
   test-homelab-api:
-  runs-on: ubuntu-latest
-  defaults:
-    run:
-      working-directory: docker/apis/homelab-api
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-        cache: "pip"
-    - name: Install deps
-      run: pip install -r requirements.txt
-    - name: Lint
-      run: python -m compileall .
-    - name: Smoke import
-      run: python -c "import main; print('import ok')"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docker/apis/homelab-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Lint
+        run: python -m compileall .
+      - name: Smoke import
+        run: python -c "import main; print('import ok')"
 
-test-rupan-api:
-  runs-on: ubuntu-latest
-  defaults:
-    run:
-      working-directory: docker/apis/rupan-api
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-        cache: "pip"
-    - name: Install deps
-      run: pip install -r requirements.txt
-    - name: Lint
-      run: python -m compileall .
-    - name: Smoke import
-      run: python -c "import main; print('import ok')"
+  test-rupan-api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docker/apis/rupan-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Lint
+        run: python -m compileall .
+      - name: Smoke import
+        run: python -c "import main; print('import ok')"
 
 
