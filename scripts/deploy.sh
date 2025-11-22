@@ -39,11 +39,11 @@ cd "$REPO_DIR/docker/homeassistant"
 docker compose pull
 docker compose up -d
 
-echo "[deploy] Building rupan-api..."
+echo "[deploy] Building APIs..."
 cd "$REPO_DIR/docker/apis"
 docker compose build --no-cache
 
-echo "[deploy] Deploying rupan-api..."
+echo "[deploy] Deploying APIs..."
 docker compose up -d
 
 echo "[deploy] Cleaning up old images..."
