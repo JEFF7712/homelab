@@ -35,5 +35,15 @@ jobs:
       - name: Validate APIs
         working-directory: docker/apis
         run: docker compose config
+  
+  build-apis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build APIs
+        working-directory: docker/apis
+        run: docker compose build --no-cache
 
 
