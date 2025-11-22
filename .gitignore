@@ -1,4 +1,5 @@
 .env
+docker/apis/homelab-api/.env
 docker/pihole/pihole
 docker/homeassistant/config
 configs/cloudflared/config.yml
