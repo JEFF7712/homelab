@@ -31,7 +31,8 @@ def list_services():
                 "ID": f"{container.id[:12]}",
                 "Name": f"{container.name}",
                 "Image": f"{container.image.tags[0] if container.image.tags else 'N/A'}",
-                "Status": f"{container.status}"
+                "Status": f"{container.status}",
+                "Runtime": f"{container.attrs['State']['StartedAt']}",
             })
         return containers_info
     except DockerException:
@@ -44,7 +45,6 @@ def list_services():
 
 @app.post("/restart/{service}", dependencies=[Depends(check_api_key)])
 def restart_service(service: serviceName):
-    # Add try and except block to handle errors
     try:
         container_name = service.value
         container = client.containers.get(container_name)
