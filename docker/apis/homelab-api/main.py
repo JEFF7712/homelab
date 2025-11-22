@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
 from enum import Enum
+import os 
 import docker
 from docker.errors import NotFound, APIError, DockerException
+
+API = os.getenv("API_KEY")
 
 app = FastAPI()
 
@@ -13,8 +16,9 @@ class serviceName(str, Enum):
     pihole = "pihole"
     homeassistant = "homeassistant"
 
+
 def check_api_key(x_api_key: str | None = Header(None)):
-    if x_api_key != "super-secret":
+    if x_api_key != API:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 @app.get("/services", dependencies=[Depends(check_api_key)])
