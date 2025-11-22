@@ -3,11 +3,12 @@ from enum import Enum
 import os 
 import docker
 from docker.errors import NotFound, APIError, DockerException
+import uvicorn
 
 API = os.getenv("API_KEY")
 
 app = FastAPI()
-
+uvicorn.run(app, host="0.0.0.0", port=8000)
 client = docker.from_env()
 
 class serviceName(str, Enum):
