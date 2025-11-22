@@ -13,6 +13,8 @@ services:
     restart: unless-stopped
     ports:
       - "9200:9200"
+    env_file:
+      - ./homelab-api/.env
     environment:
       - API_KEY=${API_KEY}
     volumes:
