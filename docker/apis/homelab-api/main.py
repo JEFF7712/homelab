@@ -32,7 +32,7 @@ def list_services():
                 "ID": f"{container.id[:12]}",
                 "Name": f"{container.name}",
                 "Image": f"{container.image.tags[0] if container.image.tags else 'N/A'}",
-                "Status": f"{container.status}: up {arrow.get(container.attrs['State']['StartedAt']).humanize(only_distance=True)}",
+                "Status": f"{container.status} - up {arrow.get(container.attrs['State']['StartedAt']).humanize(only_distance=True)}",
             })
         return containers_info
     except DockerException:
