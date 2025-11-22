@@ -8,7 +8,7 @@ import uvicorn
 API = os.getenv("API_KEY")
 
 app = FastAPI()
-uvicorn.run(app, host="0.0.0.0", port=9200)
+
 client = docker.from_env()
 
 class serviceName(str, Enum):
