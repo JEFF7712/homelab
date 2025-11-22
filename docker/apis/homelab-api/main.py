@@ -32,8 +32,7 @@ def list_services():
                 "ID": f"{container.id[:12]}",
                 "Name": f"{container.name}",
                 "Image": f"{container.image.tags[0] if container.image.tags else 'N/A'}",
-                "Status": f"{container.status}",
-                "Runtime": f"{arrow.get(container.attrs['State']['StartedAt']).humanize()}",
+                "Status": f"{container.status}: {arrow.get(container.attrs['State']['StartedAt']).humanize()}",
             })
         return containers_info
     except DockerException:
