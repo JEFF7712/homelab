@@ -3,7 +3,6 @@ from enum import Enum
 import os 
 import docker
 from docker.errors import NotFound, APIError, DockerException
-import uvicorn
 
 API = os.getenv("API_KEY")
 

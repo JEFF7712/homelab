@@ -3,6 +3,16 @@ set -euo pipefail
 
 REPO_DIR="$HOME/homelab"
 
+if [[ -f "$REPO_DIR/.env" ]]; then
+  echo "[deploy] Loading environment variables from .env..."
+  set -a
+  source "$REPO_DIR/.env"
+  set +a
+else
+  echo "[deploy] ERROR: .env file not found at $REPO_DIR/.env" >&2
+  exit 1
+fi
+
 echo "[deploy] Changing to repo directory..."
 cd "$REPO_DIR"
 
@@ -34,11 +44,6 @@ cd "$REPO_DIR/docker/homeassistant"
 docker compose pull
 docker compose up -d
 
-echo "[deploy] Deploying homeassistant..."
-cd "$REPO_DIR/docker/homeassistant"
-docker compose pull
-docker compose up -d
-
 echo "[deploy] Building APIs..."
 cd "$REPO_DIR/docker/apis"
 docker compose build --no-cache
@@ -48,16 +53,6 @@ docker compose up -d
 
 echo "[deploy] Cleaning up old images..."
 docker image prune -f
-
-if [[ -f "$REPO_DIR/.env" ]]; then
-  echo "[deploy] Loading environment variables from .env..."
-  set -a
-  source "$REPO_DIR/.env"
-  set +a
-else
-  echo "[deploy] ERROR: .env file not found at $REPO_DIR/.env" >&2
-  exit 1
-fi
 
 CLOUDFLARED_TEMPLATE="$REPO_DIR/configs/cloudflared/config.yml.template"
 CLOUDFLARED_RENDERED="$REPO_DIR/configs/cloudflared/config.yml"

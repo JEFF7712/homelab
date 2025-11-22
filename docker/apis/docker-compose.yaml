@@ -12,11 +12,9 @@ services:
     container_name: homelab-api
     restart: unless-stopped
     ports:
-      - "9200:9200"
-    env_file:
-      - ./docker/apis/homelab-api/.env
+      - "9200:9000"
     environment:
-      - API_KEY=${API_KEY}
+    - API_KEY=${API_KEY}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
