@@ -19,7 +19,7 @@ class serviceName(str, Enum):
 
 
 def check_api_key(x_api_key: str | None = Header(None)):
-    print("x_api_key seen by server:", repr(x_api_key))
+    return {"x_api_key seen by server:", repr(x_api_key)}
     if x_api_key != API:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
