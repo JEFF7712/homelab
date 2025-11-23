@@ -13,10 +13,15 @@ services:
     restart: unless-stopped
     ports:
       - "9200:9200"
-    environment:
-    - API_KEY=${API_KEY}
     volumes:
+      - ../..:/repo
       - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - API_KEY=${API_KEY}
+      - PROMETHEUS_URL=http://prometheus:9090
+      - PROM_INSTANCE=host.docker.internal:9100
+      - DEPLOY_SCRIPT=/repo/scripts/deploy.sh
+      - REPO_ROOT=/repo
     networks:
       - homelab_default
 
