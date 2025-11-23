@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Homelab Control Panel</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Homelab Control Panel</h1>
+
+    <!-- API Key Section -->
+    <div class="card">
+      <h2>API Key</h2>
+      <p>Enter your API key. It will be stored only in this browser.</p>
+      <input id="api-key" type="password" placeholder="API key" />
+      <button id="save-settings">Save</button>
+      <p id="settings-status"></p>
+    </div>
+
+    <!-- Services -->
+    <div class="card">
+      <h2>Services</h2>
+      <button id="load-services">Load Services</button>
+      <div id="services"></div>
+    </div>
+
+    <!-- Node Status -->
+    <div class="card">
+      <h2>Status</h2>
+      <button id="load-status">Load Status</button>
+      <pre id="status-output"></pre>
+    </div>
+
+    <!-- Deploy -->
+    <div class="card">
+      <h2>Deploy</h2>
+      <button id="deploy-btn">Trigger Deploy</button>
+      <pre id="deploy-output"></pre>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

@@ -1,7 +1,6 @@
 from enum import Enum
 from typing import Optional, List
 import hmac
-from contextlib import asynccontextmanager
 import os
 import subprocess
 import arrow
@@ -10,6 +9,8 @@ import requests
 from docker.errors import NotFound, APIError, DockerException
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from requests.exceptions import RequestException
 
@@ -45,6 +46,8 @@ DEPLOY_SCRIPT = os.getenv("DEPLOY_SCRIPT", "/repo/scripts/deploy.sh")
 # FastAPI and Docker client
 
 app = FastAPI(title="Homelab Control API", lifespan=lifespan)
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
 client = docker.from_env()
 
 class serviceName(str, Enum):
@@ -130,167 +133,10 @@ def query_prometheus(promql: str) -> Optional[float]:
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Homelab Control Panel</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; }
-    h1 { margin-bottom: 0.5rem; }
-    .card { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    button { margin: 0.25rem 0.5rem 0.25rem 0; }
-    pre { background: #111; color: #0f0; padding: 0.5rem; overflow-x: auto; }
-    label { display: block; margin-bottom: 0.25rem; }
-    input { padding: 0.25rem; width: 100%; max-width: 400px; }
-  </style>
-</head>
-<body>
-  <h1>Homelab Control Panel</h1>
+    with open("frontend/index.html", "r") as f:
+        return f.read()
 
-  <div class="card">
-    <h2>API settings</h2>
-    <label>
-      API key:
-      <input id="api-key" type="password" />
-    </label>
-    <button id="save-settings">Save settings</button>
-    <p id="settings-status"></p>
-  </div>
-
-  <div class="card">
-    <h2>Services</h2>
-    <button id="load-services">Load services</button>
-    <div id="services"></div>
-  </div>
-
-  <div class="card">
-    <h2>Status</h2>
-    <button id="load-status">Load status</button>
-    <pre id="status-output"></pre>
-  </div>
-
-  <div class="card">
-    <h2>Deploy</h2>
-    <button id="deploy-btn">Trigger deploy</button>
-    <pre id="deploy-output"></pre>
-  </div>
-
-  <script>
-    const apiKeyInput = document.getElementById("api-key");
-    const settingsStatus = document.getElementById("settings-status");
-
-    const servicesContainer = document.getElementById("services");
-    const statusOutput = document.getElementById("status-output");
-    const deployOutput = document.getElementById("deploy-output");
-
-    // Load settings from localStorage
-    function loadSettings() {
-      const savedKey = localStorage.getItem("homelab_api_key");
-      if (savedKey) apiKeyInput.value = savedKey;
-    }
-
-    function saveSettings() {
-      localStorage.setItem("homelab_api_key", apiKeyInput.value.trim());
-      settingsStatus.textContent = "Settings saved locally.";
-    }
-
-    document.getElementById("save-settings").addEventListener("click", saveSettings);
-
-    function getHeaders() {
-      const key = apiKeyInput.value.trim();
-      return {
-        "Content-Type": "application/json",
-        "x-api-key": key,
-      };
-    }
-
-    async function fetchJson(path, options = {}) {
-      const resp = await fetch(path, {
-        ...options,
-        headers: { ...(options.headers || {}), ...getHeaders() },
-      });
-      const text = await resp.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = text;
-      }
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}: ${JSON.stringify(data)}`);
-      }
-      return data;
-    }
-
-    // Load services and render
-    document.getElementById("load-services").addEventListener("click", async () => {
-      servicesContainer.textContent = "Loading...";
-      try {
-        const services = await fetchJson("/services");
-        servicesContainer.innerHTML = "";
-        if (!services || !services.length) {
-          servicesContainer.textContent = "No running containers.";
-          return;
-        }
-        for (const svc of services) {
-          const div = document.createElement("div");
-          div.style.borderBottom = "1px solid #ccc";
-          div.style.padding = "0.5rem 0";
-          div.innerHTML = `
-            <strong>${svc.name}</strong> (${svc.id})<br/>
-            Image: ${svc.image}<br/>
-            Status: ${svc.status} | Uptime: ${svc.uptime || "unknown"}<br/>
-            <button data-name="${svc.name}">Restart</button>
-          `;
-          const btn = div.querySelector("button");
-          btn.addEventListener("click", () => restartService(svc.name));
-          servicesContainer.appendChild(div);
-        }
-      } catch (err) {
-        servicesContainer.textContent = "Error: " + err.message;
-      }
-    });
-
-    async function restartService(name) {
-      const svc = name.toLowerCase(); // must match enum values
-      try {
-        const data = await fetchJson(`/restart/${svc}`, { method: "POST" });
-        alert(`Restarted ${svc}: ${JSON.stringify(data)}`);
-      } catch (err) {
-        alert(`Error restarting ${svc}: ${err.message}`);
-      }
-    }
-
-    // Load status
-    document.getElementById("load-status").addEventListener("click", async () => {
-      statusOutput.textContent = "Loading...";
-      try {
-        const data = await fetchJson("/status");
-        statusOutput.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        statusOutput.textContent = "Error: " + err.message;
-      }
-    });
-
-    // Trigger deploy
-    document.getElementById("deploy-btn").addEventListener("click", async () => {
-      deployOutput.textContent = "Triggering deploy...";
-      try {
-        const data = await fetchJson("/deploy", { method: "POST" });
-        deployOutput.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        deployOutput.textContent = "Error: " + err.message;
-      }
-    });
-
-    loadSettings();
-  </script>
-</body>
-</html>
-    """
-
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 @app.get("/health")
 def health():
