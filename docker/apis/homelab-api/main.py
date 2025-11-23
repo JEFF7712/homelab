@@ -11,11 +11,31 @@ from fastapi import FastAPI, HTTPException, Depends, Header
 from pydantic import BaseModel
 from requests.exceptions import RequestException
 
-# Configuration
+# Load API_KEY
 
-API = os.getenv("API_KEY", "")
-if not API:
-    raise RuntimeError("API_KEY environment variable is not set")
+API = os.getenv("API_KEY")
+
+def ensure_api_key() -> None:
+    """
+    Called at app startup. Fails fast if API_KEY is missing.
+    Safe for import-time execution.
+    """
+    if not API:
+        raise RuntimeError("API_KEY environment variable is not set")
+
+def check_api_key(x_api_key: str | None = Header(None)) -> None:
+    """
+    Called per request. Requires API_KEY.
+    """
+    if not API:
+        # Should never happen at runtime, but guards against misconfig
+        raise HTTPException(status_code=500, detail="Server API key misconfigured")
+
+    if x_api_key is None or not hmac.compare_digest(x_api_key, API):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+# Configuration
 
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
 PROMETHEUS_INSTANCE = os.getenv("PROM_INSTANCE", "host.docker.internal:9100")
@@ -83,14 +103,6 @@ class VersionInfo(BaseModel):
     app_version: str
     git_commit: str
     build_time: Optional[str] = None
-
-
-# API Key Dependency
-
-def check_api_key(x_api_key: Optional[str] = Header(None)) -> None:
-    if x_api_key is None or not hmac.compare_digest(x_api_key, API):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
 
 # Helpers
 
