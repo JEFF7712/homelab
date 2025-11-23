@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Optional, List
 import hmac
+from contextlib import asynccontextmanager
+from typing import Optional
 import os
 import subprocess
 import arrow
@@ -13,27 +15,24 @@ from requests.exceptions import RequestException
 
 # Load API_KEY
 
-API = os.getenv("API_KEY")
+API = os.getenv("API_KEY") 
 
 def ensure_api_key() -> None:
-    """
-    Called at app startup. Fails fast if API_KEY is missing.
-    Safe for import-time execution.
-    """
     if not API:
         raise RuntimeError("API_KEY environment variable is not set")
 
-def check_api_key(x_api_key: str | None = Header(None)) -> None:
-    """
-    Called per request. Requires API_KEY.
-    """
+def check_api_key(x_api_key: Optional[str] = Header(None)) -> None:
     if not API:
-        # Should never happen at runtime, but guards against misconfig
+        # Should never happen if startup ran correctly, but guard anyway.
         raise HTTPException(status_code=500, detail="Server API key misconfigured")
 
     if x_api_key is None or not hmac.compare_digest(x_api_key, API):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_api_key()
+    yield
 
 # Configuration
 
@@ -49,9 +48,8 @@ DEPLOY_SCRIPT = os.getenv("DEPLOY_SCRIPT", "/repo/scripts/deploy.sh")
 
 # FastAPI and Docker client
 
-app = FastAPI(title="Homelab Control API")
+app = FastAPI(title="Homelab Control API", lifespan=lifespan)
 client = docker.from_env()
-
 
 class serviceName(str, Enum):
     grafana = "grafana"
