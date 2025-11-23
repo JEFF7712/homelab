@@ -2,7 +2,6 @@ from enum import Enum
 from typing import Optional, List
 import hmac
 from contextlib import asynccontextmanager
-from typing import Optional
 import os
 import subprocess
 import arrow
@@ -91,12 +90,6 @@ class NodeStatus(BaseModel):
     processes: ProcessStatus
     memory: MemoryStatus
     disk: DiskStatus
-
-
-class VersionInfo(BaseModel):
-    app_version: str
-    git_commit: str
-    build_time: Optional[str] = None
 
 # Helpers
 
