@@ -49,9 +49,6 @@
         <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
           API Authentication
         </h2>
-        <p class="mt-2 text-sm text-slate-400">
-          This UI talks directly to your homelab API. The API key is stored only in this browser (localStorage).
-        </p>
 
         <div class="mt-4 space-y-2">
           <label for="api-key" class="text-xs font-medium text-slate-300 tracking-wide">
@@ -61,7 +58,7 @@
             id="api-key"
             type="password"
             class="w-full border border-slate-700 bg-black px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-accent font-mono"
-            placeholder="Paste your API key"
+            placeholder="Paste API key"
           />
         </div>
 
@@ -88,9 +85,6 @@
         <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
           Control
         </h2>
-        <p class="mt-2 text-sm text-slate-400">
-          High-level actions for your stack. Use with care.
-        </p>
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <button
@@ -111,7 +105,7 @@
             href="https://grafana.rupan.dev/"
             target="_blank"
             rel="noreferrer"
-            class="border border-slate-600 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 hover:bg-slate-800"
+            class="border border-orange-500 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-orange-200 hover:bg-orange-900/40"
           >
             Open Grafana (metrics)
           </a>
@@ -134,8 +128,21 @@
           <span class="text-xs text-slate-500" id="services-meta"></span>
         </div>
 
-        <div id="services" class="mt-4 border border-slate-800 bg-black max-h-[420px] overflow-y-auto">
-          <!-- table inserted by JS -->
+        <div class="mt-4 border border-slate-800 bg-black max-h-[420px] overflow-y-auto">
+          <table class="w-full border-collapse text-xs">
+            <thead class="bg-slate-900 text-slate-300 border-b border-slate-800">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold">Name</th>
+                <th class="px-3 py-2 text-left font-semibold">Image</th>
+                <th class="px-3 py-2 text-left font-semibold">Status</th>
+                <th class="px-3 py-2 text-left font-semibold">Uptime</th>
+                <th class="px-3 py-2 text-left font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody id="services-body" class="bg-black text-slate-200">
+              <!-- rows inserted by JS -->
+            </tbody>
+          </table>
         </div>
       </div>
 

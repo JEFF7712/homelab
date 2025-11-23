@@ -70,11 +70,16 @@ async function fetchJson(path, options = {}) {
 
 // ===== Services =====
 async function loadServices() {
-  const container = document.getElementById("services");
+  const tbody = document.getElementById("services-body");
   const meta = document.getElementById("services-meta");
 
-  container.innerHTML =
-    '<div class="px-3 py-2 text-xs text-slate-400">Loading services…</div>';
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="5" class="px-3 py-2 text-xs text-slate-400">
+        Loading services…
+      </td>
+    </tr>
+  `;
   meta.textContent = "";
 
   try {
@@ -82,31 +87,23 @@ async function loadServices() {
     logMessage(`Loaded ${services.length} services from /services.`);
 
     if (!services.length) {
-      container.innerHTML =
-        '<div class="px-3 py-2 text-xs text-slate-400">No running containers.</div>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="px-3 py-2 text-xs text-slate-400">
+            No running containers.
+          </td>
+        </tr>
+      `;
       meta.textContent = "0 services";
       return;
     }
 
     meta.textContent = `${services.length} services`;
 
-    // Build a simple table
-    let html = `
-      <table class="w-full border-collapse text-xs">
-        <thead class="bg-slate-900 text-slate-300 border-b border-slate-800">
-          <tr>
-            <th class="px-3 py-2 text-left font-semibold">Name</th>
-            <th class="px-3 py-2 text-left font-semibold">Image</th>
-            <th class="px-3 py-2 text-left font-semibold">Status</th>
-            <th class="px-3 py-2 text-left font-semibold">Uptime</th>
-            <th class="px-3 py-2 text-left font-semibold">Action</th>
-          </tr>
-        </thead>
-        <tbody class="bg-black text-slate-200">
-    `;
+    let rows = "";
 
     for (const svc of services) {
-      html += `
+      rows += `
         <tr class="border-b border-slate-900">
           <td class="px-3 py-2 align-top">
             <div class="font-mono text-[11px] text-sky-300">${svc.name}</div>
@@ -133,13 +130,15 @@ async function loadServices() {
       `;
     }
 
-    html += "</tbody></table>";
-    container.innerHTML = html;
+    tbody.innerHTML = rows;
   } catch (err) {
-    container.innerHTML =
-      '<div class="px-3 py-2 text-xs text-rose-300">Error loading services: ' +
-      err.message +
-      "</div>";
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="px-3 py-2 text-xs text-rose-300">
+          Error loading services: ${err.message}
+        </td>
+      </tr>
+    `;
     logMessage("Error loading services: " + err.message);
   }
 }
