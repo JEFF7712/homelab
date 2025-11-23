@@ -3,6 +3,7 @@ from typing import Optional, List
 import hmac
 import os
 import subprocess
+from pathlib import Path
 import arrow
 import docker
 import requests
@@ -43,10 +44,12 @@ PROMETHEUS_INSTANCE = os.getenv("PROM_INSTANCE", "host.docker.internal:9100")
 REPO_ROOT = os.getenv("REPO_ROOT", "/repo")
 DEPLOY_SCRIPT = os.getenv("DEPLOY_SCRIPT", "/repo/scripts/deploy.sh")
 
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+
 # FastAPI and Docker client
 
 app = FastAPI(title="Homelab Control API", lifespan=lifespan)
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 client = docker.from_env()
 
@@ -133,10 +136,12 @@ def query_prometheus(promql: str) -> Optional[float]:
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    with open("frontend/index.html", "r") as f:
-        return f.read()
+    index_path = FRONTEND_DIR / "index.html"
+    if not index_path.exists():
+        raise HTTPException(status_code=500, detail="index.html not found")
+    return index_path.read_text(encoding="utf-8")
 
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static",)
 
 @app.get("/health")
 def health():
