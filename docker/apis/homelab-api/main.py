@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Optional, List
 import hmac
 import os
@@ -52,13 +51,6 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 app = FastAPI(title="Homelab Control API", lifespan=lifespan)
 
 client = docker.from_env()
-
-class serviceName(str, Enum):
-    grafana = "grafana"
-    n8n = "n8n"
-    pihole = "pihole"
-    homeassistant = "homeassistant"
-
 
 # Models
 
@@ -238,8 +230,12 @@ def status():
 
 
 @app.post("/restart/{service}", dependencies=[Depends(check_api_key)])
-def restart_service(service: serviceName):
-    container_name = service.value
+def restart_service(service: str):
+    """
+    Restart a container by name or ID.
+    Accept a raw string instead of a limited enum so the UI can restart any running container.
+    """
+    container_name = service
     try:
         container = client.containers.get(container_name)
         prev_status = container.status

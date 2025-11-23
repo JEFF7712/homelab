@@ -1,6 +1,7 @@
-// ===== Helper: log to activity pane =====
+// ===== Activity log helper =====
 function logMessage(message) {
   const log = document.getElementById("activity-log");
+  if (!log) return;
   const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
   log.textContent = `[${timestamp}] ${message}\n` + log.textContent;
 }
@@ -9,7 +10,8 @@ function logMessage(message) {
 function loadSettings() {
   const savedKey = localStorage.getItem("homelab_api_key");
   if (savedKey) {
-    document.getElementById("api-key").value = savedKey;
+    const el = document.getElementById("api-key");
+    if (el) el.value = savedKey;
     logMessage("Loaded API key from localStorage.");
   } else {
     logMessage("No API key found in localStorage.");
@@ -17,30 +19,34 @@ function loadSettings() {
 }
 
 function saveSettings() {
-  const key = document.getElementById("api-key").value.trim();
+  const input = document.getElementById("api-key");
+  const status = document.getElementById("settings-status");
+  if (!input) return;
+
+  const key = input.value.trim();
   if (!key) {
-    document.getElementById("settings-status").textContent = "API key is empty.";
+    if (status) status.textContent = "API key is empty.";
     logMessage("Attempted to save empty API key.");
     return;
   }
   localStorage.setItem("homelab_api_key", key);
-  document.getElementById("settings-status").textContent = "API key saved.";
+  if (status) status.textContent = "API key saved.";
   logMessage("API key saved to localStorage.");
 }
 
 function clearKey() {
+  const input = document.getElementById("api-key");
+  const status = document.getElementById("settings-status");
   localStorage.removeItem("homelab_api_key");
-  document.getElementById("api-key").value = "";
-  document.getElementById("settings-status").textContent = "API key cleared.";
+  if (input) input.value = "";
+  if (status) status.textContent = "API key cleared.";
   logMessage("API key cleared from localStorage.");
 }
 
-document.getElementById("save-settings").addEventListener("click", saveSettings);
-document.getElementById("clear-key").addEventListener("click", clearKey);
-
-// ===== HTTP helper =====
+// ===== HTTP helpers =====
 function getHeaders() {
-  const key = document.getElementById("api-key").value.trim();
+  const input = document.getElementById("api-key");
+  const key = input ? input.value.trim() : "";
   return {
     "Content-Type": "application/json",
     "x-api-key": key
@@ -73,6 +79,11 @@ async function loadServices() {
   const tbody = document.getElementById("services-body");
   const meta = document.getElementById("services-meta");
 
+  if (!tbody) {
+    logMessage("services-body element not found.");
+    return;
+  }
+
   tbody.innerHTML = `
     <tr>
       <td colspan="5" class="px-3 py-2 text-xs text-slate-400">
@@ -80,7 +91,7 @@ async function loadServices() {
       </td>
     </tr>
   `;
-  meta.textContent = "";
+  if (meta) meta.textContent = "";
 
   try {
     const services = await fetchJson("/services");
@@ -94,11 +105,11 @@ async function loadServices() {
           </td>
         </tr>
       `;
-      meta.textContent = "0 services";
+      if (meta) meta.textContent = "0 services";
       return;
     }
 
-    meta.textContent = `${services.length} services`;
+    if (meta) meta.textContent = `${services.length} services`;
 
     let rows = "";
 
@@ -143,8 +154,6 @@ async function loadServices() {
   }
 }
 
-document.getElementById("load-services").addEventListener("click", loadServices);
-
 // ===== Restart service =====
 async function restartService(name) {
   const svc = name.toLowerCase();
@@ -154,34 +163,41 @@ async function restartService(name) {
     const data = await fetchJson(`/restart/${svc}`, { method: "POST" });
     logMessage(`Restart successful for ${svc}: ${JSON.stringify(data)}`);
     alert(`Restarted ${svc}.`);
-    // Optionally refresh services after restart
     loadServices();
   } catch (err) {
     logMessage(`Restart failed for ${svc}: ${err.message}`);
     alert(`Error restarting ${svc}: ${err.message}`);
   }
 }
-
-// Expose to global scope for inline onclick
 window.restartService = restartService;
 
 // ===== Deploy =====
 async function triggerDeploy() {
   const output = document.getElementById("deploy-output");
-  output.textContent = "Triggering deploy…";
+  if (output) output.textContent = "Triggering deploy…";
   logMessage("Deploy triggered via /deploy.");
 
   try {
     const data = await fetchJson("/deploy", { method: "POST" });
-    output.textContent = JSON.stringify(data, null, 2);
+    if (output) output.textContent = JSON.stringify(data, null, 2);
     logMessage("Deploy API response: " + JSON.stringify(data));
   } catch (err) {
-    output.textContent = "Error: " + err.message;
+    if (output) output.textContent = "Error: " + err.message;
     logMessage("Deploy failed: " + err.message);
   }
 }
 
-document.getElementById("deploy-btn").addEventListener("click", triggerDeploy);
+// ===== Wire up DOM events after load =====
+window.addEventListener("DOMContentLoaded", () => {
+  const saveBtn = document.getElementById("save-settings");
+  const clearBtn = document.getElementById("clear-key");
+  const loadBtn = document.getElementById("load-services");
+  const deployBtn = document.getElementById("deploy-btn");
 
-// ===== Initial load =====
-loadSettings();
+  if (saveBtn) saveBtn.addEventListener("click", saveSettings);
+  if (clearBtn) clearBtn.addEventListener("click", clearKey);
+  if (loadBtn) loadBtn.addEventListener("click", loadServices);
+  if (deployBtn) deployBtn.addEventListener("click", triggerDeploy);
+
+  loadSettings();
+});
