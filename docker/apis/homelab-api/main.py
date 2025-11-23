@@ -39,10 +39,6 @@ async def lifespan(app: FastAPI):
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
 PROMETHEUS_INSTANCE = os.getenv("PROM_INSTANCE", "host.docker.internal:9100")
 
-APP_VERSION = os.getenv("APP_VERSION", "dev")
-GIT_COMMIT = os.getenv("GIT_COMMIT", "unknown")
-BUILD_TIME = os.getenv("BUILD_TIME")
-
 REPO_ROOT = os.getenv("REPO_ROOT", "/repo")
 DEPLOY_SCRIPT = os.getenv("DEPLOY_SCRIPT", "/repo/scripts/deploy.sh")
 
@@ -141,16 +137,6 @@ def query_prometheus(promql: str) -> Optional[float]:
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-@app.get("/version", response_model=VersionInfo)
-def version():
-    return VersionInfo(
-        app_version=APP_VERSION,
-        git_commit=GIT_COMMIT,
-        build_time=BUILD_TIME,
-    )
-
 
 @app.get("/services", response_model=List[ContainerInfo], dependencies=[Depends(check_api_key)])
 def list_services():
@@ -276,7 +262,6 @@ def deploy():
             status_code=500,
             detail=f"Deploy script not found at {DEPLOY_SCRIPT}",
         )
-
     try:
         subprocess.Popen(
             ["/bin/bash", DEPLOY_SCRIPT],
