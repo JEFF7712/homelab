@@ -33,6 +33,8 @@ function saveSettings() {
   localStorage.setItem("homelab_api_key", key);
   if (status) status.textContent = "API key saved.";
   logMessage("API key saved to localStorage.");
+
+  input.value = "";
 }
 
 function clearKey() {
