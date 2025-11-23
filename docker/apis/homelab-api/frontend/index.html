@@ -47,9 +47,6 @@
         <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
           API Authentication
         </h2>
-        <p class="mt-2 text-sm text-slate-400">
-          This UI talks directly to your homelab API. The API key is stored only in this browser (localStorage).
-        </p>
 
         <div class="mt-4 space-y-2">
           <label for="api-key" class="text-xs font-medium text-slate-300 tracking-wide">
@@ -59,7 +56,7 @@
             id="api-key"
             type="password"
             class="w-full border border-slate-700 bg-black px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-500 font-mono"
-            placeholder="Paste your API key"
+            placeholder="Paste API key"
           />
         </div>
 
@@ -86,9 +83,6 @@
         <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
           Control
         </h2>
-        <p class="mt-2 text-sm text-slate-400">
-          High-level actions for your stack. Use with care.
-        </p>
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <button
@@ -100,7 +94,7 @@
 
           <button
             id="deploy-btn"
-            class="border border-emerald-500 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-900/40"
+            class="border border-blue-700 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-blue-300 hover:bg-blue-800/40"
           >
             Trigger deploy
           </button>
@@ -109,7 +103,7 @@
             href="https://grafana.rupan.dev/"
             target="_blank"
             rel="noreferrer"
-            class="border border-slate-600 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 hover:bg-slate-800"
+            class="border border-orange-700 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-orange-300 hover:bg-orange-800/40"
           >
             Open Grafana (metrics)
           </a>
@@ -155,9 +149,6 @@
         <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
           Activity Log
         </h2>
-        <p class="mt-1 text-xs text-slate-500">
-          Recent actions performed from this console (client-side only).
-        </p>
 
         <pre
           id="activity-log"
