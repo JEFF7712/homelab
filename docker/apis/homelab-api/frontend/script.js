@@ -1,4 +1,4 @@
-// ===== Activity log helper =====
+// ===== Small helper =====
 function logMessage(message) {
   const log = document.getElementById("activity-log");
   if (!log) return;
@@ -6,12 +6,12 @@ function logMessage(message) {
   log.textContent = `[${timestamp}] ${message}\n` + log.textContent;
 }
 
-// ===== API key storage =====
+// ===== API key handling =====
 function loadSettings() {
   const savedKey = localStorage.getItem("homelab_api_key");
-  if (savedKey) {
-    const el = document.getElementById("api-key");
-    if (el) el.value = savedKey;
+  const input = document.getElementById("api-key");
+  if (savedKey && input) {
+    input.value = savedKey;
     logMessage("Loaded API key from localStorage.");
   } else {
     logMessage("No API key found in localStorage.");
@@ -29,6 +29,7 @@ function saveSettings() {
     logMessage("Attempted to save empty API key.");
     return;
   }
+
   localStorage.setItem("homelab_api_key", key);
   if (status) status.textContent = "API key saved.";
   logMessage("API key saved to localStorage.");
@@ -49,14 +50,14 @@ function getHeaders() {
   const key = input ? input.value.trim() : "";
   return {
     "Content-Type": "application/json",
-    "x-api-key": key
+    "x-api-key": key,
   };
 }
 
 async function fetchJson(path, options = {}) {
   const resp = await fetch(path, {
     ...options,
-    headers: { ...(options.headers || {}), ...getHeaders() }
+    headers: { ...(options.headers || {}), ...getHeaders() },
   });
 
   const text = await resp.text();
@@ -112,7 +113,6 @@ async function loadServices() {
     if (meta) meta.textContent = `${services.length} services`;
 
     let rows = "";
-
     for (const svc of services) {
       rows += `
         <tr class="border-b border-slate-900">
@@ -187,12 +187,19 @@ async function triggerDeploy() {
   }
 }
 
-// ===== Wire up DOM events after load =====
-window.addEventListener("DOMContentLoaded", () => {
+// ===== Wire up events after page load =====
+window.addEventListener("load", () => {
+  console.log("Page loaded, wiring up controls…");
+
   const saveBtn = document.getElementById("save-settings");
   const clearBtn = document.getElementById("clear-key");
   const loadBtn = document.getElementById("load-services");
   const deployBtn = document.getElementById("deploy-btn");
+
+  console.log("save-settings exists:", !!saveBtn);
+  console.log("clear-key exists:", !!clearBtn);
+  console.log("load-services exists:", !!loadBtn);
+  console.log("deploy-btn exists:", !!deployBtn);
 
   if (saveBtn) saveBtn.addEventListener("click", saveSettings);
   if (clearBtn) clearBtn.addEventListener("click", clearKey);
