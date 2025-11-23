@@ -15,4 +15,6 @@ ingress:
       noTLSVerify: true
   - hostname: api.rupan.dev
     service: http://localhost:9000
+  - hostname: homelab.rupan.dev
+    service: http://localhost:9200
   - service: http_status:404
