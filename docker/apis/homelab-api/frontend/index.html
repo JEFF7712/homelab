@@ -2,43 +2,161 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Homelab Control Panel</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <title>Homelab Control Console</title>
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            background: "#020617",
+            panel: "#020617",
+            border: "#1f2933",
+            accent: "#0ea5e9",
+          },
+        },
+      },
+    };
+  </script>
 </head>
-<body>
-  <div class="container">
-    <h1>Homelab Control Panel</h1>
-
-    <!-- API Key Section -->
-    <div class="card">
-      <h2>API Key</h2>
-      <p>Enter API key for validation.</p>
-      <input id="api-key" type="password" placeholder="API key" />
-      <button id="save-settings">Save</button>
-      <p id="settings-status"></p>
+<body class="min-h-screen bg-background text-slate-100">
+  <!-- Top bar -->
+  <header class="border-b border-slate-800 bg-black/60">
+    <div class="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+      <div class="flex flex-col">
+        <span class="text-sm tracking-wide text-slate-400 uppercase">
+          Homelab
+        </span>
+        <h1 class="text-xl font-semibold tracking-tight">
+          Control Console
+        </h1>
+      </div>
+      <div class="text-xs text-slate-400">
+        API: <span class="font-mono text-slate-200">/services /restart /deploy</span>
+      </div>
     </div>
+  </header>
 
-    <!-- Services -->
-    <div class="card">
-      <h2>Services</h2>
-      <button id="load-services">Load Services</button>
-      <div id="services"></div>
-    </div>
+  <!-- Main body -->
+  <main class="mx-auto max-w-6xl px-6 py-6 space-y-6">
 
-    <!-- Node Status -->
-    <div class="card">
-      <h2>Status</h2>
-      <button id="load-status">Load Status</button>
-      <pre id="status-output"></pre>
-    </div>
+    <!-- Row 1: API key + quick actions -->
+    <section class="grid grid-cols-1 md:grid-cols-[2fr,3fr] gap-6">
 
-    <!-- Deploy -->
-    <div class="card">
-      <h2>Deploy</h2>
-      <button id="deploy-btn">Trigger Deploy</button>
-      <pre id="deploy-output"></pre>
-    </div>
-  </div>
+      <!-- API key panel -->
+      <div class="border border-slate-800 bg-panel p-4">
+        <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
+          API Authentication
+        </h2>
+        <p class="mt-2 text-sm text-slate-400">
+          This UI talks directly to your homelab API. The API key is stored only in this browser (localStorage).
+        </p>
+
+        <div class="mt-4 space-y-2">
+          <label for="api-key" class="text-xs font-medium text-slate-300 tracking-wide">
+            API Key
+          </label>
+          <input
+            id="api-key"
+            type="password"
+            class="w-full border border-slate-700 bg-black px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-accent font-mono"
+            placeholder="Paste your API key"
+          />
+        </div>
+
+        <div class="mt-3 flex items-center gap-3">
+          <button
+            id="save-settings"
+            class="border border-slate-600 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-100 hover:bg-slate-800"
+          >
+            Save key
+          </button>
+          <button
+            id="clear-key"
+            class="border border-rose-600 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-200 hover:bg-rose-900/40"
+          >
+            Clear key
+          </button>
+        </div>
+
+        <p id="settings-status" class="mt-2 text-xs text-slate-400"></p>
+      </div>
+
+      <!-- Quick operations panel -->
+      <div class="border border-slate-800 bg-panel p-4">
+        <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
+          Control
+        </h2>
+        <p class="mt-2 text-sm text-slate-400">
+          High-level actions for your stack. Use with care.
+        </p>
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            id="load-services"
+            class="border border-slate-600 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-slate-800"
+          >
+            Refresh services
+          </button>
+
+          <button
+            id="deploy-btn"
+            class="border border-emerald-500 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-900/40"
+          >
+            Trigger deploy
+          </button>
+
+          <a
+            href="https://grafana.rupan.dev/"
+            target="_blank"
+            rel="noreferrer"
+            class="border border-slate-600 bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200 hover:bg-slate-800"
+          >
+            Open Grafana (metrics)
+          </a>
+        </div>
+
+        <pre id="deploy-output" class="mt-4 h-24 overflow-y-auto border border-slate-800 bg-black p-2 text-xs text-emerald-300"></pre>
+      </div>
+
+    </section>
+
+    <!-- Row 2: Services + activity log -->
+    <section class="grid grid-cols-1 md:grid-cols-[3fr,2fr] gap-6">
+
+      <!-- Services table -->
+      <div class="border border-slate-800 bg-panel p-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
+            Docker Services
+          </h2>
+          <span class="text-xs text-slate-500" id="services-meta"></span>
+        </div>
+
+        <div id="services" class="mt-4 border border-slate-800 bg-black max-h-[420px] overflow-y-auto">
+          <!-- table inserted by JS -->
+        </div>
+      </div>
+
+      <!-- Activity log -->
+      <div class="border border-slate-800 bg-panel p-4">
+        <h2 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
+          Activity Log
+        </h2>
+        <p class="mt-1 text-xs text-slate-500">
+          Recent actions performed from this console (client-side only).
+        </p>
+
+        <pre
+          id="activity-log"
+          class="mt-3 h-[360px] overflow-y-auto border border-slate-800 bg-black p-2 text-xs text-slate-200"
+        ></pre>
+      </div>
+
+    </section>
+
+  </main>
 
   <script src="/static/script.js"></script>
 </body>

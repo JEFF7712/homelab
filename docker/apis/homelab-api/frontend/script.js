@@ -1,17 +1,44 @@
-// Load saved API key
+// ===== Helper: log to activity pane =====
+function logMessage(message) {
+  const log = document.getElementById("activity-log");
+  const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
+  log.textContent = `[${timestamp}] ${message}\n` + log.textContent;
+}
+
+// ===== API key storage =====
 function loadSettings() {
   const savedKey = localStorage.getItem("homelab_api_key");
-  if (savedKey) document.getElementById("api-key").value = savedKey;
+  if (savedKey) {
+    document.getElementById("api-key").value = savedKey;
+    logMessage("Loaded API key from localStorage.");
+  } else {
+    logMessage("No API key found in localStorage.");
+  }
 }
 
 function saveSettings() {
   const key = document.getElementById("api-key").value.trim();
+  if (!key) {
+    document.getElementById("settings-status").textContent = "API key is empty.";
+    logMessage("Attempted to save empty API key.");
+    return;
+  }
   localStorage.setItem("homelab_api_key", key);
-  document.getElementById("settings-status").textContent = "Saved.";
+  document.getElementById("settings-status").textContent = "API key saved.";
+  logMessage("API key saved to localStorage.");
+}
+
+function clearKey() {
+  localStorage.removeItem("homelab_api_key");
+  document.getElementById("api-key").value = "";
+  document.getElementById("settings-status").textContent = "API key cleared.";
+  logMessage("API key cleared from localStorage.");
 }
 
 document.getElementById("save-settings").addEventListener("click", saveSettings);
+document.getElementById("clear-key").addEventListener("click", clearKey);
 
+// ===== HTTP helper =====
 function getHeaders() {
   const key = document.getElementById("api-key").value.trim();
   return {
@@ -41,67 +68,121 @@ async function fetchJson(path, options = {}) {
   return data;
 }
 
-// Load Services
-document.getElementById("load-services").addEventListener("click", async () => {
-  const div = document.getElementById("services");
-  div.textContent = "Loading...";
+// ===== Services =====
+async function loadServices() {
+  const container = document.getElementById("services");
+  const meta = document.getElementById("services-meta");
+
+  container.innerHTML =
+    '<div class="px-3 py-2 text-xs text-slate-400">Loading services…</div>';
+  meta.textContent = "";
+
   try {
     const services = await fetchJson("/services");
-    div.innerHTML = "";
+    logMessage(`Loaded ${services.length} services from /services.`);
 
-    services.forEach(svc => {
-      const el = document.createElement("div");
-      el.className = "service-card";
-      el.innerHTML = `
-        <strong>${svc.name}</strong> (${svc.id})<br/>
-        Image: ${svc.image}<br/>
-        Status: ${svc.status}<br/>
-        Uptime: ${svc.uptime || "unknown"}<br/>
-        <button onclick="restartService('${svc.name}')">Restart</button>
-        <hr/>
+    if (!services.length) {
+      container.innerHTML =
+        '<div class="px-3 py-2 text-xs text-slate-400">No running containers.</div>';
+      meta.textContent = "0 services";
+      return;
+    }
+
+    meta.textContent = `${services.length} services`;
+
+    // Build a simple table
+    let html = `
+      <table class="w-full border-collapse text-xs">
+        <thead class="bg-slate-900 text-slate-300 border-b border-slate-800">
+          <tr>
+            <th class="px-3 py-2 text-left font-semibold">Name</th>
+            <th class="px-3 py-2 text-left font-semibold">Image</th>
+            <th class="px-3 py-2 text-left font-semibold">Status</th>
+            <th class="px-3 py-2 text-left font-semibold">Uptime</th>
+            <th class="px-3 py-2 text-left font-semibold">Action</th>
+          </tr>
+        </thead>
+        <tbody class="bg-black text-slate-200">
+    `;
+
+    for (const svc of services) {
+      html += `
+        <tr class="border-b border-slate-900">
+          <td class="px-3 py-2 align-top">
+            <div class="font-mono text-[11px] text-sky-300">${svc.name}</div>
+            <div class="text-[10px] text-slate-500">${svc.id}</div>
+          </td>
+          <td class="px-3 py-2 align-top text-[11px] text-slate-300">
+            ${svc.image}
+          </td>
+          <td class="px-3 py-2 align-top text-[11px] text-slate-300">
+            ${svc.status}
+          </td>
+          <td class="px-3 py-2 align-top text-[11px] text-slate-300">
+            ${svc.uptime || "unknown"}
+          </td>
+          <td class="px-3 py-2 align-top">
+            <button
+              class="border border-amber-500 bg-black px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200 hover:bg-amber-900/40"
+              onclick="restartService('${svc.name}')"
+            >
+              Restart
+            </button>
+          </td>
+        </tr>
       `;
-      div.appendChild(el);
-    });
+    }
 
+    html += "</tbody></table>";
+    container.innerHTML = html;
   } catch (err) {
-    div.textContent = "Error: " + err.message;
-  }
-});
-
-// Restart service
-async function restartService(name) {
-  const svc = name.toLowerCase();
-  try {
-    const data = await fetchJson(`/restart/${svc}`, { method: "POST" });
-    alert("Restarted: " + JSON.stringify(data));
-  } catch (err) {
-    alert("Error: " + err.message);
+    container.innerHTML =
+      '<div class="px-3 py-2 text-xs text-rose-300">Error loading services: ' +
+      err.message +
+      "</div>";
+    logMessage("Error loading services: " + err.message);
   }
 }
 
-// Status
-document.getElementById("load-status").addEventListener("click", async () => {
-  const out = document.getElementById("status-output");
-  out.textContent = "Loading...";
-  try {
-    const data = await fetchJson("/status");
-    out.textContent = JSON.stringify(data, null, 2);
-  } catch (err) {
-    out.textContent = "Error: " + err.message;
-  }
-});
+document.getElementById("load-services").addEventListener("click", loadServices);
 
-// Deploy
-document.getElementById("deploy-btn").addEventListener("click", async () => {
-  const out = document.getElementById("deploy-output");
-  out.textContent = "Triggering...";
+// ===== Restart service =====
+async function restartService(name) {
+  const svc = name.toLowerCase();
+  logMessage(`Restart requested for service: ${svc}`);
+
+  try {
+    const data = await fetchJson(`/restart/${svc}`, { method: "POST" });
+    logMessage(`Restart successful for ${svc}: ${JSON.stringify(data)}`);
+    alert(`Restarted ${svc}.`);
+    // Optionally refresh services after restart
+    loadServices();
+  } catch (err) {
+    logMessage(`Restart failed for ${svc}: ${err.message}`);
+    alert(`Error restarting ${svc}: ${err.message}`);
+  }
+}
+
+// Expose to global scope for inline onclick
+window.restartService = restartService;
+
+// ===== Deploy =====
+async function triggerDeploy() {
+  const output = document.getElementById("deploy-output");
+  output.textContent = "Triggering deploy…";
+  logMessage("Deploy triggered via /deploy.");
+
   try {
     const data = await fetchJson("/deploy", { method: "POST" });
-    out.textContent = JSON.stringify(data, null, 2);
+    output.textContent = JSON.stringify(data, null, 2);
+    logMessage("Deploy API response: " + JSON.stringify(data));
   } catch (err) {
-    out.textContent = "Error: " + err.message;
+    output.textContent = "Error: " + err.message;
+    logMessage("Deploy failed: " + err.message);
   }
-});
+}
 
-// Initial load
+document.getElementById("deploy-btn").addEventListener("click", triggerDeploy);
+
+// ===== Initial load =====
 loadSettings();
