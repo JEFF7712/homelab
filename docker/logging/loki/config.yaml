@@ -2,51 +2,28 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
-  grpc_listen_port: 9095
 
-distributor:
+common:
   ring:
+    instance_addr: 127.0.0.1
     kvstore:
       store: inmemory
-
-ingester:
-  lifecycler:
-    ring:
-      kvstore:
-        store: inmemory
-  chunk_idle_period: 5m
-  chunk_retain_period: 30s
-
-querier:
-  query_timeout: 1m
-
-query_range:
-  split_queries_by_interval: 15m
+  replication_factor: 1
+  path_prefix: /loki
 
 schema_config:
   configs:
-    - from: 2020-10-24
-      store: boltdb-shipper
+    - from: 2020-05-15
+      store: tsdb
       object_store: filesystem
-      schema: v11
+      schema: v13
       index:
         prefix: index_
         period: 24h
 
 storage_config:
-  boltdb_shipper:
-    active_index_directory: /loki/index
-    cache_location: /loki/cache
   filesystem:
     directory: /loki/chunks
 
-compactor:
-  working_directory: /loki/compactor
-  shared_store: filesystem
-
 limits_config:
-  retention_period: 168h   # 7 days
-  allow_structured_metadata: false
-
-table_manager:
-  retention_deletes_enabled: true
+  retention_period: 168h
