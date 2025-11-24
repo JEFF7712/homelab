@@ -27,3 +27,6 @@
             - title: rupan-api
               url: http://api.rupan.dev
               icon: si:fastapi
+            - title: homelab-api
+              url: http://homelab.rupan.dev
+              icon: si:fastapi
