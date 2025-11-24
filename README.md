@@ -86,7 +86,7 @@ Open source home automation that puts local control and privacy first.
 
 ## Custom APIs
 
-### rupan-api (api.rupan.dev)
+### rupan-api [api.rupan.dev](https://api.rupan.dev)
 
 A small public-facing personal API built with FastAPI. Used for experimentation, returning simple structured information, and testing integrations. 
 
