@@ -1,7 +1,7 @@
 # Chromebook Homelab Server
 Converted an old Chromebook into a reliable 24/7 Linux server running
-Dockerized services, monitoring dashboards, my own API, and secure Cloudflare Zero
-Trust tunnels. This project demonstrates lightweight DevOps, Linux
+Dockerized services, monitoring dashboards, custom API's, and secure Cloudflare Zero
+Trust tunnels. This project applies lightweight DevOps, Linux
 administration, service orchestration, and production-style
 observability on minimal hardware.
 
@@ -173,42 +173,18 @@ homelab
 │           └── system-metrics.json
 ├── docker
 │   ├── apis
-│   │   ├── docker-compose.yaml
 │   │   ├── homelab-api
-│   │   │   ├── Dockerfile
-│   │   │   ├── frontend
-│   │   │   │   ├── index.html
-│   │   │   │   └── script.js
-│   │   │   ├── main.py
-│   │   │   └── requirements.txt
 │   │   └── rupan-api
-│   │       ├── Dockerfile
-│   │       ├── main.py
-│   │       └── requirements.txt
 │   ├── cloudflared
-│   │   └── docker-compose.yaml
 │   ├── glance
-│   │   └── docker-compose.yaml
 │   ├── homeassistant
-│   │   ├── config
-│   │   │   └── configuration.yaml
-│   │   └── docker-compose.yaml
 │   ├── monitoring
-│   │   ├── docker-compose.yaml
 │   │   ├── grafana
-│   │   │   └── grafana.ini
 │   │   └── prometheus
-│   │       └── prometheus.yaml
 │   ├── n8n
-│   │   └── docker-compose.yaml
 │   └── pihole
-│       └── docker-compose.yaml
 ├── README.md
 └── scripts
-    ├── deploy.sh
-    ├── report-temp.sh
-    ├── test-watchdog.sh
-    └── thermal-watchdog.sh
 ```
 
 ---
