@@ -218,7 +218,7 @@ homelab
 -   Add more services
 -   Add automated backups
 -   Experiment with Kubernetes or k3s
--   Get an actual PC 😂
+-   Upgrade hardware with an actual PC 😂
 
 ---
 
