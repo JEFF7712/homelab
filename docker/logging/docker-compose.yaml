@@ -15,11 +15,12 @@ services:
   promtail:
     image: grafana/promtail:latest
     container_name: promtail
+    command: -config.file=/etc/promtail/config.yaml
     volumes:
-      - ./promtail/config.yaml:/etc/promtail/config.yaml
+      - ./promtail:/etc/promtail
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
-    command: -config.file=/etc/promtail/config.yaml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
     networks:
       - homelab
