@@ -25,6 +25,6 @@ jobs:
           API_KEY: ${{ secrets.HOMELAB_API_KEY }}
         run: |
           set -euo pipefail
-          tailscale ssh rupan@chromebook-server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
+          tailscale ssh rupan@server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
 ## Note: run the following on server so that tailscale doesn't get sudo errors when running the deploy script
 # echo 'rupan ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/cp, /usr/bin/mkdir, /bin/chmod, /bin/chown' | sudo tee /etc/sudoers.d/rupan
