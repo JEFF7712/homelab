@@ -22,7 +22,7 @@
               url: https://rupan.dev/
               icon: mdi:web
             - title: Home Assistant
-              url: http://10.1.34.48:8123
+              url: http://homeassistant:8123
               icon: si:homeassistant
             - title: rupan-api
               url: http://api.rupan.dev
