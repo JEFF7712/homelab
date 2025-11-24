@@ -3,16 +3,6 @@ set -euo pipefail
 
 REPO_DIR="$HOME/homelab"
 
-if [[ -f "$REPO_DIR/.env" ]]; then
-  echo "[deploy] Loading environment variables from .env..."
-  set -a
-  source "$REPO_DIR/.env"
-  set +a
-else
-  echo "[deploy] ERROR: .env file not found at $REPO_DIR/.env" >&2
-  exit 1
-fi
-
 echo "[deploy] Changing to repo directory..."
 cd "$REPO_DIR"
 
@@ -21,6 +11,11 @@ git pull --ff-only
 
 echo "[deploy] Deploying monitoring stack..."
 cd "$REPO_DIR/docker/monitoring"
+docker compose pull
+docker compose up -d
+
+echo "[deploy] Deploying logging stack..."
+cd "$REPO_DIR/docker/logging"
 docker compose pull
 docker compose up -d
 
