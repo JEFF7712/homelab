@@ -6,7 +6,7 @@ services:
     ports:
       - "9000:9000"
     networks:
-      - homelab_default
+      - homelab
   homelab-api:
     build: ./homelab-api
     container_name: homelab-api
@@ -23,8 +23,8 @@ services:
       - DEPLOY_SCRIPT=/repo/scripts/deploy.sh
       - REPO_ROOT=/repo
     networks:
-      - homelab_default
+      - homelab
 
 networks:
-  homelab_default:
+  homelab:
     external: true
