@@ -7,7 +7,7 @@ services:
       - "53:53/udp"
     environment:
       TZ: 'America/Chicago'
-      FTLCONF_webserver_api_password: 'password'
+      FTLCONF_webserver_api_password: ${PASSWORD}
       FTLCONF_dns_listeningMode: 'all'
       VIRTUAL_HOST: 'pihole.rupan.dev'
     volumes:
