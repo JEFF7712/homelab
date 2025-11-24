@@ -13,8 +13,8 @@ This project repurposes a low-power Chromebook into a reliable homelab server by
 
 ## Key Features
 
--   ChromeOS wiped and replaced with Lubuntu
--   Docker-based orchestration for Grafana, Glance, Pi-hole, n8n, Home Assistant, and my own API
+-   ChromeOS wiped and replaced with Alpine Linux
+-   Docker-based orchestration for Grafana, Glance, Pi-hole, n8n, Home Assistant, and custom APIs
 -   Cloudflare Tunnels with Zero Trust authentication
 -   Real-time system metrics dashboards: CPU, memory, disk I/O, network, temperature
 -   Container-level analytics
@@ -47,6 +47,7 @@ Developer → Git Push → CI Workflow → Deploy Workflow → Homelab (via Tail
                     |  + Glance                          |
                     |  + n8n                             |
                     |  + rupan-api                       |
+                    |  + homelab-api                     |
                     |  + Home Assistant                  |
                     |  + Pi hole                         |     
                     |  + node_exporter / cAdvisor        |
@@ -87,6 +88,10 @@ Open source home automation that puts local control and privacy first.
 
 My own API that can be accessed at [api.rupan.dev](https://api.rupan.dev).
 
+### homelab-api
+
+Another custom API at [homelab.rupan.dev](https://homelab.rupan.dev) that serves as a control point for the server.
+
 ---
 
 ## GitOps Workflow (CI + Automated Deployment)
@@ -125,7 +130,7 @@ This provides a clean, reliable GitOps process suitable for homelab infrastructu
 
 ## Tools & Technologies
 
--   Linux (Lubuntu)
+-   Linux (Alpine Linux)
 -   Docker / Docker Compose
 -   Cloudflare Tunnels + Zero Trust
 -   Tailscale SSH
@@ -202,7 +207,7 @@ homelab
 
 ## References
 - [Chrultrabook](https://docs.chrultrabook.com/) tools and guides for converting Chromebooks into full Linux laptops
-- [Lubuntu](https://lubuntu.me/) lightweight Ubuntu-based Linux distribution
+- [Alpine Linux](https://www.alpinelinux.org/) ultra-lightweight and secure Linux distribution
 - [Docker](https://www.docker.com/) container platform used to run services
 - [Tailscale](https://tailscale.com/) private, secure SSH access
 - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/) secure remote access to local services
