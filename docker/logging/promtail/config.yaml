@@ -15,7 +15,11 @@ scrape_configs:
         refresh_interval: 5s
 
     relabel_configs:
-      # Tell Promtail which file to read for each container
+      # Add a static label job="docker" to all streams
+      - replacement: "docker"
+        target_label: "job"
+
+      # Tell Promtail which log file to read for each container
       - source_labels: ["__meta_docker_container_log_path"]
         target_label: "__path__"
 
