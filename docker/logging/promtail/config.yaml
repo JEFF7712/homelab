@@ -15,7 +15,7 @@ scrape_configs:
         refresh_interval: 5s
 
     relabel_configs:
-      # Tell Promtail which file to read for each container
+      # Tell Promtail which log file to read for each container
       - source_labels: ["__meta_docker_container_log_path"]
         target_label: "__path__"
 
@@ -33,11 +33,11 @@ scrape_configs:
       - source_labels: ["__meta_docker_image_name"]
         target_label: "image"
 
-      # Log stream (stdout or stderr)
+      # Log stream (stdout / stderr)
       - source_labels: ["__meta_docker_container_log_stream"]
         target_label: "stream"
 
-      # docker compose labels, if present
+      # docker-compose labels if present
       - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
         target_label: "compose_service"
 
