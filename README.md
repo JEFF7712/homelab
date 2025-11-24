@@ -88,7 +88,7 @@ Open source home automation that puts local control and privacy first.
 
 ### rupan-api [(api.rupan.dev)](https://api.rupan.dev)
 
-A small public-facing personal API built with FastAPI. Used for experimentation, returning simple structured information, and testing integrations. 
+A small and public API built with FastAPI. Used for experimentation, returning simple structured information, and testing.
 
 ### homelab-api (homelab.rupan.dev)
 
