@@ -1,8 +1,14 @@
 services:
   cloudflared:
     image: cloudflare/cloudflared:latest
+    container_name: cloudflared
     restart: unless-stopped
     command: tunnel run
     environment:
-      - TUNNEL_TOKEN=ac82eb54-55d1-45d9-9ddd-60abe28d1f50
-    network_mode: host
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}    
+    networks:
+      - cloudflare_net
+
+networks:
+  cloudflare_net:
+    driver: bridge
