@@ -51,26 +51,23 @@ docker compose build --no-cache
 echo "[deploy] Deploying APIs..."
 docker compose up -d
 
-echo "[deploy] Cleaning up old images..."
-docker image prune -f
-
-CLOUDFLARED_TEMPLATE="$REPO_DIR/configs/cloudflared/config.yml.template"
-CLOUDFLARED_RENDERED="$REPO_DIR/configs/cloudflared/config.yml"
+CLOUDFLARED_TEMPLATE="$REPO_DIR/docker/cloudflared/config.yml.template"
+CLOUDFLARED_RENDERED="$REPO_DIR/docker/cloudflared/config.yml"
 
 if [[ -f "$CLOUDFLARED_TEMPLATE" ]]; then
   echo "[deploy] Rendering cloudflared config from template..."
   envsubst < "$CLOUDFLARED_TEMPLATE" > "$CLOUDFLARED_RENDERED"
-
-  echo "[deploy] Copying cloudflared config to /etc/cloudflared/config.yml..."
-  sudo mkdir -p /etc/cloudflared
-  sudo cp "$CLOUDFLARED_RENDERED" /etc/cloudflared/config.yml
-  sudo chown root:root /etc/cloudflared/config.yml
-  sudo chmod 640 /etc/cloudflared/config.yml
-
-  echo "[deploy] Restarting cloudflared service..."
-  sudo systemctl restart cloudflared
 else
   echo "[deploy] WARNING: cloudflared template not found at $CLOUDFLARED_TEMPLATE, skipping."
 fi
+
+echo "[deploy] Deploying Cloudflare Tunnel..."
+cd "$REPO_DIR/docker/cloudflared"
+docker compose pull
+docker compose up -d
+
+
+echo "[deploy] Cleaning up old images..."
+docker image prune -f
 
 echo "[deploy] Done."
