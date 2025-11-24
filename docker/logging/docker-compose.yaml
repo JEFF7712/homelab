@@ -9,6 +9,8 @@ services:
     ports:
       - "3100:3100"
     restart: unless-stopped
+    networks:
+      - homelab
 
   promtail:
     image: grafana/promtail:latest
@@ -19,7 +21,12 @@ services:
       - /var/log:/var/log:ro
     command: -config.file=/etc/promtail/config.yaml
     restart: unless-stopped
+    networks:
+      - homelab
 
 volumes:
   loki-data:
   grafana-data:
+networks:
+  homelab:
+    external: true
