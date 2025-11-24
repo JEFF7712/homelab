@@ -1,7 +1,7 @@
 # Chromebook Homelab Server
 Converted an old Chromebook into a reliable 24/7 Linux server running
-Dockerized services, monitoring dashboards, my own API, and secure Cloudflare Zero
-Trust tunnels. This project demonstrates lightweight DevOps, Linux
+Dockerized services, monitoring dashboards, my own API's, and secure Cloudflare Zero
+Trust tunnels. This project applies lightweight DevOps, Linux
 administration, service orchestration, and production-style
 observability on minimal hardware.
 
