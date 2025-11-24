@@ -2,5 +2,6 @@
 docker/apis/.env
 docker/cloudflared/.env
 docker/pihole/pihole
+docker/pihole/.env
 docker/homeassistant/config
 configs/cloudflared/config.yml
