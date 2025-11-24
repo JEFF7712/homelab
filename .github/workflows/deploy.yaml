@@ -20,6 +20,11 @@ jobs:
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
           tags: tag:server
 
+      - name: Add server host key to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan server.tail3ba2eb.ts.net >> ~/.ssh/known_hosts
+
       - name: SSH and deploy
         env:
           API_KEY: ${{ secrets.HOMELAB_API_KEY }}
