@@ -44,3 +44,9 @@ services:
 networks:
   homelab:
     external: true
+
+volumes:
+  prometheus-data:
+    external: true
+  grafana-data:
+    external: true
