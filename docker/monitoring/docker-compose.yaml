@@ -5,13 +5,12 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    ports:
-      - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     networks:
       - homelab
+      - cloudflare_net
 
   grafana:
     image: grafana/grafana-oss:latest
@@ -19,20 +18,17 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
-    ports:
-      - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana:/etc/grafana
     networks:
       - homelab
+      - cloudflare_net
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     restart: unless-stopped
-    ports:
-      - "8081:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -40,11 +36,13 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
     networks:
       - homelab
+      - cloudflare_net
       
 networks:
   homelab:
     external: true
-
+  cloudflare_net:
+    external: true
 volumes:
   prometheus-data:
     external: true

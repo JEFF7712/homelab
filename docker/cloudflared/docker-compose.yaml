@@ -11,4 +11,4 @@ services:
 
 networks:
   cloudflare_net:
-    driver: bridge
+    external: true

@@ -3,8 +3,6 @@ services:
     image: n8nio/n8n
     container_name: n8n
     restart: unless-stopped
-    ports:
-      - "5678:5678"
     environment:
       - TZ=America/Chicago
       - WEBHOOK_URL=https://n8n.rupan.dev/
@@ -12,7 +10,13 @@ services:
       - N8N_PORT=5678
     volumes:
       - n8n_data:/home/node/.n8n
+    networks:
+      - cloudflare_net
 
 volumes:
   n8n_data:
+    external: true
+
+networks:
+  cloudflare_net:
     external: true
