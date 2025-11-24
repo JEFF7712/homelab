@@ -14,41 +14,28 @@ scrape_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
 
-    # Turn Docker metadata into normal labels and tell Promtail
-    # which file to read for each container.
     relabel_configs:
-      # Path to the container log file (needed so Promtail can read logs)
+      # Tell Promtail where the logs actually are
       - source_labels: ["__meta_docker_container_log_path"]
         target_label: "__path__"
 
-      # Raw container name (often starts with a slash)
+      # Container name (strip leading slash)
       - source_labels: ["__meta_docker_container_name"]
-        target_label: "container_name"
-
-      # Optional: same name without leading slash
-      - source_labels: ["container_name"]
         target_label: "container_name"
         regex: "/(.*)"
         replacement: "$1"
 
-      # Optional: short “container” label
-      - source_labels: ["container_name"]
-        target_label: "container"
+      # Docker image
+      - source_labels: ["__meta_docker_image_name"]
+        target_label: "image"
 
       # Log stream (stdout/stderr)
       - source_labels: ["__meta_docker_container_log_stream"]
         target_label: "stream"
 
-      # If you use docker-compose, capture service and project
+      # If using docker-compose
       - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
         target_label: "compose_service"
+
       - source_labels: ["__meta_docker_container_label_com_docker_compose_project"]
         target_label: "compose_project"
-
-      # Add image name as a label
-      - source_labels: ["__meta_docker_image_name"]
-        target_label: "image"
-
-      # Add container ID if you want
-      - source_labels: ["__meta_docker_container_id"]
-        target_label: "container_id"
