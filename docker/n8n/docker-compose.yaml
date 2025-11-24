@@ -12,8 +12,3 @@ services:
       - N8N_PORT=5678
     volumes:
       - n8n_data:/home/node/.n8n
-      
-volumes:
-  n8n_data:
-    external: true
-    name: n8n_n8n_data

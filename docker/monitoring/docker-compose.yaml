@@ -44,11 +44,3 @@ services:
 networks:
   homelab:
     external: true
-
-volumes:
-  prometheus-data:
-    external: true
-    name: monitoring_prometheus-data
-  grafana-data:
-    external: true
-    name: monitoring_grafana-data
