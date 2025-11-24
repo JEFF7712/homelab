@@ -11,3 +11,8 @@ services:
     ports:
       - 8080:8080
     env_file: .env
+
+networks:
+  default:
+  cloudflare_net:
+    external: true
