@@ -84,13 +84,23 @@ Network-wide ad blocking. (I am only using per device though as I was unable to 
 
 Open source home automation that puts local control and privacy first.
 
-### rupan-api
+## Custom APIs
 
-My own API that can be accessed at [api.rupan.dev](https://api.rupan.dev).
+### rupan-api (api.rupan.dev)
 
-### homelab-api
+A small public-facing personal API built with FastAPI. Used for experimentation, returning simple structured information, and testing integrations. 
 
-Another custom API at [homelab.rupan.dev](https://homelab.rupan.dev) that serves as a control point for the server.
+### homelab-api (homelab.rupan.dev)
+
+A secure internal control API protected with Cloudflare Zero Trust plus an API key. Provides system control and server automation features.
+
+### Features:
+
+- Docker service inspection (GET /services)
+- Container restarts (POST /restart/{service})
+- Server deploy triggers that run deploy.sh
+- System queries with Prometheus for CPU, memory, disk, processes, temps
+- Custom Tailwind-based frontend UI for interacting with the API
 
 ---
 
@@ -116,7 +126,7 @@ git pull --ff-only
 ./scripts/deploy.sh
 ```
 
-### Importance
+### Benefits
 
 - Automated, repeatable deployments  
 - No manual edits on the server  
@@ -141,7 +151,7 @@ This provides a clean, reliable GitOps process suitable for homelab infrastructu
 -   Glance
 -   SSH, systemd, Bash
 -   FastAPI
--   GitHub Actions (CI + Deploy workflows)  
+-   GitHub Actions
 
 ---
 
@@ -153,8 +163,6 @@ homelab
 ├── assets
 │   └── homelab.gif
 ├── configs
-│   ├── cloudflared
-│   │   └── config.yml.template
 │   ├── glance
 │   │   ├── dashboard.yml
 │   │   └── glance.yml
@@ -166,10 +174,19 @@ homelab
 ├── docker
 │   ├── apis
 │   │   ├── docker-compose.yaml
+│   │   ├── homelab-api
+│   │   │   ├── Dockerfile
+│   │   │   ├── frontend
+│   │   │   │   ├── index.html
+│   │   │   │   └── script.js
+│   │   │   ├── main.py
+│   │   │   └── requirements.txt
 │   │   └── rupan-api
 │   │       ├── Dockerfile
 │   │       ├── main.py
 │   │       └── requirements.txt
+│   ├── cloudflared
+│   │   └── docker-compose.yaml
 │   ├── glance
 │   │   └── docker-compose.yaml
 │   ├── homeassistant
@@ -200,7 +217,7 @@ homelab
 
 -   Add more services
 -   Add automated backups
--   Check out Kubernetes
+-   Experiment with Kubernetes or k3s
 -   Get an actual PC 😂
 
 ---
