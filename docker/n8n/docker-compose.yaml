@@ -1,15 +1,17 @@
 services:
   n8n:
-    image: n8nio/n8n
+    build: .
     container_name: n8n
     restart: unless-stopped
     environment:
       - TZ=America/Chicago
       - WEBHOOK_URL=https://n8n.rupan.dev/
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
       - N8N_HOST=n8n.rupan.dev
       - N8N_PORT=5678
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./media_processing:/home/node/media_processing
     networks:
       - cloudflare_net
 

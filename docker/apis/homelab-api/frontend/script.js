@@ -1,4 +1,4 @@
-// ===== Small helper =====
+// Small helper
 function logMessage(message) {
   const log = document.getElementById("activity-log");
   if (!log) return;
@@ -6,7 +6,7 @@ function logMessage(message) {
   log.textContent = `[${timestamp}] ${message}\n` + log.textContent;
 }
 
-// ===== API key handling =====
+// API key handling
 function loadSettings() {
   const savedKey = localStorage.getItem("homelab_api_key");
   const input = document.getElementById("api-key");
@@ -46,7 +46,7 @@ function clearKey() {
   logMessage("API key cleared from localStorage.");
 }
 
-// ===== HTTP helpers =====
+// HTTP helpers
 function getHeaders() {
   const input = document.getElementById("api-key");
   const key = input ? input.value.trim() : "";
@@ -77,7 +77,7 @@ async function fetchJson(path, options = {}) {
   return data;
 }
 
-// ===== Services =====
+// Services
 async function loadServices() {
   const tbody = document.getElementById("services-body");
   const meta = document.getElementById("services-meta");
@@ -156,7 +156,7 @@ async function loadServices() {
   }
 }
 
-// ===== Restart service =====
+// Restart service
 async function restartService(name) {
   const svc = name.toLowerCase();
   logMessage(`Restart requested for service: ${svc}`);
@@ -173,7 +173,7 @@ async function restartService(name) {
 }
 window.restartService = restartService;
 
-// ===== Deploy =====
+// Deploy
 async function triggerDeploy() {
   const output = document.getElementById("deploy-output");
   if (output) output.textContent = "Triggering deploy…";
@@ -189,7 +189,7 @@ async function triggerDeploy() {
   }
 }
 
-// ===== Wire up events after page load =====
+// Wire up events after page load
 window.addEventListener("load", () => {
   console.log("Page loaded, wiring up controls…");
 
