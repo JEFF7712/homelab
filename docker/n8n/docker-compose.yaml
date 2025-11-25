@@ -9,6 +9,13 @@ services:
       - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
       - N8N_HOST=n8n.rupan.dev
       - N8N_PORT=5678
+      - DB_SQLITE_VACUUM_ON_STARTUP=true   
+      - EXECUTIONS_DATA_PRUNE=true        
+      - EXECUTIONS_DATA_MAX_AGE=24         
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all  
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=none 
+      - EXECUTIONS_DATA_SAVE_ON_PROGRESS=false
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
     volumes:
       - n8n_data:/home/node/.n8n
       - ./media_processing:/home/node/media_processing
