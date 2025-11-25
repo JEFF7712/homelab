@@ -25,3 +25,4 @@ export TERM=xterm-256color
 # Custom Aliases
 alias temp='bash /usr/local/bin/report-temp.sh'
 alias deploy='bash /usr/local/bin/deploy.sh'
+alias stopall='docker stop $(docker ps -q)'
