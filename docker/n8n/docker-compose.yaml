@@ -19,6 +19,7 @@ services:
     environment:
       - TZ=America/Chicago
       - WEBHOOK_URL=https://n8n.rupan.dev/
+      - N8N_PUSH_BACKEND=websocket
       - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
       - N8N_HOST=n8n.rupan.dev
       - N8N_PORT=5678
