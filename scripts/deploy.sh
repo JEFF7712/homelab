@@ -26,8 +26,7 @@ docker compose up -d
 
 echo "[deploy] Deploying n8n..."
 cd "$REPO_DIR/docker/n8n"
-docker compose pull
-docker compose up -d
+docker compose up -d --build
 
 echo "[deploy] Deploying pihole..."
 cd "$REPO_DIR/docker/pihole"
