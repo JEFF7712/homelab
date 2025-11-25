@@ -6,7 +6,6 @@ administration, service orchestration, and production-style
 observability on minimal hardware.
 
 <img src="./assets/homelab.gif" width="100%" />
-![Demo](./assets/homelab.gif)
 
 ## Overview
 
