@@ -39,6 +39,7 @@ services:
       - ./media_processing:/home/node/media_processing
       - ./output:/home/node/output
       - /var/run/docker.sock:/var/run/docker.sock  
+      - ./media_processing/distrojeff/peter-bot/output:/home/node/peter-bot
     networks:
       - cloudflare_net
 
