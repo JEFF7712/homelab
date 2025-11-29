@@ -38,7 +38,7 @@ services:
       - ./media_processing:/home/node/media_processing
       - ./output:/home/node/output
       - /var/run/docker.sock:/var/run/docker.sock  
-  networks:
+    networks:
       - cloudflare_net
 
 volumes:
