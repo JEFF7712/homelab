@@ -7,5 +7,5 @@ services:
     volumes:
       - ./data:/htdocs/data
     ports:
-      - "8090:90" 
+      - "8090:80" 
     restart: unless-stopped
