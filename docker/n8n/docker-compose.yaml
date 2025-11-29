@@ -12,6 +12,7 @@ services:
       - cloudflare_net
   n8n:
     build: .
+    user: root
     container_name: n8n
     restart: unless-stopped
     depends_on:
@@ -19,6 +20,7 @@ services:
     environment:
       - TZ=America/Chicago
       - WEBHOOK_URL=https://n8n.rupan.dev/
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - N8N_PUSH_BACKEND=websocket
       - N8N_SECURE_COOKIE=false          
       - N8N_PROXY_HOPS=1
@@ -35,7 +37,8 @@ services:
       - n8n_data:/home/node/.n8n
       - ./media_processing:/home/node/media_processing
       - ./output:/home/node/output
-    networks:
+      - /var/run/docker.sock:/var/run/docker.sock  
+  networks:
       - cloudflare_net
 
 volumes:
