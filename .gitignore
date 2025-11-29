@@ -4,7 +4,5 @@ docker/cloudflared/.env
 docker/pihole/pihole
 docker/pihole/.env
 docker/homeassistant/config
-docker/n8n/media_processing/
-docker/n8n/tiktok_uploader
-docker/n8n/postgres_data
+docker/n8n/
 configs/cloudflared/config.yml
