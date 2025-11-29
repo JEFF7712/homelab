@@ -1,0 +1,11 @@
+services:
+  linkstack:
+    image: linkstackorg/linkstack:latest
+    container_name: linkstack
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      - ./data:/htdocs/data
+    ports:
+      - "8080:80" 
+    restart: unless-stopped
