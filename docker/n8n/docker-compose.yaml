@@ -34,6 +34,7 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       - ./media_processing:/home/node/media_processing
+      - ./output:/home/node/output
     networks:
       - cloudflare_net
 
