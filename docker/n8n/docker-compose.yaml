@@ -25,6 +25,7 @@ services:
       - N8N_SECURE_COOKIE=false          
       - N8N_PROXY_HOPS=1
       - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - N8N_ENCRYPTION_KEY=6d9af72b1c9244c3bfd236abfe9817cd
       - N8N_HOST=n8n.rupan.dev
       - N8N_PORT=5678
       - DB_TYPE=postgresdb
