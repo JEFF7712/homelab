@@ -94,7 +94,7 @@ A small and public API built with FastAPI. Used for experimentation, returning s
 
 A secure internal control API protected with Cloudflare Zero Trust plus an API key. Provides system control and server automation features.
 
-![Screenshot of the Web UI](https://github.com/JEFF7712/homelab/blob/9c75ebbc930950a03d4d0f17c02c9e571dab2624/assets/homelab.gif)
+![Screenshot of the Web UI](https://github.com/JEFF7712/homelab/blob/9c75ebbc930950a03d4d0f17c02c9e571dab2624/assets/homelab-api.png)
 
 ### Features:
 
