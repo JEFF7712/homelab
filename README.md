@@ -5,7 +5,7 @@ Trust tunnels. This project applies lightweight DevOps, Linux
 administration, service orchestration, and production-style
 observability on minimal hardware.
 
-<img src="./assets/homelab.gif" width="100%" />
+<img src="https://github.com/JEFF7712/homelab/blob/9c75ebbc930950a03d4d0f17c02c9e571dab2624/assets/homelab.gif" width="100%" />
 
 ## Overview
 
