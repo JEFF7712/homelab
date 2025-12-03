@@ -25,4 +25,4 @@ jobs:
           API_KEY: ${{ secrets.HOMELAB_API_KEY }}
         run: |
           set -euo pipefail
-          tailscale ssh rupan@server "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
+          tailscale ssh rupan@100.122.5.27 "cd ~/homelab && git pull --ff-only && ./scripts/deploy.sh"
