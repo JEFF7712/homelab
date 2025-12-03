@@ -85,7 +85,7 @@ Network-wide ad blocking. (I am only using per device though as I was unable to 
 
 ### Home Assistant
 
-Open source home automation that puts local control and privacy first.
+Open source home automation for controlling smart lights, etc.
 
 ## Custom APIs
 
