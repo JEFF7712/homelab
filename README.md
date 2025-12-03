@@ -6,7 +6,7 @@ administration, service orchestration, and production-style
 observability on minimal hardware.
 
 <img src="https://github.com/JEFF7712/homelab/blob/9c75ebbc930950a03d4d0f17c02c9e571dab2624/assets/homelab.gif" width="100%" />
-note: Video is old and shows lubuntu as the OS. I later migrated to Alpine Linux.
+Note: Video is old and shows lubuntu as the OS. I later migrated to Alpine Linux.
 
 ---
 
