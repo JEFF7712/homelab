@@ -6,6 +6,9 @@ administration, service orchestration, and production-style
 observability on minimal hardware.
 
 <img src="https://github.com/JEFF7712/homelab/blob/9c75ebbc930950a03d4d0f17c02c9e571dab2624/assets/homelab.gif" width="100%" />
+Note: Video is old and shows lubuntu as the OS. I later migrated to Alpine Linux.
+
+---
 
 ## Overview
 
@@ -82,7 +85,7 @@ Network-wide ad blocking. (I am only using per device though as I was unable to 
 
 ### Home Assistant
 
-Open source home automation that puts local control and privacy first.
+Open source home automation for controlling smart lights, etc.
 
 ## Custom APIs
 
@@ -110,8 +113,7 @@ A secure internal control API protected with Cloudflare Zero Trust plus an API k
 
 This homelab uses a GitOps-style pipeline so all infrastructure changes flow through Git and deploy automatically to the server.
 
-The server itself is never edited directly.  
-All changes occur through Git commits.
+The server itself is never edited directly and all changes occur through Git commits.
 
 ### How It Works
 
@@ -135,8 +137,6 @@ git pull --ff-only
 - Zero exposed ports  
 - Private, encrypted SSH via Tailscale  
 - Eliminates configuration drift  
-
-This provides a clean, reliable GitOps process suitable for homelab infrastructure.
 
 ---
 
