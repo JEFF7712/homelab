@@ -7,7 +7,9 @@ observability on minimal hardware.
 
 <img src="https://github.com/JEFF7712/homelab/blob/9c75ebbc930950a03d4d0f17c02c9e571dab2624/assets/homelab.gif" width="100%" />
 note: Video is old and shows lubuntu as the OS. I later migrated to Alpine Linux.
+
 ---
+
 ## Overview
 
 This project repurposes a low-power Chromebook into a reliable homelab server by wiping ChromeOS and installing a lightweight Linux distribution. The server now runs containerized services exposed through Cloudflare Tunnels on custom subdomains, along with monitoring dashboards, workflow automation, and a clean GitOps-style deployment pipeline using CI + Tailscale SSH.
