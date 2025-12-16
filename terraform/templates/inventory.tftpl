@@ -1,0 +1,13 @@
+[proxmox_vms]
+%{ for index, ip in vm_ips ~}
+vm-${index} ansible_host=${ip} ansible_user=root
+%{ endfor ~}
+
+[proxmox_lxcs]
+%{ for index, ip in lxc_ips ~}
+lxc-${index} ansible_host=${ip} ansible_user=root
+%{ endfor ~}
+
+[proxmox_lxcs:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_python_interpreter=/usr/bin/python3

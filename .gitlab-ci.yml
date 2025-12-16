@@ -1,0 +1,47 @@
+stages:
+  - sync
+  - validate
+  - plan
+  - apply
+  - configure
+
+sync_to_github:
+  stage: sync
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - git remote add github https://oauth2:$GITHUB_TOKEN@github.com/JEFF7712/homelab.git
+    - git fetch --unshallow || git fetch --all
+
+    - echo -e "# ⚠️ READ-ONLY MIRROR\n> **This repository is a mirror.**\n> Active development happens on [GitLab](https://gitlab.com/JEFF7712/homelab).\n\n$(cat README.md)" > README.md
+
+    - git config --global user.email "runner@gitlab.com"
+    - git config --global user.name "GitLab Runner"
+    - 'git commit -am "Automated: Add GitHub Mirror Warning" || echo "No changes to commit"'
+
+    - git push github HEAD:main --force
+
+# terraform_apply:
+#   stage: apply
+#   image: 
+#     name: hashicorp/terraform:light
+#     entrypoint: [""]
+#   script:
+#     - cd terraform
+#     - terraform init
+#     - terraform apply -auto-approve
+#   artifacts:
+#     paths:
+#       - ansible/inventory/generated_hosts.ini
+
+# ansible_configure:
+#   stage: configure
+#   image: williamyeh/ansible:ubuntu18.04
+#   dependencies:
+#     - terraform_apply
+#   script:
+#     - cd ansible
+#     - ansible-playbook -i inventory/generated_hosts.ini playbooks/site.yml

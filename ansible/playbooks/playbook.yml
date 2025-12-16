@@ -1,0 +1,19 @@
+---
+- name: Setup Web Server
+  hosts: lab_servers
+  become: true
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Start Nginx Service
+      service:
+        name: nginx
+        state: started
+        enabled: yes

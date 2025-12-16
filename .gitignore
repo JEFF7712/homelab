@@ -1,0 +1,10 @@
+/terraform/secrets.auto.tfvars
+/terraform/.terraform.lock.hcl
+/terraform/backend.conf
+/terraform/.terraform/
+*.secret
+/ansible/playbooks/vars.yml
+/ansible/group_vars/all.yml
+/talos/talosconfig
+/talos/controlplane.yaml
+/talos/worker.yaml

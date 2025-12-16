@@ -1,0 +1,51 @@
+---
+- name: Bootstrap Python on Alpine
+  hosts: netbird_gateway
+  gather_facts: false
+  tasks:
+    - name: Install Python3 (Required for Ansible)
+      raw: apk add --no-cache python3
+      changed_when: false
+
+- name: Configure NetBird Gateway
+  hosts: netbird_gateway
+  gather_facts: true
+
+  tasks:
+    - name: Enable Community Repository
+      replace:
+        path: /etc/apk/repositories
+        regexp: '^#http.*/community'
+        replace: 'http://dl-cdn.alpinelinux.org/alpine/v3.18/community'
+
+    - name: Update Alpine Repositories
+      apk:
+        update_cache: yes
+
+    - name: Install Dependencies
+      apk:
+        name:
+          - curl
+          - ca-certificates
+          - bash
+        state: present
+
+    - name: Install NetBird
+      shell: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+      args:
+        creates: /usr/bin/netbird
+
+    - name: Ensure NetBird Service is Running
+      service:
+        name: netbird
+        state: started
+        enabled: yes
+
+    - name: Connect to NetBird
+      command: netbird up --setup-key {{ netbird_setup_key }}
+      register: netbird_up
+      changed_when: "'Connected' in netbird_up.stdout"
+      failed_when: 
+        - netbird_up.rc != 0
+        - "'already connected' not in netbird_up.stderr"
+        - "'already connected' not in netbird_up.stdout"
