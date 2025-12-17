@@ -13,6 +13,10 @@ terraform {
       source = "siderolabs/talos"
       version = "0.10.0-beta.0"
     }
+    opnsense = {
+      source = "browningluke/opnsense"
+      version = "0.16.1"
+    }
   }
 }
 
@@ -29,4 +33,11 @@ provider "proxmox" {
 provider "gitlab" {
   token = var.gitlab_token
   # base_url = var.gitlab_base_url # Uncomment and set this if using a self-managed GitLab instance
+}
+
+provider "opnsense" {
+  uri = var.opnsense_uri
+  api_key = var.opnsense_api_key
+  api_secret = var.opnsense_api_secret
+  allow_insecure = true
 }

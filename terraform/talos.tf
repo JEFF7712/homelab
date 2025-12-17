@@ -5,16 +5,6 @@ resource "proxmox_virtual_environment_vm" "talos_cp_01" {
   started   = true
   on_boot   = true
 
-  initialization {
-    datastore_id = "nvme-pool"
-    ip_config {
-      ipv4 {
-        address = "${var.talos_cp_01_ip_addr}/24"
-        gateway = var.default_gateway
-      }
-    }
-  }
-
   cpu {
     cores = 2
     type  = "host"
@@ -36,6 +26,7 @@ resource "proxmox_virtual_environment_vm" "talos_cp_01" {
   network_device {
     bridge = "vmbr0"
     model  = "virtio"
+    mac_address = "BC:24:11:00:00:50"
   }
 
   cdrom {
