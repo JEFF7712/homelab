@@ -2,6 +2,8 @@
 /terraform/.terraform.lock.hcl
 /terraform/backend.conf
 /terraform/.terraform/
+/terraform/*.tfstate
+/terraform/*.backup
 *.secret
 /ansible/playbooks/vars.yml
 /ansible/group_vars/all.yml

@@ -1,12 +1,18 @@
-resource "proxmox_virtual_environment_vm" "talos_control_01" {
+resource "proxmox_virtual_environment_vm" "talos_cp_01" {
   name      = "Talos-Control-01"
   node_name = var.node_name
   vm_id     = 300
   started   = true
   on_boot   = true
 
-  agent {
-    enabled = false
+  initialization {
+    datastore_id = "nvme-pool"
+    ip_config {
+      ipv4 {
+        address = "${var.talos_cp_01_ip_addr}/24"
+        gateway = var.default_gateway
+      }
+    }
   }
 
   cpu {
@@ -19,7 +25,7 @@ resource "proxmox_virtual_environment_vm" "talos_control_01" {
   }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = "nvme-pool"
     interface    = "scsi0"
     file_format  = "raw"
     size         = 40

@@ -8,6 +8,11 @@ terraform {
       source = "gitlabhq/gitlab"
       version = "18.6.1"
     }
+
+    talos = {
+      source = "siderolabs/talos"
+      version = "0.10.0-beta.0"
+    }
   }
 }
 

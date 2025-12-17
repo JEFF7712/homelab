@@ -3,7 +3,7 @@
   hosts: netbird_gateway
   gather_facts: false
   tasks:
-    - name: Install Python3 (Required for Ansible)
+    - name: Install Python3
       raw: apk add --no-cache python3
       changed_when: false
 
