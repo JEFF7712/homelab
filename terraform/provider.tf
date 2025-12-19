@@ -17,6 +17,10 @@ terraform {
       source = "browningluke/opnsense"
       version = "0.16.1"
     }
+    flux = {
+      source = "fluxcd/flux"
+      version = "1.7.6"
+    }
   }
 }
 
@@ -40,4 +44,20 @@ provider "opnsense" {
   api_key = var.opnsense_api_key
   api_secret = var.opnsense_api_secret
   allow_insecure = true
+}
+
+provider "flux" {
+  kubernetes = {
+    host                   = local.kube_host
+    client_certificate     = local.kube_client_cert
+    client_key             = local.kube_client_key
+    cluster_ca_certificate = local.kube_cluster_ca
+  }
+  git = {
+    url = "https://gitlab.com/${var.gitlab_username}/${var.gitlab_project_name}.git"
+    http = {
+      username = "oauth2"
+      password = var.gitlab_fluxcd_token
+    }
+  }
 }

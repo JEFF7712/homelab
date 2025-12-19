@@ -17,6 +17,22 @@ variable "gitlab_token" {
   sensitive = true
 }
 
+variable "gitlab_fluxcd_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "gitlab_username" { 
+  type = string
+  default = "JEFF7712"
+}
+
+variable "gitlab_project_name" {
+  type    = string
+  default = "homelab"
+}
+
+
 ## Device variables
 
 variable "cli01_mac_address" {
