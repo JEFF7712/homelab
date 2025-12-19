@@ -46,18 +46,26 @@ provider "opnsense" {
   allow_insecure = true
 }
 
-provider "flux" {
-  kubernetes = {
-    host                   = local.kube_host
-    client_certificate     = local.kube_client_cert
-    client_key             = local.kube_client_key
-    cluster_ca_certificate = local.kube_cluster_ca
-  }
-  git = {
-    url = "https://gitlab.com/${var.gitlab_username}/${var.gitlab_project_name}.git"
-    http = {
-      username = "oauth2"
-      password = var.gitlab_fluxcd_token
-    }
-  }
-}
+# provider "flux" {
+#   kubernetes = {
+#     host                   = local.kube_host
+#     client_certificate     = local.kube_client_cert
+#     client_key             = local.kube_client_key
+#     cluster_ca_certificate = local.kube_cluster_ca
+#   }
+#   git = {
+#     url = "https://gitlab.com/${var.gitlab_username}/${var.gitlab_project_name}.git"
+#     http = {
+#       username = "oauth2"
+#       password = var.gitlab_fluxcd_token
+#     }
+#   }
+# }
+
+# locals {
+#   kube_config = yamldecode(resource.talos_cluster_kubeconfig.this.kubeconfig_raw)
+#   kube_host        = local.kube_config.clusters[0].cluster.server
+#   kube_cluster_ca  = base64decode(local.kube_config.clusters[0].cluster["certificate-authority-data"])
+#   kube_client_cert = base64decode(local.kube_config.users[0].user["client-certificate-data"])
+#   kube_client_key  = base64decode(local.kube_config.users[0].user["client-key-data"])
+# }
