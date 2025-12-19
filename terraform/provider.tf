@@ -4,11 +4,6 @@ terraform {
       source = "bpg/proxmox"
       version = "0.89.1"
     }
-    gitlab = {
-      source = "gitlabhq/gitlab"
-      version = "18.6.1"
-    }
-
     talos = {
       source = "siderolabs/talos"
       version = "0.10.0-beta.0"
@@ -17,10 +12,22 @@ terraform {
       source = "browningluke/opnsense"
       version = "0.16.1"
     }
-    # flux = {
-    #   source = "fluxcd/flux"
-    #   version = "1.7.6"
-    # }
+    flux = {
+      source  = "fluxcd/flux"
+      version = ">= 1.2"
+    }
+    gitlab = {
+      source  = "gitlabhq/gitlab"
+      version = ">= 16.10"
+    }
+    kind = {
+      source  = "tehcyx/kind"
+      version = ">= 0.4"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.0"
+    }
   }
 }
 
@@ -46,21 +53,23 @@ provider "opnsense" {
   allow_insecure = true
 }
 
-# provider "flux" {
-#   kubernetes = {
-#     host                   = local.kube_host
-#     client_certificate     = local.kube_client_cert
-#     client_key             = local.kube_client_key
-#     cluster_ca_certificate = local.kube_cluster_ca
-#   }
-#   git = {
-#     url = "https://gitlab.com/${var.gitlab_username}/${var.gitlab_project_name}.git"
-#     http = {
-#       username = "oauth2"
-#       password = var.gitlab_fluxcd_token
-#     }
-#   }
-# }
+provider "flux" {
+  kubernetes = {
+    host                   = kind_cluster.this.endpoint
+    client_certificate     = kind_cluster.this.client_certificate
+    client_key             = kind_cluster.this.client_key
+    cluster_ca_certificate = kind_cluster.this.cluster_ca_certificate
+  }
+  git = {
+    url = "ssh://git@gitlab.com/${data.gitlab_project.this.path_with_namespace}.git"
+    ssh = {
+      username    = "git"
+      private_key = tls_private_key.flux.private_key_pem
+    }
+  }
+}
+
+provider "kind" {}
 
 locals {
   kube_config = yamldecode(resource.talos_cluster_kubeconfig.this.kubeconfig_raw)

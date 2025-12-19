@@ -17,17 +17,11 @@ variable "gitlab_token" {
   sensitive = true
 }
 
-variable "gitlab_fluxcd_token" {
-  type      = string
-  sensitive = true
-}
-
 variable "gitlab_username" { 
   type = string
   default = "JEFF7712"
 }
-
-variable "gitlab_project_name" {
+variable "gitlab_project" {
   type    = string
   default = "homelab"
 }
