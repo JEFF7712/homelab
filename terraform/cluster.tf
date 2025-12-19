@@ -16,7 +16,7 @@ locals {
         hostname     = "worker-02-cli"
       },
        (var.talos_worker_03_ip_addr) = {
-         install_disk = "/dev/sdb"
+         install_disk = "/dev/sda"
          hostname     = "worker-03-wyse"
        }
     }

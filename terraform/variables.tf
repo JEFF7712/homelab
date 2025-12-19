@@ -47,6 +47,9 @@ variable "talos_vm_mac_address" {
 variable "wyse_mac_address" {
   type    = string
 }
+variable "netbird_lxc_mac_address" {
+  type    = string
+}
 
 ## Cluster variables
 

@@ -17,10 +17,10 @@ terraform {
       source = "browningluke/opnsense"
       version = "0.16.1"
     }
-    flux = {
-      source = "fluxcd/flux"
-      version = "1.7.6"
-    }
+    # flux = {
+    #   source = "fluxcd/flux"
+    #   version = "1.7.6"
+    # }
   }
 }
 
@@ -62,10 +62,10 @@ provider "opnsense" {
 #   }
 # }
 
-# locals {
-#   kube_config = yamldecode(resource.talos_cluster_kubeconfig.this.kubeconfig_raw)
-#   kube_host        = local.kube_config.clusters[0].cluster.server
-#   kube_cluster_ca  = base64decode(local.kube_config.clusters[0].cluster["certificate-authority-data"])
-#   kube_client_cert = base64decode(local.kube_config.users[0].user["client-certificate-data"])
-#   kube_client_key  = base64decode(local.kube_config.users[0].user["client-key-data"])
-# }
+locals {
+  kube_config = yamldecode(resource.talos_cluster_kubeconfig.this.kubeconfig_raw)
+  kube_host        = local.kube_config.clusters[0].cluster.server
+  kube_cluster_ca  = base64decode(local.kube_config.clusters[0].cluster["certificate-authority-data"])
+  kube_client_cert = base64decode(local.kube_config.users[0].user["client-certificate-data"])
+  kube_client_key  = base64decode(local.kube_config.users[0].user["client-key-data"])
+}

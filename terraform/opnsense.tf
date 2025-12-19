@@ -23,6 +23,7 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   network_device {
     bridge = "vmbr0"
     model  = "virtio"
+    vlan_id = 20
   }
 
   network_device {

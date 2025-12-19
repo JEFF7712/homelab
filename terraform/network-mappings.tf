@@ -47,8 +47,8 @@ resource "opnsense_kea_reservation" "tp_switch" {
 
 resource "opnsense_kea_reservation" "netbird_lxc" {
   subnet_id    = opnsense_kea_subnet.lan.id
-  ip_address   = "192.168.1.5"
-  mac_address  = "BC:24:11:11:EF:2F"
+  ip_address   = var.netbird_lxc_ip_addr
+  mac_address  = var.netbird_lxc_mac_address
   description  = "Netbird LXC"
 }
 
