@@ -20,10 +20,6 @@ terraform {
       source  = "gitlabhq/gitlab"
       version = ">= 16.10"
     }
-    kind = {
-      source  = "tehcyx/kind"
-      version = ">= 0.4"
-    }
     tls = {
       source  = "hashicorp/tls"
       version = ">= 4.0"
@@ -54,11 +50,11 @@ provider "opnsense" {
 }
 
 provider "flux" {
-  kubernetes = {
-    host                   = kind_cluster.this.endpoint
-    client_certificate     = kind_cluster.this.client_certificate
-    client_key             = kind_cluster.this.client_key
-    cluster_ca_certificate = kind_cluster.this.cluster_ca_certificate
+kubernetes = {
+    host                   = local.kube_host
+    client_certificate     = local.kube_client_cert
+    client_key             = local.kube_client_key
+    cluster_ca_certificate = local.kube_cluster_ca
   }
   git = {
     url = "ssh://git@gitlab.com/${data.gitlab_project.this.path_with_namespace}.git"
@@ -68,8 +64,6 @@ provider "flux" {
     }
   }
 }
-
-provider "kind" {}
 
 locals {
   kube_config = yamldecode(resource.talos_cluster_kubeconfig.this.kubeconfig_raw)

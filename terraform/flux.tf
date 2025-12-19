@@ -2,10 +2,6 @@ data "gitlab_project" "this" {
   path_with_namespace = "${var.gitlab_username}/${var.gitlab_project}"
 }
 
-resource "kind_cluster" "this" {
-  name = "homelab"
-}
-
 resource "tls_private_key" "flux" {
   algorithm   = "ECDSA"
   ecdsa_curve = "P256"
