@@ -1,5 +1,6 @@
 /terraform/secrets.auto.tfvars
 /terraform/.terraform.lock.hcl
+/terraform/.terraform.tfstate.locl.info
 /terraform/backend.conf
 /terraform/.terraform/
 /terraform/*.tfstate
