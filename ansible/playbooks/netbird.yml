@@ -41,6 +41,12 @@
         state: started
         enabled: yes
 
+    - name: Wait for NetBird Sock
+      wait_for:
+        path: /var/run/netbird.sock
+        state: present
+        timeout: 10
+
     - name: Connect to NetBird
       command: netbird up --setup-key {{ netbird_setup_key }}
       register: netbird_up

@@ -9,6 +9,7 @@ resource "proxmox_virtual_environment_container" "netbird" {
     
     user_account {
       password = var.password
+      keys     = [file("~/.ssh/id_ed25519.pub")]
     }
 
     ip_config {

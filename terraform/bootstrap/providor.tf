@@ -1,17 +1,5 @@
 terraform {
   required_providers {
-    proxmox = {
-      source = "bpg/proxmox"
-      version = "0.89.1"
-    }
-    talos = {
-      source = "siderolabs/talos"
-      version = "0.10.0-beta.0"
-    }
-    opnsense = {
-      source = "browningluke/opnsense"
-      version = "0.16.1"
-    }
     flux = {
       source  = "fluxcd/flux"
       version = ">= 1.2"
@@ -24,29 +12,13 @@ terraform {
       source  = "hashicorp/tls"
       version = ">= 4.0"
     }
-  }
-}
-
-provider "proxmox" {
-  endpoint = var.proxmox_api_url
-  api_token = var.proxmox_api_token
-  insecure = true
-  ssh {
-    agent = true
-    username = "root"
+    
   }
 }
 
 provider "gitlab" {
   token = var.gitlab_token
   # base_url = var.gitlab_base_url # Uncomment and set this if using a self-managed GitLab instance
-}
-
-provider "opnsense" {
-  uri = var.opnsense_uri
-  api_key = var.opnsense_api_key
-  api_secret = var.opnsense_api_secret
-  allow_insecure = true
 }
 
 provider "flux" {
@@ -66,7 +38,7 @@ kubernetes = {
 }
 
 locals {
-  kube_config = yamldecode(resource.talos_cluster_kubeconfig.this.kubeconfig_raw)
+  kube_config = yamldecode(var.kubeconfig)
   kube_host        = local.kube_config.clusters[0].cluster.server
   kube_cluster_ca  = base64decode(local.kube_config.clusters[0].cluster["certificate-authority-data"])
   kube_client_cert = base64decode(local.kube_config.users[0].user["client-certificate-data"])

@@ -6,20 +6,20 @@ locals {
         hostname     = "controlplane-01-vm"
       }
     }
-    workers = {
-      (var.talos_worker_01_ip_addr) = {
-        install_disk = "/dev/sdb"
-        hostname     = "worker-01-cli"
-      },
-      (var.talos_worker_02_ip_addr) = {
-        install_disk = "/dev/sdb"
-        hostname     = "worker-02-cli"
-      },
-       (var.talos_worker_03_ip_addr) = {
-         install_disk = "/dev/sda"
-         hostname     = "worker-03-wyse"
-       }
-    }
+    # workers = {
+    #   (var.talos_worker_01_ip_addr) = {
+    #     install_disk = "/dev/sdb"
+    #     hostname     = "worker-01-cli"
+    #   },
+    #   (var.talos_worker_02_ip_addr) = {
+    #     install_disk = "/dev/sdb"
+    #     hostname     = "worker-02-cli"
+    #   },
+    #    (var.talos_worker_03_ip_addr) = {
+    #      install_disk = "/dev/sda"
+    #      hostname     = "worker-03-wyse"
+    #    }
+    # }
   }
 }
 
@@ -42,14 +42,14 @@ data "talos_machine_configuration" "controlplane" {
   machine_secrets      = talos_machine_secrets.this.machine_secrets
 }
 
-data "talos_machine_configuration" "worker" {
-  cluster_name         = var.cluster_name
-  cluster_endpoint     = var.cluster_endpoint
-  machine_type         = "worker"
-  talos_version        = talos_machine_secrets.this.talos_version
-  kubernetes_version   = "v1.34.0"
-  machine_secrets      = talos_machine_secrets.this.machine_secrets
-}
+# data "talos_machine_configuration" "worker" {
+#   cluster_name         = var.cluster_name
+#   cluster_endpoint     = var.cluster_endpoint
+#   machine_type         = "worker"
+#   talos_version        = talos_machine_secrets.this.talos_version
+#   kubernetes_version   = "v1.34.0"
+#   machine_secrets      = talos_machine_secrets.this.machine_secrets
+# }
 
 resource "proxmox_virtual_environment_vm" "controlplane_01" {
   name      = "Talos-Controlplane-1"
@@ -103,18 +103,18 @@ resource "talos_machine_configuration_apply" "controlplane" {
   ]
 }
 
-resource "talos_machine_configuration_apply" "worker" {
-  client_configuration        = talos_machine_secrets.this.client_configuration
-  machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
-  for_each                    = local.node_data.workers
-  node                        = each.key
-  config_patches = [
-    templatefile("${path.module}/templates/install-disk-and-hostname.yaml.tmpl", {
-      hostname     = each.value.hostname == null ? format("%s-worker-%s", var.cluster_name, index(keys(local.node_data.workers), each.key)) : each.value.hostname
-      install_disk = each.value.install_disk
-    })
-  ]
-}
+# resource "talos_machine_configuration_apply" "worker" {
+#   client_configuration        = talos_machine_secrets.this.client_configuration
+#   machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
+#   for_each                    = local.node_data.workers
+#   node                        = each.key
+#   config_patches = [
+#     templatefile("${path.module}/templates/install-disk-and-hostname.yaml.tmpl", {
+#       hostname     = each.value.hostname == null ? format("%s-worker-%s", var.cluster_name, index(keys(local.node_data.workers), each.key)) : each.value.hostname
+#       install_disk = each.value.install_disk
+#     })
+#   ]
+# }
 
 resource "talos_machine_bootstrap" "this" {
   depends_on = [talos_machine_configuration_apply.controlplane]
