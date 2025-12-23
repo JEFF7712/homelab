@@ -8,7 +8,7 @@ spec:
   path: "./infrastructure/controllers"
   prune: true
   wait: true
-  timeout: 5m # Give Helm time to install
+  timeout: 15m
   sourceRef:
     kind: GitRepository
     name: flux-system
