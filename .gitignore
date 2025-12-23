@@ -5,7 +5,7 @@
 *.terraform/
 *.tfstate
 *.backup
-*kubecconfig
+*kubeconfig
 *talosconfig
 *.secret
 /ansible/playbooks/vars.yml
