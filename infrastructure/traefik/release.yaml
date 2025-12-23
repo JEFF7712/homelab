@@ -1,0 +1,42 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: traefik
+  namespace: flux-system
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: traefik
+      version: "33.x"
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+  targetNamespace: traefik-system
+  install:
+    createNamespace: true
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    service:
+      enabled: true
+      type: LoadBalancer
+    deployment:
+      replicas: 1
+    ports:
+      web:
+        port: 8000
+        expose: true
+        exposedPort: 80
+        protocol: TCP
+      websecure:
+        port: 8443
+        expose: true
+        exposedPort: 443
+        protocol: TCP
+      traefik:
+        port: 9000
+        expose: true 
+        exposedPort: 9000
+        protocol: TCP

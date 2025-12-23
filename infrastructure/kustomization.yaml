@@ -4,3 +4,5 @@ resources:
   - metallb/source.yaml
   - metallb/release.yaml
   - metallb/config.yaml
+  - traefik/source.yaml
+  - traefik/release.yaml
