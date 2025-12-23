@@ -26,5 +26,7 @@ spec:
   install:
     createNamespace: true
     crds: CreateReplace
+    timeout: 15m
   upgrade:
     crds: CreateReplace
+    timeout: 15m
