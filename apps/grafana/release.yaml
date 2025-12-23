@@ -1,27 +1,34 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://grafana.github.io/helm-charts
+---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: grafana
   namespace: default
 spec:
-  interval: 30m
+  interval: 1h
   chart:
     spec:
       chart: grafana
-      version: ">= 12.0.0"
+      version: "7.x"
       sourceRef:
         kind: HelmRepository
         name: grafana
         namespace: flux-system
   install:
-    remediation:
-      retries: 3
+    createNamespace: true
   values:
     persistence:
+      enabled: false
+    ingress:
       enabled: true
-      size: 10Gi
-    adminPassword: "admin"
-    service:
-      type: NodePort
-      port: 80
-      targetPort: 3000
+      ingressClassName: traefik
+      hosts:
+        - grafana.local
