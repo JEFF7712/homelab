@@ -12,5 +12,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: jetstack
-  values:
-    installCRDs: true
+values:
+    crds:
+      enabled: true
