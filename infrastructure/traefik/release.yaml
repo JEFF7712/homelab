@@ -17,6 +17,8 @@ spec:
       enabled: true
       isDefaultClass: true
     service:
+      spec:
+        externalTrafficPolicy: Cluster
       type: LoadBalancer
     ports:
       web:
@@ -35,7 +37,3 @@ spec:
     ingressRoute:
       dashboard:
         enabled: false
-values:
-  service:
-    spec:
-      externalTrafficPolicy: Cluster
