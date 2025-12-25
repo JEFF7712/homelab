@@ -12,4 +12,5 @@ spec:
       services:
         - name: podinfo
           port: 9898
-  tls: {}
+  tls:
+    secretName: podinfo-tls
