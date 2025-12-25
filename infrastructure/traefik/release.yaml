@@ -35,3 +35,7 @@ spec:
     ingressRoute:
       dashboard:
         enabled: false
+values:
+  service:
+    spec:
+      externalTrafficPolicy: Cluster
