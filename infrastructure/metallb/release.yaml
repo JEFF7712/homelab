@@ -15,6 +15,7 @@ spec:
         name: metallb
   values:
     speaker:
+      logLevel: debug
       frr:
         enabled: true
       tolerations:
