@@ -1,0 +1,14 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: podinfo
+  namespace: podinfo
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`podinfo.local`) || PathPrefix(`/podinfo`)
+      kind: Rule
+      services:
+        - name: podinfo
+          port: 9898
