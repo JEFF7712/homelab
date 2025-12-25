@@ -5,10 +5,11 @@ metadata:
   namespace: podinfo
 spec:
   entryPoints:
-    - web
+    - websecure
   routes:
-    - match: Host(`podinfo.local`) || PathPrefix(`/podinfo`)
+    - match: Host(`podinfo.local`)
       kind: Rule
       services:
         - name: podinfo
           port: 9898
+  tls: {}
