@@ -5,10 +5,30 @@ metadata:
   namespace: metallb-system
 spec:
   interval: 30m
+  timeout: 10m
   chart:
     spec:
       chart: metallb
-      version: "0.15.x"
+      version: "0.15.3"
       sourceRef:
         kind: HelmRepository
         name: metallb
+  values:
+    speaker:
+      frr:
+        enabled: true
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule"
+    controller:
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule"
