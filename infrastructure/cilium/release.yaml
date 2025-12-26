@@ -14,6 +14,8 @@ spec:
         name: cilium
         namespace: flux-system
   values:
+    bgpControlPlane:
+      enabled: true
     ipam:
       mode: kubernetes
     kubeProxyReplacement: true
