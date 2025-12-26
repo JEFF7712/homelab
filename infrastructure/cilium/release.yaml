@@ -16,6 +16,8 @@ spec:
   values:
     bgpControlPlane:
       enabled: true
+    featureGates:
+      - "+BGPControlPlaneV2"
     installCRDs: true
     ipam:
       mode: kubernetes
