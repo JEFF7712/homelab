@@ -16,6 +16,7 @@ spec:
   values:
     bgpControlPlane:
       enabled: true
+    installCRDs: true
     ipam:
       mode: kubernetes
     kubeProxyReplacement: true
