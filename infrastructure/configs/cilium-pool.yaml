@@ -17,8 +17,8 @@ spec:
   advertisements:
     - advertisementType: "Service"
       service:
-        matchLabels:
-          io.cilium/bgp-advertise: "true" 
+        addresses:
+          - LoadBalancerIP
       selector:
         matchLabels:
           io.cilium/bgp-advertise: "true"
