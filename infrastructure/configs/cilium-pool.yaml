@@ -16,8 +16,10 @@ metadata:
 spec:
   loadBalancerIPs: true
   interfaces:
-  - ens18
+  - "^ens18$"
   nodeSelector:
     matchExpressions:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
+    - key: kubernetes.io/os
+      operator: In
+      values:
+      - linux
