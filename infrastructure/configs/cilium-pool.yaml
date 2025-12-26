@@ -1,4 +1,4 @@
-apiVersion: "cilium.io/v2"
+apiVersion: "cilium.io/v2alpha1"
 kind: CiliumLoadBalancerIPPool
 metadata:
   name: main-pool
@@ -9,18 +9,18 @@ spec:
   - start: "10.0.20.180"
     stop: "10.0.20.190"
 ---
-apiVersion: "cilium.io/v2"
+apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPAdvertisement
 metadata:
   name: bgp-advertisement
 spec:
   advertisements:
-    - advertisementType: Service
+    - advertisementType: "Service"
       selector:
         matchLabels:
           bgp.cilium.io/advertise: "true"
 ---
-apiVersion: "cilium.io/v2"
+apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPNodeConfig
 metadata:
   name: opnsense-peering
