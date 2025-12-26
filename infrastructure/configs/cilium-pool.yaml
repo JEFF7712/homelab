@@ -3,7 +3,7 @@ kind: CiliumLoadBalancerIPPool
 metadata:
   name: main-pool
   labels:
-    bgp.cilium.io/advertise: "true"
+    io.cilium.bgp.advertisement: "true"
 spec:
   blocks:
   - start: "10.0.20.180"
@@ -18,7 +18,7 @@ spec:
     - advertisementType: "Service"
       selector:
         matchLabels:
-          bgp.cilium.io/advertise: "true"
+          io.cilium.bgp.advertisement: "true"
 ---
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPNodeConfig
