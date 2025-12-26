@@ -31,4 +31,3 @@ spec:
     k8sServicePort: 7445
     operator:
       replicas: 1
-    devices: "ens18"
