@@ -108,6 +108,9 @@ resource "talos_machine_configuration_apply" "controlplane" {
       cluster = {
         proxy = {
           mode = "ipvs"
+          extraArgs = {
+            "strict-arp" = "true"    
+          }
         }
       }
     })
