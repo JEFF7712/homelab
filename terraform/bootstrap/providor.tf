@@ -44,3 +44,9 @@ locals {
   kube_client_cert = base64decode(local.kube_config.users[0].user["client-certificate-data"])
   kube_client_key  = base64decode(local.kube_config.users[0].user["client-key-data"])
 }
+
+provider "helm" {
+  kubernetes = {
+    config_path = "~/.kube/config"
+  }
+}

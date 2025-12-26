@@ -105,15 +105,23 @@ resource "talos_machine_configuration_apply" "controlplane" {
     }),
     file("${path.module}/files/cp-scheduling.yaml"),
     yamlencode({
-      cluster = {
-        proxy = {
-          mode = "ipvs"
-          extraArgs = {
-            "strict-arp" = "true"    
-          }
+    machine = {
+      features = {
+        kubePrism = {
+          enabled = true
+          port    = 7445
         }
       }
-    })
+    }
+    cluster = {
+      network = {
+        cni = { name = "none" }
+      }
+      proxy = {
+        disabled = true
+      }
+    }
+  })
   ]
 }
 
