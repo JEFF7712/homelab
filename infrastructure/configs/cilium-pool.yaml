@@ -17,6 +17,9 @@ kind: CiliumBGPAdvertisement
 metadata:
   name: bgp-advertisement
 spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: controlplane-01-vm
   advertisements:
     - advertisementType: "Service"
       service:
@@ -34,9 +37,6 @@ spec:
   bgpInstances:
     - name: "instance-64512"
       localASN: 64512
-      serviceAdvertisementSelector:
-        matchLabels:
-          io.cilium/bgp-advertise: "true"
       peers:
         - name: "opnsense"
           peerAddress: "10.0.20.1"
