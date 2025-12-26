@@ -17,9 +17,6 @@ kind: CiliumBGPAdvertisement
 metadata:
   name: bgp-advertisement
 spec:
-  nodeSelector:
-    matchLabels:
-      kubernetes.io/hostname: controlplane-01-vm
   advertisements:
     - advertisementType: "Service"
       service:
