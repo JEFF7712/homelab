@@ -14,27 +14,14 @@ spec:
         name: cilium
         namespace: flux-system
   values:
-    routingMode: native
-    autoDirectNodeRoutes: true
-    bpf:
-      masquerade: true
-    ipv4NativeRoutingCIDR: "10.0.20.0/24"
-    directRoutingDevice: "ens18"
-    tunnel: "disabled"
-    loadBalancer:
-      mode: "snat"
     ipam:
       mode: kubernetes
     kubeProxyReplacement: true
     l2announcements:
       enabled: true
-    bgpControlPlane:
-      enabled: true
-    k8sClientRateLimit:
-      qps: 50
-      burst: 100
     externalIPs:
       enabled: true
+    devices: "ens+"
     securityContext:
       privileged: true
     cgroup:
