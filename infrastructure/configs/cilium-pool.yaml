@@ -16,9 +16,12 @@ metadata:
 spec:
   advertisements:
     - advertisementType: "Service"
+      service:
+        matchLabels:
+          io.cilium/bgp-advertise: "true" 
       selector:
         matchLabels:
-          io.cilium.bgp.advertisement: "true"
+          io.cilium/bgp-advertise: "true"
 ---
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPNodeConfig
