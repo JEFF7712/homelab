@@ -16,7 +16,7 @@ metadata:
 spec:
   loadBalancerIPs: true
   interfaces:
-  - "^ens18$"
+  - ens18
   nodeSelector:
     matchExpressions:
     - key: kubernetes.io/hostname
