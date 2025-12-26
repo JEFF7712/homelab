@@ -17,6 +17,10 @@ spec:
     ipam:
       mode: kubernetes
     kubeProxyReplacement: true
+    l2announcements:
+      enabled: true
+    externalIPs:
+      enabled: true
     securityContext:
       privileged: true
     cgroup:
@@ -25,9 +29,5 @@ spec:
       hostRoot: /sys/fs/cgroup
     k8sServiceHost: localhost
     k8sServicePort: 7445
-    l2announcements:
-      enabled: true
-    externalIPs:
-      enabled: true
     operator:
       replicas: 1
