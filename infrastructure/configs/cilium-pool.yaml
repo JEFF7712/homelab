@@ -1,45 +1,17 @@
 apiVersion: "cilium.io/v2alpha1"
-kind: CiliumLoadBalancerIPPool
+kind: CiliumBGPPeeringPolicy
 metadata:
-  name: main-pool
-  labels:
-    io.cilium/bgp-advertise: "true"
-spec:
-  blocks:
-    - start: "10.0.20.180"
-      stop: "10.0.20.190"
-  serviceSelector:
-    matchLabels:
-      io.cilium/bgp-advertise: "true"
----
-apiVersion: "cilium.io/v2alpha1"
-kind: CiliumBGPAdvertisement
-metadata:
-  name: bgp-advertisement
-  labels:
-    io.cilium/bgp-advertise: "true"
-spec:
-  advertisements:
-    - advertisementType: "Service"
-      service:
-        addresses:
-          - LoadBalancerIP
-      selector:
-        matchLabels:
-          io.cilium/bgp-advertise: "true"
----
-apiVersion: "cilium.io/v2alpha1"
-kind: CiliumBGPClusterConfig
-metadata:
-  name: global-bgp-config
+  name: legacy-bgp-policy
 spec:
   nodeSelector:
     matchLabels:
-      kubernetes.io/os: linux 
-  bgpInstances:
-    - name: "instance-64512"
-      localASN: 64512
-      peers:
-        - name: "opnsense"
-          peerAddress: "10.0.20.1"
+      kubernetes.io/hostname: controlplane-01-vm
+  virtualRouters:
+    - localASN: 64512
+      exportPodCIDR: false
+      neighbors:
+        - peerAddress: "10.0.20.1/32"
           peerASN: 64512
+      serviceSelector:
+        matchLabels:
+          io.cilium/bgp-advertise: "true"
