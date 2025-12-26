@@ -19,7 +19,5 @@ spec:
   - "^ens18$"
   nodeSelector:
     matchExpressions:
-    - key: kubernetes.io/os
-      operator: In
-      values:
-      - linux
+    - key: kubernetes.io/hostname
+      operator: Exists
