@@ -23,13 +23,12 @@ spec:
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPNodeConfig
 metadata:
-  name: opnsense-peering
+  name: controlplane-01-vm 
 spec:
-  nodeSelector:
-    matchLabels:
-      kubernetes.io/os: linux
-  peers:
-    - name: "opnsense"
-      peerAddress: "10.0.20.1"
-      peerAsn: 64512
-      localAsn: 64512
+  bgpInstances:
+    - name: "instance-64512"
+      localASN: 64512
+      peers:
+        - name: "opnsense"
+          peerAddress: "10.0.20.1"
+          peerASN: 64512
