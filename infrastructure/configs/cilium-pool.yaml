@@ -24,9 +24,7 @@ spec:
       service:
         addresses:
           - LoadBalancerIP
-      selector:
-        matchLabels:
-          io.cilium/bgp-advertise: "true"
+      selector: {}
 ---
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPClusterConfig
