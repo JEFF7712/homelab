@@ -4,8 +4,8 @@ metadata:
   name: metallb
   namespace: metallb-system
 spec:
-  interval: 30m
-  timeout: 10m
+  interval: 1h
+  timeout: 15m
   chart:
     spec:
       chart: metallb
@@ -13,13 +13,10 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: metallb
+        namespace: flux-system
+  install:
+    createNamespace: false
   values:
     speaker:
-      logLevel: debug
       frr:
-        enabled: true
-      tolerations:
-        - operator: "Exists"
-    controller:
-      tolerations:
-        - operator: "Exists"
+        enabled: false

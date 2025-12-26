@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - metallb
   - cert-manager
+  - kube-proxy-patch.yaml

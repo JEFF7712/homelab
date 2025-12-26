@@ -4,5 +4,5 @@ metadata:
   name: metallb
   namespace: metallb-system
 spec:
-  interval: 24h
+  interval: 1h
   url: https://metallb.github.io/metallb

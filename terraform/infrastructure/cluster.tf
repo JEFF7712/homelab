@@ -24,7 +24,7 @@ locals {
 }
 
 resource "talos_machine_secrets" "this" {
-    talos_version = "v1.11.6"
+    talos_version = "v1.12.0"
 }
 
 data "talos_client_configuration" "this" {
@@ -38,7 +38,7 @@ data "talos_machine_configuration" "controlplane" {
   cluster_endpoint     = var.cluster_endpoint
   machine_type         = "controlplane"
   talos_version        = talos_machine_secrets.this.talos_version
-  kubernetes_version   = "v1.34.0"
+  kubernetes_version   = "v1.35.0"
   machine_secrets      = talos_machine_secrets.this.machine_secrets
 }
 
@@ -89,17 +89,28 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
 }
 
 resource "talos_machine_configuration_apply" "controlplane" {
-  depends_on                  = [ proxmox_virtual_environment_vm.controlplane_01 ]
-  client_configuration        = talos_machine_secrets.this.client_configuration
-  machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
-  for_each                    = local.node_data.controlplanes
-  node                        = each.key
+  depends_on           = [ proxmox_virtual_environment_vm.controlplane_01 ]
+  client_configuration = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = yamlencode({
+    for key, value in yamldecode(split("\n---", data.talos_machine_configuration.controlplane.machine_configuration)[0]) : 
+    key => value if key != "hostname"
+  })
+  for_each             = local.node_data.controlplanes
+  node                 = each.key
+
   config_patches = [
     templatefile("${path.module}/templates/install-disk-and-hostname.yaml.tmpl", {
       hostname     = each.value.hostname == null ? format("%s-cp-%s", var.cluster_name, index(keys(local.node_data.controlplanes), each.key)) : each.value.hostname
       install_disk = each.value.install_disk
     }),
     file("${path.module}/files/cp-scheduling.yaml"),
+    yamlencode({
+      cluster = {
+        proxy = {
+          mode = "ipvs"
+        }
+      }
+    })
   ]
 }
 
