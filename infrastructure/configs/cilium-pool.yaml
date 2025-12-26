@@ -34,6 +34,9 @@ spec:
   bgpInstances:
     - name: "instance-64512"
       localASN: 64512
+      serviceAdvertisementSelector:
+        matchLabels:
+          io.cilium/bgp-advertise: "true"
       peers:
         - name: "opnsense"
           peerAddress: "10.0.20.1"
