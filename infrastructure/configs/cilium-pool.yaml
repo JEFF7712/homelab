@@ -16,6 +16,8 @@ apiVersion: "cilium.io/v2alpha1"
 kind: CiliumBGPAdvertisement
 metadata:
   name: bgp-advertisement
+  labels:
+    io.cilium/bgp-advertise: "true"
 spec:
   advertisements:
     - advertisementType: "Service"
@@ -37,6 +39,9 @@ spec:
   bgpInstances:
     - name: "instance-64512"
       localASN: 64512
+      serviceAdvertisementSelector:
+        matchLabels:
+          io.cilium/bgp-advertise: "true"
       peers:
         - name: "opnsense"
           peerAddress: "10.0.20.1"
