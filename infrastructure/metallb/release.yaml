@@ -20,3 +20,10 @@ spec:
     speaker:
       frr:
         enabled: false
+      env:
+        - name: METALLB_ML_BIND_ADDR
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: METALLB_ML_LABELS
+          value: "app=metallb,component=speaker"
