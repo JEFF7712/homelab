@@ -12,11 +12,10 @@ kind: CiliumL2AnnouncementPolicy
 metadata:
   name: announce-policy
 spec:
-  nodeSelector:
-    matchExpressions: []    
   serviceSelector:
-    matchLabels:
-      app.kubernetes.io/name: traefik
+    matchExpressions: []
+  nodeSelector:
+    matchExpressions: []
   interfaces:
   - ens18
   externalIPs: true

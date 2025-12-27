@@ -2,7 +2,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: cilium
-  namespace: kube-system
+  namespace: cilium-system
 spec:
   interval: 1h
   chart:
@@ -18,7 +18,7 @@ spec:
       mode: kubernetes
     k8sServiceHost: localhost
     k8sServicePort: 7445
-    kubeProxyReplacement: true
+    kubeProxyReplacement: strict
     bpf:
       hostLegacyRouting: true 
     securityContext:
@@ -31,3 +31,11 @@ spec:
       enabled: true
     externalIPs:
       enabled: true
+    hubble:
+      enabled: true
+      relay:
+        enabled: true
+      ui:
+        enabled: true
+    operator:
+      replicas: 1
