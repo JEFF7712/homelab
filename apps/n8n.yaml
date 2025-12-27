@@ -30,6 +30,13 @@ spec:
             mountPath: "/home/node/.n8n"
             size: 10Gi
             storageClass: longhorn
+            resources:
+              limits:
+                memory: 2Gi
+                cpu: 1000m
+              requests:
+                memory: 1Gi
+                cpu: 500m
           
         existingEncryptionKeySecret: n8n-secret
 
