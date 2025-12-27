@@ -1,4 +1,3 @@
----
 - name: Bootstrap Python on Alpine
   hosts: netbird_gateway
   gather_facts: false
