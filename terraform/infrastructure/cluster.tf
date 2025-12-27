@@ -47,7 +47,7 @@ data "talos_machine_configuration" "worker" {
   cluster_endpoint     = var.cluster_endpoint
   machine_type         = "worker"
   talos_version        = talos_machine_secrets.this.talos_version
-  kubernetes_version   = "v1.34.0"
+  kubernetes_version   = "v1.35.0"
   machine_secrets      = talos_machine_secrets.this.machine_secrets
 }
 
@@ -86,6 +86,8 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
   cdrom {
     file_id = "local:iso/metal-amd64.iso"
   }
+
+  boot_order = ["scsi0", "net0"]
 }
 
 resource "proxmox_virtual_environment_vm" "worker_01" {
@@ -123,6 +125,8 @@ resource "proxmox_virtual_environment_vm" "worker_01" {
   cdrom {
     file_id = "local:iso/metal-amd64.iso"
   }
+
+  boot_order = ["scsi0", "net0"]
 }
 
 resource "talos_machine_configuration_apply" "controlplane" {
