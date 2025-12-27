@@ -18,7 +18,7 @@ spec:
               service:
                 name: argocd-server
                 port:
-                  name: 80
+                  number: 80
   tls:
     - hosts:
         - argo.rupan.dev
