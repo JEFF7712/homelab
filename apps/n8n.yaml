@@ -22,17 +22,16 @@ spec:
           username: n8n_user
 
         main:
-          extraEnv:
-            - name: N8N_ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: n8n-secret
-                  key: encryption-key
-          
+          count: 1
           persistence:
             enabled: true
-            size: 5Gi
+            accessMode: ReadWriteOnce
+            volumeName: "n8n-main-data"
+            mountPath: "/home/node/.n8n"
+            size: 10Gi
             storageClass: longhorn
+          
+        existingEncryptionKeySecret: n8n-secret
 
         ingress:
           enabled: true
