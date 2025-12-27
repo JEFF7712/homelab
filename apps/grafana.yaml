@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 12.3.1
+    helm:
+      values: |
+        ingress:
+          enabled: true
+          ingressClassName: traefik
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+            traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          hosts:
+            - grafana.rupan.dev
+          tls:
+            - secretName: grafana-tls
+              hosts:
+                - grafana.rupan.dev
+
+        persistence:
+          enabled: false
+          
+        adminUser: admin
+        adminPassword: password123
+
+        sidecar:
+          dashboards:
+            enabled: true
+            label: grafana_dashboard
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
