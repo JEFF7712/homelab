@@ -6,11 +6,11 @@ locals {
         hostname     = "controlplane-01-vm"
       }
     }
-    # workers = {
-    #   (var.talos_worker_01_ip_addr) = {
-    #     install_disk = "/dev/sdb"
-    #     hostname     = "worker-01-cli"
-    #   },
+    workers = {
+      (var.talos_worker_01_ip_addr) = {
+        install_disk = "/dev/sda"
+        hostname     = "worker-01-vm"
+      },
     #   (var.talos_worker_02_ip_addr) = {
     #     install_disk = "/dev/sdb"
     #     hostname     = "worker-02-cli"
@@ -19,7 +19,7 @@ locals {
     #      install_disk = "/dev/sda"
     #      hostname     = "worker-03-wyse"
     #    }
-    # }
+    }
   }
 }
 
@@ -42,14 +42,14 @@ data "talos_machine_configuration" "controlplane" {
   machine_secrets      = talos_machine_secrets.this.machine_secrets
 }
 
-# data "talos_machine_configuration" "worker" {
-#   cluster_name         = var.cluster_name
-#   cluster_endpoint     = var.cluster_endpoint
-#   machine_type         = "worker"
-#   talos_version        = talos_machine_secrets.this.talos_version
-#   kubernetes_version   = "v1.34.0"
-#   machine_secrets      = talos_machine_secrets.this.machine_secrets
-# }
+data "talos_machine_configuration" "worker" {
+  cluster_name         = var.cluster_name
+  cluster_endpoint     = var.cluster_endpoint
+  machine_type         = "worker"
+  talos_version        = talos_machine_secrets.this.talos_version
+  kubernetes_version   = "v1.34.0"
+  machine_secrets      = talos_machine_secrets.this.machine_secrets
+}
 
 resource "proxmox_virtual_environment_vm" "controlplane_01" {
   name      = "Talos-Controlplane-1"
@@ -64,7 +64,7 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
   }
 
   memory {
-    dedicated = 8192
+    dedicated = 4096
   }
 
   disk {
@@ -79,7 +79,44 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
   network_device {
     bridge = "vmbr0"
     model  = "virtio"
-    mac_address = "BC:24:11:00:00:50"
+    mac_address = var.talos_vm_mac_address
+    vlan_id = 20
+  }
+
+  cdrom {
+    file_id = "local:iso/metal-amd64.iso"
+  }
+}
+
+resource "proxmox_virtual_environment_vm" "worker_01" {
+  name      = "Talos-Worker-1"
+  node_name = var.node_name
+  vm_id     = 301
+  started   = true
+  on_boot   = true
+
+  cpu {
+    cores = 1
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  disk {
+    datastore_id = "nvme-pool"
+    interface    = "scsi0"
+    file_format  = "raw"
+    size         = 40
+    ssd          = true
+    discard      = "on"
+  }
+
+  network_device {
+    bridge = "vmbr0"
+    model  = "virtio"
+    mac_address = var.cli01_mac_address
     vlan_id = 20
   }
 
@@ -125,18 +162,39 @@ resource "talos_machine_configuration_apply" "controlplane" {
   ]
 }
 
-# resource "talos_machine_configuration_apply" "worker" {
-#   client_configuration        = talos_machine_secrets.this.client_configuration
-#   machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
-#   for_each                    = local.node_data.workers
-#   node                        = each.key
-#   config_patches = [
-#     templatefile("${path.module}/templates/install-disk-and-hostname.yaml.tmpl", {
-#       hostname     = each.value.hostname == null ? format("%s-worker-%s", var.cluster_name, index(keys(local.node_data.workers), each.key)) : each.value.hostname
-#       install_disk = each.value.install_disk
-#     })
-#   ]
-# }
+resource "talos_machine_configuration_apply" "worker" {
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = yamlencode({
+    for key, value in yamldecode(split("\n---", data.talos_machine_configuration.worker.machine_configuration)[0]) : 
+    key => value if key != "hostname"
+  })
+  for_each             = local.node_data.workers
+  node                 = each.key
+  config_patches = [
+    templatefile("${path.module}/templates/install-disk-and-hostname.yaml.tmpl", {
+      hostname     = each.value.hostname == null ? format("%s-worker-%s", var.cluster_name, index(keys(local.node_data.workers), each.key)) : each.value.hostname
+      install_disk = each.value.install_disk
+    }),
+        yamlencode({
+    machine = {
+      features = {
+        kubePrism = {
+          enabled = true
+          port    = 7445
+        }
+      }
+    }
+    cluster = {
+      network = {
+        cni = { name = "none" }
+      }
+      proxy = {
+        disabled = true
+      }
+    }
+  })
+  ]
+}
 
 resource "talos_machine_bootstrap" "this" {
   depends_on = [talos_machine_configuration_apply.controlplane]

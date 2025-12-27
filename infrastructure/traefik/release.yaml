@@ -2,38 +2,43 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: traefik
-  namespace: traefik
+  namespace: network
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
 spec:
-  interval: 30m
+  interval: 1h
   chart:
     spec:
       chart: traefik
-      version: "38.0.1"
+      version: "38.x.x"
       sourceRef:
         kind: HelmRepository
         name: traefik
+        namespace: flux-system
   values:
-    ingressClass:
-      enabled: true
-      isDefaultClass: true
-    service:
-      spec:
-        externalTrafficPolicy: Cluster
-      type: LoadBalancer
-    ports:
-      web:
-        redirections:
-          entryPoint:
-            to: websecure
-            scheme: https
-            permanent: true
     providers:
       kubernetesCRD:
         enabled: true
+        allowCrossNamespace: true
       kubernetesIngress:
         enabled: true
         publishedService:
           enabled: true
-    ingressRoute:
-      dashboard:
-        enabled: false
+    service:
+      enabled: true
+      type: LoadBalancer    
+    ports:
+      web:
+        redirectTo: websecure
+      websecure:
+        tls:
+          enabled: true
+    securityContext:
+      capabilities:
+        drop: [ALL]
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532

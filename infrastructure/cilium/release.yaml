@@ -8,35 +8,26 @@ spec:
   chart:
     spec:
       chart: cilium
-      version: 1.18.5
+      version: "1.18.x"
       sourceRef:
         kind: HelmRepository
         name: cilium
         namespace: flux-system
   values:
-    bgpControlPlane:
-      enabled: true
-    featureGates:
-      - "+BGPControlPlaneV2"
-    installCRDs: true
     ipam:
       mode: kubernetes
+    k8sServiceHost: localhost
+    k8sServicePort: 7445
     kubeProxyReplacement: true
-    l2announcements:
-      enabled: true
-    externalIPs:
-      enabled: true
-    devices: "ens+"
+    bpf:
+      hostLegacyRouting: true 
     securityContext:
       privileged: true
     cgroup:
       autoMount:
         enabled: false
       hostRoot: /sys/fs/cgroup
-    k8sServiceHost: localhost
-    k8sServicePort: 7445
-    operator:
-      managedConfig: true
-      replicas: 1
-      unmanagedPodWatcher:
-        restart: true
+    l2announcements:
+      enabled: true
+    externalIPs:
+      enabled: true

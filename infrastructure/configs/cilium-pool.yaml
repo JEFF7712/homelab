@@ -1,17 +1,17 @@
 apiVersion: "cilium.io/v2alpha1"
-kind: CiliumBGPPeeringPolicy
+kind: CiliumLoadBalancerIPPool
 metadata:
-  name: legacy-bgp-policy
+  name: homelab-pool
 spec:
-  nodeSelector:
-    matchLabels:
-      kubernetes.io/hostname: controlplane-01-vm
-  virtualRouters:
-    - localASN: 64512
-      exportPodCIDR: false
-      neighbors:
-        - peerAddress: "10.0.20.1/32"
-          peerASN: 64512
-      serviceSelector:
-        matchLabels:
-          io.cilium/bgp-advertise: "true"
+  cidrs:
+  - cidr: "10.0.20.184/29"
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: announce-policy
+spec:
+  interfaces:
+  - ens18
+  externalIPs: true
+  loadBalancerIPs: true
