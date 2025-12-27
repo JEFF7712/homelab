@@ -20,6 +20,7 @@ spec:
           existingSecret: postgres-auth
           database: n8n_db
           username: n8n_user
+          existingSecretPasswordKey: postgres-password
 
         main:
           count: 1
