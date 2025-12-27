@@ -1,3 +1,4 @@
+# apps/cloudflare-tunnel.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -6,17 +7,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://cloudflare.github.io/helm-charts
-    targetRevision: 0.3.2
-    chart: cloudflare-tunnel
-    helm:
-      values: |
-        cloudflare:
-          secretName: cloudflare-tunnel
-          tunnel_token:
-             key: tunnel-tokenn
-        replicaCount: 2
-          
+    repoURL: https://gitlab.com/JEFF7712/homelab.git
+    targetRevision: main
+    path: infrastructure/cloudflare
   destination:
     server: https://kubernetes.default.svc
     namespace: cloudflare
