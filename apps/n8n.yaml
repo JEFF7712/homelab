@@ -9,7 +9,7 @@ spec:
     repoURL: https://community-charts.github.io/helm-charts
     chart: n8n
     targetRevision: 1.16.14 
-  helm:
+    helm:
       values: |
         n8n:
           encryptionKey:
