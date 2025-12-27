@@ -11,17 +11,22 @@ spec:
     targetRevision: 1.16.14 
     helm:
       values: |
-        config:
-          encryptionKey:
-            existingSecret: n8n-secret
-            encryptionKeyKey: encryption-key
-        
-        persistence:
-          enabled: true
-          size: 5Gi
-          storageClass: longhorn
-          accessModes:
-            - ReadWriteOnce
+
+        db:
+          type: postgresdb
+
+        externalPostgresql:
+          host: postgresql.n8n.svc.cluster.local
+          existingSecret: postgres-auth
+          database: n8n_db
+          username: n8n_user
+
+        extraEnv:
+          - name: N8N_ENCRYPTION_KEY
+            valueFrom:
+              secretKeyRef:
+                name: n8n-secret
+                key: encryption-key
 
         ingress:
           enabled: true
@@ -38,8 +43,6 @@ spec:
               hosts:
                 - n8n.rupan.dev
         
-        podSecurityContext:
-          fsGroup: 1000
   destination:
     server: https://kubernetes.default.svc
     namespace: n8n
