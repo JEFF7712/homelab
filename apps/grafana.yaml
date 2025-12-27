@@ -28,7 +28,12 @@ spec:
           runAsGroup: 472
           fsGroup: 472
         persistence:
-          enabled: false
+          enabled: true
+          type: pvc
+          storageClassName: longhorn
+          size: 10Gi
+          accessModes:
+            - ReadWriteOnce
         adminUser: admin
         adminPassword: password123
         sidecar:
