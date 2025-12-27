@@ -28,6 +28,9 @@ spec:
         service:
           enabled: true
           type: LoadBalancer
+        api:
+          dashboard: true
+          insecure: true
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik
