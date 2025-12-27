@@ -3,10 +3,6 @@ kind: HelmRelease
 metadata:
   name: traefik
   namespace: network
-  labels:
-    pod-security.kubernetes.io/enforce: privileged
-    pod-security.kubernetes.io/audit: privileged
-    pod-security.kubernetes.io/warn: privileged
 spec:
   interval: 1h
   chart:
