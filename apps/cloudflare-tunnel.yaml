@@ -12,9 +12,9 @@ spec:
     helm:
       values: |
         cloudflare:
+          secretName: cloudflare-tunnel
           tunnel_token:
-             existingSecret: tunnel-credentials
-             key: tunnel-token
+             key: tunnel-tokenn
         replicaCount: 2
           
   destination:
