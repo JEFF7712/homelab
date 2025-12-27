@@ -23,13 +23,14 @@ spec:
             - secretName: grafana-tls
               hosts:
                 - grafana.rupan.dev
-
+        podSecurityContext:
+          runAsUser: 472
+          runAsGroup: 472
+          fsGroup: 472
         persistence:
           enabled: false
-          
         adminUser: admin
         adminPassword: password123
-
         sidecar:
           dashboards:
             enabled: true
