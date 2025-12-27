@@ -40,6 +40,9 @@ spec:
             traefik.ingress.kubernetes.io/router.entrypoints: websecure
           tls: true
           tlsSecret: longhorn-tls
+          
+        preUpgradeChecker:
+          jobEnabled: false
 
   destination:
     server: https://kubernetes.default.svc
