@@ -21,12 +21,18 @@ spec:
           database: n8n_db
           username: n8n_user
 
-        extraEnv:
-          - name: N8N_ENCRYPTION_KEY
-            valueFrom:
-              secretKeyRef:
-                name: n8n-secret
-                key: encryption-key
+        main:
+          extraEnv:
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secret
+                  key: encryption-key
+          
+          persistence:
+            enabled: true
+            size: 5Gi
+            storageClass: longhorn
 
         ingress:
           enabled: true
