@@ -17,10 +17,9 @@ spec:
 
         externalPostgresql:
           host: postgresql.n8n.svc.cluster.local
-          existingSecret: postgres-auth
+          existingSecret: n8n-db-auth
           database: n8n_db
           username: n8n_user
-          existingSecretPasswordKey: postgres-password
 
         main:
           count: 1
