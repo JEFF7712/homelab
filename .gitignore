@@ -11,3 +11,4 @@
 /ansible/playbooks/vars.yml
 /ansible/group_vars/all.yml
 .direnv
+*talosctl
