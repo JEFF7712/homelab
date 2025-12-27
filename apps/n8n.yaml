@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://8gears.github.io/n8n-helm-chart
+    repoURL: oci://8gears.container-registry.com/library
     chart: n8n
     targetRevision: 2.0.1
     helm:
@@ -28,6 +28,7 @@ spec:
             - host: n8n.rupan.dev
               paths:
                 - path: /
+                  pathType: Prefix
           tls:
             - secretName: n8n-tls
               hosts:
