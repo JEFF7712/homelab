@@ -21,7 +21,7 @@ spec:
           username: n8n_user
           existingSecret: n8n-db-auth
 
-        extraEnv:
+        extraEnvVars:
           - name: GENERIC_TIMEZONE
             value: "America/Chicago"
           - name: TZ
