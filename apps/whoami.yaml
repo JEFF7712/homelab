@@ -6,25 +6,15 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://traefik.github.io/whoami
-    targetRevision: v1.10.1
-    chart: whoami
-    helm:
-      values: |
-        ingress:
-          enabled: true
-          ingressClassName: traefik
-          hosts:
-            - host: whoami.10.0.20.180.nip.io
-              paths:
-                - path: /
-                  pathType: Prefix
+    repoURL: https://gitlab.com/JEFF7712/homelab.git
+    targetRevision: main
+    path: infrastructure/whoami
+    
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: default 
+    
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
