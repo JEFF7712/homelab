@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://8gears.container-registry.com/library
+    repoURL: https://community-charts.github.io/helm-charts
     chart: n8n
-    targetRevision: 2.0.1
+    targetRevision: 1.16.14 
     helm:
       values: |
         config:
@@ -18,7 +18,7 @@ spec:
         persistence:
           enabled: true
           storageClass: longhorn
-          size: 5Gi
+          size: 10Gi
         ingress:
           enabled: true
           annotations:
@@ -28,7 +28,7 @@ spec:
             - host: n8n.rupan.dev
               paths:
                 - path: /
-                  pathType: Prefix
+                  pathType: ImplementationSpecific
           tls:
             - secretName: n8n-tls
               hosts:
