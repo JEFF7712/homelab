@@ -37,6 +37,10 @@ spec:
             requests:
               memory: 1Gi
               cpu: 500m
+          livenessProbe:
+            initialDelaySeconds: 120
+          readinessProbe:
+            initialDelaySeconds: 60
           
         existingEncryptionKeySecret: n8n-secret
 
