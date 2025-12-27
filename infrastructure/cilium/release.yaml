@@ -18,7 +18,7 @@ spec:
       mode: kubernetes
     k8sServiceHost: localhost
     k8sServicePort: 7445
-    kubeProxyReplacement: strict
+    kubeProxyReplacement: true
     bpf:
       hostLegacyRouting: true 
     securityContext:
