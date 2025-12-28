@@ -39,6 +39,11 @@ spec:
               value: airvpn
             - name: VPN_TYPE
               value: wireguard
+            - name: FIREWALL_VPN_INPUT_PORTS
+              valueFrom:
+                secretKeyRef:
+                  name: airvpn-secret
+                  key: VPN_PORT_FORWARDING
             - name: WIREGUARD_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
@@ -55,11 +60,6 @@ spec:
                 secretKeyRef:
                   name: airvpn-secret
                   key: WIREGUARD_ADDRESSES
-            - name: FIREWALL_VPN_INPUT_PORTS
-              valueFrom:
-                secretKeyRef:
-                  name: airvpn-secret
-                  key: VPN_PORT_FORWARDING
           ports:
             - containerPort: 8080
 
@@ -75,6 +75,10 @@ spec:
           volumeMounts:
             - name: media-storage
               mountPath: /downloads
+              subPath: downloads
+            - name: media-storage
+              mountPath: /config
+              subPath: config
       volumes:
         - name: media-storage
           persistentVolumeClaim:
@@ -93,3 +97,30 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qbittorrent
+  namespace: media
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - torrent.rupan.dev
+      secretName: qbittorrent-tls
+  rules:
+    - host: torrent.rupan.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qbittorrent
+                port:
+                  number: 80
