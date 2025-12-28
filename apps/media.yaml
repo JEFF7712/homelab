@@ -6,6 +6,8 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/warn: privileged
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
