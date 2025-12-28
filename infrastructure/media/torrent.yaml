@@ -28,6 +28,28 @@ spec:
       labels:
         app: qbittorrent
     spec:
+      initContainers:
+        - name: configure-qbittorrent
+          image: busybox:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              mkdir -p /config/qBittorrent
+              CONF="/config/qBittorrent/qBittorrent.conf"
+              
+              if [ ! -f "$CONF" ]; then
+                echo "[Preferences]" > "$CONF"
+              fi
+
+              if grep -q "HostHeaderValidation" "$CONF"; then
+                sed -i 's/HostHeaderValidation=true/HostHeaderValidation=false/' "$CONF"
+              else
+                echo "WebUI\HostHeaderValidation=false" >> "$CONF"
+              fi
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: config
       containers:
         - name: gluetun
           image: qmcgaw/gluetun
