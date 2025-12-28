@@ -14,6 +14,21 @@ spec:
       labels:
         app: radarr
     spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /movies /downloads /config"]
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: radarr-config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+            - name: media-storage
+              mountPath: /movies
+              subPath: movies
+              
       containers:
         - name: radarr
           image: lscr.io/linuxserver/radarr:latest
