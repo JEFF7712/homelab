@@ -1,95 +1,95 @@
-# ---
-# apiVersion: v1
-# kind: PersistentVolumeClaim
-# metadata:
-#   name: media-pvc
-#   namespace: media
-# spec:
-#   accessModes:
-#     - ReadWriteOnce
-#   storageClassName: longhorn
-#   resources:
-#     requests:
-#       storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-pvc
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
 
-# ---
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: qbittorrent
-#   namespace: media
-# spec:
-#   replicas: 1
-#   selector:
-#     matchLabels:
-#       app: qbittorrent
-#   template:
-#     metadata:
-#       labels:
-#         app: qbittorrent
-#     spec:
-#       containers:
-#         - name: gluetun
-#           image: qmcgaw/gluetun
-#           securityContext:
-#             capabilities:
-#               add: ["NET_ADMIN"]
-#           env:
-#             - name: VPN_SERVICE_PROVIDER
-#               value: airvpn
-#             - name: VPN_TYPE
-#               value: wireguard
-#             - name: WIREGUARD_PRIVATE_KEY
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: airvpn-secret
-#                   key: WIREGUARD_PRIVATE_KEY
-#             - name: WIREGUARD_PRESHARED_KEY
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: airvpn-secret
-#                   key: WIREGUARD_PRESHARED_KEY
-#                   optional: true
-#             - name: WIREGUARD_ADDRESSES
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: airvpn-secret
-#                   key: WIREGUARD_ADDRESSES
-#             - name: FIREWALL_VPN_INPUT_PORTS
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: airvpn-secret
-#                   key: VPN_PORT_FORWARDING
-#           ports:
-#             - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: media
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      containers:
+        - name: gluetun
+          image: qmcgaw/gluetun
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: airvpn
+            - name: VPN_TYPE
+              value: wireguard
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airvpn-secret
+                  key: WIREGUARD_PRIVATE_KEY
+            - name: WIREGUARD_PRESHARED_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airvpn-secret
+                  key: WIREGUARD_PRESHARED_KEY
+                  optional: true
+            - name: WIREGUARD_ADDRESSES
+              valueFrom:
+                secretKeyRef:
+                  name: airvpn-secret
+                  key: WIREGUARD_ADDRESSES
+            - name: FIREWALL_VPN_INPUT_PORTS
+              valueFrom:
+                secretKeyRef:
+                  name: airvpn-secret
+                  key: VPN_PORT_FORWARDING
+          ports:
+            - containerPort: 8080
 
-#         - name: qbittorrent
-#           image: lscr.io/linuxserver/qbittorrent:latest
-#           env:
-#             - name: PUID
-#               value: "1000"
-#             - name: PGID
-#               value: "1000"
-#             - name: WEBUI_PORT
-#               value: "8080"
-#           volumeMounts:
-#             - name: media-storage
-#               mountPath: /downloads
-#       volumes:
-#         - name: media-storage
-#           persistentVolumeClaim:
-#             claimName: media-pvc
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:latest
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: WEBUI_PORT
+              value: "8080"
+          volumeMounts:
+            - name: media-storage
+              mountPath: /downloads
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc
 
-# ---
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: qbittorrent
-#   namespace: media
-# spec:
-#   selector:
-#     app: qbittorrent
-#   ports:
-#     - protocol: TCP
-#       port: 80
-#       targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+  namespace: media
+spec:
+  selector:
+    app: qbittorrent
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
