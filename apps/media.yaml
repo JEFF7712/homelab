@@ -19,7 +19,7 @@ spec:
   source:
     repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
     targetRevision: HEAD
-    path: manifests/media
+    path: infrastructure/media
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: media
