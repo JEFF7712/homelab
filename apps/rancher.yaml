@@ -24,6 +24,8 @@ spec:
           value: rupanpandyan@gmail.com
         - name: replicas
           value: "1"
+        - name: bootstrapPassword
+          value: "admin"
         - name: startupProbe.failureThreshold
           value: "60"
         - name: startupProbe.periodSeconds
