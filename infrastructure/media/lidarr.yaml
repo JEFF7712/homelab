@@ -1,0 +1,107 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lidarr
+  namespace: media
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lidarr
+  template:
+    metadata:
+      labels:
+        app: lidarr
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - qbittorrent
+              topologyKey: "kubernetes.io/hostname"
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: lidarr-config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+            - name: media-storage
+              mountPath: /music
+              subPath: music
+      containers:
+        - name: lidarr
+          image: lscr.io/linuxserver/lidarr:latest
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "America/Chicago"
+          ports:
+            - containerPort: 8686
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: lidarr-config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+            - name: media-storage
+              mountPath: /music
+              subPath: music
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lidarr
+  namespace: media
+spec:
+  selector:
+    app: lidarr
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8686
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lidarr
+  namespace: media
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - lidarr.rupan.dev
+      secretName: lidarr-tls
+  rules:
+    - host: lidarr.rupan.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lidarr
+                port:
+                  number: 80
