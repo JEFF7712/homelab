@@ -13,29 +13,26 @@ spec:
     targetRevision: 2.13.1
     helm:
       kubeVersion: 1.30.0 
-      parameters:
-        - name: hostname
-          value: rancher.rupan.dev
-        - name: ingress.tls.source
-          value: letsEncrypt
-        - name: letsEncrypt.ingress.class
-          value: traefik
-        - name: letsEncrypt.email
-          value: rupanpandyan@gmail.com
-        - name: ingress.extraAnnotations[0].key
-          value: "traefik.ingress.kubernetes.io/service.serversscheme"
-        - name: ingress.extraAnnotations[0].value
-          value: "https"
-        - name: replicas
-          value: "1"
-        - name: bootstrapPassword
-          value: "admin"
-        - name: startupProbe.failureThreshold
-          value: "60"
-        - name: startupProbe.periodSeconds
-          value: "5"
-        - name: startupProbe.initialDelaySeconds
-          value: "60"
+      values: |
+        hostname: rancher.rupan.dev
+        replicas: 1
+        bootstrapPassword: admin
+        
+        ingress:
+          tls:
+            source: letsEncrypt
+          extraAnnotations:
+            traefik.ingress.kubernetes.io/service.serversscheme: https
+
+        letsEncrypt:
+          email: rupanpandyan@gmail.com
+          ingress:
+            class: traefik
+
+        startupProbe:
+          failureThreshold: 60
+          periodSeconds: 5
+          initialDelaySeconds: 60
   destination:
     server: https://kubernetes.default.svc
     namespace: cattle-system
