@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rancher
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: default
+  source:
+    repoURL: https://releases.rancher.com/server-charts/stable
+    chart: rancher
+    targetRevision: 2.13.1
+    helm:
+      parameters:
+        - name: hostname
+          value: rancher.rupan.dev
+
+        - name: ingress.tls.source
+          value: letsEncrypt
+        - name: letsEncrypt.ingress.class
+          value: traefik
+        - name: letsEncrypt.email
+          value: rupanpandyan@gmail.com
+
+        - name: replicas
+          value: "1"
+
+        - name: bootstrapPassword
+          value: "admin"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cattle-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
