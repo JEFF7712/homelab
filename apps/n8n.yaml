@@ -22,7 +22,7 @@ spec:
           existingSecret: n8n-db-auth
 
         extraEnvVars:
-          GENERIC_TIMEZONE: "America/Chicago"
+          TZ: "America/Chicago"
 
         main:
           count: 1

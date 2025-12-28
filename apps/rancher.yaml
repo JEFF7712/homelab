@@ -12,27 +12,24 @@ spec:
     chart: rancher
     targetRevision: 2.13.1
     helm:
+      kubeVersion: 1.30.0 
+      
       parameters:
         - name: hostname
           value: rancher.rupan.dev
-
         - name: ingress.tls.source
           value: letsEncrypt
         - name: letsEncrypt.ingress.class
           value: traefik
         - name: letsEncrypt.email
           value: rupanpandyan@gmail.com
-
         - name: replicas
           value: "1"
-
         - name: bootstrapPassword
           value: "admin"
-
   destination:
     server: https://kubernetes.default.svc
     namespace: cattle-system
-
   syncPolicy:
     automated:
       prune: true
