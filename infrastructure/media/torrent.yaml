@@ -29,6 +29,17 @@ spec:
         app: qbittorrent
     spec:
       initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /downloads /config"]
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+              
         - name: configure-qbittorrent
           image: busybox:latest
           command: ["sh", "-c"]

@@ -14,6 +14,20 @@ spec:
       labels:
         app: sonarr
     spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /tv /downloads /config"]
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: sonarr-config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+            - name: media-storage
+              mountPath: /tv
+              subPath: tv
       containers:
         - name: sonarr
           image: lscr.io/linuxserver/sonarr:latest
