@@ -22,6 +22,10 @@ spec:
           value: traefik
         - name: letsEncrypt.email
           value: rupanpandyan@gmail.com
+        - name: ingress.extraAnnotations[0].key
+          value: "traefik.ingress.kubernetes.io/service.serversscheme"
+        - name: ingress.extraAnnotations[0].value
+          value: "https"
         - name: replicas
           value: "1"
         - name: bootstrapPassword
