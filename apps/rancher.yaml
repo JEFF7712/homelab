@@ -16,6 +16,8 @@ spec:
       parameters:
         - name: hostname
           value: rancher.rupan.dev
+        - name: ingress.ingressClassName
+          value: traefik
         - name: ingress.tls.source
           value: letsEncrypt
         - name: letsEncrypt.ingress.class
