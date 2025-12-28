@@ -13,7 +13,6 @@ spec:
     targetRevision: 2.13.1
     helm:
       kubeVersion: 1.30.0 
-      
       parameters:
         - name: hostname
           value: rancher.rupan.dev
@@ -27,6 +26,12 @@ spec:
           value: "1"
         - name: bootstrapPassword
           value: "admin"
+        - name: startupProbe.failureThreshold
+          value: "60"
+        - name: startupProbe.periodSeconds
+          value: "5"
+        - name: startupProbe.initialDelaySeconds
+          value: "60"
   destination:
     server: https://kubernetes.default.svc
     namespace: cattle-system
