@@ -1,45 +1,45 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: rancher
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "10"
-spec:
-  project: default
-  source:
-    repoURL: https://releases.rancher.com/server-charts/stable
-    chart: rancher
-    targetRevision: 2.13.1
-    helm:
-      kubeVersion: 1.30.0 
-      values: |
-        hostname: rancher.rupan.dev
-        replicas: 1
-        bootstrapPassword: admin
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: rancher
+#   namespace: argocd
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "10"
+# spec:
+#   project: default
+#   source:
+#     repoURL: https://releases.rancher.com/server-charts/stable
+#     chart: rancher
+#     targetRevision: 2.13.1
+#     helm:
+#       kubeVersion: 1.30.0 
+#       values: |
+#         hostname: rancher.rupan.dev
+#         replicas: 1
+#         bootstrapPassword: admin
         
-        ingress:
-          tls:
-            source: letsEncrypt
-          extraAnnotations:
-            traefik.ingress.kubernetes.io/service.serversscheme: https
+#         ingress:
+#           tls:
+#             source: letsEncrypt
+#           extraAnnotations:
+#             traefik.ingress.kubernetes.io/service.serversscheme: https
 
-        letsEncrypt:
-          email: rupanpandyan@gmail.com
-          ingress:
-            class: traefik
+#         letsEncrypt:
+#           email: rupanpandyan@gmail.com
+#           ingress:
+#             class: traefik
 
-        startupProbe:
-          failureThreshold: 60
-          periodSeconds: 5
-          initialDelaySeconds: 60
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: cattle-system
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
+#         startupProbe:
+#           failureThreshold: 60
+#           periodSeconds: 5
+#           initialDelaySeconds: 60
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: cattle-system
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+#     syncOptions:
+#       - CreateNamespace=true
+#       - ServerSideApply=true
