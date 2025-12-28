@@ -59,6 +59,8 @@ spec:
           env:
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+            - name: FIREWALL_INPUT_PORTS
+              value: "8080"
             - name: VPN_SERVICE_PROVIDER
               value: airvpn
             - name: VPN_TYPE
