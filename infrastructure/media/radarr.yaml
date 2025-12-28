@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+  namespace: media
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+      containers:
+        - name: radarr
+          image: lscr.io/linuxserver/radarr:latest
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "America/Chicago"
+          ports:
+            - containerPort: 7878
+          volumeMounts:
+            - name: media-storage
+              mountPath: /config
+              subPath: radarr-config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+            - name: media-storage
+              mountPath: /movies
+              subPath: movies
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radarr
+  namespace: media
+spec:
+  selector:
+    app: radarr
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 7878
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: radarr
+  namespace: media
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - radarr.rupan.dev
+      secretName: radarr-tls
+  rules:
+    - host: radarr.rupan.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: radarr
+                port:
+                  number: 80
