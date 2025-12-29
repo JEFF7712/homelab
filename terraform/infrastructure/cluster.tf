@@ -67,6 +67,8 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
     dedicated = 4096
   }
 
+  scsi_hardware = "virtio-scsi-single"
+
   disk {
     datastore_id = "nvme-pool"
     interface    = "scsi0"
@@ -74,6 +76,30 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
     size         = 40
     ssd          = true
     discard      = "on"
+    cache        = "writeback"
+    iothread     = true 
+  }
+
+  disk {
+    datastore_id = "nvme-pool"
+    interface    = "scsi1"
+    file_format  = "raw"
+    size         = 800
+    ssd          = true
+    discard      = "on"
+    cache        = "writeback"
+    iothread     = true 
+  }
+
+  disk {
+    datastore_id = "local"
+    interface    = "scsi2"
+    file_format  = "raw"
+    size         = 300
+    ssd          = true
+    discard      = "on"
+    cache        = "writeback"
+    iothread     = true 
   }
 
   network_device {

@@ -44,8 +44,8 @@ spec:
             httpGet:
               path: /ping
               port: 8989
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            initialDelaySeconds: 120
+            periodSeconds: 20
           volumeMounts:
             - name: media-storage
               mountPath: /config
