@@ -21,7 +21,7 @@ spec:
                 s3:
                   endpoint: minio.observability.svc:9000
                   access_key_id: admin
-                  secret_access_key: "123456"
+                  secret_access_key: "123456789"
                   insecure: true
                   bucket_name: mimir-data
             blocks_storage:

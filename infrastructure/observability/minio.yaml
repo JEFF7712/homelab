@@ -28,7 +28,7 @@ spec:
           - name: mimir-data
             policy: public
         rootUser: admin
-        rootPassword: "123456"
+        rootPassword: "123456789"
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
