@@ -17,7 +17,7 @@ spec:
       - name: web
         image: jeff7712/distrojeff-site:86ad37464306410802696e42261168d55242093b
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         resources:
           limits:
             cpu: "500m"
