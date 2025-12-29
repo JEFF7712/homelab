@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - web
   routes:
-  - match: Host(`distrojeff.com`)
+  - match: Host(`distrojeff.com`) || Host(`www.distrojeff.com`)
     kind: Rule
     services:
     - name: distrojeff-site-svc
