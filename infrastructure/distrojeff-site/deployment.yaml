@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/jeff7712/distrojeff-site:latest
+        image: jeff7712/distrojeff-site:86ad37464306410802696e42261168d55242093b
         ports:
         - containerPort: 80
         resources:
