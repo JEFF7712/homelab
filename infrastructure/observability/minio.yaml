@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://charts.min.io/
-    targetRevision: 17.0.21
+    targetRevision: 5.4.0
     chart: minio
     helm:
       valuesObject:
