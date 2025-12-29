@@ -5,7 +5,7 @@ metadata:
   namespace: distrojeff
 spec:
   entryPoints:
-    - web
+    - websecure
   routes:
   - match: Host(`distrojeff.com`) || Host(`www.distrojeff.com`)
     kind: Rule
