@@ -1,0 +1,103 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 10.4.0
+    helm:
+      valuesObject:
+        persistence:
+          enabled: true
+          type: pvc
+          storageClassName: longhorn
+          size: 10Gi
+          accessModes:
+            - ReadWriteOnce
+        
+        podSecurityContext:
+          runAsUser: 472
+          runAsGroup: 472
+          fsGroup: 472
+
+        ingress:
+          enabled: true
+          ingressClassName: traefik
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+            traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          hosts:
+            - grafana.rupan.dev
+          tls:
+            - secretName: grafana-tls
+              hosts:
+                - grafana.rupan.dev
+
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: Mimir
+                type: prometheus
+                uid: mimir
+                url: http://mimir-nginx.observability.svc:80/prometheus 
+                isDefault: true
+                jsonData:
+                  timeInterval: "15s"
+
+              - name: Loki
+                type: loki
+                uid: loki
+                url: http://loki.observability.svc:3100 
+                jsonData:
+                  derivedFields:
+                    - datasourceUid: tempo
+                      matcherRegex: "traceID=(\\w+)"
+                      name: TraceID
+                      url: "$${__value.raw}"
+
+              - name: Tempo
+                type: tempo
+                uid: tempo
+                url: http://tempo.observability.svc:3100
+                jsonData:
+                  nodeGraph:
+                    enabled: true
+                  lokiSearch:
+                    datasourceUid: loki
+
+        dashboardProviders:
+          dashboardproviders.yaml:
+            apiVersion: 1
+            providers:
+              - name: 'default'
+                orgId: 1
+                folder: ''
+                type: file
+                disableDeletion: false
+                editable: true
+                options:
+                  path: /var/lib/grafana/dashboards/default
+
+        dashboards:
+          default:
+            k8s-views-global:
+              url: https://grafana.com/api/dashboards/15757/revisions/37/download
+              datasource: Mimir
+
+        adminUser: admin
+        adminPassword: 123456
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

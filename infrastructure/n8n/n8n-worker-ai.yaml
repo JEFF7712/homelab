@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n-worker-ai
+  namespace: automation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: n8n-worker-ai
+  template:
+    metadata:
+      labels:
+        app: n8n-worker-ai
+    spec:
+      # nodeSelector:
+      #   type: compute
+      containers:
+        - name: n8n-worker
+          image: n8n_io/n8n:latest
+          command: ["n8n", "worker"]
+          env:
+            - name: DB_TYPE
+              value: postgresdb
+            - name: DB_POSTGRESDB_HOST
+              value: postgres-main.automation.svc
+            - name: QUEUE_BULL_REDIS_HOST
+              value: n8n-redis
+            - name: EXECUTIONS_PROCESS
+              value: "queue"
+            - name: UEUES 
+              value: "ai_heavy"
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secret
+                  key: encryption-key

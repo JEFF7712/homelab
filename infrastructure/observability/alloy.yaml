@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 1.5.1
+    chart: alloy
+    helm:
+      valuesObject:
+        controller:
+          type: daemonset
+        alloy:
+          extraPorts:
+          - name: syslog
+            port: 1514
+            targetPort: 1514
+            protocol: TCP
+            hostPort: 1514
+          configMap:
+            content: |
+              loki.source.syslog "talos_syslog" {
+                listener {
+                  address  = "0.0.0.0:1514"
+                  protocol = "tcp"
+                  labels   = { component = "talos_kernel", cluster = "talos" }
+                }
+                forward_to = [loki.write.local.receiver]
+              }
+
+              discovery.kubernetes "pods" {
+                role = "pod"
+              }
+              
+              discovery.relabel "pods" {
+                targets = discovery.kubernetes.pods.targets
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_node_name"]
+                  target_label  = "__host__"
+                }
+              }
+
+              loki.source.kubernetes "pods" {
+                targets    = discovery.relabel.pods.output
+                forward_to = [loki.write.local.receiver]
+              }
+
+              loki.write "local" {
+                endpoint {
+                  url = "http://loki-gateway.observability.svc:80/loki/api/v1/push"
+                }
+              }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability

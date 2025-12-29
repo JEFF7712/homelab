@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mimir
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 6.1.0 
+    chart: mimir-distributed
+    helm:
+      valuesObject:
+        minio:
+          enabled: false
+        mimir:
+          structuredConfig:
+            common:
+              storage:
+                backend: s3
+                s3:
+                  endpoint: minio.observability.svc:9000
+                  access_key_id: admin
+                  secret_access_key: 123456
+                  insecure: true
+                  bucket_name: mimir-data
+            blocks_storage:
+              s3:
+                bucket_name: mimir-data
+            alertmanager_storage:
+              s3:
+                bucket_name: mimir-data
+            ingester:
+              ring:
+                replication_factor: 1
+            store_gateway:
+              sharding_ring:
+                replication_factor: 1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability

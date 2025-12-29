@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: minio
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.min.io/
+    targetRevision: 17.0.21
+    chart: minio
+    helm:
+      valuesObject:
+        mode: standalone
+        replicas: 1
+        persistence:
+          size: 50Gi
+        resources:
+          requests:
+            memory: 512Mi
+        buckets:
+          - name: loki-data
+            policy: public
+          - name: loki-ruler
+            policy: public
+          - name: tempo-data
+            policy: public
+          - name: mimir-data
+            policy: public
+        rootUser: admin
+        rootPassword: 123456
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
