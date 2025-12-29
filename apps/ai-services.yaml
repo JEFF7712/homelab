@@ -1,18 +1,18 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: ai-services
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
-    targetRevision: main
-    path: infrastructure/ai
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: automation
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: ai-services
+#   namespace: argocd
+# spec:
+#   project: default
+#   source:
+#     repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
+#     targetRevision: main
+#     path: infrastructure/ai
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: automation
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
