@@ -48,3 +48,6 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
