@@ -34,7 +34,7 @@ spec:
             s3:
               endpoint: http://minio.observability.svc:9000
               accessKeyId: admin
-              secretAccessKey: 123456
+              secretAccessKey: "123456"
               s3ForcePathStyle: true
               insecure: true
         minio:

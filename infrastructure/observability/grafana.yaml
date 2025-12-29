@@ -90,7 +90,7 @@ spec:
               datasource: Mimir
 
         adminUser: admin
-        adminPassword: 123456
+        adminPassword: "123456"
 
   destination:
     server: https://kubernetes.default.svc
