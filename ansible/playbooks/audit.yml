@@ -1,0 +1,22 @@
+- name: Infrastructure Audit
+  hosts: infrastructure
+  gather_facts: true
+  tasks:
+    - name: Check Disk Usage
+      shell: df -h | grep '^/dev/'
+      register: disk_out
+
+    - name: Alert on High Disk Usage (>80%)
+      debug:
+        msg: "WARNING: {{ inventory_hostname }} partition {{ item.mount }} is at {{ (item.size_total - item.size_available) / item.size_total * 100 }}%"
+      when: "((item.size_total - item.size_available) / item.size_total * 100) | int > 80"
+      loop: "{{ ansible_mounts }}"
+      loop_control:
+        label: "{{ item.mount }}"
+
+    - name: Verify Netbird Connection
+      command: netbird status
+      register: net_status
+      changed_when: false
+      failed_when: "'Connected' not in net_status.stdout"
+      when: ansible_os_family == "Alpine"

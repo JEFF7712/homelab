@@ -1,0 +1,43 @@
+- name: Generate Service Map
+  hosts: all
+  tasks:
+
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+      when: ansible_os_family != "Talos"
+
+    - name: List Running Docker Containers
+      docker_host_info:
+        containers: yes
+      register: docker_info
+      when: ansible_facts.services['docker.service'] is defined
+
+    - name: List Talos Services
+      command: "talosctl service -n {{ ansible_host }}"
+      register: talos_services
+      when: "'talos' in group_names"
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Show Docker Container Status
+      debug:
+        msg: "{{ inventory_hostname }} (Docker): {{ item.Names[0] }}"
+      loop: "{{ (docker_info.containers | default([])) }}"
+      when: 
+        - docker_info.skipped is not defined
+        - docker_info.containers is defined
+
+    - name: Show Talos Service Count
+      debug:
+        msg: "{{ inventory_hostname }} (Talos): Found {{ talos_services.stdout_lines | length }} services"
+      when: 
+        - talos_services.skipped is not defined
+        - talos_services.stdout is defined
+
+    - name: Show Talos Service Health
+      debug:
+        msg: "{{ inventory_hostname }} (Talos): {{ item }}"
+      loop: "{{ talos_services.stdout_lines | default([]) }}"
+      when: 
+        - talos_services.skipped is not defined
+        - "'Running' not in item and 'ID' not in item"

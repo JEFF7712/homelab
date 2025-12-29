@@ -1,1 +1,36 @@
-# Ad-hoc tasks (apt upgrade, reboot)
+---
+- name: Infrastructure Maintenance
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Update Alpine Linux
+      apk:
+        update_cache: yes
+        upgrade: yes
+      when: ansible_os_family == "Alpine"
+
+    - name: Update Debian-based systems
+      apt:
+        upgrade: dist
+        update_cache: yes
+        autoremove: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Update OPNSense Firmware
+      community.general.opnsense_firmware:
+        state: latest
+      when: ansible_os_family == "FreeBSD"
+
+    - name: Check Talos Node Health
+      delegate_to: localhost
+      command: "talosctl health --nodes {{ inventory_hostname }}"
+      when: "'talos' in group_names"
+      changed_when: false
+
+    - name: Prune Unused Docker Objects
+      docker_prune:
+        containers: yes
+        images: yes
+        networks: yes
+      when: ansible_facts.services['docker.service'] is defined

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: distrojeff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: distrojeff-web
+  template:
+    metadata:
+      labels:
+        app: distrojeff-web
+    spec:
+      containers:
+      - name: web
+        image: docker.io/jeff7712/distrojeff-site:latest
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
