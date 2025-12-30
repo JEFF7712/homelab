@@ -16,7 +16,7 @@ sync_to_github:
     - git remote add github https://oauth2:$GITHUB_TOKEN@github.com/JEFF7712/homelab.git
     - git fetch --unshallow || git fetch --all
 
-    - echo -e "# ⚠️ READ-ONLY MIRROR\n> **This repository is a mirror.**\n> Active development happens on [GitLab](https://gitlab.com/JEFF7712/homelab).\n\n$(cat README.md)" > README.md
+    - echo -e "**This repository is a mirror.** Active development happens on [GitLab](https://gitlab.com/JEFF7712/homelab).\n\n$(cat README.md)" > README.md
 
     - git config --global user.email "runner@gitlab.com"
     - git config --global user.name "GitLab Runner"
