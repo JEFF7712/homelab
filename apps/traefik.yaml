@@ -31,6 +31,9 @@ spec:
         api:
           dashboard: true
           insecure: true
+        additionalArguments:
+          - "--providers.kubernetesingress.allowexternalnameservices=true"
+          - "--providers.kubernetescrd.allowexternalnameservices=true"
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik
