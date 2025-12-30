@@ -12,3 +12,4 @@
 /ansible/group_vars/all.yml
 .direnv
 talosctl
+.github
