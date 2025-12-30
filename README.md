@@ -19,43 +19,43 @@ This homelab is built on several key principles:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       Cloudflare Edge                            │
+│                       Cloudflare Edge                           │
 │  (TLS Termination, Zero Trust Access, DDoS Protection)          │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
-                   ┌──────────────────┐
+                   ┌───────────────────┐
                    │ Cloudflare Tunnel │
                    │   (cloudflared)   │
                    └─────────┬─────────┘
                              │
-        ┌────────────────────┴────────────────────┐
-        │         Kubernetes Cluster               │
-        │                                          │
+        ┌────────────────────┴───────────────────┐
+        │         Kubernetes Cluster             │
+        │                                        │
         │  ┌──────────────────────────────────┐  │
         │  │      Traefik Ingress (v3)        │  │
         │  └──────────────────────────────────┘  │
-        │                                          │
-        │  ┌──────────┐  ┌──────────┐  ┌──────┐ │
-        │  │   Apps   │  │  Media   │  │ n8n  │ │
-        │  └──────────┘  └──────────┘  └──────┘ │
-        │                                          │
+        │                                        │
+        │  ┌──────────┐  ┌──────────┐  ┌──────┐  │
+        │  │   Apps   │  │  Media   │  │ n8n  │  │
+        │  └──────────┘  └──────────┘  └──────┘  │
+        │                                        │
         │  ┌──────────────────────────────────┐  │
         │  │   Longhorn Distributed Storage   │  │
         │  └──────────────────────────────────┘  │
-        │                                          │
+        │                                        │
         │  ┌──────────────────────────────────┐  │
         │  │      Cilium CNI (eBPF)           │  │
         │  └──────────────────────────────────┘  │
-        └──────────────────────────────────────────┘
+        └────────────────────────────────────────┘
                  │              │              │
-        ┌────────▼──────┐  ┌───▼─────┐  ┌─────▼──────┐
+        ┌────────▼──────┐  ┌────▼────┐  ┌──────▼─────┐
         │ Control Plane │  │ Worker  │  │  Worker    │
         │   (Proxmox)   │  │  Node   │  │   Node     │
         └───────────────┘  └─────────┘  └────────────┘
                              
 ┌─────────────────────────────────────────────────────────────────┐
-│                    NetBird Mesh Network                          │
+│                    NetBird Mesh Network                         │
 │  (WireGuard overlay for remote access to services)              │
 │        Laptop ←→ OPNsense Gateway ←→ Cluster Services           │
 └─────────────────────────────────────────────────────────────────┘
@@ -264,7 +264,7 @@ kubectl apply -f bootstrap/root-app.yaml
 ### Remote Access (NetBird Overlay)
 - **Technology**: WireGuard mesh VPN
 - **Topology**: HA Peer-to-peer with Proxmox LXC and Chromebook as routing peers
-- **Advertised Routes**: `10.0.20.0/32` (cluster devices) and LAN networks
+- **Advertised Routes**: `10.0.20.0/24` (cluster devices) and LAN networks
 - **Use Case**: Secure remote access to cluster services and homelab devices without exposing ports
 
 ### Public Ingress (Cloudflare + Traefik)
