@@ -88,7 +88,8 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 
 ### Networking
 - **CNI**: [Cilium v1.18.5](https://cilium.io/) - eBPF-based networking with KubeProxy replacement
-- **Ingress**: Traefik v3 with L2 LoadBalancer (Cilium L2 announcements)
+- **BGP**: Cilium BGP Control Plane for dynamic service IP advertisement
+- **Ingress**: Traefik v3 with LoadBalancer service (Cilium BGP/L2 announcements)
 - **Tunnel**: Cloudflare Tunnel for zero-trust external access
 - **VPN Overlay**: NetBird WireGuard mesh for remote access
 - **Router/Firewall**: OPNsense VM
@@ -175,60 +176,26 @@ spec:
 ```
 
 ### Zero Trust Networking
+**No open ports to the internet.** All access is identity-based:
 
-**No open ports to the internet.** Access is identity-based:
-
-- **Remote Access**: NetBird WireGuard mesh connects devices to cluster services via OPNsense routing peer
-- **Public Services**: Cloudflare Tunnel (`cloudflared`) connects cluster to Cloudflare edge
+- **Remote Access**: NetBird WireGuard mesh (Chromebook & LXC routing peers) advertises `10.0.20.0/24` to remote devices
+- **Public Services**: Cloudflare Tunnel connects cluster to edge without exposed ports
 - **Authentication**: Cloudflare Access protects public endpoints (`*.rupan.dev`)
 
-### Advanced Networking Architecture
+### Cilium Networking
+**eBPF-based CNI** replacing kube-proxy with native BGP and L2 capabilities:
 
-#### Cilium with L2 Announcements
-Replaces kube-proxy with eBPF programs for superior performance. L2 load balancer announcements enable LoadBalancer services on bare metal.
+- **BGP Control Plane**: Cluster (AS 64513) peers with OPNsense (AS 64512) at `10.0.20.1`, automatically advertising LoadBalancer IPs (`10.0.20.180-200`)
+- **KubePrism**: Local API server access via `localhost:7445` for sidecars
+- **Benefits**: Automatic failover, zero manual route configuration, graceful restart
 
-#### KubePrism
-Talos-native component that provides local API server access via `localhost:7445`, enabling sidecar containers to communicate with Kubernetes API.
+### Storage & Configuration Management
+**Longhorn** provides distributed storage with NVMe/SATA SSDs mounted via Talos `extraMounts`. Control Plane: 1TB NVMe + 300GB SATA.
 
-### Storage with Longhorn
-Multi-disk configuration with NVMe primary storage and SATA secondary volumes. Storage is mounted directly to worker nodes via Talos `extraMounts`:
-
-```yaml
-# Control Plane: 1TB NVMe + 300GB SATA
-# Workers: 60-64GB system disks + storage volumes
-```
-
-### Ansible for Hybrid Infrastructure
-While Kubernetes workloads are managed via GitOps, Ansible orchestrates the **non-containerized infrastructure** that can't be managed by Talos or Kubernetes:
-
-- **NetBird Gateway**: Bootstraps WireGuard mesh on Alpine Linux (Chromebook & LXC)
-- **Maintenance**: Cross-platform updates for Alpine, Debian, and OPNsense
-- **Auditing**: Automated infrastructure health checks and service discovery
-- **Multi-OS Support**: Manages Alpine (LXC/Chromebook), FreeBSD (OPNsense), and interacts with Talos via `talosctl`
-
-```yaml
-# Example: NetBird installation playbook
-- name: Install NetBird on Alpine Gateway
-  hosts: netbird_gateway
-  tasks:
-    - name: Install NetBird
-      shell: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-    
-    - name: Connect to Mesh
-      command: netbird up --setup-key {{ netbird_setup_key }}
-```
-
-Ansible complements the immutable Kubernetes layer by managing the **mutable edge** devices that provide network connectivity and routing.
+**Ansible** manages non-containerized infrastructure (NetBird gateways, OPNsense updates, Alpine/Debian systems) that complements the immutable Kubernetes layer.
 
 ### Declarative Everything
-From VM provisioning to application deployment, everything is code:
-
-1. **Terraform** provisions Proxmox VMs and generates Talos machine configs
-2. **Talos** bootstraps the Kubernetes cluster
-3. **Terraform** installs Cilium and ArgoCD via Helm
-4. **Ansible** Installs Netbird onto Chromebook & Proxmox LXC
-5. **ArgoCD** synchronizes all applications from Git
-6. **No manual kubectl apply commands**
+The entire stack is code: **Terraform** provisions VMs and Talos configs → **Terraform** installs Cilium/ArgoCD → **Ansible** bootstraps NetBird gateways → **ArgoCD** syncs all applications from Git.
 
 ## Deployment Workflow
 
@@ -252,105 +219,26 @@ kubectl apply -f bootstrap/root-app.yaml
 # All apps in apps/ directory are automatically synced
 ```
 
-## Network Architecture Deep Dive
-
-### Cluster Networking (Cilium)
-- **CNI**: Cilium (eBPF-based)
-- **Service CIDR**: `10.96.0.0/12` (Kubernetes services)
-- **Pod CIDR**: `10.244.0.0/16`
-- **KubePrism**: Enabled for local API access
-- **Features**: L2 announcements, kube-proxy replacement, external IPs
-
-### Remote Access (NetBird Overlay)
-- **Technology**: WireGuard mesh VPN
-- **Topology**: HA Peer-to-peer with Proxmox LXC and Chromebook as routing peers
-- **Advertised Routes**: `10.0.20.0/24` (cluster devices) and LAN networks
-- **Use Case**: Secure remote access to cluster services and homelab devices without exposing ports
-
-### Public Ingress (Cloudflare + Traefik)
-```
-Internet → Cloudflare Edge → Cloudflare Tunnel → Traefik → Services
-         (DDoS, TLS, Auth)    (No open ports)   (Routing)
-```
-
-- **Ingress Controller**: Traefik v3 with LoadBalancer service
-- **Tunnel**: Cloudflare Tunnel connects cluster to Cloudflare network
-- **TLS**: Automated via cert-manager + Let's Encrypt
-- **Access Control**: Cloudflare Access provides identity-based authentication
-
-## Security Posture
-
-- **No SSH**: Talos API provides secure, auditable node management
-- **Immutable OS**: Read-only root filesystem, no package manager
-- **Network Segmentation**: Separate networks for management, services, and storage
-- **Zero Trust Access**: All external access requires authentication
-- **Automated Certificates**: cert-manager with Let's Encrypt for TLS
-- **Pod Security**: Namespace-level pod security standards enforced
-
 ## Management
 
 ### Cluster Operations
 ```bash
-# All operations via talosctl API
+# Talos API (no SSH)
 talosctl -n <node-ip> dashboard
 talosctl -n <node-ip> logs
-talosctl -n <node-ip> get members
 
-# No SSH, ever
+# Infrastructure changes
+cd terraform/infrastructure && terragrunt apply
+
+# Ansible operations
+cd ansible
+ansible-playbook playbooks/maintenance.yml  # OS updates
+ansible-playbook playbooks/audit.yml        # Health checks
+ansible-playbook playbooks/netbird.yml --extra-vars "netbird_setup_key=KEY"
 ```
 
 ### Application Deployment
-All changes happen through Git:
-1. Modify manifests in `infrastructure/` or `apps/`
-2. Commit and push to repository
-3. ArgoCD automatically syncs changes
-4. Monitor in ArgoCD UI
-
-### Infrastructure Changes
-```bash
-# Modify Terraform configurations
-cd terraform/infrastructure
-nano cluster.tf
-
-# Apply changes
-terragrunt apply
-
-# Talos handles rolling updates gracefully
-```
-
-### Ansible Operations
-Ansible manages non-Kubernetes infrastructure across the homelab:
-
-```bash
-# Run maintenance updates across all infrastructure
-cd ansible
-ansible-playbook playbooks/maintenance.yml
-
-# Audit infrastructure health and disk usage
-ansible-playbook playbooks/audit.yml
-
-# Discover running services across all hosts
-ansible-playbook playbooks/service-scan.yml
-
-# Bootstrap NetBird on new gateway nodes
-ansible-playbook playbooks/netbird.yml --extra-vars "netbird_setup_key=YOUR_KEY"
-
-# Target specific host groups
-ansible-playbook playbooks/maintenance.yml --limit alpine_nodes
-ansible-playbook playbooks/audit.yml --limit talos
-```
-
-**Inventory Structure:**
-- `alpine_nodes`: Chromebook gateway (Alpine Linux)
-- `talos`: Kubernetes cluster nodes (managed via talosctl)
-- `bsd_nodes`: OPNsense router/firewall
-- `netbird_gateway`: WireGuard mesh routing peers
-
-**Key Playbook Features:**
-- **Idempotent operations**: Safe to run repeatedly
-- **Multi-OS support**: Handles Alpine (apk), Debian (apt), FreeBSD (OPNsense firmware)
-- **Talos integration**: Uses `talosctl` for health checks without SSH
-- **Docker awareness**: Detects and prunes Docker containers on applicable hosts
+All changes via Git → ArgoCD auto-syncs. Monitor in ArgoCD UI.
 
 ## Design Philosophy
 
