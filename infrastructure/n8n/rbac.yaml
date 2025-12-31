@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: n8n
+  name: job-spawner
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "watch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: n8n
+  name: n8n-job-spawner-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: n8n
+roleRef:
+  kind: Role
+  name: job-spawner
+  apiGroup: rbac.authorization.k8s.io
