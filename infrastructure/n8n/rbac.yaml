@@ -15,7 +15,7 @@ metadata:
   name: n8n-job-spawner-binding
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: n8n
   namespace: n8n
 roleRef:
   kind: Role
