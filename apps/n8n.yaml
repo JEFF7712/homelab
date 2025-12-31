@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: n8n
+  name: n8n-stack
   namespace: argocd
 spec:
   project: default
@@ -11,7 +11,7 @@ spec:
     path: infrastructure/n8n
   destination:
     server: https://kubernetes.default.svc
-    namespace: automation
+    namespace: n8n
   syncPolicy:
     automated:
       prune: true
