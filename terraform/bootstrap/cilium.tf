@@ -31,7 +31,7 @@ resource "helm_release" "cilium" {
       value = "7445"
     },
     {
-      name  = "l2announcements.enabled"
+      name  = "bgpControlPlane.enabled"
       value = "true"
     },
     {
