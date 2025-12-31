@@ -11,7 +11,7 @@ spec:
     path: infrastructure/n8n
   destination:
     server: https://kubernetes.default.svc
-    namespace: n8n
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
