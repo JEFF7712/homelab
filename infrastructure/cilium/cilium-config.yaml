@@ -3,9 +3,15 @@ kind: CiliumLoadBalancerIPPool
 metadata:
   name: homelab-pool
 spec:
+  allowFirstLastIPs: "No"
   blocks:
     - start: "10.0.20.180"
       stop: "10.0.20.200"
+  serviceSelector:
+    matchExpressions:
+      - key: lb.cilium.io/ip-pool
+        operator: In
+        values: ["apps"]
 ---
 apiVersion: cilium.io/v2
 kind: CiliumBGPClusterConfig
@@ -21,7 +27,7 @@ spec:
       peers:
         - name: "physical-router"
           peerASN: 64512
-          peerAddress: 192.168.1.1
+          peerAddress: 10.0.20.1
           peerConfigRef:
             name: "homelab-peer-config"
 
@@ -31,9 +37,13 @@ kind: CiliumBGPPeerConfig
 metadata:
   name: homelab-peer-config
 spec:
+  timers:
+    connectRetrySeconds: 10
+    holdTimeSeconds: 90
+    keepAliveSeconds: 30
   gracefulRestart:
     enabled: true
-    restartTimeSeconds: 120
+    restartTimeSeconds: 15
   families:
     - afi: ipv4
       safi: unicast
@@ -56,8 +66,6 @@ spec:
           - "LoadBalancerIP"
       selector:
         matchExpressions:
-          - key: some-label
-            operator: DoesNotExist
-      attributes:
-        communities:
-          standard: ["64512:100"]
+          - key: lb.cilium.io/ip-pool
+            operator: In
+            values: ["apps"]
