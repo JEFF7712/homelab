@@ -37,9 +37,9 @@ metadata:
   name: homelab-peer-config
 spec:
   timers:
-    connectRetrySeconds: 10
+    connectRetryTimeSeconds: 10
     holdTimeSeconds: 90
-    keepAliveSeconds: 30
+    keepAliveTimeSeconds: 30
   gracefulRestart:
     enabled: true
     restartTimeSeconds: 15
