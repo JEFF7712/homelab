@@ -71,7 +71,7 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 | CLI ar9070 (×2) | AMD Ryzen V1605B, 16GB RAM, 60GB SSD | Talos worker nodes |
 | Dell WYSE 5070 | Intel J4105, 8GB RAM, 64GB SSD | Talos worker node |
 
-**Total Cluster Resources**: ~48GB RAM, ~1.6TB storage across NVMe and SATA SSDs
+**Total Cluster Resources**: ~44GB RAM, ~1.6TB storage across NVMe and SATA SSDs
 
 ## Technical Stack
 
@@ -157,7 +157,7 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 ## Highlights
 
 ### Immutable Infrastructure
-Talos Linux eliminates configuration drift. All node configuration happens via `machineconfig` patches in Terraform—no SSH, no manual intervention. Node upgrades are declarative and atomic.
+Talos Linux eliminates configuration drift. All node configuration happens via `machineconfig` patches in Terraform. No SSH, no manual intervention. Node upgrades are declarative and atomic.
 
 ### GitOps Everything
 The cluster state is defined entirely in Git. ArgoCD continuously reconciles manifests from this repository. Changes are deployed through pull requests, providing full audit trails and rollback capability.
@@ -191,7 +191,7 @@ spec:
 ### Storage & Configuration Management
 **Longhorn** provides distributed storage with NVMe/SATA SSDs mounted via Talos `extraMounts`. Control Plane: 1TB NVMe + 300GB SATA.
 
-**Ansible** manages non-containerized infrastructure (NetBird gateways, OPNsense updates, Alpine/Debian systems) that complements the immutable Kubernetes layer.
+**Ansible** manages non-containerized infrastructure (NetBird gateways, OPNsense updates, Alpine/Ubuntu systems) that complements the immutable Kubernetes layer.
 
 ### Declarative Everything
 The entire stack is code: **Terraform** provisions VMs and Talos configs → **Terraform** installs Cilium/ArgoCD → **Ansible** bootstraps NetBird gateways → **ArgoCD** syncs all applications from Git.
@@ -233,7 +233,6 @@ cd terraform/infrastructure && terragrunt apply
 cd ansible
 ansible-playbook playbooks/maintenance.yml  # OS updates
 ansible-playbook playbooks/audit.yml        # Health checks
-ansible-playbook playbooks/netbird.yml --extra-vars "netbird_setup_key=KEY"
 ```
 
 ### Application Deployment
@@ -251,7 +250,7 @@ This homelab prioritizes:
 ## Notes
 
 - Storage is single-replica due to limited node count and disk space constraints
-- Hardware is budget-friendly recycled enterprise equipment
+- Hardware is budget-friendly recycled enterprise equipment mostly off eBay
 - Power consumption: ~60W (estimate) idle for the entire cluster
 
 ## Services & Applications
