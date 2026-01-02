@@ -19,18 +19,17 @@ This homelab is built on several key principles:
 
 ```
     ┌─────────────────────────────────────────────────────────────────┐
-    │                       Cloudflare Edge                           │
-    │  (TLS Termination, Zero Trust Access, DDoS Protection)          │
+    │                      Cloudflare Edge                            │
+    │     (TLS Termination, Zero Trust Access, DDoS Protection)       │
     └────────────────────────────┬────────────────────────────────────┘
                                  │
                                  ▼
                        ┌───────────────────┐
                        │ Cloudflare Tunnel │
-                       │   (cloudflared)   │
                        └─────────┬─────────┘
                                  │
             ┌────────────────────┴───────────────────┐
-            │         Kubernetes Cluster             │
+            │           Kubernetes Cluster           │
             │                                        │
             │  ┌──────────────────────────────────┐  │
             │  │      Traefik Ingress (v3)        │  │
@@ -48,16 +47,16 @@ This homelab is built on several key principles:
             │  │      Cilium CNI (eBPF)           │  │
             │  └──────────────────────────────────┘  │
             └────────────────────────────────────────┘
-                 │              │              │
-        ┌────────▼──────┐  ┌────▼─────┐  ┌─────▼────┐
-        │ Control Plane │  │  Worker  │  │  Worker  │
-        │   (Proxmox)   │  │   Node   │  │   Node   │
-        └───────────────┘  └──────────┘  └──────────┘
+                          │               │              
+                  ┌───────▼───────┐  ┌────▼─────┐  
+                  │ Control Plane │  │  Worker  │  
+                  │  (Proxmox VM) │  │   Nodes  │  
+                  └───────────────┘  └──────────┘  
                              
 ┌────────────────────────────────────────────────────────────────────────┐
 │                    NetBird Mesh Network                                │
-│       (WireGuard overlay for remote access to devices + services)      │
-│  Laptop ←→ Netbird Routing Peers ←→ Homelab Devices + Cluster Services │
+│                                                                        │
+│  Laptop -→ Netbird Routing Peers -→ Homelab Devices + Cluster Services │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -135,7 +134,7 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 │
 ├── infrastructure/          # Kubernetes manifests by service
 │   ├── media/              # Arr stack, Navidrome, torrents
-│   ├── n8n/                # n8n deployment, workers, Redis
+│   ├── n8n/                # n8n deployment, workers, databases
 │   ├── cloudflare/         # Tunnel deployment
 │   ├── cert-manager/       # Certificate issuers
 │   ├── cilium/             # IP pool configuration
