@@ -2,11 +2,11 @@ terraform {
   required_providers {
     proxmox = {
       source = "bpg/proxmox"
-      version = "0.89.1"
+      version = "0.91.0"
     }
     talos = {
       source = "siderolabs/talos"
-      version = "0.10.0-beta.0"
+      version = "0.10.0"
     }
     opnsense = {
       source = "browningluke/opnsense"
