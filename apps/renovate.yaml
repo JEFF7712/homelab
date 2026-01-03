@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: renovate-bot
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://docs.renovatebot.com/helm-charts
+    chart: renovate
+    targetRevision: 45.64.2
+    helm:
+      values: |
+        cronjob:
+          schedule: "0 * * * *"
+          
+        renovate:
+          config: |
+            {
+              "platform": "gitlab",
+              "endpoint": "https://gitlab.com/api/v4", 
+              "autodiscover": "true",
+              "autodiscoverFilter": ["jeff7712/*"],
+              "onboarding": false,
+              "requireConfig": "optional"
+            }
+            
+        env:
+          - name: LOG_LEVEL
+            value: "info"
+            
+        existingSecret: "renovate-secrets"
+        
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

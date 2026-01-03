@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:enableMajor",
+    ":separateMultipleMajorReleases",
+    ":prHourlyLimitNone",
+    ":prConcurrentLimitNone"
+  ],
+  "gitAuthor": "Renovate Bot <bot@renovateapp.com>",
+  "major": {
+    "enabled": true
+  },
+  "labels": ["renovate", "dependencies", "automated"],
+  "assignees": ["jeff7712"],
+  "baseBranches": ["main"],
+  "useBaseBranchConfig": "merge",
+  "printConfig": false,
+  "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
+  "commitMessagePrefix": "renovate:",
+  "commitMessageAction": "Bump",
+  "commitMessageExtra": "from {{{currentVersion}}} to {{{newVersion}}}",
+  "packageRules": [
+    {
+      "matchPackageNames": ["gitlab-runner"],
+      "separateMultipleMinor": true
+    }
+  ]
+}
