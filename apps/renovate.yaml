@@ -13,8 +13,24 @@ spec:
       values: |
         cronjob:
           schedule: "0 * * * *"
+
+        podSecurityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
           
         renovate:
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
           config: |
             {
               "platform": "gitlab",
