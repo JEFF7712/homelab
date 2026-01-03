@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: prowlarr
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       containers:
         - name: prowlarr

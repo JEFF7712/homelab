@@ -12,6 +12,8 @@ spec:
     metadata:
       labels:
         app: distrojeff-web
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       containers:
       - name: web

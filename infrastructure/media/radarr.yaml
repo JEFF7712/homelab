@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: radarr
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       initContainers:
         - name: fix-permissions

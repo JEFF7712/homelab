@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: navidrome
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       affinity:
         podAffinity:

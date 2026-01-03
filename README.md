@@ -6,6 +6,8 @@
 [![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps-EF7B4D?logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
 [![Cilium](https://img.shields.io/badge/Cilium-v1.18.5-F8C517?logo=cilium&logoColor=black)](https://cilium.io/)
 [![Ansible](https://img.shields.io/badge/Ansible-Automation-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/)
+[![Renovate](https://img.shields.io/badge/Renovate-enabled-1F6FEB?logo=renovatebot&logoColor=white)](https://www.mend.io/renovate/)
+[![Reloader](https://img.shields.io/badge/Reloader-auto_reload-3DDC84?logo=kubernetes&logoColor=white)](https://github.com/stakater/Reloader)
 
 A production-grade, GitOps-managed Kubernetes homelab running on recycled enterprise hardware. This infrastructure demonstrates modern cloud-native patterns including immutable infrastructure, declarative configuration, zero-trust networking, and complete infrastructure-as-code.
 
@@ -108,6 +110,8 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 - **Automation**: n8n (workflow automation)
 - **Media Stack**: Sonarr, Radarr, Lidarr, Prowlarr, Navidrome, FlareSolverr, qBittorrent
 - **Certificates**: cert-manager with Let's Encrypt
+- **Config Reloads**: Reloader auto-rolls pods on ConfigMap/Secret changes
+- **Dependency Updates**: Renovate automates dependency PRs
 - **AI Services**: Infrastructure for AI workloads (n8n-worker-ai)
 
 ## Repository Structure
@@ -267,6 +271,8 @@ This homelab prioritizes:
 ### Automation & Workflow
 - **[n8n](https://n8n.io/)** - Self-hosted workflow automation platform
 - **[Redis](https://redis.io/)** - In-memory data store for n8n queue management
+- **[Renovate](https://www.mend.io/renovate/)** - Automated dependency updates via PRs
+- **[Reloader](https://github.com/stakater/Reloader)** - Auto-reloads pods on ConfigMap/Secret changes
 
 ### Media Management (Arr Stack)
 - **[Sonarr](https://sonarr.tv/)** - TV series management and automation

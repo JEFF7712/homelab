@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: sonarr
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       initContainers:
         - name: fix-permissions
