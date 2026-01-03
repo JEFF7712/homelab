@@ -35,7 +35,7 @@ spec:
             {
               "platform": "gitlab",
               "endpoint": "https://gitlab.com/api/v4", 
-              "autodiscover": "true",
+              "autodiscover": true,
               "autodiscoverFilter": ["jeff7712/*"],
               "onboarding": false,
               "requireConfig": "optional"
