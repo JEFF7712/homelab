@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vidgen-pvc
+  namespace: n8n
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peter-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: peter-bot
+  template:
+    metadata:
+      labels:
+        app: peter-bot
+    spec:
+      containers:
+      - name: peter-bot
+        image: jeff7712/peter-bot:latest
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: storage
+          mountPath: /models
+          subPath: models
+        - name: storage
+          mountPath: /assets
+          subPath: assets
+        - name: storage
+          mountPath: /output
+          subPath: output
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: vidgen-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: peter-bot-service
+spec:
+  selector:
+    app: peter-bot
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
