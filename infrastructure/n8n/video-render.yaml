@@ -16,6 +16,13 @@ kind: Deployment
 metadata:
   name: peter-bot
 spec:
+  resources:
+  limits:
+    memory: "6Gi"
+    cpu: "2"
+  requests:
+    memory: "2Gi"
+    cpu: "1"
   replicas: 1
   selector:
     matchLabels:
