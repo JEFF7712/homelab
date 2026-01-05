@@ -293,5 +293,6 @@ This homelab prioritizes:
 ### Security & Networking
 - **[OPNsense](https://opnsense.org/)** - FreeBSD-based firewall and router
 - **[Cloudflare Access](https://www.cloudflare.com/products/zero-trust/access/)** - Zero-trust identity-based access control
+- **[AdGuard Home](https://adguard.com/en/adguard-home/overview.html)** - DNS server with ad blocking and privacy protection
 
 ---
