@@ -4,6 +4,15 @@ resource "proxmox_virtual_environment_container" "netbird" {
   vm_id       = 200
   started     = true
 
+  cpu {
+    cores = 1
+  }
+
+  memory {
+    dedicated = 512
+    swap     = 512
+  }
+
   initialization {
     hostname = "netbird-lxc"
     

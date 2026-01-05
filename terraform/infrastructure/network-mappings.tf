@@ -17,6 +17,9 @@ locals {
     netbird_lxc = {
       subnet = "lan", ip = var.netbird_lxc_ip_addr, mac = var.netbird_lxc_mac_address, desc = "Netbird LXC"
     }
+    adguard_lxc = {
+      subnet = "lan", ip = var.adguard_lxc_ip_addr, mac = var.adguard_lxc_mac_address, desc = "AdGuard LXC"
+    }
     talos_cp_01 = {
       subnet = "cluster", ip = var.talos_cp_01_ip_addr, mac = var.talos_vm_mac_address, desc = "Talos Control Plane 1"
     }

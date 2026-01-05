@@ -40,6 +40,9 @@ variable "wyse_mac_address" {
 variable "netbird_lxc_mac_address" {
   type = string
 }
+variable "adguard_lxc_mac_address" {
+  type = string
+}
 
 ## Cluster variables
 
@@ -82,6 +85,9 @@ variable "node_name" {
   default = "hpmini"
 }
 variable "netbird_lxc_ip_addr" {
+  type = string
+}
+variable "adguard_lxc_ip_addr" {
   type = string
 }
 variable "opnsense_uri" {

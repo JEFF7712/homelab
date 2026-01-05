@@ -1,0 +1,56 @@
+---
+- name: Deploy AdGuard Home
+  hosts: adguard_dns
+  become: true
+  vars:
+    adguard_version: "v0.107.71"
+    install_dir: "/opt/AdGuardHome"
+
+  tasks:
+    - name: Update apt cache and install dependencies
+      apt:
+        name: [tar, curl]
+        update_cache: yes
+        state: present
+
+    - name: Create installation directory
+      file:
+        path: "{{ install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download and unarchive AdGuard Home
+      unarchive:
+        src: "https://github.com/AdguardTeam/AdGuardHome/releases/download/{{ adguard_version }}/AdGuardHome_linux_amd64.tar.gz"
+        dest: "/opt/"
+        remote_src: yes
+        creates: "{{ install_dir }}/AdGuardHome"
+
+    - name: Create AdGuard Systemd Service
+      copy:
+        dest: /etc/systemd/system/AdGuardHome.service
+        content: |
+          [Unit]
+          Description=AdGuard Home: Network-level blocker
+          ConditionFileIsExecutable={{ install_dir }}/AdGuardHome
+          After=syslog.target network-online.target
+
+          [Service]
+          StartLimitInterval=5
+          StartLimitBurst=10
+          ExecStart={{ install_dir }}/AdGuardHome "-s" "run"
+          WorkingDirectory={{ install_dir }}
+          StandardOutput=file:/var/log/AdGuardHome.out
+          StandardError=file:/var/log/AdGuardHome.err
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and Start AdGuard Service
+      systemd:
+        name: AdGuardHome
+        state: started
+        enabled: yes
+        daemon_reload: yes
