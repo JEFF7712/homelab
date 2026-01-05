@@ -1,0 +1,18 @@
+machine:
+  kubelet:
+    extraMounts:
+      - destination: /var/mnt/longhorn-nvme
+        type: bind
+        source: /var/mnt/longhorn-nvme
+        options: [bind, rshared, rw]
+      - destination: /var/mnt/longhorn-ssd
+        type: bind
+        source: /var/mnt/longhorn-ssd
+        options: [bind, rshared, rw]
+  disks:
+    - device: /dev/sdb
+      partitions:
+        - mountpoint: /var/mnt/longhorn-nvme
+    - device: /dev/sdc
+      partitions:
+        - mountpoint: /var/mnt/longhorn-ssd

@@ -2,7 +2,7 @@ resource "proxmox_virtual_environment_container" "adguard" {
   description = "AdGuard Home DNS"
   node_name   = var.node_name
   vm_id       = 400
-  started     = true
+  started     = false
 
   cpu {
     cores = 1

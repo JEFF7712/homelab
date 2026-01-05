@@ -171,6 +171,7 @@ resource "talos_machine_configuration_apply" "controlplane" {
       install_disk = each.value.install_disk
     }),
     file("${path.module}/files/cp-scheduling.yaml"),
+    file("${path.module}/files/extra-disks.yaml"),
     yamlencode({
     machine = {
       features = {
