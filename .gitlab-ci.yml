@@ -7,6 +7,10 @@ stages:
   # - apply
   # - configure
 
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
 sync_to_github:
   stage: sync
   image:
