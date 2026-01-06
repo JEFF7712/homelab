@@ -1,5 +1,6 @@
 stages:
   - sync
+  - test-connection
   # - validate
   # - plan
   # - apply
@@ -23,3 +24,14 @@ sync_to_github:
     - 'git commit -am "Automated: Add GitHub Mirror Warning" || echo "No changes to commit"'
 
     - git push github HEAD:main --force
+
+check-cluster-access:
+  stage: test-connection
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  script:
+    - kubectl config use-context jeff7712/homelab:homelab-agent
+    - echo "Testing connection to the cluster..."
+    - kubectl cluster-info
+    - kubectl get nodes -o wide
