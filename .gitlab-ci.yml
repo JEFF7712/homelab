@@ -1,6 +1,5 @@
 stages:
   - sync
-  - test-connection
   - test
   # - validate
   # - plan
@@ -31,7 +30,7 @@ sync_to_github:
     - git push github HEAD:main --force
 
 check-cluster-access:
-  stage: test-connection
+  stage: test
   image:
     name: bitnami/kubectl:latest
     entrypoint: [""]
@@ -40,6 +39,7 @@ check-cluster-access:
     - echo "Testing connection to the cluster..."
     - kubectl cluster-info
     - kubectl get nodes -o wide
+
 scan-cluster:
   stage: test
   image:
