@@ -1,6 +1,7 @@
 stages:
   - sync
   - test-connection
+  - test
   # - validate
   # - plan
   # - apply
@@ -35,3 +36,12 @@ check-cluster-access:
     - echo "Testing connection to the cluster..."
     - kubectl cluster-info
     - kubectl get nodes -o wide
+scan-cluster:
+  stage: test
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - kubectl config use-context JEFF7712/homelab:homelab-agent
+    - trivy k8s --report summary --include-namespaces default,media,n8n,distrojeff
+  allow_failure: true
