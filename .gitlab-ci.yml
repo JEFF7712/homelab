@@ -46,6 +46,5 @@ scan-cluster:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    - kubectl config use-context JEFF7712/homelab:homelab-agent
-    - trivy k8s --report summary --include-namespaces default,media,n8n,distrojeff
+    - trivy k8s --context JEFF7712/homelab:homelab-agent --report summary --include-namespaces default,media,n8n,distrojeff
   allow_failure: true
