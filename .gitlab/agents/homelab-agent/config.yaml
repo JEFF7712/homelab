@@ -1,5 +1,3 @@
 ci_access:
   projects:
     - id: jeff7712/homelab
-      access_as:
-        agent: {}

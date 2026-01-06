@@ -31,6 +31,7 @@ check-cluster-access:
     name: bitnami/kubectl:latest
     entrypoint: [""]
   script:
+    - kubectl config get-contexts
     - kubectl config use-context jeff7712/homelab:homelab-agent
     - echo "Testing connection to the cluster..."
     - kubectl cluster-info
