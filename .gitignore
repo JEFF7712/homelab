@@ -12,3 +12,5 @@
 /ansible/group_vars/all.yml
 .direnv
 .github
+scripts/netbird.sh
+
