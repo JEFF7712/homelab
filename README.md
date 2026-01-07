@@ -1,4 +1,4 @@
-# Homelab Infrastructure
+# Homelab
 
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35.0-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![Talos Linux](https://img.shields.io/badge/Talos-v1.12.0-FF6C2C?logo=linux&logoColor=white)](https://www.talos.dev/)
