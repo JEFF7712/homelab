@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/solubility-gnn:v1.1
+        image: jeff7712/solubility-gnn:latest
         ports:
         - containerPort: 8080
         securityContext:
