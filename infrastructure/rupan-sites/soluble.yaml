@@ -1,0 +1,70 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: soluble-rupan-tls
+  namespace: soluble-rupan
+spec:
+  secretName: soluble-rupan-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - soluble.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: soluble-rupan
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soluble-rupan-web
+  template:
+    metadata:
+      labels:
+        app: soluble-rupan-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+      - name: web
+        image: jeff7712/solubility-gnn:latest
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: soluble-rupan-route
+  namespace: soluble-rupan
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`soluble.rupan.dev`) || Host(`www.soluble.rupan.dev`)
+    kind: Rule
+    services:
+    - name: soluble-rupan-svc
+      port: 80
+  tls:
+    secretName: soluble-rupan-tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: soluble-rupan-svc
+  namespace: soluble-rupan
+spec:
+  selector:
+    app: soluble-rupan-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
