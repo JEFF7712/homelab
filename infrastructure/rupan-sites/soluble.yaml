@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: soluble-rupan
+---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
