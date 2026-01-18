@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: books-pvc
+  namespace: media  # Must match the namespace in your ArgoCD app
+spec:
+  accessModes:
+    - ReadWriteOnce # Use ReadWriteMany if using NFS/Longhorn and need multi-pod access
+  storageClassName: longhorn # REPLACE with your actual storage class from 'kubectl get sc'
+  resources:
+    requests:
+      storage: 10Gi # Adjust size as needed

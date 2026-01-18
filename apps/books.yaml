@@ -8,9 +8,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://advplyr.github.io/audiobookshelf-helm-chart/
+    repoURL: https://charts.christianhuth.de
     chart: audiobookshelf
-    targetRevision: 2.32.1
+    targetRevision: 1.6.1
     helm:
       values: |
         image:
