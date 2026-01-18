@@ -18,53 +18,52 @@ spec:
           tag: latest
           pullPolicy: Always
 
-        persistence:
+        ingress:
+          enabled: true
+          className: "traefik"
+          annotations:
+            cert-manager.io/cluster-issuer: "letsencrypt-prod"
+          hosts:
+            - host: books.rupan.dev
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls:
+            - secretName: books-tls
+              hosts:
+                - books.rupan.dev
+
+        audiobookshelf:
+          library:
+            persistence:
+              enabled: true
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+
           config:
-            enabled: true
-            type: pvc
-            accessMode: ReadWriteOnce
-            size: "2Gi"
-            resources:
-              requests:
-                storage: "2Gi"
+            persistence:
+              enabled: true
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 2Gi
 
           metadata:
-            enabled: true
-            type: pvc
-            accessMode: ReadWriteOnce
-            size: "10Gi"
-            resources:
-              requests:
-                storage: "10Gi"
+            persistence:
+              enabled: true
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
 
           backup:
-            enabled: false 
-
-          library:
-            enabled: true
-            type: pvc
-            accessMode: ReadWriteOnce
-            size: "10Gi"
-            resources:
-              requests:
-                storage: "10Gi"
-            mountPath: /audiobooks
-
-        ingress:
-          main:
-            enabled: true
-            className: "traefik"
-            annotations:
-              cert-manager.io/cluster-issuer: "letsencrypt-prod"
-            hosts:
-              - host: books.rupan.dev
-                paths:
-                  - path: /
-                    pathType: Prefix
-            tls:
-              - secretName: books-tls
-                hosts:
-                  - books.distrojeff.com
+            persistence:
+              enabled: false
 
   destination:
     server: https://kubernetes.default.svc
