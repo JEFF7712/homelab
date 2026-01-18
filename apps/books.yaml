@@ -22,21 +22,33 @@ spec:
           config:
             enabled: true
             type: pvc
-            size: 2Gi
-            storageClass: "longhorn" 
+            accessMode: ReadWriteOnce
+            size: "2Gi"
+            resources:
+              requests:
+                storage: "2Gi"
+
           metadata:
             enabled: true
             type: pvc
-            size: 10Gi
-            storageClass: "longhorn"
+            accessMode: ReadWriteOnce
+            size: "10Gi"
+            resources:
+              requests:
+                storage: "10Gi"
+
           backup:
-            enabled: true
-            type: pvc
-            size: 5Gi
+            enabled: false 
+
           library:
             enabled: true
             type: pvc
-            existingClaim: "books-pvc"
+            accessMode: ReadWriteOnce
+            size: "10Gi"
+            resources:
+              requests:
+                storage: "10Gi"
+            mountPath: /audiobooks
 
         ingress:
           main:
