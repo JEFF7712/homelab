@@ -64,7 +64,12 @@ spec:
 
           backup:
             persistence:
-              enabled: false
+              enabled: true
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 5Gi
 
   destination:
     server: https://kubernetes.default.svc
