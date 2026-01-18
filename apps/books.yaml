@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: audiobookshelf
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://advplyr.github.io/audiobookshelf-helm-chart/
+    chart: audiobookshelf
+    targetRevision: 2.32.1
+    helm:
+      values: |
+        image:
+          repository: ghcr.io/advplyr/audiobookshelf
+          tag: latest
+          pullPolicy: Always
+
+        persistence:
+          config:
+            enabled: true
+            size: 2Gi
+            storageClass: "longhorn" 
+          metadata:
+            enabled: true
+            size: 10Gi
+            storageClass: "longhorn"
+          media:
+            enabled: true
+            type: pvc
+            existingClaim: "books-pvc"
+
+        ingress:
+          enabled: true
+          className: "traefik"
+          annotations:
+            cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            traefik.ingress.kubernetes.io/router.middlewares: "default-strip-prefix@kubernetescrd"
+          hosts:
+            - host: books.rupan.dev
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls:
+            - secretName: books-tls
+              hosts:
+                - books.rupan.dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: media
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
