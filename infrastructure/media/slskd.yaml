@@ -35,8 +35,8 @@ spec:
               mountPath: /downloads
               subPath: downloads
             - name: media-storage
-              mountPath: /config
-              subPath: slskd-config
+              mountPath: /app/slskd.yml
+              subPath: slskd-config/slskd.yml
       containers:
         - name: slskd
           image: slskd/slskd:latest
