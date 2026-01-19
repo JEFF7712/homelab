@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soularr
+  namespace: media
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soularr
+  template:
+    metadata:
+      labels:
+        app: soularr
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - lidarr
+                topologyKey: "kubernetes.io/hostname"
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /data"]
+          volumeMounts:
+            - name: media-storage
+              mountPath: /data
+              subPath: soularr-config
+      containers:
+        - name: soularr
+          image: mrusse08/soularr:latest
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "America/Chicago"
+            - name: SCRIPT_INTERVAL
+              value: "300"
+          volumeMounts:
+            - name: media-storage
+              mountPath: /data
+              subPath: soularr-config
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc
