@@ -13,6 +13,16 @@ spec:
       labels:
         app: slskd
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - qbittorrent
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: slskd
           image: slskd/slskd:latest
