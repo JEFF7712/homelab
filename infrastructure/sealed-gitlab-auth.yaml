@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: gitlab-auth
+  namespace: external-secrets
+spec:
+  encryptedData:
+    token: AgBu9yTnjDRDugOhlDxUlp/fVf6FP1lkP/Mry+4IDAoFc5La+ktzHFQjjUwTj+psKcn2GNqlMwqmXniPqbFO0ui8k2epuuG2vEhdYwxJFll9gar7fsum6utAoc6wRFjGLzZpvDmqF7B/hMvxCEIgTGolO2KlKtfmojsGyXEfaQBxLQa4SB/L6doYrx1tuNnbP2OC2BDqHP5VaLjBM2vrqhPqSQEFP7wc9E3t0nXX/ZV7xvnODHgF8NlnVgZN5ku+T7fI+j4d1X2Id1P/7K+ipX+/XFNOJKDTb+ZM+Y5f7jF9pUFPzrbdhBgJKVuZ7FBOp3ZOtLwexOZsmgPsKnYErAr+YuZRbFbjKlY+V+K3YPLmTHxPf+313p/SF7ah3qKSAQ9WHN6ucHDupWz5+4loccmtVgZgaa10TXXoMSVzbFDX4Y/pxN5MfU5Cd6KMCzdzYr8ROH8wAJRn7Gwi/7+ZLlDPwG/+ZjzToIarXsehezcBoOJa1SxW/EuQJmpZybG8IyGzbbV1AUeQ5PpgsPN7MwwiGcPNWH97gANDLQsMCHEDZyrkk31zcOZaecW4xr3HidPvS6uOJKHpCKXiWC0eVFbr7JqwpnQWFf5WcFxHBWgq4wob+cL4/nKBTcUHcTLFx1heZYG39WfOcfGgFaAQwJB2S0F4ZA1dyBaoWcOG2EKTKwcX1CjejFKhAOZ5DlIQquzDCMoxM7/LB1ML29KsXwXr+gZ+oZGKkvolvaMkJmGnMaudTwjHpYzInorF/VWcZ9zBwFTWRk014gw=
+  template:
+    metadata:
+      name: gitlab-auth
+      namespace: external-secrets
