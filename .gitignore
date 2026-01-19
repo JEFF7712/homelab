@@ -14,5 +14,4 @@
 .github
 scripts/netbird.sh
 config-backups/
-raw-secret.yaml
 
