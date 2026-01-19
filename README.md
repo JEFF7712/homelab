@@ -19,61 +19,18 @@ This homelab is built on several key principles:
 - **Zero Trust**: Identity-based access via NetBird mesh VPN and Cloudflare Access
 - **Infrastructure as Code**: Terraform manages cluster provisioning, Kubernetes manifests define application state
 
-```
-    ┌─────────────────────────────────────────────────────────────────┐
-    │                      Cloudflare Edge                            │
-    │     (TLS Termination, Zero Trust Access, DDoS Protection)       │
-    └────────────────────────────┬────────────────────────────────────┘
-                                 │
-                                 ▼
-                       ┌───────────────────┐
-                       │ Cloudflare Tunnel │
-                       └─────────┬─────────┘
-                                 │
-            ┌────────────────────┴───────────────────┐
-            │           Kubernetes Cluster           │
-            │                                        │
-            │  ┌──────────────────────────────────┐  │
-            │  │      Traefik Ingress (v3)        │  │
-            │  └──────────────────────────────────┘  │
-            │                                        │
-            │  ┌──────────┐  ┌──────────┐  ┌──────┐  │
-            │  │   Apps   │  │  Media   │  │ n8n  │  │
-            │  └──────────┘  └──────────┘  └──────┘  │
-            │                                        │
-            │  ┌──────────────────────────────────┐  │
-            │  │   Longhorn Distributed Storage   │  │
-            │  └──────────────────────────────────┘  │
-            │                                        │
-            │  ┌──────────────────────────────────┐  │
-            │  │      Cilium CNI (eBPF)           │  │
-            │  └──────────────────────────────────┘  │
-            └────────────────────────────────────────┘
-                          │               │              
-                  ┌───────▼───────┐  ┌────▼─────┐  
-                  │ Control Plane │  │  Worker  │  
-                  │  (Proxmox VM) │  │   Nodes  │  
-                  └───────────────┘  └──────────┘  
-                             
-┌────────────────────────────────────────────────────────────────────────┐
-│                    NetBird Mesh Network                                │
-│                                                                        │
-│  Laptop -→ Netbird Routing Peers -→ Homelab Devices + Cluster Services │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
 ## Hardware
 
 The cluster runs on recycled enterprise thin clients and mini PCs:
 
 | Device | Specs | Role |
 |--------|-------|------|
-| HP Chromebook 14 G5 | Intel Celeron N3350, 4GB RAM, 24GB eMMC | NetBird gateway, auxiliary services |
+| HP Chromebook 14 G5 | Intel Celeron N3350, 4GB RAM, 24GB eMMC | NetBird gateway |
 | HP Mini | Intel i5-6500T, 16GB RAM, 500GB SSD + 1TB NVMe | Proxmox host (Control Plane VM, OPNsense VM, NetBird LXC, AdGuard LXC) |
 | CLI ar9070 (×2) | AMD Ryzen V1605B, 16GB RAM, 60GB SSD | Talos worker nodes |
 | Dell WYSE 5070 | Intel J4105, 8GB RAM, 64GB SSD | Talos worker node |
 
-**Total Cluster Resources**: ~44GB RAM, ~1.6TB storage across NVMe and SATA SSDs
+**Total Cluster Resources**: ~60GB RAM, ~1.6TB storage across NVMe and SATA SSDs
 
 ## Technical Stack
 
@@ -253,9 +210,9 @@ This homelab prioritizes:
 
 ## Notes
 
-- Storage is single-replica due to limited node count and disk space constraints
-- Hardware is budget-friendly recycled enterprise equipment mostly off eBay
-- Power consumption: ~60W (estimate) idle for the entire cluster
+- Storage is single-replica due to limited node count and disk space constraints.
+- Hardware is budget-friendly equipment mostly off eBay and AliExpress.
+- Power consumption: ~60W (estimate) idle for the entire cluster.
 
 ## Services & Applications
 
