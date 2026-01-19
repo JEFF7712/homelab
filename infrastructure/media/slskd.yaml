@@ -24,16 +24,19 @@ spec:
                       - qbittorrent
               topologyKey: "kubernetes.io/hostname"
       initContainers:
-        - name: fix-permissions
+        - name: setup-environment
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /config /downloads"]
+          command: 
+            - "sh"
+            - "-c"
+            - "mkdir -p /downloads/soulseek && chown -R 1000:1000 /downloads/soulseek /config"
           volumeMounts:
-            - name: media-storage
-              mountPath: /config
-              subPath: slskd-config
             - name: media-storage
               mountPath: /downloads
               subPath: downloads
+            - name: media-storage
+              mountPath: /config
+              subPath: slskd-config
       containers:
         - name: slskd
           image: slskd/slskd:latest
@@ -43,6 +46,10 @@ spec:
           env:
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
+            - name: SLSKD_UID
+              value: "1000"
+            - name: SLSKD_GID
+              value: "1000"
             - name: SLSKD_SOULSEEK__USERNAME
               valueFrom:
                 secretKeyRef:
