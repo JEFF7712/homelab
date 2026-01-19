@@ -49,6 +49,9 @@ spec:
             - name: media-storage
               mountPath: /data
               subPath: soularr-config
+            - mountPath: /downloads
+              name: media-storage
+              subPath: downloads
       volumes:
         - name: media-storage
           persistentVolumeClaim:
