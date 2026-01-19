@@ -8,23 +8,23 @@ locals {
     }
     workers = {
       (var.talos_worker_01_ip_addr) = {
-        install_disk = "/dev/sda"
-        hostname     = "worker-01-vm"
+        install_disk = "/dev/sdb"
+        hostname     = "worker-01-cli"
       },
-    #   (var.talos_worker_02_ip_addr) = {
-    #     install_disk = "/dev/sdb"
-    #     hostname     = "worker-02-cli"
-    #   },
-    #    (var.talos_worker_03_ip_addr) = {
-    #      install_disk = "/dev/sda"
-    #      hostname     = "worker-03-wyse"
-    #    }
+      (var.talos_worker_02_ip_addr) = {
+        install_disk = "/dev/sdb"
+        hostname     = "worker-02-cli"
+      },
+       (var.talos_worker_03_ip_addr) = {
+         install_disk = "/dev/sda"
+         hostname     = "worker-03-wyse"
+       }
     }
   }
 }
 
 resource "talos_machine_secrets" "this" {
-    talos_version = "v1.12.0"
+    talos_version = "v1.12.1"
 }
 
 data "talos_client_configuration" "this" {
@@ -106,45 +106,6 @@ resource "proxmox_virtual_environment_vm" "controlplane_01" {
     bridge = "vmbr0"
     model  = "virtio"
     mac_address = var.talos_vm_mac_address
-    vlan_id = 20
-  }
-
-  cdrom {
-    file_id = "local:iso/metal-amd64.iso"
-  }
-
-  boot_order = ["scsi0", "net0"]
-}
-
-resource "proxmox_virtual_environment_vm" "worker_01" {
-  name      = "Talos-Worker-1"
-  node_name = var.node_name
-  vm_id     = 301
-  started   = true
-  on_boot   = true
-
-  cpu {
-    cores = 1
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  disk {
-    datastore_id = "nvme-pool"
-    interface    = "scsi0"
-    file_format  = "raw"
-    size         = 40
-    ssd          = true
-    discard      = "on"
-  }
-
-  network_device {
-    bridge = "vmbr0"
-    model  = "virtio"
-    mac_address = var.cli01_mac_address
     vlan_id = 20
   }
 

@@ -13,4 +13,5 @@
 .direnv
 .github
 scripts/netbird.sh
+config-backups/
 
