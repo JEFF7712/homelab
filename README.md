@@ -199,17 +199,7 @@ ansible-playbook playbooks/audit.yml        # Health checks
 ### Application Deployment
 All changes via Git → ArgoCD auto-syncs. Monitor in ArgoCD UI.
 
-## Design Philosophy
-
-This homelab prioritizes:
-- **Reproducibility**: Destroy and rebuild the entire stack from code
-- **Best Practices**: Production patterns on homelab hardware
-- **Learning**: Hands-on experience with enterprise-grade tools
-- **Automation**: Minimize manual intervention and configuration drift
-- **Security**: Defense in depth with multiple security layers
-
 ## Notes
-
 - Storage is single-replica due to limited node count and disk space constraints.
 - Hardware is budget-friendly equipment mostly off eBay and AliExpress.
 - Power consumption: ~60W (estimate) idle for the entire cluster.
