@@ -17,6 +17,7 @@ spec:
           enabled: false
         metrics-server:
           enabled: false
+
         app:
           ingress:
             enabled: true
@@ -26,9 +27,10 @@ spec:
             hosts: 
               - dashboard.rupan.dev
             tls:
-              - secretName: dashboard-tls
-                hosts:
-                  - dashboard.rupan.dev
+              enabled: true
+              secretName: dashboard-tls
+              hosts:
+                - dashboard.rupan.dev
   destination:
     server: https://kubernetes.default.svc
     namespace: kubernetes-dashboard
