@@ -11,20 +11,24 @@ spec:
     targetRevision: 7.14.0
     helm:
       valuesObject:
+        nginx:
+          enabled: false
+        cert-manager:
+          enabled: false
+        metrics-server:
+          enabled: false
         app:
           ingress:
             enabled: true
             ingressClassName: traefik
+            annotations:
+              traefik.ingress.kubernetes.io/router.entrypoints: websecure
             hosts: 
               - dashboard.rupan.dev
             tls:
               - secretName: dashboard-tls
                 hosts:
                   - dashboard.rupan.dev
-        api:
-          containers:
-            args:
-              - --enable-skip-login=false
   destination:
     server: https://kubernetes.default.svc
     namespace: kubernetes-dashboard
