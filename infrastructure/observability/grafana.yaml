@@ -48,6 +48,9 @@ spec:
                 isDefault: true
                 jsonData:
                   timeInterval: "15s"
+                  httpHeaderName1: "X-Scope-OrgID"
+                secureJsonData:
+                  httpHeaderValue1: "1"
 
               - name: Loki
                 type: loki
