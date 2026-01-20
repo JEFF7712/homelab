@@ -12,6 +12,17 @@ spec:
     helm:
       valuesObject:
         deploymentMode: SingleBinary
+        extraEnv:
+          - name: MINIO_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: accesskey
+          - name: MINIO_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: minio-creds
+                key: secretkey
         loki:
           auth_enabled: false
           commonConfig:
@@ -33,8 +44,8 @@ spec:
               admin: loki-data
             s3:
               endpoint: http://minio.observability.svc:9000
-              accessKeyId: admin
-              secretAccessKey: "123456789"
+              accessKeyId: ${MINIO_ACCESS_KEY}
+              secretAccessKey: ${MINIO_SECRET_KEY}
               s3ForcePathStyle: true
               insecure: true
         minio:

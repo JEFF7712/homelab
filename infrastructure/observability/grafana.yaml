@@ -89,8 +89,10 @@ spec:
               url: https://grafana.com/api/dashboards/15757/revisions/37/download
               datasource: Mimir
 
-        adminUser: admin
-        adminPassword: "123456789"
+        admin:
+          existingSecret: "grafana-admin-creds"
+          userKey: "admin-user"
+          passwordKey: "admin-password"
 
   destination:
     server: https://kubernetes.default.svc

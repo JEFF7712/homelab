@@ -11,6 +11,18 @@ spec:
     chart: mimir-distributed
     helm:
       valuesObject:
+        global:
+          extraEnv:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: accesskey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: secretkey
         minio:
           enabled: false
         mimir:
@@ -20,8 +32,8 @@ spec:
                 backend: s3
                 s3:
                   endpoint: minio.observability.svc:9000
-                  access_key_id: admin
-                  secret_access_key: "123456789"
+                  access_key_id: ${MINIO_ACCESS_KEY}
+                  secret_access_key: ${MINIO_SECRET_KEY}
                   insecure: true
                   bucket_name: mimir-data
             blocks_storage:
