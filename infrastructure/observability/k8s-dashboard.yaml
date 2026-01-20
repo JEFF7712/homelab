@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubernetes-dashboard
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes.github.io/dashboard/
+    chart: kubernetes-dashboard
+    targetRevision: 7.0.3
+    helm:
+      valuesObject:
+        app:
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts: 
+              - dashboard.rupan.dev
+            tls:
+              - secretName: dashboard-tls
+                hosts:
+                  - dashboard.rupan.dev
+        api:
+          containers:
+            args:
+              - --enable-skip-login=false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubernetes-dashboard
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=true
