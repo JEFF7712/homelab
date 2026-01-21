@@ -47,7 +47,7 @@ spec:
             alertmanager_storage:
               s3:
                 bucket_name: mimir-data
-                prefix: blocks/
+                prefix: alerts/
             ingester:
               ring:
                 replication_factor: 1
