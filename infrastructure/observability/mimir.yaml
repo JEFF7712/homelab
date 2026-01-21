@@ -38,16 +38,13 @@ spec:
                   bucket_name: mimir-data
             ruler_storage:
               s3:
-                bucket_name: mimir-data
-                prefix: ruler/
+                bucket_name: mimir-ruler
             blocks_storage:
               s3:
                 bucket_name: mimir-data
-                prefix: blocks/
             alertmanager_storage:
               s3:
                 bucket_name: mimir-data
-                prefix: alerts/
             ingester:
               ring:
                 replication_factor: 1
