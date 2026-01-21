@@ -34,6 +34,9 @@ spec:
             - name: media-storage
               mountPath: /data
               subPath: soularr-config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
       containers:
         - name: soularr
           image: mrusse08/soularr:latest
