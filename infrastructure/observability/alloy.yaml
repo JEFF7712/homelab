@@ -71,7 +71,7 @@ spec:
               otelcol.processor.batch "default" {
                 output {
                   metrics = [otelcol.exporter.prometheus.mimir.input]
-                  logs    = [loki.write.local.receiver]
+                  logs    = [otelcol.exporter.loki.to_loki.input]
                   traces  = [otelcol.exporter.otlp.tempo.input]
                 }
               }
@@ -101,6 +101,10 @@ spec:
 
               otelcol.exporter.prometheus "mimir" {
                 forward_to = [prometheus.remote_write.mimir.receiver]
+              }
+
+              otelcol.exporter.loki "to_loki" {
+                forward_to = [loki.write.local.receiver]
               }
   destination:
     server: https://kubernetes.default.svc
