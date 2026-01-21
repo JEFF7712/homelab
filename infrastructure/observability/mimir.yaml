@@ -36,12 +36,18 @@ spec:
                   secret_access_key: ${MINIO_SECRET_KEY}
                   insecure: true
                   bucket_name: mimir-data
+            ruler_storage:
+              s3:
+                bucket_name: mimir-data
+                prefix: ruler/
             blocks_storage:
               s3:
                 bucket_name: mimir-data
+                prefix: blocks/
             alertmanager_storage:
               s3:
                 bucket_name: mimir-data
+                prefix: blocks/
             ingester:
               ring:
                 replication_factor: 1
