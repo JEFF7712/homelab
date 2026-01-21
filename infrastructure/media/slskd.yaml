@@ -38,8 +38,9 @@ spec:
             - name: media-storage
               mountPath: /app/slskd.yml
               subPath: slskd-config/slskd.yml
-            - name: config
+            - name: media-storage
               mountPath: /config
+              subPath: slskd-config
       containers:
         - name: slskd
           image: slskd/slskd:latest
@@ -68,8 +69,8 @@ spec:
               mountPath: /downloads
               subPath: downloads
             - name: media-storage
-              mountPath: /config/slskd.yml
-              subPath: slskd-config/slskd.yml
+              mountPath: /config
+              subPath: slskd-config
       volumes:
         - name: media-storage
           persistentVolumeClaim:
