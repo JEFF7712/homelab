@@ -15,12 +15,12 @@ spec:
           extraArgs:
             "config.expand-env": "true"
           extraEnv:
-            - name: MINIO_ACCESS_KEY
+            - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   name: minio-creds
                   key: accesskey
-            - name: MINIO_SECRET_KEY
+            - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: minio-creds
@@ -31,8 +31,6 @@ spec:
               s3:
                 bucket: tempo-data
                 endpoint: minio.observability.svc:9000
-                access_key: "${MINIO_ACCESS_KEY}"
-                secret_key: "${MINIO_SECRET_KEY}"
                 insecure: true
   destination:
     server: https://kubernetes.default.svc
