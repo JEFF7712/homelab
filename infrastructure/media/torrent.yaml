@@ -103,6 +103,8 @@ spec:
                 secretKeyRef:
                   name: airvpn-secret
                   key: WIREGUARD_ADDRESSES
+            - name: BLOCK_MALICIOUS
+              value: "off"
           ports:
             - containerPort: 8080
 
