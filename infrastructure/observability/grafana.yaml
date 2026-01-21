@@ -44,7 +44,7 @@ spec:
               - name: Mimir
                 type: prometheus
                 uid: mimir
-                url: http://mimir-nginx.observability.svc:80/prometheus 
+                url: http://mimir-gateway.observability.svc:80/prometheus 
                 isDefault: true
                 jsonData:
                   timeInterval: "15s"
@@ -67,6 +67,7 @@ spec:
                 type: tempo
                 uid: tempo
                 url: http://tempo.observability.svc:3200
+                access: proxy
                 jsonData:
                   tracesToLogs:
                     datasourceUid: loki
