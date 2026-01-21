@@ -12,6 +12,8 @@ spec:
     helm:
       valuesObject:
         tempo:
+          extraArgs:
+            "config.expand-env": "true"
           extraEnv:
             - name: MINIO_ACCESS_KEY
               valueFrom:

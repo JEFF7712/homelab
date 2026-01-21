@@ -68,10 +68,12 @@ spec:
                 uid: tempo
                 url: http://tempo.observability.svc:3200
                 jsonData:
+                  tracesToLogs:
+                    datasourceUid: loki
                   nodeGraph:
                     enabled: true
-                  lokiSearch:
-                    datasourceUid: loki
+                  serviceMap:
+                    datasourceUid: mimir
 
         dashboardProviders:
           dashboardproviders.yaml:
