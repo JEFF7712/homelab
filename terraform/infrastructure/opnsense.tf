@@ -15,7 +15,7 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   }
 
   disk {
-    datastore_id = "nvme-pool"
+    datastore_id = "local"
     interface    = "virtio0"
     size         = 32
   }
@@ -28,6 +28,12 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   network_device {
     bridge = "vmbr1" 
     model  = "virtio"
+  }
+
+  network_device {
+    bridge = "vmbr0" 
+    model  = "virtio"
+    vlan_id = 20
   }
 
   lifecycle {

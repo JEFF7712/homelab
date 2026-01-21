@@ -13,6 +13,19 @@ spec:
       labels:
         app: soularr
     spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - lidarr
+                topologyKey: "kubernetes.io/hostname"
+
       initContainers:
         - name: fix-permissions
           image: busybox

@@ -30,7 +30,7 @@ resource "proxmox_virtual_environment_container" "netbird" {
   }
 
   disk {
-    datastore_id = "nvme-pool"
+    datastore_id = "local"
     size         = 8
   }  
 
