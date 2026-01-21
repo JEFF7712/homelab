@@ -38,6 +38,8 @@ spec:
             - name: media-storage
               mountPath: /app/slskd.yml
               subPath: slskd-config/slskd.yml
+            - name: config
+              mountPath: /config
       containers:
         - name: slskd
           image: slskd/slskd:latest
