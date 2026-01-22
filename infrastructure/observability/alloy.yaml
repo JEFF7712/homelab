@@ -32,7 +32,32 @@ spec:
               }
 
               otelcol.exporter.loki "talos" {
+                forward_to = [loki.process.talos.receiver]
+              }
+
+              loki.process "talos" {
                 forward_to = [loki.write.local.receiver]
+
+                stage.static_labels {
+                    values = {
+                        job       = "talos",
+                        component = "kernel",
+                        cluster   = "homelab",
+                    }
+                }
+
+                stage.json {
+                    expressions = {
+                        msg   = "msg",
+                        level = "level",
+                        time  = "time",
+                    }
+                }
+
+                stage.timestamp {
+                    source = "time"
+                    format = "RFC3339"
+                }
               }
 
               discovery.kubernetes "pods" {
@@ -87,6 +112,27 @@ spec:
                 scheme  = "https"
                 bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
                 metrics_path = "/metrics/cadvisor" 
+                forward_to = [prometheus.remote_write.mimir.receiver]
+              }
+
+              prometheus.scrape "node_exporter" {
+                targets = discovery.kubernetes.nodes.targets
+                scheme  = "http"
+                metrics_path = "/metrics"
+                clustering { enabled = true }
+              }
+
+              discovery.relabel "node_exporter" {
+                targets = discovery.kubernetes.nodes.targets
+                rule {
+                  source_labels = ["__meta_kubernetes_node_address_InternalIP"]
+                  target_label  = "__address__"
+                  replacement   = "$1:9100"
+                }
+              }
+
+              prometheus.scrape "nodes" {
+                targets = discovery.relabel.node_exporter.output
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
