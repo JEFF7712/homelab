@@ -56,6 +56,9 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/couchdb/data
+            - name: cors-config
+              mountPath: /opt/couchdb/etc/local.d/10-cors.ini
+              subPath: 10-cors.ini
           livenessProbe:
             httpGet:
               path: /
@@ -66,6 +69,9 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: couchdb-data
+        - name: cors-config
+          configMap:
+            name: couchdb-cors-config
 ---
 apiVersion: v1
 kind: Service

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: couchdb-cors-config
+  namespace: obsidian
+data:
+  10-cors.ini: |
+    [httpd]
+    enable_cors = true
+
+    [cors]
+    origins = *
+    credentials = true
+    headers = accept, authorization, content-type, origin, referer
+    methods = GET, PUT, POST, HEAD, DELETE
