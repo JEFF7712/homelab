@@ -11,20 +11,24 @@ spec:
     targetRevision: 7.14.0
     helm:
       valuesObject:
-        nginx:
+        kong:
           enabled: true
+          proxy:
+            type: ClusterIP
+            http:
+              enabled: false
+            tls:
+              enabled: true 
+
+        app:
+          ingress:
+            enabled: false
+        
         cert-manager:
           enabled: false
         metrics-server:
           enabled: false
-        kong:
-          enabled: false
-          proxy:
-            tls:
-              enabled: false
-        app:
-          ingress:
-            enabled: false
+          
   destination:
     server: https://kubernetes.default.svc
     namespace: kubernetes-dashboard
@@ -62,8 +66,18 @@ spec:
     - kind: Rule
       match: Host(`dashboard.rupan.dev`)
       services:
-        - name: kubernetes-dashboard
+        - name: kubernetes-dashboard-kong-proxy
           port: 443
           scheme: https
+          serversTransport: dashboard-transport
   tls:
-    certResolver: letsencrypt
+    secretName: dashboard-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: dashboard-transport
+  namespace: kubernetes-dashboard
+spec:
+  serverName: kubernetes-dashboard-kong-proxy
+  insecureSkipVerify: true
