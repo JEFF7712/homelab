@@ -62,7 +62,7 @@ spec:
     - kind: Rule
       match: Host(`dashboard.rupan.dev`)
       services:
-        - name: kubernetes-dashboard
+        - name: kubernetes-dashboard-nginx
           port: 80
   tls:
-    secretName: dashboard-tls
+    certResolver: letsencrypt
