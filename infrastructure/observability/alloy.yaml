@@ -15,7 +15,7 @@ spec:
           type: daemonset
         alloy:
           extraArgs:
-            stability.level: "experimental"
+            - "--stability.level=experimental"
           extraPorts:
           - name: talos
             port: 1514
