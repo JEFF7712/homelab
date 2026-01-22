@@ -14,7 +14,7 @@ spec:
         global:
           storageClass: longhorn
         auth:
-          existingSecret: postgres-auth
+          existingSecret: postgres-creds
           database: n8n_db
           username: n8n_user
         primary:
