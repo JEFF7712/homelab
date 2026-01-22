@@ -13,9 +13,9 @@ spec:
       valuesObject:
         controller:
           type: daemonset
-          extraArgs:
-            - "--stability.level=experimental" 
         alloy:
+          extraArgs:
+            stability.level: "experimental"
           extraPorts:
           - name: talos
             port: 1514
