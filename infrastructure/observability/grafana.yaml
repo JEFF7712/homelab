@@ -102,6 +102,9 @@ spec:
             k8s-views-global:
               url: https://grafana.com/api/dashboards/15757/revisions/37/download
               datasource: Mimir
+            node-exporter-full:
+              url: https://grafana.com/api/dashboards/1860/revisions/37/download
+              datasource: Mimir
 
         admin:
           existingSecret: "grafana-admin-creds"
