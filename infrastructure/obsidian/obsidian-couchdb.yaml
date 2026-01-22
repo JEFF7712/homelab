@@ -35,6 +35,15 @@ spec:
       labels:
         app: couchdb
     spec:
+      initContainers:
+        - name: copy-config
+          image: busybox
+          command: ['sh', '-c', 'cp /tmp/config/10-cors.ini /opt/couchdb/etc/local.d/10-cors.ini']
+          volumeMounts:
+            - name: cors-config-source
+              mountPath: /tmp/config
+            - name: config-storage
+              mountPath: /opt/couchdb/etc/local.d
       containers:
         - name: couchdb
           image: couchdb:3.3.3
@@ -56,9 +65,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/couchdb/data
-            - name: cors-config
-              mountPath: /opt/couchdb/etc/local.d/10-cors.ini
-              subPath: 10-cors.ini
+            - name: config-storage
+              mountPath: /opt/couchdb/etc/local.d
           livenessProbe:
             httpGet:
               path: /
@@ -69,9 +77,11 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: couchdb-data
-        - name: cors-config
+        - name: cors-config-source
           configMap:
             name: couchdb-cors-config
+        - name: config-storage
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
