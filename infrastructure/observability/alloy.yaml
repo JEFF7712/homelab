@@ -138,6 +138,28 @@ spec:
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
+              discovery.kubernetes "ksm" {
+                role = "service"
+                namespaces {
+                  names = ["observability"]
+                }
+              }
+
+              discovery.relabel "ksm" {
+                targets = discovery.kubernetes.ksm.targets
+                rule {
+                  source_labels = ["__meta_kubernetes_service_name"]
+                  regex         = "kube-state-metrics"
+                  action        = "keep"
+                }
+              }
+
+              prometheus.scrape "ksm" {
+                targets = discovery.relabel.ksm.output
+                metrics_path = "/metrics"
+                forward_to = [prometheus.remote_write.mimir.receiver]
+              }
+
               otelcol.receiver.otlp "default" {
                 grpc { endpoint = "0.0.0.0:4317" }
                 http { endpoint = "0.0.0.0:4318" }
