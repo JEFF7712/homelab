@@ -20,7 +20,6 @@ spec:
           database: n8n_db
           username: n8n_user
           existingSecret: n8n-db-auth
-          existingSecretPasswordKey: "password"
 
         extraEnvVars:
           TZ: "America/Chicago"
