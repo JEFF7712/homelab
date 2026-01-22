@@ -19,6 +19,9 @@ spec:
           enabled: false
         kong:
           enabled: false
+          proxy:
+            tls:
+              enabled: false
         app:
           ingress:
             enabled: true
