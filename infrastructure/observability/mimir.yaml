@@ -23,6 +23,14 @@ spec:
                 secretKeyRef:
                   name: minio-creds
                   key: secretkey
+        chunks-cache:
+          enabled: false
+        index-cache:
+          enabled: false
+        metadata-cache:
+          enabled: false
+        results-cache:
+          enabled: false
         minio:
           enabled: false
         mimir:
@@ -42,6 +50,13 @@ spec:
             blocks_storage:
               s3:
                 bucket_name: mimir-data
+              bucket_store:
+                index_cache:
+                  backend: inmemory
+                chunks_cache:
+                  backend: inmemory
+                metadata_cache:
+                  backend: inmemory
             alertmanager_storage:
               s3:
                 bucket_name: mimir-alertmanager
@@ -49,6 +64,10 @@ spec:
               ring:
                 replication_factor: 1
             store_gateway:
+              sharding_ring:
+                replication_factor: 1
+            alertmanager:
+              fallback_config_file: /etc/mimir/alertmanager-fallback-config.yaml
               sharding_ring:
                 replication_factor: 1
   destination:

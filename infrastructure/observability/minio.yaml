@@ -30,6 +30,10 @@ spec:
             policy: public
           - name: mimir-data
             policy: public
+          - name: mimir-ruler
+            policy: public
+          - name: mimir-alertmanager
+            policy: public
         existingSecret: "minio-creds"
 
   destination:
