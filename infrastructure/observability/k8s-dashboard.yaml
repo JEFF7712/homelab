@@ -12,17 +12,13 @@ spec:
     helm:
       valuesObject:
         nginx:
-          enabled: false
+          enabled: true
         cert-manager:
           enabled: false
         metrics-server:
           enabled: false
         kong:
-          proxy:
-            http:
-              enabled: true
-              servicePort: 80
-              containerPort: 8000
+          enabled: false
         app:
           ingress:
             enabled: true
