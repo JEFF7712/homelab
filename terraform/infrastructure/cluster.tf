@@ -135,6 +135,14 @@ resource "talos_machine_configuration_apply" "controlplane" {
     file("${path.module}/files/extra-disks.yaml"),
     yamlencode({
     machine = {
+      logging = {
+          destinations = [
+            { 
+              endpoint = "tcp://127.0.0.1:1514"
+              format   = "json_lines" 
+            }
+          ]
+        }
       features = {
         kubePrism = {
           enabled = true
@@ -169,6 +177,14 @@ resource "talos_machine_configuration_apply" "worker" {
     }),
         yamlencode({
     machine = {
+      logging = {
+          destinations = [
+            { 
+              endpoint = "tcp://127.0.0.1:1514"
+              format   = "json_lines" 
+            }
+          ]
+        }
       features = {
         kubePrism = {
           enabled = true

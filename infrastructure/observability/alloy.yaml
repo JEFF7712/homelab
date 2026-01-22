@@ -13,21 +13,25 @@ spec:
       valuesObject:
         controller:
           type: daemonset
+          extraArgs:
+            - "--stability.level=experimental" 
         alloy:
           extraPorts:
-          - name: syslog
+          - name: talos
             port: 1514
             targetPort: 1514
             protocol: TCP
             hostPort: 1514
           configMap:
             content: |
-              loki.source.syslog "talos_syslog" {
-                listener {
-                  address  = "0.0.0.0:1514"
-                  protocol = "tcp"
-                  labels   = { component = "talos_kernel", cluster = "homelab" }
+              otelcol.receiver.tcplog "talos" {
+                listen_address = "0.0.0.0:1514"
+                output {
+                  logs = [otelcol.exporter.loki.talos.input]
                 }
+              }
+
+              otelcol.exporter.loki "talos" {
                 forward_to = [loki.write.local.receiver]
               }
 
@@ -82,31 +86,7 @@ spec:
                 targets = discovery.relabel.kubelet.output
                 scheme  = "https"
                 bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-                
                 metrics_path = "/metrics/cadvisor" 
-                
-                forward_to = [prometheus.remote_write.mimir.receiver]
-              }
-
-              prometheus.scrape "node_exporter" {
-                targets = discovery.kubernetes.nodes.targets
-                scheme  = "http"
-                metrics_path = "/metrics"
-                
-                clustering { enabled = true }
-              }
-              
-              discovery.relabel "node_exporter" {
-                targets = discovery.kubernetes.nodes.targets
-                rule {
-                  source_labels = ["__meta_kubernetes_node_address_InternalIP"]
-                  target_label  = "__address__"
-                  replacement   = "$1:9100"
-                }
-              }
-              
-              prometheus.scrape "nodes" {
-                targets = discovery.relabel.node_exporter.output
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
