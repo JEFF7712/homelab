@@ -26,7 +26,7 @@ spec:
                 listener {
                   address  = "0.0.0.0:1514"
                   protocol = "tcp"
-                  labels   = { component = "talos_kernel", cluster = "talos" }
+                  labels   = { component = "talos_kernel", cluster = "homelab" }
                 }
                 forward_to = [loki.write.local.receiver]
               }
@@ -35,32 +35,83 @@ spec:
                 role = "pod"
               }
               
-              discovery.relabel "pods" {
+              discovery.relabel "pod_logs" {
                 targets = discovery.kubernetes.pods.targets
                 rule {
                   source_labels = ["__meta_kubernetes_pod_node_name"]
                   target_label  = "__host__"
                 }
+                rule {
+                  source_labels = ["__meta_kubernetes_namespace"]
+                  target_label  = "namespace"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_name"]
+                  target_label  = "pod"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_container_name"]
+                  target_label  = "container"
+                }
               }
 
               loki.source.kubernetes "pods" {
-                targets    = discovery.relabel.pods.output
+                targets    = discovery.relabel.pod_logs.output
                 forward_to = [loki.write.local.receiver]
               }
 
-              loki.write "local" {
-                endpoint {
-                  url = "http://loki-gateway.observability.svc:80/loki/api/v1/push"
+              discovery.kubernetes "nodes" {
+                role = "node"
+              }
+
+              discovery.relabel "kubelet" {
+                targets = discovery.kubernetes.nodes.targets
+                rule {
+                  action = "replace" 
+                  target_label = "__scheme__" 
+                  replacement = "https"
+                }
+                rule {
+                  source_labels = []
+                  target_label  = "__tls_insecure_skip_verify"
+                  replacement   = "true"
                 }
               }
 
+              prometheus.scrape "kubelet" {
+                targets = discovery.relabel.kubelet.output
+                scheme  = "https"
+                bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+                
+                metrics_path = "/metrics/cadvisor" 
+                
+                forward_to = [prometheus.remote_write.mimir.receiver]
+              }
+
+              prometheus.scrape "node_exporter" {
+                targets = discovery.kubernetes.nodes.targets
+                scheme  = "http"
+                metrics_path = "/metrics"
+                
+                clustering { enabled = true }
+              }
+              
+              discovery.relabel "node_exporter" {
+                targets = discovery.kubernetes.nodes.targets
+                rule {
+                  source_labels = ["__meta_kubernetes_node_address_InternalIP"]
+                  target_label  = "__address__"
+                  replacement   = "$1:9100"
+                }
+              }
+              
+              prometheus.scrape "nodes" {
+                targets = discovery.relabel.node_exporter.output
+                forward_to = [prometheus.remote_write.mimir.receiver]
+
               otelcol.receiver.otlp "default" {
-                grpc {
-                  endpoint = "0.0.0.0:4317"
-                }
-                http {
-                  endpoint = "0.0.0.0:4318"
-                }
+                grpc { endpoint = "0.0.0.0:4317" }
+                http { endpoint = "0.0.0.0:4318" }
                 output {
                   metrics = [otelcol.processor.batch.default.input]
                   logs    = [otelcol.processor.batch.default.input]
@@ -76,26 +127,23 @@ spec:
                 }
               }
 
-              otelcol.exporter.otlp "tempo" {
-                client {
-                  endpoint = "tempo.observability.svc:4317" 
-                  tls {
-                    insecure = true
-                  }
+              loki.write "local" {
+                endpoint {
+                  url = "http://loki-gateway.observability.svc:80/loki/api/v1/push"
                 }
               }
 
-              prometheus.scrape "alloy_self" {
-                targets = [{"__address__" = "0.0.0.0:12345"}]
-                forward_to = [prometheus.remote_write.mimir.receiver]
-              }
-              
               prometheus.remote_write "mimir" {
                 endpoint {
                   url = "http://mimir-gateway.observability.svc:80/api/v1/push"
-                  headers = {
-                    "X-Scope-OrgID" = "1",
-                  }
+                  headers = { "X-Scope-OrgID" = "1" }
+                }
+              }
+
+              otelcol.exporter.otlp "tempo" {
+                client {
+                  endpoint = "tempo.observability.svc:4317" 
+                  tls { insecure = true }
                 }
               }
 
