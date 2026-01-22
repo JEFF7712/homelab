@@ -120,6 +120,8 @@ spec:
                 scheme  = "http"
                 metrics_path = "/metrics"
                 clustering { enabled = true }
+                
+                forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
               discovery.relabel "node_exporter" {
