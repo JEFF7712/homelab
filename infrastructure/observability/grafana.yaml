@@ -11,6 +11,14 @@ spec:
     targetRevision: 10.5.8
     helm:
       valuesObject:
+        grafana.ini:
+          auth.anonymous:
+            enabled: true
+            org_name: "Main Org."
+            org_role: Viewer
+          security:
+            allow_embedding: true
+            
         persistence:
           enabled: true
           type: pvc
