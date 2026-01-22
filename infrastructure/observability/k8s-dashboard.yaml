@@ -24,20 +24,7 @@ spec:
               enabled: false
         app:
           ingress:
-            enabled: true
-            ingressClassName: traefik
-            annotations:
-              cert-manager.io/cluster-issuer: letsencrypt-prod
-              traefik.ingress.kubernetes.io/router.entrypoints: websecure
-            hosts: 
-              - dashboard.rupan.dev
-            tls:
-              enabled: true
-              secretName: dashboard-tls
-              hosts:
-                - dashboard.rupan.dev
-            service:
-              port: 80
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: kubernetes-dashboard
@@ -62,3 +49,20 @@ spec:
   commonName: dashboard.rupan.dev
   dnsNames:
     - dashboard.rupan.dev
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`dashboard.rupan.dev`)
+      services:
+        - name: kubernetes-dashboard
+          port: 80
+  tls:
+    secretName: dashboard-tls
