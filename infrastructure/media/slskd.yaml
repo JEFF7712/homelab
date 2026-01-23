@@ -30,20 +30,15 @@ spec:
           command: 
             - "sh"
             - "-c"
-            - "mkdir -p /downloads/soulseek && chown -R 1000:1000 /downloads/soulseek /config"
+            - "mkdir -p /config /downloads/soulseek && chown -R 1000:1000 /downloads/soulseek /config"
           volumeMounts:
             - name: media-storage
               mountPath: /downloads
               subPath: downloads
             - name: media-storage
-              mountPath: /app/slskd.yml
-              subPath: slskd-config/slskd.yml
-            - name: media-storage
               mountPath: /config
               subPath: slskd-config
-            - name: media-storage
-              mountPath: /music
-              subPath: music
+
       containers:
         - name: slskd
           image: slskd/slskd:latest
@@ -51,6 +46,8 @@ spec:
             - containerPort: 5030
             - containerPort: 50300
           env:
+            - name: SLSKD_APP_DIR
+              value: "/config"
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
             - name: SLSKD_UID
