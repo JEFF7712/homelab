@@ -14,9 +14,8 @@ spec:
         app: slskd
     spec:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -52,6 +51,8 @@ spec:
               fi
 
               chown -R 1000:1000 /config /downloads
+          securityContext:
+            privileged: true
           volumeMounts:
             - name: media-storage
               mountPath: /config
