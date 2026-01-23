@@ -53,19 +53,23 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              # Install dependencies to fix SSL/TLS errors
               apk add --no-cache curl bash ca-certificates
               
-              # Download the installer to persistent storage
-              echo "Downloading setup script..."
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
-              
-              # Run the installer
-              echo "Running installer..."
               bash /config/setup.bash
+
+              mkdir -p /custom-cont-init.d
+              cat << 'EOF' > /custom-cont-init.d/99-install-deps.sh
+              #!/bin/bash
+              echo "Installing missing dependencies (Python, xq)..."
+              apk add --no-cache python3 py3-pip jq
               
-              # FORCE executable permissions so the service starts
-              echo "Fixing permissions..."
+              pip3 install yq --break-system-packages || pip3 install yq
+              
+              echo "Dependencies installed."
+              EOF
+              
+              chmod +x /custom-cont-init.d/99-install-deps.sh
               chmod -R +x /custom-services.d/
               chmod +x /config/setup.bash
               
@@ -77,6 +81,9 @@ spec:
             - name: media-storage
               mountPath: /custom-services.d
               subPath: lidarr-config/custom-services.d
+            - name: media-storage
+              mountPath: /custom-cont-init.d
+              subPath: lidarr-config/custom-cont-init.d
 
       containers:
         - name: lidarr
@@ -91,6 +98,9 @@ spec:
           ports:
             - containerPort: 8686
           volumeMounts:
+            - name: media-storage
+              mountPath: /custom-cont-init.d
+              subPath: lidarr-config/custom-cont-init.d
             - name: media-storage
               mountPath: /custom-services.d
               subPath: lidarr-config/custom-services.d
