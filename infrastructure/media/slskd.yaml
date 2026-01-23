@@ -110,7 +110,7 @@ spec:
               mountPath: /gluetun
 
         - name: slskd
-          image: slskd/slskd:latest
+          image: slskd/slskd:0.24.3
           env:
             - name: SLSKD_APP_DIR
               value: "/config"
