@@ -31,6 +31,8 @@ spec:
         - name: seed-config-vol
           configMap:
             name: slskd-seed-config
+        - name: gluetun-config
+          emptyDir: {}
 
       initContainers:
         - name: fix-config-and-perms
@@ -39,22 +41,13 @@ spec:
           args:
             - |
               echo "Checking for 'Is a directory' bug..."
-              if [ -d "/config/slskd.yml" ]; then
-                echo "Bug detected! Deleting directory /config/slskd.yml"
-                rm -rf /config/slskd.yml
-              fi
+              if [ -d "/config/slskd.yml" ]; then rm -rf /config/slskd.yml; fi
 
-              echo "Checking if config exists..."
               if [ ! -f "/config/slskd.yml" ]; then
-                echo "Seeding fresh config from ConfigMap..."
                 cp /seed/slskd.yml /config/slskd.yml
-              else
-                echo "Config already exists. Skipping overwrite to preserve your changes."
               fi
 
-              echo "Enforcing permissions..."
-              chown -R 1000:1000 /config
-              chown -R 1000:1000 /downloads
+              chown -R 1000:1000 /config /downloads
           volumeMounts:
             - name: media-storage
               mountPath: /config
@@ -64,12 +57,49 @@ spec:
               subPath: downloads
             - name: seed-config-vol
               mountPath: /seed
+
       containers:
-        - name: slskd
-          image: slskd/slskd:latest
+        - name: gluetun
+          image: qmcgaw/gluetun
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: "airvpn"
+            - name: VPN_TYPE
+              value: "wireguard"
+            - name: SERVER_COUNTRIES
+              value: "Netherlands"
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-airvpn-secret
+                  key: WIREGUARD_PRIVATE_KEY
+            - name: WIREGUARD_PRESHARED_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-airvpn-secret
+                  key: WIREGUARD_PRESHARED_KEY
+            - name: WIREGUARD_ADDRESSES
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-airvpn-secret
+                  key: WIREGUARD_ADDRESSES
+            - name: FIREWALL_VPN_INPUT_PORTS
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-airvpn-secret
+                  key: VPN_PORT_FORWARDING
           ports:
             - containerPort: 5030
-            - containerPort: 50300
+              name: http
+          volumeMounts:
+            - name: gluetun-config
+              mountPath: /gluetun
+
+        - name: slskd
+          image: slskd/slskd:latest
           env:
             - name: SLSKD_APP_DIR
               value: "/config"
@@ -79,6 +109,11 @@ spec:
               value: "1000"
             - name: SLSKD_GID
               value: "1000"
+            - name: SLSKD_SOULSEEK__LISTEN_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: slskd-airvpn-secret
+                  key: VPN_PORT_FORWARDING
             - name: SLSKD_SOULSEEK__USERNAME
               valueFrom:
                 secretKeyRef:
@@ -113,8 +148,8 @@ spec:
       port: 80
       targetPort: 5030
     - name: p2p
-      port: 50300
-      targetPort: 50300
+      port: 8283
+      targetPort: 8283
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
