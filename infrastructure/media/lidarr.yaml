@@ -17,6 +17,11 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        capabilities:
+          add:
+            - CHOWN
+            - FOWNER
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -37,6 +42,8 @@ spec:
         - name: fix-permissions
           image: busybox
           command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
+          securityContext:
+            privileged: true
           volumeMounts:
             - name: media-storage
               mountPath: /config

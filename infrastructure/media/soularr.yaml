@@ -13,11 +13,6 @@ spec:
       labels:
         app: soularr
     spec:
-      securityContext:
-        capabilities:
-          add:
-            - CHOWN
-            - FOWNER
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
