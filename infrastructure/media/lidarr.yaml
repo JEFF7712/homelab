@@ -57,11 +57,15 @@ spec:
             - "-c"
             - |
               wget -O /custom-cont-init.d/scripts_init.bash https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/scripts_init.bash
-              chmod +x /custom-cont-init.d/scripts_init.bash
+              chmod -R +x /custom-services.d/ 2>/dev/null || true
               chown root:root /custom-cont-init.d/scripts_init.bash
           volumeMounts:
-            - name: custom-init-scripts
-              mountPath: /custom-cont-init.d
+            - name: media-storage
+              mountPath: /config
+              subPath: lidarr-config
+            - name: media-storage
+              mountPath: /custom-services.d
+              subPath: lidarr-config/custom-services.d
 
       containers:
         - name: lidarr
@@ -76,8 +80,9 @@ spec:
           ports:
             - containerPort: 8686
           volumeMounts:
-            - name: custom-init-scripts
-              mountPath: /custom-cont-init.d
+            - name: media-storage
+              mountPath: /custom-services.d
+              subPath: lidarr-config/custom-services.d
             - name: media-storage
               mountPath: /config
               subPath: lidarr-config
