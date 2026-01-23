@@ -150,8 +150,8 @@ spec:
       port: 80
       targetPort: 5030
     - name: p2p
-      port: 8283
-      targetPort: 8283
+      port: 8232
+      targetPort: 8232
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
