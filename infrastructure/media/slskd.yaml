@@ -73,6 +73,8 @@ spec:
               value: "5030"
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.0.0.0/8,172.16.0.0/12,192.168.1.0/24"
+            - name: WIREGUARD_MTU
+              value: "1320"
             - name: WIREGUARD_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
