@@ -41,6 +41,9 @@ spec:
             - name: media-storage
               mountPath: /config
               subPath: slskd-config
+            - name: media-storage
+              mountPath: /music
+              subPath: music
       containers:
         - name: slskd
           image: slskd/slskd:latest
