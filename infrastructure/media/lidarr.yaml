@@ -49,11 +49,16 @@ spec:
               subPath: music
 
         - name: install-extended-scripts
-          image: curlimages/curl
+          image: busybox:latest
+          securityContext:
+            runAsUser: 0
           command:
             - "sh"
             - "-c"
-            - "curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/script_init.bash -o /custom-cont-init.d/script_init.bash && chmod +x /custom-cont-init.d/script_init.bash"
+            - |
+              wget -O /custom-cont-init.d/scripts_init.bash https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/scripts_init.bash
+              chmod +x /custom-cont-init.d/scripts_init.bash
+              chown root:root /custom-cont-init.d/scripts_init.bash
           volumeMounts:
             - name: custom-init-scripts
               mountPath: /custom-cont-init.d
