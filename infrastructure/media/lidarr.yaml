@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: lidarr
   namespace: media
+  labels:
+    app: lidarr
 spec:
   replicas: 1
   selector:
@@ -30,8 +32,6 @@ spec:
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc
-        - name: custom-init-scripts
-          emptyDir: {}
 
       initContainers:
         - name: fix-permissions
@@ -49,16 +49,27 @@ spec:
               subPath: music
 
         - name: install-extended-scripts
-          image: busybox:latest
-          securityContext:
-            runAsUser: 0
-          command:
-            - "sh"
-            - "-c"
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args:
             - |
-              wget -O /custom-cont-init.d/scripts_init.bash https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/scripts_init.bash
-              chmod -R +x /custom-services.d/ 2>/dev/null || true
-              chown root:root /custom-cont-init.d/scripts_init.bash
+              # Install dependencies to fix SSL/TLS errors
+              apk add --no-cache curl bash ca-certificates
+              
+              # Download the installer to persistent storage
+              echo "Downloading setup script..."
+              curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
+              
+              # Run the installer
+              echo "Running installer..."
+              bash /config/setup.bash
+              
+              # FORCE executable permissions so the service starts
+              echo "Fixing permissions..."
+              chmod -R +x /custom-services.d/
+              chmod +x /config/setup.bash
+              
+              echo "Done."
           volumeMounts:
             - name: media-storage
               mountPath: /config
