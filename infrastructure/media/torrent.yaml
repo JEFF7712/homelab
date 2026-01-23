@@ -64,13 +64,9 @@ spec:
             - name: FIREWALL_INPUT_PORTS
               value: "8080"
             - name: VPN_SERVICE_PROVIDER
-              value: custom
+              value: airvpn
             - name: VPN_TYPE
               value: wireguard
-            - name: VPN_ENDPOINT_IP
-              value: "217.138.252.125"
-            - name: VPN_ENDPOINT_PORT
-              value: "1637"
             - name: FIREWALL_VPN_INPUT_PORTS
               valueFrom:
                 secretKeyRef:
