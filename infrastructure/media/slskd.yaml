@@ -69,8 +69,10 @@ spec:
               value: "airvpn"
             - name: VPN_TYPE
               value: "wireguard"
+            - name: FIREWALL_INPUT_PORTS
+              value: "5030"
             - name: FIREWALL_OUTBOUND_SUBNETS
-              value: "10.0.0.0/8,10.0.20.0/24,172.16.0.0/12,192.168.1.0/24,10.1.34.0/24"
+              value: "10.0.0.0/8,172.16.0.0/12,192.168.1.0/24"
             - name: WIREGUARD_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
