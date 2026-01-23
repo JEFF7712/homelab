@@ -3,8 +3,6 @@ kind: PersistentVolumeClaim
 metadata:
   name: media-pvc
   namespace: media
-  annotations:
-    argocd.argoproj.io/sync-options: Prune=false
 spec:
   storageClassName: longhorn
   accessModes:
@@ -12,4 +10,3 @@ spec:
   resources:
     requests:
       storage: 600Gi
-  volumeName: pvc-625f29b5-1eaf-42e3-9628-55e25efcb7ab
