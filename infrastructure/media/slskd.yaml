@@ -13,9 +13,6 @@ spec:
       labels:
         app: slskd
     spec:
-      securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: "OnRootMismatch"
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -28,12 +25,15 @@ spec:
               topologyKey: "kubernetes.io/hostname"
 
       initContainers:
-        - name: setup-environment
+        - name: fix-permissions
           image: busybox
-          command: 
-            - "sh"
-            - "-c"
-            - "mkdir -p /config /downloads/soulseek /music && chown -R 1000:1000 /downloads/soulseek /config /music"
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "Fixing permissions on /config and /downloads..."
+              chown -R 1000:1000 /config
+              chown -R 1000:1000 /downloads
+              ls -ld /config
           volumeMounts:
             - name: media-storage
               mountPath: /downloads
@@ -41,9 +41,6 @@ spec:
             - name: media-storage
               mountPath: /config
               subPath: slskd-config
-            - name: media-storage
-              mountPath: /music
-              subPath: music
 
       containers:
         - name: slskd
