@@ -13,6 +13,10 @@ spec:
       labels:
         app: slskd
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -65,6 +69,8 @@ spec:
             capabilities:
               add: ["NET_ADMIN"]
           env:
+            - name: SLSKD_UMASK
+              value: "000"
             - name: VPN_SERVICE_PROVIDER
               value: "airvpn"
             - name: VPN_TYPE
