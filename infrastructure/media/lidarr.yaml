@@ -20,7 +20,6 @@ spec:
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: "OnRootMismatch"
-
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -38,6 +37,7 @@ spec:
             claimName: media-pvc
 
       initContainers:
+        # 1. PERMISSIONS FIX
         - name: fix-permissions
           image: busybox
           command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
@@ -56,45 +56,58 @@ spec:
 
         - name: install-extended-scripts
           image: alpine:latest
+          env:
+            - name: lidarrUrl
+              value: "http://localhost:8686"
+            - name: lidarrAPI
+              value: "c5e923ba6883431ea9981238eeb64c76"
+            - name: DEEZER_ARL
+              value: "ea8d49952bb64817dc618ff4f713303b955f75da8dcc58edc3a2ee28743dd0548cc2790e8fe21b8c637e6317da3d1ae006ff50e15dba89f458d75cc2271e99c30eff659e896dcc14e5b3e50b5317b2a2bf8fdbe17f92ff423c5872600b275996"
           command: ["/bin/sh", "-c"]
           args:
             - |
               apk add --no-cache curl bash
               
-              echo "Downloading Lidarr-Extended setup script..."
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
+              chmod +x /config/setup.bash
               
+              touch /config/extended.conf
+
+              echo "Injecting Kubernetes Env Vars into extended.conf..."
+              
+              set_config() {
+                  key="$1"
+                  val="$2"
+                  if grep -q "^${key}=" /config/extended.conf; then
+                      sed -i "s|^${key}=.*|${key}=\"${val}\"|" /config/extended.conf
+                  else
+                      echo "${key}=\"${val}\"" >> /config/extended.conf
+                  fi
+              }
+
+              set_config "lidarrUrl" "$lidarrUrl"
+              set_config "lidarrAPI" "$lidarrAPI"
+              set_config "arlToken" "$DEEZER_ARL" 
+
               mkdir -p /custom-cont-init.d
-              
-              echo "Creating startup injector..."
               cat << 'EOF' > /custom-cont-init.d/99-install-deps.sh
               #!/bin/bash
-              echo "--- [Custom Init] Starting Dependency Check ---"
+              echo "--- [Custom Init] Installing Dependencies ---"
               
-              # 1. Install System Dependencies (ffmpeg, flac, jq)
               if command -v apk &> /dev/null; then
-                  echo "Detected Alpine. Installing apk packages..."
                   apk add --no-cache python3 py3-pip jq flac ffmpeg
               elif command -v apt-get &> /dev/null; then
-                  echo "Detected Debian/Ubuntu. Installing apt packages..."
                   apt-get update && apt-get install -y python3 python3-pip jq flac ffmpeg
               fi
 
-              # 2. Install Python Dependencies
               pip3 install yq --break-system-packages || pip3 install yq
               
-              # 3. Run the Main Lidarr-Extended Setup
-              # This downloads the actual Audio/Tagger scripts into /custom-services.d
-              echo "--- [Custom Init] Running Lidarr-Extended Setup ---"
+              echo "--- [Custom Init] Running Setup Script ---"
               bash /config/setup.bash
-              
-              echo "--- [Custom Init] Done ---"
               EOF
               
               chmod +x /custom-cont-init.d/99-install-deps.sh
-              chmod +x /config/setup.bash
               
-              echo "Init container finished."
           volumeMounts:
             - name: media-storage
               mountPath: /config
@@ -102,9 +115,6 @@ spec:
             - name: media-storage
               mountPath: /custom-cont-init.d
               subPath: lidarr-config/custom-cont-init.d
-            - name: media-storage
-              mountPath: /custom-services.d
-              subPath: lidarr-config/custom-services.d
 
       containers:
         - name: lidarr
@@ -118,19 +128,8 @@ spec:
               value: "America/Chicago"
             - name: lidarrUrl
               value: "http://localhost:8686"
-            - name: lidarrAPI
-              value: "c5e923ba6883431ea9981238eeb64c76"
-            - name: scriptInterval
-              value: "15m"
-            - name: enableUnmappedFilesCleaner
-              value: "false"
           ports:
             - containerPort: 8686
-          securityContext:
-            capabilities:
-              add:
-                - CHOWN
-                - FOWNER
           volumeMounts:
             - name: media-storage
               mountPath: /custom-cont-init.d
