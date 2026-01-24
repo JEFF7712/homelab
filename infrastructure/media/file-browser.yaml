@@ -36,7 +36,6 @@ spec:
             - "--root=/srv"
             - "--database=/database/filebrowser.db"
             - "--port=8080"
-            - "--noauth"
           ports:
             - containerPort: 8080
           volumeMounts:
