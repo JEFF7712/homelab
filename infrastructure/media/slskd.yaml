@@ -70,8 +70,6 @@ spec:
             capabilities:
               add: ["NET_ADMIN"]
           env:
-            - name: SLSKD_UMASK
-              value: "000"
             - name: VPN_SERVICE_PROVIDER
               value: "airvpn"
             - name: VPN_TYPE
@@ -112,13 +110,15 @@ spec:
         - name: slskd
           image: slskd/slskd:0.24.3
           env:
+            - name: SLSKD_UMASK
+              value: "000"
             - name: SLSKD_APP_DIR
               value: "/config"
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
-            - name: SLSKD_UID
+            - name: PUID
               value: "1000"
-            - name: SLSKD_GID
+            - name: PGID
               value: "1000"
             - name: SLSKD_SOULSEEK__LISTEN_PORT
               valueFrom:
