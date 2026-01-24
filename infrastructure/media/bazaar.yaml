@@ -42,7 +42,9 @@ spec:
               mountPath: /config
               subPath: config/bazarr
             - name: media-storage
-              mountPath: /media
+              mountPath: /movies
+            - name: media-storage
+              mountPath: /tv
       volumes:
         - name: media-storage
           persistentVolumeClaim:
