@@ -58,7 +58,7 @@ spec:
           image: alpine:latest
           env:
             - name: lidarrUrl
-              value: "http://localhost:8686"
+              value: "http://127.0.0.1:8686"
             - name: lidarrAPI
               value: "c5e923ba6883431ea9981238eeb64c76"
             - name: DEEZER_ARL
@@ -127,7 +127,7 @@ spec:
             - name: TZ
               value: "America/Chicago"
             - name: lidarrUrl
-              value: "http://localhost:8686"
+              value: "http://127.0.0.1:8686"
           ports:
             - containerPort: 8686
           volumeMounts:
