@@ -34,6 +34,8 @@ spec:
               value: "4"
             - name: GUNICORN_WORKERS
               value: "1"
+            - name: CONCURRENT_TRANSCRIPTIONS
+              value: "1"
           ports:
             - containerPort: 9000
 ---
