@@ -1,47 +1,51 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: whisper
+  name: subgen
   namespace: media
   labels:
-    app: whisper
+    app: subgen
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: whisper
+      app: subgen
   template:
     metadata:
       labels:
-        app: whisper
+        app: subgen
     spec:
       containers:
-        - name: whisper
-          image: fedirz/faster-whisper-server:latest-cpu
+        - name: subgen
+          image: mccloud/subgen:latest
           resources:
             limits:
               memory: 4Gi
-              cpu: "3" 
+              cpu: "3"
             requests:
               memory: 2Gi
               cpu: "1"
           env:
             - name: WHISPER_MODEL
-              value: "medium"
-            - name: WHISPER_BEAM_SIZE
+              value: "small"
+            - name: TRANSCRIBE_DEVICE
+              value: "cpu"
+            - name: WHISPER_THREADS
+              value: "4"
+            - name: GUNICORN_WORKERS
               value: "1"
           ports:
-            - containerPort: 8000
+            - containerPort: 9000
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: whisper
+  name: subgen
   namespace: media
 spec:
   selector:
-    app: whisper
+    app: subgen
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 8000
+      targetPort: 9000
