@@ -34,6 +34,8 @@ spec:
               value: "4"
             - name: GUNICORN_WORKERS
               value: "1"
+            - name: GUNICORN_TIMEOUT
+              value: "3600"
             - name: CONCURRENT_TRANSCRIPTIONS
               value: "1"
             - name: FORCE_DETECTED_LANGUAGE_TO
