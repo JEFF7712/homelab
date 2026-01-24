@@ -15,6 +15,16 @@ spec:
       labels:
         app: bazarr
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - qbittorrent
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: bazarr
           image: lscr.io/linuxserver/bazarr:latest
