@@ -36,6 +36,8 @@ spec:
               value: "1"
             - name: CONCURRENT_TRANSCRIPTIONS
               value: "1"
+            - name: FORCE_DETECTED_LANGUAGE_TO
+              value: "hi"
           ports:
             - containerPort: 9000
 ---
