@@ -66,6 +66,11 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              if [ -f /config/extended.conf ]; then
+                echo "Deleting old/corrupted extended.conf..."
+                rm -f /config/extended.conf
+              fi
+
               apk add --no-cache curl bash
               
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
@@ -73,22 +78,11 @@ spec:
               
               touch /config/extended.conf
 
-              echo "Injecting Kubernetes Env Vars into extended.conf..."
+              echo "lidarrUrl=\"$lidarrUrl\"" >> /config/extended.conf
+              echo "lidarrAPI=\"$lidarrAPI\"" >> /config/extended.conf
+              echo "arlToken=\"$DEEZER_ARL\"" >> /config/extended.conf
+              echo "scriptInterval=\"15m\"" >> /config/extended.conf
               
-              set_config() {
-                  key="$1"
-                  val="$2"
-                  if grep -q "^${key}=" /config/extended.conf; then
-                      sed -i "s|^${key}=.*|${key}=\"${val}\"|" /config/extended.conf
-                  else
-                      echo "${key}=\"${val}\"" >> /config/extended.conf
-                  fi
-              }
-
-              set_config "lidarrUrl" "$lidarrUrl"
-              set_config "lidarrAPI" "$lidarrAPI"
-              set_config "arlToken" "$DEEZER_ARL" 
-
               mkdir -p /custom-cont-init.d
               cat << 'EOF' > /custom-cont-init.d/99-install-deps.sh
               #!/bin/bash
