@@ -92,7 +92,7 @@ data:
     disable_sync = False
 
     [Slskd]
-    api_key = 5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
+    api_key = +5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
     host_url = http://slskd
     download_dir = /downloads/soulseek
     delete_searches = False
