@@ -71,21 +71,23 @@ spec:
                 rm -f /config/extended.conf
               fi
 
-              apk add --no-cache curl bash dos2unix
+              apk add --no-cache curl bash dos2unix sed
               
+              echo "Downloading official extended.conf template..."
+              curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/extended.conf -o /config/extended.conf
+
+              dos2unix /config/extended.conf
+
+              echo "Injecting settings..."
+              
+              sed -i "s|lidarrUrl=\".*\"|lidarrUrl=\"$lidarrUrl\"|g" /config/extended.conf
+              sed -i "s|lidarrAPI=\".*\"|lidarrAPI=\"$lidarrAPI\"|g" /config/extended.conf
+              sed -i "s|arlToken=\".*\"|arlToken=\"$DEEZER_ARL\"|g" /config/extended.conf
+              sed -i "s|enableUnmappedFilesCleaner=\".*\"|enableUnmappedFilesCleaner=\"false\"|g" /config/extended.conf
+
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
               chmod +x /config/setup.bash
               
-              touch /config/extended.conf
-
-              printf 'lidarrUrl="%s"\n' "$lidarrUrl" > /config/extended.conf
-              printf 'lidarrAPI="%s"\n' "$lidarrAPI" >> /config/extended.conf
-              printf 'arlToken="%s"\n' "$DEEZER_ARL" >> /config/extended.conf
-              printf 'scriptInterval="15m"\n' >> /config/extended.conf
-              printf 'enableUnmappedFilesCleaner="false"\n' >> /config/extended.conf
-              
-              dos2unix /config/extended.conf
-
               mkdir -p /custom-cont-init.d
               cat << 'EOF' > /custom-cont-init.d/99-install-deps.sh
               #!/bin/bash
