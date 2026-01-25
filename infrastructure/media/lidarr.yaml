@@ -80,10 +80,20 @@ spec:
 
               echo "Injecting settings..."
               
-              sed -i "s|lidarrUrl=\".*\"|lidarrUrl=\"$lidarrUrl\"|g" /config/extended.conf
-              sed -i "s|lidarrAPI=\".*\"|lidarrAPI=\"$lidarrAPI\"|g" /config/extended.conf
-              sed -i "s|arlToken=\".*\"|arlToken=\"$DEEZER_ARL\"|g" /config/extended.conf
-              sed -i "s|enableUnmappedFilesCleaner=\".*\"|enableUnmappedFilesCleaner=\"false\"|g" /config/extended.conf
+              set_var() {
+                  local key="$1"
+                  local val="$2"
+                  if grep -q "^${key}=" /config/extended.conf; then
+                      sed -i "s|^${key}=.*|${key}=\"${val}\"|" /config/extended.conf
+                  else
+                      echo "${key}=\"${val}\"" >> /config/extended.conf
+                  fi
+              }
+
+              set_var "lidarrUrl" "$lidarrUrl"
+              set_var "lidarrAPI" "$lidarrAPI"
+              set_var "arlToken" "$DEEZER_ARL"
+              set_var "enableUnmappedFilesCleaner" "false"
 
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
               chmod +x /config/setup.bash
