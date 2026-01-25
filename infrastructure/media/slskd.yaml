@@ -357,7 +357,7 @@ data:
         api_keys:
           my_api_key:
             key: +5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
-            role: readonly # readonly, readwrite, administrator
+            role: administrator # readonly, readwrite, administrator
             cidr: 0.0.0.0/0,::/0
     # retention:
     #   search: 10080 # 7 days, in minutes
