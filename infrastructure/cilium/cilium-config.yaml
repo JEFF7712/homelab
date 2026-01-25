@@ -22,7 +22,7 @@ spec:
       kubernetes.io/os: linux
   bgpInstances:
     - name: "homelab-instance"
-      localASN: 64513
+      localASN: 64512
       peers:
         - name: "physical-router"
           peerASN: 64512
