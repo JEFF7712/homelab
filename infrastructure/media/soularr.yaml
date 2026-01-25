@@ -37,6 +37,19 @@ spec:
             - name: media-storage
               mountPath: /downloads
               subPath: downloads
+        - name: seed-config
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp /seed/config.ini /data/config.ini
+              chown 1000:1000 /data/config.ini
+          volumeMounts:
+            - name: media-storage
+              mountPath: /data
+              subPath: soularr-config
+            - name: soularr-seed-config
+              mountPath: /seed
       containers:
         - name: soularr
           image: mrusse08/soularr:latest
@@ -60,3 +73,41 @@ spec:
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc
+        - name: soularr-seed-config
+          configMap:
+            name: soularr-config
+      
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: soularr-config
+  namespace: media
+data:
+  config.ini: |
+    [Lidarr]
+    api_key = c5e923ba6883431ea9981238eeb64c76
+    host_url = http://lidarr
+    download_dir = /downloads/soulseek
+    disable_sync = False
+
+    [Slskd]
+    api_key = 5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
+    host_url = http://slskd
+    download_dir = /downloads/soulseek
+    delete_searches = False
+    stalled_timeout = 3600
+    
+    [Release Settings]
+    use_most_common_tracknum = True
+    allow_multi_disc = True
+    accepted_countries = Europe,Japan,United Kingdom,United States,[Worldwide],Australia,Canada
+    accepted_formats = CD,Digital Media,Vinyl
+    
+    [Search Settings]
+    search_timeout = 5000
+    maximum_peer_queue = 50
+    minimum_peer_upload_speed = 0
+    minimum_filename_match_ratio = 0.8
+    allowed_filetypes = flac,mp3
+    search_for_tracks = True
