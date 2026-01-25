@@ -104,19 +104,29 @@ spec:
               cat << 'EOF' > /custom-cont-init.d/99-install-deps.sh
               #!/bin/bash
               echo "--- [Custom Init] Installing Dependencies ---"
-              
-              if command -v apk &> /dev/null; then
-                  apk add --no-cache python3 py3-pip jq flac ffmpeg
-              elif command -v apt-get &> /dev/null; then
-                  apt-get update && apt-get install -y python3 python3-pip jq flac ffmpeg
-              fi
-
+              apk add --no-cache python3 py3-pip jq flac ffmpeg
               pip3 install yq --break-system-packages || pip3 install yq
               
               echo "--- [Custom Init] Running Setup Script ---"
               bash /config/setup.bash
+              
+              echo "--- [Custom Init] Patching Script Logic ---"
+              cat << PATCH >> /config/extended/functions
+              
+              getArrAppInfo() {
+                  echo "Using Hardcoded Connection Details from Config"
+                  # We read the values already loaded from extended.conf
+                  arrUrl="\$lidarrUrl"
+                  arrApiKey="\$lidarrAPI"
+                  arrPort="8686"
+                  arrUrlBase=""
+              }
+              PATCH
+              
+              echo "--- [Custom Init] Done ---"
               EOF
               
+              dos2unix /custom-cont-init.d/99-install-deps.sh
               chmod +x /custom-cont-init.d/99-install-deps.sh
               
           volumeMounts:
