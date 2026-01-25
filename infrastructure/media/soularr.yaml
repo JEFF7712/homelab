@@ -13,17 +13,6 @@ spec:
       labels:
         app: soularr
     spec:
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - qbittorrent
-              topologyKey: "kubernetes.io/hostname"
-
       initContainers:
         - name: fix-permissions
           image: busybox

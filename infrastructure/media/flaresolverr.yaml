@@ -5,16 +5,6 @@ metadata:
   name: flaresolverr
   namespace: media
 spec:
-  affinity:
-    podAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - qbittorrent
-          topologyKey: "kubernetes.io/hostname"
   replicas: 1
   selector:
     matchLabels:

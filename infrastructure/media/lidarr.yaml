@@ -20,24 +20,12 @@ spec:
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: "OnRootMismatch"
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - qbittorrent
-              topologyKey: "kubernetes.io/hostname"
-
       volumes:
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc
 
       initContainers:
-        # 1. PERMISSIONS FIX
         - name: fix-permissions
           image: busybox
           command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
