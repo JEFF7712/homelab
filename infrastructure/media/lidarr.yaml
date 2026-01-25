@@ -93,6 +93,8 @@ spec:
               set_var "lidarrUrl" "$lidarrUrl"
               set_var "lidarrAPI" "$lidarrAPI"
               set_var "arlToken" "$DEEZER_ARL"
+              set_var "enableAutoConfig" "false"
+              set_var "autoUpdate" "false"
               set_var "enableUnmappedFilesCleaner" "false"
 
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
