@@ -75,7 +75,7 @@ metadata:
 data:
   config.ini: |
     [Lidarr]
-    api_key = c5e923ba6883431ea9981238eeb64c76
+    api_key = bafa4935d919495ba786df1500e8174c
     host_url = http://lidarr
     download_dir = /downloads/soulseek
     disable_sync = False
