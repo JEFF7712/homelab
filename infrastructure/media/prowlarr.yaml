@@ -1,3 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prowlarr-config
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,13 +41,12 @@ spec:
           ports:
             - containerPort: 9696
           volumeMounts:
-            - name: media-storage
+            - name: config-storage
               mountPath: /config
-              subPath: prowlarr-config
       volumes:
-        - name: media-storage
+        - name: config-storage
           persistentVolumeClaim:
-            claimName: media-pvc
+            claimName: prowlarr-config
 ---
 apiVersion: v1
 kind: Service

@@ -1,3 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-config
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,6 +20,8 @@ metadata:
     app: qbittorrent
 spec:
   replicas: 1
+  stratregy:
+    type: Recreate
   selector:
     matchLabels:
       app: qbittorrent
@@ -22,9 +37,8 @@ spec:
           image: busybox
           command: ["sh", "-c", "chown -R 1000:1000 /downloads /config"]
           volumeMounts:
-            - name: media-storage
+            - name: config-storage
               mountPath: /config
-              subPath: config
             - name: media-storage
               mountPath: /downloads
               subPath: downloads
@@ -47,9 +61,8 @@ spec:
                 echo "WebUI\HostHeaderValidation=false" >> "$CONF"
               fi
           volumeMounts:
-            - name: media-storage
+            - name: config-storage
               mountPath: /config
-              subPath: config
       containers:
         - name: gluetun
           image: qmcgaw/gluetun
@@ -113,13 +126,15 @@ spec:
             - name: media-storage
               mountPath: /downloads
               subPath: downloads
-            - name: media-storage
+            - name: config-storage
               mountPath: /config
-              subPath: config
       volumes:
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc
+        - name: config-storage
+          persistentVolumeClaim:
+            claimName: qbittorrent-config
 ---
 apiVersion: v1
 kind: Service
