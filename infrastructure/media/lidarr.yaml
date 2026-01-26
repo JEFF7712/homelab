@@ -145,18 +145,22 @@ spec:
           args:
             - |
               echo "--- Installing Tubifarry Plugin ---"
-              apk add --no-cache curl jq unzip
+              apk add --no-cache curl unzip
 
-              DOWNLOAD_URL=$(curl -s https://api.github.com/repos/TypNull/Tubifarry/releases/latest | jq -r '.assets[] | select(.name | endswith("linux-x64.zip")) | .browser_download_url')
-              
-              if [ -z "$DOWNLOAD_URL" ]; then
-                echo "Error: Could not find download URL!"
-                exit 1
-              fi
+              DOWNLOAD_URL="https://github.com/TypNull/Tubifarry/archive/refs/tags/v2.0.4.1.zip"
 
               echo "Downloading from: $DOWNLOAD_URL"
+              
               curl -L -o /tmp/tubifarry.zip "$DOWNLOAD_URL"
 
+              if ! unzip -t /tmp/tubifarry.zip; then
+                 echo "CRITICAL ERROR: Download failed or file is not a valid zip."
+                 echo "File content preview:"
+                 head -n 5 /tmp/tubifarry.zip
+                 exit 1
+              fi
+
+              rm -rf /config/plugins/Tubifarry
               mkdir -p /config/plugins/Tubifarry
               unzip -o /tmp/tubifarry.zip -d /config/plugins/Tubifarry
               
