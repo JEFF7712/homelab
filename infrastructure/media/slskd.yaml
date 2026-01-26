@@ -160,7 +160,7 @@ spec:
     app: slskd
   ports:
     - name: http
-      port: 80
+      port: 5030
       targetPort: 5030
     - name: p2p
       port: 8232
@@ -190,7 +190,7 @@ spec:
               service:
                 name: slskd
                 port:
-                  number: 80
+                  number: 5030
 ---
 apiVersion: v1
 kind: ConfigMap
