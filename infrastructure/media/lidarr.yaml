@@ -63,7 +63,7 @@ spec:
             - name: lidarrUrl
               value: "http://127.0.0.1:8686"
             - name: lidarrAPI
-              value: "bafa4935d919495ba786df1500e8174c"
+              value: "8e9c90c6e3f04522964688690a068118"
             - name: DEEZER_ARL
               value: "ea8d49952bb64817dc618ff4f713303b955f75da8dcc58edc3a2ee28743dd0548cc2790e8fe21b8c637e6317da3d1ae006ff50e15dba89f458d75cc2271e99c30eff659e896dcc14e5b3e50b5317b2a2bf8fdbe17f92ff423c5872600b275996"
           command: ["/bin/sh", "-c"]
