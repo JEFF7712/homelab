@@ -147,7 +147,7 @@ spec:
               echo "--- Installing Tubifarry Plugin ---"
               apk add --no-cache curl unzip
 
-              DOWNLOAD_URL="https://github.com/TypNull/Tubifarry/archive/refs/tags/v2.0.4.1.zip"
+              DOWNLOAD_URL="https://github.com/TypNull/Tubifarry/releases/download/v2.0.4.1/Tubifarry-v2.0.4.1.net8.0.zip"
 
               echo "Downloading from: $DOWNLOAD_URL"
               
