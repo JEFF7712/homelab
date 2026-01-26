@@ -1,115 +1,115 @@
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: soularr-config
-  namespace: media
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 2Gi
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: soularr
-  namespace: media
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: soularr
-  template:
-    metadata:
-      labels:
-        app: soularr
-    spec:
-      initContainers:
-        - name: fix-permissions
-          image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /data /downloads"]
-          securityContext:
-            privileged: true
-          volumeMounts:
-            - name: config-storage
-              mountPath: /data
-            - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
-        - name: seed-config
-          image: alpine:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              cp /seed/config.ini /data/config.ini
-              chown 1000:1000 /data/config.ini
-          volumeMounts:
-            - name: config-storage
-              mountPath: /data
-            - name: soularr-seed-config
-              mountPath: /seed
-      containers:
-        - name: soularr
-          image: mrusse08/soularr:latest
-          env:
-            - name: PUID
-              value: "1000"
-            - name: PGID
-              value: "1000"
-            - name: TZ
-              value: "America/Chicago"
-            - name: SCRIPT_INTERVAL
-              value: "300"
-          volumeMounts:
-            - name: config-storage
-              mountPath: /data
-            - mountPath: /downloads
-              name: media-storage
-              subPath: downloads
-      volumes:
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: media-pvc
-        - name: soularr-seed-config
-          configMap:
-            name: soularr-config
-        - name: config-storage
-          persistentVolumeClaim:
-            claimName: soularr-config
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: soularr-config
+#   namespace: media
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   storageClassName: longhorn
+#   resources:
+#     requests:
+#       storage: 2Gi
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: soularr
+#   namespace: media
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: soularr
+#   template:
+#     metadata:
+#       labels:
+#         app: soularr
+#     spec:
+#       initContainers:
+#         - name: fix-permissions
+#           image: busybox
+#           command: ["sh", "-c", "chown -R 1000:1000 /data /downloads"]
+#           securityContext:
+#             privileged: true
+#           volumeMounts:
+#             - name: config-storage
+#               mountPath: /data
+#             - name: media-storage
+#               mountPath: /downloads
+#               subPath: downloads
+#         - name: seed-config
+#           image: alpine:latest
+#           command: ["/bin/sh", "-c"]
+#           args:
+#             - |
+#               cp /seed/config.ini /data/config.ini
+#               chown 1000:1000 /data/config.ini
+#           volumeMounts:
+#             - name: config-storage
+#               mountPath: /data
+#             - name: soularr-seed-config
+#               mountPath: /seed
+#       containers:
+#         - name: soularr
+#           image: mrusse08/soularr:latest
+#           env:
+#             - name: PUID
+#               value: "1000"
+#             - name: PGID
+#               value: "1000"
+#             - name: TZ
+#               value: "America/Chicago"
+#             - name: SCRIPT_INTERVAL
+#               value: "300"
+#           volumeMounts:
+#             - name: config-storage
+#               mountPath: /data
+#             - mountPath: /downloads
+#               name: media-storage
+#               subPath: downloads
+#       volumes:
+#         - name: media-storage
+#           persistentVolumeClaim:
+#             claimName: media-pvc
+#         - name: soularr-seed-config
+#           configMap:
+#             name: soularr-config
+#         - name: config-storage
+#           persistentVolumeClaim:
+#             claimName: soularr-config
       
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: soularr-config
-  namespace: media
-data:
-  config.ini: |
-    [Lidarr]
-    api_key = 8e9c90c6e3f04522964688690a068118
-    host_url = http://lidarr
-    download_dir = /downloads/soulseek
-    disable_sync = False
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: soularr-config
+#   namespace: media
+# data:
+#   config.ini: |
+#     [Lidarr]
+#     api_key = 8e9c90c6e3f04522964688690a068118
+#     host_url = http://lidarr
+#     download_dir = /downloads/soulseek
+#     disable_sync = False
 
-    [Slskd]
-    api_key = +5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
-    host_url = http://slskd
-    download_dir = /downloads/soulseek
-    delete_searches = False
-    stalled_timeout = 3600
+#     [Slskd]
+#     api_key = +5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
+#     host_url = http://slskd
+#     download_dir = /downloads/soulseek
+#     delete_searches = False
+#     stalled_timeout = 3600
     
-    [Release Settings]
-    use_most_common_tracknum = True
-    allow_multi_disc = True
-    accepted_countries = Europe,Japan,United Kingdom,United States,[Worldwide],Australia,Canada
-    accepted_formats = CD,Digital Media,Vinyl
+#     [Release Settings]
+#     use_most_common_tracknum = True
+#     allow_multi_disc = True
+#     accepted_countries = Europe,Japan,United Kingdom,United States,[Worldwide],Australia,Canada
+#     accepted_formats = CD,Digital Media,Vinyl
     
-    [Search Settings]
-    search_timeout = 5000
-    maximum_peer_queue = 50
-    minimum_peer_upload_speed = 0
-    minimum_filename_match_ratio = 0.8
-    allowed_filetypes = flac,mp3
-    search_for_tracks = True
+#     [Search Settings]
+#     search_timeout = 5000
+#     maximum_peer_queue = 50
+#     minimum_peer_upload_speed = 0
+#     minimum_filename_match_ratio = 0.8
+#     allowed_filetypes = flac,mp3
+#     search_for_tracks = True
