@@ -17,6 +17,13 @@ spec:
     spec:
       containers:
         - name: subgen
+          volumeMounts:
+            - name: media-storage
+              mountPath: /movies
+              subPath: movies
+            - name: media-storage
+              mountPath: /tv
+              subPath: tv
           image: mccloud/subgen:latest
           resources:
             limits:
@@ -42,6 +49,10 @@ spec:
               value: "hi"
           ports:
             - containerPort: 9000
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: media-pvc
 ---
 apiVersion: v1
 kind: Service
