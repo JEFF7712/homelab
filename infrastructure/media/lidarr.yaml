@@ -144,16 +144,22 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "Installing Tubifarry Plugin..."
-              mkdir -p /config/plugins/Tubifarry
-              
-              apk add --no-cache curl unzip
+              echo "--- Installing Tubifarry Plugin ---"
+              apk add --no-cache curl jq unzip
 
-              curl -L -o /tmp/tubifarry.zip https://github.com/zfierce/Tubifarry/releases/latest/download/Tubifarry-linux-x64.zip
+              DOWNLOAD_URL=$(curl -s https://api.github.com/repos/TypNull/Tubifarry/releases/latest | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url')
               
+              echo "Downloading from: $DOWNLOAD_URL"
+
+              curl -L -o /tmp/tubifarry.zip "$DOWNLOAD_URL"
+
+              rm -rf /config/plugins/Tubifarry
+              mkdir -p /config/plugins/Tubifarry
+
               unzip -o /tmp/tubifarry.zip -d /config/plugins/Tubifarry
               
               chown -R 1000:1000 /config/plugins
+              echo "--- Done ---"
           volumeMounts:
             - name: config-storage
               mountPath: /config
