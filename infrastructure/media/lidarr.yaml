@@ -144,25 +144,26 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "--- Installing Tubifarry Plugin (v2.0.4 .NET 8) ---"
+              echo "--- Installing Tubifarry on Hotio ---"
               apk add --no-cache curl unzip
 
               DOWNLOAD_URL="https://github.com/TypNull/Tubifarry/releases/download/v2.0.4/Tubifarry-v2.0.4.net8.0.zip"
-              echo "Downloading from: $DOWNLOAD_URL"
+              
+              echo "Downloading..."
               curl -L -o /tmp/tubifarry.zip "$DOWNLOAD_URL"
 
               if ! unzip -t /tmp/tubifarry.zip; then
-                 echo "CRITICAL ERROR: Download failed or file is not a valid zip."
+                 echo "ERROR: Corrupt zip file."
                  exit 1
               fi
 
-              echo "Removing old plugin paths..."
               rm -rf /config/plugins/Tubifarry
               rm -rf /config/plugins/Lidarr.Plugin.Tubifarry
               
-              echo "Extracting to /config/plugins/Lidarr.Plugin.Tubifarry..."
-              mkdir -p /config/plugins/Lidarr.Plugin.Tubifarry
-              unzip -o /tmp/tubifarry.zip -d /config/plugins/Lidarr.Plugin.Tubifarry
+              mkdir -p /config/plugins/Tubifarry
+              
+              echo "Unzipping..."
+              unzip -o /tmp/tubifarry.zip -d /config/plugins/Tubifarry
               
               chown -R 1000:1000 /config/plugins
               echo "--- Done ---"
@@ -172,7 +173,7 @@ spec:
 
       containers:
         - name: lidarr
-          image: lscr.io/linuxserver/lidarr:develop
+          image: ghcr.io/hotio/lidarr:latest
           env:
             - name: PUID
               value: "1000"
