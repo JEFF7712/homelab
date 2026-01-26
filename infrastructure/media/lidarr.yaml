@@ -139,41 +139,9 @@ spec:
               mountPath: /custom-cont-init.d
               subPath: custom-cont-init.d
 
-        - name: install-tubifarry
-          image: alpine:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              echo "--- Installing Tubifarry on Hotio ---"
-              apk add --no-cache curl unzip
-
-              DOWNLOAD_URL="https://github.com/TypNull/Tubifarry/releases/download/v2.0.4/Tubifarry-v2.0.4.net8.0.zip"
-              
-              echo "Downloading..."
-              curl -L -o /tmp/tubifarry.zip "$DOWNLOAD_URL"
-
-              if ! unzip -t /tmp/tubifarry.zip; then
-                 echo "ERROR: Corrupt zip file."
-                 exit 1
-              fi
-
-              rm -rf /config/plugins/Tubifarry
-              rm -rf /config/plugins/Lidarr.Plugin.Tubifarry
-              
-              mkdir -p /config/plugins/Tubifarry
-              
-              echo "Unzipping..."
-              unzip -o /tmp/tubifarry.zip -d /config/plugins/Tubifarry
-              
-              chown -R 1000:1000 /config/plugins
-              echo "--- Done ---"
-          volumeMounts:
-            - name: config-storage
-              mountPath: /config
-
       containers:
         - name: lidarr
-          image: ghcr.io/hotio/lidarr:latest
+          image: lscr.io/linuxserver/lidarr:develop
           env:
             - name: PUID
               value: "1000"
