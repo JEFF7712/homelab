@@ -17,8 +17,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/distrojeff-site:276c407ef994acd72ceeba6ac505793ffcaf93de
-        imagePullPolicy: Always
+        image: jeff7712/distrojeff-site:098d755b351adbc1773fc84bff016dfaf2159049
         ports:
         - containerPort: 8080
         resources:
