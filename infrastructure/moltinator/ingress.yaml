@@ -18,7 +18,7 @@ spec:
               service:
                 name: moltbot-manager
                 port:
-                  number: 18789
+                  number: 80
   tls:
     - hosts:
         - moltbot.rupan.dev

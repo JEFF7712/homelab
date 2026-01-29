@@ -7,7 +7,7 @@ spec:
   selector:
     app: moltbot-manager
   ports:
-  - name: http
-    port: 18789
+  - protocol: TCP
+    port: 80
     targetPort: 18789
   type: ClusterIP
