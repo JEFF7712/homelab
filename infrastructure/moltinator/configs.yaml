@@ -1,28 +1,64 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config-manager
+  name: hive-configs
   namespace: moltbot
 data:
-  config.json: |
+  manager.json: |
     {
       "agent": {
-        "name": "Boss",
-        "model": "claude-3-5-sonnet-20241022",
-        "systemPrompt": "You are the manager. Delegate detailed work to the workers via the shared file queue. Synthesize their outputs for the user."
+        "name": "Hive Manager",
+        "model": "anthropic/claude-3-5-sonnet-20241022",
+        "systemPrompt": "You are the Manager. You interact with the user via Telegram. To delegate work: 1. Write the task description to '/data/exchange/inbox.txt'. 2. Wait for the result in '/data/exchange/outbox.txt'. 3. Read the result and summarize it for the user."
+      },
+      "providers": {
+        "telegram": { "enable": true, "allowFrom": [ 12345678 ] },
+        "anthropic": { "enable": true }
+      },
+      "plugins": {
+        "summarize": { "enable": true }
       }
     }
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-worker
-data:
-  config.json: |
+
+  worker.json: |
     {
       "agent": {
-        "name": "Worker",
-        "model": "claude-3-haiku-20240307",
-        "systemPrompt": "You are a worker. Process the data in the queue efficiently. Be concise. Do not chat."
+        "name": "Hive Worker",
+        "model": "anthropic/claude-3-haiku-20240307",
+        "systemPrompt": "You are a headless processing unit. You receive text, process it, and output the result. Be purely functional. Do not include pleasantries."
+      },
+      "providers": {
+        "anthropic": { "enable": true }
+        # NO TELEGRAM. NO DISCORD. Purely local.
+      },
+      "plugins": {
+        "summarize": { "enable": true }
       }
     }
+    
+  watcher.sh: |
+    #!/bin/bash
+    echo "Starting Worker Watchdog..."
+    # Ensure directories exist
+    mkdir -p /data/exchange
+    
+    while true; do
+      if [ -f /data/exchange/inbox.txt ]; then
+        echo "Job received. Processing..."
+        
+        # 1. Read the task
+        TASK=$(cat /data/exchange/inbox.txt)
+        
+        # 2. Send to local Moltbot Gateway via CLI
+        # 'moltbot send' talks to the local gateway (localhost)
+        RESPONSE=$(moltbot send "$TASK")
+        
+        # 3. Write response
+        echo "$RESPONSE" > /data/exchange/outbox.txt
+        
+        # 4. Cleanup
+        rm /data/exchange/inbox.txt
+        echo "Job done."
+      fi
+      sleep 2
+    done

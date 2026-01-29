@@ -55,4 +55,4 @@ spec:
           claimName: moltbot-pvc
       - name: config
         configMap:
-          name: config-manager
+          name: hive-configs

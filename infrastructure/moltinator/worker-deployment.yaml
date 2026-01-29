@@ -19,8 +19,9 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       containers:
-      - name: bot
+      - name: gateway
         image: jeff7712/moltbot-hive-node:latest
+        command: ["moltbot-gateway"]
         imagePullPolicy: Always
         env:
         - name: ANTHROPIC_API_KEY
@@ -38,10 +39,23 @@ spec:
           mountPath: /tmp
         - name: data
           mountPath: /data
-          subPath: manager
+          subPath: worker
+        - name: exchange
+          mountPath: /data/exchange
         - name: config
           mountPath: /data/.moltbot/config.json
           subPath: config.json
+
+      - name: watcher
+        image: jeff7712/moltbot-hive-node:latest
+        command: ["/bin/bash", "/scripts/watcher.sh"]
+        volumeMounts:
+        - name: exchange
+          mountPath: /data/exchange
+        - name: scripts
+          mountPath: /scripts/watcher.sh
+          subPath: watcher.sh
+
       volumes:
       - name: tmp
         emptyDir: {}
@@ -50,4 +64,12 @@ spec:
           claimName: moltbot-pvc
       - name: config
         configMap:
-          name: config-worker
+          name: hive-configs
+      - name: exchange 
+        persistentVolumeClaim: 
+          claimName: moltbot-pvc
+          readOnly: false
+      - name: scripts
+        configMap: 
+          name: hive-configs
+          defaultMode: 0755
