@@ -7,11 +7,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: moltbot
+      app: moltbot-manager
   template:
     metadata:
       labels:
-        app: moltbot
+        app: moltbot-manager
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -20,7 +20,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: bot
-        image: jeff7712/moltbot:latest
+        image: jeff7712/moltbot-hive-node:latest
         imagePullPolicy: Always
         env:
         - name: TELEGRAM_BOT_TOKEN
