@@ -43,7 +43,7 @@ spec:
         - name: exchange
           mountPath: /data/exchange
         - name: config
-          mountPath: /data/.moltbot/config.json
+          mountPath: /data/.moltbot/moltbot.json
           subPath: config.json
 
       - name: watcher

@@ -46,7 +46,7 @@ spec:
           mountPath: /data
           subPath: worker
         - name: config
-          mountPath: /data/.moltbot/config.json
+          mountPath: /data/.moltbot/moltbot.json
           subPath: config.json
       volumes:
       - name: tmp
