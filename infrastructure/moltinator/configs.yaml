@@ -14,9 +14,6 @@ data:
       "channels": {
         "telegram": { "enabled": true, "allowFrom": ["12345678"] }
       },
-      "plugins": {
-        "memory-core": { "enabled": false }
-      },
       "agents": {
         "list": [
           {
@@ -43,9 +40,6 @@ data:
         "auth": { "mode": "token", "token": "hive-secret" }
       },
       "channels": {},
-      "plugins": {
-        "memory-core": { "enabled": false }
-      },
       "agents": {
         "list": [
           {
