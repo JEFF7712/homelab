@@ -9,19 +9,33 @@ data:
       "gateway": {
         "mode": "local",
         "port": 18789,
-        "auth": { "mode": "token", "token": "hive-secret" }
+        "auth": {
+          "mode": "token",
+          "token": "hive-secret"
+        }
       },
       "channels": {
-        "telegram": { "enabled": true, "allowFrom": ["12345678"] }
+        "telegram": {
+          "enabled": true,
+          "allowFrom": ["12345678"]
+        },
+        "anthropic": {
+          "enabled": true
+        }
       },
       "agents": {
         "list": [
           {
             "id": "manager",
-            "identity": { "name": "Hive Manager", "theme": "boss", "emoji": "👔" },
-            "model": { "primary": "anthropic/claude-3-5-sonnet-20241022" },
-            "workspace": "/data/.moltbot/workspace",
-            "memory": { "enabled": false }
+            "identity": {
+              "name": "Hive Manager",
+              "theme": "helpful boss",
+              "emoji": "👔"
+            },
+            "model": {
+              "primary": "anthropic/claude-3-5-sonnet-20241022"
+            },
+            "workspace": "/data/.moltbot/workspace"
           }
         ]
       }
@@ -38,17 +52,29 @@ data:
       "gateway": {
         "mode": "local",
         "port": 18789,
-        "auth": { "mode": "token", "token": "hive-secret" }
+        "auth": {
+          "mode": "token",
+          "token": "hive-secret"
+        }
       },
-      "channels": {}, # No external channels for worker
+      "channels": {
+        "anthropic": {
+          "enabled": true
+        }
+      },
       "agents": {
         "list": [
           {
             "id": "worker",
-            "identity": { "name": "Hive Worker", "theme": "robot", "emoji": "🤖" },
-            "model": { "primary": "anthropic/claude-3-haiku-20240307" },
-            "workspace": "/data/.moltbot/workspace",
-            "memory": { "enabled": false }
+            "identity": {
+              "name": "Hive Worker",
+              "theme": "robot",
+              "emoji": "🤖"
+            },
+            "model": {
+              "primary": "anthropic/claude-3-haiku-20240307"
+            },
+            "workspace": "/data/.moltbot/workspace"
           }
         ]
       }
