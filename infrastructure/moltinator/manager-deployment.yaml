@@ -40,7 +40,11 @@ spec:
       - name: bot
         image: jeff7712/moltbot-manager:latest
         imagePullPolicy: Always
-        
+
+        ports:
+        - containerPort: 18789
+          protocol: TCP
+
         env:
         - name: ANTHROPIC_API_KEY
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
