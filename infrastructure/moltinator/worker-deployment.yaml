@@ -44,7 +44,7 @@ spec:
           mountPath: /data/exchange
         - name: config
           mountPath: /data/.moltbot/moltbot.json
-          subPath: config.json
+          subPath: worker.json
 
       - name: watcher
         image: jeff7712/moltbot-hive-node:latest
