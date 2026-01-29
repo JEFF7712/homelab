@@ -39,6 +39,9 @@ spec:
           mountPath: /data
         - name: exchange
           mountPath: /exchange
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/cron
+          subPath: cron
 
       - name: watcher
         image: jeff7712/moltbot-worker:latest
@@ -60,4 +63,6 @@ spec:
       - name: data
         persistentVolumeClaim: { claimName: moltbot-pvc }
       - name: exchange
+        persistentVolumeClaim: { claimName: moltbot-pvc }
+      - name: moltbot-home
         persistentVolumeClaim: { claimName: moltbot-pvc }

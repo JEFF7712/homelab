@@ -29,6 +29,8 @@ spec:
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
         - name: MOLTBOT_GATEWAY_TOKEN
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: gateway-token } }
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom: { secretKeyRef: { name: moltbot-secrets, key: telegram-token } }
           
         securityContext:
           allowPrivilegeEscalation: false
@@ -45,6 +47,12 @@ spec:
         - name: secrets
           mountPath: /etc/secrets
           readOnly: true
+        - name: moltbot-home
+          mountPath: /home/moltbot/clawd
+          subPath: clawd
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/cron
+          subPath: cron
 
       volumes:
       - name: tmp
@@ -52,6 +60,8 @@ spec:
       - name: data
         persistentVolumeClaim: { claimName: moltbot-pvc }
       - name: exchange
+        persistentVolumeClaim: { claimName: moltbot-pvc }
+      - name: moltbot-home
         persistentVolumeClaim: { claimName: moltbot-pvc }
       - name: secrets
         secret:
