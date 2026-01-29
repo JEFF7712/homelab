@@ -7,21 +7,27 @@ data:
   manager.json: |
     {
       "gateway": {
-        "mode": "local",       
-        "bind": "0.0.0.0",     
+        "mode": "local",
+        "bind": "0.0.0.0",
         "port": 18789
       },
-      "agent": {
-        "name": "Hive Manager",
-        "model": "anthropic/claude-3-5-sonnet-20241022",
-        "systemPrompt": "You are the Manager. Delegate tasks to /data/exchange/inbox.txt."
+      "agents": {
+        "defaults": {
+          "name": "Hive Manager",
+          "model": {
+            "primary": "anthropic/claude-3-5-sonnet-20241022"
+          },
+          "systemPrompt": "You are the Hive Manager. Delegate tasks via files."
+        }
       },
-      "providers": {
-        "telegram": { "enable": true, "allowFrom": [ 12345678 ] },
-        "anthropic": { "enable": true }
-      },
-      "plugins": {
-        "summarize": { "enable": true }
+      "channels": {
+        "telegram": {
+          "enabled": true,
+          "allowFrom": [ 12345678 ]
+        },
+        "anthropic": {
+          "enabled": true
+        }
       }
     }
 
@@ -32,40 +38,32 @@ data:
         "bind": "0.0.0.0",
         "port": 18789
       },
-      "agent": {
-        "name": "Hive Worker",
-        "model": "anthropic/claude-3-haiku-20240307",
-        "systemPrompt": "You are a headless worker. Process data from the queue."
+      "agents": {
+        "defaults": {
+          "name": "Hive Worker",
+          "model": {
+            "primary": "anthropic/claude-3-haiku-20240307"
+          },
+          "systemPrompt": "You are a headless worker. Process data from the queue."
+        }
       },
-      "providers": {
-        "anthropic": { "enable": true }
-      },
-      "plugins": {
-        "summarize": { "enable": true }
+      "channels": {
+        "anthropic": {
+          "enabled": true
+        }
       }
     }
     
   watcher.sh: |
     #!/bin/bash
     echo "Starting Worker Watchdog..."
-    # Ensure directories exist
     mkdir -p /data/exchange
-    
     while true; do
       if [ -f /data/exchange/inbox.txt ]; then
         echo "Job received. Processing..."
-        
-        # 1. Read the task
         TASK=$(cat /data/exchange/inbox.txt)
-        
-        # 2. Send to local Moltbot Gateway via CLI
-        # 'moltbot send' talks to the local gateway (localhost)
         RESPONSE=$(moltbot send "$TASK")
-        
-        # 3. Write response
         echo "$RESPONSE" > /data/exchange/outbox.txt
-        
-        # 4. Cleanup
         rm /data/exchange/inbox.txt
         echo "Job done."
       fi
