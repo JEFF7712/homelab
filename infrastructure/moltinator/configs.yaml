@@ -4,7 +4,6 @@ metadata:
   name: hive-configs
   namespace: moltbot
 data:
-  # --- MANAGER CONFIG ---
   manager.json: |
     {
       "gateway": {
@@ -14,7 +13,6 @@ data:
       },
       "channels": {
         "telegram": { "enabled": true, "allowFrom": ["12345678"] }
-        # REMOVED: "anthropic" (It is not a channel)
       },
       "agents": {
         "list": [
@@ -23,21 +21,18 @@ data:
             "identity": { "name": "Hive Manager", "theme": "boss", "emoji": "👔" },
             "model": { "primary": "anthropic/claude-3-5-sonnet-20241022" },
             "workspace": "/data/.moltbot/workspace",
-            # DISABLE MEMORY to fix "plugin not found" error
             "memory": { "enabled": false }
           }
         ]
       }
     }
   
-  # --- MANAGER SOUL ---
   manager-soul.md: |
     ---
     name: Hive Manager
     ---
     You are the Manager. Delegate tasks via /exchange/inbox.txt.
 
-  # --- WORKER CONFIG ---
   worker.json: |
     {
       "gateway": {
@@ -53,21 +48,18 @@ data:
             "identity": { "name": "Hive Worker", "theme": "robot", "emoji": "🤖" },
             "model": { "primary": "anthropic/claude-3-haiku-20240307" },
             "workspace": "/data/.moltbot/workspace",
-            # DISABLE MEMORY
             "memory": { "enabled": false }
           }
         ]
       }
     }
 
-  # --- WORKER SOUL ---
   worker-soul.md: |
     ---
     name: Hive Worker
     ---
     You are a headless worker. Process data.
 
-  # --- WATCHER SCRIPT ---
   watcher.sh: |
     #!/bin/bash
     echo "Worker Watchdog active..."
@@ -81,7 +73,6 @@ data:
         echo "[$(date)] Job received."
         TASK=$(cat /exchange/inbox.txt)
         
-        # We explicitly target the 'worker' agent ID defined in json
         RESPONSE=$(moltbot agent --agent worker --message "$TASK" --text)
         
         echo "$RESPONSE" > /exchange/outbox.txt
