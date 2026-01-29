@@ -34,7 +34,6 @@
           telegram = {
             enabled = true;
             botToken = "\${TELEGRAM_BOT_TOKEN}";
-            configWrites = false;
             dmPolicy = "allowlist";
             allowFrom = [ 7542293680 ];
           };
