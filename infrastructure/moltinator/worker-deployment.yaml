@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moltbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: moltbot
+  template:
+    metadata:
+      labels:
+        app: moltbot
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: bot
+        image: jeff7712/moltbot:latest
+        imagePullPolicy: Always
+        env:
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: moltbot-secrets
+              key: telegram-token
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: moltbot-secrets
+              key: anthropic-key
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /data/.moltbot/config.json
+          subPath: config.json
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: data
+        persistentVolumeClaim:
+          claimName: moltbot-pvc
+      - name: config
+        configMap:
+          name: config-worker
