@@ -15,6 +15,7 @@
       baseConfig = {
         gateway = {
           mode = "local";
+          bind = "lan";
           port = 18789;
           auth = {
             token = "\${MOLTBOT_GATEWAY_TOKEN}";

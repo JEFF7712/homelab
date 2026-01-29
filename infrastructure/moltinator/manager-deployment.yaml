@@ -22,7 +22,7 @@ spec:
       initContainers:
       - name: fix-permissions
         image: busybox:latest
-        command: ['sh', '-c', 'chown -R 1000:1000 /mnt/agents /mnt/credentials /mnt/cron']
+        command: ['sh', '-c', 'chown -R 1000:1000 /mnt/agents /mnt/credentials /mnt/cron /mnt/devices']
         securityContext:
           runAsUser: 0
         volumeMounts:
@@ -35,6 +35,9 @@ spec:
         - name: moltbot-home
           mountPath: /mnt/cron
           subPath: cron
+        - name: moltbot-home
+          mountPath: /mnt/devices
+          subPath: devices
 
       containers:
       - name: bot
@@ -80,6 +83,9 @@ spec:
         - name: moltbot-home
           mountPath: /home/moltbot/.moltbot/credentials
           subPath: credentials
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/devices
+          subPath: devices
 
       volumes:
       - name: tmp
