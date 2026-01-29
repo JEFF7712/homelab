@@ -18,17 +18,40 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-      containers:
-      - name: gateway
+      
+      initContainers:
+      - name: setup
         image: jeff7712/moltbot-hive-node:latest
-        command: ["moltbot", "gateway"]
         imagePullPolicy: Always
+        securityContext: { runAsUser: 1000 }
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            rm -rf /data/.moltbot/moltbot.json
+            mkdir -p /data/.moltbot/workspace
+            cp /config-src/worker.json /data/.moltbot/moltbot.json
+            cp /config-src/worker-soul.md /data/.moltbot/workspace/SOUL.md
+            cp /config-src/watcher.sh /tmp/watcher.sh
+            chmod +x /tmp/watcher.sh
+            cp /tmp/watcher.sh /data/watcher.sh
+        volumeMounts:
+        - name: data
+          mountPath: /data
+          subPath: worker
+        - name: config-source
+          mountPath: /config-src
+        - name: tmp
+          mountPath: /tmp
+
+      containers:
+      - name: bot
+        image: jeff7712/moltbot-hive-node:latest
+        command: ["moltbot", "gateway", "--host", "0.0.0.0", "--allow-unconfigured"]
         env:
+        - name: MOLTBOT_GATEWAY_MODE
+          value: "local"
         - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: moltbot-secrets
-              key: anthropic-key
+          valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -41,35 +64,33 @@ spec:
           mountPath: /data
           subPath: worker
         - name: exchange
-          mountPath: /data/exchange
-        - name: config
-          mountPath: /data/.moltbot/moltbot.json
-          subPath: worker.json
+          mountPath: /exchange
+          subPath: exchange
 
       - name: watcher
         image: jeff7712/moltbot-hive-node:latest
-        command: ["/bin/bash", "/scripts/watcher.sh"]
+        command: ["/bin/bash", "/data/watcher.sh"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         volumeMounts:
+        - name: data
+          mountPath: /data
+          subPath: worker
         - name: exchange
-          mountPath: /data/exchange
-        - name: scripts
-          mountPath: /scripts/watcher.sh
-          subPath: watcher.sh
+          mountPath: /exchange
+          subPath: exchange
+        - name: tmp
+          mountPath: /tmp
 
       volumes:
       - name: tmp
         emptyDir: {}
       - name: data
-        persistentVolumeClaim:
-          claimName: moltbot-pvc
-      - name: config
-        configMap:
-          name: hive-configs
-      - name: exchange 
-        persistentVolumeClaim: 
-          claimName: moltbot-pvc
-          readOnly: false
-      - name: scripts
-        configMap: 
-          name: hive-configs
-          defaultMode: 0755
+        persistentVolumeClaim: { claimName: moltbot-pvc }
+      - name: exchange
+        persistentVolumeClaim: { claimName: moltbot-pvc }
+      - name: config-source
+        configMap: { name: hive-configs }
