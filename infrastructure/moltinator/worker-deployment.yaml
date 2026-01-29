@@ -53,10 +53,7 @@ spec:
         - name: ANTHROPIC_API_KEY
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
         securityContext:
-          allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          capabilities:
-            drop: ["ALL"]
         volumeMounts:
         - name: tmp
           mountPath: /tmp
@@ -71,10 +68,7 @@ spec:
         image: jeff7712/moltbot-hive-node:latest
         command: ["/bin/bash", "/data/watcher.sh"]
         securityContext:
-          allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          capabilities:
-            drop: ["ALL"]
         volumeMounts:
         - name: data
           mountPath: /data

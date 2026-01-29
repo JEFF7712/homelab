@@ -50,10 +50,7 @@ spec:
         - name: ANTHROPIC_API_KEY
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
         securityContext:
-          allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          capabilities:
-            drop: ["ALL"]
         volumeMounts:
         - name: tmp
           mountPath: /tmp
