@@ -32,10 +32,7 @@
       managerJson = pkgs.writeText "manager.json" (builtins.toJSON (baseConfig // {
         channels = {
           telegram = {
-            enabled = true;
             botToken = "\${TELEGRAM_BOT_TOKEN}";
-            dmPolicy = "allowlist";
-            allowFrom = [ 7542293680 ];
           };
         };
         session = { store = "/data/sessions/manager.json"; };
