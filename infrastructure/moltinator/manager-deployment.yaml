@@ -34,7 +34,7 @@ spec:
           
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           capabilities: { drop: ["ALL"] }
         
         volumeMounts:
@@ -53,6 +53,12 @@ spec:
         - name: moltbot-home
           mountPath: /home/moltbot/.moltbot/cron
           subPath: cron
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/agents
+          subPath: agents
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/credentials
+          subPath: credentials
 
       volumes:
       - name: tmp

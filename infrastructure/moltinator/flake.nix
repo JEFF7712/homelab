@@ -1,5 +1,5 @@
 {
-  description = "Moltbot Hive: Secure & Immutable";
+  description = "Moltbot Hive";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -31,7 +31,6 @@
       managerJson = pkgs.writeText "manager.json" (builtins.toJSON (baseConfig // {
         channels = {
           telegram = {
-            enabled = true;
             botToken = "\${TELEGRAM_BOT_TOKEN}";
             dmPolicy = "allowlist";
             allowFrom = [ 7542293680 ];

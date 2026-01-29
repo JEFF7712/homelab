@@ -30,7 +30,7 @@ spec:
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: gateway-token } }
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           capabilities: { drop: ["ALL"] }
         volumeMounts:
         - name: tmp
@@ -42,14 +42,20 @@ spec:
         - name: moltbot-home
           mountPath: /home/moltbot/.moltbot/cron
           subPath: cron
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/agents
+          subPath: agents
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/credentials
+          subPath: credentials
 
       - name: watcher
         image: jeff7712/moltbot-worker:latest
         imagePullPolicy: Always
-        command: ["/bin/watcher"] 
+        command: ["/bin/watcher"]
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           capabilities: { drop: ["ALL"] }
         volumeMounts:
         - name: tmp
