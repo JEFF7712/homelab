@@ -101,6 +101,9 @@ spec:
               set_var "enableUnmappedFilesCleaner" "false"
               set_var "enableBeetsTagging" "false"
               set_var "downloadPath" "/downloads/music"
+              set_var "matchDistance" "6"
+              set_var "retryNotFound" "10"
+              set_var "beetsMatchPercentage" "75"
 
               curl -sL https://raw.githubusercontent.com/RandomNinjaAtk/arr-scripts/main/lidarr/setup.bash -o /config/setup.bash
               chmod +x /config/setup.bash
