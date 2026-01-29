@@ -21,7 +21,7 @@ spec:
       containers:
       - name: gateway
         image: jeff7712/moltbot-hive-node:latest
-        command: ["moltbot-gateway"]
+        command: ["moltbot", "gateway"]
         imagePullPolicy: Always
         env:
         - name: ANTHROPIC_API_KEY

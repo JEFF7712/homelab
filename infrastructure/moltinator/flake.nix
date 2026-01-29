@@ -29,7 +29,7 @@
       '';
 
       config = {
-        Cmd = [ "${myMoltbot}/bin/moltbot-gateway" ];
+        Cmd = [ "${myMoltbot}/bin/moltbot" ];
         
         Env = [
           "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"

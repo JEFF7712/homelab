@@ -21,6 +21,7 @@ spec:
       containers:
       - name: bot
         image: jeff7712/moltbot-hive-node:latest
+        command: ["moltbot", "gateway"]
         imagePullPolicy: Always
         env:
         - name: TELEGRAM_BOT_TOKEN
