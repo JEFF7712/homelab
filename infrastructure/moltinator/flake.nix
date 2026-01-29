@@ -11,28 +11,32 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       moltbotPkg = moltbot.packages.${system}.default;
+
       baseConfig = {
         gateway = {
           mode = "local";
           port = 18789;
-          auth = { mode = "token"; token = "hive-secret-internal"; };
+          auth = {
+            token = "\${MOLTBOT_GATEWAY_TOKEN}";
+          };
         };
-        skills = { entries = { "memory-core" = { enabled = false; }; }; };
+        plugins = {
+          slots = {
+            memory = "none";
+          };
+        };
+        logging = { file = "/data/moltbot.log"; };
       };
 
       managerJson = pkgs.writeText "manager.json" (builtins.toJSON (baseConfig // {
-        identity = { name = "Hive Manager"; theme = "boss"; emoji = "👔"; };
         channels = {
-          telegram = {
-            enabled = true;
-            botTokenFile = "/etc/secrets/telegram-token"; 
-            allowFrom = [ "12345678" ]; 
-          };
-          anthropic = { enabled = true; };
+          telegram = { enabled = true; allowFrom = [ "12345678" ]; };
         };
+        session = { store = "/data/sessions/manager.json"; };
         agents = {
           list = [{
             id = "manager";
+            identity = { name = "Hive Manager"; theme = "boss"; emoji = "👔"; };
             model = { primary = "anthropic/claude-3-5-sonnet-20241022"; };
             workspace = "/data/workspace";
           }];
@@ -40,28 +44,33 @@
       }));
 
       workerJson = pkgs.writeText "worker.json" (builtins.toJSON (baseConfig // {
-        identity = { name = "Hive Worker"; theme = "robot"; emoji = "🤖"; };
-        channels = { anthropic = { enabled = true; }; }; 
+        channels = {}; 
+        session = { store = "/data/sessions/worker.json"; };
         agents = {
           list = [{
             id = "worker";
+            identity = { name = "Hive Worker"; theme = "robot"; emoji = "🤖"; };
             model = { primary = "anthropic/claude-3-haiku-20240307"; };
             workspace = "/data/workspace";
           }];
         };
       }));
 
+      mkFakeHome = name: configFile: pkgs.runCommand "${name}-home" {} ''
+        mkdir -p $out/home/moltbot/.moltbot
+        ln -s ${configFile} $out/home/moltbot/.moltbot/moltbot.json
+      '';
+
+      managerHome = mkFakeHome "manager" managerJson;
+      workerHome = mkFakeHome "worker" workerJson;
+
       watcherScript = pkgs.writeScriptBin "watcher" ''
         #!${pkgs.bash}/bin/bash
-        echo "Starting Immutable Watcher..."
+        echo "Starting Watcher..."
         mkdir -p /exchange
-        
-        export MOLTBOT_GATEWAY_TOKEN="hive-secret-internal"
         export MOLTBOT_GATEWAY_URL="http://127.0.0.1:18789"
-        
         while true; do
           if [ -f /exchange/inbox.txt ]; then
-            echo "[$(date)] Job received."
             TASK=$(cat /exchange/inbox.txt)
             RESPONSE=$(moltbot agent --agent worker --message "$TASK" --text)
             echo "$RESPONSE" > /exchange/outbox.txt
@@ -73,16 +82,15 @@
 
     in {
       packages.${system} = {
-        
         managerImage = pkgs.dockerTools.buildLayeredImage {
           name = "jeff7712/moltbot-manager";
           tag = "latest";
-          contents = [ pkgs.cacert pkgs.bash moltbotPkg ];
+          contents = [ pkgs.cacert pkgs.bash moltbotPkg managerHome ];
           config = {
             User = "1000:1000";
             Env = [
-              "MOLTBOT_CONFIG=${managerJson}"
-              "MOLTBOT_GATEWAY_MODE=local" 
+              "HOME=/home/moltbot"
+              "MOLTBOT_GATEWAY_MODE=local"
               "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             ];
             Cmd = [ "moltbot" "gateway" ];
@@ -94,11 +102,11 @@
         workerImage = pkgs.dockerTools.buildLayeredImage {
           name = "jeff7712/moltbot-worker";
           tag = "latest";
-          contents = [ pkgs.cacert pkgs.bash moltbotPkg watcherScript ];
+          contents = [ pkgs.cacert pkgs.bash moltbotPkg watcherScript workerHome ];
           config = {
             User = "1000:1000";
             Env = [
-              "MOLTBOT_CONFIG=${workerJson}"
+              "HOME=/home/moltbot"
               "MOLTBOT_GATEWAY_MODE=local"
               "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             ];

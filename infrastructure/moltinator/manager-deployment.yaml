@@ -27,6 +27,8 @@ spec:
         env:
         - name: ANTHROPIC_API_KEY
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
+        - name: MOLTBOT_GATEWAY_TOKEN
+          valueFrom: { secretKeyRef: { name: moltbot-secrets, key: gateway-token } }
           
         securityContext:
           allowPrivilegeEscalation: false
