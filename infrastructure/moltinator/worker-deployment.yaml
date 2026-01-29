@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: moltbot
+  name: moltbot-worker
   namespace: moltbot
 spec:
   replicas: 1
