@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: moltbot-pvc
-  namespace: media
+  namespace: moltbot
 spec:
   accessModes:
     - ReadWriteMany
