@@ -21,6 +21,7 @@
           };
         };
         plugins = {
+          enabled = true;
           slots = {
             memory = "none";
           };
@@ -31,7 +32,9 @@
       managerJson = pkgs.writeText "manager.json" (builtins.toJSON (baseConfig // {
         channels = {
           telegram = {
+            enabled = true;
             botToken = "\${TELEGRAM_BOT_TOKEN}";
+            configWrites = false;
             dmPolicy = "allowlist";
             allowFrom = [ 7542293680 ];
           };

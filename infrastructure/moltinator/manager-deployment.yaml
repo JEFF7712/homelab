@@ -18,7 +18,24 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-      
+
+      initContainers:
+      - name: fix-permissions
+        image: jeff7712/moltbot-manager:latest
+        command: ['sh', '-c', 'mkdir -p /home/moltbot/.moltbot/agents /home/moltbot/.moltbot/credentials /home/moltbot/.moltbot/cron && chown -R 1000:1000 /home/moltbot/.moltbot/agents /home/moltbot/.moltbot/credentials /home/moltbot/.moltbot/cron']
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/agents
+          subPath: agents
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/credentials
+          subPath: credentials
+        - name: moltbot-home
+          mountPath: /home/moltbot/.moltbot/cron
+          subPath: cron
+
       containers:
       - name: bot
         image: jeff7712/moltbot-manager:latest
