@@ -7,6 +7,9 @@ spec:
   endpointSelector:
     matchLabels:
       app: moltbot-manager
+  ingress:
+  - fromEntities:
+    - cluster
   egress:
   - toEndpoints:
     - matchLabels:
