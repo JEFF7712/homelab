@@ -9,7 +9,10 @@ data:
       "gateway": {
         "mode": "local",
         "port": 18789,
-        "auth": { "mode": "none" }
+        "auth": {
+          "mode": "token",
+          "token": "hive-secret"
+        }
       },
       "channels": {
         "telegram": { "enabled": true, "allowFrom": ["12345678"] },
@@ -19,14 +22,8 @@ data:
         "list": [
           {
             "id": "manager",
-            "identity": {
-              "name": "Hive Manager",
-              "theme": "helpful boss",
-              "emoji": "👔"
-            },
-            "model": {
-              "primary": "anthropic/claude-3-5-sonnet-20241022"
-            },
+            "identity": { "name": "Hive Manager", "theme": "boss", "emoji": "👔" },
+            "model": { "primary": "anthropic/claude-3-5-sonnet-20241022" },
             "workspace": "/data/.moltbot/workspace"
           }
         ]
@@ -37,37 +34,28 @@ data:
     ---
     name: Hive Manager
     ---
-    You are the Manager. You interact with the user via Telegram.
-    To delegate work:
-    1. Write the task description to `/exchange/inbox.txt`.
-    2. Wait for the result in `/exchange/outbox.txt`.
-    3. Read the result and summarize it for the user.
+    You are the Manager. Delegate tasks via /exchange/inbox.txt.
 
   worker.json: |
     {
       "gateway": {
         "mode": "local",
         "port": 18789,
-        "auth": { "mode": "none" }
+        "auth": {
+          "mode": "token",
+          "token": "hive-secret"
+        }
       },
       "channels": {
         "anthropic": { "enabled": true }
       },
-      "tools": {
-        "allow": ["read", "write"]
-      },
+      "tools": { "allow": ["read", "write"] },
       "agents": {
         "list": [
           {
             "id": "worker",
-            "identity": {
-              "name": "Hive Worker",
-              "theme": "robot",
-              "emoji": "🤖"
-            },
-            "model": {
-              "primary": "anthropic/claude-3-haiku-20240307"
-            },
+            "identity": { "name": "Hive Worker", "theme": "robot", "emoji": "🤖" },
+            "model": { "primary": "anthropic/claude-3-haiku-20240307" },
             "workspace": "/data/.moltbot/workspace"
           }
         ]
@@ -78,22 +66,24 @@ data:
     ---
     name: Hive Worker
     ---
-    You are a headless worker. You process data. Be concise.
+    You are a headless worker. Process data.
 
   watcher.sh: |
     #!/bin/bash
-    echo "Worker Watchdog active on /exchange..."
+    echo "Worker Watchdog active..."
     mkdir -p /exchange
+    
+    export MOLTBOT_GATEWAY_TOKEN="hive-secret"
+    export MOLTBOT_GATEWAY_URL="http://127.0.0.1:18789"
     
     while true; do
       if [ -f /exchange/inbox.txt ]; then
         echo "[$(date)] Job received."
         TASK=$(cat /exchange/inbox.txt)
         
-        # Pass task to local Gateway via CLI
+        # Call agent with explicit token
         RESPONSE=$(moltbot agent --agent worker --message "$TASK" --text)
         
-        # Write output
         echo "$RESPONSE" > /exchange/outbox.txt
         rm /exchange/inbox.txt
         echo "[$(date)] Job finished."
