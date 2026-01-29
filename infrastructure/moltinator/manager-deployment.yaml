@@ -19,47 +19,30 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       
-      initContainers:
-      - name: setup
-        image: jeff7712/moltbot-hive-node:latest
-        imagePullPolicy: Always
-        securityContext: { runAsUser: 1000 }
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            rm -rf /data/.moltbot/moltbot.json
-            mkdir -p /data/.moltbot/workspace
-            cp /config-src/manager.json /data/.moltbot/moltbot.json
-            cp /config-src/manager-soul.md /data/.moltbot/workspace/SOUL.md
-        volumeMounts:
-        - name: data
-          mountPath: /data
-          subPath: manager
-        - name: config-source
-          mountPath: /config-src
-
       containers:
       - name: bot
-        image: jeff7712/moltbot-hive-node:latest
-        command: ["moltbot", "gateway", "--host", "0.0.0.0", "--allow-unconfigured"]
+        image: jeff7712/moltbot-manager:latest
+        imagePullPolicy: Always
+        
         env:
-        - name: MOLTBOT_GATEWAY_MODE
-          value: "local"
-        - name: TELEGRAM_BOT_TOKEN
-          valueFrom: { secretKeyRef: { name: moltbot-secrets, key: telegram-token } }
         - name: ANTHROPIC_API_KEY
           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
+          
         securityContext:
+          allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
+          capabilities: { drop: ["ALL"] }
+        
         volumeMounts:
         - name: tmp
           mountPath: /tmp
         - name: data
           mountPath: /data
-          subPath: manager
         - name: exchange
           mountPath: /exchange
-          subPath: exchange
+        - name: secrets
+          mountPath: /etc/secrets
+          readOnly: true
 
       volumes:
       - name: tmp
@@ -68,5 +51,9 @@ spec:
         persistentVolumeClaim: { claimName: moltbot-pvc }
       - name: exchange
         persistentVolumeClaim: { claimName: moltbot-pvc }
-      - name: config-source
-        configMap: { name: hive-configs }
+      - name: secrets
+        secret:
+          secretName: moltbot-secrets
+          items:
+            - key: telegram-token
+              path: telegram-token

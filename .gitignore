@@ -16,3 +16,4 @@ scripts/netbird.sh
 config-backups/
 3d-prints
 infrastructure/moltinator/result
+infrastructure/moltinator/flake.lock
