@@ -13,7 +13,6 @@ data:
       },
       "channels": {
         "telegram": { "enabled": true, "allowFrom": ["12345678"] }
-        # NO ANTHROPIC CHANNEL HERE
       },
       "plugins": {
         "memory-core": { "enabled": false }
