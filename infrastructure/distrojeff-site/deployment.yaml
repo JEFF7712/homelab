@@ -3,8 +3,11 @@ kind: Deployment
 metadata:
   name: website-deploy
   namespace: distrojeff
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: distrojeff-web
