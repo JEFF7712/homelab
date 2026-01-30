@@ -26,7 +26,7 @@ spec:
           name: http-control
         env:
         - name: OPENCLAW_GATEWAY_TOKEN
-          valueFrom: { secretKeyRef: { name: moltbot-secrets, key: gateway-token } }
+          valueFrom: { secretKeyRef: { name: openclaw-secrets, key: gateway-token } }
         - name: AGENTS_DEFAULTS_SANDBOX_MODE
           value: "off" 
           
