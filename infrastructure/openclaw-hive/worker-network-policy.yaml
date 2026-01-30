@@ -1,0 +1,24 @@
+# apiVersion: cilium.io/v2
+# kind: CiliumNetworkPolicy
+# metadata:
+#   name: moltbot-worker-egress
+#   namespace: moltbot
+# spec:
+#   endpointSelector:
+#     matchLabels:
+#       app: moltbot-worker
+#   ingress:
+#   - fromEntities:
+#     - cluster
+#   egress:
+#   - toEndpoints:
+#     - matchLabels:
+#         io.kubernetes.pod.namespace: kube-system
+#         k8s-app: kube-dns
+#     toPorts:
+#     - ports:
+#       - port: "53"
+#         protocol: UDP
+#   - toFQDNs:
+#     - matchName: "api.anthropic.com"
+#     - matchName: "cdn.anthropic.com"

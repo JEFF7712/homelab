@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw-manager
+  namespace: openclaw
+  labels:
+    app: openclaw-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw-manager
+  template:
+    metadata:
+      labels:
+        app: openclaw-manager
+    spec:
+      containers:
+      - name: gateway
+        image: jeff7712/openclaw:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 18789
+          name: http-control
+        env:
+        - name: OPENCLAW_GATEWAY_TOKEN
+          valueFrom: { secretKeyRef: { name: moltbot-secrets, key: gateway-token } }
+        - name: AGENTS_DEFAULTS_SANDBOX_MODE
+          value: "off" 
+          
+        volumeMounts:
+        - name: data
+          mountPath: /home/node/.openclaw
+        - name: workspace
+          mountPath: /home/node/.openclaw/workspace
+          
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 18789
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 18789
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: openclaw-pvc
+      - name: workspace
+        persistentVolumeClaim:
+          claimName: openclaw-pvc
+          subPath: workspace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openclaw-manager
+  namespace: openclaw
+spec:
+  selector:
+    app: openclaw-manager
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 18789
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openclaw-manager
+  namespace: openclaw
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: openclaw.rupan.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openclaw-manager
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - openclaw.rupan.dev
+      secretName: openclaw-manager-tls

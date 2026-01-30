@@ -1,0 +1,51 @@
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: gitlab-runner
+#   namespace: argocd
+# spec:
+#   project: default
+#   source:
+#     repoURL: https://charts.gitlab.io
+#     chart: gitlab-runner
+#     targetRevision: 0.72.0  # Pinning version for stability
+#     helm:
+#       parameters:
+#         # 1. Basic Configuration
+#         - name: gitlabUrl
+#           value: "https://gitlab.com/"
+        
+#         # 2. Link to the Secret you created (Security Best Practice)
+#         - name: runnerToken
+#           value: "" # We leave this empty because we use the secret below
+#         - name: runners.secret
+#           value: "gitlab-runner-secret"
+        
+#         # 3. Enable RBAC
+#         - name: rbac.create
+#           value: "true"
+        
+#         # 4. CRITICAL: Enable Docker-in-Docker (Privileged Mode)
+#         # Without this, 'docker build' commands will fail.
+#         - name: runners.privileged
+#           value: "true"
+          
+#         # 5. Resource Limits
+#         - name: resources.requests.cpu
+#           value: "100m"
+#         - name: resources.requests.memory
+#           value: "128Mi"
+          
+#         # 6. Tags (Target this runner in your CI/CD)
+#         - name: runners.tags
+#           value: "k8s,homelab,docker"
+
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: gitlab-runner
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+#     syncOptions:
+#       - CreateNamespace=true

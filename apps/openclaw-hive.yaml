@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: moltbot
+  name: openclaw
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: moltinator
+  name: openclaw
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -15,10 +15,10 @@ spec:
   source:
     repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
     targetRevision: main
-    path: infrastructure/moltinator
+    path: infrastructure/openclaw-hive
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: moltbot
+    namespace: openclaw
   syncPolicy:
     automated:
       prune: true

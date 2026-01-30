@@ -1,0 +1,97 @@
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: moltbot-worker
+#   namespace: moltbot
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: moltbot-worker
+#   template:
+#     metadata:
+#       labels:
+#         app: moltbot-worker
+#     spec:
+#       automountServiceAccountToken: false
+#       securityContext:
+#         runAsUser: 1000
+#         runAsGroup: 1000
+#         fsGroup: 1000
+
+#       initContainers:
+#       - name: fix-permissions
+#         image: busybox:latest
+#         command: ['sh', '-c', 'chown -R 1000:1000 /mnt/agents /mnt/credentials /mnt/cron /mnt/devices']
+#         securityContext:
+#           runAsUser: 0
+#         volumeMounts:
+#         - name: moltbot-home
+#           mountPath: /mnt/agents
+#           subPath: agents
+#         - name: moltbot-home
+#           mountPath: /mnt/credentials
+#           subPath: credentials
+#         - name: moltbot-home
+#           mountPath: /mnt/cron
+#           subPath: cron
+#         - name: moltbot-home
+#           mountPath: /mnt/devices
+#           subPath: devices
+
+#       containers:
+#       - name: bot
+#         image: jeff7712/moltbot-worker:latest
+#         imagePullPolicy: Always
+#         env:
+#         - name: ANTHROPIC_API_KEY
+#           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: anthropic-key } }
+#         - name: MOLTBOT_GATEWAY_TOKEN
+#           valueFrom: { secretKeyRef: { name: moltbot-secrets, key: gateway-token } }
+#         securityContext:
+#           allowPrivilegeEscalation: false
+#           readOnlyRootFilesystem: false
+#           capabilities: { drop: ["ALL"] }
+#         volumeMounts:
+#         - name: tmp
+#           mountPath: /tmp
+#         - name: data
+#           mountPath: /data
+#         - name: exchange
+#           mountPath: /exchange
+#         - name: moltbot-home
+#           mountPath: /home/moltbot/.moltbot/cron
+#           subPath: cron
+#         - name: moltbot-home
+#           mountPath: /home/moltbot/.moltbot/agents
+#           subPath: agents
+#         - name: moltbot-home
+#           mountPath: /home/moltbot/.moltbot/credentials
+#           subPath: credentials
+#         - name: moltbot-home
+#           mountPath: /home/moltbot/.moltbot/devices
+#           subPath: devices
+
+#       - name: watcher
+#         image: jeff7712/moltbot-worker:latest
+#         imagePullPolicy: Always
+#         command: ["/bin/watcher"]
+#         securityContext:
+#           allowPrivilegeEscalation: false
+#           readOnlyRootFilesystem: false
+#           capabilities: { drop: ["ALL"] }
+#         volumeMounts:
+#         - name: tmp
+#           mountPath: /tmp
+#         - name: exchange
+#           mountPath: /exchange
+
+#       volumes:
+#       - name: tmp
+#         emptyDir: {}
+#       - name: data
+#         persistentVolumeClaim: { claimName: moltbot-pvc }
+#       - name: exchange
+#         persistentVolumeClaim: { claimName: moltbot-pvc }
+#       - name: moltbot-home
+#         persistentVolumeClaim: { claimName: moltbot-pvc }

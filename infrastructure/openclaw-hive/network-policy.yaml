@@ -1,12 +1,12 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: moltbot-worker-egress
-  namespace: moltbot
+  name: openclaw-egress
+  namespace: openclaw
 spec:
   endpointSelector:
     matchLabels:
-      app: moltbot-worker
+      app: openclaw-manager
   ingress:
   - fromEntities:
     - cluster
@@ -20,5 +20,6 @@ spec:
       - port: "53"
         protocol: UDP
   - toFQDNs:
+    - matchName: "api.telegram.org"
     - matchName: "api.anthropic.com"
     - matchName: "cdn.anthropic.com"
