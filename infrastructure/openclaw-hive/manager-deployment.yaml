@@ -52,10 +52,6 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: openclaw-pvc
-      - name: workspace
-        persistentVolumeClaim:
-          claimName: openclaw-pvc
-          subPath: workspace
 ---
 apiVersion: v1
 kind: Service
