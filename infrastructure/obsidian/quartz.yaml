@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quartz-notes
+  namespace: obsidian
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quartz-notes
+  template:
+    metadata:
+      labels:
+        app: quartz-notes
+    spec:
+      containers:
+        - name: quartz
+          image: jeff7712/quartz:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quartz-notes
+  namespace: obsidian
+spec:
+  selector:
+    app: quartz-notes
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: quartz-notes
+  namespace: obsidian
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: quartz.rupan.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: quartz-notes
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - quartz.rupan.dev
+      secretName: quartz-notes-tls

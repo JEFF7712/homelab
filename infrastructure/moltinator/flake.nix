@@ -17,8 +17,13 @@
           mode = "local";
           bind = "lan";
           port = 18789;
+          trustedProxies = [ "10.244.2.89" "10.244.1.244" "10.244.2.191" ];
           auth = {
             token = "\${MOLTBOT_GATEWAY_TOKEN}";
+          };
+          controlUi = {
+            enabled = true;
+            allowInsecureAuth = true;
           };
         };
         plugins = {
