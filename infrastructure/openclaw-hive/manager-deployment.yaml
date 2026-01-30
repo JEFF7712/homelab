@@ -21,6 +21,7 @@ spec:
       - name: gateway
         image: jeff7712/openclaw:latest
         imagePullPolicy: Always
+        args: ["gateway"]
         ports:
         - containerPort: 18789
           name: http-control
