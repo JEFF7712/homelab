@@ -8,11 +8,11 @@ spec:
   source:
     repoURL: https://charts.keel.sh
     chart: keel
-    targetRevision: 1.0.5
+    targetRevision: 1.1.0
     helm:
       parameters:
         - name: image.tag
-          value: "1.0.5"
+          value: "0.19.2"
         - name: helmProvider.enabled
           value: "false"
         - name: kubernetesProvider.enabled
