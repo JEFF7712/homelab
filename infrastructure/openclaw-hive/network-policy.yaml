@@ -29,16 +29,23 @@ spec:
     - matchName: "api.anthropic.com"
     - matchName: "cdn.anthropic.com"
     - matchName: "github.com"
+    - matchName: "raw.githubusercontent.com"
+    - matchName: "objects.githubusercontent.com"
+    - matchName: "codeload.github.com"
     - matchName: "api.github.com"
     - matchName: "gitlab.com"
+    - matchName: "registry.npmjs.org"
+
     - matchPattern: "*.digicert.com" 
     - matchPattern: "*.amazontrust.com"
     - matchPattern: "*.letsencrypt.org"
+    - matchPattern: "*.lencr.org"
+    - matchPattern: "*.pki.goog"
+    - matchPattern: "*.googleapis.com"
+    - matchPattern: "*.cloudflare.com"
+
     - matchPattern: "*.moltbook.com"
     - matchPattern: "*.openclaw.ai"
-    - matchPattern: "*.pki.goog"
-    - matchPattern: "*.cloudflare.com"
-    - matchPattern: "*.cloudflaressl.com"
 
     toPorts:
     - ports:
