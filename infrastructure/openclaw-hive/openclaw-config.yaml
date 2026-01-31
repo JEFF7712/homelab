@@ -14,10 +14,28 @@ data:
         }
       },
 
-      "identity": {
-        "name": "KubeClaw",
-        "theme": "helpful assistant",
-        "emoji": "🦀"
+      "agents": {
+        "defaults": {
+          "identity": {
+            "name": "KubeClaw",
+            "theme": "helpful assistant",
+            "emoji": "🦀"
+          },
+          "workspace": "/tmp/workspace",
+          "userTimezone": "America/Chicago",
+          "model": {
+            "primary": "anthropic/claude-sonnet-4-5",
+            "fallbacks": []
+          },
+          "verboseDefault": "off",
+          "blockStreamingDefault": "on",
+          "timeoutSeconds": 300,
+          "maxConcurrent": 5,
+          "sandbox": {
+            "mode": "local", 
+            "workspaceRoot": "/tmp/sandboxes"
+          }
+        }
       },
 
       "logging": {
@@ -37,25 +55,6 @@ data:
 
       "channels": {
         "telegram": { "enabled": false }
-      },
-
-      "agents": {
-        "defaults": {
-          "workspace": "/tmp/workspace",
-          "userTimezone": "America/Chicago",
-          "model": {
-            "primary": "anthropic/claude-sonnet-4-5",
-            "fallbacks": []
-          },
-          "verboseDefault": "off",
-          "blockStreamingDefault": "on",
-          "timeoutSeconds": 300,
-          "maxConcurrent": 5,
-          "sandbox": {
-            "mode": "local", 
-            "workspaceRoot": "/tmp/sandboxes"
-          }
-        }
       },
 
       "tools": {
