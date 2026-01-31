@@ -21,23 +21,23 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: openclaw-pvc
-      - name: config-source
-        configMap:
-          name: openclaw-config
-      - name: sidecar-config
-        configMap:
-          name: openclaw-sidecar-config
-      - name: secrets
-        secret:
-          secretName: openclaw-secrets
-          defaultMode: 0400
-      - name: tmp
-        emptyDir: {}
-      - name: npm-cache
-        emptyDir: {}
+        - name: data
+          persistentVolumeClaim:
+            claimName: openclaw-pvc
+        - name: config-source
+          configMap:
+            name: openclaw-config
+        - name: sidecar-config
+          configMap:
+            name: openclaw-sidecar-config
+        - name: secrets
+          secret:
+            secretName: openclaw-secrets
+            defaultMode: 0400
+        - name: tmp
+          emptyDir: {}
+        - name: npm-cache
+          emptyDir: {}
       initContainers:
         - name: init-config
           image: busybox:latest
@@ -47,98 +47,107 @@ spec:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-          command: ["sh", "-c", "cp /src/openclaw.json /dst/openclaw.json"]
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /src/openclaw.json /dst/openclaw.json
+              if [ -f /secrets/antigravity-auth.json ]; then
+                cp /secrets/antigravity-auth.json /dst/auth.json
+                chmod 0400 /dst/auth.json
+              fi
           volumeMounts:
             - name: config-source
               mountPath: /src
+            - name: secrets
+              mountPath: /secrets
             - name: data
               mountPath: /dst
       containers:
-      - name: gateway
-        image: jeff7712/openclaw:latest
-        imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            set -e
-            export ANTHROPIC_API_KEY=$(cat /secrets/anthropic-key)
-            export GATEWAY_TOKEN=$(cat /secrets/gateway-token)
-            export TELEGRAM_BOT_TOKEN=$(cat /secrets/telegram-token)
-            export AGENTS_DEFAULTS_SANDBOX_MODE="off"
-            exec node dist/index.js gateway
-        env:
-          - name: NODE_OPTIONS
-            value: "--dns-result-order=ipv4first"
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "1Gi"
-          limits:
-            cpu: "2"
-            memory: "4Gi"
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 1000
-          capabilities:
-            drop:
-              - ALL
-        volumeMounts:
-        - name: data
-          mountPath: /home/node/.openclaw
-        - name: secrets
-          mountPath: /secrets
-          readOnly: true
-        - name: tmp
-          mountPath: /tmp
-        - name: npm-cache
-          mountPath: /home/node/.npm
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 90
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 90
-          periodSeconds: 10
-          timeoutSeconds: 5
-      - name: sidecar-proxy
-        image: nginx:alpine
-        ports:
-        - containerPort: 8080
-          name: http-proxy
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "200m"
-            memory: "256Mi"
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 101
-          capabilities:
-            drop:
-              - ALL
-        volumeMounts:
-        - name: sidecar-config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
-        - name: tmp
-          mountPath: /tmp
-        - name: tmp
-          mountPath: /var/cache/nginx
-        - name: tmp
-          mountPath: /var/run
+        - name: gateway
+          image: jeff7712/openclaw:latest
+          imagePullPolicy: Always
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              export ANTHROPIC_API_KEY=$(cat /secrets/anthropic-key)
+              export GATEWAY_TOKEN=$(cat /secrets/gateway-token)
+              export TELEGRAM_BOT_TOKEN=$(cat /secrets/telegram-token)
+              export AGENTS_DEFAULTS_SANDBOX_MODE="off"
+              exec node dist/index.js gateway
+          env:
+            - name: NODE_OPTIONS
+              value: "--dns-result-order=ipv4first"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /home/node/.openclaw
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: npm-cache
+              mountPath: /home/node/.npm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 5
+        - name: sidecar-proxy
+          image: nginx:alpine
+          ports:
+            - containerPort: 8080
+              name: http-proxy
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 101
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: sidecar-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: tmp
+              mountPath: /tmp
+            - name: tmp
+              mountPath: /var/cache/nginx
+            - name: tmp
+              mountPath: /var/run
 ---
 apiVersion: v1
 kind: Service

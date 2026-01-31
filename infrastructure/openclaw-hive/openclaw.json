@@ -11,6 +11,10 @@
   },
   "agents": {
     "defaults": {
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
       "workspace": "/home/node/.openclaw/agents/main/workspace",
       "model": { 
         "primary": "google-antigravity/claude-sonnet-4-5", 
@@ -61,7 +65,16 @@
       "basePath": "/",
       "allowInsecureAuth": true 
     },
-    "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
+    "auth": { 
+      "profiles": {
+        "google-antigravity:rupanpandyan@gmail.com": {
+          "provider": "google-antigravity",
+          "mode": "oauth"
+        }
+      },
+      "mode": "token", 
+      "token": "${GATEWAY_TOKEN}" 
+    }
   },
   "plugins": {
     "entries": {
