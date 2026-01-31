@@ -12,8 +12,14 @@
   "agents": {
     "defaults": {
       "workspace": "/home/node/.openclaw/agents/main/workspace",
-      "model": { "primary": "anthropic/claude-sonnet-4-5", "fallbacks": [] },
-      "sandbox": { "mode": "non-main", "workspaceRoot": "/tmp/sandboxes" }
+      "model": { 
+        "primary": "google-antigravity/gemini-3-pro-preview", 
+        "fallbacks": [ "anthropic/claude-sonnet-4-5" ] 
+      },
+      "sandbox": { 
+        "mode": "non-main", 
+        "workspaceRoot": "/tmp/sandboxes" 
+      }
     },
     "list": [
       { "id": "main", 
@@ -53,6 +59,13 @@
       "allowInsecureAuth": true 
     },
     "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
+  },
+  "plugins": {
+    "entries": {
+      "google-antigravity-auth": {
+        "enabled": true
+      }
+    }
   },
   "tools": { 
     "allow": ["exec", "read", "write", "http"]
