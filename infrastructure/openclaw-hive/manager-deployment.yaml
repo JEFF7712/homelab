@@ -51,6 +51,9 @@ spec:
             export TELEGRAM_BOT_TOKEN=$(cat /secrets/telegram-token)
             export AGENTS_DEFAULTS_SANDBOX_MODE="off"
             exec node dist/index.js gateway
+        env:
+          - name: NODE_OPTIONS
+            value: "--dns-result-order=ipv4first"
         volumeMounts:
         - name: data
           mountPath: /home/node/.openclaw

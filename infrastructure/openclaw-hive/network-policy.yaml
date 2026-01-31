@@ -36,6 +36,9 @@ spec:
     - matchPattern: "*.letsencrypt.org"
     - matchPattern: "*.moltbook.com"
     - matchPattern: "*.openclaw.ai"
+    - matchPattern: "*.pki.goog"
+    - matchPattern: "*.cloudflare.com"
+    - matchPattern: "*.cloudflaressl.com"
 
     toPorts:
     - ports:
