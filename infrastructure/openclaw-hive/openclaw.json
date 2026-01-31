@@ -97,7 +97,7 @@
     }
   },
   "tools": { 
-    "allow": ["exec", "read", "write", "http"],
+    "allow": ["exec", "process", "read", "write", "http", "web_search", "web_fetch", "image", "message", "cron", "agents_list"],
     "web": {
       "search": {
         "provider": "brave",
