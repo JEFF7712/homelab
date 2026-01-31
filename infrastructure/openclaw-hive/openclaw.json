@@ -66,12 +66,6 @@
       "allowInsecureAuth": true 
     },
     "auth": { 
-      "profiles": {
-        "google-antigravity:rupanpandyan@gmail.com": {
-          "provider": "google-antigravity",
-          "mode": "oauth"
-        }
-      },
       "mode": "token", 
       "token": "${GATEWAY_TOKEN}" 
     }
