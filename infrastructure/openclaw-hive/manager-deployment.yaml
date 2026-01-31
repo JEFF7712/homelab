@@ -66,7 +66,7 @@ spec:
               mountPath: /dst
       containers:
         - name: gateway
-          image: jeff7712/openclaw:latest
+          image: jeff7712/openclaw-antigravity-patched:latest
           imagePullPolicy: Always
           command: ["/bin/sh", "-c"]
           args:
