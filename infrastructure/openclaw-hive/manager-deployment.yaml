@@ -15,7 +15,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
-      
       volumes:
       - name: data
         persistentVolumeClaim:
@@ -26,7 +25,6 @@ spec:
       - name: sidecar-config
         configMap:
           name: openclaw-sidecar-config
-
       initContainers:
         - name: init-config
           image: busybox:latest
@@ -36,7 +34,6 @@ spec:
               mountPath: /src
             - name: data
               mountPath: /dst
-
       containers:
       - name: gateway
         image: jeff7712/openclaw:latest
@@ -79,7 +76,6 @@ spec:
           failureThreshold: 3
           periodSeconds: 10
           timeoutSeconds: 5
-
       - name: sidecar-proxy
         image: nginx:alpine
         ports:
