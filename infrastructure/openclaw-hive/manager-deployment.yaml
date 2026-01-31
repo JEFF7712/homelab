@@ -98,7 +98,7 @@ spec:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
@@ -106,7 +106,7 @@ spec:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 10
+          initialDelaySeconds: 90
           periodSeconds: 10
           timeoutSeconds: 5
       - name: sidecar-proxy
