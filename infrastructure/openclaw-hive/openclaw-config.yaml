@@ -34,22 +34,21 @@ data:
       },
       "session": {
         "scope": "per-sender",
-        "store": "/data/sessions/sessions.json",
+        
+        "store": "/home/node/.openclaw/sessions/sessions.json",
+        
         "reset": { "mode": "idle", "idleMinutes": 240 }
       },
       "gateway": {
         "mode": "local",
         "port": 18789,
         "bind": "loopback",
-        
         "trustedProxies": ["127.0.0.1", "::1", "10.0.0.0/8"], 
-        
         "controlUi": { 
           "enabled": true, 
           "basePath": "/",
           "allowInsecureAuth": true 
         },
-
         "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
       },
       "tools": { "allow": ["exec", "read", "write", "http"] }
