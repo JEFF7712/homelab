@@ -55,6 +55,6 @@
     "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
   },
   "tools": { 
-    "allow": ["exec", "read", "write", "http"],
+    "allow": ["exec", "read", "write", "http"]
   }
 }
