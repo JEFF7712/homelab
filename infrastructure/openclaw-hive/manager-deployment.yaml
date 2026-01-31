@@ -75,6 +75,7 @@ spec:
               export ANTHROPIC_API_KEY=$(cat /secrets/anthropic-key)
               export GATEWAY_TOKEN=$(cat /secrets/gateway-token)
               export TELEGRAM_BOT_TOKEN=$(cat /secrets/telegram-token)
+              export BRAVE_API_KEY=$(cat /secrets/brave-api-key)
               export AGENTS_DEFAULTS_SANDBOX_MODE="off"
               exec node dist/index.js gateway
           env:

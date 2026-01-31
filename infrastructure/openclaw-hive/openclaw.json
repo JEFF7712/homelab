@@ -97,6 +97,15 @@
     }
   },
   "tools": { 
-    "allow": ["exec", "read", "write", "http"]
+    "allow": ["exec", "read", "write", "http"],
+    "web": {
+    "search": {
+      "enabled": true,
+      "apiKey": "${BRAVE_API_KEY}",
+      "maxResults": 5,
+      "timeoutSeconds": 30,
+      "cacheTtlMinutes": 15
+    }
+  }
   }
 }
