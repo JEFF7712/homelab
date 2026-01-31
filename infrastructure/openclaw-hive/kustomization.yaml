@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openclaw
+
+resources:
+  - manager-deployment.yaml
+  - network-policy.yaml
+  - nginx-sidecar-config.yaml
+  - pvc.yaml
+configMapGenerator:
+  - name: openclaw-config
+    files:
+      - openclaw.json
+  - name: openclaw-sidecar-config
+    files:
+      - nginx.conf
+generatorOptions:
+  disableNameSuffixHash: false

@@ -1,0 +1,48 @@
+{
+  "env": {
+    "vars": {
+      "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+      "GATEWAY_TOKEN": "${GATEWAY_TOKEN}"
+    }
+  },
+  "auth": {
+    "profiles": { "anthropic:default": { "provider": "anthropic", "mode": "api_key" } },
+    "order": { "anthropic": ["anthropic:default"] }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/tmp/workspace",
+      "model": { "primary": "anthropic/claude-sonnet-4-5", "fallbacks": [] },
+      "sandbox": { "mode": "non-main", "workspaceRoot": "/tmp/sandboxes" }
+    },
+    "list": [
+      { "id": "main", "identity": { "name": "KubeClaw", "theme": "helpful assistant", "emoji": "🦀" } }
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "file": "/dev/stdout",
+    "consoleStyle": "json",
+    "redactSensitive": "tools"
+  },
+  "session": {
+    "scope": "per-sender",
+    
+    "store": "/home/node/.openclaw/sessions/sessions.json",
+    
+    "reset": { "mode": "idle", "idleMinutes": 240 }
+  },
+  "gateway": {
+    "mode": "local",
+    "port": 18789,
+    "bind": "loopback",
+    "trustedProxies": ["127.0.0.1", "::1", "10.0.0.0/8"], 
+    "controlUi": { 
+      "enabled": true, 
+      "basePath": "/",
+      "allowInsecureAuth": true 
+    },
+    "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
+  },
+  "tools": { "allow": ["exec", "read", "write", "http"] }
+}
