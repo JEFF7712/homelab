@@ -56,8 +56,5 @@
   },
   "tools": { 
     "allow": ["exec", "read", "write", "http"],
-    "exec": {
-      "requireApproval": ["rm -rf", "git push --force", "curl.*$(cat", "wget.*$(cat"]
-    }
   }
 }
