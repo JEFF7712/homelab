@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: openclaw-manager
   namespace: openclaw
-  labels:
-    app: openclaw-manager
 spec:
   replicas: 1
   selector:
@@ -25,6 +23,9 @@ spec:
       - name: config-source
         configMap:
           name: openclaw-config
+      - name: sidecar-config
+        configMap:
+          name: openclaw-sidecar-config
 
       initContainers:
         - name: init-config
@@ -40,37 +41,37 @@ spec:
       - name: gateway
         image: jeff7712/openclaw:latest
         imagePullPolicy: Always
-        
         command: ["node", "dist/index.js", "gateway"]
-        
-        ports:
-        - containerPort: 18789
-          name: http-control
-          
         env:
         - name: ANTHROPIC_API_KEY
           valueFrom: { secretKeyRef: { name: openclaw-secrets, key: anthropic-key } }
         - name: GATEWAY_TOKEN
           valueFrom: { secretKeyRef: { name: openclaw-secrets, key: gateway-token } }
         - name: AGENTS_DEFAULTS_SANDBOX_MODE
-          value: "off" 
-          
+          value: "off"
         volumeMounts:
         - name: data
           mountPath: /home/node/.openclaw
-          
         livenessProbe:
           httpGet:
             path: /health
             port: 18789
           initialDelaySeconds: 15
-          periodSeconds: 20
         readinessProbe:
           httpGet:
             path: /health
             port: 18789
           initialDelaySeconds: 5
-          periodSeconds: 10
+
+      - name: sidecar-proxy
+        image: nginx:alpine
+        ports:
+        - containerPort: 8080
+          name: http-proxy
+        volumeMounts:
+        - name: sidecar-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
 ---
 apiVersion: v1
 kind: Service

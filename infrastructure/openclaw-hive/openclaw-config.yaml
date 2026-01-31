@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: openclaw-config
+  namespace: openclaw
 data:
   openclaw.json: |
     {
@@ -9,72 +10,35 @@ data:
         "profiles": {
           "anthropic:default": { "provider": "anthropic", "mode": "api_key" }
         },
-        "order": {
-          "anthropic": ["anthropic:default"]
-        }
+        "order": { "anthropic": ["anthropic:default"] }
       },
-
       "agents": {
         "defaults": {
           "workspace": "/tmp/workspace",
-          "userTimezone": "America/Chicago",
-          "model": {
-            "primary": "anthropic/claude-sonnet-4-5",
-            "fallbacks": []
-          },
-          "verboseDefault": "off",
-          "blockStreamingDefault": "on",
-          "timeoutSeconds": 300,
-          "maxConcurrent": 5,
-          "sandbox": {
-            "mode": "non-main", 
-            "workspaceRoot": "/tmp/sandboxes"
-          }
+          "model": { "primary": "anthropic/claude-sonnet-4-5", "fallbacks": [] },
+          "sandbox": { "mode": "non-main", "workspaceRoot": "/tmp/sandboxes" }
         },
-        "list": {
-          "main": {
-            "identity": {
-              "name": "KubeClaw",
-              "theme": "helpful assistant",
-              "emoji": "🦀"
-            }
-          }
-        }
+        "list": [
+          { "id": "main", "identity": { "name": "KubeClaw", "theme": "helpful assistant", "emoji": "🦀" } }
+        ]
       },
-
       "logging": {
         "level": "info",
         "file": "/dev/stdout",
-        "consoleLevel": "info",
         "consoleStyle": "json",
         "redactSensitive": "tools"
       },
-
       "session": {
         "scope": "per-sender",
         "store": "/data/sessions/sessions.json",
-        "reset": { "mode": "idle", "idleMinutes": 240 },
-        "sendPolicy": { "default": "allow" }
+        "reset": { "mode": "idle", "idleMinutes": 240 }
       },
-
-      "channels": {
-        "telegram": { "enabled": false }
-      },
-
-      "tools": {
-        "allow": ["exec", "read", "write", "apply_patch", "http"],
-        "deny": ["browser", "desktop_control"],
-        "exec": { "backgroundMs": 5000, "timeoutSec": 300 }
-      },
-
       "gateway": {
         "mode": "local",
         "port": 18789,
-        "bind": "all",
+        "bind": "loopback",  
         "controlUi": { "enabled": true, "basePath": "/" },
-        "auth": {
-          "mode": "token",
-          "token": "${GATEWAY_TOKEN}"
-        }
-      }
+        "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
+      },
+      "tools": { "allow": ["exec", "read", "write", "http"] }
     }
