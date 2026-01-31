@@ -11,12 +11,10 @@ spec:
   ingress:
   - fromEndpoints:
     - matchLabels:
-        app.kubernetes.io/name: traefik 
+        app.kubernetes.io/name: traefik
         io.kubernetes.pod.namespace: traefik
         
   egress:
-  - toEntities:
-    - kube-dns
   - toEndpoints:
     - matchLabels:
         io.kubernetes.pod.namespace: kube-system
@@ -34,6 +32,7 @@ spec:
     - matchName: "api.github.com"
     - matchPattern: "*.digicert.com" 
     - matchPattern: "*.amazontrust.com"
+    - matchPattern: "*.letsencrypt.org"
     toPorts:
     - ports:
       - port: "443"
