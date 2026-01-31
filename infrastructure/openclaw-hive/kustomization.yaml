@@ -6,7 +6,6 @@ namespace: openclaw
 resources:
   - manager-deployment.yaml
   - network-policy.yaml
-  - nginx-sidecar-config.yaml
   - pvc.yaml
 configMapGenerator:
   - name: openclaw-config

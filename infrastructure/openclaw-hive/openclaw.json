@@ -16,7 +16,12 @@
       "sandbox": { "mode": "non-main", "workspaceRoot": "/tmp/sandboxes" }
     },
     "list": [
-      { "id": "main", "identity": { "name": "KubeClaw", "theme": "helpful assistant", "emoji": "🦀" } }
+      { "id": "main", 
+      "identity": { 
+        "name": "KubeClaw", 
+        "theme": "helpful assistant", 
+        "emoji": "🦀" } 
+      }
     ]
   },
   "logging": {
