@@ -22,11 +22,13 @@ spec:
         image: jeff7712/openclaw:latest
         imagePullPolicy: Always
         command: ["node", "dist/index.js", "gateway"]
-        args: ["--allow-unconfigured", "--bind", "lan", "--port", "18789"]
+        args: ["--allow-unconfigured", "--bind", "custom", "--port", "18789"]
         ports:
         - containerPort: 18789
           name: http-control
         env:
+        - name: OPENCLAW_GATEWAY_HOST
+          value: "0.0.0.0"
         - name: OPENCLAW_GATEWAY_TOKEN
           valueFrom: { secretKeyRef: { name: openclaw-secrets, key: gateway-token } }
         - name: AGENTS_DEFAULTS_SANDBOX_MODE
