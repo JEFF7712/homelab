@@ -45,6 +45,7 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
+            set -e
             export ANTHROPIC_API_KEY=$(cat /secrets/anthropic-key)
             export GATEWAY_TOKEN=$(cat /secrets/gateway-token)
             export TELEGRAM_BOT_TOKEN=$(cat /secrets/telegram-token)
