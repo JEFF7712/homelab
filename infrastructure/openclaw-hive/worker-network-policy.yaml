@@ -1,34 +1,34 @@
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: openclaw-policy
-  namespace: openclaw
-spec:
-  endpointSelector:
-    matchLabels:
-      app: openclaw-worker
+# apiVersion: cilium.io/v2
+# kind: CiliumNetworkPolicy
+# metadata:
+#   name: openclaw-policy
+#   namespace: openclaw
+# spec:
+#   endpointSelector:
+#     matchLabels:
+#       app: openclaw-worker
       
-  ingress:
-  - fromEndpoints:
-    - matchLabels:
-        app.kubernetes.io/name: traefik
-        io.kubernetes.pod.namespace: traefik
+#   ingress:
+#   - fromEndpoints:
+#     - matchLabels:
+#         app.kubernetes.io/name: traefik
+#         io.kubernetes.pod.namespace: traefik
         
-  egress:
-  - toEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: kube-system
-        k8s-app: kube-dns
-    toPorts:
-    - ports:
-      - port: "53"
-        protocol: ANY
+#   egress:
+#   - toEndpoints:
+#     - matchLabels:
+#         io.kubernetes.pod.namespace: kube-system
+#         k8s-app: kube-dns
+#     toPorts:
+#     - ports:
+#       - port: "53"
+#         protocol: ANY
 
-  - toFQDNs:
-    - matchName: "api.anthropic.com"
-    - matchName: "cdn.anthropic.com"
+#   - toFQDNs:
+#     - matchName: "api.anthropic.com"
+#     - matchName: "cdn.anthropic.com"
 
-    toPorts:
-    - ports:
-      - port: "443"
-        protocol: TCP
+#     toPorts:
+#     - ports:
+#       - port: "443"
+#         protocol: TCP

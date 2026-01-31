@@ -34,8 +34,8 @@ spec:
     - matchPattern: "*.digicert.com" 
     - matchPattern: "*.amazontrust.com"
     - matchPattern: "*.letsencrypt.org"
-    - matchName: "*.moltbook.com"
-    - matchName: "*.openclaw.ai"
+    - matchPattern: "*.moltbook.com"
+    - matchPattern: "*.openclaw.ai"
 
     toPorts:
     - ports:
