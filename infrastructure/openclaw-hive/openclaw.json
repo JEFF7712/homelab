@@ -35,10 +35,7 @@
   "logging": {
     "level": "info",
     "file": "/home/node/.openclaw/audit.log",
-    "consoleStyle": "json",
-    "redactSensitive": false,
-    "includeToolCalls": true,
-    "includeTimestamps": true
+    "consoleStyle": "json"
   },
   "session": {
     "scope": "per-sender",
@@ -60,30 +57,7 @@
   "tools": { 
     "allow": ["exec", "read", "write", "http"],
     "exec": {
-      "timeout": 300,
-      "blocklist": ["rm -rf /", ":(){ :|:& };:", "dd if=/dev/zero"],
       "requireApproval": ["rm -rf", "git push --force", "curl.*$(cat", "wget.*$(cat"]
-    },
-    "http": {
-      "timeout": 30,
-      "maxRedirects": 5
-    }
-  },
-  "security": {
-    "auditLog": {
-      "enabled": true,
-      "path": "/home/node/.openclaw/security-audit.log",
-      "logSecrets": false,
-      "alertPatterns": [
-        "cat /secrets",
-        "echo $.*_KEY",
-        "echo $.*_TOKEN",
-        "curl.*http://.*$(cat",
-        "wget.*http",
-        "nc -l",
-        "netcat",
-        "base64 -d.*|.*sh"
-      ]
     }
   }
 }
