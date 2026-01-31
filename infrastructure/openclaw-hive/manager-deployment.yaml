@@ -22,7 +22,7 @@ spec:
         image: jeff7712/openclaw:latest
         imagePullPolicy: Always
         command: ["node", "dist/index.js", "gateway"]
-        args: ["--bind", "0.0.0.0", "--port", "18789"]
+        args: ["--allow-unconfigured", "--bind", "0.0.0.0", "--port", "18789"]
         ports:
         - containerPort: 18789
           name: http-control
