@@ -7,7 +7,10 @@
   },
   "auth": {
     "profiles": { "anthropic:default": { "provider": "anthropic", "mode": "api_key" } },
-    "order": { "anthropic": ["anthropic:default"] }
+    "order": { 
+      "google-antigravity": ["google-antigravity:rupanpandyan@gmail.com"],
+      "anthropic": ["anthropic:default"] 
+    }
   },
   "agents": {
     "defaults": {
