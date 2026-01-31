@@ -24,11 +24,13 @@
       }
     ]
   },
-  "telegram": {
-      "enabled": true,
-      "botToken": "${TELEGRAM_BOT_TOKEN}",
-      "allowFrom": ["7542293680"],
-      "groups": { "*": { "requireMention": true } }
+  "channels": {
+    "telegram": {
+        "enabled": true,
+        "botToken": "${TELEGRAM_BOT_TOKEN}",
+        "allowFrom": ["7542293680"],
+        "groups": { "*": { "requireMention": true } }
+      }
     },
   "logging": {
     "level": "info",
