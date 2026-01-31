@@ -54,7 +54,7 @@ spec:
               mkdir -p /dst/agents/main/agent
               if [ -f /secrets/auth-profiles.json ]; then
                 cp /secrets/auth-profiles.json /dst/agents/main/agent/auth-profiles.json
-                chmod 0400 /dst/agents/main/agent/auth-profiles.json
+                chmod 0600 /dst/agents/main/agent/auth-profiles.json
                 echo "Auth profiles copied to /dst/agents/main/agent/auth-profiles.json"
               fi
           volumeMounts:
