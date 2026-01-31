@@ -98,6 +98,9 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /home/node/.openclaw
+            - name: data
+              mountPath: /home/node/.config
+              subPath: config
             - name: secrets
               mountPath: /secrets
               readOnly: true

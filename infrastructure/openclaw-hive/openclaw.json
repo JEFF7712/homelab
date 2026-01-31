@@ -23,8 +23,24 @@
         "primary": "google-antigravity/claude-sonnet-4-5", 
         "fallbacks": [ 
           "google-antigravity/gemini-3-pro-high",
-          "anthropic/claude-sonnet-4-5"
+          "google-antigravity/claude-haiku-4",
+          "anthropic/claude-sonnet-4-5",
+          "anthropic/claude-haiku-4"
        ] 
+      },
+      "models": {
+        "google-antigravity/claude-opus-4-5": {
+          "alias": "Deep Thinking"
+        },
+        "google-antigravity/claude-sonnet-4-5": {
+          "alias": "Default",
+          "params": {
+            "cacheControlTtl": "5m"
+          }
+        },
+        "google-antigravity/claude-haiku-4": {
+          "alias": "Fast"
+        }
       },
       "sandbox": { 
         "mode": "non-main", 
