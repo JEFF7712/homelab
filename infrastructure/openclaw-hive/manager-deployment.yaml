@@ -17,36 +17,40 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+      
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: openclaw-pvc
+      - name: config-source
+        configMap:
+          name: openclaw-config
+
       initContainers:
-      - name: seed-config
-        image: jeff7712/openclaw:latest
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            CONFIG_PATH="/home/node/.openclaw/openclaw.json"
-            if [ ! -f "$CONFIG_PATH" ]; then
-              echo "Seeding initial configuration..."
-              # Create a minimal config forcing 0.0.0.0 bind
-              echo '{"gateway":{"mode":"local","host":"0.0.0.0","port":18789},"agents":{"defaults":{"sandbox":{"mode":"off"}}}}' > "$CONFIG_PATH"
-            else
-              echo "Config already exists. Skipping."
-            fi
-        volumeMounts:
-        - name: data
-          mountPath: /home/node/.openclaw
+        - name: init-config
+          image: busybox:latest
+          command: ["sh", "-c", "cp /src/openclaw.json /dst/openclaw.json && chown 1000:1000 /dst/openclaw.json"]
+          volumeMounts:
+            - name: config-source
+              mountPath: /src
+            - name: data
+              mountPath: /dst
+
       containers:
       - name: gateway
         image: jeff7712/openclaw:latest
         imagePullPolicy: Always
+        
         command: ["node", "dist/index.js", "gateway"]
-        args: ["--allow-unconfigured", "--bind", "custom", "--port", "18789"]
+        
         ports:
         - containerPort: 18789
           name: http-control
+          
         env:
-        - name: OPENCLAW_GATEWAY_HOST
-          value: "0.0.0.0"
-        - name: OPENCLAW_GATEWAY_TOKEN
+        - name: ANTHROPIC_API_KEY
+          valueFrom: { secretKeyRef: { name: openclaw-secrets, key: anthropic-key } }
+        - name: GATEWAY_TOKEN
           valueFrom: { secretKeyRef: { name: openclaw-secrets, key: gateway-token } }
         - name: AGENTS_DEFAULTS_SANDBOX_MODE
           value: "off" 
@@ -67,11 +71,6 @@ spec:
             port: 18789
           initialDelaySeconds: 5
           periodSeconds: 10
-
-      volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: openclaw-pvc
 ---
 apiVersion: v1
 kind: Service

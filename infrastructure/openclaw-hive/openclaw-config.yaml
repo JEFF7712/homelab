@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openclaw-config
+data:
+  openclaw.json: |
+    {
+      "auth": {
+        "profiles": {
+          "anthropic:default": { "provider": "anthropic", "mode": "api_key" }
+        },
+        "order": {
+          "anthropic": ["anthropic:default"]
+        }
+      },
+
+      "identity": {
+        "name": "KubeClaw",
+        "theme": "helpful assistant",
+        "emoji": "🦀"
+      },
+
+      "logging": {
+        "level": "info",
+        "file": "/dev/stdout",
+        "consoleLevel": "info",
+        "consoleStyle": "json",
+        "redactSensitive": "all"
+      },
+
+      "session": {
+        "scope": "per-channel",
+        "store": "/data/sessions/sessions.json",
+        "reset": { "mode": "idle", "idleMinutes": 240 },
+        "sendPolicy": { "default": "allow" }
+      },
+
+      "channels": {
+        "telegram": { "enabled": false }
+      },
+
+      "agents": {
+        "defaults": {
+          "workspace": "/tmp/workspace",
+          "userTimezone": "America/Chicago",
+          "model": {
+            "primary": "anthropic/claude-sonnet-4-5",
+            "fallbacks": []
+          },
+          "verboseDefault": "off",
+          "blockStreamingDefault": "on",
+          "timeoutSeconds": 300,
+          "maxConcurrent": 5,
+          "sandbox": {
+            "mode": "local", 
+            "workspaceRoot": "/tmp/sandboxes"
+          }
+        }
+      },
+
+      "tools": {
+        "allow": ["exec", "read", "write", "apply_patch", "http"],
+        "deny": ["browser", "desktop_control"],
+        "exec": { "backgroundMs": 5000, "timeoutSec": 300 }
+      },
+
+      "gateway": {
+        "mode": "local",
+        "port": 18789,
+        "bind": "0.0.0.0",
+        "controlUi": { "enabled": true, "basePath": "/" },
+        "auth": {
+          "mode": "token",
+          "token": "${GATEWAY_TOKEN}"
+        }
+      }
+    }
