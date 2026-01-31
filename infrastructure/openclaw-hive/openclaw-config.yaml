@@ -6,6 +6,12 @@ metadata:
 data:
   openclaw.json: |
     {
+      "env": {
+        "vars": {
+          "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+          "GATEWAY_TOKEN": "${GATEWAY_TOKEN}"
+        }
+      },
       "auth": {
         "profiles": {
           "anthropic:default": { "provider": "anthropic", "mode": "api_key" }
@@ -36,7 +42,7 @@ data:
       "gateway": {
         "mode": "local",
         "port": 18789,
-        "bind": "loopback",  
+        "bind": "loopback",
         "controlUi": { "enabled": true, "basePath": "/" },
         "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
       },
