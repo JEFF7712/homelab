@@ -1,39 +1,39 @@
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: openclaw-policy
-  namespace: openclaw
-spec:
-  endpointSelector:
-    matchLabels:
-      app: openclaw-manager
+# apiVersion: cilium.io/v2
+# kind: CiliumNetworkPolicy
+# metadata:
+#   name: openclaw-policy
+#   namespace: openclaw
+# spec:
+#   endpointSelector:
+#     matchLabels:
+#       app: openclaw-manager
       
-  ingress:
-  - fromEndpoints:
-    - matchLabels:
-        app.kubernetes.io/name: traefik
-        io.kubernetes.pod.namespace: traefik
+#   ingress:
+#   - fromEndpoints:
+#     - matchLabels:
+#         app.kubernetes.io/name: traefik
+#         io.kubernetes.pod.namespace: traefik
         
-  egress:
-  - toEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: kube-system
-        k8s-app: kube-dns
-    toPorts:
-    - ports:
-      - port: "53"
-        protocol: ANY
+#   egress:
+#   - toEndpoints:
+#     - matchLabels:
+#         io.kubernetes.pod.namespace: kube-system
+#         k8s-app: kube-dns
+#     toPorts:
+#     - ports:
+#       - port: "53"
+#         protocol: ANY
 
-  - toFQDNs:
-    - matchName: "api.telegram.org"
-    - matchName: "api.anthropic.com"
-    - matchName: "cdn.anthropic.com"
-    - matchName: "github.com"
-    - matchName: "api.github.com"
-    - matchPattern: "*.digicert.com" 
-    - matchPattern: "*.amazontrust.com"
-    - matchPattern: "*.letsencrypt.org"
-    toPorts:
-    - ports:
-      - port: "443"
-        protocol: TCP
+#   - toFQDNs:
+#     - matchName: "api.telegram.org"
+#     - matchName: "api.anthropic.com"
+#     - matchName: "cdn.anthropic.com"
+#     - matchName: "github.com"
+#     - matchName: "api.github.com"
+#     - matchPattern: "*.digicert.com" 
+#     - matchPattern: "*.amazontrust.com"
+#     - matchPattern: "*.letsencrypt.org"
+#     toPorts:
+#     - ports:
+#       - port: "443"
+#         protocol: TCP
