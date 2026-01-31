@@ -17,6 +17,23 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+      initContainers:
+      - name: seed-config
+        image: jeff7712/openclaw:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            CONFIG_PATH="/home/node/.openclaw/openclaw.json"
+            if [ ! -f "$CONFIG_PATH" ]; then
+              echo "Seeding initial configuration..."
+              # Create a minimal config forcing 0.0.0.0 bind
+              echo '{"gateway":{"mode":"local","host":"0.0.0.0","port":18789},"agents":{"defaults":{"sandbox":{"mode":"off"}}}}' > "$CONFIG_PATH"
+            else
+              echo "Config already exists. Skipping."
+            fi
+        volumeMounts:
+        - name: data
+          mountPath: /home/node/.openclaw
       containers:
       - name: gateway
         image: jeff7712/openclaw:latest
