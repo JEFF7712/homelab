@@ -44,6 +44,8 @@ spec:
           valueFrom: { secretKeyRef: { name: openclaw-secrets, key: anthropic-key } }
         - name: GATEWAY_TOKEN
           valueFrom: { secretKeyRef: { name: openclaw-secrets, key: gateway-token } }
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom: { secretKeyRef: { name: openclaw-secrets, key: telegram-token } }
         - name: AGENTS_DEFAULTS_SANDBOX_MODE
           value: "off"
         volumeMounts:
@@ -58,7 +60,6 @@ spec:
         - name: sidecar-config
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
----
 ---
 apiVersion: v1
 kind: Service
