@@ -12,9 +12,6 @@ spec:
     metadata:
       labels:
         app: openclaw-manager
-      annotations:
-        # Force pod restart on config changes
-        checksum/config: "{{ include (print $.Template.BasePath \"/configmap.yaml\") . | sha256sum }}"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -44,16 +41,18 @@ spec:
       initContainers:
         - name: init-config
           image: busybox:latest
-          command: ["sh", "-c", "cp /src/openclaw.json /dst/openclaw.json && chown 1000:1000 /dst/openclaw.json"]
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command: ["sh", "-c", "cp /src/openclaw.json /dst/openclaw.json"]
           volumeMounts:
             - name: config-source
               mountPath: /src
             - name: data
               mountPath: /dst
-          securityContext:
-            runAsUser: 0
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
       containers:
       - name: gateway
         image: jeff7712/openclaw:latest
