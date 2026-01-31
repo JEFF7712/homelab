@@ -34,15 +34,15 @@
     },
   "logging": {
     "level": "info",
-    "file": "/dev/stdout",
+    "file": "/home/node/.openclaw/audit.log",
     "consoleStyle": "json",
-    "redactSensitive": "tools"
+    "redactSensitive": false,
+    "includeToolCalls": true,
+    "includeTimestamps": true
   },
   "session": {
     "scope": "per-sender",
-    
     "store": "/home/node/.openclaw/sessions/sessions.json",
-    
     "reset": { "mode": "idle", "idleMinutes": 240 }
   },
   "gateway": {
@@ -57,5 +57,33 @@
     },
     "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
   },
-  "tools": { "allow": ["exec", "read", "write", "http"] }
+  "tools": { 
+    "allow": ["exec", "read", "write", "http"],
+    "exec": {
+      "timeout": 300,
+      "blocklist": ["rm -rf /", ":(){ :|:& };:", "dd if=/dev/zero"],
+      "requireApproval": ["rm -rf", "git push --force", "curl.*$(cat", "wget.*$(cat"]
+    },
+    "http": {
+      "timeout": 30,
+      "maxRedirects": 5
+    }
+  },
+  "security": {
+    "auditLog": {
+      "enabled": true,
+      "path": "/home/node/.openclaw/security-audit.log",
+      "logSecrets": false,
+      "alertPatterns": [
+        "cat /secrets",
+        "echo $.*_KEY",
+        "echo $.*_TOKEN",
+        "curl.*http://.*$(cat",
+        "wget.*http",
+        "nc -l",
+        "netcat",
+        "base64 -d.*|.*sh"
+      ]
+    }
+  }
 }
