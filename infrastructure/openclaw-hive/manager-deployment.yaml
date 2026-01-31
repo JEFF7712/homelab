@@ -25,6 +25,10 @@ spec:
       - name: sidecar-config
         configMap:
           name: openclaw-sidecar-config
+      - name: secrets
+        secret:
+          secretName: openclaw-secrets
+          defaultMode: 0400
       initContainers:
         - name: init-config
           image: busybox:latest
@@ -38,19 +42,20 @@ spec:
       - name: gateway
         image: jeff7712/openclaw:latest
         imagePullPolicy: Always
-        command: ["node", "dist/index.js", "gateway"]
-        env:
-        - name: ANTHROPIC_API_KEY
-          valueFrom: { secretKeyRef: { name: openclaw-secrets, key: anthropic-key } }
-        - name: GATEWAY_TOKEN
-          valueFrom: { secretKeyRef: { name: openclaw-secrets, key: gateway-token } }
-        - name: TELEGRAM_BOT_TOKEN
-          valueFrom: { secretKeyRef: { name: openclaw-secrets, key: telegram-token } }
-        - name: AGENTS_DEFAULTS_SANDBOX_MODE
-          value: "off"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            export ANTHROPIC_API_KEY=$(cat /secrets/anthropic-key)
+            export GATEWAY_TOKEN=$(cat /secrets/gateway-token)
+            export TELEGRAM_BOT_TOKEN=$(cat /secrets/telegram-token)
+            export AGENTS_DEFAULTS_SANDBOX_MODE="off"
+            exec node dist/index.js gateway
         volumeMounts:
         - name: data
           mountPath: /home/node/.openclaw
+        - name: secrets
+          mountPath: /secrets
+          readOnly: true
       - name: sidecar-proxy
         image: nginx:alpine
         ports:
