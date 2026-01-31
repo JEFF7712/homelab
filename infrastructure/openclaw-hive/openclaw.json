@@ -66,8 +66,13 @@
       "allowInsecureAuth": true 
     },
     "auth": { 
-      "mode": "token", 
-      "token": "${GATEWAY_TOKEN}" 
+      "profiles": { 
+        "anthropic:default": { "provider": "anthropic", "mode": "api_key" }
+      },
+      "order": { 
+        "google-antigravity": ["google-antigravity:rupanpandyan@gmail.com"],
+        "anthropic": ["anthropic:default"]
+      }
     }
   },
   "plugins": {
