@@ -13,9 +13,7 @@ data:
         }
       },
       "auth": {
-        "profiles": {
-          "anthropic:default": { "provider": "anthropic", "mode": "api_key" }
-        },
+        "profiles": { "anthropic:default": { "provider": "anthropic", "mode": "api_key" } },
         "order": { "anthropic": ["anthropic:default"] }
       },
       "agents": {
@@ -43,7 +41,15 @@ data:
         "mode": "local",
         "port": 18789,
         "bind": "loopback",
-        "controlUi": { "enabled": true, "basePath": "/" },
+        
+        "trustedProxies": ["127.0.0.1", "::1", "10.0.0.0/8"], 
+        
+        "controlUi": { 
+          "enabled": true, 
+          "basePath": "/",
+          "allowInsecureAuth": true 
+        },
+
         "auth": { "mode": "token", "token": "${GATEWAY_TOKEN}" }
       },
       "tools": { "allow": ["exec", "read", "write", "http"] }
