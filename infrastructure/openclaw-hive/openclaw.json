@@ -13,7 +13,7 @@
     "defaults": {
       "workspace": "/home/node/.openclaw/agents/main/workspace",
       "model": { 
-        "primary": "google-antigravity/gemini-3-pro-preview", 
+        "primary": "google-antigravity/gemini-3-pro-high", 
         "fallbacks": [ "anthropic/claude-sonnet-4-5" ] 
       },
       "sandbox": { 
