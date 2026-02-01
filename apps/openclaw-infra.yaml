@@ -15,7 +15,7 @@ spec:
   source:
     repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
     targetRevision: main
-    path: infrastructure/openclaw-hive
+    path: infrastructure/openclaw-infra
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: openclaw
