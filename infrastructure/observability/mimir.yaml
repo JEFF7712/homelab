@@ -54,7 +54,7 @@ spec:
                 index_cache:
                   backend: inmemory
                 chunks_cache:
-                  backend: inmemory
+                  backend: ""
                 metadata_cache:
                   backend: inmemory
             alertmanager_storage:
