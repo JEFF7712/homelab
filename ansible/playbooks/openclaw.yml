@@ -1,0 +1,45 @@
+---
+- name: Prepare Server to Install OpenClaw
+  hosts: openclaw-vm
+  become: true
+  vars:
+    sys_packages:
+      - curl
+      - wget
+      - git
+      - htop
+      - nano
+      - unzip
+      - net-tools
+
+  tasks:
+    # Handle Debian 13 repository quirks
+    - name: Allow release info changes (Fix for Debian Testing repos)
+      command: apt-get update --allow-releaseinfo-change
+      changed_when: false
+      ignore_errors: true
+
+    # System Updates
+    - name: Update apt cache and upgrade system
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    # Install Utilities
+    - name: Install essential system utilities
+      apt:
+        name: "{{ sys_packages }}"
+        state: present
+
+    # # Install OpenClaw
+    # - name: Install OpenClaw via script
+    #   shell: "curl -fsSL https://openclaw.bot/install.sh | bash"
+    #   args:
+    #     executable: /bin/bash
+    #   register: install_output
+
+    # - name: Show Install Output
+    #   debug:
+    #     var: install_output.stdout_lines

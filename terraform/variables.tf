@@ -43,6 +43,9 @@ variable "netbird_lxc_mac_address" {
 variable "adguard_lxc_mac_address" {
   type = string
 }
+variable "openclaw_vm_mac_address" {
+  type = string
+}
 
 ## Cluster variables
 
@@ -88,6 +91,9 @@ variable "netbird_lxc_ip_addr" {
   type = string
 }
 variable "adguard_lxc_ip_addr" {
+  type = string
+}
+variable "openclaw_vm_ip_addr" {
   type = string
 }
 variable "opnsense_uri" {

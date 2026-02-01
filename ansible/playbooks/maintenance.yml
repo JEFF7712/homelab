@@ -17,10 +17,10 @@
         autoremove: yes
       when: ansible_os_family == "Debian"
 
-    - name: Update OPNSense Firmware
-      community.general.opnsense_firmware:
-        state: latest
-      when: ansible_os_family == "FreeBSD"
+    # - name: Update OPNSense Firmware
+    #   community.general.opnsense_firmware:
+    #     state: latest
+    #   when: ansible_os_family == "FreeBSD"
 
     - name: Check Talos Node Health
       delegate_to: localhost

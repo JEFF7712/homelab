@@ -11,7 +11,7 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   }
 
   memory {
-    dedicated = 4096
+    dedicated = 2048
   }
 
   disk {
