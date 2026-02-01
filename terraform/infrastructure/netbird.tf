@@ -40,6 +40,14 @@ resource "proxmox_virtual_environment_container" "netbird" {
     mac_address = var.netbird_lxc_mac_address
   }
 
+
+  network_interface {
+    name   = "eth1"
+    bridge = "vmbr0"
+    vlan_id = 20
+    mac_address = var.netbird_lxc_mac_address2
+  }
+
   operating_system {
     template_file_id = "local:vztmpl/alpine-3.22-default_20250617_amd64.tar.xz"
     type             = "alpine"
@@ -117,7 +125,12 @@ resource "null_resource" "netbird_alpine_bootstrap" {
       "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- apk update",
       "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- apk add openssh",
       "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config",
-      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- rc-update add sshd default"
+      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- rc-update add sshd default",
+      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- rc-update add local default",
+      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- sh -c 'echo \"#!/bin/sh\" > /etc/local.d/eth1.start'",
+      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- sh -c 'echo \"ip addr add ${var.netbird_lxc_ip_addr2}/24 dev eth1\" >> /etc/local.d/eth1.start'",
+      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- sh -c 'echo \"ip link set eth1 up\" >> /etc/local.d/eth1.start'",
+      "pct exec ${proxmox_virtual_environment_container.netbird.vm_id} -- chmod +x /etc/local.d/eth1.start"
     ]
   }
 }
