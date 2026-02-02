@@ -45,21 +45,24 @@ spec:
   selector:
     app: mission-control
   ports:
-  - port: 80
-    targetPort: 3000
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mission-control 
+  name: mission-control-ingress
+  namespace: openclaw
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   tls:
   - hosts:
     - clawcontrol.rupan.dev
-    secretName: clawcontrol-rupan-dev-tls
+    secretName: mission-control-tls
   rules:
   - host: clawcontrol.rupan.dev
     http:
