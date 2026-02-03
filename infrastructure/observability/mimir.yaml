@@ -60,7 +60,7 @@ spec:
               sharding_ring:
                 replication_factor: 1
             alertmanager:
-              fallback_config_file: /etc/mimir/alertmanager-fallback-config.yaml
+              fallback_config_file: /configs/alertmanager_fallback_config.yaml
         alertmanager:
           fallbackConfig: |
             global:
