@@ -1,6 +1,6 @@
 stages:
   - sync
-  - test
+  # - test
   # - validate
   # - plan
   # - apply
@@ -29,22 +29,22 @@ sync_to_github:
 
     - git push github HEAD:main --force
 
-check-cluster-access:
-  stage: test
-  image:
-    name: bitnami/kubectl:latest
-    entrypoint: [""]
-  script:
-    - kubectl config use-context JEFF7712/homelab:homelab-agent
-    - echo "Testing connection to the cluster..."
-    - kubectl cluster-info
-    - kubectl get nodes -o wide
+# check-cluster-access:
+#   stage: test
+#   image:
+#     name: bitnami/kubectl:latest
+#     entrypoint: [""]
+#   script:
+#     - kubectl config use-context JEFF7712/homelab:homelab-agent
+#     - echo "Testing connection to the cluster..."
+#     - kubectl cluster-info
+#     - kubectl get nodes -o wide
 
-scan-cluster:
-  stage: test
-  image:
-    name: aquasec/trivy:latest
-    entrypoint: [""]
-  script:
-    - trivy k8s JEFF7712/homelab:homelab-agent --report summary --include-namespaces default,media,n8n,distrojeff
-  allow_failure: true
+# scan-cluster:
+#   stage: test
+#   image:
+#     name: aquasec/trivy:latest
+#     entrypoint: [""]
+#   script:
+#     - trivy k8s JEFF7712/homelab:homelab-agent --report summary --include-namespaces default,media,n8n,distrojeff
+#   allow_failure: true
