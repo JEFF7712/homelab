@@ -44,6 +44,15 @@ spec:
                   secret_access_key: ${MINIO_SECRET_KEY}
                   insecure: true
                   bucket_name: mimir-data
+            limits:
+              accept_ha_samples: true
+              ha_cluster_label: cluster
+              ha_replica_label: __replica__
+            distributor:
+              ha_tracker:
+                enable_ha_tracker: true
+                kvstore:
+                  store: memberlist
             ruler_storage:
               s3:
                 bucket_name: mimir-ruler
