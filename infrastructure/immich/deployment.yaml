@@ -54,26 +54,24 @@ metadata:
   name: immich-server
   namespace: immich
 spec:
-  ports:
-    - port: 2283
-      targetPort: 2283
-      name: http
   selector:
     app: immich-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 2283
 
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: immich-ingress
+  name: immich-server
   namespace: immich
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   tls:
     - hosts:
         - photos.rupan.dev
@@ -88,4 +86,4 @@ spec:
               service:
                 name: immich-server
                 port:
-                  number: 2283
+                  number: 80
