@@ -31,7 +31,6 @@ spec:
         auth:
           username: immich
           database: immich
-          # MUST match the password in the Immich app below
           password: "change-me-please"
         primary:
           persistence:
