@@ -11,17 +11,18 @@ spec:
     targetRevision: 0.10.3
     helm:
       values: |
-        image:
-          tag: v1.124.1
-
-        env:
-          IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
-          TZ: America/Chicago
+        controllers:
+          main:
+            containers:
+              main:
+                image:
+                  tag: v1.124.1
+                env:
+                  TZ: America/Chicago
 
         immich:
           persistence:
             library:
-              existingClaim: ""
               enabled: true
               size: 100Gi
               storageClass: "longhorn"
@@ -51,23 +52,28 @@ spec:
               storageClass: "longhorn"
 
         server:
+          enabled: true
           persistence:
-            enabled: true
-            size: 1Gi
-            storageClass: "longhorn"
-            accessMode: ReadWriteOnce
+            server:
+              enabled: true
+              size: 1Gi
+              storageClass: "longhorn"
+              accessMode: ReadWriteOnce
           ingress:
-            enabled: true
-            annotations:
-              cert-manager.io/cluster-issuer: letsencrypt-prod
-            hosts:
-              - host: photos.rupan.dev
-                paths:
-                  - "/"
-            tls:
-              - hosts:
-                - photos.rupan.dev
-                secretName: immich-tls
+            main:
+              enabled: true
+              annotations:
+                cert-manager.io/cluster-issuer: letsencrypt-prod
+              hosts:
+                - host: photos.rupan.dev
+                  paths:
+                    - path: "/"
+                      service:
+                        identifier: main
+              tls:
+                - hosts:
+                    - photos.rupan.dev
+                  secretName: immich-tls
   destination:
     server: https://kubernetes.default.svc
     namespace: immich
