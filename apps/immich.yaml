@@ -1,74 +1,74 @@
-# apiVersion: argoproj.io/v1alpha1
-# kind: Application
-# metadata:
-#   name: immich
-#   namespace: argocd
-# spec:
-#   project: default
-#   source:
-#     repoURL: https://immich-app.github.io/immich-charts
-#     chart: immich
-#     targetRevision: 0.10.3
-#     helm:
-#       values: |
-#         image:
-#           tag: v2.4.1
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://immich-app.github.io/immich-charts
+    chart: immich
+    targetRevision: 0.10.3
+    helm:
+      values: |
+        image:
+          tag: v1.124.1
 
-#         env:
-#           IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
-#           TZ: America/Chicago
+        env:
+          IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+          TZ: America/Chicago
 
-#         immich:
-#           persistence:
-#             library:
-#               existingClaim: ""
-#               enabled: true
-#               size: 100Gi
-#               storageClass: "longhorn"
-#               accessMode: ReadWriteOnce
+        immich:
+          persistence:
+            library:
+              existingClaim: ""
+              enabled: true
+              size: 100Gi
+              storageClass: "longhorn"
+              accessMode: ReadWriteOnce
 
-#         postgresql:
-#           enabled: true
-#           global:
-#             postgresql:
-#               auth:
-#                 username: immich
-#                 database: immich
-#                 password: "change-me-please"
-#           primary:
-#             persistence:
-#               enabled: true
-#               size: 8Gi
-#               storageClass: "longhorn"
+        postgresql:
+          enabled: true
+          global:
+            postgresql:
+              auth:
+                username: immich
+                database: immich
+                password: "change-me-please"
+          primary:
+            persistence:
+              enabled: true
+              size: 8Gi
+              storageClass: "longhorn"
 
-#         redis:
-#           enabled: true
-#           architecture: standalone
-#           master:
-#             persistence:
-#               enabled: true
-#               size: 8Gi
-#               storageClass: "longhorn"
+        redis:
+          enabled: true
+          architecture: standalone
+          master:
+            persistence:
+              enabled: true
+              size: 8Gi
+              storageClass: "longhorn"
 
-#         server:
-#           ingress:
-#             enabled: true
-#             annotations:
-#               cert-manager.io/cluster-issuer: letsencrypt-prod
-#             hosts:
-#               - host: photos.yourdomain.com
-#                 paths:
-#                   - "/"
-#             tls:
-#               - hosts:
-#                 - photos.yourdomain.com
-#                 secretName: immich-tls
-#   destination:
-#     server: https://kubernetes.default.svc
-#     namespace: immich
-#   syncPolicy:
-#     automated:
-#       prune: true
-#       selfHeal: true
-#     syncOptions:
-#       - CreateNamespace=true
+        server:
+          ingress:
+            enabled: true
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+            hosts:
+              - host: photos.rupan.dev
+                paths:
+                  - "/"
+            tls:
+              - hosts:
+                - photos.rupan.dev
+                secretName: immich-tls
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
