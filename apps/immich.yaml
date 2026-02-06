@@ -51,6 +51,11 @@ spec:
               storageClass: "longhorn"
 
         server:
+          persistence:
+            enabled: true
+            size: 1Gi
+            storageClass: "longhorn"
+            accessMode: ReadWriteOnce
           ingress:
             enabled: true
             annotations:
