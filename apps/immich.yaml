@@ -1,3 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library-pvc
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi
+---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -23,10 +36,7 @@ spec:
         immich:
           persistence:
             library:
-              enabled: true
-              size: 100Gi
-              storageClass: "longhorn"
-              accessMode: ReadWriteOnce
+              existingClaim: immich-library-pvc
 
         postgresql:
           enabled: true
