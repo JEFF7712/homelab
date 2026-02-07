@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/distrojeff-site:098d755b351adbc1773fc84bff016dfaf2159049
+        image: jeff7712/distrojeff-site:97b1796959166526502d43563b32a7a6949c0b5f
         ports:
         - containerPort: 8080
         resources:
