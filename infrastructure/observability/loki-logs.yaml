@@ -33,11 +33,11 @@ spec:
               admin: loki-data
             s3:
               endpoint: http://minio.observability.svc:9000
-              accessKeyId: ${MINIO_ACCESS_KEY}
-              secretAccessKey: ${MINIO_SECRET_KEY}
+              access_key_id: ${MINIO_ACCESS_KEY}
+              secret_access_key: ${MINIO_SECRET_KEY}
               s3ForcePathStyle: true
               insecure: true
-        singleBinary:
+        singleBinary: 
           replicas: 1
           extraArgs:
             - -config.expand-env=true
