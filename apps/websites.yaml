@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: distrojeff
+  name: websites
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: distrojeff-stack
+  name: websites
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
     targetRevision: main
-    path: infrastructure/distrojeff-site
+    path: infrastructure/websites
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: distrojeff
+    namespace: websites
   syncPolicy:
     automated:
       prune: true

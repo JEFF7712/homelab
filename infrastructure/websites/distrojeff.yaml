@@ -1,44 +1,54 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: temp2-rupan
+  name: distrojeff
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: temp2-rupan-tls
-  namespace: temp2-rupan
+  name: distrojeff-tls
+  namespace: distrojeff
 spec:
-  secretName: temp2-rupan-tls-secret
+  secretName: distrojeff-tls-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - temp2.rupan.dev
+    - distrojeff.com
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: website-deploy
-  namespace: temp2-rupan
+  namespace: distrojeff
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
-      app: temp2-rupan-web
+      app: distrojeff-web
   template:
     metadata:
       labels:
-        app: temp2-rupan-web
+        app: distrojeff-web
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
       containers:
       - name: web
-        image: jeff7712/minimalist-chemistry-aesthetic:latest
+        image: jeff7712/distrojeff-site:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -47,28 +57,28 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: temp2-rupan-route
-  namespace: temp2-rupan
+  name: distrojeff-site-route
+  namespace: distrojeff
 spec:
   entryPoints:
     - websecure
   routes:
-  - match: Host(`temp2.rupan.dev`) || Host(`www.temp2.rupan.dev`)
+  - match: Host(`distrojeff.com`) || Host(`www.distrojeff.com`)
     kind: Rule
     services:
-    - name: temp2-rupan-svc
+    - name: distrojeff-site-svc
       port: 80
   tls:
-    secretName: temp2-rupan-tls-secret
+    secretName: distrojeff-tls-secret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: temp2-rupan-svc
-  namespace: temp2-rupan
+  name: distrojeff-site-svc
+  namespace: distrojeff
 spec:
   selector:
-    app: temp2-rupan-web
+    app: distrojeff-web
   ports:
     - protocol: TCP
       port: 80

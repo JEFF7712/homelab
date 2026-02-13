@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apolline
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: apolline-tls
+  namespace: apolline
+spec:
+  secretName: apolline-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - apollinestore.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: apolline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apolline-web
+  template:
+    metadata:
+      labels:
+        app: apolline-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+      - name: web
+        image: jeff7712/apolline:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: apolline-route
+  namespace: apolline
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`apollinestore.com`) || Host(`apollinestore.com`)
+    kind: Rule
+    services:
+    - name: apolline-svc
+      port: 80
+  tls:
+    secretName: apolline-tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apolline-svc
+  namespace: apolline
+spec:
+  selector:
+    app: apolline-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

@@ -1,41 +1,41 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: temp1-rupan
+  name: darkbitapparel
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: temp1-rupan-tls
-  namespace: temp1-rupan
+  name: darkbitapparel-tls
+  namespace: darkbitapparel
 spec:
-  secretName: temp1-rupan-tls-secret
+  secretName: darkbitapparel-tls-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - temp1.rupan.dev
+    - darkbitapparel.com
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: website-deploy
-  namespace: temp1-rupan
+  namespace: darkbitapparel
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: temp1-rupan-web
+      app: darkbitapparel-web
   template:
     metadata:
       labels:
-        app: temp1-rupan-web
+        app: darkbitapparel-web
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
       containers:
       - name: web
-        image: jeff7712/minimalist-tech-aesthetic:latest
+        image: jeff7712/darkbit:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -47,28 +47,28 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: temp1-rupan-route
-  namespace: temp1-rupan
+  name: darkbitapparel-route
+  namespace: darkbitapparel
 spec:
   entryPoints:
     - websecure
   routes:
-  - match: Host(`temp1.rupan.dev`) || Host(`www.temp1.rupan.dev`)
+  - match: Host(`darkbitapparel.com`) || Host(`www.darkbitapparel.com`)
     kind: Rule
     services:
-    - name: temp1-rupan-svc
+    - name: darkbitapparel-svc
       port: 80
   tls:
-    secretName: temp1-rupan-tls-secret
+    secretName: darkbitapparel-tls-secret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: temp1-rupan-svc
-  namespace: temp1-rupan
+  name: darkbitapparel-svc
+  namespace: darkbitapparel
 spec:
   selector:
-    app: temp1-rupan-web
+    app: darkbitapparel-web
   ports:
     - protocol: TCP
       port: 80
