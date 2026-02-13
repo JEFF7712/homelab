@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: darkbitapparel
+  name: darkbit
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: darkbitapparel-tls
-  namespace: darkbitapparel
+  name: darkbit-tls
+  namespace: darkbit
 spec:
-  secretName: darkbitapparel-tls-secret
+  secretName: darkbit-tls-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
@@ -20,16 +20,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: website-deploy
-  namespace: darkbitapparel
+  namespace: darkbit
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: darkbitapparel-web
+      app: darkbit-web
   template:
     metadata:
       labels:
-        app: darkbitapparel-web
+        app: darkbit-web
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
@@ -47,8 +47,8 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: darkbitapparel-route
-  namespace: darkbitapparel
+  name: darkbit-route
+  namespace: darkbit
 spec:
   entryPoints:
     - websecure
@@ -56,19 +56,19 @@ spec:
   - match: Host(`darkbitapparel.com`) || Host(`www.darkbitapparel.com`)
     kind: Rule
     services:
-    - name: darkbitapparel-svc
+    - name: darkbit-svc
       port: 80
   tls:
-    secretName: darkbitapparel-tls-secret
+    secretName: darkbit-tls-secret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: darkbitapparel-svc
-  namespace: darkbitapparel
+  name: darkbit-svc
+  namespace: darkbit
 spec:
   selector:
-    app: darkbitapparel-web
+    app: darkbit-web
   ports:
     - protocol: TCP
       port: 80
