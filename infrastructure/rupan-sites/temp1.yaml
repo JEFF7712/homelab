@@ -1,41 +1,41 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: soluble-rupan
+  name: temp1-rupan
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: soluble-rupan-tls
-  namespace: soluble-rupan
+  name: temp1-rupan-tls
+  namespace: temp1-rupan
 spec:
-  secretName: soluble-rupan-tls-secret
+  secretName: temp1-rupan-tls-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - soluble.rupan.dev
+    - temp1.rupan.dev
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: website-deploy
-  namespace: soluble-rupan
+  namespace: temp1-rupan
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: soluble-rupan-web
+      app: temp1-rupan-web
   template:
     metadata:
       labels:
-        app: soluble-rupan-web
+        app: temp1-rupan-web
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
       containers:
       - name: web
-        image: jeff7712/solubility-gnn:latest
+        image: jeff7712/minimalist-tech-aesthetic:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -47,28 +47,28 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: soluble-rupan-route
-  namespace: soluble-rupan
+  name: temp1-rupan-route
+  namespace: temp1-rupan
 spec:
   entryPoints:
     - websecure
   routes:
-  - match: Host(`soluble.rupan.dev`) || Host(`www.soluble.rupan.dev`)
+  - match: Host(`temp1.rupan.dev`) || Host(`www.temp1.rupan.dev`)
     kind: Rule
     services:
-    - name: soluble-rupan-svc
+    - name: temp1-rupan-svc
       port: 80
   tls:
-    secretName: soluble-rupan-tls-secret
+    secretName: temp1-rupan-tls-secret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: soluble-rupan-svc
-  namespace: soluble-rupan
+  name: temp1-rupan-svc
+  namespace: temp1-rupan
 spec:
   selector:
-    app: soluble-rupan-web
+    app: temp1-rupan-web
   ports:
     - protocol: TCP
       port: 80
