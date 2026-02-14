@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: apolline-route
+  namespace: darkbit
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`darkbitapparel.com`) || Host(`www.darkbitapparel.com`)
+    kind: Rule
+    services:
+    - name: apolline-svc
+      port: 80
+  tls:
+    secretName: darkbit-tls-secret

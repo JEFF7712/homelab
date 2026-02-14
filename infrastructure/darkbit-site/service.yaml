@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: apolline-svc
+  namespace: darkbit
+spec:
+  selector:
+    app: apolline-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

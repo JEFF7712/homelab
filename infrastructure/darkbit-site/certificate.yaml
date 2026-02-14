@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: darkbit-tls
+  namespace: darkbit
+spec:
+  secretName: darkbit-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - darkbitapparel.com
+    - www.darkbitapparel.com
