@@ -53,7 +53,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-  - match: Host(`apollinestore.com`) || Host(`apollinestore.com`)
+  - match: Host(`apollinestore.com`) || Host(`www.apollinestore.com`)
     kind: Rule
     services:
     - name: apolline-svc
