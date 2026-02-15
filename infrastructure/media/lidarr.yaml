@@ -101,7 +101,7 @@ spec:
               set_var "enableUnmappedFilesCleaner" "false"
               set_var "enableBeetsTagging" "false"
               set_var "downloadPath" "/downloads/music"
-              set_var "matchDistance" "7"
+              set_var "matchDistance" "20"
               set_var "retryNotFound" "10"
               set_var "beetsMatchPercentage" "70"
 
