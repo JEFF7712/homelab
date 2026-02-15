@@ -66,7 +66,13 @@ spec:
           containers:
           - name: dispatcher
             image: node:22-alpine
-            command: ["node", "/scripts/dispatcher.js"]
+            command: 
+            - sh
+            - -c
+            - |
+              cd /tmp
+              npm install pg
+              node /scripts/dispatcher.js
             env:
             - name: DB_PASSWORD
               valueFrom:
