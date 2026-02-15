@@ -66,11 +66,11 @@ spec:
           containers:
           - name: dispatcher
             image: node:22-alpine
+            workingDir: /app
             command: 
             - sh
             - -c
             - |
-              cd /tmp
               npm install pg
               node /scripts/dispatcher.js
             env:
