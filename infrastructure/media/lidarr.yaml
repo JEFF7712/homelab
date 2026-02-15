@@ -113,7 +113,7 @@ spec:
               #!/bin/bash
               echo "--- [Custom Init] Installing Dependencies ---"
               apk add --no-cache python3 py3-pip jq flac ffmpeg
-              pip3 install yq --break-system-packages || pip3 install yq
+              pip3 install yq colorama --break-system-packages || pip3 install yq colorama
               
               echo "--- [Custom Init] Running Setup Script ---"
               bash /config/setup.bash
