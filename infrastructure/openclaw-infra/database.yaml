@@ -72,12 +72,13 @@ kind: Service
 metadata:
   name: openclaw-db
   namespace: openclaw
+  annotations:
+    io.cilium/lb-ipam-ips: "10.0.20.110"
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
     - port: 5432
       targetPort: 5432
-      nodePort: 30432
   selector:
     app: openclaw-db
 ---

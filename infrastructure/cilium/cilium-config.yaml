@@ -5,6 +5,8 @@ metadata:
 spec:
   allowFirstLastIPs: "No"
   blocks:
+    - start: "10.0.20.110"
+      stop: "10.0.20.110"
     - start: "10.0.20.180"
       stop: "10.0.20.200"
   serviceSelector:
