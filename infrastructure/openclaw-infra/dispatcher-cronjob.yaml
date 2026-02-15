@@ -71,8 +71,9 @@ spec:
             - sh
             - -c
             - |
+              cp /scripts/dispatcher.js /app/
               npm install pg
-              node /scripts/dispatcher.js
+              node dispatcher.js
             env:
             - name: DB_PASSWORD
               valueFrom:
