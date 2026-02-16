@@ -44,21 +44,13 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
+          command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             privileged: true
           volumeMounts:
             - name: config-storage
               mountPath: /config
-            - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
-              readOnly: true
-            - name: media-storage
-              mountPath: /music
-              subPath: music
-              readOnly: true
-
+              
       containers:
         - name: lidarr
           image: ghcr.io/hotio/lidarr:nightly
