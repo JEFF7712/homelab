@@ -126,6 +126,8 @@ spec:
               bash /config/setup.bash
               
               echo "--- [Custom Init] Patching Script Logic ---"
+              
+              # Patch 1: Fix connection details
               cat << PATCH >> /config/extended/functions
               
               getArrAppInfo() {
@@ -136,6 +138,14 @@ spec:
                   arrUrlBase=""
               }
               PATCH
+              
+              # Patch 2: Remove strict track count matching
+              if [ -f /config/extended/scripts/audio.bash ]; then
+                echo "Patching audio.bash to accept track count mismatches..."
+                # Comment out track count validation lines
+                sed -i 's/if \[ "\$lidarrAlbumTotalTrackCount" != "\$deezerAlbumTotalTrackCount" \]/# PATCHED: Track count check disabled\nif false/g' /config/extended/scripts/audio.bash
+                sed -i 's/Track Count: \$lidarrAlbumTotalTrackCount-\$deezerAlbumTotalTrackCount/Track Count: \$lidarrAlbumTotalTrackCount-\$deezerAlbumTotalTrackCount (mismatch allowed)/g' /config/extended/scripts/audio.bash
+              fi
               
               echo "--- [Custom Init] Done ---"
               EOF
