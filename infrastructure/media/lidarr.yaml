@@ -9,7 +9,7 @@ spec:
   storageClassName: longhorn
   resources:
     requests:
-      storage: 10Gi
+      storage: 15Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,7 +50,7 @@ spec:
           volumeMounts:
             - name: config-storage
               mountPath: /config
-              
+
       containers:
         - name: lidarr
           image: ghcr.io/hotio/lidarr:nightly
