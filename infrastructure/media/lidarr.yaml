@@ -162,7 +162,7 @@ spec:
 
       containers:
         - name: lidarr
-          image: ghcr.io/hotio/lidarr:pr-plugins
+          image: ghcr.io/hotio/lidarr:nightly
           env:
             - name: PUID
               value: "1000"
