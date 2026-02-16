@@ -41,23 +41,23 @@ spec:
           persistentVolumeClaim:
             claimName: media-pvc
 
-      # initContainers:
-      #   - name: fix-permissions
-      #     image: busybox
-      #     command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
-      #     securityContext:
-      #       privileged: true
-      #     volumeMounts:
-      #       - name: config-storage
-      #         mountPath: /config
-      #       - name: media-storage
-      #         mountPath: /downloads
-      #         subPath: downloads
-      #         readOnly: true
-      #       - name: media-storage
-      #         mountPath: /music
-      #         subPath: music
-      #         readOnly: true
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /music /downloads /config"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: config-storage
+              mountPath: /config
+            - name: media-storage
+              mountPath: /downloads
+              subPath: downloads
+              readOnly: true
+            - name: media-storage
+              mountPath: /music
+              subPath: music
+              readOnly: true
 
       containers:
         - name: lidarr
