@@ -53,11 +53,9 @@ spec:
             - name: media-storage
               mountPath: /downloads
               subPath: downloads
-              readOnly: true
             - name: media-storage
               mountPath: /music
               subPath: music
-              readOnly: true
 
       containers:
         - name: lidarr
