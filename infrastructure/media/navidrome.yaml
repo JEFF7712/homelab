@@ -38,6 +38,12 @@ spec:
               value: "info"
             - name: ND_BASEURL
               value: ""
+            - name: ND_PLUGINS_ENABLED
+              value: "true"
+            - name: ND_PLUGINS_FOLDER
+              value: "/data/plugins"
+            - name: ND_PLUGINS_LOGLEVEL
+              value: "debug"
           ports:
             - containerPort: 4533
           volumeMounts:
