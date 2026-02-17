@@ -28,9 +28,21 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      initContainers:
+        - name: install-plugin
+          image: curlimages/curl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Downloading NaviSync plugin..."
+              curl -L -o /plugins/navisync.ndp https://github.com/JEFF7712/NaviSync/releases/latest/download/navisync.ndp
+          volumeMounts:
+            - name: plugins-data
+              mountPath: /plugins
       containers:
         - name: navidrome
           image: deluan/navidrome:latest
+          imagePullPolicy: Always
           env:
             - name: ND_SCANSCHEDULE
               value: "1h"
@@ -53,7 +65,11 @@ spec:
               mountPath: /music
               subPath: music
               readOnly: true
+            - name: plugins-data
+              mountPath: /data/plugins
       volumes:
+        - name: plugins-data
+          emptyDir: {}
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc
