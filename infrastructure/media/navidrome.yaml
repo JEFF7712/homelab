@@ -35,7 +35,7 @@ spec:
           args:
             - |
               echo "Downloading NaviSync plugin..."
-              curl -fsSL -o /plugins/navisync.ndp https://github.com/JEFF7712/NaviSync/releases/download/v0.1.17/navisync.ndp
+              curl -fsSL -o /plugins/navisync.ndp https://github.com/JEFF7712/NaviSync/releases/download/v0.1.18/navisync.ndp
           volumeMounts:
             - name: plugins-data
               mountPath: /plugins
