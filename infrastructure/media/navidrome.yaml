@@ -54,6 +54,8 @@ spec:
               value: "true"
             - name: ND_PLUGINS_FOLDER
               value: "/data/plugins"
+            - name: ND_PLUGINS_AUTORELOAD
+              value: "true"
             - name: ND_PLUGINS_LOGLEVEL
               value: "debug"
           ports:
