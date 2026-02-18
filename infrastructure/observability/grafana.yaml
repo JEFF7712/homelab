@@ -11,6 +11,15 @@ spec:
     targetRevision: 10.5.8
     helm:
       valuesObject:
+        extraEnvVars:
+          - name: GF_PATHS_DATA
+            value: /var/lib/grafana
+          - name: GF_SHELL_SKIP_CHOWN
+            value: "true"
+        
+        rbac:
+          create: true
+
         grafana.ini:
           auth.anonymous:
             enabled: true
