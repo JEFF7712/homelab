@@ -127,6 +127,10 @@ spec:
               value: "http://0.0.0.0:5030"
             - name: SLSKD_UMASK
               value: "000"
+            - name: SLSKD_WEB__PORT
+              value: "5030"
+            - name: SLSKD_WEB__IP_ADDRESS
+              value: "0.0.0.0"
             - name: SLSKD_APP_DIR
               value: "/config"
             - name: SLSKD_REMOTE_CONFIGURATION
