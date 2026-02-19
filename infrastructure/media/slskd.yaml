@@ -119,7 +119,7 @@ spec:
               mountPath: /gluetun
 
         - name: slskd
-          image: slskd/slskd:0.24.4.65534-86dc6072
+          image: slskd/slskd:0.24.4
           env:
             - name: ASPNETCORE_URLS
               value: "http://+:5030"
@@ -258,9 +258,9 @@ data:
     directories:
     #  incomplete: ~
       downloads: /downloads/soulseek
-    shares:
-      directories:
-        - /music
+    # shares:
+    #   directories:
+    #     - /music
       filters:
         - \.ini$
         - Thumbs.db$
