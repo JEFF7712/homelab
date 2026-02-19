@@ -1,26 +1,26 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: homelab-gitlab-agent
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: https://charts.gitlab.io
-    chart: gitlab-agent
-    targetRevision: 2.22.0
-    helm:
-      parameters:
-        - name: config.secretName
-          value: "gitlab-agent-token"
-        - name: config.kasAddress
-          value: "wss://kas.gitlab.com"
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: gitlab-agent-homelab
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: homelab-gitlab-agent
+#   namespace: argocd
+# spec:
+#   project: default
+#   source:
+#     repoURL: https://charts.gitlab.io
+#     chart: gitlab-agent
+#     targetRevision: 2.22.0
+#     helm:
+#       parameters:
+#         - name: config.secretName
+#           value: "gitlab-agent-token"
+#         - name: config.kasAddress
+#           value: "wss://kas.gitlab.com"
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: gitlab-agent-homelab
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+#     syncOptions:
+#       - CreateNamespace=true
