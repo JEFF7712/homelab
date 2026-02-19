@@ -81,8 +81,12 @@ spec:
               value: "wireguard"
             - name: FIREWALL_INPUT_PORTS
               value: "5030"
+            - name: DOT
+              value: "off"
+            - name: DNS_KEEP_NAMESERVER
+              value: "on"
             - name: FIREWALL_OUTBOUND_SUBNETS
-              value: "10.0.0.0/8,172.16.0.0/12,192.168.1.0/24"
+              value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
             - name: WIREGUARD_MTU
               value: "1320"
             - name: WIREGUARD_PRIVATE_KEY
@@ -337,8 +341,8 @@ data:
     #     request:
     #       - ^.{1,2}$
     web:
-    #   port: 5030
-    #   ip_address: 0.0.0.0,[::]
+      port: 5030
+      ip_address: 0.0.0.0,[::]
     #   socket: ~
     #   https:
     #     disabled: false
