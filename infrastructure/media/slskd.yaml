@@ -121,6 +121,8 @@ spec:
         - name: slskd
           image: slskd/slskd:0.24.3
           env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:5030"
             - name: SLSKD_HTTP_URL
               value: "http://0.0.0.0:5030"
             - name: SLSKD_UMASK
