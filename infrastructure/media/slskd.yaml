@@ -256,9 +256,9 @@ data:
     directories:
     #  incomplete: ~
       downloads: /downloads/soulseek
-    # shares:
-    #   directories:
-    #     - /music
+    shares:
+      directories:
+        - /music
       filters:
         - \.ini$
         - Thumbs.db$
