@@ -119,7 +119,7 @@ spec:
               mountPath: /gluetun
 
         - name: slskd
-          image: slskd/slskd:0.24.3
+          image: slskd/slskd:0.24.4.65534-86dc6072
           env:
             - name: ASPNETCORE_URLS
               value: "http://+:5030"
