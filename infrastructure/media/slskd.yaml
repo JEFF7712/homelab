@@ -56,6 +56,8 @@ spec:
                 cp /seed/slskd.yml /config/slskd.yml
               fi
 
+              cp -f /seed/slskd.yml /config/slskd.yml
+
               chown -R 1000:1000 /config /downloads
           securityContext:
             privileged: true
@@ -119,6 +121,8 @@ spec:
         - name: slskd
           image: slskd/slskd:0.24.3
           env:
+            - name: SLSKD_HTTP_URL
+              value: "http://0.0.0.0:5030"
             - name: SLSKD_UMASK
               value: "000"
             - name: SLSKD_APP_DIR
