@@ -71,13 +71,7 @@ spec:
             alertmanager:
               fallback_config_file: /etc/mimir/alertmanager-fallback-config.yaml
         alertmanager:
-          fallbackConfig: |
-            global:
-              resolve_timeout: 5m
-            route:
-              receiver: 'null'
-            receivers:
-            - name: 'null'
+          enable_api: false
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
