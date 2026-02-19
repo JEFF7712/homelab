@@ -22,7 +22,7 @@ metadata:
   name: website-deploy
   namespace: apolline
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: apolline-web

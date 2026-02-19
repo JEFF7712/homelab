@@ -1,68 +1,68 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: subgen
-  namespace: media
-  labels:
-    app: subgen
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: subgen
-  template:
-    metadata:
-      labels:
-        app: subgen
-    spec:
-      containers:
-        - name: subgen
-          volumeMounts:
-            - name: media-storage
-              mountPath: /movies
-              subPath: movies
-            - name: media-storage
-              mountPath: /tv
-              subPath: tv
-          image: mccloud/subgen:latest
-          resources:
-            limits:
-              memory: 4Gi
-              cpu: "3"
-            requests:
-              memory: 2Gi
-              cpu: "1"
-          env:
-            - name: WHISPER_MODEL
-              value: "small"
-            - name: TRANSCRIBE_DEVICE
-              value: "cpu"
-            - name: WHISPER_THREADS
-              value: "4"
-            - name: GUNICORN_WORKERS
-              value: "1"
-            - name: GUNICORN_TIMEOUT
-              value: "3600"
-            - name: CONCURRENT_TRANSCRIPTIONS
-              value: "1"
-            - name: FORCE_DETECTED_LANGUAGE_TO
-              value: "hi"
-          ports:
-            - containerPort: 9000
-      volumes:
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: media-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: subgen
-  namespace: media
-spec:
-  selector:
-    app: subgen
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 9000
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: subgen
+#   namespace: media
+#   labels:
+#     app: subgen
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: subgen
+#   template:
+#     metadata:
+#       labels:
+#         app: subgen
+#     spec:
+#       containers:
+#         - name: subgen
+#           volumeMounts:
+#             - name: media-storage
+#               mountPath: /movies
+#               subPath: movies
+#             - name: media-storage
+#               mountPath: /tv
+#               subPath: tv
+#           image: mccloud/subgen:latest
+#           resources:
+#             limits:
+#               memory: 4Gi
+#               cpu: "3"
+#             requests:
+#               memory: 2Gi
+#               cpu: "1"
+#           env:
+#             - name: WHISPER_MODEL
+#               value: "small"
+#             - name: TRANSCRIBE_DEVICE
+#               value: "cpu"
+#             - name: WHISPER_THREADS
+#               value: "4"
+#             - name: GUNICORN_WORKERS
+#               value: "1"
+#             - name: GUNICORN_TIMEOUT
+#               value: "3600"
+#             - name: CONCURRENT_TRANSCRIPTIONS
+#               value: "1"
+#             - name: FORCE_DETECTED_LANGUAGE_TO
+#               value: "hi"
+#           ports:
+#             - containerPort: 9000
+#       volumes:
+#         - name: media-storage
+#           persistentVolumeClaim:
+#             claimName: media-pvc
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: subgen
+#   namespace: media
+# spec:
+#   selector:
+#     app: subgen
+#   ports:
+#     - protocol: TCP
+#       port: 80
+#       targetPort: 9000
