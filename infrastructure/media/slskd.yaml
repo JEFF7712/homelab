@@ -121,8 +121,6 @@ spec:
         - name: slskd
           image: slskd/slskd:0.24.4
           env:
-            - name: ASPNETCORE_URLS
-              value: "http://+:5030"
             - name: SLSKD_HTTP_URL
               value: "http://0.0.0.0:5030"
             - name: SLSKD_UMASK
@@ -351,8 +349,8 @@ data:
     #     request:
     #       - ^.{1,2}$
     web:
-      port: 5030
-      ip_address: 0.0.0.0,[::]
+      # port: 5030
+      # ip_address: 0.0.0.0,[::]
     #   socket: ~
     #   https:
     #     disabled: false
