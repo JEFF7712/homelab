@@ -52,7 +52,7 @@
 #       volumes:
 #         - name: media-storage
 #           persistentVolumeClaim:
-#             claimName: media-pvc
+#             claimName: media-pvc-hdd
 # ---
 # apiVersion: v1
 # kind: Service

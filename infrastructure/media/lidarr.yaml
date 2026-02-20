@@ -39,7 +39,7 @@ spec:
             claimName: lidarr-config
         - name: media-storage
           persistentVolumeClaim:
-            claimName: media-pvc
+            claimName: media-pvc-hdd
 
       initContainers:
         - name: fix-permissions

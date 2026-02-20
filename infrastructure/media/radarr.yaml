@@ -66,7 +66,7 @@
 #       volumes:
 #         - name: media-storage
 #           persistentVolumeClaim:
-#             claimName: media-pvc
+#             claimName: media-pvc-hdd
 #         - name: config-storage
 #           persistentVolumeClaim:
 #             claimName: radarr-config
