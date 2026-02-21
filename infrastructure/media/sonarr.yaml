@@ -31,16 +31,12 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /tv /downloads /config"]
+          command: ["sh", "-c", "chown -R 1000:1000 /data /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
             - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
-            - name: media-storage
-              mountPath: /tv
-              subPath: tv
+              mountPath: /data
       containers:
         - name: sonarr
           image: lscr.io/linuxserver/sonarr:latest
