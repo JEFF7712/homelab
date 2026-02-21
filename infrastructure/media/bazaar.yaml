@@ -44,11 +44,7 @@ spec:
             - name: config-storage
               mountPath: /config
             - name: media-storage
-              mountPath: /movies
-              subPath: movies
-            - name: media-storage
-              mountPath: /tv
-              subPath: tv
+              mountPath: /data
       volumes:
         - name: media-storage
           persistentVolumeClaim:

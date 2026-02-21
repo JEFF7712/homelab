@@ -19,11 +19,7 @@ spec:
         - name: subgen
           volumeMounts:
             - name: media-storage
-              mountPath: /movies
-              subPath: movies
-            - name: media-storage
-              mountPath: /tv
-              subPath: tv
+              mountPath: /data
           image: mccloud/subgen:latest
           resources:
             limits:
