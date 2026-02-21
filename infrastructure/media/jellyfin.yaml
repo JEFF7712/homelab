@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: sonarr-config
+  name: jellyfin-config
   namespace: media
 spec:
   accessModes:
@@ -9,41 +9,37 @@ spec:
   storageClassName: longhorn
   resources:
     requests:
-      storage: 2Gi
+      storage: 10Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sonarr
+  name: jellyfin
   namespace: media
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sonarr
+      app: jellyfin
   template:
     metadata:
       labels:
-        app: sonarr
+        app: jellyfin
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /tv /downloads /config"]
+          command: ["sh", "-c", "chown -R 1000:1000 /config /data"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
             - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
-            - name: media-storage
-              mountPath: /tv
-              subPath: tv
+              mountPath: /data
       containers:
-        - name: sonarr
-          image: lscr.io/linuxserver/sonarr:latest
+        - name: jellyfin
+          image: lscr.io/linuxserver/jellyfin:latest
           env:
             - name: PUID
               value: "1000"
@@ -51,45 +47,47 @@ spec:
               value: "1000"
             - name: TZ
               value: "America/Chicago"
+            - name: JELLYFIN_PublishedServerUrl
+              value: "https://jellyfin.rupan.dev"
           ports:
-            - containerPort: 8989
-          livenessProbe:
-            httpGet:
-              path: /ping
-              port: 8989
-            initialDelaySeconds: 120
-            periodSeconds: 20
+            - containerPort: 8096
           volumeMounts:
             - name: config-storage
               mountPath: /config
             - name: media-storage
               mountPath: /data
+            - name: render-device
+              mountPath: /dev/dri
+          securityContext:
+            privileged: true
       volumes:
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc-hdd
         - name: config-storage
           persistentVolumeClaim:
-            claimName: sonarr-config
+            claimName: jellyfin-config
+        - name: render-device
+          hostPath:
+            path: /dev/dri
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: sonarr
+  name: jellyfin
   namespace: media
 spec:
   selector:
-    app: sonarr
+    app: jellyfin
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 8989
-
+      targetPort: 8096
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sonarr
+  name: jellyfin
   namespace: media
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -98,16 +96,16 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - sonarr.rupan.dev
-      secretName: sonarr-tls
+        - jellyfin.rupan.dev
+      secretName: jellyfin-tls
   rules:
-    - host: sonarr.rupan.dev
+    - host: jellyfin.rupan.dev
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: sonarr
+                name: jellyfin
                 port:
                   number: 80

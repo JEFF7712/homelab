@@ -45,6 +45,8 @@ spec:
           image: deluan/navidrome:latest
           imagePullPolicy: Always
           env:
+            - name: ND_MUSICFOLDER
+              value: "/media/music"
             - name: ND_SCANSCHEDULE
               value: "1h"
             - name: ND_LOGLEVEL
@@ -65,8 +67,7 @@ spec:
             - name: config-storage
               mountPath: /data
             - name: media-storage
-              mountPath: /music
-              subPath: music
+              mountPath: /media
               readOnly: true
             - name: plugins-data
               mountPath: /data/plugins

@@ -35,13 +35,12 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /downloads /config"]
+          command: ["sh", "-c", "chown -R 1000:1000 /data /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
             - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
+              mountPath: /data
               
         - name: configure-qbittorrent
           image: busybox:latest
@@ -124,8 +123,7 @@ spec:
               value: "8080"
           volumeMounts:
             - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
+              mountPath: /data
             - name: config-storage
               mountPath: /config
       volumes:
@@ -148,7 +146,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8080
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
