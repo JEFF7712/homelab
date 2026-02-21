@@ -31,16 +31,12 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /movies /downloads /config"]
+          command: ["sh", "-c", "chown -R 1000:1000 /data /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
             - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
-            - name: media-storage
-              mountPath: /movies
-              subPath: movies
+              mountPath: /data
               
       containers:
         - name: radarr
@@ -58,11 +54,7 @@ spec:
             - name: config-storage
               mountPath: /config
             - name: media-storage
-              mountPath: /downloads
-              subPath: downloads
-            - name: media-storage
-              mountPath: /movies
-              subPath: movies
+              mountPath: /data
       volumes:
         - name: media-storage
           persistentVolumeClaim:
