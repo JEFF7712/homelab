@@ -68,7 +68,7 @@ metadata:
   namespace: sf
 spec:
   selector:
-    app: darkbit-web
+    app: sf-web
   ports:
     - protocol: TCP
       port: 80
