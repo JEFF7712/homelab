@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apply
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: apply-tls
+  namespace: apply
+spec:
+  secretName: apply-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - apply.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apply-deploy
+  namespace: apply
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apply-web
+  template:
+    metadata:
+      labels:
+        app: apply-web
+    spec:
+      containers:
+        - name: web
+          image: jeff7712/applyforge:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          env:
+            - name: FLASK_ENV
+              value: "production"
+            - name: DATABASE_URL
+              value: "/data/applyforge.db"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apply-svc
+  namespace: apply
+spec:
+  selector:
+    app: apply-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: apply-route
+  namespace: apply
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`apply.rupan.dev`) || Host(`www.apply.rupan.dev`)
+      kind: Rule
+      services:
+        - name: apply-svc
+          port: 80
+  tls:
+    secretName: apply-tls-secret
