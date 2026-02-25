@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: jeff7712/applyforge:latest
+          image: jeff7712/applyforge:test
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
