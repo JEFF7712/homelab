@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: proxmox-system
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: proxmox-tls
+  namespace: proxmox-system
+spec:
+  secretName: proxmox-tls-secret
+  issuerRef:
+    name: letsencrypt-prod 
+    kind: ClusterIssuer
+  dnsNames:
+    - pve.yourdomain.com
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: pve-transport
+  namespace: proxmox-system
+spec:
+  insecureSkipVerify: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox-external-svc
+  namespace: proxmox-system
+spec:
+  ports:
+    - name: https
+      protocol: TCP
+      port: 8006
+      targetPort: 8006
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: proxmox-external-svc
+  namespace: proxmox-system
+subsets:
+  - addresses:
+      - ip: 192.168.1.10
+    ports:
+      - port: 8006
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: proxmox-route
+  namespace: proxmox-system
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`pve.yourdomain.com`)
+      kind: Rule
+      services:
+        - name: proxmox-external-svc
+          port: 8006
+          serversTransport: pve-transport
+  tls:
+    secretName: proxmox-tls-secret
