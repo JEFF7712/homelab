@@ -46,6 +46,7 @@ subsets:
       - ip: 192.168.1.10
     ports:
       - port: 8006
+        name: https
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -61,6 +62,7 @@ spec:
       services:
         - name: proxmox-external-svc
           port: 8006
+          scheme: https
           serversTransport: pve-transport
   tls:
     secretName: proxmox-tls-secret
