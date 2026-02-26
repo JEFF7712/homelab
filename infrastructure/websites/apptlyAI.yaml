@@ -36,7 +36,7 @@ spec:
           image: jeff7712/apptlyai:latest
           imagePullPolicy: Always
           ports:
-          - containerPort: 8080
+          - containerPort: 3000
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -53,7 +53,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 5000
+      targetPort: 3000
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
