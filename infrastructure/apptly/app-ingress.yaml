@@ -5,7 +5,7 @@ metadata:
 spec:
   entryPoints:
     - websecure
-  rules:
+  routes:
     - match: Host(`apptly.rupan.dev`) || Host(`www.apptly.rupan.dev`)
       kind: Rule
       services:
