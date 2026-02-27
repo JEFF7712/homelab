@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: apptly-svc
+spec:
+  selector:
+    app: apptly-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

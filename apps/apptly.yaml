@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apptly
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apptly
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
+    targetRevision: main
+    path: infrastructure/apptly
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: apptly
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
