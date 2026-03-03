@@ -39,7 +39,7 @@ spec:
               mountPath: /data
       containers:
         - name: bookshelf
-          image: ghcr.io/pennydreadful/bookshelf:latest
+          image: ghcr.io/pennydreadful/bookshelf:hardcover
           env:
             - name: PUID
               value: "1000"
