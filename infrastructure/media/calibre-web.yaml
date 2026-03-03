@@ -109,10 +109,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - calibre.rupan.dev
+        - books.rupan.dev
       secretName: calibre-web-tls
   rules:
-    - host: calibre.rupan.dev
+    - host: books.rupan.dev
       http:
         paths:
           - path: /
