@@ -82,6 +82,8 @@ spec:
               mountPath: /config
             - name: media-storage
               mountPath: /data
+            - name: media-storage
+              mountPath: /music
             - name: extended-config
               mountPath: /config/extended.conf
               subPath: extended.conf
