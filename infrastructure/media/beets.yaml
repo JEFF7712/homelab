@@ -70,7 +70,7 @@ spec:
               args:
                 - >-
                   beet -c /config/config.yaml import -q /data/music &&
-                  beet -c /config/config.yaml update -a
+                  (beet -c /config/config.yaml update -a || true)
               securityContext:
                 runAsUser: 1000
                 runAsGroup: 1000
