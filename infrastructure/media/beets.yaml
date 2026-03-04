@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: beets-state
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: beets-config
+  namespace: media
+data:
+  config.yaml: |
+    directory: /data/music
+    library: /beets/library.db
+    plugins: fetchart embedart scrub
+    import:
+      move: no
+      copy: no
+      write: yes
+      incremental: yes
+      quiet: yes
+      log: /beets/import.log
+    paths:
+      default: $albumartist/$album%aunique{}/$track - $title
+      singleton: Non-Album/$artist - $title
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: beets-nightly
+  namespace: media
+spec:
+  schedule: "0 3 * * *"
+  startingDeadlineSeconds: 1800
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 1000
+            fsGroupChangePolicy: "OnRootMismatch"
+          containers:
+            - name: beets
+              image: lscr.io/linuxserver/beets:latest
+              env:
+                - name: HOME
+                  value: "/beets"
+                - name: BEETSDIR
+                  value: "/beets"
+                - name: TZ
+                  value: "America/Chicago"
+              command:
+                - "/bin/sh"
+                - "-c"
+              args:
+                - >-
+                  beet -c /config/config.yaml import -q /data/music &&
+                  (beet -c /config/config.yaml update -a || true)
+              securityContext:
+                runAsUser: 1000
+                runAsGroup: 1000
+              volumeMounts:
+                - name: media-storage
+                  mountPath: /data
+                - name: beets-config
+                  mountPath: /config
+                - name: beets-state
+                  mountPath: /beets
+          volumes:
+            - name: media-storage
+              persistentVolumeClaim:
+                claimName: media-pvc-hdd
+            - name: beets-config
+              configMap:
+                name: beets-config
+            - name: beets-state
+              persistentVolumeClaim:
+                claimName: beets-state
