@@ -19,3 +19,4 @@ infrastructure/moltinator/result
 infrastructure/moltinator/flake.lock
 .claude
 .VSCodeCounter
+.worktrees/
