@@ -11,19 +11,6 @@ spec:
     requests:
       storage: 2Gi
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: calibre-web-library
-  namespace: media
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 50Gi
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,8 +35,9 @@ spec:
           volumeMounts:
             - name: config-storage
               mountPath: /config
-            - name: library-storage
+            - name: media-storage
               mountPath: /calibre-library
+              subPath: books/library
             - name: media-storage
               mountPath: /cwa-book-ingest
               subPath: books/ingest
@@ -68,8 +56,9 @@ spec:
           volumeMounts:
             - name: config-storage
               mountPath: /config
-            - name: library-storage
+            - name: media-storage
               mountPath: /calibre-library
+              subPath: books/library
             - name: media-storage
               mountPath: /cwa-book-ingest
               subPath: books/ingest
@@ -80,9 +69,6 @@ spec:
         - name: config-storage
           persistentVolumeClaim:
             claimName: calibre-web-config
-        - name: library-storage
-          persistentVolumeClaim:
-            claimName: calibre-web-library
 ---
 apiVersion: v1
 kind: Service
