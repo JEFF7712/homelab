@@ -61,6 +61,11 @@ spec:
       containers:
         - name: lidarr
           image: ghcr.io/hotio/lidarr:nightly
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - apk add --no-cache ffmpeg && command -v ffprobe >/dev/null 2>&1 && exec /init
           env:
             - name: PUID
               value: "1000"
