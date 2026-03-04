@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lidarr-extended-config
+  namespace: media
+data:
+  extended.conf: |
+    ##### LIDARR EXTENDED SCRIPTS SETTINGS #####
+
+    ##### PATHS
+    downloadPath="/config/extended/downloads"
+    importPath="/config/extended/import"
+    videoPath=""
+
+    ##### SCRIPT ENABLEMENT
+    enableAutoConfig="false"
+    enableAudio="false"
+    enableVideo="false"
+    enableUnmappedFilesCleaner="false"
+    enableQueueCleaner="false"
+    enableChangeCategory="false"
+
+    ##### SCRIPT INTERVALS
+    audioScriptInterval=15m
+    videoScriptInterval=15m
+    autoArtistAdderInterval=12h
+    unmappedFolderCleanerScriptInterval=15m
+    queueCleanerScriptInterval=15m
+
+    ##### AUTOCONFIG SCRIPT SETTINGS
+    configureMediaManagement="false"
+    configureMetadataConsumerSettings="false"
+    configureMetadataProviderSettings="false"
+    configureCustomScripts="true"
+    configureLidarrUiSettings="false"
+    configureMetadataProfileSettings="false"
+    configureTrackNamingSettings="false"
+
+    ##### AUDIO SCRIPT
+    searchSort="album"
+    matchDistance="20"
+    lidarrSearchForMissing="true"
+    retryNotFound="10"
+    ignoreInstrumentalRelease="false"
+    preferSpecialEditions="true"
+
+    ##### CLIENT
+    dlClientSource="deezer"
+    arlToken=""
+    tidalCountryCode="US"
+    failedDownloadAttemptThreshold="6"
+    deezerClientTestDownloadId="197472472"
+    tidalClientTestDownloadId="166356219"
+    downloadClientTimeOut="10m"
+
+    ##### QUALITY
+    audioLyricType="both"
+    audioFormat="native"
+    audioBitrate="lossless"
+    requireQuality="false"
+
+    ##### POST PROCESSING
+    enableBeetsTagging="false"
+    beetsMatchPercentage="70"
+    enableReplaygainTags="false"
+
+    ##### ADD ARTIST AUTOMATION
+    addDeezerTopArtists="false"
+    addDeezerTopAlbumArtists="false"
+    addDeezerTopTrackArtists="false"
+    topLimit="3"
+    addRelatedArtists="false"
+    numberOfRelatedArtistsToAddPerArtist="1"
+    autoArtistAdderMonitored="true"
+    preventRelatedArtistsLoop="true"
+
+    ##### VIDEO SCRIPT
+    addFeaturedVideoArtists="false"
+    videoFormat="bv[width>=1920]+ba"
+    videoInfoJson="false"
+    youtubeSubtitleLanguage="en"
+    disableImvd="false"
+
+    ##### PLEX NOTIFY SCRIPT
+    plexUrl=""
+    plexToken=""
+
+    ##### DEEZER ARLCHECKER
+    arlUpdateInterval="24h"
+    telegramBotEnable="false"
+    telegramBotToken=""
+    telegramUserChatID=""
+    pushoverEnable="false"
+    pushoverUserKey=""
+    pushoverAppAPIKey=""
+    ntfyEnable="false"
+    ntfyServerTopic=""
+    ntfyUserToken=""
+    AppriseEnable="false"
+    AppriseString=""
+
+    lidarrUrl="http://127.0.0.1:8686"
+    lidarrAPI=""
+    autoUpdate="false"

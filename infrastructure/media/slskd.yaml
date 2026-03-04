@@ -38,8 +38,8 @@ spec:
           persistentVolumeClaim:
             claimName: slskd-config
         - name: seed-config-vol
-          configMap:
-            name: slskd-seed-config
+          secret:
+            secretName: slskd-seed-secret
         - name: gluetun-config
           emptyDir: {}
 
@@ -198,36 +198,3 @@ spec:
                 name: slskd
                 port:
                   number: 80
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: slskd-seed-config
-  namespace: media
-data:
-  slskd.yml: |
-    directories:
-      downloads: /data/downloads/soulseek
-    shares:
-      directories:
-        - /data/music
-      filters:
-        - \.ini$
-        - Thumbs.db$
-        - \.DS_Store$
-    web:
-      authentication:
-        api_keys:
-          my_api_key:
-            key: +5Z2YJRXt1RdOtNuazX2wZXDCyhAniyu
-            role: administrator
-            cidr: 0.0.0.0/0,::/0
-    soulseek:
-      address: vps.slsknet.org
-      port: 2271
-      username: JEFF7712
-      password: Q&*u$6kEL0
-      description: |
-        A slskd user. https://github.com/slskd/slskd
-      listen_ip_address: 0.0.0.0
-      listen_port: 50300
