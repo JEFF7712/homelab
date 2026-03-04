@@ -39,11 +39,14 @@ metadata:
   namespace: media
 spec:
   schedule: "0 3 * * *"
+  startingDeadlineSeconds: 1800
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
       backoffLimit: 2
       template:
         spec:
