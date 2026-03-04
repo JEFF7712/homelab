@@ -26,6 +26,10 @@ spec:
               value: "https://navispot.rupan.dev"
             - name: SPOTIFY_REDIRECT_URI
               value: "https://navispot.rupan.dev/api/auth/callback"
+            - name: NEXT_PUBLIC_LIDARR_PROXY
+              value: "true"
+            - name: LIDARR_INTERNAL_URL
+              value: "http://lidarr"
             - name: SPOTIFY_CLIENT_ID
               valueFrom:
                 secretKeyRef:

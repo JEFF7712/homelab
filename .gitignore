@@ -20,3 +20,4 @@ infrastructure/moltinator/flake.lock
 .claude
 .VSCodeCounter
 .worktrees/
+docs/
