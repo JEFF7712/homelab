@@ -28,18 +28,6 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
-      initContainers:
-        - name: install-plugin
-          image: curlimages/curl:latest
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              echo "Downloading NaviSync plugin..."
-              curl -L -o /plugins/navisync.ndp https://github.com/JEFF7712/NaviSync/releases/download/v0.2.4/navisync.ndp
-              echo "Done."
-          volumeMounts:
-            - name: plugins-data
-              mountPath: /plugins
       containers:
         - name: navidrome
           image: deluan/navidrome:latest
@@ -53,14 +41,6 @@ spec:
               value: "info"
             - name: ND_BASEURL
               value: ""
-            - name: ND_PLUGINS_ENABLED
-              value: "true"
-            - name: ND_PLUGINS_FOLDER
-              value: "/data/plugins"
-            - name: ND_PLUGINS_AUTORELOAD
-              value: "true"
-            - name: ND_PLUGINS_LOGLEVEL
-              value: "debug"
           ports:
             - containerPort: 4533
           volumeMounts:
@@ -69,11 +49,7 @@ spec:
             - name: media-storage
               mountPath: /media
               readOnly: true
-            - name: plugins-data
-              mountPath: /data/plugins
       volumes:
-        - name: plugins-data
-          emptyDir: {}
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc-hdd
