@@ -35,7 +35,7 @@ spec:
         fsGroupChangePolicy: "OnRootMismatch"
       containers:
         - name: aurral
-          image: ghcr.io/lklynet/aurral:v1.23.0
+          image: ghcr.io/lklynet/aurral:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: PORT
