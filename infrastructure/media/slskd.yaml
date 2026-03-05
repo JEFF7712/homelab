@@ -120,7 +120,7 @@ spec:
               mountPath: /gluetun
 
         - name: slskd
-          image: slskd/slskd:0.24.4
+          image: slskd/slskd:0.24.5
           env:
             - name: SLSKD_HTTP_URL
               value: "http://0.0.0.0:5030"
