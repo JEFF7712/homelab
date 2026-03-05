@@ -50,6 +50,26 @@ spec:
                   key: POSTGRES_PASSWORD
           ports:
             - containerPort: 5432
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
@@ -90,6 +110,14 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:15-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - until pg_isready -h spotify-clone-postgres -p 5432; do echo waiting for postgres; sleep 2; done
       containers:
         - name: spotify-clone
           image: jeff7712/spotify-clone:latest
@@ -152,6 +180,14 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:15-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - until pg_isready -h spotify-clone-postgres -p 5432; do echo waiting for postgres; sleep 2; done
       containers:
         - name: spotify-clone-worker
           image: jeff7712/spotify-clone:latest
