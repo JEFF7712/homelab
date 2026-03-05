@@ -41,6 +41,8 @@ spec:
               value: spotify_clone
             - name: POSTGRES_DB
               value: spotify_clone
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
