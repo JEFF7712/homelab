@@ -55,7 +55,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -h 127.0.0.1 -p 5432
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
@@ -65,7 +65,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -h 127.0.0.1 -p 5432
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
@@ -114,10 +114,16 @@ spec:
         - name: wait-for-postgres
           image: postgres:15-alpine
           imagePullPolicy: IfNotPresent
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: spotify-clone-secret
+                  key: POSTGRES_PASSWORD
           command:
             - sh
             - -c
-            - until pg_isready -h spotify-clone-postgres -p 5432; do echo waiting for postgres; sleep 2; done
+            - until pg_isready -h spotify-clone-postgres -p 5432 -U spotify_clone -d spotify_clone; do echo waiting for postgres; sleep 2; done
       containers:
         - name: spotify-clone
           image: jeff7712/spotify-clone:latest
@@ -184,10 +190,16 @@ spec:
         - name: wait-for-postgres
           image: postgres:15-alpine
           imagePullPolicy: IfNotPresent
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: spotify-clone-secret
+                  key: POSTGRES_PASSWORD
           command:
             - sh
             - -c
-            - until pg_isready -h spotify-clone-postgres -p 5432; do echo waiting for postgres; sleep 2; done
+            - until pg_isready -h spotify-clone-postgres -p 5432 -U spotify_clone -d spotify_clone; do echo waiting for postgres; sleep 2; done
       containers:
         - name: spotify-clone-worker
           image: jeff7712/spotify-clone:latest
