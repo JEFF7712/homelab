@@ -34,7 +34,7 @@ spec:
           command:
             - sh
             - -c
-            - mkdir -p /media/books/library /media/books/audiobooks /media/downloads/books
+            - mkdir -p /media/books/library /media/downloads/books
           volumeMounts:
             - name: media-storage
               mountPath: /media
@@ -71,7 +71,7 @@ spec:
               subPath: books/library
             - name: media-storage
               mountPath: /audiobooks
-              subPath: books/audiobooks
+              subPath: books/library
             - name: media-storage
               mountPath: /downloads
               subPath: downloads/books
