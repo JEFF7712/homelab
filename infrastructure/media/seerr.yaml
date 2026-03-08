@@ -28,6 +28,13 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /app/config"]
+          volumeMounts:
+            - name: config-storage
+              mountPath: /app/config
       containers:
         - name: seerr
           image: seerr/seerr:latest
