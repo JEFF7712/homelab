@@ -30,7 +30,7 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 | CLI ar9070 (×2) | AMD Ryzen V1605B, 16GB RAM, 60GB SSD | Talos worker nodes |
 | Dell WYSE 5070 | Intel J4105, 8GB RAM, 64GB SSD, 2TB HDD | Talos worker node |
 
-**Total Cluster Resources**: ~60GB RAM and ~3.6TB storage across NVMe and SATA SSDs + HDDs.
+**Total Cluster Resources**: ~60GB RAM and ~3.6TB storage across NVMe + SATA SSDs and HDDs.
 
 ## Technical Stack
 
