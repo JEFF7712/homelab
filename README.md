@@ -28,9 +28,9 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 | HP Chromebook 14 G5 | Intel Celeron N3350, 4GB RAM, 24GB eMMC | NetBird gateway |
 | HP Mini | Intel i5-6500T, 16GB RAM, 500GB SSD + 1TB NVMe | Proxmox host (Control Plane VM, OPNsense VM, NetBird LXC, AdGuard LXC) |
 | CLI ar9070 (×2) | AMD Ryzen V1605B, 16GB RAM, 60GB SSD | Talos worker nodes |
-| Dell WYSE 5070 | Intel J4105, 8GB RAM, 64GB SSD | Talos worker node |
+| Dell WYSE 5070 | Intel J4105, 8GB RAM, 64GB SSD, 2TB HDD | Talos worker node |
 
-**Total Cluster Resources**: ~60GB RAM, ~1.6TB storage across NVMe and SATA SSDs
+**Total Cluster Resources**: ~60GB RAM and ~3.6TB storage across NVMe and SATA SSDs + HDDs.
 
 ## Technical Stack
 

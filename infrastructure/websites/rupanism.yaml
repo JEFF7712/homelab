@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rupanism
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rupanism-tls
+  namespace: rupanism
+spec:
+  secretName: rupanism-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - rupanism.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: rupanism
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rupanism-web
+  template:
+    metadata:
+      labels:
+        app: rupanism-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+      - name: web
+        image: jeff7712/rupanism:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: rupanism-route
+  namespace: rupanism
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`rupanism.rupan.dev`) || Host(`www.rupanism.rupan.dev`)
+    kind: Rule
+    services:
+    - name: rupanism-svc
+      port: 80
+  tls:
+    secretName: rupanism-tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rupanism-svc
+  namespace: rupanism
+spec:
+  selector:
+    app: rupanism-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
