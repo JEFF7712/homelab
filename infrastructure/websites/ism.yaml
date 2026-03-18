@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ism
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ism-tls
+  namespace: ism
+spec:
+  secretName: ism-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - ism.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: ism
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ism-web
+  template:
+    metadata:
+      labels:
+        app: ism-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+      - name: web
+        image: jeff7712/ism:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ism-route
+  namespace: ism
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`ism.rupan.dev`) || Host(`www.ism.rupan.dev`)
+    kind: Rule
+    services:
+    - name: ism-svc
+      port: 80
+  tls:
+    secretName: ism-tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ism-svc
+  namespace: ism
+spec:
+  selector:
+    app: ism-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
