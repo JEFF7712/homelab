@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pulse
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: pulse-tls
+  namespace: pulse
+spec:
+  secretName: pulse-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - pulse.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: pulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulse-web
+  template:
+    metadata:
+      labels:
+        app: pulse-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+        - name: web
+          image: jeff7712/pulse-site:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pulse-route
+  namespace: pulse
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`pulse.rupan.dev`) || Host(`www.pulse.rupan.dev`)
+      kind: Rule
+      services:
+        - name: pulse-svc
+          port: 80
+  tls:
+    secretName: pulse-tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulse-svc
+  namespace: pulse
+spec:
+  selector:
+    app: pulse-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
