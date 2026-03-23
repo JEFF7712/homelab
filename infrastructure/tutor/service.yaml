@@ -9,7 +9,7 @@ spec:
   ports:
     - name: http
       protocol: TCP
-      port: 443
+      port: 80
       targetPort: 8080
 ---
 apiVersion: v1
@@ -37,7 +37,6 @@ spec:
       kind: Rule
       services:
         - name: tutor-demo-origin
-          port: 443
-          scheme: http
+          port: 80
   tls:
     secretName: tutor-rupan-tls
