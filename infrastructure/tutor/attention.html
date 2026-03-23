@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Attention Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: system-ui, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tokens {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+        .token {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+        .token:hover { transform: scale(1.1); }
+        .token.selected { 
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        .token.attending {
+            background: #e0e0e0;
+            opacity: 0.5;
+        }
+        .token.highlight {
+            background: #ff6b6b;
+            color: white;
+        }
+        canvas {
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        label { font-weight: 500; }
+        input[type="range"] { width: 200px; }
+        .attention-row {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            align-items: center;
+        }
+        .attn-label {
+            width: 60px;
+            font-weight: bold;
+        }
+        .attn-bar-bg {
+            flex: 1;
+            height: 24px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .attn-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ecdc4, #2c3e50);
+            transition: width 0.3s;
+        }
+        .attn-value {
+            width: 50px;
+            text-align: right;
+            font-family: monospace;
+        }
+        .code-box {
+            background: #1a1a2e;
+            color: #eee;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        .code-box .kw { color: #ff6b6b; }
+        .code-box .fn { color: #4ecdc4; }
+        .code-box .str { color: #ffe66d; }
+    </style>
+</head>
+<body>
+    <h1>Interactive Attention Mechanism Demo</h1>
+    
+    <div class="card">
+        <h3>Step 1: Select the Query Token</h3>
+        <p>Click a word to see where it attends to (which words it "looks at" when processing)</p>
+        <div class="tokens" id="tokens">
+            <div class="token" data-word="The">The</div>
+            <div class="token" data-word="cat">cat</div>
+            <div class="token" data-word="sat">sat</div>
+            <div class="token" data-word="on">on</div>
+            <div class="token" data-word="the">the</div>
+            <div class="token" data-word="mat">mat</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h3>Step 2: Attention Weights</h3>
+            <div id="attentionDisplay"></div>
+        </div>
+        
+        <div class="card">
+            <h3>Attention Heatmap</h3>
+            <canvas id="heatmap" width="300" height="300"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Step 3: How It Works</h3>
+        <div class="controls">
+            <label>Temperature (sharpness):</label>
+            <input type="range" id="temp" min="1" max="10" value="5">
+            <span id="tempVal">5</span>
+        </div>
+        <div class="code-box">
+<span class="kw">def</span> <span class="fn">attention</span>(query, keys, values):
+    <span class="kw">scores</span> = query @ keys.T           <span class="str"># Dot product</span>
+    <span class="kw">weights</span> = softmax(scores / temp) <span class="str"># Normalize</span>
+    <span class="kw">output</span> = weights @ values       <span class="str"># Weighted sum</span>
+    <span class="kw">return</span> output
+        </div>
+    </div>
+
+    <script>
+        const words = ["The", "cat", "sat", "on", "the", "mat"];
+        let selectedWord = "sat";
+        
+        // Embed tokens as vectors for demo
+        const embeddings = {
+            "The": [0.1, 0.2],
+            "cat": [0.8, 0.7],
+            "sat": [0.5, 0.6],
+            "on": [0.3, 0.4],
+            "the": [0.1, 0.2],
+            "mat": [0.6, 0.8]
+        };
+        
+        // Attention weights (simplified)
+        function getAttention(query) {
+            const weights = {};
+            const base = {
+                "The": 0.3, "cat": 0.95, "sat": 0.9, 
+                "on": 0.85, "the": 0.35, "mat": 0.7
+            };
+            
+            // Adjust based on query
+            words.forEach(w => {
+                let w1 = base[w] || 0.5;
+                if (w === query) w1 = 0.9; // Self attention
+                weights[w] = w1 + (Math.random() - 0.5) * 0.1;
+            });
+            
+            return weights;
+        }
+        
+        function softmax(arr, temp = 1) {
+            const exp = arr.map(x => Math.exp(x / temp));
+            const sum = exp.reduce((a, b) => a + b, 0);
+            return exp.map(x => x / sum);
+        }
+        
+        function update() {
+            // Highlight tokens
+            document.querySelectorAll('.token').forEach(t => {
+                t.classList.remove('selected', 'highlight', 'attending');
+                if (t.dataset.word === selectedWord) {
+                    t.classList.add('highlight');
+                }
+            });
+            
+            // Get attention weights
+            const weights = getAttention(selectedWord);
+            
+            // Update attention display
+            const display = document.getElementById('attentionDisplay');
+            display.innerHTML = words.map(w => `
+                <div class="attention-row">
+                    <span class="attn-label">${selectedWord} → ${w}:</span>
+                    <div class="attn-bar-bg">
+                        <div class="attn-bar" style="width: ${weights[w] * 100}%"></div>
+                    </div>
+                    <span class="attn-value">${(weights[w] * 100).toFixed(1)}%</span>
+                </div>
+            `).join('');
+            
+            // Update heatmap
+            drawHeatmap(weights);
+        }
+        
+        function drawHeatmap(queryWeights) {
+            const canvas = document.getElementById('heatmap');
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width / words.length;
+            
+            // Clear
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw cells
+            words.forEach((row, i) => {
+                words.forEach((col, j) => {
+                    let val = (i === j) ? 0.9 : (row === selectedWord ? queryWeights[col] : 0.3);
+                    
+                    // Color gradient
+                    const r = Math.floor(78 + (255 - 78) * (1 - val));
+                    const g = Math.floor(205 + (255 - 205) * (1 - val) * 0.5);
+                    const b = Math.floor(196 + (255 - 196) * (1 - val) * 0.5);
+                    
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    ctx.fillRect(j * size + 1, i * size + 1, size - 2, size - 2);
+                    
+                    // Value
+                    ctx.fillStyle = val > 0.5 ? 'white' : 'black';
+                    ctx.font = '11px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(val.toFixed(2), j * size + size/2, i * size + size/2 + 4);
+                });
+            });
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.font = '12px sans-serif';
+            words.forEach((w, i) => {
+                ctx.fillText(w, i * size + size/2, canvas.height - 5);
+                ctx.save();
+                ctx.translate(10, i * size + size/2);
+                ctx.rotate(-Math.PI/2);
+                ctx.fillText(w, 0, 0);
+                ctx.restore();
+            });
+        }
+        
+        // Event listeners
+        document.querySelectorAll('.token').forEach(t => {
+            t.addEventListener('click', () => {
+                selectedWord = t.dataset.word;
+                update();
+            });
+        });
+        
+        document.getElementById('temp').addEventListener('input', (e) => {
+            document.getElementById('tempVal').textContent = e.target.value;
+        });
+        
+        // Init
+        update();
+    </script>
+</body>
+</html>

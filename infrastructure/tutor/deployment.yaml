@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tutor
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tutor-tls
+  namespace: tutor
+spec:
+  secretName: tutor-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - tutor.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tutor-deploy
+  namespace: tutor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tutor-demo
+  template:
+    metadata:
+      labels:
+        app: tutor-demo
+    spec:
+      containers:
+        - name: web
+          image: jeff7712/tutor-demos:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tutor-svc
+  namespace: tutor
+spec:
+  selector:
+    app: tutor-demo
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: tutor-route
+  namespace: tutor
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`tutor.rupan.dev`)
+      kind: Rule
+      services:
+        - name: tutor-svc
+          port: 80
+  tls:
+    secretName: tutor-tls-secret

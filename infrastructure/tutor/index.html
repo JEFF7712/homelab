@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive ML Demos - Rupan</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        h1 { 
+            color: white; 
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+        }
+        .card h2 { 
+            color: #333; 
+            margin: 0 0 10px 0;
+            font-size: 1.3em;
+        }
+        .card p { 
+            color: #666; 
+            margin: 0;
+            line-height: 1.5;
+        }
+        .tag {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-top: 12px;
+            color: #555;
+        }
+        .coming-soon {
+            opacity: 0.6;
+        }
+        .coming-soon h2::after {
+            content: " (Coming Soon)";
+            font-size: 0.6em;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive ML Demos</h1>
+    <p class="subtitle">Learn by experimenting with these visualizations</p>
+    
+    <div class="grid">
+        <a href="attention.html" class="card">
+            <h2>Attention Mechanism</h2>
+            <p>See how transformer models decide which words to "attend to" when processing text.</p>
+            <span class="tag">NLP</span> <span class="tag">Deep Learning</span>
+        </a>
+        
+        <a href="gradient-descent.html" class="card">
+            <h2>Gradient Descent</h2>
+            <p>Watch a model learn by following the slope of the loss function downhill.</p>
+            <span class="tag">Optimization</span> <span class="tag">Basics</span>
+        </a>
+        
+        <a href="vectors.html" class="card">
+            <h2>Vector Spaces</h2>
+            <p>Explore linear combinations, span, and linear independence visually.</p>
+            <span class="tag">Linear Algebra</span> <span class="tag">Visual</span>
+        </a>
+        
+        <a href="neural-net.html" class="card">
+            <h2>Neural Networks</h2>
+            <p>See how data flows through layers and how weights transform inputs.</p>
+            <span class="tag">Deep Learning</span> <span class="tag">Architecture</span>
+        </a>
+        
+        <a href="chain-rule.html" class="card coming-soon">
+            <h2>Chain Rule</h2>
+            <p>Understand backpropagation through interactive derivative chains.</p>
+            <span class="tag">Calculus</span> <span class="tag">Backprop</span>
+        </a>
+        
+        <a href="fourier.html" class="card coming-soon">
+            <h2>Fourier Transform</h2>
+            <p>See how signals decompose into frequencies.</p>
+            <span class="tag">Signal Processing</span> <span class="tag">Math</span>
+        </a>
+    </div>
+</body>
+</html>
