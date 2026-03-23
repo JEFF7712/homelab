@@ -3,118 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive ML Demos - Rupan</title>
+    <title>Interactive ML Demos</title>
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            font-family: system-ui, -apple-system, sans-serif; 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 40px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        h1 { 
-            color: white; 
+        :root {
+            --bg: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #21262d;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #7d8590;
+            --accent: #58a6ff;
+            --accent-secondary: #a371f7;
+            --green: #3fb950;
+            --orange: #d29922;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 80px 24px;
+        }
+        header {
+            margin-bottom: 60px;
             text-align: center;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         .subtitle {
-            color: rgba(255,255,255,0.8);
-            text-align: center;
-            margin-bottom: 40px;
-            font-size: 1.1em;
+            color: var(--text-muted);
+            font-size: 1.1rem;
         }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
         }
         .card {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            transition: transform 0.3s, box-shadow 0.3s;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
             text-decoration: none;
-            color: inherit;
+            color: var(--text);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+            opacity: 0;
+            transition: opacity 0.2s;
         }
         .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(88, 166, 255, 0.1);
         }
-        .card h2 { 
-            color: #333; 
-            margin: 0 0 10px 0;
-            font-size: 1.3em;
+        .card:hover::before {
+            opacity: 1;
         }
-        .card p { 
-            color: #666; 
-            margin: 0;
-            line-height: 1.5;
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .card h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        .tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .tag {
-            display: inline-block;
-            background: #f0f0f0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             padding: 4px 10px;
             border-radius: 20px;
-            font-size: 0.8em;
-            margin-top: 12px;
-            color: #555;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .tag.live {
+            background: rgba(63, 185, 80, 0.15);
+            border-color: var(--green);
+            color: var(--green);
         }
         .coming-soon {
-            opacity: 0.6;
+            opacity: 0.5;
         }
         .coming-soon h2::after {
-            content: " (Coming Soon)";
-            font-size: 0.6em;
-            color: #999;
+            content: " — Soon";
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 400;
+        }
+        footer {
+            margin-top: 80px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
         }
     </style>
 </head>
 <body>
-    <h1>Interactive ML Demos</h1>
-    <p class="subtitle">Learn by experimenting with these visualizations</p>
-    
-    <div class="grid">
-        <a href="attention.html" class="card">
-            <h2>Attention Mechanism</h2>
-            <p>See how transformer models decide which words to "attend to" when processing text.</p>
-            <span class="tag">NLP</span> <span class="tag">Deep Learning</span>
-        </a>
+    <div class="container">
+        <header>
+            <h1>Interactive ML Demos</h1>
+            <p class="subtitle">Learn by experimenting with these visualizations</p>
+        </header>
         
-        <a href="gradient-descent.html" class="card">
-            <h2>Gradient Descent</h2>
-            <p>Watch a model learn by following the slope of the loss function downhill.</p>
-            <span class="tag">Optimization</span> <span class="tag">Basics</span>
-        </a>
+        <div class="grid">
+            <a href="attention.html" class="card">
+                <div class="card-header">
+                    <div class="card-icon">⚡</div>
+                    <h2>Attention Mechanism</h2>
+                </div>
+                <p>See how transformers decide which words to "attend to" when processing text.</p>
+                <div class="tags">
+                    <span class="tag live">● LIVE</span>
+                    <span class="tag">NLP</span>
+                    <span class="tag">Deep Learning</span>
+                </div>
+            </a>
+            
+            <a href="gradient-descent.html" class="card coming-soon">
+                <div class="card-header">
+                    <div class="card-icon">📉</div>
+                    <h2>Gradient Descent</h2>
+                </div>
+                <p>Watch a model learn by following the slope of the loss function.</p>
+                <div class="tags">
+                    <span class="tag">Optimization</span>
+                    <span class="tag">Basics</span>
+                </div>
+            </a>
+            
+            <a href="vectors.html" class="card coming-soon">
+                <div class="card-header">
+                    <div class="card-icon">📐</div>
+                    <h2>Vector Spaces</h2>
+                </div>
+                <p>Explore linear combinations, span, and independence visually.</p>
+                <div class="tags">
+                    <span class="tag">Linear Algebra</span>
+                    <span class="tag">Math</span>
+                </div>
+            </a>
+            
+            <a href="neural-net.html" class="card coming-soon">
+                <div class="card-header">
+                    <div class="card-icon">🧠</div>
+                    <h2>Neural Networks</h2>
+                </div>
+                <p>See how data flows through layers and how weights transform inputs.</p>
+                <div class="tags">
+                    <span class="tag">Deep Learning</span>
+                    <span class="tag">Architecture</span>
+                </div>
+            </a>
+            
+            <a href="chain-rule.html" class="card coming-soon">
+                <div class="card-header">
+                    <div class="card-icon">🔗</div>
+                    <h2>Chain Rule</h2>
+                </div>
+                <p>Understand backpropagation through interactive derivative chains.</p>
+                <div class="tags">
+                    <span class="tag">Calculus</span>
+                    <span class="tag">Backprop</span>
+                </div>
+            </a>
+            
+            <a href="fourier.html" class="card coming-soon">
+                <div class="card-header">
+                    <div class="card-icon">〰️</div>
+                    <h2>Fourier Transform</h2>
+                </div>
+                <p>See how signals decompose into frequencies.</p>
+                <div class="tags">
+                    <span class="tag">Signal Processing</span>
+                    <span class="tag">Math</span>
+                </div>
+            </a>
+        </div>
         
-        <a href="vectors.html" class="card">
-            <h2>Vector Spaces</h2>
-            <p>Explore linear combinations, span, and linear independence visually.</p>
-            <span class="tag">Linear Algebra</span> <span class="tag">Visual</span>
-        </a>
-        
-        <a href="neural-net.html" class="card">
-            <h2>Neural Networks</h2>
-            <p>See how data flows through layers and how weights transform inputs.</p>
-            <span class="tag">Deep Learning</span> <span class="tag">Architecture</span>
-        </a>
-        
-        <a href="chain-rule.html" class="card coming-soon">
-            <h2>Chain Rule</h2>
-            <p>Understand backpropagation through interactive derivative chains.</p>
-            <span class="tag">Calculus</span> <span class="tag">Backprop</span>
-        </a>
-        
-        <a href="fourier.html" class="card coming-soon">
-            <h2>Fourier Transform</h2>
-            <p>See how signals decompose into frequencies.</p>
-            <span class="tag">Signal Processing</span> <span class="tag">Math</span>
-        </a>
+        <footer>
+            Built with Hermes Agent
+        </footer>
     </div>
 </body>
 </html>
