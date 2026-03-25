@@ -8,7 +8,7 @@ async function main() {
   const accounts = await provider.send("eth_accounts", []);
   if (!accounts || accounts.length === 0) {
     throw new Error(
-      "No RPC accounts available from node. Make sure geth --dev is running and RPC is reachable at http://127.0.0.1:8545."
+      "No RPC accounts available from node. Make sure geth --dev is running and RPC is reachable at http://127.0.0.1:8545.",
     );
   }
 
@@ -24,7 +24,7 @@ async function main() {
   console.log("Deployer balance:", hre.ethers.formatEther(balance), "ETH");
 
   const MyLabCoin = await hre.ethers.getContractFactory("MyLabCoin", deployer);
-  const token = await MyLabCoin.deploy();
+  const token = await MyLabCoin.deploy(1_000_000);
 
   await token.waitForDeployment();
   const tokenAddress = await token.getAddress();

@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: "https://gitlab.com/JEFF7712/homelab.git"
     targetRevision: main
-    path: infrastructure/fipet
+    path: infrastructure/fipet/k8s
   destination:
     server: "https://kubernetes.default.svc"
     namespace: fipet
