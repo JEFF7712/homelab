@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 contract MyLabCoin {
-    string public name = "MyLabCoin";
-    string public symbol = "MLC";
+    string public name = "FIPET";
+    string public symbol = "FIPET";
     uint8 public decimals = 18;
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
