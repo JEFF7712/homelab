@@ -1,0 +1,16 @@
+{
+  "name": "fipet-token",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hardhat project for deploying the Fipet ERC-20 token to local homelab geth",
+  "license": "MIT",
+  "scripts": {
+    "build": "hardhat compile",
+    "clean": "hardhat clean",
+    "deploy:local": "hardhat run scripts/deploy.js --network localgeth"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
+  }
+}
