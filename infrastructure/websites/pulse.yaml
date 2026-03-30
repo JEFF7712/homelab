@@ -14,7 +14,7 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - pulse.rupan.dev
+    - pulseagent.dev
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -53,7 +53,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`pulse.rupan.dev`) || Host(`www.pulse.rupan.dev`)
+    - match: Host(`pulseagent.dev`) || Host(`www.pulseagent.dev`)
       kind: Rule
       services:
         - name: pulse-svc
