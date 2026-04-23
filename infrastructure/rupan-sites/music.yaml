@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: music-rupan
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: music-rupan-tls
+  namespace: music-rupan
+spec:
+  secretName: music-rupan-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - musics.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: music-rupan
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: music-rupan-web
+  template:
+    metadata:
+      labels:
+        app: music-rupan-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+        - name: web
+          image: jeff7712/music-site:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: music-rupan-route
+  namespace: music-rupan
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`musics.rupan.dev`) || Host(`www.musics.rupan.dev`)
+      kind: Rule
+      services:
+        - name: music-rupan-svc
+          port: 80
+  tls:
+    secretName: music-rupan-tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: music-rupan-svc
+  namespace: music-rupan
+spec:
+  selector:
+    app: music-rupan-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
