@@ -6,7 +6,9 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: kafka
+      app.kubernetes.io/component: kafka
+      app.kubernetes.io/instance: mimir
+      app.kubernetes.io/name: mimir
   policyTypes:
     - Ingress
   ingress:

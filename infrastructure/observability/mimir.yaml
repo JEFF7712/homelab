@@ -68,8 +68,6 @@ spec:
             store_gateway:
               sharding_ring:
                 replication_factor: 1
-            alertmanager:
-              fallback_config_file: /etc/mimir/alertmanager-fallback-config.yaml
         alertmanager:
           enable_api: false
   destination:
