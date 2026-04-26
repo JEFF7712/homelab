@@ -96,6 +96,15 @@ spec:
               discovery.relabel "kubelet" {
                 targets = discovery.kubernetes.nodes.targets
                 rule {
+                  source_labels = ["__meta_kubernetes_node_address_InternalIP"]
+                  target_label  = "__address__"
+                  replacement   = "$1:10250"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_node_name"]
+                  target_label  = "instance"
+                }
+                rule {
                   action = "replace" 
                   target_label = "__scheme__" 
                   replacement = "https"
@@ -115,15 +124,6 @@ spec:
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
-              prometheus.scrape "node_exporter" {
-                targets = discovery.kubernetes.nodes.targets
-                scheme  = "http"
-                metrics_path = "/metrics"
-                clustering { enabled = true }
-                
-                forward_to = [prometheus.remote_write.mimir.receiver]
-              }
-
               discovery.relabel "node_exporter" {
                 targets = discovery.kubernetes.nodes.targets
                 rule {
@@ -131,10 +131,15 @@ spec:
                   target_label  = "__address__"
                   replacement   = "$1:9100"
                 }
+                rule {
+                  source_labels = ["__meta_kubernetes_node_name"]
+                  target_label  = "instance"
+                }
               }
 
               prometheus.scrape "nodes" {
                 targets = discovery.relabel.node_exporter.output
+                clustering { enabled = true }
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
