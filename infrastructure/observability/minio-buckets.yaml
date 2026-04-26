@@ -3,11 +3,9 @@ kind: Job
 metadata:
   name: minio-bucket-bootstrap
   namespace: observability
-  annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
 spec:
   backoffLimit: 6
+  ttlSecondsAfterFinished: 300
   template:
     spec:
       restartPolicy: OnFailure
