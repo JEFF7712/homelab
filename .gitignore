@@ -18,6 +18,7 @@ config-backups/
 infrastructure/moltinator/result
 infrastructure/moltinator/flake.lock
 .claude
+.codex
 .VSCodeCounter
 .worktrees/
 docs/
