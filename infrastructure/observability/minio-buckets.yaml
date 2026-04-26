@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bucket-bootstrap
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: docker.io/minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+
+              i=0
+              until mc alias set local http://minio.observability.svc:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                i=$((i + 1))
+                if [ "$i" -ge 60 ]; then
+                  exit 1
+                fi
+                sleep 5
+              done
+
+              for bucket in \
+                loki-data \
+                loki-ruler \
+                tempo-data \
+                mimir-data \
+                mimir-ruler \
+                mimir-alertmanager
+              do
+                mc mb --ignore-existing "local/${bucket}"
+                mc anonymous set public "local/${bucket}"
+              done
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: rootUser
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: rootPassword
