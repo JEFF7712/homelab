@@ -109,17 +109,15 @@ spec:
                   target_label = "__scheme__" 
                   replacement = "https"
                 }
-                rule {
-                  source_labels = []
-                  target_label  = "__tls_insecure_skip_verify"
-                  replacement   = "true"
-                }
               }
 
               prometheus.scrape "kubelet" {
                 targets = discovery.relabel.kubelet.output
                 scheme  = "https"
                 bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+                tls_config {
+                  insecure_skip_verify = true
+                }
                 metrics_path = "/metrics/cadvisor" 
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
