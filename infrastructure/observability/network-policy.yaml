@@ -15,7 +15,8 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/component: distributor
+              app.kubernetes.io/instance: mimir
+              app.kubernetes.io/name: mimir
       ports:
         - protocol: TCP
           port: 9092
