@@ -31,6 +31,12 @@ spec:
           enabled: false
         results-cache:
           enabled: false
+        kafka:
+          persistence:
+            size: 20Gi
+            storageClassName: longhorn
+          containerSecurityContext:
+            readOnlyRootFilesystem: false
         minio:
           enabled: false
         mimir:
@@ -48,6 +54,8 @@ spec:
               accept_ha_samples: true
               ha_cluster_label: cluster
               ha_replica_label: __replica__
+              ingestion_rate: 50000
+              ingestion_burst_size: 1000000
             distributor:
               ha_tracker:
                 enable_ha_tracker: true
