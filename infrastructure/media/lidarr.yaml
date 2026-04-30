@@ -48,7 +48,7 @@ spec:
 
       initContainers:
         - name: fix-permissions
-          image: busybox
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             privileged: true
@@ -58,7 +58,7 @@ spec:
 
       containers:
         - name: lidarr
-          image: ghcr.io/hotio/lidarr:nightly
+          image: ghcr.io/hotio/lidarr@sha256:5c16d66b1cee977c8a6d32ec8329c07d702a22896d7c1458c151524ade3be98a
           command:
             - /bin/sh
             - -c

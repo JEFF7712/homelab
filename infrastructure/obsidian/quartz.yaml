@@ -3,9 +3,6 @@ kind: Deployment
 metadata:
   name: quartz-notes
   namespace: obsidian
-  annotations:
-    keel.sh/policy: force
-    keel.sh/trigger: poll
 spec:
   replicas: 2
   selector:
@@ -18,7 +15,7 @@ spec:
     spec:
       containers:
         - name: quartz
-          image: jeff7712/quartz:latest
+          image: jeff7712/quartz@sha256:57633835d0e76e0541149fe917022b71b2be3c3f188d774777beb6f4732bb2a6
           imagePullPolicy: Always
           ports:
             - containerPort: 80

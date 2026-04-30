@@ -18,6 +18,8 @@ metadata:
   namespace: media
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: calibre-web
@@ -30,14 +32,14 @@ spec:
     spec:
       initContainers:
         - name: fix-permissions
-          image: busybox
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
       containers:
         - name: calibre-web
-          image: crocodilestick/calibre-web-automated:latest
+          image: crocodilestick/calibre-web-automated@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d
           env:
             - name: PUID
               value: "1000"

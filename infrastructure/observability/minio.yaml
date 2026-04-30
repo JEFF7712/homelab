@@ -21,24 +21,14 @@ spec:
         resources:
           requests:
             memory: 512Mi
-        buckets:
-          - name: loki-data
-            policy: public
-          - name: loki-ruler
-            policy: public
-          - name: tempo-data
-            policy: public
-          - name: mimir-data
-            policy: public
-          - name: mimir-ruler
-            policy: public
-          - name: mimir-alertmanager
-            policy: public
         existingSecret: "minio-creds"
 
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - ServerSideApply=true

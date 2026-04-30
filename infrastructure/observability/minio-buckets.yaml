@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: minio-bucket-bootstrap
+  name: minio-bucket-reconcile
   namespace: observability
 spec:
   backoffLimit: 6
@@ -11,7 +11,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: bootstrap
-          image: docker.io/minio/mc:latest
+          image: docker.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
           command:
             - /bin/sh
             - -c
@@ -37,7 +37,7 @@ spec:
                 mimir-alertmanager
               do
                 mc mb --ignore-existing "local/${bucket}"
-                mc anonymous set public "local/${bucket}"
+                mc anonymous set none "local/${bucket}"
               done
           env:
             - name: MINIO_ROOT_USER

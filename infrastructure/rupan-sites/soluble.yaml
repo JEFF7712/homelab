@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/solubility-gnn:latest
+        image: jeff7712/solubility-gnn@sha256:35667af19c54a462a11e96fd4b54d3fd92cbf1918307ac036fa1564d538ba81a
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

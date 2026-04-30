@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/ism:latest
+        image: jeff7712/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488
         imagePullPolicy: Always
         ports:
         - containerPort: 3000

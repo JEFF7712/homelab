@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: jeff7712/pulse-site:latest
+          image: jeff7712/pulse-site@sha256:39b89178de0d71d0a41b6b0b2cbd2a2c2689fbea7e487eb41a7eff82d95c050a
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

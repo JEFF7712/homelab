@@ -7,6 +7,8 @@ metadata:
     app: subgen
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: subgen
@@ -20,7 +22,7 @@ spec:
           volumeMounts:
             - name: media-storage
               mountPath: /data
-          image: mccloud/subgen:latest
+          image: mccloud/subgen@sha256:0e3c1cd5bbe59901464b2e8e14dfbaeb2c6d47f5a0402c332d3e1761afbcfea3
           resources:
             limits:
               memory: 4Gi

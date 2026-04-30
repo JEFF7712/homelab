@@ -18,6 +18,8 @@ metadata:
   namespace: media
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: sonarr
@@ -30,14 +32,14 @@ spec:
     spec:
       initContainers:
         - name: fix-permissions
-          image: busybox
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
       containers:
         - name: sonarr
-          image: lscr.io/linuxserver/sonarr:latest
+          image: lscr.io/linuxserver/sonarr@sha256:3580aec3802c915f0f819a88d5099abce61734b925732b8393d176b5dc561020
           env:
             - name: PUID
               value: "1000"

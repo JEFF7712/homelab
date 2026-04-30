@@ -37,7 +37,7 @@ spec:
     spec:
       initContainers:
         - name: copy-config
-          image: busybox
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ['sh', '-c', 'cp /tmp/config/10-cors.ini /opt/couchdb/etc/local.d/10-cors.ini']
           volumeMounts:
             - name: cors-config-source

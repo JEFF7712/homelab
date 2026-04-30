@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/rupanism:latest
+        image: jeff7712/rupanism@sha256:15e7c1cc08b0434744ea538fb97ca0d25b9fdc7ad60191d869076dff6c1d9521
         imagePullPolicy: Always
         ports:
         - containerPort: 3000

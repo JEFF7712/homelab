@@ -9,7 +9,7 @@ spec:
   storageClassName: longhorn
   resources:
     requests:
-      storage: 2Gi
+      storage: 10Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,12 +47,14 @@ spec:
 
       initContainers:
         - name: fix-config-and-perms
-          image: alpine:latest
+          image: alpine@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
           command: ["/bin/sh", "-c"]
           args:
             - |
               echo "Checking for 'Is a directory' bug..."
               if [ -d "/config/slskd.yml" ]; then rm -rf /config/slskd.yml; fi
+
+              mkdir -p /data/downloads/soulseek/incomplete
 
               if [ ! -f "/config/slskd.yml" ]; then
                 cp /seed/slskd.yml /config/slskd.yml
@@ -61,17 +63,20 @@ spec:
               cp -f /seed/slskd.yml /config/slskd.yml
 
               chown -R 1000:1000 /config
+              chown 1000:1000 /data/downloads/soulseek /data/downloads/soulseek/incomplete
           securityContext:
             privileged: true
           volumeMounts:
             - name: slskd-config
               mountPath: /config
+            - name: media-storage
+              mountPath: /data
             - name: seed-config-vol
               mountPath: /seed
 
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun
+          image: qmcgaw/gluetun@sha256:725d3e51091dde4ca43e3e3f26e2e6d3d0ccc66821e92d505c3da04958f7d472
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
@@ -118,7 +123,7 @@ spec:
               mountPath: /gluetun
 
         - name: slskd
-          image: slskd/slskd:0.24.5
+          image: slskd/slskd@sha256:17ef977563be206f3b5932080b1e23883b2cb39dc9010640f6f39b4eaec887e3
           env:
             - name: SLSKD_HTTP_URL
               value: "http://0.0.0.0:5030"

@@ -5,6 +5,8 @@ metadata:
   namespace: immich
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: immich-postgres

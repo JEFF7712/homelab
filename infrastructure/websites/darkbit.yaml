@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/darkbit:latest
+        image: jeff7712/darkbit@sha256:f8397af21b0ab82faf32b6ea7dd2f83bc9f80d45efad4968c22603ade58a76b9
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

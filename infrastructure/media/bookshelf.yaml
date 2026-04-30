@@ -18,6 +18,8 @@ metadata:
   namespace: media
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: bookshelf
@@ -30,14 +32,14 @@ spec:
     spec:
       initContainers:
         - name: fix-permissions
-          image: busybox
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
       containers:
         - name: bookshelf
-          image: ghcr.io/pennydreadful/bookshelf:hardcover
+          image: ghcr.io/pennydreadful/bookshelf@sha256:388eecc94362580eae31ee0a454be6af516f8a311f8432a521c202fb475f4359
           env:
             - name: PUID
               value: "1000"

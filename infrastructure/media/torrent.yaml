@@ -34,14 +34,14 @@ spec:
     spec:
       initContainers:
         - name: fix-permissions
-          image: busybox
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
               
         - name: configure-qbittorrent
-          image: busybox:latest
+          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c"]
           args:
             - |
@@ -62,7 +62,7 @@ spec:
               mountPath: /config
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun
+          image: qmcgaw/gluetun@sha256:725d3e51091dde4ca43e3e3f26e2e6d3d0ccc66821e92d505c3da04958f7d472
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
@@ -104,7 +104,7 @@ spec:
             - containerPort: 8080
 
         - name: qbittorrent
-          image: lscr.io/linuxserver/qbittorrent:latest
+          image: lscr.io/linuxserver/qbittorrent@sha256:3679a75dd2304b695525d83a4ff14c458708b5da4a7ce53044240932139590e1
           resources:
             limits:
               cpu: "2"

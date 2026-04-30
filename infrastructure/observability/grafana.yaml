@@ -22,7 +22,7 @@ spec:
 
         grafana.ini:
           auth.anonymous:
-            enabled: true
+            enabled: false
             org_name: "Main Org."
             org_role: Viewer
           security:

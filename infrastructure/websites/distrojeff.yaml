@@ -21,9 +21,6 @@ kind: Deployment
 metadata:
   name: website-deploy
   namespace: distrojeff
-  annotations:
-    keel.sh/policy: force
-    keel.sh/trigger: poll
 spec:
   replicas: 1
   selector:
@@ -38,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/distrojeff-site:latest
+        image: jeff7712/distrojeff-site@sha256:278c4a3818e5d8a4c6d3f96ce4eb9a52916c40c6546e6c91cd4a6eb3de1a5396
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
