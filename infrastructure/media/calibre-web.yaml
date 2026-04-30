@@ -31,16 +31,10 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /config /calibre-library /cwa-book-ingest"]
+          command: ["sh", "-c", "chown -R 1000:1000 /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
-            - name: media-storage
-              mountPath: /calibre-library
-              subPath: books/library
-            - name: media-storage
-              mountPath: /cwa-book-ingest
-              subPath: books/ingest
       containers:
         - name: calibre-web
           image: crocodilestick/calibre-web-automated:latest

@@ -31,12 +31,10 @@ spec:
       initContainers:
         - name: fix-permissions
           image: busybox
-          command: ["sh", "-c", "chown -R 1000:1000 /config /data"]
+          command: ["sh", "-c", "chown -R 1000:1000 /config"]
           volumeMounts:
             - name: config-storage
               mountPath: /config
-            - name: media-storage
-              mountPath: /data
       containers:
         - name: jellyfin
           image: lscr.io/linuxserver/jellyfin:latest
