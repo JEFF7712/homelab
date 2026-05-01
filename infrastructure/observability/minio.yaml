@@ -13,6 +13,8 @@ spec:
       valuesObject:
         mode: standalone
         replicas: 1
+        deploymentUpdate:
+          type: Recreate
         persistence:
           enabled: true
           storageClass: "longhorn"
