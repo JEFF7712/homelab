@@ -3,9 +3,12 @@ kind: Job
 metadata:
   name: minio-bucket-reconcile
   namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   backoffLimit: 6
-  ttlSecondsAfterFinished: 300
   template:
     spec:
       restartPolicy: OnFailure
