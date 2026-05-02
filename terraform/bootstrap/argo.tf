@@ -4,7 +4,7 @@ resource "helm_release" "argocd" {
   chart            = "argo-cd"
   namespace        = "argocd"
   create_namespace = true
-  version          = "9.5.9"
+  version          = "9.5.11"
 
   values = [
     yamlencode({
