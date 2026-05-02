@@ -39,6 +39,7 @@ metadata:
   namespace: media
 spec:
   schedule: "0 3 * * *"
+  timeZone: "America/Chicago"
   startingDeadlineSeconds: 1800
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
@@ -56,7 +57,8 @@ spec:
             fsGroupChangePolicy: "OnRootMismatch"
           containers:
             - name: beets
-              image: lscr.io/linuxserver/beets:latest
+              image: lscr.io/linuxserver/beets@sha256:54b4d3424965f76a22affae64b7aa51b061fe45f4c84f17a6fe750de3b225ca6
+              imagePullPolicy: IfNotPresent
               env:
                 - name: HOME
                   value: "/beets"
@@ -69,8 +71,12 @@ spec:
                 - "-c"
               args:
                 - >-
-                  beet -c /config/config.yaml import -q /data/music &&
-                  (beet -c /config/config.yaml update -a || true)
+                  exec >> /beets/nightly.log 2>&1;
+                  echo "[$(date -Is)] beets nightly start";
+                  beet -c /config/config.yaml import -p -q /data/music;
+                  status=$?;
+                  echo "[$(date -Is)] beets nightly end status=$status";
+                  exit $status
               securityContext:
                 runAsUser: 1000
                 runAsGroup: 1000
