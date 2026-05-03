@@ -62,7 +62,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: resize
-          image: registry.k8s.io/kubectl:v1.35.0
+          image: docker.io/bitnami/kubectl:latest
           command:
             - /bin/sh
             - -c
