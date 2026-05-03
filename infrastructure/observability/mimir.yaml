@@ -95,43 +95,43 @@ spec:
       name: mimir-compactor
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
     - group: apps
       kind: StatefulSet
       name: mimir-ingester-zone-a
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
     - group: apps
       kind: StatefulSet
       name: mimir-ingester-zone-b
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
     - group: apps
       kind: StatefulSet
       name: mimir-ingester-zone-c
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
     - group: apps
       kind: StatefulSet
       name: mimir-store-gateway-zone-a
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
     - group: apps
       kind: StatefulSet
       name: mimir-store-gateway-zone-b
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
     - group: apps
       kind: StatefulSet
       name: mimir-store-gateway-zone-c
       namespace: observability
       jsonPointers:
-        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        - /spec/volumeClaimTemplates
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
