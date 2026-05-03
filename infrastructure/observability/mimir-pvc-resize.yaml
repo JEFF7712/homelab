@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mimir-pvc-resizer
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mimir-pvc-resizer
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mimir-pvc-resizer
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mimir-pvc-resizer
+subjects:
+  - kind: ServiceAccount
+    name: mimir-pvc-resizer
+    namespace: observability
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mimir-pvc-resize
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: mimir-pvc-resizer
+      restartPolicy: OnFailure
+      containers:
+        - name: resize
+          image: docker.io/bitnami/kubectl:1.35.0
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+
+              resize_if_present() {
+                name="$1"
+                size="$2"
+
+                if ! kubectl -n observability get pvc "$name" >/dev/null 2>&1; then
+                  return 0
+                fi
+
+                current="$(kubectl -n observability get pvc "$name" -o jsonpath='{.spec.resources.requests.storage}')"
+                if [ "$current" = "$size" ]; then
+                  return 0
+                fi
+
+                kubectl -n observability patch pvc "$name" -p "{\"spec\":{\"resources\":{\"requests\":{\"storage\":\"$size\"}}}}"
+              }
+
+              for pvc in \
+                storage-mimir-ingester-zone-a-0 \
+                storage-mimir-ingester-zone-b-0 \
+                storage-mimir-ingester-zone-c-0
+              do
+                resize_if_present "$pvc" 10Gi
+              done
+
+              for pvc in \
+                storage-mimir-store-gateway-zone-a-0 \
+                storage-mimir-store-gateway-zone-b-0 \
+                storage-mimir-store-gateway-zone-c-0 \
+                storage-mimir-compactor-0
+              do
+                resize_if_present "$pvc" 5Gi
+              done

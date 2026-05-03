@@ -39,6 +39,12 @@ spec:
             storageClassName: longhorn
           containerSecurityContext:
             readOnlyRootFilesystem: false
+        compactor:
+          persistentVolume:
+            size: 5Gi
+        ingester:
+          persistentVolume:
+            size: 10Gi
         minio:
           enabled: false
         mimir:
@@ -78,8 +84,54 @@ spec:
             store_gateway:
               sharding_ring:
                 replication_factor: 2
+        store_gateway:
+          persistentVolume:
+            size: 5Gi
         alertmanager:
           enable_api: false
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      name: mimir-compactor
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+    - group: apps
+      kind: StatefulSet
+      name: mimir-ingester-zone-a
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+    - group: apps
+      kind: StatefulSet
+      name: mimir-ingester-zone-b
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+    - group: apps
+      kind: StatefulSet
+      name: mimir-ingester-zone-c
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+    - group: apps
+      kind: StatefulSet
+      name: mimir-store-gateway-zone-a
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+    - group: apps
+      kind: StatefulSet
+      name: mimir-store-gateway-zone-b
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+    - group: apps
+      kind: StatefulSet
+      name: mimir-store-gateway-zone-c
+      namespace: observability
+      jsonPointers:
+        - /spec/volumeClaimTemplates/0/spec/resources/requests/storage
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
