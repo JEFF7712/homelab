@@ -1,17 +1,4 @@
 apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: beets-state
-  namespace: media
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 2Gi
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: beets-config
@@ -19,7 +6,7 @@ metadata:
 data:
   config.yaml: |
     directory: /data/music
-    library: /beets/library.db
+    library: /data/.beets/library.db
     plugins: fetchart embedart scrub
     import:
       move: no
@@ -27,7 +14,7 @@ data:
       write: yes
       incremental: yes
       quiet: yes
-      log: /beets/import.log
+      log: /data/.beets/import.log
     paths:
       default: $albumartist/$album%aunique{}/$track - $title
       singleton: Non-Album/$artist - $title
@@ -61,9 +48,9 @@ spec:
               imagePullPolicy: IfNotPresent
               env:
                 - name: HOME
-                  value: "/beets"
+                  value: "/data/.beets"
                 - name: BEETSDIR
-                  value: "/beets"
+                  value: "/data/.beets"
                 - name: TZ
                   value: "America/Chicago"
               command:
@@ -71,7 +58,8 @@ spec:
                 - "-c"
               args:
                 - >-
-                  exec >> /beets/nightly.log 2>&1;
+                  mkdir -p /data/.beets;
+                  exec >> /data/.beets/nightly.log 2>&1;
                   echo "[$(date -Is)] beets nightly start";
                   beet -c /config/config.yaml import -p -q /data/music;
                   status=$?;
@@ -85,8 +73,6 @@ spec:
                   mountPath: /data
                 - name: beets-config
                   mountPath: /config
-                - name: beets-state
-                  mountPath: /beets
           volumes:
             - name: media-storage
               persistentVolumeClaim:
@@ -94,6 +80,3 @@ spec:
             - name: beets-config
               configMap:
                 name: beets-config
-            - name: beets-state
-              persistentVolumeClaim:
-                claimName: beets-state
