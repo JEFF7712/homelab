@@ -54,7 +54,7 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 
 ### Storage
 - **CSI**: [Longhorn v1.10.1](https://longhorn.io/) - Distributed block storage
-- **Storage Backend**: NVMe and SATA SSDs mounted via Talos `extraMounts` at `/var/mnt/longhorn`
+- **Storage Backend**: NVMe and SATA SSDs + HDD mounted via Talos `extraMounts` at `/var/mnt/longhorn`
 - **Replication**: Single replica (For now)
 
 ### Observability
@@ -64,56 +64,10 @@ The cluster runs on recycled enterprise thin clients and mini PCs:
 - **Visualization**: Grafana
 
 ### Applications
-- **Automation**: n8n (workflow automation)
-- **Media Stack**: Sonarr, Radarr, Lidarr, Prowlarr, Navidrome, FlareSolverr, qBittorrent
+- **Media Stack**: Sonarr, Radarr, Lidarr, Prowlarr, Navidrome, Jellyfin, qBittorrent
 - **Certificates**: cert-manager with Let's Encrypt
 - **Config Reloads**: Reloader auto-rolls pods on ConfigMap/Secret changes
 - **Dependency Updates**: Renovate automates dependency PRs
-- **AI Services**: Infrastructure for AI workloads (n8n-worker-ai)
-
-## Repository Structure
-
-```
-.
-├── terraform/
-│   ├── infrastructure/      # Proxmox VMs, Talos cluster provisioning
-│   │   ├── cluster.tf       # Node definitions, machine configs
-│   │   ├── opnsense.tf      # Router VM
-│   │   └── netbird.tf       # NetBird LXC gateway configuration
-│   └── bootstrap/           # Initial cluster bootstrap
-│       ├── argo.tf          # ArgoCD Helm installation
-│       └── cilium.tf        # Cilium CNI installation
-│
-├── apps/                    # ArgoCD Application manifests
-│   ├── root-app.yaml        # App-of-apps pattern root
-│   ├── media.yaml           # Media stack application
-│   ├── longhorn.yaml        # Storage system
-│   ├── traefik.yaml         # Ingress controller
-│   ├── cloudflare-tunnel.yaml
-│   ├── n8n.yaml             # Workflow automation
-│   └── observability.yaml   # Monitoring stack
-│
-├── infrastructure/          # Kubernetes manifests by service
-│   ├── media/              # Arr stack, Navidrome, torrents
-│   ├── n8n/                # n8n deployment, workers, databases
-│   ├── cloudflare/         # Tunnel deployment
-│   ├── cert-manager/       # Certificate issuers
-│   ├── cilium/             # IP pool configuration
-│   └── observability/      # Grafana, Loki, Mimir, Alloy
-│
-├── ansible/                # Infrastructure automation
-│   ├── inventory.ini       # Infrastructure hosts inventory
-│   ├── ansible.cfg         # Ansible configuration
-│   ├── requirements.yml    # Collection dependencies
-│   └── playbooks/
-│       ├── netbird.yml     # NetBird mesh VPN bootstrap
-│       ├── maintenance.yml # OS updates and health checks
-│       ├── audit.yml       # Disk usage and connectivity audits
-│       └── service-scan.yml # Service discovery and mapping
-│
-└── bootstrap/
-    └── root-app.yaml       # Initial ArgoCD sync point
-```
 
 ## Highlights
 
@@ -122,18 +76,6 @@ Talos Linux eliminates configuration drift. All node configuration happens via `
 
 ### GitOps Everything
 The cluster state is defined entirely in Git. ArgoCD continuously reconciles manifests from this repository. Changes are deployed through pull requests, providing full audit trails and rollback capability.
-
-```yaml
-# ArgoCD App-of-Apps pattern
-spec:
-  source:
-    repoURL: https://gitlab.com/JEFF7712/homelab.git
-    path: apps
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-```
 
 ### Zero Trust Networking
 **No open ports to the internet.** All access is identity-based:
@@ -149,52 +91,8 @@ spec:
 - **KubePrism**: Local API server access via `localhost:7445` for sidecars
 - **Benefits**: Automatic failover, zero manual route configuration, graceful restart
 
-### Storage & Configuration Management
-**Longhorn** provides distributed storage with NVMe/SATA SSDs mounted via Talos `extraMounts`. Control Plane: 1TB NVMe + 300GB SATA.
-
-**Ansible** manages non-containerized infrastructure (NetBird gateways, OPNsense updates, Alpine/Ubuntu systems) that complements the immutable Kubernetes layer.
-
 ### Declarative Everything
 The entire stack is code: **Terraform** provisions VMs and Talos configs → **Terraform** installs Cilium/ArgoCD → **Ansible** bootstraps NetBird gateways → **ArgoCD** syncs all applications from Git.
-
-## Deployment Workflow
-
-```bash
-# 1. Provision infrastructure
-cd terraform/infrastructure
-terragrunt apply
-
-# 2. Bootstrap cluster components
-cd ../bootstrap
-terragrunt apply
-
-# 3. Bootstrap Netbird
-cd ../ansible
-ansible-playbook playbooks/netbird.yml
-
-# 4. Deploy root ArgoCD application
-kubectl apply -f bootstrap/root-app.yaml
-
-# 5. ArgoCD handles the rest
-# All apps in apps/ directory are automatically synced
-```
-
-## Management
-
-### Cluster Operations
-```bash
-# Talos API (no SSH)
-talosctl -n <node-ip> dashboard
-talosctl -n <node-ip> logs
-
-# Infrastructure changes
-cd terraform/infrastructure && terragrunt apply
-
-# Ansible operations
-cd ansible
-ansible-playbook playbooks/maintenance.yml  # OS updates
-ansible-playbook playbooks/audit.yml        # Health checks
-```
 
 ### Application Deployment
 All changes via Git → ArgoCD auto-syncs. Monitor in ArgoCD UI.
