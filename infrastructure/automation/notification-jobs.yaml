@@ -195,6 +195,7 @@ data:
     MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
     APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
+    APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.rupan.dev/approve")
     APPROVERS = {
       item.strip().lower()
       for item in os.getenv("RENOVATE_AGENT_APPROVERS", "rupan,jeff7712").split(",")
@@ -274,14 +275,27 @@ data:
       body = {"data": {safe_key: value}}
       request("PATCH", f"{KUBE_API}{path}", headers, body, context=kube_context())
 
-    def notify(title, priority, message):
+    def notify(title, priority, message, actions=None, click=None):
       headers = {
         "Authorization": f"Bearer {os.environ['NTFY_TOKEN']}",
-        "X-Title": title,
-        "X-Priority": priority,
       }
-      data = message.encode("utf-8")
-      req = urllib.request.Request(NTFY_URL, data=data, headers=headers, method="POST")
+      if actions or click:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps({
+          "topic": TOPIC,
+          "title": title,
+          "priority": priority,
+          "message": message,
+          "click": click,
+          "actions": actions or [],
+        }).encode("utf-8")
+        url = "http://ntfy.automation.svc.cluster.local/"
+      else:
+        headers["X-Title"] = title
+        headers["X-Priority"] = priority
+        data = message.encode("utf-8")
+        url = NTFY_URL
+      req = urllib.request.Request(url, data=data, headers=headers, method="POST")
       try:
         with urllib.request.urlopen(req, timeout=20) as resp:
           resp.read()
@@ -504,6 +518,35 @@ data:
       }
       return github("PUT", f"/repos/{owner}/{repo}/pulls/{number}/merge", body)
 
+    def notification_actions(owner, repo, pr, sha, allow_approve):
+      actions = [
+        {
+          "action": "view",
+          "label": "Open PR",
+          "url": pr.get("html_url", ""),
+          "clear": False,
+        }
+      ]
+      if allow_approve:
+        actions.append({
+          "action": "http",
+          "label": "Approve",
+          "url": APPROVAL_URL,
+          "method": "POST",
+          "headers": {
+            "Authorization": f"Bearer {os.environ['NTFY_TOKEN']}",
+            "Content-Type": "application/json",
+          },
+          "body": json.dumps({
+            "owner": owner,
+            "repo": repo,
+            "number": pr["number"],
+            "sha": sha,
+          }),
+          "clear": True,
+        })
+      return actions
+
     def approval_for(owner, repo, pr):
       labels = {label.get("name", "").lower() for label in pr.get("labels", [])}
       if APPROVAL_LABEL.lower() in labels:
@@ -607,7 +650,19 @@ data:
         f"reason: {decision.get('reason', '')}",
         f"approve: comment `{APPROVAL_COMMAND}` or add label `{APPROVAL_LABEL}`",
       ])
-      notify(title, priority, message)
+      notify(
+        title,
+        priority,
+        message,
+        actions=notification_actions(
+          owner,
+          repo,
+          pr,
+          sha,
+          decision.get("requires_permission") and checks["state"] == "success",
+        ),
+        click=pr.get("html_url"),
+      )
       patch_state(key, json.dumps({
         "repo": f"{owner}/{repo}",
         "number": number,
@@ -652,6 +707,100 @@ data:
 
     if __name__ == "__main__":
       main()
+  renovate-approval-webhook.py: |
+    #!/usr/bin/env python3
+    import json
+    import os
+    import urllib.error
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+    APPROVAL_TOKEN = os.environ["APPROVAL_TOKEN"]
+    APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
+    PORT = int(os.getenv("PORT", "8080"))
+
+    def github(method, path, body=None):
+      data = json.dumps(body).encode("utf-8") if body is not None else None
+      headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "homelab-renovate-approval-webhook",
+      }
+      if data is not None:
+        headers["Content-Type"] = "application/json"
+      req = urllib.request.Request(f"https://api.github.com{path}", data=data, headers=headers, method=method)
+      with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read().decode("utf-8")
+        return json.loads(raw) if raw else {}
+
+    def load_allowed_repos():
+      allowed = set()
+      with open("/config/renovate-agent-repositories.txt", encoding="utf-8") as repo_file:
+        for line in repo_file:
+          line = line.strip()
+          if not line or line.startswith("#"):
+            continue
+          owner, repo = line.split("|", 1)
+          allowed.add((owner.strip().lower(), repo.strip().lower()))
+      return allowed
+
+    ALLOWED_REPOS = load_allowed_repos()
+
+    class Handler(BaseHTTPRequestHandler):
+      def write_json(self, status, payload):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+      def do_GET(self):
+        if self.path == "/healthz":
+          self.write_json(200, {"ok": True})
+          return
+        self.write_json(404, {"error": "not found"})
+
+      def do_POST(self):
+        if self.path != "/approve":
+          self.write_json(404, {"error": "not found"})
+          return
+        if self.headers.get("Authorization", "") != f"Bearer {APPROVAL_TOKEN}":
+          self.write_json(401, {"error": "unauthorized"})
+          return
+        try:
+          length = int(self.headers.get("Content-Length", "0"))
+          payload = json.loads(self.rfile.read(length).decode("utf-8"))
+          owner = str(payload["owner"])
+          repo = str(payload["repo"])
+          number = int(payload["number"])
+          sha = str(payload["sha"])
+          if (owner.lower(), repo.lower()) not in ALLOWED_REPOS:
+            self.write_json(403, {"error": "repo is not allowlisted"})
+            return
+          pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
+          if pr.get("state") != "open":
+            self.write_json(409, {"error": "pull request is not open"})
+            return
+          current_sha = pr.get("head", {}).get("sha", "")
+          if current_sha != sha:
+            self.write_json(409, {"error": "pull request changed", "expected": sha, "actual": current_sha})
+            return
+          github("POST", f"/repos/{owner}/{repo}/issues/{number}/labels", {"labels": [APPROVAL_LABEL]})
+          github("POST", f"/repos/{owner}/{repo}/issues/{number}/comments", {"body": "/renovate-agent approve"})
+          self.write_json(200, {"ok": True, "repo": f"{owner}/{repo}", "number": number, "label": APPROVAL_LABEL})
+        except urllib.error.HTTPError as exc:
+          self.write_json(exc.code, {"error": exc.read().decode("utf-8", errors="replace")})
+        except Exception as exc:
+          self.write_json(500, {"error": str(exc)})
+
+      def log_message(self, fmt, *args):
+        print("%s - %s" % (self.address_string(), fmt % args), flush=True)
+
+    if __name__ == "__main__":
+      ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -787,6 +936,8 @@ spec:
                   value: renovate-agent-approved
                 - name: RENOVATE_AGENT_APPROVAL_COMMAND
                   value: /renovate-agent approve
+                - name: RENOVATE_AGENT_APPROVAL_URL
+                  value: https://renovate-approve.rupan.dev/approve
                 - name: RENOVATE_AGENT_APPROVERS
                   value: rupan,jeff7712
                 - name: OPENAI_MODEL
@@ -816,6 +967,122 @@ spec:
               configMap:
                 name: automation-config
                 defaultMode: 0755
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: renovate-approval-webhook-tls
+  namespace: automation
+spec:
+  secretName: renovate-approval-webhook-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - renovate-approve.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: renovate-approval-webhook
+  namespace: automation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: renovate-approval-webhook
+  template:
+    metadata:
+      labels:
+        app: renovate-approval-webhook
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      containers:
+        - name: webhook
+          image: python:3.12-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - python
+            - /config/renovate-approval-webhook.py
+          env:
+            - name: PORT
+              value: "8080"
+            - name: RENOVATE_AGENT_APPROVAL_LABEL
+              value: renovate-agent-approved
+            - name: APPROVAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: github-token
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: automation-config
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: renovate-approval-webhook
+  namespace: automation
+spec:
+  selector:
+    app: renovate-approval-webhook
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: renovate-approval-webhook
+  namespace: automation
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`renovate-approve.rupan.dev`)
+      kind: Rule
+      services:
+        - name: renovate-approval-webhook
+          port: 80
+  tls:
+    secretName: renovate-approval-webhook-tls-secret
 ---
 apiVersion: batch/v1
 kind: CronJob
