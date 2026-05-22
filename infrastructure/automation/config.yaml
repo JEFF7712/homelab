@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: automation-config
+  namespace: automation
+data:
+  ntfy-topic: homelab-alerts
+  sites.txt: |
+    apolline|https://apollinestore.com
+    darkbit|https://darkbitapparel.com
+    distrojeff|https://distrojeff.com
+    pulse|https://pulseagent.dev
+    rupanism|https://rupanism.rupan.dev
+    soluble|https://soluble.rupan.dev
+    spatia|https://spatia.rupan.dev
+  deployments.txt: |
+    apolline|website-deploy
+    darkbit|website-deploy
+    distrojeff|website-deploy
+    pulse|website-deploy
+    rupanism|website-deploy
+    soluble-rupan|website-deploy
+    spatia|website-deploy
+  dockerhub-repositories.txt: |
+    jeff7712|apolline|20
+    jeff7712|darkbit|20
+    jeff7712|distrojeff-site|20
+    jeff7712|pulse-site|20
+    jeff7712|rupanism|20
+    jeff7712|solubility-gnn|20
+    jeff7712|spatia-site|20
+  renovate-agent-repositories.txt: |
+    JEFF7712|apolline-site
+    JEFF7712|darkbit-site
+    JEFF7712|distrojeff-site
+    JEFF7712|pulse
+    JEFF7712|rupanism
+    JEFF7712|solubility-predictor
+    JEFF7712|spatia

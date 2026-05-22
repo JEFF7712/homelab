@@ -1,0 +1,106 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: website-healthcheck
+  namespace: automation
+spec:
+  schedule: '*/5 * * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: automation-runner
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: healthcheck
+            image: alpine/k8s:1.32.3
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              runAsNonRoot: true
+              runAsUser: 65532
+              runAsGroup: 65532
+            command:
+            - /bin/sh
+            - /config/healthcheck.sh
+            env:
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-token
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          volumes:
+          - name: config
+            projected:
+              defaultMode: 493
+              sources:
+              - configMap:
+                  name: automation-config
+              - configMap:
+                  name: website-monitor-config
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: website-image-watch
+  namespace: automation
+spec:
+  schedule: '*/15 * * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: automation-runner
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: image-watch
+            image: alpine/k8s:1.32.3
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              runAsNonRoot: true
+              runAsUser: 65532
+              runAsGroup: 65532
+            command:
+            - /bin/sh
+            - /config/image-watch.sh
+            env:
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-token
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          volumes:
+          - name: config
+            projected:
+              defaultMode: 493
+              sources:
+              - configMap:
+                  name: automation-config
+              - configMap:
+                  name: website-monitor-config

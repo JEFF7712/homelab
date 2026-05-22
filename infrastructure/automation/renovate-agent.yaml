@@ -1,0 +1,209 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: renovate-major-reviewer
+  namespace: automation
+spec:
+  schedule: 17 * * * *
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: automation-runner
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: renovate-major-reviewer
+            image: python:3.12-alpine
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 65532
+              runAsGroup: 65532
+              capabilities:
+                drop:
+                - ALL
+              seccompProfile:
+                type: RuntimeDefault
+            command:
+            - python
+            - /config/renovate-agent.py
+            env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: RENOVATE_AGENT_MODE
+              value: merge-safe
+            - name: RENOVATE_AGENT_STATE_CONFIGMAP
+              value: renovate-agent-state
+            - name: RENOVATE_AGENT_APPROVAL_LABEL
+              value: renovate-agent-approved
+            - name: RENOVATE_AGENT_APPROVAL_COMMAND
+              value: /renovate-agent approve
+            - name: RENOVATE_AGENT_APPROVAL_URL
+              value: https://renovate-approve.rupan.dev/approve
+            - name: RENOVATE_AGENT_APPROVERS
+              value: rupan,jeff7712
+            - name: OPENAI_MODEL
+              value: gpt-5.4-mini
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: github-token
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: openai-api-key
+                  optional: true
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          volumes:
+          - name: config
+            projected:
+              defaultMode: 493
+              sources:
+              - configMap:
+                  name: automation-config
+              - configMap:
+                  name: renovate-reviewer-script
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: renovate-approval-webhook-tls
+  namespace: automation
+spec:
+  secretName: renovate-approval-webhook-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - renovate-approve.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: renovate-approval-webhook
+  namespace: automation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: renovate-approval-webhook
+  template:
+    metadata:
+      labels:
+        app: renovate-approval-webhook
+      annotations:
+        reloader.stakater.com/auto: 'true'
+    spec:
+      containers:
+      - name: webhook
+        image: python:3.12-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        command:
+        - python
+        - /config/renovate-approval-webhook.py
+        env:
+        - name: PORT
+          value: '8080'
+        - name: RENOVATE_AGENT_APPROVAL_LABEL
+          value: renovate-agent-approved
+        - name: NTFY_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: automation-config
+              key: ntfy-topic
+        - name: APPROVAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: automation-secrets
+              key: ntfy-token
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: automation-secrets
+              key: github-token
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+      volumes:
+      - name: config
+        projected:
+          defaultMode: 493
+          sources:
+          - configMap:
+              name: automation-config
+          - configMap:
+              name: renovate-approval-webhook-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: renovate-approval-webhook
+  namespace: automation
+spec:
+  selector:
+    app: renovate-approval-webhook
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: renovate-approval-webhook
+  namespace: automation
+spec:
+  entryPoints:
+  - websecure
+  routes:
+  - match: Host(`renovate-approve.rupan.dev`)
+    kind: Rule
+    services:
+    - name: renovate-approval-webhook
+      port: 80
+  tls:
+    secretName: renovate-approval-webhook-tls-secret

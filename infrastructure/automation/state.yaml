@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: website-health-state
+  namespace: automation
+data:
+  initialized: 'true'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-sentinel-state
+  namespace: automation
+data:
+  initialized: 'true'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: website-image-state
+  namespace: automation
+data:
+  initialized: 'true'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: renovate-agent-state
+  namespace: automation
+data:
+  initialized: 'true'

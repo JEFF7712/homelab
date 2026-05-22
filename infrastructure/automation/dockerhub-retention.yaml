@@ -1,0 +1,62 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dockerhub-retention
+  namespace: automation
+spec:
+  schedule: 42 3 * * *
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: dockerhub-retention
+            image: alpine/k8s:1.32.3
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              runAsNonRoot: true
+              runAsUser: 65532
+              runAsGroup: 65532
+            command:
+            - /bin/sh
+            - /config/dockerhub-retention.sh
+            env:
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-token
+            - name: DOCKERHUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: dockerhub-username
+            - name: DOCKERHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: dockerhub-token
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          volumes:
+          - name: config
+            projected:
+              defaultMode: 493
+              sources:
+              - configMap:
+                  name: automation-config
+              - configMap:
+                  name: dockerhub-retention-config

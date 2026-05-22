@@ -1,0 +1,516 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: renovate-reviewer-script
+  namespace: automation
+data:
+  renovate-agent.py: |
+    #!/usr/bin/env python3
+    import json
+    import os
+    import re
+    import ssl
+    import sys
+    import time
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    NAMESPACE = os.getenv("POD_NAMESPACE", "automation")
+    STATE_CM = os.getenv("RENOVATE_AGENT_STATE_CONFIGMAP", "renovate-agent-state")
+    MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
+    APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
+    APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
+    APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.rupan.dev/approve")
+    APPROVERS = {
+      item.strip().lower()
+      for item in os.getenv("RENOVATE_AGENT_APPROVERS", "rupan,jeff7712").split(",")
+      if item.strip()
+    }
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+    TOPIC = open("/config/ntfy-topic", encoding="utf-8").read().strip()
+    NTFY_URL = f"http://ntfy.automation.svc.cluster.local/{TOPIC}"
+    SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    SA_CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    KUBE_HOST = os.getenv("KUBERNETES_SERVICE_HOST", "kubernetes.default.svc")
+    KUBE_PORT = os.getenv("KUBERNETES_SERVICE_PORT", "443")
+    KUBE_API = f"https://{KUBE_HOST}:{KUBE_PORT}"
+
+    class HttpError(RuntimeError):
+      def __init__(self, status, body):
+        super().__init__(f"HTTP {status}: {body}")
+        self.status = status
+        self.body = body
+
+    def request(method, url, headers=None, body=None, timeout=30, context=None):
+      data = None
+      if body is not None:
+        data = json.dumps(body).encode("utf-8")
+      req_headers = {"Accept": "application/json", **(headers or {})}
+      if data is not None and "Content-Type" not in req_headers:
+        req_headers["Content-Type"] = "application/json"
+      req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
+      try:
+        with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
+          raw = resp.read().decode("utf-8")
+          return json.loads(raw) if raw else {}
+      except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise HttpError(exc.code, raw) from exc
+
+    def github(method, path, body=None):
+      if not GITHUB_TOKEN:
+        raise RuntimeError("GITHUB_TOKEN is required")
+      headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "homelab-renovate-agent",
+      }
+      return request(method, f"https://api.github.com{path}", headers, body)
+
+    def kube_context():
+      return ssl.create_default_context(cafile=SA_CA_PATH)
+
+    def kube_headers():
+      with open(SA_TOKEN_PATH, encoding="utf-8") as token_file:
+        token = token_file.read().strip()
+      return {"Authorization": f"Bearer {token}"}
+
+    def ensure_state():
+      path = f"/api/v1/namespaces/{NAMESPACE}/configmaps/{STATE_CM}"
+      try:
+        return request("GET", f"{KUBE_API}{path}", kube_headers(), context=kube_context())
+      except HttpError as exc:
+        if exc.status != 404:
+          raise
+      body = {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {"name": STATE_CM, "namespace": NAMESPACE},
+        "data": {"initialized": "true"},
+      }
+      return request("POST", f"{KUBE_API}/api/v1/namespaces/{NAMESPACE}/configmaps", kube_headers(), body, context=kube_context())
+
+    def patch_state(key, value):
+      safe_key = re.sub(r"[^A-Za-z0-9._-]", "-", key)
+      path = f"/api/v1/namespaces/{NAMESPACE}/configmaps/{STATE_CM}"
+      headers = {**kube_headers(), "Content-Type": "application/merge-patch+json"}
+      body = {"data": {safe_key: value}}
+      request("PATCH", f"{KUBE_API}{path}", headers, body, context=kube_context())
+
+    def notify(title, priority, message, actions=None, click=None):
+      headers = {
+        "Authorization": f"Bearer {os.environ['NTFY_TOKEN']}",
+        "X-Title": title,
+        "X-Priority": priority,
+      }
+      if click:
+        headers["Click"] = click
+      if actions:
+        headers["Actions"] = actions
+      data = message.encode("utf-8")
+      url = NTFY_URL
+      req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+      try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+          resp.read()
+      except Exception as exc:
+        print(f"warning: ntfy notification failed: {exc}", file=sys.stderr)
+
+    def load_repos():
+      repos = []
+      with open("/config/renovate-agent-repositories.txt", encoding="utf-8") as repo_file:
+        for line in repo_file:
+          line = line.strip()
+          if not line or line.startswith("#"):
+            continue
+          owner, repo = line.split("|", 1)
+          repos.append((owner.strip(), repo.strip()))
+      return repos
+
+    def renovate_pr(pr):
+      branch = pr.get("head", {}).get("ref", "")
+      labels = {label.get("name", "").lower() for label in pr.get("labels", [])}
+      user = pr.get("user", {}).get("login", "").lower()
+      title = pr.get("title", "").lower()
+      return (
+        branch.startswith("renovate/")
+        or "renovate" in labels
+        or user.startswith("renovate")
+        or "renovate" in title
+      )
+
+    def semver_major_pairs(text):
+      pairs = []
+      patterns = [
+        r"from\s+v?(\d+)(?:\.\d+){0,2}\s+to\s+v?(\d+)(?:\.\d+){0,2}",
+        r"v?(\d+)(?:\.\d+){1,2}\s*->\s*v?(\d+)(?:\.\d+){1,2}",
+      ]
+      for pattern in patterns:
+        for current, new in re.findall(pattern, text, flags=re.IGNORECASE):
+          pairs.append((int(current), int(new)))
+      return pairs
+
+    def major_update(pr):
+      labels = {label.get("name", "").lower() for label in pr.get("labels", [])}
+      body = pr.get("body") or ""
+      combined = f"{pr.get('title', '')}\n{body}"
+      if "major" in labels or re.search(r"\bmajor\b", combined, flags=re.IGNORECASE):
+        return True
+      return any(new > current for current, new in semver_major_pairs(combined))
+
+    def checks_for(owner, repo, sha):
+      errors = []
+      try:
+        statuses = github("GET", f"/repos/{owner}/{repo}/commits/{sha}/status")
+        contexts = statuses.get("statuses", [])
+      except Exception as exc:
+        contexts = []
+        errors.append(f"statuses unavailable: {exc}")
+      try:
+        check_runs = github("GET", f"/repos/{owner}/{repo}/commits/{sha}/check-runs?per_page=100")
+        runs = check_runs.get("check_runs", [])
+      except Exception as exc:
+        runs = []
+        errors.append(f"check runs unavailable: {exc}")
+      failures = []
+      pending = []
+      successes = []
+      for status in contexts:
+        state = status.get("state")
+        name = status.get("context", "status")
+        if state == "success":
+          successes.append(name)
+        elif state in ("pending", "expected"):
+          pending.append(name)
+        else:
+          failures.append(f"{name}: {state}")
+      for run in runs:
+        name = run.get("name", "check")
+        status = run.get("status")
+        conclusion = run.get("conclusion")
+        if status != "completed":
+          pending.append(name)
+        elif conclusion in ("success", "neutral", "skipped"):
+          successes.append(name)
+        else:
+          failures.append(f"{name}: {conclusion}")
+      if failures:
+        state = "failure"
+      elif pending:
+        state = "pending"
+      elif successes:
+        state = "success"
+      else:
+        state = "unknown"
+      return {
+        "state": state,
+        "successes": successes[:10],
+        "pending": pending[:10],
+        "failures": failures[:10],
+        "errors": errors[:5],
+      }
+
+    def changed_files(owner, repo, number):
+      files = github("GET", f"/repos/{owner}/{repo}/pulls/{number}/files?per_page=100")
+      summarized = []
+      for item in files[:25]:
+        patch = item.get("patch", "")
+        if len(patch) > 2500:
+          patch = patch[:2500] + "\n... truncated ..."
+        summarized.append({
+          "filename": item.get("filename"),
+          "status": item.get("status"),
+          "additions": item.get("additions"),
+          "deletions": item.get("deletions"),
+          "patch": patch,
+        })
+      return summarized
+
+    def heuristic_decision(pr, checks, files):
+      filenames = [item["filename"] for item in files]
+      risky = [
+        name for name in filenames
+        if name and (
+          name.startswith(".github/workflows/")
+          or name in ("Dockerfile", "docker-compose.yml", "compose.yml")
+          or name.endswith((".lock", "lock.json", "lock.yaml"))
+          or "vite.config" in name
+          or "next.config" in name
+          or "astro.config" in name
+        )
+      ]
+      if checks["state"] == "failure":
+        return {
+          "decision": "blocked",
+          "confidence": "high",
+          "reason": "CI is failing.",
+          "requires_permission": True,
+          "can_merge": False,
+        }
+      if checks["state"] in ("pending", "unknown"):
+        return {
+          "decision": "wait",
+          "confidence": "medium",
+          "reason": f"Checks are {checks['state']}.",
+          "requires_permission": False,
+          "can_merge": False,
+        }
+      if risky:
+        return {
+          "decision": "needs_approval",
+          "confidence": "medium",
+          "reason": "Major update touches build, workflow, Docker, or lock files: " + ", ".join(risky[:6]),
+          "requires_permission": True,
+          "can_merge": False,
+        }
+      return {
+        "decision": "safe_to_merge",
+        "confidence": "medium",
+        "reason": "CI passed and changed files look limited for a public website dependency update.",
+        "requires_permission": False,
+        "can_merge": True,
+      }
+
+    def response_text(response):
+      if response.get("output_text"):
+        return response["output_text"]
+      chunks = []
+      for item in response.get("output", []):
+        for content in item.get("content", []):
+          if content.get("type") in ("output_text", "text"):
+            chunks.append(content.get("text", ""))
+      return "\n".join(chunks).strip()
+
+    def ai_decision(pr, checks, files):
+      if not OPENAI_API_KEY:
+        return None
+      prompt = {
+        "task": "Review this Renovate major dependency update for a homelab-hosted public website. Decide whether automation may merge it, should wait, is blocked, or needs owner approval.",
+        "rules": [
+          "Return JSON only.",
+          "Only can_merge true when CI/checks succeeded and the diff is low risk.",
+          "Do not recommend merge when checks are failing, pending, or unknown.",
+          "Ask for approval for framework/runtime/build-system majors, Dockerfile/workflow changes, security-sensitive changes, or broad diffs.",
+        ],
+        "schema": {
+          "decision": "safe_to_merge | needs_approval | blocked | wait",
+          "confidence": "low | medium | high",
+          "reason": "short human-readable reason",
+          "requires_permission": "boolean",
+          "can_merge": "boolean",
+        },
+        "pull_request": {
+          "title": pr.get("title"),
+          "body": (pr.get("body") or "")[:6000],
+          "url": pr.get("html_url"),
+          "checks": checks,
+          "files": files,
+        },
+      }
+      body = {
+        "model": OPENAI_MODEL,
+        "instructions": "You are a conservative release engineer for a small homelab. Return strictly valid JSON and nothing else.",
+        "input": json.dumps(prompt),
+        "max_output_tokens": 600,
+      }
+      headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+      }
+      try:
+        response = request("POST", "https://api.openai.com/v1/responses", headers, body, timeout=60)
+        text = response_text(response)
+        return json.loads(text)
+      except Exception as exc:
+        print(f"warning: AI review failed, falling back to heuristic review: {exc}", file=sys.stderr)
+        return None
+
+    def merge_pr(owner, repo, number):
+      body = {
+        "merge_method": "squash",
+        "commit_title": f"Merge Renovate PR #{number}",
+      }
+      return github("PUT", f"/repos/{owner}/{repo}/pulls/{number}/merge", body)
+
+    def notification_actions(owner, repo, pr, sha, allow_approve):
+      actions = [
+        f"view, Open PR, {pr.get('html_url', '')}, clear=false"
+      ]
+      if allow_approve:
+        query = urllib.parse.urlencode({
+            "owner": owner,
+            "repo": repo,
+            "number": pr["number"],
+            "sha": sha,
+        })
+        actions.append(
+          f"http, Approve, {APPROVAL_URL}?{query}, method=POST, "
+          f"headers.Authorization=Bearer {os.environ['NTFY_TOKEN']}, clear=true"
+        )
+      return "; ".join(actions)
+
+    def approval_for(owner, repo, pr):
+      labels = {label.get("name", "").lower() for label in pr.get("labels", [])}
+      if APPROVAL_LABEL.lower() in labels:
+        return {
+          "approved": True,
+          "method": f"label:{APPROVAL_LABEL}",
+        }
+      comments = github("GET", f"/repos/{owner}/{repo}/issues/{pr['number']}/comments?per_page=100")
+      for comment in reversed(comments):
+        author = comment.get("user", {}).get("login", "").lower()
+        body = (comment.get("body") or "").strip().lower()
+        if author in APPROVERS and APPROVAL_COMMAND.lower() in body:
+          return {
+            "approved": True,
+            "method": f"comment:{author}",
+          }
+      return {
+        "approved": False,
+        "method": "",
+      }
+
+    def state_key(owner, repo, number, sha):
+      return f"{owner}-{repo}-{number}-{sha[:12]}"
+
+    def process_pr(owner, repo, pr, state):
+      number = pr["number"]
+      sha = pr.get("head", {}).get("sha", "")
+      key = state_key(owner, repo, number, sha)
+      approval = approval_for(owner, repo, pr)
+      existing_raw = state.get("data", {}).get(key)
+      existing = json.loads(existing_raw) if existing_raw else {}
+      if existing:
+        existing_decision = existing.get("decision", {}).get("decision")
+        if existing.get("action") == "merged":
+          print(f"{owner}/{repo}#{number}: already merged {sha[:12]}")
+          return
+        if MODE == "dry-run" and not approval.get("approved"):
+          print(f"{owner}/{repo}#{number}: already processed {sha[:12]}")
+          return
+        if (
+          MODE == "merge-safe"
+          and not approval.get("approved")
+          and existing_decision in ("needs_approval", "blocked")
+        ):
+          print(f"{owner}/{repo}#{number}: waiting for approval {sha[:12]}")
+          return
+
+      checks = checks_for(owner, repo, sha)
+      files = changed_files(owner, repo, number)
+      decision = ai_decision(pr, checks, files) or heuristic_decision(pr, checks, files)
+      decision.setdefault("can_merge", False)
+      decision.setdefault("requires_permission", True)
+
+      action = "notified"
+      can_auto_merge = decision.get("can_merge") and not decision.get("requires_permission")
+      can_approved_merge = (
+        approval.get("approved")
+        and checks["state"] == "success"
+        and decision.get("decision") in ("needs_approval", "safe_to_merge")
+      )
+      if MODE == "merge-safe" and (can_auto_merge or can_approved_merge):
+        try:
+          merge_pr(owner, repo, number)
+          action = "merged"
+        except Exception as exc:
+          decision = {
+            "decision": "blocked",
+            "confidence": "high",
+            "reason": f"Merge attempt failed: {exc}",
+            "requires_permission": True,
+            "can_merge": False,
+          }
+          action = "merge_failed"
+
+      title_prefix = "Renovate agent"
+      if action == "merged":
+        title = f"{title_prefix}: merged {repo}#{number}"
+        priority = "default"
+      elif decision.get("decision") == "wait":
+        title = f"{title_prefix}: waiting {repo}#{number}"
+        priority = "low"
+      elif decision.get("requires_permission"):
+        if approval.get("approved") and checks["state"] != "success":
+          title = f"{title_prefix}: approved but waiting {repo}#{number}"
+          priority = "default"
+        else:
+          title = f"{title_prefix}: approval needed {repo}#{number}"
+          priority = "high"
+      else:
+        title = f"{title_prefix}: safe major {repo}#{number}"
+        priority = "default"
+
+      message = "\n".join([
+        pr.get("title", ""),
+        pr.get("html_url", ""),
+        f"mode: {MODE}",
+        f"action: {action}",
+        f"decision: {decision.get('decision')} ({decision.get('confidence', 'unknown')})",
+        f"checks: {checks['state']}",
+        f"approval: {approval.get('method') or 'none'}",
+        f"reason: {decision.get('reason', '')}",
+        f"approve: comment `{APPROVAL_COMMAND}` or add label `{APPROVAL_LABEL}`",
+      ])
+      notify(
+        title,
+        priority,
+        message,
+        actions=notification_actions(
+          owner,
+          repo,
+          pr,
+          sha,
+          decision.get("requires_permission") and checks["state"] == "success",
+        ),
+        click=pr.get("html_url"),
+      )
+      patch_state(key, json.dumps({
+        "repo": f"{owner}/{repo}",
+        "number": number,
+        "sha": sha,
+        "decision": decision,
+        "approval": approval,
+        "action": action,
+        "processed_at": int(time.time()),
+      }, sort_keys=True))
+      print(f"{owner}/{repo}#{number}: {action} {decision.get('decision')}")
+
+    def main():
+      state = ensure_state()
+      found = 0
+      processed = 0
+      for owner, repo in load_repos():
+        try:
+          pulls = github("GET", f"/repos/{owner}/{repo}/pulls?state=open&per_page=100")
+          for pr in pulls:
+            if not renovate_pr(pr):
+              continue
+            if not major_update(pr):
+              continue
+            found += 1
+            try:
+              process_pr(owner, repo, pr, state)
+              processed += 1
+            except Exception as exc:
+              print(f"{owner}/{repo}#{pr.get('number')}: processing failed: {exc}", file=sys.stderr)
+              notify(
+                f"Renovate agent: PR review failed {repo}#{pr.get('number')}",
+                "high",
+                f"{owner}/{repo}#{pr.get('number')} could not be reviewed: {exc}\n{pr.get('html_url', '')}",
+              )
+        except Exception as exc:
+          notify(
+            f"Renovate agent: repo scan failed {repo}",
+            "high",
+            f"{owner}/{repo} could not be scanned: {exc}",
+          )
+      print(f"Renovate agent complete: found={found} processed={processed} mode={MODE}")
+
+    if __name__ == "__main__":
+      main()

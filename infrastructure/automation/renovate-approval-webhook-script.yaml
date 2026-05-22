@@ -1,0 +1,153 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: renovate-approval-webhook-script
+  namespace: automation
+data:
+  renovate-approval-webhook.py: |
+    #!/usr/bin/env python3
+    import json
+    import os
+    import urllib.parse
+    import urllib.error
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+    APPROVAL_TOKEN = os.environ["APPROVAL_TOKEN"]
+    APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
+    NTFY_TOPIC = os.getenv("NTFY_TOPIC", "homelab-alerts")
+    NTFY_URL = f"http://ntfy.automation.svc.cluster.local/{NTFY_TOPIC}"
+    PORT = int(os.getenv("PORT", "8080"))
+
+    def github(method, path, body=None):
+      data = json.dumps(body).encode("utf-8") if body is not None else None
+      headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "homelab-renovate-approval-webhook",
+      }
+      if data is not None:
+        headers["Content-Type"] = "application/json"
+      req = urllib.request.Request(f"https://api.github.com{path}", data=data, headers=headers, method=method)
+      with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read().decode("utf-8")
+        return json.loads(raw) if raw else {}
+
+    def load_allowed_repos():
+      allowed = set()
+      with open("/config/renovate-agent-repositories.txt", encoding="utf-8") as repo_file:
+        for line in repo_file:
+          line = line.strip()
+          if not line or line.startswith("#"):
+            continue
+          owner, repo = line.split("|", 1)
+          allowed.add((owner.strip().lower(), repo.strip().lower()))
+      return allowed
+
+    def notify(title, priority, message, click=None):
+      headers = {
+        "Authorization": f"Bearer {APPROVAL_TOKEN}",
+        "X-Title": title,
+        "X-Priority": priority,
+      }
+      if click:
+        headers["Click"] = click
+      req = urllib.request.Request(NTFY_URL, data=message.encode("utf-8"), headers=headers, method="POST")
+      try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+          resp.read()
+      except Exception as exc:
+        print(f"warning: ntfy notification failed: {exc}", flush=True)
+
+    ALLOWED_REPOS = load_allowed_repos()
+
+    class Handler(BaseHTTPRequestHandler):
+      def write_json(self, status, payload):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+      def do_GET(self):
+        if self.path == "/healthz":
+          self.write_json(200, {"ok": True})
+          return
+        self.write_json(404, {"error": "not found"})
+
+      def do_POST(self):
+        if urllib.parse.urlparse(self.path).path != "/approve":
+          self.write_json(404, {"error": "not found"})
+          return
+        if self.headers.get("Authorization", "") != f"Bearer {APPROVAL_TOKEN}":
+          self.write_json(401, {"error": "unauthorized"})
+          return
+        try:
+          length = int(self.headers.get("Content-Length", "0"))
+          if length > 0:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+          else:
+            payload = {
+              key: values[0]
+              for key, values in urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).items()
+            }
+          owner = str(payload["owner"])
+          repo = str(payload["repo"])
+          number = int(payload["number"])
+          sha = str(payload["sha"])
+          pr_url = f"https://github.com/{owner}/{repo}/pull/{number}"
+          if (owner.lower(), repo.lower()) not in ALLOWED_REPOS:
+            notify(
+              f"Renovate approval rejected: {repo}#{number}",
+              "high",
+              f"{owner}/{repo} is not in the approval allowlist.",
+              pr_url,
+            )
+            self.write_json(403, {"error": "repo is not allowlisted"})
+            return
+          pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
+          if pr.get("state") != "open":
+            notify(
+              f"Renovate approval rejected: {repo}#{number}",
+              "default",
+              f"{owner}/{repo}#{number} is no longer open.",
+              pr_url,
+            )
+            self.write_json(409, {"error": "pull request is not open"})
+            return
+          current_sha = pr.get("head", {}).get("sha", "")
+          if current_sha != sha:
+            notify(
+              f"Renovate approval rejected: {repo}#{number}",
+              "high",
+              f"{owner}/{repo}#{number} changed since the notification was sent. Expected {sha[:12]}, now {current_sha[:12]}.",
+              pr_url,
+            )
+            self.write_json(409, {"error": "pull request changed", "expected": sha, "actual": current_sha})
+            return
+          github("POST", f"/repos/{owner}/{repo}/issues/{number}/labels", {"labels": [APPROVAL_LABEL]})
+          github("POST", f"/repos/{owner}/{repo}/issues/{number}/comments", {"body": "/renovate-agent approve"})
+          notify(
+            f"Renovate approval recorded: {repo}#{number}",
+            "default",
+            f"{owner}/{repo}#{number} was approved. The reviewer will merge it when checks are green.",
+            pr_url,
+          )
+          self.write_json(200, {"ok": True, "repo": f"{owner}/{repo}", "number": number, "label": APPROVAL_LABEL})
+        except urllib.error.HTTPError as exc:
+          error = exc.read().decode("utf-8", errors="replace")
+          notify("Renovate approval failed", "high", error[:1000])
+          self.write_json(exc.code, {"error": error})
+        except Exception as exc:
+          notify("Renovate approval failed", "high", str(exc)[:1000])
+          self.write_json(500, {"error": str(exc)})
+
+      def log_message(self, fmt, *args):
+        print("%s - %s" % (self.address_string(), fmt % args), flush=True)
+
+    if __name__ == "__main__":
+      ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

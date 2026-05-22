@@ -1,0 +1,69 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dockerhub-retention-config
+  namespace: automation
+data:
+  dockerhub-retention.sh: |
+    #!/bin/sh
+    set -eu
+
+    topic="$(cat /config/ntfy-topic)"
+    ntfy_url="http://ntfy.automation.svc.cluster.local/${topic}"
+
+    notify() {
+      title="$1"
+      priority="$2"
+      message="$3"
+      curl -fsS \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
+        -H "X-Title: ${title}" \
+        -H "X-Priority: ${priority}" \
+        -d "${message}" \
+        "${ntfy_url}" >/dev/null || true
+    }
+
+    hub_token="$(curl -fsS \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n --arg username "${DOCKERHUB_USERNAME}" --arg password "${DOCKERHUB_TOKEN}" '{username: $username, password: $password}')" \
+      https://hub.docker.com/v2/users/login/ | jq -r '.token')"
+
+    deleted_total=0
+    report=""
+
+    while IFS='|' read -r namespace repository keep; do
+      [ -z "${namespace}" ] && continue
+      tags_file="$(mktemp)"
+      page="https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags?page_size=100"
+
+      while [ -n "${page}" ] && [ "${page}" != "null" ]; do
+        response="$(curl -fsS -H "Authorization: Bearer ${hub_token}" "${page}")"
+        printf '%s\n' "${response}" | jq -r '.results[].name' >> "${tags_file}"
+        page="$(printf '%s\n' "${response}" | jq -r '.next // empty')"
+      done
+
+      semver_tags="$(grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' "${tags_file}" | sort -V || true)"
+      tag_count="$(printf '%s\n' "${semver_tags}" | sed '/^$/d' | wc -l | tr -d ' ')"
+      delete_count=$((tag_count - keep))
+      delete_tags=""
+      if [ "${delete_count}" -gt 0 ]; then
+        delete_tags="$(printf '%s\n' "${semver_tags}" | head -n "${delete_count}")"
+      fi
+      deleted_repo=0
+
+      for tag in ${delete_tags}; do
+        curl -fsS -X DELETE \
+          -H "Authorization: Bearer ${hub_token}" \
+          "https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}" >/dev/null
+        deleted_repo=$((deleted_repo + 1))
+        deleted_total=$((deleted_total + 1))
+      done
+
+      report="${report}${namespace}/${repository}: deleted ${deleted_repo}, kept ${keep}\n"
+      rm -f "${tags_file}"
+    done < /config/dockerhub-repositories.txt
+
+    if [ "${deleted_total}" -gt 0 ]; then
+      notify "Docker Hub retention cleaned tags" "default" "$(printf '%b' "${report}")"
+    fi
