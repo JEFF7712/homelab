@@ -215,7 +215,7 @@ data:
       if body is not None:
         data = json.dumps(body).encode("utf-8")
       req_headers = {"Accept": "application/json", **(headers or {})}
-      if data is not None:
+      if data is not None and "Content-Type" not in req_headers:
         req_headers["Content-Type"] = "application/json"
       req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
       try:
