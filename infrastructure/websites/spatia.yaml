@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: jeff7712/spatia-site@sha256:a244e8e830c887ad7c47d340339833aeaa4f335acf2b4bf5c960430a5f282d09
+          image: jeff7712/spatia-site:0.0.3
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

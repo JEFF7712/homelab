@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/apolline@sha256:5652322780f5e375356685a17c49104f6030af16ff7a7481b26d56bc8bcb67a7
+        image: jeff7712/apolline:0.0.8
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

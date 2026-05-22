@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: jeff7712/distrojeff-site@sha256:278c4a3818e5d8a4c6d3f96ce4eb9a52916c40c6546e6c91cd4a6eb3de1a5396
+        image: jeff7712/distrojeff-site:0.0.13
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
