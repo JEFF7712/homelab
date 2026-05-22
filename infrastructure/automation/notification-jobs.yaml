@@ -37,6 +37,143 @@ data:
     JEFF7712|rupanism
     JEFF7712|solubility-predictor
     JEFF7712|spatia
+  cluster-sentinel.sh: |
+    #!/bin/sh
+    set -eu
+
+    namespace="automation"
+    state_cm="cluster-sentinel-state"
+    topic="$(cat /config/ntfy-topic)"
+    ntfy_url="http://ntfy.automation.svc.cluster.local/${topic}"
+    now="$(date +%s)"
+    cert_warn_seconds=$((21 * 24 * 60 * 60))
+
+    kubectl -n "${namespace}" get configmap "${state_cm}" >/dev/null 2>&1 || \
+      kubectl -n "${namespace}" create configmap "${state_cm}" --from-literal=initialized=true >/dev/null
+
+    state_get() {
+      kubectl -n "${namespace}" get configmap "${state_cm}" -o json | jq -r --arg key "$1" '.data[$key] // ""'
+    }
+
+    state_set() {
+      kubectl -n "${namespace}" patch configmap "${state_cm}" --type merge \
+        -p "$(jq -n --arg key "$1" --arg value "$2" '{data: {($key): $value}}')" >/dev/null
+    }
+
+    notify() {
+      title="$1"
+      priority="$2"
+      message="$3"
+      curl -fsS \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
+        -H "X-Title: ${title}" \
+        -H "X-Priority: ${priority}" \
+        -d "${message}" \
+        "${ntfy_url}" >/dev/null || true
+    }
+
+    check_change() {
+      key="$1"
+      status="$2"
+      fail_title="$3"
+      ok_title="$4"
+      message="$5"
+      previous="$(state_get "${key}")"
+      if [ "${status}" = "bad" ] && [ "${previous}" != "bad" ]; then
+        notify "${fail_title}" "high" "${message}"
+      elif [ "${status}" = "ok" ] && [ "${previous}" = "bad" ]; then
+        notify "${ok_title}" "default" "${message}"
+      fi
+      state_set "${key}" "${status}"
+    }
+
+    argocd_bad="$(kubectl get applications.argoproj.io -A -o json | jq -r '
+      .items[]
+      | select((.status.sync.status // "Unknown") != "Synced" or (.status.health.status // "Unknown") != "Healthy")
+      | "\(.metadata.namespace)/\(.metadata.name): sync=\(.status.sync.status // "Unknown") health=\(.status.health.status // "Unknown")"
+    ')"
+    if [ -n "${argocd_bad}" ]; then
+      check_change "argocd-apps" "bad" "Argo app health issue" "Argo apps recovered" "${argocd_bad}"
+    else
+      check_change "argocd-apps" "ok" "Argo app health issue" "Argo apps recovered" "All Argo apps are synced and healthy."
+    fi
+
+    external_secret_bad="$(kubectl get externalsecrets.external-secrets.io -A -o json | jq -r '
+      .items[]
+      | select((.status.conditions // [] | map(select(.type == "Ready" and .status == "True")) | length) == 0)
+      | "\(.metadata.namespace)/\(.metadata.name): \(.status.conditions[-1].reason // "NotReady") \(.status.conditions[-1].message // "")"
+    ')"
+    if [ -n "${external_secret_bad}" ]; then
+      check_change "external-secrets" "bad" "ExternalSecret sync issue" "ExternalSecrets recovered" "${external_secret_bad}"
+    else
+      check_change "external-secrets" "ok" "ExternalSecret sync issue" "ExternalSecrets recovered" "All ExternalSecrets are ready."
+    fi
+
+    node_bad="$(kubectl get nodes -o json | jq -r '
+      .items[]
+      | select((.status.conditions // [] | map(select(.type == "Ready" and .status == "True")) | length) == 0)
+      | "\(.metadata.name): NotReady"
+    ')"
+    if [ -n "${node_bad}" ]; then
+      check_change "nodes" "bad" "Kubernetes node issue" "Kubernetes nodes recovered" "${node_bad}"
+    else
+      check_change "nodes" "ok" "Kubernetes node issue" "Kubernetes nodes recovered" "All Kubernetes nodes are Ready."
+    fi
+
+    pod_bad="$(kubectl get pods -A -o json | jq -r '
+      .items[]
+      | select(.status.phase != "Succeeded")
+      | . as $pod
+      | [
+          (.status.containerStatuses // [])[]
+          | select(
+              (.state.waiting.reason // "") as $reason
+              | ["CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull", "CreateContainerConfigError", "RunContainerError"] | index($reason)
+            )
+          | "\($pod.metadata.namespace)/\($pod.metadata.name): \(.state.waiting.reason)"
+        ][]
+    ' | sort -u)"
+    if [ -n "${pod_bad}" ]; then
+      check_change "pods" "bad" "Pod runtime issue" "Pod runtime issues recovered" "${pod_bad}"
+    else
+      check_change "pods" "ok" "Pod runtime issue" "Pod runtime issues recovered" "No pods are in critical waiting states."
+    fi
+
+    cert_bad="$(
+      kubectl get certificates.cert-manager.io -A -o json | jq -r '
+        .items[]
+        | . as $cert
+        | ((.status.conditions // [] | map(select(.type == "Ready" and .status == "True")) | length) == 0) as $not_ready
+        | (.status.notAfter // "") as $not_after
+        | select($not_ready or $not_after == "")
+        | "\($cert.metadata.namespace)/\($cert.metadata.name): ready=\(($not_ready | not) | tostring) expires=\($not_after)"
+      '
+      kubectl get certificates.cert-manager.io -A -o json | jq -r '.items[] | select(.status.notAfter != null) | "\(.metadata.namespace)/\(.metadata.name)|\(.status.notAfter)"' | while IFS='|' read -r cert_name not_after; do
+        [ -z "${cert_name}" ] && continue
+        expiry="$(date -d "${not_after}" +%s 2>/dev/null || echo 0)"
+        if [ "${expiry}" -gt 0 ] && [ $((expiry - now)) -le "${cert_warn_seconds}" ]; then
+          days_left=$(((expiry - now) / 86400))
+          printf '%s: expires in %sd (%s)\n' "${cert_name}" "${days_left}" "${not_after}"
+        fi
+      done
+    )"
+    cert_bad="$(printf '%s\n' "${cert_bad}" | sed '/^$/d' | sort -u)"
+    if [ -n "${cert_bad}" ]; then
+      check_change "certificates" "bad" "Certificate issue" "Certificates recovered" "${cert_bad}"
+    else
+      check_change "certificates" "ok" "Certificate issue" "Certificates recovered" "All certificates are ready and at least 21 days from expiry."
+    fi
+
+    longhorn_bad="$(kubectl get volumes.longhorn.io -n longhorn-system -o json 2>/dev/null | jq -r '
+      .items[]
+      | select((.status.robustness // "unknown") != "healthy" or (.status.state // "unknown") == "faulted")
+      | "\(.metadata.name): state=\(.status.state // "unknown") robustness=\(.status.robustness // "unknown")"
+    ' || true)"
+    if [ -n "${longhorn_bad}" ]; then
+      check_change "longhorn-volumes" "bad" "Longhorn volume issue" "Longhorn volumes recovered" "${longhorn_bad}"
+    else
+      check_change "longhorn-volumes" "ok" "Longhorn volume issue" "Longhorn volumes recovered" "All Longhorn volumes report healthy robustness."
+    fi
   healthcheck.sh: |
     #!/bin/sh
     set -eu
@@ -700,6 +837,8 @@ data:
     GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
     APPROVAL_TOKEN = os.environ["APPROVAL_TOKEN"]
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
+    NTFY_TOPIC = os.getenv("NTFY_TOPIC", "homelab-alerts")
+    NTFY_URL = f"http://ntfy.automation.svc.cluster.local/{NTFY_TOPIC}"
     PORT = int(os.getenv("PORT", "8080"))
 
     def github(method, path, body=None):
@@ -727,6 +866,21 @@ data:
           owner, repo = line.split("|", 1)
           allowed.add((owner.strip().lower(), repo.strip().lower()))
       return allowed
+
+    def notify(title, priority, message, click=None):
+      headers = {
+        "Authorization": f"Bearer {APPROVAL_TOKEN}",
+        "X-Title": title,
+        "X-Priority": priority,
+      }
+      if click:
+        headers["Click"] = click
+      req = urllib.request.Request(NTFY_URL, data=message.encode("utf-8"), headers=headers, method="POST")
+      try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+          resp.read()
+      except Exception as exc:
+        print(f"warning: ntfy notification failed: {exc}", flush=True)
 
     ALLOWED_REPOS = load_allowed_repos()
 
@@ -765,23 +919,51 @@ data:
           repo = str(payload["repo"])
           number = int(payload["number"])
           sha = str(payload["sha"])
+          pr_url = f"https://github.com/{owner}/{repo}/pull/{number}"
           if (owner.lower(), repo.lower()) not in ALLOWED_REPOS:
+            notify(
+              f"Renovate approval rejected: {repo}#{number}",
+              "high",
+              f"{owner}/{repo} is not in the approval allowlist.",
+              pr_url,
+            )
             self.write_json(403, {"error": "repo is not allowlisted"})
             return
           pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
           if pr.get("state") != "open":
+            notify(
+              f"Renovate approval rejected: {repo}#{number}",
+              "default",
+              f"{owner}/{repo}#{number} is no longer open.",
+              pr_url,
+            )
             self.write_json(409, {"error": "pull request is not open"})
             return
           current_sha = pr.get("head", {}).get("sha", "")
           if current_sha != sha:
+            notify(
+              f"Renovate approval rejected: {repo}#{number}",
+              "high",
+              f"{owner}/{repo}#{number} changed since the notification was sent. Expected {sha[:12]}, now {current_sha[:12]}.",
+              pr_url,
+            )
             self.write_json(409, {"error": "pull request changed", "expected": sha, "actual": current_sha})
             return
           github("POST", f"/repos/{owner}/{repo}/issues/{number}/labels", {"labels": [APPROVAL_LABEL]})
           github("POST", f"/repos/{owner}/{repo}/issues/{number}/comments", {"body": "/renovate-agent approve"})
+          notify(
+            f"Renovate approval recorded: {repo}#{number}",
+            "default",
+            f"{owner}/{repo}#{number} was approved. The reviewer will merge it when checks are green.",
+            pr_url,
+          )
           self.write_json(200, {"ok": True, "repo": f"{owner}/{repo}", "number": number, "label": APPROVAL_LABEL})
         except urllib.error.HTTPError as exc:
-          self.write_json(exc.code, {"error": exc.read().decode("utf-8", errors="replace")})
+          error = exc.read().decode("utf-8", errors="replace")
+          notify("Renovate approval failed", "high", error[:1000])
+          self.write_json(exc.code, {"error": error})
         except Exception as exc:
+          notify("Renovate approval failed", "high", str(exc)[:1000])
           self.write_json(500, {"error": str(exc)})
 
       def log_message(self, fmt, *args):
@@ -794,6 +976,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: website-health-state
+  namespace: automation
+data:
+  initialized: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-sentinel-state
   namespace: automation
 data:
   initialized: "true"
@@ -829,6 +1019,42 @@ rules:
       - apps
     resources:
       - deployments
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - pods
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - argoproj.io
+    resources:
+      - applications
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - cert-manager.io
+    resources:
+      - certificates
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - external-secrets.io
+    resources:
+      - externalsecrets
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - longhorn.io
+    resources:
+      - volumes
     verbs:
       - get
       - list
@@ -875,6 +1101,55 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: automation-state-writer
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-sentinel
+  namespace: automation
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: automation-runner
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: cluster-sentinel
+              image: alpine/k8s:1.32.3
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+              command:
+                - /bin/sh
+                - /config/cluster-sentinel.sh
+              env:
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: automation-secrets
+                      key: ntfy-token
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: automation-config
+                defaultMode: 0755
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -1007,6 +1282,11 @@ spec:
               value: "8080"
             - name: RENOVATE_AGENT_APPROVAL_LABEL
               value: renovate-agent-approved
+            - name: NTFY_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: automation-config
+                  key: ntfy-topic
             - name: APPROVAL_TOKEN
               valueFrom:
                 secretKeyRef:
