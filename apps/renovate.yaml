@@ -27,10 +27,9 @@ spec:
             capabilities:
               drop:
                 - ALL
-          config: |
-            {
-              "optional": true
-            }
+          config: "{}"
+
+        # Disables the single default cronjob chart template
         cronjob:
           schedule: "0 0 31 2 *"
 
@@ -57,8 +56,8 @@ spec:
                 "requireConfig": "optional"
               }
 
-          # JOB 2: GitHub
-          - name: github
+          # JOB 2: GitHub Websites
+          - name: github-websites
             schedule: "30 */2 * * *"
             env:
               - name: LOG_LEVEL
