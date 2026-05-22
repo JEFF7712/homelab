@@ -63,7 +63,7 @@ data:
 
     while IFS='|' read -r name url; do
       [ -z "${name}" ] && continue
-      code="$(curl -k -L --connect-timeout 10 --max-time 25 -o /dev/null -w "%{http_code}" "${url}" || true)"
+      code="$(curl -fsS -k -L --connect-timeout 10 --max-time 25 -o /dev/null -w "%{http_code}" "${url}" || true)"
       status="down"
       if [ "${code}" -ge 200 ] 2>/dev/null && [ "${code}" -lt 400 ] 2>/dev/null; then
         status="up"
