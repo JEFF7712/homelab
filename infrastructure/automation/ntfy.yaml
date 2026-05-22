@@ -37,6 +37,8 @@ spec:
     metadata:
       labels:
         app: ntfy
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       securityContext:
         fsGroup: 1000
