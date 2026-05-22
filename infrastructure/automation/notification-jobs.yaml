@@ -193,6 +193,13 @@ data:
     NAMESPACE = os.getenv("POD_NAMESPACE", "automation")
     STATE_CM = os.getenv("RENOVATE_AGENT_STATE_CONFIGMAP", "renovate-agent-state")
     MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
+    APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
+    APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
+    APPROVERS = {
+      item.strip().lower()
+      for item in os.getenv("RENOVATE_AGENT_APPROVERS", "rupan,jeff7712").split(",")
+      if item.strip()
+    }
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
@@ -497,6 +504,27 @@ data:
       }
       return github("PUT", f"/repos/{owner}/{repo}/pulls/{number}/merge", body)
 
+    def approval_for(owner, repo, pr):
+      labels = {label.get("name", "").lower() for label in pr.get("labels", [])}
+      if APPROVAL_LABEL.lower() in labels:
+        return {
+          "approved": True,
+          "method": f"label:{APPROVAL_LABEL}",
+        }
+      comments = github("GET", f"/repos/{owner}/{repo}/issues/{pr['number']}/comments?per_page=100")
+      for comment in reversed(comments):
+        author = comment.get("user", {}).get("login", "").lower()
+        body = (comment.get("body") or "").strip().lower()
+        if author in APPROVERS and APPROVAL_COMMAND.lower() in body:
+          return {
+            "approved": True,
+            "method": f"comment:{author}",
+          }
+      return {
+        "approved": False,
+        "method": "",
+      }
+
     def state_key(owner, repo, number, sha):
       return f"{owner}-{repo}-{number}-{sha[:12]}"
 
@@ -504,9 +532,24 @@ data:
       number = pr["number"]
       sha = pr.get("head", {}).get("sha", "")
       key = state_key(owner, repo, number, sha)
-      if state.get("data", {}).get(key):
-        print(f"{owner}/{repo}#{number}: already processed {sha[:12]}")
-        return
+      approval = approval_for(owner, repo, pr)
+      existing_raw = state.get("data", {}).get(key)
+      existing = json.loads(existing_raw) if existing_raw else {}
+      if existing:
+        existing_decision = existing.get("decision", {}).get("decision")
+        if existing.get("action") == "merged":
+          print(f"{owner}/{repo}#{number}: already merged {sha[:12]}")
+          return
+        if MODE == "dry-run" and not approval.get("approved"):
+          print(f"{owner}/{repo}#{number}: already processed {sha[:12]}")
+          return
+        if (
+          MODE == "merge-safe"
+          and not approval.get("approved")
+          and existing_decision in ("needs_approval", "blocked")
+        ):
+          print(f"{owner}/{repo}#{number}: waiting for approval {sha[:12]}")
+          return
 
       checks = checks_for(owner, repo, sha)
       files = changed_files(owner, repo, number)
@@ -515,7 +558,13 @@ data:
       decision.setdefault("requires_permission", True)
 
       action = "notified"
-      if MODE == "merge-safe" and decision.get("can_merge") and not decision.get("requires_permission"):
+      can_auto_merge = decision.get("can_merge") and not decision.get("requires_permission")
+      can_approved_merge = (
+        approval.get("approved")
+        and checks["state"] == "success"
+        and decision.get("decision") in ("needs_approval", "safe_to_merge")
+      )
+      if MODE == "merge-safe" and (can_auto_merge or can_approved_merge):
         try:
           merge_pr(owner, repo, number)
           action = "merged"
@@ -537,8 +586,12 @@ data:
         title = f"{title_prefix}: waiting {repo}#{number}"
         priority = "low"
       elif decision.get("requires_permission"):
-        title = f"{title_prefix}: approval needed {repo}#{number}"
-        priority = "high"
+        if approval.get("approved") and checks["state"] != "success":
+          title = f"{title_prefix}: approved but waiting {repo}#{number}"
+          priority = "default"
+        else:
+          title = f"{title_prefix}: approval needed {repo}#{number}"
+          priority = "high"
       else:
         title = f"{title_prefix}: safe major {repo}#{number}"
         priority = "default"
@@ -550,7 +603,9 @@ data:
         f"action: {action}",
         f"decision: {decision.get('decision')} ({decision.get('confidence', 'unknown')})",
         f"checks: {checks['state']}",
+        f"approval: {approval.get('method') or 'none'}",
         f"reason: {decision.get('reason', '')}",
+        f"approve: comment `{APPROVAL_COMMAND}` or add label `{APPROVAL_LABEL}`",
       ])
       notify(title, priority, message)
       patch_state(key, json.dumps({
@@ -558,6 +613,7 @@ data:
         "number": number,
         "sha": sha,
         "decision": decision,
+        "approval": approval,
         "action": action,
         "processed_at": int(time.time()),
       }, sort_keys=True))
@@ -721,9 +777,15 @@ spec:
                     fieldRef:
                       fieldPath: metadata.namespace
                 - name: RENOVATE_AGENT_MODE
-                  value: dry-run
+                  value: merge-safe
                 - name: RENOVATE_AGENT_STATE_CONFIGMAP
                   value: renovate-agent-state
+                - name: RENOVATE_AGENT_APPROVAL_LABEL
+                  value: renovate-agent-approved
+                - name: RENOVATE_AGENT_APPROVAL_COMMAND
+                  value: /renovate-agent approve
+                - name: RENOVATE_AGENT_APPROVERS
+                  value: rupan,jeff7712
                 - name: OPENAI_MODEL
                   value: gpt-5.4-mini
                 - name: NTFY_TOKEN
