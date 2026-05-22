@@ -11,6 +11,7 @@ data:
     import os
     import re
     import ssl
+    import subprocess
     import sys
     import time
     import urllib.error
@@ -20,6 +21,7 @@ data:
     NAMESPACE = os.getenv("POD_NAMESPACE", "automation")
     STATE_CM = os.getenv("RENOVATE_AGENT_STATE_CONFIGMAP", "renovate-agent-state")
     MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
+    REPAIR_MODE = os.getenv("RENOVATE_AGENT_REPAIR_MODE", "workflow-only")
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
     APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
     APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.rupan.dev/approve")
@@ -231,6 +233,127 @@ data:
         })
       return summarized
 
+    def pull_request(owner, repo, number):
+      return github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
+
+    def run(cmd, cwd=None, env=None, check=True):
+      result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+      )
+      if check and result.returncode != 0:
+        command = " ".join(cmd).replace(GITHUB_TOKEN, "***")
+        output = result.stdout.replace(GITHUB_TOKEN, "***")
+        raise RuntimeError(f"{command} failed with {result.returncode}:\n{output}")
+      return result
+
+    def workflow_only(files):
+      names = [item.get("filename", "") for item in files]
+      return bool(names) and all(name.startswith(".github/workflows/") for name in names)
+
+    def validate_workflow_yaml(repo_dir, files):
+      script = "\n".join([
+        "import sys, yaml",
+        "for path in sys.argv[1:]:",
+        "    with open(path, encoding='utf-8') as f:",
+        "        yaml.safe_load(f)",
+      ])
+      paths = [item["filename"] for item in files]
+      run(["python3", "-c", script, *paths], cwd=repo_dir)
+
+    def resolve_workflow_conflicts(repo_dir):
+      conflict_files = run(["git", "diff", "--name-only", "--diff-filter=U"], cwd=repo_dir).stdout.splitlines()
+      if not conflict_files:
+        return []
+      if not all(path.startswith(".github/workflows/") for path in conflict_files):
+        raise RuntimeError("conflicts are not limited to .github/workflows")
+      for path in conflict_files:
+        full_path = os.path.join(repo_dir, path)
+        with open(full_path, encoding="utf-8") as source:
+          text = source.read()
+        pattern = re.compile(r"<<<<<<< HEAD\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]+", re.DOTALL)
+
+        def choose(match):
+          ours = match.group(1)
+          theirs = match.group(2)
+          combined = []
+          seen = set()
+          for line in (ours + "\n" + theirs).splitlines():
+            stripped = line.strip()
+            if not stripped:
+              continue
+            if stripped.startswith("- uses: "):
+              action = stripped.split("@", 1)[0]
+              version = stripped.split("@", 1)[1] if "@" in stripped else ""
+              existing_index = next((i for i, item in enumerate(combined) if item.strip().split("@", 1)[0] == action), None)
+              if existing_index is not None:
+                existing = combined[existing_index].strip().split("@", 1)[1] if "@" in combined[existing_index] else ""
+                if version_key(version) >= version_key(existing):
+                  combined[existing_index] = line
+                continue
+            if line not in seen:
+              combined.append(line)
+              seen.add(line)
+          return "\n".join(combined)
+
+        resolved = pattern.sub(choose, text)
+        if "<<<<<<<" in resolved or "=======" in resolved or ">>>>>>>" in resolved:
+          raise RuntimeError(f"unresolved conflict markers remain in {path}")
+        with open(full_path, "w", encoding="utf-8") as target:
+          target.write(resolved)
+          if not resolved.endswith("\n"):
+            target.write("\n")
+        run(["git", "add", path], cwd=repo_dir)
+      return conflict_files
+
+    def version_key(version):
+      version = version.strip()
+      match = re.match(r"v?(\d+)(.*)", version)
+      if not match:
+        return (0, version)
+      return (int(match.group(1)), match.group(2))
+
+    def repair_workflow_pr(owner, repo, pr, files):
+      if REPAIR_MODE != "workflow-only":
+        return {"attempted": False, "reason": f"repair mode is {REPAIR_MODE}"}
+      if not workflow_only(files):
+        return {"attempted": False, "reason": "changed files are not workflow-only"}
+      branch = pr.get("head", {}).get("ref", "")
+      if not branch.startswith("renovate/"):
+        return {"attempted": False, "reason": "branch is not a Renovate branch"}
+      clone_url = f"https://x-access-token:{urllib.parse.quote(GITHUB_TOKEN, safe='')}@github.com/{owner}/{repo}.git"
+      workdir = f"/tmp/renovate-repair-{repo}-{pr['number']}-{int(time.time())}"
+      base_branch = pr.get("base", {}).get("ref", "main")
+      run(["git", "clone", "--depth", "50", "--branch", branch, clone_url, workdir])
+      try:
+        run(["git", "config", "user.name", "Renovate Repair Agent"], cwd=workdir)
+        run(["git", "config", "user.email", "renovate-repair@rupan.dev"], cwd=workdir)
+        run(["git", "fetch", "origin", f"{base_branch}:refs/remotes/origin/{base_branch}"], cwd=workdir)
+        merge = run(["git", "merge", "--no-edit", f"origin/{base_branch}"], cwd=workdir, check=False)
+        repaired_files = []
+        if merge.returncode != 0:
+          repaired_files = resolve_workflow_conflicts(workdir)
+          remaining = run(["git", "diff", "--name-only", "--diff-filter=U"], cwd=workdir).stdout.strip()
+          if remaining:
+            raise RuntimeError(f"unresolved conflicts remain: {remaining}")
+          run(["git", "commit", "-m", "chore: repair workflow update conflicts"], cwd=workdir)
+        else:
+          status = run(["git", "status", "--porcelain"], cwd=workdir).stdout.strip()
+          if status:
+            run(["git", "commit", "-m", "chore: update Renovate branch"], cwd=workdir)
+        validate_workflow_yaml(workdir, files)
+        new_sha = run(["git", "rev-parse", "HEAD"], cwd=workdir).stdout.strip()
+        if new_sha == pr.get("head", {}).get("sha"):
+          return {"attempted": True, "pushed": False, "reason": "branch already up to date"}
+        run(["git", "push", "origin", f"HEAD:{branch}"], cwd=workdir)
+        return {"attempted": True, "pushed": True, "sha": new_sha, "files": repaired_files}
+      finally:
+        run(["rm", "-rf", workdir], check=False)
+
     def heuristic_decision(pr, checks, files):
       filenames = [item["filename"] for item in files]
       risky = [
@@ -419,18 +542,53 @@ data:
           merge_pr(owner, repo, number)
           action = "merged"
         except Exception as exc:
-          decision = {
-            "decision": "blocked",
-            "confidence": "high",
-            "reason": f"Merge attempt failed: {exc}",
-            "requires_permission": True,
-            "can_merge": False,
-          }
-          action = "merge_failed"
-
+          latest_pr = pull_request(owner, repo, number)
+          repair = {"attempted": False, "reason": "not attempted"}
+          if approval.get("approved") and "merge conflicts" in str(exc).lower():
+            try:
+              repair = repair_workflow_pr(owner, repo, latest_pr, files)
+              if repair.get("pushed"):
+                decision = {
+                  "decision": "wait",
+                  "confidence": "high",
+                  "reason": "Workflow-only merge conflict repaired and pushed; waiting for checks on the repaired branch.",
+                  "requires_permission": False,
+                  "can_merge": False,
+                }
+                action = "repaired"
+              else:
+                decision = {
+                  "decision": "blocked",
+                  "confidence": "medium",
+                  "reason": f"Merge failed and repair did not push: {repair.get('reason', 'unknown')}",
+                  "requires_permission": True,
+                  "can_merge": False,
+                }
+                action = "repair_skipped"
+            except Exception as repair_exc:
+              decision = {
+                "decision": "blocked",
+                "confidence": "high",
+                "reason": f"Merge failed and repair failed: {repair_exc}",
+                "requires_permission": True,
+                "can_merge": False,
+              }
+              action = "repair_failed"
+          else:
+            decision = {
+              "decision": "blocked",
+              "confidence": "high",
+              "reason": f"Merge attempt failed: {exc}",
+              "requires_permission": True,
+              "can_merge": False,
+            }
+            action = "merge_failed"
       title_prefix = "Renovate agent"
       if action == "merged":
         title = f"{title_prefix}: merged {repo}#{number}"
+        priority = "default"
+      elif action == "repaired":
+        title = f"{title_prefix}: repaired {repo}#{number}"
         priority = "default"
       elif decision.get("decision") == "wait":
         title = f"{title_prefix}: waiting {repo}#{number}"

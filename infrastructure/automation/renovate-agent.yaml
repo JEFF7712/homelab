@@ -20,20 +20,18 @@ spec:
               type: RuntimeDefault
           containers:
           - name: renovate-major-reviewer
-            image: python:3.12-alpine
+            image: alpine/git:2.49.1
             securityContext:
               allowPrivilegeEscalation: false
-              runAsNonRoot: true
-              runAsUser: 65532
-              runAsGroup: 65532
               capabilities:
                 drop:
                 - ALL
               seccompProfile:
                 type: RuntimeDefault
             command:
-            - python
-            - /config/renovate-agent.py
+            - /bin/sh
+            - -c
+            - apk add --no-cache python3 py3-yaml >/dev/null && python3 /config/renovate-agent.py
             env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -41,6 +39,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: RENOVATE_AGENT_MODE
               value: merge-safe
+            - name: RENOVATE_AGENT_REPAIR_MODE
+              value: workflow-only
             - name: RENOVATE_AGENT_STATE_CONFIGMAP
               value: renovate-agent-state
             - name: RENOVATE_AGENT_APPROVAL_LABEL
