@@ -30,6 +30,7 @@ data:
     jeff7712|rupanism|20
     jeff7712|solubility-gnn|20
     jeff7712|spatia-site|20
+    jeff7712|homelab-renovate-agent|20
   renovate-agent-repositories.txt: |
     JEFF7712|apolline-site
     JEFF7712|darkbit-site

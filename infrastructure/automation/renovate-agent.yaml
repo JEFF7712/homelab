@@ -20,18 +20,17 @@ spec:
               type: RuntimeDefault
           containers:
           - name: renovate-major-reviewer
-            image: alpine/git:2.49.1
+            image: jeff7712/homelab-renovate-agent:0.0.1
             securityContext:
               allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 65532
+              runAsGroup: 65532
               capabilities:
                 drop:
                 - ALL
               seccompProfile:
                 type: RuntimeDefault
-            command:
-            - /bin/sh
-            - -c
-            - apk add --no-cache python3 py3-yaml >/dev/null && python3 /config/renovate-agent.py
             env:
             - name: POD_NAMESPACE
               valueFrom:
