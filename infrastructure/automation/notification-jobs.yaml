@@ -755,6 +755,9 @@ spec:
         spec:
           serviceAccountName: automation-runner
           restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: renovate-major-reviewer
               image: python:3.12-alpine
@@ -830,9 +833,20 @@ spec:
         spec:
           serviceAccountName: automation-runner
           restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: healthcheck
               image: alpine/k8s:1.32.3
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
               command:
                 - /bin/sh
                 - /config/healthcheck.sh
@@ -868,9 +882,20 @@ spec:
         spec:
           serviceAccountName: automation-runner
           restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: image-watch
               image: alpine/k8s:1.32.3
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
               command:
                 - /bin/sh
                 - /config/image-watch.sh
@@ -905,9 +930,20 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: dockerhub-retention
               image: alpine/k8s:1.32.3
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
               command:
                 - /bin/sh
                 - /config/dockerhub-retention.sh

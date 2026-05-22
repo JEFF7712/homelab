@@ -42,6 +42,8 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ntfy
           image: binwiederhier/ntfy:v2.14.0
@@ -86,6 +88,9 @@ spec:
               subPath: lib
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
             runAsNonRoot: true
             runAsUser: 1000
             runAsGroup: 1000
