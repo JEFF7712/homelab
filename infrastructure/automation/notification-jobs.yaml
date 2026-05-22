@@ -1,0 +1,374 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: automation-config
+  namespace: automation
+data:
+  ntfy-topic: homelab-alerts
+  sites.txt: |
+    apolline|https://apollinestore.com
+    darkbit|https://darkbitapparel.com
+    distrojeff|https://distrojeff.com
+    pulse|https://pulseagent.dev
+    rupanism|https://rupanism.rupan.dev
+    soluble|https://soluble.rupan.dev
+    spatia|https://spatia.rupan.dev
+  deployments.txt: |
+    apolline|website-deploy
+    darkbit|website-deploy
+    distrojeff|website-deploy
+    pulse|website-deploy
+    rupanism|website-deploy
+    soluble-rupan|website-deploy
+    spatia|website-deploy
+  dockerhub-repositories.txt: |
+    jeff7712|apolline|20
+    jeff7712|darkbit|20
+    jeff7712|distrojeff-site|20
+    jeff7712|pulse-site|20
+    jeff7712|rupanism|20
+    jeff7712|solubility-gnn|20
+    jeff7712|spatia-site|20
+  healthcheck.sh: |
+    #!/bin/sh
+    set -eu
+
+    namespace="automation"
+    state_cm="website-health-state"
+    topic="$(cat /config/ntfy-topic)"
+    ntfy_url="http://ntfy.automation.svc.cluster.local/${topic}"
+
+    kubectl -n "${namespace}" get configmap "${state_cm}" >/dev/null 2>&1 || \
+      kubectl -n "${namespace}" create configmap "${state_cm}" --from-literal=initialized=true >/dev/null
+
+    notify() {
+      title="$1"
+      priority="$2"
+      message="$3"
+      curl -fsS \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
+        -H "X-Title: ${title}" \
+        -H "X-Priority: ${priority}" \
+        -d "${message}" \
+        "${ntfy_url}" >/dev/null || true
+    }
+
+    while IFS='|' read -r name url; do
+      [ -z "${name}" ] && continue
+      code="$(curl -k -L --connect-timeout 10 --max-time 25 -o /dev/null -w "%{http_code}" "${url}" || true)"
+      status="down"
+      if [ "${code}" -ge 200 ] 2>/dev/null && [ "${code}" -lt 400 ] 2>/dev/null; then
+        status="up"
+      fi
+
+      previous="$(kubectl -n "${namespace}" get configmap "${state_cm}" -o json | jq -r --arg key "${name}" '.data[$key] // ""')"
+      previous_status="$(printf '%s' "${previous}" | cut -d: -f1)"
+
+      if [ "${status}" = "down" ] && [ "${previous_status}" != "down" ]; then
+        notify "Website down: ${name}" "urgent" "${url} returned HTTP ${code:-000}"
+      elif [ "${status}" = "up" ] && [ "${previous_status}" = "down" ]; then
+        notify "Website recovered: ${name}" "default" "${url} is healthy again with HTTP ${code}"
+      fi
+
+      kubectl -n "${namespace}" patch configmap "${state_cm}" --type merge \
+        -p "$(jq -n --arg key "${name}" --arg value "${status}:${code}" '{data: {($key): $value}}')" >/dev/null
+    done < /config/sites.txt
+  image-watch.sh: |
+    #!/bin/sh
+    set -eu
+
+    namespace="automation"
+    state_cm="website-image-state"
+    topic="$(cat /config/ntfy-topic)"
+    ntfy_url="http://ntfy.automation.svc.cluster.local/${topic}"
+
+    kubectl -n "${namespace}" get configmap "${state_cm}" >/dev/null 2>&1 || \
+      kubectl -n "${namespace}" create configmap "${state_cm}" --from-literal=initialized=true >/dev/null
+
+    notify() {
+      title="$1"
+      message="$2"
+      curl -fsS \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
+        -H "X-Title: ${title}" \
+        -H "X-Priority: default" \
+        -d "${message}" \
+        "${ntfy_url}" >/dev/null || true
+    }
+
+    while IFS='|' read -r deploy_ns deploy_name; do
+      [ -z "${deploy_ns}" ] && continue
+      key="$(printf '%s-%s' "${deploy_ns}" "${deploy_name}" | tr -c 'A-Za-z0-9._-' '-')"
+      image="$(kubectl -n "${deploy_ns}" get deployment "${deploy_name}" -o json | jq -r '.spec.template.spec.containers | map(.name + "=" + .image) | join(", ")')"
+      previous="$(kubectl -n "${namespace}" get configmap "${state_cm}" -o json | jq -r --arg key "${key}" '.data[$key] // ""')"
+
+      if [ -n "${previous}" ] && [ "${previous}" != "${image}" ]; then
+        notify "Image updated: ${deploy_ns}" "${deploy_ns}/${deploy_name} changed from ${previous} to ${image}"
+      fi
+
+      kubectl -n "${namespace}" patch configmap "${state_cm}" --type merge \
+        -p "$(jq -n --arg key "${key}" --arg value "${image}" '{data: {($key): $value}}')" >/dev/null
+    done < /config/deployments.txt
+  dockerhub-retention.sh: |
+    #!/bin/sh
+    set -eu
+
+    topic="$(cat /config/ntfy-topic)"
+    ntfy_url="http://ntfy.automation.svc.cluster.local/${topic}"
+
+    notify() {
+      title="$1"
+      priority="$2"
+      message="$3"
+      curl -fsS \
+        -H "Authorization: Bearer ${NTFY_TOKEN}" \
+        -H "X-Title: ${title}" \
+        -H "X-Priority: ${priority}" \
+        -d "${message}" \
+        "${ntfy_url}" >/dev/null || true
+    }
+
+    hub_token="$(curl -fsS \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n --arg username "${DOCKERHUB_USERNAME}" --arg password "${DOCKERHUB_TOKEN}" '{username: $username, password: $password}')" \
+      https://hub.docker.com/v2/users/login/ | jq -r '.token')"
+
+    deleted_total=0
+    report=""
+
+    while IFS='|' read -r namespace repository keep; do
+      [ -z "${namespace}" ] && continue
+      tags_file="$(mktemp)"
+      page="https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags?page_size=100"
+
+      while [ -n "${page}" ] && [ "${page}" != "null" ]; do
+        response="$(curl -fsS -H "Authorization: Bearer ${hub_token}" "${page}")"
+        printf '%s\n' "${response}" | jq -r '.results[].name' >> "${tags_file}"
+        page="$(printf '%s\n' "${response}" | jq -r '.next // empty')"
+      done
+
+      semver_tags="$(grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' "${tags_file}" | sort -V || true)"
+      tag_count="$(printf '%s\n' "${semver_tags}" | sed '/^$/d' | wc -l | tr -d ' ')"
+      delete_count=$((tag_count - keep))
+      delete_tags=""
+      if [ "${delete_count}" -gt 0 ]; then
+        delete_tags="$(printf '%s\n' "${semver_tags}" | head -n "${delete_count}")"
+      fi
+      deleted_repo=0
+
+      for tag in ${delete_tags}; do
+        curl -fsS -X DELETE \
+          -H "Authorization: Bearer ${hub_token}" \
+          "https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}" >/dev/null
+        deleted_repo=$((deleted_repo + 1))
+        deleted_total=$((deleted_total + 1))
+      done
+
+      report="${report}${namespace}/${repository}: deleted ${deleted_repo}, kept ${keep}\n"
+      rm -f "${tags_file}"
+    done < /config/dockerhub-repositories.txt
+
+    if [ "${deleted_total}" -gt 0 ]; then
+      notify "Docker Hub retention cleaned tags" "default" "$(printf '%b' "${report}")"
+    fi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: website-health-state
+  namespace: automation
+data:
+  initialized: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: website-image-state
+  namespace: automation
+data:
+  initialized: "true"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: automation-runner
+  namespace: automation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: automation-deployment-reader
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: automation-deployment-reader
+subjects:
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: automation-deployment-reader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: automation-state-writer
+  namespace: automation
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - create
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: automation-state-writer
+  namespace: automation
+subjects:
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: automation-state-writer
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: website-healthcheck
+  namespace: automation
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: automation-runner
+          restartPolicy: OnFailure
+          containers:
+            - name: healthcheck
+              image: alpine/k8s:1.32.3
+              command:
+                - /bin/sh
+                - /config/healthcheck.sh
+              env:
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: automation-secrets
+                      key: ntfy-token
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: automation-config
+                defaultMode: 0755
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: website-image-watch
+  namespace: automation
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: automation-runner
+          restartPolicy: OnFailure
+          containers:
+            - name: image-watch
+              image: alpine/k8s:1.32.3
+              command:
+                - /bin/sh
+                - /config/image-watch.sh
+              env:
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: automation-secrets
+                      key: ntfy-token
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: automation-config
+                defaultMode: 0755
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dockerhub-retention
+  namespace: automation
+spec:
+  schedule: "42 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dockerhub-retention
+              image: alpine/k8s:1.32.3
+              command:
+                - /bin/sh
+                - /config/dockerhub-retention.sh
+              env:
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: automation-secrets
+                      key: ntfy-token
+                - name: DOCKERHUB_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: automation-secrets
+                      key: dockerhub-username
+                - name: DOCKERHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: automation-secrets
+                      key: dockerhub-token
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: automation-config
+                defaultMode: 0755

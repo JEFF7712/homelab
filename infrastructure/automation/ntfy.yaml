@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ntfy-data
+  namespace: automation
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ntfy-tls
+  namespace: automation
+spec:
+  secretName: ntfy-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - ntfy.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ntfy
+  namespace: automation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ntfy
+  template:
+    metadata:
+      labels:
+        app: ntfy
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: ntfy
+          image: binwiederhier/ntfy:v2.14.0
+          args:
+            - serve
+          env:
+            - name: NTFY_BASE_URL
+              value: https://ntfy.rupan.dev
+            - name: NTFY_UPSTREAM_BASE_URL
+              value: https://ntfy.sh
+            - name: NTFY_LISTEN_HTTP
+              value: :8080
+            - name: NTFY_CACHE_FILE
+              value: /var/cache/ntfy/cache.db
+            - name: NTFY_AUTH_FILE
+              value: /var/lib/ntfy/user.db
+            - name: NTFY_AUTH_DEFAULT_ACCESS
+              value: deny-all
+            - name: NTFY_AUTH_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-auth-users
+            - name: NTFY_AUTH_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-auth-tokens
+            - name: NTFY_AUTH_ACCESS
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: ntfy-auth-access
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: ntfy-data
+              mountPath: /var/cache/ntfy
+              subPath: cache
+            - name: ntfy-data
+              mountPath: /var/lib/ntfy
+              subPath: lib
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+      volumes:
+        - name: ntfy-data
+          persistentVolumeClaim:
+            claimName: ntfy-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ntfy
+  namespace: automation
+spec:
+  selector:
+    app: ntfy
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ntfy
+  namespace: automation
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`ntfy.rupan.dev`)
+      kind: Rule
+      services:
+        - name: ntfy
+          port: 80
+  tls:
+    secretName: ntfy-tls-secret
