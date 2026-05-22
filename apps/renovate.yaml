@@ -11,7 +11,7 @@ spec:
     targetRevision: 45.64.2
     helm:
       values: |
-        # Global security profiles applied to all jobs
+        # Global security profiles applied to all pods
         podSecurityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -27,13 +27,18 @@ spec:
             capabilities:
               drop:
                 - ALL
-
+          config: |
+            {
+              "optional": true
+            }
         cronjob:
-          schedule: "0 0 31 2 *" # Dummy date so the default job never runs
+          schedule: "0 0 31 2 *"
+
+        # Multi-platform deployment jobs
         jobs:
           # JOB 1: GitLab Homelab Infrastructure
           - name: gitlab-homelab
-            schedule: "0 * * * *" # Runs every hour
+            schedule: "0 * * * *"
             env:
               - name: LOG_LEVEL
                 value: "info"
@@ -52,9 +57,9 @@ spec:
                 "requireConfig": "optional"
               }
 
-          # JOB 2: GitHub Websites
-          - name: github-websites
-            schedule: "30 */2 * * *" # Runs every 2 hours (offset by 30 mins)
+          # JOB 2: GitHub
+          - name: github
+            schedule: "30 */2 * * *"
             env:
               - name: LOG_LEVEL
                 value: "info"
@@ -67,7 +72,7 @@ spec:
                 valueFrom:
                   secretKeyRef:
                     name: renovate-secrets
-                    key: github-token 
+                    key: github-token
             config: |
               {
                 "platform": "github",
