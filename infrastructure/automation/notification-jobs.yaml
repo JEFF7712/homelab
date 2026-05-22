@@ -188,6 +188,7 @@ data:
     import sys
     import time
     import urllib.error
+    import urllib.parse
     import urllib.request
 
     NAMESPACE = os.getenv("POD_NAMESPACE", "automation")
@@ -195,7 +196,7 @@ data:
     MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
     APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
-    APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.rupan.dev/approve")
+    APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.pulseagent.dev/approve")
     APPROVERS = {
       item.strip().lower()
       for item in os.getenv("RENOVATE_AGENT_APPROVERS", "rupan,jeff7712").split(",")
@@ -278,23 +279,15 @@ data:
     def notify(title, priority, message, actions=None, click=None):
       headers = {
         "Authorization": f"Bearer {os.environ['NTFY_TOKEN']}",
+        "X-Title": title,
+        "X-Priority": priority,
       }
-      if actions or click:
-        headers["Content-Type"] = "application/json"
-        data = json.dumps({
-          "topic": TOPIC,
-          "title": title,
-          "priority": priority,
-          "message": message,
-          "click": click,
-          "actions": actions or [],
-        }).encode("utf-8")
-        url = "http://ntfy.automation.svc.cluster.local/"
-      else:
-        headers["X-Title"] = title
-        headers["X-Priority"] = priority
-        data = message.encode("utf-8")
-        url = NTFY_URL
+      if click:
+        headers["Click"] = click
+      if actions:
+        headers["Actions"] = actions
+      data = message.encode("utf-8")
+      url = NTFY_URL
       req = urllib.request.Request(url, data=data, headers=headers, method="POST")
       try:
         with urllib.request.urlopen(req, timeout=20) as resp:
@@ -520,32 +513,20 @@ data:
 
     def notification_actions(owner, repo, pr, sha, allow_approve):
       actions = [
-        {
-          "action": "view",
-          "label": "Open PR",
-          "url": pr.get("html_url", ""),
-          "clear": False,
-        }
+        f"view, Open PR, {pr.get('html_url', '')}, clear=false"
       ]
       if allow_approve:
-        actions.append({
-          "action": "http",
-          "label": "Approve",
-          "url": APPROVAL_URL,
-          "method": "POST",
-          "headers": {
-            "Authorization": f"Bearer {os.environ['NTFY_TOKEN']}",
-            "Content-Type": "application/json",
-          },
-          "body": json.dumps({
+        query = urllib.parse.urlencode({
             "owner": owner,
             "repo": repo,
             "number": pr["number"],
             "sha": sha,
-          }),
-          "clear": True,
         })
-      return actions
+        actions.append(
+          f"http, Approve, {APPROVAL_URL}?{query}, method=POST, "
+          f"headers.Authorization=Bearer {os.environ['NTFY_TOKEN']}, clear=true"
+        )
+      return "; ".join(actions)
 
     def approval_for(owner, repo, pr):
       labels = {label.get("name", "").lower() for label in pr.get("labels", [])}
@@ -711,6 +692,7 @@ data:
     #!/usr/bin/env python3
     import json
     import os
+    import urllib.parse
     import urllib.error
     import urllib.request
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -764,7 +746,7 @@ data:
         self.write_json(404, {"error": "not found"})
 
       def do_POST(self):
-        if self.path != "/approve":
+        if urllib.parse.urlparse(self.path).path != "/approve":
           self.write_json(404, {"error": "not found"})
           return
         if self.headers.get("Authorization", "") != f"Bearer {APPROVAL_TOKEN}":
@@ -772,7 +754,13 @@ data:
           return
         try:
           length = int(self.headers.get("Content-Length", "0"))
-          payload = json.loads(self.rfile.read(length).decode("utf-8"))
+          if length > 0:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+          else:
+            payload = {
+              key: values[0]
+              for key, values in urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).items()
+            }
           owner = str(payload["owner"])
           repo = str(payload["repo"])
           number = int(payload["number"])
@@ -937,7 +925,7 @@ spec:
                 - name: RENOVATE_AGENT_APPROVAL_COMMAND
                   value: /renovate-agent approve
                 - name: RENOVATE_AGENT_APPROVAL_URL
-                  value: https://renovate-approve.rupan.dev/approve
+                  value: https://renovate-approve.pulseagent.dev/approve
                 - name: RENOVATE_AGENT_APPROVERS
                   value: rupan,jeff7712
                 - name: OPENAI_MODEL
@@ -979,7 +967,7 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - renovate-approve.rupan.dev
+    - renovate-approve.pulseagent.dev
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1076,7 +1064,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`renovate-approve.rupan.dev`)
+    - match: Host(`renovate-approve.pulseagent.dev`)
       kind: Rule
       services:
         - name: renovate-approval-webhook
