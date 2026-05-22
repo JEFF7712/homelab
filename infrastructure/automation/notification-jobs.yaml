@@ -196,7 +196,7 @@ data:
     MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
     APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
-    APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.pulseagent.dev/approve")
+    APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.rupan.dev/approve")
     APPROVERS = {
       item.strip().lower()
       for item in os.getenv("RENOVATE_AGENT_APPROVERS", "rupan,jeff7712").split(",")
@@ -925,7 +925,7 @@ spec:
                 - name: RENOVATE_AGENT_APPROVAL_COMMAND
                   value: /renovate-agent approve
                 - name: RENOVATE_AGENT_APPROVAL_URL
-                  value: https://renovate-approve.pulseagent.dev/approve
+                  value: https://renovate-approve.rupan.dev/approve
                 - name: RENOVATE_AGENT_APPROVERS
                   value: rupan,jeff7712
                 - name: OPENAI_MODEL
@@ -967,7 +967,7 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - renovate-approve.pulseagent.dev
+    - renovate-approve.rupan.dev
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1064,7 +1064,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`renovate-approve.pulseagent.dev`)
+    - match: Host(`renovate-approve.rupan.dev`)
       kind: Rule
       services:
         - name: renovate-approval-webhook
