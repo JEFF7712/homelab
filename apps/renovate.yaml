@@ -11,9 +11,7 @@ spec:
     targetRevision: 45.64.2
     helm:
       values: |
-        cronjob:
-          schedule: "0 * * * *"
-
+        # Global security profiles applied to all jobs
         podSecurityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -23,7 +21,6 @@ spec:
             type: RuntimeDefault
           
         renovate:
-
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -31,21 +28,57 @@ spec:
               drop:
                 - ALL
 
-          config: |
-            {
-              "platform": "gitlab",
-              "endpoint": "https://gitlab.com/api/v4", 
-              "autodiscover": true,
-              "autodiscoverFilter": ["jeff7712/*"],
-              "onboarding": false,
-              "requireConfig": "optional"
-            }
-            
-        env:
-          - name: LOG_LEVEL
-            value: "info"
-            
-        existingSecret: "renovate-secrets"
+        cronjob:
+          schedule: "0 0 31 2 *" # Dummy date so the default job never runs
+        jobs:
+          # JOB 1: GitLab Homelab Infrastructure
+          - name: gitlab-homelab
+            schedule: "0 * * * *" # Runs every hour
+            env:
+              - name: LOG_LEVEL
+                value: "info"
+              - name: RENOVATE_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: renovate-secrets
+                    key: gitlab-token
+            config: |
+              {
+                "platform": "gitlab",
+                "endpoint": "https://gitlab.com/api/v4", 
+                "autodiscover": true,
+                "autodiscoverFilter": ["jeff7712/*"],
+                "onboarding": false,
+                "requireConfig": "optional"
+              }
+
+          # JOB 2: GitHub Websites
+          - name: github-websites
+            schedule: "30 */2 * * *" # Runs every 2 hours (offset by 30 mins)
+            env:
+              - name: LOG_LEVEL
+                value: "info"
+              - name: RENOVATE_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: renovate-secrets
+                    key: github-token
+              - name: GITHUB_COM_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: renovate-secrets
+                    key: github-token 
+            config: |
+              {
+                "platform": "github",
+                "endpoint": "https://api.github.com/", 
+                "autodiscover": true,
+                "autodiscoverFilter": ["jeff7712/*"],
+                "onboarding": true,
+                "onboardingConfig": {
+                  "extends": ["config:recommended"]
+                }
+              }
         
   destination:
     server: https://kubernetes.default.svc
