@@ -576,8 +576,16 @@ data:
             if not major_update(pr):
               continue
             found += 1
-            process_pr(owner, repo, pr, state)
-            processed += 1
+            try:
+              process_pr(owner, repo, pr, state)
+              processed += 1
+            except Exception as exc:
+              print(f"{owner}/{repo}#{pr.get('number')}: processing failed: {exc}", file=sys.stderr)
+              notify(
+                f"Renovate agent: PR review failed {repo}#{pr.get('number')}",
+                "high",
+                f"{owner}/{repo}#{pr.get('number')} could not be reviewed: {exc}\n{pr.get('html_url', '')}",
+              )
         except Exception as exc:
           notify(
             f"Renovate agent: repo scan failed {repo}",
@@ -694,6 +702,16 @@ spec:
           containers:
             - name: renovate-major-reviewer
               image: python:3.12-alpine
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                capabilities:
+                  drop:
+                    - ALL
+                seccompProfile:
+                  type: RuntimeDefault
               command:
                 - python
                 - /config/renovate-agent.py
