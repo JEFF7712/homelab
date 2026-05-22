@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: renovate-bot
+  name: renovate-homelab
   namespace: argocd
 spec:
   project: default
@@ -11,7 +11,6 @@ spec:
     targetRevision: 45.64.2
     helm:
       values: |
-        # Global security profiles applied to all pods
         podSecurityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -19,71 +18,30 @@ spec:
           fsGroup: 1000
           seccompProfile:
             type: RuntimeDefault
-          
         renovate:
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
             capabilities:
-              drop:
-                - ALL
-          config: "{}"
-
-        # Disables the single default cronjob chart template
+              drop: ["ALL"]
+          config: |
+            {
+              "platform": "gitlab",
+              "endpoint": "https://gitlab.com/api/v4", 
+              "autodiscover": true,
+              "autodiscoverFilter": ["jeff7712/*"],
+              "onboarding": false,
+              "requireConfig": "optional"
+            }
         cronjob:
-          schedule: "0 0 31 2 *"
-
-        # Multi-platform deployment jobs
-        jobs:
-          # JOB 1: GitLab Homelab Infrastructure
-          - name: gitlab-homelab
-            schedule: "0 * * * *"
-            env:
-              - name: LOG_LEVEL
-                value: "info"
-              - name: RENOVATE_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: renovate-secrets
-                    key: gitlab-token
-            config: |
-              {
-                "platform": "gitlab",
-                "endpoint": "https://gitlab.com/api/v4", 
-                "autodiscover": true,
-                "autodiscoverFilter": ["jeff7712/*"],
-                "onboarding": false,
-                "requireConfig": "optional"
-              }
-
-          # JOB 2: GitHub Websites
-          - name: github-websites
-            schedule: "30 */2 * * *"
-            env:
-              - name: LOG_LEVEL
-                value: "info"
-              - name: RENOVATE_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: renovate-secrets
-                    key: github-token
-              - name: GITHUB_COM_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: renovate-secrets
-                    key: github-token
-            config: |
-              {
-                "platform": "github",
-                "endpoint": "https://api.github.com/", 
-                "autodiscover": true,
-                "autodiscoverFilter": ["jeff7712/*"],
-                "onboarding": true,
-                "onboardingConfig": {
-                  "extends": ["config:recommended"]
-                }
-              }
-        
+          schedule: "0 * * * *"
+        env:
+          - name: LOG_LEVEL
+            value: "info"
+          - name: RENOVATE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: renovate-secrets
+                key: gitlab-token
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -91,5 +49,64 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+
+---
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: renovate-websites
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://docs.renovatebot.com/helm-charts
+    chart: renovate
+    targetRevision: 45.64.2
+    helm:
+      values: |
+        podSecurityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        renovate:
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          config: |
+            {
+              "platform": "github",
+              "endpoint": "https://api.github.com/", 
+              "autodiscover": true,
+              "autodiscoverFilter": ["jeff7712/*"],
+              "onboarding": true,
+              "onboardingConfig": {
+                "extends": ["config:recommended"]
+              }
+            }
+        cronjob:
+          schedule: "30 */2 * * *"
+        env:
+          - name: LOG_LEVEL
+            value: "info"
+          - name: RENOVATE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: renovate-secrets
+                key: github-token
+          - name: GITHUB_COM_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: renovate-secrets
+                key: github-token
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
