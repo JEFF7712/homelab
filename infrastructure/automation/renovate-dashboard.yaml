@@ -32,7 +32,7 @@ spec:
       serviceAccountName: automation-runner
       containers:
       - name: dashboard
-        image: python:3.12-alpine
+        image: jeff7712/homelab-renovate-dashboard:0.0.1
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -43,9 +43,6 @@ spec:
             - ALL
           seccompProfile:
             type: RuntimeDefault
-        command:
-        - python
-        - /config/renovate-dashboard.py
         env:
         - name: PORT
           value: '8080'
@@ -90,8 +87,6 @@ spec:
           sources:
           - configMap:
               name: automation-config
-          - configMap:
-              name: renovate-dashboard-script
 ---
 apiVersion: v1
 kind: Service

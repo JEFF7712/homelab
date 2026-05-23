@@ -1,0 +1,14 @@
+FROM alpine:3.22
+
+RUN apk add --no-cache \
+    ca-certificates \
+    python3 \
+  && addgroup -S dashboard \
+  && adduser -S -G dashboard -u 65532 dashboard
+
+COPY app.py /app/app.py
+
+USER 65532:65532
+WORKDIR /app
+
+ENTRYPOINT ["python3", "/app/app.py"]
