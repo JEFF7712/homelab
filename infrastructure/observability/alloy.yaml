@@ -163,6 +163,84 @@ spec:
                 forward_to = [prometheus.remote_write.mimir.receiver]
               }
 
+              discovery.relabel "blackbox_http" {
+                targets = [
+                  {
+                    "__address__" = "https://apollinestore.com",
+                    "probe_name"  = "apolline",
+                  },
+                  {
+                    "__address__" = "https://darkbitapparel.com",
+                    "probe_name"  = "darkbit",
+                  },
+                  {
+                    "__address__" = "https://distrojeff.com",
+                    "probe_name"  = "distrojeff",
+                  },
+                  {
+                    "__address__" = "https://pulseagent.dev",
+                    "probe_name"  = "pulse",
+                  },
+                  {
+                    "__address__" = "https://spatia.rupan.dev",
+                    "probe_name"  = "spatia",
+                  },
+                  {
+                    "__address__" = "https://soluble.rupan.dev",
+                    "probe_name"  = "soluble",
+                  },
+                  {
+                    "__address__" = "https://ntfy.rupan.dev",
+                    "probe_name"  = "ntfy",
+                  },
+                  {
+                    "__address__" = "https://grafana.rupan.dev",
+                    "probe_name"  = "grafana",
+                  },
+                  {
+                    "__address__" = "https://argocd.rupan.dev",
+                    "probe_name"  = "argocd",
+                  },
+                  {
+                    "__address__" = "https://longhorn.rupan.dev",
+                    "probe_name"  = "longhorn",
+                  },
+                ]
+
+                rule {
+                  source_labels = ["__address__"]
+                  target_label  = "__param_target"
+                }
+
+                rule {
+                  source_labels = ["__param_target"]
+                  target_label  = "instance"
+                }
+
+                rule {
+                  source_labels = ["probe_name"]
+                  target_label  = "target"
+                }
+
+                rule {
+                  target_label = "job"
+                  replacement  = "blackbox-http"
+                }
+
+                rule {
+                  target_label = "__address__"
+                  replacement  = "blackbox-exporter.observability.svc.cluster.local:9115"
+                }
+              }
+
+              prometheus.scrape "blackbox_http" {
+                targets      = discovery.relabel.blackbox_http.output
+                metrics_path = "/probe"
+                params       = { module = ["http_2xx"] }
+                clustering { enabled = true }
+                forward_to   = [prometheus.remote_write.mimir.receiver]
+              }
+
               otelcol.receiver.otlp "default" {
                 grpc { endpoint = "0.0.0.0:4317" }
                 http { endpoint = "0.0.0.0:4318" }

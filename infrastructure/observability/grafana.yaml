@@ -99,6 +99,17 @@ spec:
                     datasourceUid: mimir
 
         alerting:
+          policies.yaml:
+            apiVersion: 1
+            policies:
+              - orgId: 1
+                receiver: ntfy
+                group_by:
+                  - grafana_folder
+                  - alertname
+                group_wait: 30s
+                group_interval: 5m
+                repeat_interval: 6h
           contactpoints.yaml:
             secret:
               apiVersion: 1
@@ -115,6 +126,124 @@ spec:
                         authorization_scheme: Bearer
                         authorization_credentials: $NTFY_TOKEN
                         maxAlerts: "10"
+          rules.yaml:
+            apiVersion: 1
+            groups:
+              - orgId: 1
+                name: blackbox
+                folder: Observability
+                interval: 1m
+                rules:
+                  - uid: blackbox-http-down
+                    title: Blackbox HTTP probe failing
+                    condition: C
+                    data:
+                      - refId: A
+                        relativeTimeRange:
+                          from: 300
+                          to: 0
+                        datasourceUid: mimir
+                        model:
+                          datasource:
+                            type: prometheus
+                            uid: mimir
+                          editorMode: code
+                          expr: probe_success{job="blackbox-http"} == 0
+                          instant: true
+                          intervalMs: 1000
+                          maxDataPoints: 43200
+                          refId: A
+                      - refId: C
+                        relativeTimeRange:
+                          from: 300
+                          to: 0
+                        datasourceUid: __expr__
+                        model:
+                          conditions:
+                            - evaluator:
+                                params:
+                                  - 0
+                                type: gt
+                              operator:
+                                type: and
+                              query:
+                                params:
+                                  - C
+                              reducer:
+                                params: []
+                                type: last
+                              type: query
+                          datasource:
+                            type: __expr__
+                            uid: __expr__
+                          expression: A
+                          intervalMs: 1000
+                          maxDataPoints: 43200
+                          refId: C
+                          type: threshold
+                    noDataState: NoData
+                    execErrState: Error
+                    for: 2m
+                    annotations:
+                      summary: '{{ `{{ $labels.instance }}` }} blackbox HTTP probe is failing'
+                      description: '{{ `{{ $labels.target }}` }} has failed for at least 2 minutes.'
+                    labels:
+                      severity: warning
+                  - uid: blackbox-http-slow
+                    title: Blackbox HTTP probe slow
+                    condition: C
+                    data:
+                      - refId: A
+                        relativeTimeRange:
+                          from: 300
+                          to: 0
+                        datasourceUid: mimir
+                        model:
+                          datasource:
+                            type: prometheus
+                            uid: mimir
+                          editorMode: code
+                          expr: probe_duration_seconds{job="blackbox-http"} > 3
+                          instant: true
+                          intervalMs: 1000
+                          maxDataPoints: 43200
+                          refId: A
+                      - refId: C
+                        relativeTimeRange:
+                          from: 300
+                          to: 0
+                        datasourceUid: __expr__
+                        model:
+                          conditions:
+                            - evaluator:
+                                params:
+                                  - 0
+                                type: gt
+                              operator:
+                                type: and
+                              query:
+                                params:
+                                  - C
+                              reducer:
+                                params: []
+                                type: last
+                              type: query
+                          datasource:
+                            type: __expr__
+                            uid: __expr__
+                          expression: A
+                          intervalMs: 1000
+                          maxDataPoints: 43200
+                          refId: C
+                          type: threshold
+                    noDataState: NoData
+                    execErrState: Error
+                    for: 5m
+                    annotations:
+                      summary: '{{ `{{ $labels.instance }}` }} blackbox HTTP probe is slow'
+                      description: '{{ `{{ $labels.target }}` }} has exceeded 3 seconds for at least 5 minutes.'
+                    labels:
+                      severity: info
 
         dashboardProviders:
           dashboardproviders.yaml:
