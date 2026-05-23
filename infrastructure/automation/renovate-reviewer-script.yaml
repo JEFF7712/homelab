@@ -927,9 +927,9 @@ data:
         if (
           MODE == "merge-safe"
           and not approval.get("approved")
-          and existing_decision in ("needs_approval", "blocked")
+          and existing_decision in ("needs_approval", "blocked", "wait")
         ):
-          print(f"{owner}/{repo}#{number}: waiting for approval {sha[:12]}")
+          print(f"{owner}/{repo}#{number}: already notified {existing_decision} {sha[:12]}")
           return
 
       checks = checks_for(owner, repo, sha)
@@ -1038,6 +1038,13 @@ data:
       elif decision.get("decision") == "wait":
         title = f"{title_prefix}: waiting {repo}#{number}"
         priority = "low"
+      elif decision.get("decision") == "blocked":
+        if approval.get("approved"):
+          title = f"{title_prefix}: approved but blocked {repo}#{number}"
+          priority = "default"
+        else:
+          title = f"{title_prefix}: blocked {repo}#{number}"
+          priority = "default"
       elif decision.get("requires_permission"):
         if approval.get("approved") and checks["state"] != "success":
           title = f"{title_prefix}: approved but waiting {repo}#{number}"
