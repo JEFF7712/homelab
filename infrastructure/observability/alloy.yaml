@@ -214,10 +214,6 @@ spec:
                     "probe_name"  = "books",
                   },
                   {
-                    "__address__" = "https://nix.rupan.dev",
-                    "probe_name"  = "nix",
-                  },
-                  {
                     "__address__" = "https://ntfy.rupan.dev",
                     "probe_name"  = "ntfy",
                   },
