@@ -23,6 +23,7 @@ KUBE_HOST = os.getenv("KUBERNETES_SERVICE_HOST", "kubernetes.default.svc")
 KUBE_PORT = os.getenv("KUBERNETES_SERVICE_PORT", "443")
 KUBE_API = f"https://{KUBE_HOST}:{KUBE_PORT}"
 CACHE_SECONDS = int(os.getenv("RENOVATE_DASHBOARD_CACHE_SECONDS", "90"))
+REVIEWER_CRONJOB = os.getenv("RENOVATE_REVIEWER_CRONJOB", "renovate-major-reviewer")
 
 CACHE = {"expires": 0, "data": None}
 
@@ -42,6 +43,19 @@ def request(method, url, headers=None, body=None, timeout=25, context=None):
     with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
       raw = resp.read().decode("utf-8")
       return json.loads(raw) if raw else {}
+  except urllib.error.HTTPError as exc:
+    raw = exc.read().decode("utf-8", errors="replace")
+    raise HttpError(exc.code, raw) from exc
+
+def request_text(method, url, headers=None, body=None, timeout=25, context=None):
+  data = json.dumps(body).encode("utf-8") if body is not None else None
+  req_headers = {"Accept": "*/*", **(headers or {})}
+  if data is not None:
+    req_headers.setdefault("Content-Type", "application/json")
+  req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
+  try:
+    with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
+      return resp.read().decode("utf-8", errors="replace")
   except urllib.error.HTTPError as exc:
     raw = exc.read().decode("utf-8", errors="replace")
     raise HttpError(exc.code, raw) from exc
@@ -74,6 +88,12 @@ def kube_configmap(name):
   path = f"/api/v1/namespaces/{NAMESPACE}/configmaps/{name}"
   return request("GET", f"{KUBE_API}{path}", kube_headers(), context=kube_context())
 
+def kube(path):
+  return request("GET", f"{KUBE_API}{path}", kube_headers(), context=kube_context())
+
+def kube_text(path):
+  return request_text("GET", f"{KUBE_API}{path}", kube_headers(), context=kube_context())
+
 def load_repo_file(path):
   repos = []
   if not os.path.exists(path):
@@ -98,6 +118,29 @@ def renovate_pr(pr):
   title = (pr.get("title") or "").lower()
   user = pr.get("user", {}).get("login", "").lower()
   return branch.startswith("renovate/") or user.startswith("renovate") or "renovate" in title
+
+def parse_time(value):
+  if not value:
+    return None
+  return datetime.datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(ZoneInfo("America/New_York"))
+
+def iso_time(value):
+  if not value:
+    return ""
+  return value.isoformat(timespec="seconds")
+
+def day_key(value):
+  return value.astimezone(ZoneInfo("America/New_York")).date().isoformat()
+
+def human_duration(seconds):
+  seconds = max(0, int(seconds))
+  if seconds < 60:
+    return f"{seconds}s"
+  minutes, seconds = divmod(seconds, 60)
+  if minutes < 60:
+    return f"{minutes}m {seconds}s"
+  hours, minutes = divmod(minutes, 60)
+  return f"{hours}h {minutes}m"
 
 def latest_state(state_data, owner, repo, number, sha=None):
   prefix = f"{owner}-{repo}-{number}-"
@@ -191,9 +234,10 @@ def bucket_for(pr, state_item, checks, merge):
 
 def github_status(state_data):
   rows = []
-  merged_today = []
+  merged_recent = []
   now = datetime.datetime.now(ZoneInfo("America/New_York"))
   midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+  since = now - datetime.timedelta(days=7)
   for owner, repo in load_repo_file("/config/renovate-agent-repositories.txt"):
     pulls = github("GET", f"/repos/{owner}/{repo}/pulls?state=open&per_page=100")
     for pr in pulls:
@@ -231,33 +275,35 @@ def github_status(state_data):
         "processed_at": state_item.get("processed_at", 0),
         "can_approve": checks["state"] == "success" and not approval.get("approved") and not merge["has_conflicts"],
       })
-    closed = github("GET", f"/repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=30")
+    closed = github("GET", f"/repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=100")
     for pr in closed:
       merged_at = pr.get("merged_at")
       if not merged_at:
         continue
       merged_dt = datetime.datetime.fromisoformat(merged_at.replace("Z", "+00:00")).astimezone(ZoneInfo("America/New_York"))
-      if merged_dt < midnight:
+      if merged_dt < since:
         continue
       if not renovate_pr(pr):
         continue
-      merged_today.append({
+      merged_recent.append({
         "platform": "github",
         "repo": repo,
         "number": pr["number"],
         "title": pr.get("title"),
         "url": pr.get("html_url"),
         "merged_at": merged_dt.isoformat(timespec="minutes"),
+        "is_today": merged_dt >= midnight,
       })
-  return rows, merged_today
+  return rows, merged_recent
 
 def gitlab_status():
   rows = []
-  merged_today = []
+  merged_recent = []
   now = datetime.datetime.now(ZoneInfo("America/New_York"))
   midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+  since = now - datetime.timedelta(days=7)
   if not GITLAB_TOKEN:
-    return rows, merged_today
+    return rows, merged_recent
   for namespace, project in load_repo_file("/config/renovate-agent-gitlab-infra-repositories.txt"):
     project_id = urllib.parse.quote(f"{namespace}/{project}", safe="")
     try:
@@ -286,22 +332,23 @@ def gitlab_status():
           "processed_at": 0,
           "can_approve": False,
         })
-      closed = gitlab("GET", f"/projects/{project_id}/merge_requests?state=merged&order_by=updated_at&sort=desc&per_page=30")
+      closed = gitlab("GET", f"/projects/{project_id}/merge_requests?state=merged&order_by=updated_at&sort=desc&per_page=100")
       for mr in closed:
         merged_at = mr.get("merged_at")
         if not merged_at:
           continue
         merged_dt = datetime.datetime.fromisoformat(merged_at.replace("Z", "+00:00")).astimezone(ZoneInfo("America/New_York"))
-        if merged_dt < midnight:
+        if merged_dt < since:
           continue
         if renovate_pr(mr):
-          merged_today.append({
+          merged_recent.append({
             "platform": "gitlab",
             "repo": project,
             "number": mr.get("iid"),
             "title": mr.get("title"),
             "url": mr.get("web_url"),
             "merged_at": merged_dt.isoformat(timespec="minutes"),
+            "is_today": merged_dt >= midnight,
           })
     except Exception as exc:
       rows.append({
@@ -325,7 +372,112 @@ def gitlab_status():
         "processed_at": 0,
         "can_approve": False,
       })
-  return rows, merged_today
+  return rows, merged_recent
+
+def reviewer_run_status():
+  try:
+    cron = kube(f"/apis/batch/v1/namespaces/{NAMESPACE}/cronjobs/{REVIEWER_CRONJOB}")
+    jobs = kube(f"/apis/batch/v1/namespaces/{NAMESPACE}/jobs").get("items", [])
+    jobs = [job for job in jobs if job.get("metadata", {}).get("name", "").startswith(f"{REVIEWER_CRONJOB}-")]
+    jobs.sort(key=lambda job: job.get("status", {}).get("startTime") or job.get("metadata", {}).get("creationTimestamp") or "", reverse=True)
+    latest = jobs[0] if jobs else {}
+    status = latest.get("status", {}) if latest else {}
+    start = parse_time(status.get("startTime") or latest.get("metadata", {}).get("creationTimestamp"))
+    completed = parse_time(status.get("completionTime"))
+    if status.get("active", 0):
+      state = "running"
+    elif status.get("succeeded", 0):
+      state = "succeeded"
+    elif status.get("failed", 0):
+      state = "failed"
+    else:
+      state = "unknown"
+    end = completed or datetime.datetime.now(ZoneInfo("America/New_York"))
+    duration = human_duration((end - start).total_seconds()) if start else ""
+    log_tail = []
+    job_name = latest.get("metadata", {}).get("name", "")
+    if job_name:
+      selector = urllib.parse.quote(f"job-name={job_name}", safe="")
+      pods = kube(f"/api/v1/namespaces/{NAMESPACE}/pods?labelSelector={selector}").get("items", [])
+      if pods:
+        pod_name = pods[0].get("metadata", {}).get("name", "")
+        log_path = f"/api/v1/namespaces/{NAMESPACE}/pods/{pod_name}/log?tailLines=12"
+        log_tail = [line for line in kube_text(log_path).splitlines() if line.strip()][-8:]
+    return {
+      "name": REVIEWER_CRONJOB,
+      "schedule": cron.get("spec", {}).get("schedule", ""),
+      "suspended": cron.get("spec", {}).get("suspend", False),
+      "last_schedule_time": iso_time(parse_time(cron.get("status", {}).get("lastScheduleTime"))),
+      "last_successful_time": iso_time(parse_time(cron.get("status", {}).get("lastSuccessfulTime"))),
+      "latest_job": job_name,
+      "state": state,
+      "started_at": iso_time(start),
+      "completed_at": iso_time(completed),
+      "duration": duration,
+      "log_tail": log_tail,
+    }
+  except Exception as exc:
+    return {
+      "name": REVIEWER_CRONJOB,
+      "state": "unavailable",
+      "error": str(exc),
+      "log_tail": [],
+    }
+
+def activity_history(state_data, merged_recent):
+  now = datetime.datetime.now(ZoneInfo("America/New_York"))
+  since_ts = int((now - datetime.timedelta(days=7)).timestamp())
+  daily = {}
+  recent_actions = []
+  for item in merged_recent:
+    merged = parse_time(item.get("merged_at"))
+    if not merged:
+      continue
+    key = day_key(merged)
+    daily.setdefault(key, {"date": key, "merged": 0, "repaired": 0, "blocked": 0, "approval": 0})
+    daily[key]["merged"] += 1
+  for raw in state_data.values():
+    try:
+      item = json.loads(raw)
+    except Exception:
+      continue
+    processed_at = int(item.get("processed_at") or 0)
+    if processed_at < since_ts:
+      continue
+    processed_dt = datetime.datetime.fromtimestamp(processed_at, ZoneInfo("America/New_York"))
+    action = item.get("action") or "notified"
+    decision = (item.get("decision") or {}).get("decision", "")
+    key = day_key(processed_dt)
+    daily.setdefault(key, {"date": key, "merged": 0, "repaired": 0, "blocked": 0, "approval": 0})
+    if action == "repaired":
+      daily[key]["repaired"] += 1
+    if action in ("repair_failed", "repair_skipped", "merge_failed") or decision == "blocked":
+      daily[key]["blocked"] += 1
+    if decision == "needs_approval":
+      daily[key]["approval"] += 1
+    recent_actions.append({
+      "repo": item.get("repo", ""),
+      "number": item.get("number", ""),
+      "action": action,
+      "decision": decision,
+      "reason": (item.get("decision") or {}).get("reason", ""),
+      "processed_at": processed_dt.isoformat(timespec="minutes"),
+    })
+  days = []
+  for offset in range(6, -1, -1):
+    key = day_key(now - datetime.timedelta(days=offset))
+    days.append(daily.get(key, {"date": key, "merged": 0, "repaired": 0, "blocked": 0, "approval": 0}))
+  recent_actions.sort(key=lambda item: item["processed_at"], reverse=True)
+  return {
+    "days": days,
+    "recent_actions": recent_actions[:12],
+    "totals": {
+      "merged": sum(day["merged"] for day in days),
+      "repaired": sum(day["repaired"] for day in days),
+      "blocked": sum(day["blocked"] for day in days),
+      "approval": sum(day["approval"] for day in days),
+    },
+  }
 
 def status_payload():
   now = time.time()
@@ -336,15 +488,19 @@ def status_payload():
   github_rows, github_merged = github_status(state_data)
   gitlab_rows, gitlab_merged = gitlab_status()
   rows = sorted(github_rows + gitlab_rows, key=lambda item: (item["bucket"], item["repo"], item["number"]))
-  merged_today = sorted(github_merged + gitlab_merged, key=lambda item: item["merged_at"], reverse=True)
+  merged_recent = sorted(github_merged + gitlab_merged, key=lambda item: item["merged_at"], reverse=True)
+  merged_today = [item for item in merged_recent if item.get("is_today")]
   counts = {}
   for row in rows:
     counts[row["bucket"]] = counts.get(row["bucket"], 0) + 1
   payload = {
     "generated_at": datetime.datetime.now(ZoneInfo("America/New_York")).isoformat(timespec="seconds"),
     "counts": counts,
+    "reviewer": reviewer_run_status(),
+    "activity": activity_history(state_data, merged_recent),
     "open": rows,
     "merged_today": merged_today,
+    "merged_recent": merged_recent,
   }
   CACHE["data"] = payload
   CACHE["expires"] = now + CACHE_SECONDS
@@ -399,7 +555,17 @@ def page():
     .stat { border: 1px solid #27272a; background: #18181b; border-radius: 8px; padding: 12px; min-height: 62px; }
     .stat strong { display: block; font-size: 24px; }
     .stat span { color: #a1a1aa; font-size: 12px; text-transform: uppercase; }
+    .panel-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 14px; margin-bottom: 20px; }
+    .panel { border: 1px solid #27272a; background: #18181b; border-radius: 8px; padding: 14px; }
+    .panel h2 { margin-bottom: 10px; }
+    .kv { display: grid; grid-template-columns: 128px 1fr; gap: 7px 12px; font-size: 13px; }
+    .log { margin: 12px 0 0; padding: 10px; border-radius: 6px; background: #101114; color: #d4d4d8; font-size: 12px; overflow: auto; white-space: pre-wrap; }
+    .history { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+    .day { border: 1px solid #27272a; border-radius: 6px; padding: 8px; min-height: 76px; background: #101114; }
+    .day strong { display: block; font-size: 12px; margin-bottom: 7px; }
+    .mini { display: flex; justify-content: space-between; gap: 6px; color: #d4d4d8; font-size: 12px; }
     section { margin-top: 26px; }
+    .panel-grid section { margin-top: 0; }
     .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
     h2 { font-size: 16px; margin: 0; }
     .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -428,6 +594,7 @@ def page():
     .empty { color: #a1a1aa; background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 16px; }
     .error { color: #fecaca; background: #3f1d22; border: 1px solid #7f1d1d; border-radius: 8px; padding: 16px; margin-bottom: 18px; }
     .actions { white-space: nowrap; }
+    @media (max-width: 900px) { .panel-grid { grid-template-columns: 1fr; } .history { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 760px) { header { display: block; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } table { display: block; overflow-x: auto; } input { min-width: 100%; } }
   </style>
 </head>
@@ -441,6 +608,16 @@ def page():
       <div class="muted">Auto-refreshes every 90s</div>
     </header>
     <div class="grid" id="stats"></div>
+    <div class="panel-grid">
+      <section class="panel">
+        <h2>Reviewer Run</h2>
+        <div id="reviewer"></div>
+      </section>
+      <section class="panel">
+        <h2>7-Day Activity</h2>
+        <div id="activity"></div>
+      </section>
+    </div>
     <section>
       <div class="section-head">
         <h2>Open PRs</h2>
@@ -462,7 +639,7 @@ def page():
   </main>
   <script>
     const labels = ["approval","conflict","blocked","waiting","repaired","approved","green","unreviewed"];
-    const state = { open: [], merged_today: [], counts: {}, generated_at: "" };
+    const state = { open: [], merged_today: [], counts: {}, generated_at: "", reviewer: {}, activity: {} };
     function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
     function unique(values) { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
     function fillSelect(id, values, label) {
@@ -491,8 +668,35 @@ def page():
     function render() {
       document.getElementById('generated').textContent = state.generated_at ? `Generated ${state.generated_at}` : 'Loading...';
       document.getElementById('stats').innerHTML = labels.map(label => `<div class="stat"><strong>${state.counts[label] || 0}</strong><span>${label}</span></div>`).join("");
+      document.getElementById('reviewer').innerHTML = renderReviewer(state.reviewer || {});
+      document.getElementById('activity').innerHTML = renderActivity(state.activity || {});
       document.getElementById('open').innerHTML = renderRows(filteredRows());
       document.getElementById('merged').innerHTML = renderMerged(state.merged_today || []);
+    }
+    function renderReviewer(row) {
+      if (row.error) return `<div class="error">Reviewer status failed: ${esc(row.error)}</div>`;
+      const log = (row.log_tail || []).join("\\n");
+      return `<div class="kv">
+        <div class="muted">State</div><div><span class="pill ${row.state === 'succeeded' ? 'green' : row.state === 'failed' ? 'blocked' : 'waiting'}">${esc(row.state || 'unknown')}</span></div>
+        <div class="muted">Schedule</div><div>${esc(row.schedule || '')}</div>
+        <div class="muted">Last schedule</div><div>${esc(row.last_schedule_time || '')}</div>
+        <div class="muted">Last success</div><div>${esc(row.last_successful_time || '')}</div>
+        <div class="muted">Latest job</div><div>${esc(row.latest_job || '')}</div>
+        <div class="muted">Duration</div><div>${esc(row.duration || '')}</div>
+      </div>${log ? `<pre class="log">${esc(log)}</pre>` : ''}`;
+    }
+    function renderActivity(activity) {
+      const days = activity.days || [];
+      if (!days.length) return '<div class="empty">No activity history yet.</div>';
+      const totals = activity.totals || {};
+      return `<div class="muted">Merged ${totals.merged || 0}, repaired ${totals.repaired || 0}, blocked ${totals.blocked || 0}, approval ${totals.approval || 0}</div>
+        <div class="history">${days.map(day => `<div class="day">
+          <strong>${esc(day.date.slice(5))}</strong>
+          <div class="mini"><span>merged</span><span>${day.merged || 0}</span></div>
+          <div class="mini"><span>repaired</span><span>${day.repaired || 0}</span></div>
+          <div class="mini"><span>blocked</span><span>${day.blocked || 0}</span></div>
+          <div class="mini"><span>approval</span><span>${day.approval || 0}</span></div>
+        </div>`).join("")}</div>`;
     }
     function renderRows(rows) {
       if (!rows.length) return '<div class="empty">No open Renovate PRs.</div>';
@@ -544,6 +748,8 @@ def page():
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
         state.generated_at = data.generated_at;
         state.counts = data.counts || {};
+        state.reviewer = data.reviewer || {};
+        state.activity = data.activity || {};
         state.open = data.open || [];
         state.merged_today = data.merged_today || [];
         fillSelect('stateFilter', unique(state.open.map(row => row.bucket)), 'All states');

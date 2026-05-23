@@ -32,7 +32,7 @@ spec:
       serviceAccountName: automation-runner
       containers:
       - name: dashboard
-        image: jeff7712/homelab-renovate-dashboard:0.0.4
+        image: jeff7712/homelab-renovate-dashboard:0.0.5
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
