@@ -62,6 +62,11 @@ spec:
                 secretKeyRef:
                   name: automation-secrets
                   key: github-token
+            - name: GITLAB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: automation-secrets
+                  key: gitlab-token
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

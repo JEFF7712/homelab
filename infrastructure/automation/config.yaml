@@ -39,3 +39,5 @@ data:
     JEFF7712|rupanism
     JEFF7712|solubility-predictor
     JEFF7712|spatia
+  renovate-agent-gitlab-infra-repositories.txt: |
+    JEFF7712|homelab
