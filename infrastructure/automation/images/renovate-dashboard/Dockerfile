@@ -3,6 +3,7 @@ FROM alpine:3.22
 RUN apk add --no-cache \
     ca-certificates \
     python3 \
+    tzdata \
   && addgroup -S dashboard \
   && adduser -S -G dashboard -u 65532 dashboard
 

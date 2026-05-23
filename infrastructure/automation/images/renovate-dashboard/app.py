@@ -329,6 +329,7 @@ def page():
     .approved, .green { border-color: #84cc16; color: #bef264; }
     .reason { color: #a1a1aa; max-width: 440px; }
     .empty { color: #a1a1aa; background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 16px; }
+    .error { color: #fecaca; background: #3f1d22; border: 1px solid #7f1d1d; border-radius: 8px; padding: 16px; margin-bottom: 18px; }
     @media (max-width: 760px) { header { display: block; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } table { display: block; overflow-x: auto; } }
   </style>
 </head>
@@ -376,12 +377,20 @@ def page():
         </tr>`).join("")}</tbody></table>`;
     }
     async function load() {
-      const res = await fetch('/api/status', { cache: 'no-store' });
-      const data = await res.json();
-      document.getElementById('generated').textContent = `Generated ${data.generated_at}`;
-      document.getElementById('stats').innerHTML = labels.map(label => `<div class="stat"><strong>${data.counts[label] || 0}</strong><span>${label}</span></div>`).join("");
-      document.getElementById('open').innerHTML = renderRows(data.open);
-      document.getElementById('merged').innerHTML = renderMerged(data.merged_today);
+      try {
+        const res = await fetch('/api/status', { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        document.getElementById('generated').textContent = `Generated ${data.generated_at}`;
+        document.getElementById('stats').innerHTML = labels.map(label => `<div class="stat"><strong>${data.counts[label] || 0}</strong><span>${label}</span></div>`).join("");
+        document.getElementById('open').innerHTML = renderRows(data.open || []);
+        document.getElementById('merged').innerHTML = renderMerged(data.merged_today || []);
+      } catch (err) {
+        document.getElementById('generated').textContent = 'Status unavailable';
+        document.getElementById('stats').innerHTML = '';
+        document.getElementById('open').innerHTML = `<div class="error">Dashboard API failed: ${esc(err.message)}</div>`;
+        document.getElementById('merged').innerHTML = '';
+      }
     }
     load();
     setInterval(load, 90000);
