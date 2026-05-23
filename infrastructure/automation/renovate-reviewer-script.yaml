@@ -38,6 +38,7 @@ data:
     OPENAI_CODING_MODEL = os.getenv("OPENAI_CODING_MODEL", "gpt-5.5")
     TOPIC = open("/config/ntfy-topic", encoding="utf-8").read().strip()
     NTFY_URL = f"http://ntfy.automation.svc.cluster.local/{TOPIC}"
+    DIGEST_ITEMS = []
     SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
     SA_CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
     KUBE_HOST = os.getenv("KUBERNETES_SERVICE_HOST", "kubernetes.default.svc")
@@ -160,6 +161,41 @@ data:
       except Exception as exc:
         print(f"warning: ntfy notification failed: {exc}", file=sys.stderr)
 
+    def queue_digest(kind, title, repo, number, url, decision, checks, approval, reason):
+      DIGEST_ITEMS.append({
+        "kind": kind,
+        "title": title,
+        "repo": repo,
+        "number": number,
+        "url": url,
+        "decision": decision,
+        "checks": checks,
+        "approval": approval,
+        "reason": reason,
+      })
+
+    def send_digest():
+      if not DIGEST_ITEMS:
+        return
+      counts = {}
+      for item in DIGEST_ITEMS:
+        counts[item["kind"]] = counts.get(item["kind"], 0) + 1
+      order = ["approval", "blocked", "waiting", "safe"]
+      summary = ", ".join(f"{counts[k]} {k}" for k in order if counts.get(k))
+      lines = [f"{len(DIGEST_ITEMS)} Renovate PRs reviewed: {summary}"]
+      for item in DIGEST_ITEMS[:20]:
+        lines.extend([
+          "",
+          f"- {item['repo']}#{item['number']}: {item['title']}",
+          f"  {item['url']}",
+          f"  decision: {item['decision']} checks: {item['checks']} approval: {item['approval'] or 'none'}",
+          f"  reason: {item['reason']}",
+        ])
+      if len(DIGEST_ITEMS) > 20:
+        lines.append(f"\n... and {len(DIGEST_ITEMS) - 20} more.")
+      priority = "high" if counts.get("approval") else "default"
+      notify("Renovate agent: review digest", priority, "\n".join(lines))
+
     def load_repos():
       repos = []
       with open("/config/renovate-agent-repositories.txt", encoding="utf-8") as repo_file:
@@ -215,6 +251,9 @@ data:
       if "major" in labels or re.search(r"\bmajor\b", combined, flags=re.IGNORECASE):
         return True
       return any(new > current for current, new in semver_major_pairs(combined))
+
+    def non_major_repair_candidate(pr, approval):
+      return approval.get("approved") and renovate_pr(pr)
 
     def checks_for(owner, repo, sha):
       errors = []
@@ -933,6 +972,14 @@ data:
           return
 
       checks = checks_for(owner, repo, sha)
+      if (
+        existing
+        and approval.get("approved")
+        and checks["state"] == "failure"
+        and existing.get("action") in ("repair_skipped", "repair_failed", "merge_failed")
+      ):
+        print(f"{owner}/{repo}#{number}: already blocked {sha[:12]}")
+        return
       files = changed_files(owner, repo, number)
       decision = ai_decision(pr, checks, files) or heuristic_decision(pr, checks, files)
       decision.setdefault("can_merge", False)
@@ -1067,19 +1114,40 @@ data:
         f"reason: {decision.get('reason', '')}",
         f"approve: comment `{APPROVAL_COMMAND}` or add label `{APPROVAL_LABEL}`",
       ])
-      notify(
-        title,
-        priority,
-        message,
-        actions=notification_actions(
-          owner,
+      if action in ("merged", "repaired", "repair_skipped", "repair_failed", "merge_failed"):
+        notify(
+          title,
+          priority,
+          message,
+          actions=notification_actions(
+            owner,
+            repo,
+            pr,
+            sha,
+            decision.get("requires_permission") and checks["state"] == "success",
+          ),
+          click=pr.get("html_url"),
+        )
+      else:
+        if decision.get("decision") == "wait":
+          digest_kind = "waiting"
+        elif decision.get("decision") == "blocked":
+          digest_kind = "blocked"
+        elif decision.get("requires_permission"):
+          digest_kind = "approval"
+        else:
+          digest_kind = "safe"
+        queue_digest(
+          digest_kind,
+          pr.get("title", ""),
           repo,
-          pr,
-          sha,
-          decision.get("requires_permission") and checks["state"] == "success",
-        ),
-        click=pr.get("html_url"),
-      )
+          number,
+          pr.get("html_url", ""),
+          decision.get("decision"),
+          checks["state"],
+          approval.get("method"),
+          decision.get("reason", ""),
+        )
       patch_state(key, json.dumps({
         "repo": f"{owner}/{repo}",
         "number": number,
@@ -1102,7 +1170,9 @@ data:
           for pr in pulls:
             if not renovate_pr(pr):
               continue
-            if not major_update(pr):
+            is_major = major_update(pr)
+            approval = approval_for(owner, repo, pr)
+            if not is_major and not non_major_repair_candidate(pr, approval):
               continue
             found += 1
             try:
@@ -1147,6 +1217,7 @@ data:
             "high",
             f"{namespace}/{project} could not be scanned: {exc}",
           )
+      send_digest()
       print(f"Renovate agent complete: found={found} processed={processed} mode={MODE}")
 
     if __name__ == "__main__":

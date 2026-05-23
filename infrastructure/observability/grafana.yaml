@@ -110,6 +110,16 @@ spec:
                 group_wait: 30s
                 group_interval: 5m
                 repeat_interval: 6h
+                routes:
+                  - receiver: ntfy-low-priority
+                    object_matchers:
+                      - ["alertname", "=", "DatasourceNoData"]
+                    group_by:
+                      - grafana_folder
+                      - alertname
+                    group_wait: 5m
+                    group_interval: 30m
+                    repeat_interval: 24h
           contactpoints.yaml:
             secret:
               apiVersion: 1
@@ -125,6 +135,20 @@ spec:
                         httpMethod: POST
                         authorization_scheme: Bearer
                         authorization_credentials: $NTFY_TOKEN
+                        maxAlerts: "10"
+                - orgId: 1
+                  name: ntfy-low-priority
+                  receivers:
+                    - uid: ntfy-homelab-low-priority
+                      type: webhook
+                      disableResolveMessage: false
+                      settings:
+                        url: http://ntfy.automation.svc.cluster.local/homelab-alerts
+                        httpMethod: POST
+                        authorization_scheme: Bearer
+                        authorization_credentials: $NTFY_TOKEN
+                        httpHeaderName1: Priority
+                        httpHeaderValue1: low
                         maxAlerts: "10"
           rules.yaml:
             apiVersion: 1
