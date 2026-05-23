@@ -15,7 +15,7 @@
 
 #   initialization {
 #     hostname = "adguard-lxc"
-    
+
 #     user_account {
 #       password = var.password
 #       keys     = [file("~/.ssh/id_ed25519.pub")]

@@ -21,26 +21,26 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   }
 
   network_device {
-    bridge = "vmbr0" 
+    bridge = "vmbr0"
     model  = "virtio"
   }
 
   network_device {
-    bridge = "vmbr1" 
+    bridge = "vmbr1"
     model  = "virtio"
   }
 
   network_device {
-    bridge = "vmbr0" 
-    model  = "virtio"
+    bridge  = "vmbr0"
+    model   = "virtio"
     vlan_id = 20
   }
 
   lifecycle {
-    prevent_destroy = true  
+    prevent_destroy = true
     ignore_changes = [
-      agent,                
-      network_device,       
+      agent,
+      network_device,
     ]
   }
 

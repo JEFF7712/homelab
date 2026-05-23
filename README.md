@@ -114,8 +114,6 @@ All changes via Git → ArgoCD auto-syncs. Monitor in ArgoCD UI.
 - **[NetBird](https://netbird.io/)** - WireGuard-based mesh VPN network
 
 ### Automation & Workflow
-- **[n8n](https://n8n.io/)** - Self-hosted workflow automation platform
-- **[Redis](https://redis.io/)** - In-memory data store for n8n queue management
 - **[Renovate](https://www.mend.io/renovate/)** - Automated dependency updates via PRs
 - **[Reloader](https://github.com/stakater/Reloader)** - Auto-reloads pods on ConfigMap/Secret changes
 

@@ -1,22 +1,22 @@
 ## Sensitive variables
 
-variable proxmox_api_url {
-  type = string
+variable "proxmox_api_url" {
+  type      = string
   sensitive = true
 }
-variable proxmox_api_token {
-  type = string
+variable "proxmox_api_token" {
+  type      = string
   sensitive = true
 }
 variable "password" {
-  type = string
+  type      = string
   sensitive = true
 }
 variable "gitlab_token" {
-  type = string
+  type      = string
   sensitive = true
 }
-variable "gitlab_username" { 
+variable "gitlab_username" {
   type = string
 }
 variable "gitlab_project" {
@@ -53,7 +53,7 @@ variable "openclaw_vm_mac_address" {
 ## Cluster variables
 
 variable "cluster_name" {
-  type = string
+  type    = string
   default = "homelab"
 }
 variable "cluster_endpoint" {
@@ -87,7 +87,7 @@ variable "host_ip_addr" {
   type = string
 }
 variable "node_name" {
-  type = string
+  type    = string
   default = "hpmini"
 }
 variable "netbird_lxc_ip_addr" {
@@ -103,19 +103,19 @@ variable "openclaw_vm_ip_addr" {
   type = string
 }
 variable "opnsense_uri" {
-    type = string
-    sensitive = true
+  type      = string
+  sensitive = true
 }
 variable "opnsense_api_key" {
-    type = string
-    sensitive = true
+  type      = string
+  sensitive = true
 }
 variable "opnsense_api_secret" {
-    type = string
-    sensitive = true
+  type      = string
+  sensitive = true
 }
 
 variable "kubeconfig" {
-  type = string
+  type    = string
   default = null
 }

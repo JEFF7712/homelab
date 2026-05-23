@@ -10,12 +10,12 @@ resource "proxmox_virtual_environment_container" "netbird" {
 
   memory {
     dedicated = 512
-    swap     = 512
+    swap      = 512
   }
 
   initialization {
     hostname = "netbird-lxc"
-    
+
     user_account {
       password = var.password
       keys     = [file("~/.ssh/id_ed25519.pub")]
@@ -32,19 +32,19 @@ resource "proxmox_virtual_environment_container" "netbird" {
   disk {
     datastore_id = "local"
     size         = 8
-  }  
+  }
 
   network_interface {
-    name   = "eth0"
-    bridge = "vmbr0"
+    name        = "eth0"
+    bridge      = "vmbr0"
     mac_address = var.netbird_lxc_mac_address
   }
 
 
   network_interface {
-    name   = "eth1"
-    bridge = "vmbr0"
-    vlan_id = 20
+    name        = "eth1"
+    bridge      = "vmbr0"
+    vlan_id     = 20
     mac_address = var.netbird_lxc_mac_address2
   }
 

@@ -17,14 +17,14 @@
 #       password = var.password
 #       keys     = [file("~/.ssh/id_ed25519.pub")]
 #     }
-    
+
 #     ip_config {
 #       ipv4 {
 #         address = "${var.openclaw_vm_ip_addr}/24"
 #         gateway = var.default_gateway
 #       }
 #     }
-    
+
 #     dns {
 #       servers = ["1.1.1.1", "8.8.8.8"]
 #     }
