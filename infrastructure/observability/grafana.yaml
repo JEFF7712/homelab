@@ -16,6 +16,11 @@ spec:
             value: /var/lib/grafana
           - name: GF_SHELL_SKIP_CHOWN
             value: "true"
+        envValueFrom:
+          NTFY_TOKEN:
+            secretKeyRef:
+              name: grafana-ntfy
+              key: NTFY_TOKEN
         
         rbac:
           create: true
@@ -92,6 +97,24 @@ spec:
                     enabled: true
                   serviceMap:
                     datasourceUid: mimir
+
+        alerting:
+          contactpoints.yaml:
+            secret:
+              apiVersion: 1
+              contactPoints:
+                - orgId: 1
+                  name: ntfy
+                  receivers:
+                    - uid: ntfy-homelab-alerts
+                      type: webhook
+                      disableResolveMessage: false
+                      settings:
+                        url: http://ntfy.automation.svc.cluster.local/homelab-alerts
+                        httpMethod: POST
+                        authorization_scheme: Bearer
+                        authorization_credentials: $NTFY_TOKEN
+                        maxAlerts: "10"
 
         dashboardProviders:
           dashboardproviders.yaml:

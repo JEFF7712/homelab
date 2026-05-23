@@ -49,6 +49,9 @@ rules:
 - apiGroups:
   - longhorn.io
   resources:
+  - backups
+  - backuptargets
+  - snapshots
   - volumes
   verbs:
   - get
