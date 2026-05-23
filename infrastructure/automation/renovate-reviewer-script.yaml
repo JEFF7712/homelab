@@ -66,6 +66,19 @@ data:
         raw = exc.read().decode("utf-8", errors="replace")
         raise HttpError(exc.code, raw) from exc
 
+    def request_raw(method, url, headers=None, body=None, timeout=30, context=None):
+      data = None
+      if body is not None:
+        data = json.dumps(body).encode("utf-8")
+      req_headers = {"Accept": "*/*", **(headers or {})}
+      req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
+      try:
+        with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
+          return resp.read(), dict(resp.headers)
+      except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise HttpError(exc.code, raw) from exc
+
     def github(method, path, body=None):
       if not GITHUB_TOKEN:
         raise RuntimeError("GITHUB_TOKEN is required")
@@ -76,6 +89,17 @@ data:
         "User-Agent": "homelab-renovate-agent",
       }
       return request(method, f"https://api.github.com{path}", headers, body)
+
+    def github_raw(method, path, body=None):
+      if not GITHUB_TOKEN:
+        raise RuntimeError("GITHUB_TOKEN is required")
+      headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "homelab-renovate-agent",
+      }
+      return request_raw(method, f"https://api.github.com{path}", headers, body)
 
     def gitlab(method, path, body=None):
       if not GITLAB_TOKEN:
@@ -207,6 +231,7 @@ data:
         runs = []
         errors.append(f"check runs unavailable: {exc}")
       failures = []
+      failure_details = []
       pending = []
       successes = []
       for status in contexts:
@@ -228,6 +253,13 @@ data:
           successes.append(name)
         else:
           failures.append(f"{name}: {conclusion}")
+          failure_details.append({
+            "name": name,
+            "conclusion": conclusion,
+            "html_url": run.get("html_url"),
+            "details_url": run.get("details_url"),
+            "output": run.get("output") or {},
+          })
       if failures:
         state = "failure"
       elif pending:
@@ -241,6 +273,7 @@ data:
         "successes": successes[:10],
         "pending": pending[:10],
         "failures": failures[:10],
+        "failure_details": failure_details[:5],
         "errors": errors[:5],
       }
 
@@ -345,7 +378,7 @@ data:
       return (int(match.group(1)), match.group(2))
 
     def repair_workflow_pr(owner, repo, pr, files):
-      if REPAIR_MODE != "workflow-only":
+      if REPAIR_MODE not in ("workflow-only", "ai-code"):
         return {"attempted": False, "reason": f"repair mode is {REPAIR_MODE}"}
       if not workflow_only(files):
         return {"attempted": False, "reason": "changed files are not workflow-only"}
@@ -378,6 +411,227 @@ data:
           return {"attempted": True, "pushed": False, "reason": "branch already up to date"}
         run(["git", "push", "origin", f"HEAD:{branch}"], cwd=workdir)
         return {"attempted": True, "pushed": True, "sha": new_sha, "files": repaired_files}
+      finally:
+        run(["rm", "-rf", workdir], check=False)
+
+    def action_failure_logs(owner, repo, checks):
+      logs = []
+      seen_runs = set()
+      for detail in checks.get("failure_details", []):
+        details_url = detail.get("details_url") or ""
+        html_url = detail.get("html_url") or ""
+        match = re.search(r"/actions/runs/(\d+)", details_url) or re.search(r"/actions/runs/(\d+)", html_url)
+        if not match:
+          continue
+        run_id = match.group(1)
+        if run_id in seen_runs:
+          continue
+        seen_runs.add(run_id)
+        try:
+          jobs = github("GET", f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs?per_page=100").get("jobs", [])
+        except Exception as exc:
+          logs.append(f"workflow run {run_id}: job lookup failed: {exc}")
+          continue
+        for job in jobs:
+          if job.get("conclusion") not in ("failure", "timed_out", "cancelled"):
+            continue
+          entry = [
+            f"job: {job.get('name')} ({job.get('conclusion')})",
+            f"url: {job.get('html_url')}",
+          ]
+          failed_steps = [
+            step.get("name", "step")
+            for step in job.get("steps", [])
+            if step.get("conclusion") not in (None, "success", "skipped")
+          ]
+          if failed_steps:
+            entry.append("failed steps: " + ", ".join(failed_steps[:8]))
+          try:
+            raw, headers = github_raw("GET", f"/repos/{owner}/{repo}/actions/jobs/{job['id']}/logs")
+            content_type = headers.get("Content-Type", "")
+            if "zip" not in content_type.lower():
+              text = raw.decode("utf-8", errors="replace")
+              entry.append(text[-12000:])
+          except Exception as exc:
+            entry.append(f"log download failed: {exc}")
+          logs.append("\n".join(entry))
+      return "\n\n---\n\n".join(logs)[:30000]
+
+    def referenced_paths(text):
+      if not text:
+        return []
+      paths = []
+      pattern = r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+(?:test|spec)[A-Za-z0-9_./-]*\.(?:py|js|jsx|ts|tsx|mjs|cjs|yaml|yml|json))"
+      for match in re.findall(pattern, text):
+        paths.append(match)
+      pattern = r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+\.(?:py|js|jsx|ts|tsx|mjs|cjs|yaml|yml|json|toml|lock))"
+      for match in re.findall(pattern, text):
+        if any(part in match for part in ("node_modules/", ".venv/", "site-packages/")):
+          continue
+        paths.append(match)
+      return paths
+
+    def file_snapshot(repo_dir, paths):
+      snapshots = []
+      seen = set()
+      for path in paths:
+        clean = path.strip().lstrip("./")
+        if not clean or clean in seen or clean.startswith("../") or "/../" in clean:
+          continue
+        full_path = os.path.join(repo_dir, clean)
+        if not os.path.isfile(full_path):
+          continue
+        try:
+          with open(full_path, encoding="utf-8") as source:
+            text = source.read()
+        except UnicodeDecodeError:
+          continue
+        seen.add(clean)
+        snapshots.append({
+          "path": clean,
+          "content": text[:9000],
+          "truncated": len(text) > 9000,
+        })
+        if len(snapshots) >= 14:
+          break
+      return snapshots
+
+    def parse_json_response(text):
+      text = text.strip()
+      if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+      try:
+        return json.loads(text)
+      except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+        if not match:
+          raise
+        return json.loads(match.group(0))
+
+    def ai_repair_patch(owner, repo, pr, checks, files, logs, snapshots):
+      if not OPENAI_API_KEY:
+        return {"can_patch": False, "reason": "OPENAI_API_KEY is not configured", "patch": ""}
+      prompt = {
+        "task": "Repair an approved Renovate dependency update PR that has failing CI. Return a minimal unified git diff that fixes the CI failure, or decline if the fix is unsafe.",
+        "rules": [
+          "Return JSON only.",
+          "The JSON schema is: {\"can_patch\": boolean, \"reason\": string, \"summary\": string, \"patch\": string}.",
+          "Only patch files needed to fix the Renovate update fallout, such as tests, config, lockfile-adjacent expectations, or compatibility code.",
+          "Do not modify secrets, credentials, deployment manifests, or unrelated application behavior.",
+          "Prefer updating stale tests or config contracts when CI proves the old expectation is obsolete.",
+          "The patch must be a valid unified diff applyable by git apply from the repository root.",
+          "If the logs and files are insufficient, set can_patch false.",
+        ],
+        "pull_request": {
+          "title": pr.get("title"),
+          "body": (pr.get("body") or "")[:6000],
+          "url": pr.get("html_url"),
+          "branch": pr.get("head", {}).get("ref"),
+          "checks": checks,
+          "changed_files": files,
+        },
+        "ci_logs": logs,
+        "file_snapshots": snapshots,
+      }
+      body = {
+        "model": OPENAI_CODING_MODEL,
+        "instructions": "You are a careful senior engineer repairing a Renovate PR. Return strictly valid JSON and nothing else.",
+        "input": json.dumps(prompt),
+        "max_output_tokens": 6000,
+      }
+      headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+      }
+      response = request("POST", "https://api.openai.com/v1/responses", headers, body, timeout=120)
+      return parse_json_response(response_text(response))
+
+    def repair_ai_pr(owner, repo, pr, checks, files):
+      if REPAIR_MODE not in ("ai-code", "ai"):
+        return {"attempted": False, "reason": f"repair mode is {REPAIR_MODE}"}
+      branch = pr.get("head", {}).get("ref", "")
+      head_repo = pr.get("head", {}).get("repo", {}).get("full_name", "")
+      if not branch.startswith("renovate/"):
+        return {"attempted": False, "reason": "branch is not a Renovate branch"}
+      if head_repo and head_repo.lower() != f"{owner}/{repo}".lower():
+        return {"attempted": False, "reason": "PR branch is from a fork"}
+      if checks.get("state") != "failure":
+        return {"attempted": False, "reason": f"checks are {checks.get('state')}"}
+      clone_url = f"https://x-access-token:{urllib.parse.quote(GITHUB_TOKEN, safe='')}@github.com/{owner}/{repo}.git"
+      workdir = f"/tmp/renovate-ai-repair-{repo}-{pr['number']}-{int(time.time())}"
+      run(["git", "clone", "--depth", "20", "--branch", branch, clone_url, workdir])
+      try:
+        run(["git", "config", "user.name", "Renovate Repair Agent"], cwd=workdir)
+        run(["git", "config", "user.email", "renovate-repair@rupan.dev"], cwd=workdir)
+        logs = action_failure_logs(owner, repo, checks)
+        paths = [item.get("filename", "") for item in files]
+        paths.extend(referenced_paths(logs))
+        for candidate in ("pyproject.toml", "package.json", "pnpm-lock.yaml", "package-lock.json", "yarn.lock", "uv.lock"):
+          if os.path.exists(os.path.join(workdir, candidate)):
+            paths.append(candidate)
+        snapshots = file_snapshot(workdir, paths)
+        patch_response = ai_repair_patch(owner, repo, pr, checks, files, logs, snapshots)
+        if not patch_response.get("can_patch"):
+          return {
+            "attempted": True,
+            "pushed": False,
+            "reason": patch_response.get("reason", "coding model declined to patch"),
+          }
+        patch = (patch_response.get("patch") or "").strip()
+        if not patch:
+          return {"attempted": True, "pushed": False, "reason": "coding model returned an empty patch"}
+        patch_path = os.path.join(workdir, ".renovate-agent.patch")
+        with open(patch_path, "w", encoding="utf-8") as target:
+          target.write(patch)
+          target.write("\n")
+        check = run(["git", "apply", "--check", patch_path], cwd=workdir, check=False)
+        if check.returncode != 0:
+          return {
+            "attempted": True,
+            "pushed": False,
+            "reason": "coding model patch did not apply: " + check.stdout[-1000:],
+          }
+        run(["git", "apply", patch_path], cwd=workdir)
+        changed = run(["git", "diff", "--name-only"], cwd=workdir).stdout.splitlines()
+        forbidden = [
+          path for path in changed
+          if path.startswith(("secrets/", "bootstrap/", "terraform/"))
+          or ".env" in path
+          or "secret" in path.lower()
+        ]
+        if forbidden:
+          run(["git", "reset", "--hard"], cwd=workdir, check=False)
+          return {"attempted": True, "pushed": False, "reason": "patch touched forbidden files: " + ", ".join(forbidden)}
+        if not changed:
+          return {"attempted": True, "pushed": False, "reason": "patch made no changes"}
+        run(["git", "diff", "--check"], cwd=workdir)
+        if all(path.startswith(".github/workflows/") for path in changed):
+          validate_workflow_yaml(workdir, [{"filename": path} for path in changed])
+        run(["git", "add", *changed], cwd=workdir)
+        summary = patch_response.get("summary") or "repair Renovate update fallout"
+        commit_message = "fix: repair Renovate update"
+        if len(summary) <= 60 and re.match(r"^[A-Za-z0-9 ,._:@/+-]+$", summary):
+          commit_message = f"fix: {summary[0].lower()}{summary[1:]}"
+        run(["git", "commit", "-m", commit_message], cwd=workdir)
+        new_sha = run(["git", "rev-parse", "HEAD"], cwd=workdir).stdout.strip()
+        run(["git", "push", "origin", f"HEAD:{branch}"], cwd=workdir)
+        github("POST", f"/repos/{owner}/{repo}/issues/{pr['number']}/comments", {
+          "body": "\n".join([
+            "Renovate repair agent pushed a CI repair.",
+            "",
+            f"Model: `{OPENAI_CODING_MODEL}`",
+            f"Summary: {summary}",
+            "Files: " + ", ".join(changed[:12]),
+          ])
+        })
+        return {
+          "attempted": True,
+          "pushed": True,
+          "sha": new_sha,
+          "files": changed,
+          "summary": summary,
+        }
       finally:
         run(["rm", "-rf", workdir], check=False)
 
@@ -685,19 +939,56 @@ data:
       decision.setdefault("requires_permission", True)
 
       action = "notified"
+      repair = {"attempted": False, "reason": "not attempted"}
+      if (
+        MODE == "merge-safe"
+        and approval.get("approved")
+        and checks["state"] == "failure"
+        and REPAIR_MODE in ("ai-code", "ai")
+      ):
+        try:
+          repair = repair_ai_pr(owner, repo, pr, checks, files)
+          if repair.get("pushed"):
+            decision = {
+              "decision": "wait",
+              "confidence": "high",
+              "reason": "Coding model repaired the approved PR and pushed a commit; waiting for checks on the repaired branch.",
+              "requires_permission": False,
+              "can_merge": False,
+            }
+            action = "repaired"
+            checks = checks_for(owner, repo, repair.get("sha", sha))
+          elif repair.get("attempted"):
+            decision = {
+              "decision": "blocked",
+              "confidence": "medium",
+              "reason": f"Coding model repair did not push: {repair.get('reason', 'unknown')}",
+              "requires_permission": True,
+              "can_merge": False,
+            }
+            action = "repair_skipped"
+        except Exception as repair_exc:
+          decision = {
+            "decision": "blocked",
+            "confidence": "high",
+            "reason": f"Coding model repair failed: {repair_exc}",
+            "requires_permission": True,
+            "can_merge": False,
+          }
+          action = "repair_failed"
+
       can_auto_merge = decision.get("can_merge") and not decision.get("requires_permission")
       can_approved_merge = (
         approval.get("approved")
         and checks["state"] == "success"
         and decision.get("decision") in ("needs_approval", "safe_to_merge")
       )
-      if MODE == "merge-safe" and (can_auto_merge or can_approved_merge):
+      if action == "notified" and MODE == "merge-safe" and (can_auto_merge or can_approved_merge):
         try:
           merge_pr(owner, repo, number)
           action = "merged"
         except Exception as exc:
           latest_pr = pull_request(owner, repo, number)
-          repair = {"attempted": False, "reason": "not attempted"}
           if approval.get("approved") and "merge conflicts" in str(exc).lower():
             try:
               repair = repair_workflow_pr(owner, repo, latest_pr, files)
@@ -789,6 +1080,7 @@ data:
         "decision": decision,
         "approval": approval,
         "action": action,
+        "repair": repair,
         "processed_at": int(time.time()),
       }, sort_keys=True))
       print(f"{owner}/{repo}#{number}: {action} {decision.get('decision')}")

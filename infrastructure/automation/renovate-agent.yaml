@@ -39,7 +39,7 @@ spec:
             - name: RENOVATE_AGENT_MODE
               value: merge-safe
             - name: RENOVATE_AGENT_REPAIR_MODE
-              value: workflow-only
+              value: ai-code
             - name: RENOVATE_AGENT_STATE_CONFIGMAP
               value: renovate-agent-state
             - name: RENOVATE_AGENT_APPROVAL_LABEL
