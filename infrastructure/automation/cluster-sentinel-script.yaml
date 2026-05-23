@@ -113,13 +113,13 @@ data:
       | select($available < $desired)
       | "cloudflare/cloudflared: available=\($available) desired=\($desired)"
     ')"
-    cloudflare_restarts="$(kubectl -n cloudflare get pods -l app=cloudflared -o json | jq -r '
-      .items[]
-      | (.status.containerStatuses // [] | map(.restartCount // 0) | add // 0) as $restarts
-      | select($restarts > 0)
-      | "\(.metadata.name): restarts=\($restarts)"
-    ')"
-    cloudflare_bad="$(printf '%s\n%s\n' "${cloudflare_bad}" "${cloudflare_restarts}" | sed '/^$/d' | sort -u)"
+    cloudflare_restarts="$(kubectl -n cloudflare get pods -l app=cloudflared -o json | jq -r '[.items[].status.containerStatuses[]?.restartCount // 0] | add // 0')"
+    previous_restarts="$(state_get "cloudflare-restarts")"
+    if [ -n "${previous_restarts}" ] && [ "${cloudflare_restarts}" -gt "${previous_restarts}" ]; then
+      cloudflare_bad="$(printf '%s\ncloudflare/cloudflared: restart count increased from %s to %s\n' "${cloudflare_bad}" "${previous_restarts}" "${cloudflare_restarts}")"
+    fi
+    state_set "cloudflare-restarts" "${cloudflare_restarts}"
+    cloudflare_bad="$(printf '%s\n' "${cloudflare_bad}" | sed '/^$/d' | sort -u)"
     if [ -n "${cloudflare_bad}" ]; then
       check_change "cloudflare-tunnel" "bad" "Cloudflare tunnel issue" "Cloudflare tunnel recovered" "${cloudflare_bad}"
     else
