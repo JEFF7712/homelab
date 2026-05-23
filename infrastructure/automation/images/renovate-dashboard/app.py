@@ -154,10 +154,27 @@ def checks_for(owner, repo, sha):
     state = "unknown"
   return {"state": state, "failures": failures[:5], "pending": pending[:5], "successes": successes[:5]}
 
-def bucket_for(pr, state_item, checks):
+def merge_status(owner, repo, number):
+  pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
+  mergeable = pr.get("mergeable")
+  mergeable_state = pr.get("mergeable_state") or "unknown"
+  if mergeable is None and mergeable_state == "unknown":
+    time.sleep(1)
+    pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
+    mergeable = pr.get("mergeable")
+    mergeable_state = pr.get("mergeable_state") or "unknown"
+  return {
+    "mergeable": mergeable,
+    "mergeable_state": mergeable_state,
+    "has_conflicts": mergeable is False and mergeable_state == "dirty",
+  }
+
+def bucket_for(pr, state_item, checks, merge):
   action = state_item.get("action", "")
   decision = state_item.get("decision", {}) or {}
   approval = state_item.get("approval", {}) or {}
+  if merge.get("has_conflicts"):
+    return "conflict"
   if action == "repaired":
     return "repaired"
   if action in ("repair_failed", "repair_skipped", "merge_failed") or decision.get("decision") == "blocked":
@@ -185,8 +202,14 @@ def github_status(state_data):
       sha = pr.get("head", {}).get("sha", "")
       state_item = latest_state(state_data, owner, repo, pr["number"], sha)
       checks = checks_for(owner, repo, sha)
+      merge = merge_status(owner, repo, pr["number"])
       decision = state_item.get("decision", {}) or {}
       approval = state_item.get("approval", {}) or {}
+      reason = decision.get("reason", "")
+      display_decision = decision.get("decision", "unreviewed")
+      if merge["has_conflicts"]:
+        display_decision = "merge_conflict"
+        reason = "GitHub reports this PR has merge conflicts with the base branch."
       rows.append({
         "platform": "github",
         "owner": owner,
@@ -197,14 +220,16 @@ def github_status(state_data):
         "sha": sha,
         "short_sha": sha[:12],
         "branch": pr.get("head", {}).get("ref"),
-        "bucket": bucket_for(pr, state_item, checks),
+        "bucket": bucket_for(pr, state_item, checks, merge),
         "checks": checks["state"],
-        "decision": decision.get("decision", "unreviewed"),
+        "mergeable": merge["mergeable"],
+        "mergeable_state": merge["mergeable_state"],
+        "decision": display_decision,
         "approval": approval.get("method") or "",
         "action": state_item.get("action", ""),
-        "reason": decision.get("reason", ""),
+        "reason": reason,
         "processed_at": state_item.get("processed_at", 0),
-        "can_approve": checks["state"] == "success" and not approval.get("approved"),
+        "can_approve": checks["state"] == "success" and not approval.get("approved") and not merge["has_conflicts"],
       })
     closed = github("GET", f"/repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=30")
     for pr in closed:
@@ -252,6 +277,8 @@ def gitlab_status():
           "branch": mr.get("source_branch"),
           "bucket": "approval",
           "checks": "unknown",
+          "mergeable": None,
+          "mergeable_state": "unknown",
           "decision": "infra-review",
           "approval": "",
           "action": "",
@@ -289,6 +316,8 @@ def gitlab_status():
         "branch": "",
         "bucket": "blocked",
         "checks": "failure",
+        "mergeable": None,
+        "mergeable_state": "unknown",
         "decision": "scan_failed",
         "approval": "",
         "action": "",
@@ -339,6 +368,10 @@ def approve_pr(body):
     raise ValueError("pull request head changed; refresh before approving")
   if not renovate_pr(pr):
     raise ValueError("pull request does not look like a Renovate PR")
+  mergeable = pr.get("mergeable")
+  mergeable_state = pr.get("mergeable_state") or "unknown"
+  if mergeable is False and mergeable_state == "dirty":
+    raise ValueError("pull request has merge conflicts")
 
   github("POST", f"/repos/{owner}/{repo}/issues/{number}/labels", {"labels": [APPROVAL_LABEL]})
   github("POST", f"/repos/{owner}/{repo}/issues/{number}/comments", {"body": APPROVAL_COMMAND})
@@ -387,7 +420,7 @@ def page():
     a:hover { text-decoration: underline; }
     .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 12px; border: 1px solid #3f3f46; color: #e4e4e7; white-space: nowrap; }
     .approval { border-color: #f59e0b; color: #fbbf24; }
-    .blocked { border-color: #ef4444; color: #f87171; }
+    .blocked, .conflict { border-color: #ef4444; color: #f87171; }
     .waiting { border-color: #38bdf8; color: #67e8f9; }
     .repaired { border-color: #22c55e; color: #86efac; }
     .approved, .green { border-color: #84cc16; color: #bef264; }
@@ -428,7 +461,7 @@ def page():
     </section>
   </main>
   <script>
-    const labels = ["approval","blocked","waiting","repaired","approved","green","unreviewed"];
+    const labels = ["approval","conflict","blocked","waiting","repaired","approved","green","unreviewed"];
     const state = { open: [], merged_today: [], counts: {}, generated_at: "" };
     function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
     function unique(values) { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
@@ -448,7 +481,7 @@ def page():
       const platform = document.getElementById('platformFilter').value;
       const query = document.getElementById('searchFilter').value.trim().toLowerCase();
       return state.open.filter(row => {
-        const haystack = `${row.repo} ${row.title} ${row.branch} ${row.reason}`.toLowerCase();
+        const haystack = `${row.repo} ${row.title} ${row.branch} ${row.reason} ${row.mergeable_state}`.toLowerCase();
         return (!bucket || row.bucket === bucket)
           && (!repo || row.repo === repo)
           && (!platform || row.platform === platform)
@@ -463,12 +496,13 @@ def page():
     }
     function renderRows(rows) {
       if (!rows.length) return '<div class="empty">No open Renovate PRs.</div>';
-      return `<table><thead><tr><th>State</th><th>Repo</th><th>PR</th><th>Checks</th><th>Decision</th><th>Reason</th><th>Actions</th></tr></thead><tbody>${rows.map(row => `
+      return `<table><thead><tr><th>State</th><th>Repo</th><th>PR</th><th>Checks</th><th>Merge</th><th>Decision</th><th>Reason</th><th>Actions</th></tr></thead><tbody>${rows.map(row => `
         <tr>
           <td><span class="pill ${esc(row.bucket)}">${esc(row.bucket)}</span></td>
           <td>${esc(row.repo)}<div class="muted">${esc(row.platform)} ${esc(row.short_sha || row.sha)}</div></td>
           <td><a href="${esc(row.url)}">${esc(row.title)}</a><div class="muted">#${esc(row.number)} ${esc(row.branch)}</div></td>
           <td>${esc(row.checks)}</td>
+          <td>${esc(row.mergeable_state || "unknown")}</td>
           <td>${esc(row.decision)}<div class="muted">${esc(row.approval || row.action || "")}</div></td>
           <td class="reason">${esc(row.reason)}</td>
           <td class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : ''}</td>
