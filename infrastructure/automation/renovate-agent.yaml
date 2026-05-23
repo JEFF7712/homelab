@@ -50,8 +50,10 @@ spec:
               value: https://renovate-approve.rupan.dev/approve
             - name: RENOVATE_AGENT_APPROVERS
               value: rupan,jeff7712
-            - name: OPENAI_MODEL
+            - name: OPENAI_REVIEW_MODEL
               value: gpt-5.4-mini
+            - name: OPENAI_CODING_MODEL
+              value: gpt-5.5
             - name: NTFY_TOKEN
               valueFrom:
                 secretKeyRef:

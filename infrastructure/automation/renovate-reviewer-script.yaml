@@ -34,7 +34,8 @@ data:
     GITLAB_TOKEN = os.getenv("GITLAB_TOKEN", "")
     GITLAB_ENDPOINT = os.getenv("GITLAB_ENDPOINT", "https://gitlab.com/api/v4")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+    OPENAI_REVIEW_MODEL = os.getenv("OPENAI_REVIEW_MODEL", os.getenv("OPENAI_MODEL", "gpt-5.4-mini"))
+    OPENAI_CODING_MODEL = os.getenv("OPENAI_CODING_MODEL", "gpt-5.5")
     TOPIC = open("/config/ntfy-topic", encoding="utf-8").read().strip()
     NTFY_URL = f"http://ntfy.automation.svc.cluster.local/{TOPIC}"
     SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
@@ -462,7 +463,7 @@ data:
         },
       }
       body = {
-        "model": OPENAI_MODEL,
+        "model": OPENAI_REVIEW_MODEL,
         "instructions": "You are a conservative release engineer for a small homelab. Return strictly valid JSON and nothing else.",
         "input": json.dumps(prompt),
         "max_output_tokens": 600,
