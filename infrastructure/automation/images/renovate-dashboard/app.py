@@ -441,6 +441,8 @@ def activity_history(state_data, merged_recent):
       item = json.loads(raw)
     except Exception:
       continue
+    if not isinstance(item, dict):
+      continue
     processed_at = int(item.get("processed_at") or 0)
     if processed_at < since_ts:
       continue
