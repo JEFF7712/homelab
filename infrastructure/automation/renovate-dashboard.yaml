@@ -32,7 +32,7 @@ spec:
       serviceAccountName: automation-runner
       containers:
       - name: dashboard
-        image: jeff7712/homelab-renovate-dashboard:0.0.2
+        image: jeff7712/homelab-renovate-dashboard:0.0.3
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -52,6 +52,10 @@ spec:
               fieldPath: metadata.namespace
         - name: RENOVATE_AGENT_STATE_CONFIGMAP
           value: renovate-agent-state
+        - name: RENOVATE_AGENT_APPROVAL_LABEL
+          value: renovate-agent-approved
+        - name: RENOVATE_AGENT_APPROVAL_COMMAND
+          value: /renovate-agent approve
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:

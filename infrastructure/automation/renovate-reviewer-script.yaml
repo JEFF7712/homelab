@@ -22,6 +22,7 @@ data:
     STATE_CM = os.getenv("RENOVATE_AGENT_STATE_CONFIGMAP", "renovate-agent-state")
     MODE = os.getenv("RENOVATE_AGENT_MODE", "dry-run")
     REPAIR_MODE = os.getenv("RENOVATE_AGENT_REPAIR_MODE", "workflow-only")
+    STATE_RETENTION_DAYS = int(os.getenv("RENOVATE_AGENT_STATE_RETENTION_DAYS", "30"))
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
     APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
     APPROVAL_URL = os.getenv("RENOVATE_AGENT_APPROVAL_URL", "https://renovate-approve.rupan.dev/approve")
@@ -141,6 +142,30 @@ data:
       headers = {**kube_headers(), "Content-Type": "application/merge-patch+json"}
       body = {"data": {safe_key: value}}
       request("PATCH", f"{KUBE_API}{path}", headers, body, context=kube_context())
+
+    def cleanup_state(state):
+      if STATE_RETENTION_DAYS <= 0:
+        return
+      cutoff = int(time.time()) - (STATE_RETENTION_DAYS * 86400)
+      removals = {}
+      for key, raw in (state.get("data") or {}).items():
+        if key == "initialized":
+          continue
+        try:
+          item = json.loads(raw)
+        except Exception:
+          continue
+        processed_at = int(item.get("processed_at") or 0)
+        if processed_at and processed_at < cutoff:
+          removals[key] = None
+      if not removals:
+        return
+      path = f"/api/v1/namespaces/{NAMESPACE}/configmaps/{STATE_CM}"
+      headers = {**kube_headers(), "Content-Type": "application/merge-patch+json"}
+      request("PATCH", f"{KUBE_API}{path}", headers, {"data": removals}, context=kube_context())
+      for key in removals:
+        state.setdefault("data", {}).pop(key, None)
+      print(f"cleaned {len(removals)} renovate state entries older than {STATE_RETENTION_DAYS} days")
 
     def notify(title, priority, message, actions=None, click=None):
       headers = {
@@ -1163,6 +1188,7 @@ data:
 
     def main():
       state = ensure_state()
+      cleanup_state(state)
       found = 0
       processed = 0
       for owner, repo in load_repos():

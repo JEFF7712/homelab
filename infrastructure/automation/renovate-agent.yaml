@@ -42,6 +42,8 @@ spec:
               value: ai-code
             - name: RENOVATE_AGENT_STATE_CONFIGMAP
               value: renovate-agent-state
+            - name: RENOVATE_AGENT_STATE_RETENTION_DAYS
+              value: '30'
             - name: RENOVATE_AGENT_APPROVAL_LABEL
               value: renovate-agent-approved
             - name: RENOVATE_AGENT_APPROVAL_COMMAND
