@@ -694,6 +694,26 @@ def page():
     const state = { open: [], merged_today: [], counts: {}, generated_at: "", reviewer: {}, activity: {} };
     const locallyApproved = new Set();
     function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
+    function formatTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(date);
+    }
+    function formatDate(value) {
+      if (!value) return "";
+      const date = new Date(`${value}T12:00:00`);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+      }).format(date);
+    }
     function unique(values) { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
     function fillSelect(id, values, label) {
       const select = document.getElementById(id);
@@ -728,7 +748,7 @@ def page():
       });
     }
     function render() {
-      document.getElementById('generated').textContent = state.generated_at ? `Generated ${state.generated_at}` : 'Loading...';
+      document.getElementById('generated').textContent = state.generated_at ? `Generated ${formatTime(state.generated_at)}` : 'Loading...';
       document.getElementById('stats').innerHTML = labels.map(label => `<div class="stat"><strong>${state.counts[label] || 0}</strong><span>${label}</span></div>`).join("");
       document.getElementById('reviewer').innerHTML = renderReviewer(state.reviewer || {});
       document.getElementById('activity').innerHTML = renderActivity(state.activity || {});
@@ -746,8 +766,8 @@ def page():
       return `<div class="kv">
         <div class="muted">State</div><div><span class="pill ${row.state === 'succeeded' ? 'green' : row.state === 'failed' ? 'blocked' : 'waiting'}">${esc(row.state || 'unknown')}</span></div>
         <div class="muted">Schedule</div><div>${esc(row.schedule || '')}</div>
-        <div class="muted">Last schedule</div><div>${esc(row.last_schedule_time || '')}</div>
-        <div class="muted">Last success</div><div>${esc(row.last_successful_time || '')}</div>
+        <div class="muted">Last schedule</div><div>${esc(formatTime(row.last_schedule_time))}</div>
+        <div class="muted">Last success</div><div>${esc(formatTime(row.last_successful_time))}</div>
         <div class="muted">Latest job</div><div>${esc(row.latest_job || '')}</div>
         <div class="muted">Duration</div><div>${esc(row.duration || '')}</div>
       </div>${log ? `<pre class="log">${esc(log)}</pre>` : ''}`;
@@ -758,7 +778,7 @@ def page():
       const totals = activity.totals || {};
       return `<div class="muted">Merged ${totals.merged || 0}, repaired ${totals.repaired || 0}, blocked ${totals.blocked || 0}, approval ${totals.approval || 0}</div>
         <div class="history">${days.map(day => `<div class="day">
-          <strong>${esc(day.date.slice(5))}</strong>
+          <strong>${esc(formatDate(day.date))}</strong>
           <div class="mini"><span>merged</span><span>${day.merged || 0}</span></div>
           <div class="mini"><span>repaired</span><span>${day.repaired || 0}</span></div>
           <div class="mini"><span>blocked</span><span>${day.blocked || 0}</span></div>
@@ -782,7 +802,7 @@ def page():
     function renderAudit(rows) {
       if (!rows.length) return '<div class="empty">No recent reviewer actions.</div>';
       return `<div class="audit">${rows.map(row => `<div class="audit-item">
-        <div class="audit-top"><strong>${esc(row.repo)}#${esc(row.number)}</strong><span class="muted">${esc(row.processed_at)}</span></div>
+        <div class="audit-top"><strong>${esc(row.repo)}#${esc(row.number)}</strong><span class="muted">${esc(formatTime(row.processed_at))}</span></div>
         <div>${esc(row.action || 'unknown')} / ${esc(row.decision || 'unknown')}</div>
         <div class="muted">${esc(row.reason || '')}</div>
       </div>`).join("")}</div>`;
@@ -793,7 +813,7 @@ def page():
         <tr>
           <td>${esc(row.repo)}<div class="muted">${esc(row.platform)}</div></td>
           <td><a href="${esc(row.url)}">${esc(row.title)}</a><div class="muted">#${esc(row.number)}</div></td>
-          <td>${esc(row.merged_at)}</td>
+          <td>${esc(formatTime(row.merged_at))}</td>
         </tr>`).join("")}</tbody></table>`;
     }
     async function approve(row, button) {
