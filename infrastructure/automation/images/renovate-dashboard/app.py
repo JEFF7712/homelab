@@ -145,6 +145,22 @@ def human_duration(seconds):
   hours, minutes = divmod(minutes, 60)
   return f"{hours}h {minutes}m"
 
+def next_cron_time(schedule):
+  parts = schedule.split()
+  if len(parts) != 5:
+    return ""
+  minute, hour, day, month, weekday = parts
+  if hour != "*" or day != "*" or month != "*" or weekday != "*" or not minute.isdigit():
+    return ""
+  minute_value = int(minute)
+  if minute_value < 0 or minute_value > 59:
+    return ""
+  now = datetime.datetime.now(ZoneInfo("America/New_York"))
+  next_run = now.replace(minute=minute_value, second=0, microsecond=0)
+  if next_run <= now:
+    next_run += datetime.timedelta(hours=1)
+  return next_run.isoformat(timespec="seconds")
+
 def latest_state(state_data, owner, repo, number, sha=None):
   prefix = f"{owner}-{repo}-{number}-"
   candidates = []
@@ -406,12 +422,19 @@ def reviewer_run_status():
         pod_name = pods[0].get("metadata", {}).get("name", "")
         log_path = f"/api/v1/namespaces/{NAMESPACE}/pods/{pod_name}/log?tailLines=12"
         log_tail = [line for line in kube_text(log_path).splitlines() if line.strip()][-8:]
+    schedule = cron.get("spec", {}).get("schedule", "")
+    last_success = parse_time(cron.get("status", {}).get("lastSuccessfulTime"))
+    stale = True
+    if last_success:
+      stale = (datetime.datetime.now(ZoneInfo("America/New_York")) - last_success) > datetime.timedelta(hours=3)
     return {
       "name": REVIEWER_CRONJOB,
-      "schedule": cron.get("spec", {}).get("schedule", ""),
+      "schedule": schedule,
       "suspended": cron.get("spec", {}).get("suspend", False),
       "last_schedule_time": iso_time(parse_time(cron.get("status", {}).get("lastScheduleTime"))),
-      "last_successful_time": iso_time(parse_time(cron.get("status", {}).get("lastSuccessfulTime"))),
+      "last_successful_time": iso_time(last_success),
+      "next_schedule_time": next_cron_time(schedule),
+      "stale": stale,
       "latest_job": job_name,
       "state": state,
       "started_at": iso_time(start),
@@ -628,6 +651,7 @@ def page():
     .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 12px; border: 1px solid #3f3f46; color: #e4e4e7; white-space: nowrap; }
     .approval { border-color: #f59e0b; color: #fbbf24; }
     .blocked, .conflict { border-color: #ef4444; color: #f87171; }
+    .stale { border-color: #f59e0b; color: #fbbf24; }
     .waiting { border-color: #38bdf8; color: #67e8f9; }
     .repaired { border-color: #22c55e; color: #86efac; }
     .approved, .green { border-color: #84cc16; color: #bef264; }
@@ -636,7 +660,18 @@ def page():
     .error { color: #fecaca; background: #3f1d22; border: 1px solid #7f1d1d; border-radius: 8px; padding: 16px; margin-bottom: 18px; }
     .actions { white-space: nowrap; }
     @media (max-width: 900px) { .panel-grid { grid-template-columns: 1fr; } .history { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 760px) { header { display: block; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } table { display: block; overflow-x: auto; } input { min-width: 100%; } }
+    @media (max-width: 760px) {
+      header { display: block; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      input { min-width: 100%; }
+      table, thead, tbody, tr, th, td { display: block; }
+      thead { display: none; }
+      table { background: transparent; border: 0; }
+      tr { border: 1px solid #27272a; background: #18181b; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+      td { display: grid; grid-template-columns: 92px 1fr; gap: 10px; border-bottom: 1px solid #27272a; }
+      td::before { content: attr(data-label); color: #a1a1aa; font-size: 11px; text-transform: uppercase; }
+      .actions { white-space: normal; }
+    }
   </style>
 </head>
 <body>
@@ -764,8 +799,9 @@ def page():
       if (row.error) return `<div class="error">Reviewer status failed: ${esc(row.error)}</div>`;
       const log = (row.log_tail || []).join("\\n");
       return `<div class="kv">
-        <div class="muted">State</div><div><span class="pill ${row.state === 'succeeded' ? 'green' : row.state === 'failed' ? 'blocked' : 'waiting'}">${esc(row.state || 'unknown')}</span></div>
+        <div class="muted">State</div><div><span class="pill ${row.stale ? 'stale' : row.state === 'succeeded' ? 'green' : row.state === 'failed' ? 'blocked' : 'waiting'}">${esc(row.stale ? 'stale' : row.state || 'unknown')}</span></div>
         <div class="muted">Schedule</div><div>${esc(row.schedule || '')}</div>
+        <div class="muted">Next run</div><div>${esc(formatTime(row.next_schedule_time))}</div>
         <div class="muted">Last schedule</div><div>${esc(formatTime(row.last_schedule_time))}</div>
         <div class="muted">Last success</div><div>${esc(formatTime(row.last_successful_time))}</div>
         <div class="muted">Latest job</div><div>${esc(row.latest_job || '')}</div>
@@ -789,14 +825,14 @@ def page():
       if (!rows.length) return '<div class="empty">No open Renovate PRs.</div>';
       return `<table><thead><tr><th>State</th><th>Repo</th><th>PR</th><th>Checks</th><th>Merge</th><th>Decision</th><th>Reason</th><th>Actions</th></tr></thead><tbody>${rows.map(row => `
         <tr>
-          <td><span class="pill ${esc(row.bucket)}">${esc(row.bucket)}</span></td>
-          <td>${esc(row.repo)}<div class="muted">${esc(row.platform)} ${esc(row.short_sha || row.sha)}</div></td>
-          <td><a href="${esc(row.url)}">${esc(row.title)}</a><div class="muted">#${esc(row.number)} ${esc(row.branch)}</div></td>
-          <td>${esc(row.checks)}</td>
-          <td>${esc(row.mergeable_state || "unknown")}</td>
-          <td>${esc(row.decision)}<div class="muted">${esc(row.approval || row.action || "")}</div></td>
-          <td class="reason">${esc(row.reason)}</td>
-          <td class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : row.approval ? '<button type="button" disabled>Approved</button>' : ''}</td>
+          <td data-label="State"><span class="pill ${esc(row.bucket)}">${esc(row.bucket)}</span></td>
+          <td data-label="Repo">${esc(row.repo)}<div class="muted">${esc(row.platform)} ${esc(row.short_sha || row.sha)}</div></td>
+          <td data-label="PR"><a href="${esc(row.url)}">${esc(row.title)}</a><div class="muted">#${esc(row.number)} ${esc(row.branch)}</div></td>
+          <td data-label="Checks">${esc(row.checks)}</td>
+          <td data-label="Merge">${esc(row.mergeable_state || "unknown")}</td>
+          <td data-label="Decision">${esc(row.decision)}<div class="muted">${esc(row.approval || row.action || "")}</div></td>
+          <td data-label="Reason" class="reason">${esc(row.reason)}</td>
+          <td data-label="Actions" class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : row.approval ? '<button type="button" disabled>Approved</button>' : ''}</td>
         </tr>`).join("")}</tbody></table>`;
     }
     function renderAudit(rows) {
@@ -811,9 +847,9 @@ def page():
       if (!rows.length) return '<div class="empty">No Renovate PRs merged today.</div>';
       return `<table><thead><tr><th>Repo</th><th>PR</th><th>Merged</th></tr></thead><tbody>${rows.map(row => `
         <tr>
-          <td>${esc(row.repo)}<div class="muted">${esc(row.platform)}</div></td>
-          <td><a href="${esc(row.url)}">${esc(row.title)}</a><div class="muted">#${esc(row.number)}</div></td>
-          <td>${esc(formatTime(row.merged_at))}</td>
+          <td data-label="Repo">${esc(row.repo)}<div class="muted">${esc(row.platform)}</div></td>
+          <td data-label="PR"><a href="${esc(row.url)}">${esc(row.title)}</a><div class="muted">#${esc(row.number)}</div></td>
+          <td data-label="Merged">${esc(formatTime(row.merged_at))}</td>
         </tr>`).join("")}</tbody></table>`;
     }
     async function approve(row, button) {
@@ -862,6 +898,7 @@ def page():
       }
     }
     async function runReviewer(button) {
+      if (!window.confirm('Run the Renovate reviewer now? This will create a one-off Kubernetes Job.')) return;
       button.disabled = true;
       button.textContent = 'Starting...';
       showNotice("");
