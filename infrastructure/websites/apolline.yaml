@@ -36,7 +36,7 @@ spec:
       containers:
       - name: web
         image: jeff7712/apolline:0.0.8
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
         securityContext:

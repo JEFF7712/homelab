@@ -36,7 +36,7 @@ spec:
       containers:
       - name: web
         image: jeff7712/rupanism:0.0.20
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
         securityContext:

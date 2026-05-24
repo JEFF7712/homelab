@@ -36,7 +36,7 @@ spec:
       containers:
         - name: web
           image: jeff7712/spatia-site:0.0.3
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           securityContext:

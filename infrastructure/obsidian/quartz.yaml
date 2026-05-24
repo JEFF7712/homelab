@@ -16,7 +16,7 @@ spec:
       containers:
         - name: quartz
           image: jeff7712/quartz@sha256:57633835d0e76e0541149fe917022b71b2be3c3f188d774777beb6f4732bb2a6
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
 ---

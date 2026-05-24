@@ -19,7 +19,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: dockerhub-retention
-            image: alpine/k8s:1.32.3
+            image: alpine/k8s:1.35.0
             securityContext:
               allowPrivilegeEscalation: false
               capabilities:

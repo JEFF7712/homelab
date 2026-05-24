@@ -36,7 +36,7 @@ spec:
       containers:
       - name: web
         image: jeff7712/darkbit:0.0.20
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
         securityContext:

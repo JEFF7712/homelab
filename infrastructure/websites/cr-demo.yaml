@@ -36,7 +36,7 @@ spec:
       containers:
         - name: web
           image: jeff7712/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           securityContext:
