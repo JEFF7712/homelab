@@ -3,6 +3,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: ntfy-data
   namespace: automation
+  labels:
+    recurring-job.longhorn.io/source: enabled
+    recurring-job-group.longhorn.io/app-configs: enabled
 spec:
   accessModes:
     - ReadWriteOnce

@@ -3,6 +3,38 @@ kind: Namespace
 metadata:
   name: volsync-system
 ---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: app-configs-12h
+  namespace: longhorn-system
+spec:
+  cron: "0 */12 * * *"
+  task: snapshot
+  groups:
+    - app-configs
+  retain: 4
+  concurrency: 1
+  labels:
+    managed-by: gitops
+    purpose: app-config-snapshot
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: important-data-daily
+  namespace: longhorn-system
+spec:
+  cron: "30 3 * * *"
+  task: snapshot
+  groups:
+    - important-data
+  retain: 3
+  concurrency: 1
+  labels:
+    managed-by: gitops
+    purpose: important-data-snapshot
+---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

@@ -8,6 +8,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: couchdb-data
   namespace: obsidian
+  labels:
+    recurring-job.longhorn.io/source: enabled
+    recurring-job-group.longhorn.io/important-data: enabled
 spec:
   accessModes:
     - ReadWriteOnce
