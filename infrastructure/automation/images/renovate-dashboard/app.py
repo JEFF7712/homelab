@@ -2,6 +2,7 @@
 import datetime
 import json
 import os
+import secrets
 import ssl
 import time
 import urllib.error
@@ -24,6 +25,8 @@ KUBE_PORT = os.getenv("KUBERNETES_SERVICE_PORT", "443")
 KUBE_API = f"https://{KUBE_HOST}:{KUBE_PORT}"
 CACHE_SECONDS = int(os.getenv("RENOVATE_DASHBOARD_CACHE_SECONDS", "90"))
 REVIEWER_CRONJOB = os.getenv("RENOVATE_REVIEWER_CRONJOB", "renovate-major-reviewer")
+MANUAL_JOB_TTL_SECONDS = int(os.getenv("RENOVATE_MANUAL_JOB_TTL_SECONDS", "3600"))
+ACTION_TOKEN = os.getenv("RENOVATE_DASHBOARD_ACTION_TOKEN") or secrets.token_urlsafe(32)
 
 CACHE = {"expires": 0, "data": None}
 
@@ -471,7 +474,7 @@ def trigger_reviewer():
         "cronjob.kubernetes.io/instantiate": "manual",
       },
     },
-    "spec": job_spec,
+    "spec": {**job_spec, "ttlSecondsAfterFinished": MANUAL_JOB_TTL_SECONDS},
   }
   job = kube_post(f"/apis/batch/v1/namespaces/{NAMESPACE}/jobs", body)
   CACHE["expires"] = 0
@@ -725,6 +728,7 @@ def page():
     </section>
   </main>
   <script>
+    const ACTION_TOKEN = __ACTION_TOKEN__;
     const labels = ["approval","conflict","blocked","waiting","repaired","approved","green","unreviewed"];
     const state = { open: [], merged_today: [], counts: {}, generated_at: "", reviewer: {}, activity: {} };
     const locallyApproved = new Set();
@@ -859,7 +863,7 @@ def page():
       try {
         const res = await fetch('/api/approve', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Renovate-Dashboard-Action': ACTION_TOKEN },
           body: JSON.stringify(row),
         });
         const data = await res.json();
@@ -903,7 +907,10 @@ def page():
       button.textContent = 'Starting...';
       showNotice("");
       try {
-        const res = await fetch('/api/run-reviewer', { method: 'POST' });
+        const res = await fetch('/api/run-reviewer', {
+          method: 'POST',
+          headers: { 'X-Renovate-Dashboard-Action': ACTION_TOKEN },
+        });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
         showNotice(data.message || 'Reviewer started.');
@@ -934,7 +941,7 @@ def page():
     setInterval(load, 90000);
   </script>
 </body>
-</html>"""
+</html>""".replace("__ACTION_TOKEN__", json.dumps(ACTION_TOKEN))
 
 class Handler(BaseHTTPRequestHandler):
   def send_json(self, status, payload):
@@ -944,6 +951,22 @@ class Handler(BaseHTTPRequestHandler):
     self.send_header("Cache-Control", "no-store")
     self.end_headers()
     self.wfile.write(body)
+
+  def action_allowed(self):
+    token = self.headers.get("X-Renovate-Dashboard-Action", "")
+    if not secrets.compare_digest(token, ACTION_TOKEN):
+      self.send_json(403, {"error": "invalid dashboard action token"})
+      return False
+    host = self.headers.get("Host", "")
+    for header in ("Origin", "Referer"):
+      value = self.headers.get(header)
+      if not value:
+        continue
+      parsed = urllib.parse.urlparse(value)
+      if parsed.netloc and parsed.netloc != host:
+        self.send_json(403, {"error": f"invalid {header.lower()} header"})
+        return False
+    return True
 
   def do_GET(self):
     path = urllib.parse.urlparse(self.path).path
@@ -976,6 +999,8 @@ class Handler(BaseHTTPRequestHandler):
   def do_POST(self):
     path = urllib.parse.urlparse(self.path).path
     if path == "/api/run-reviewer":
+      if not self.action_allowed():
+        return
       try:
         self.send_json(200, trigger_reviewer())
       except HttpError as exc:
@@ -985,6 +1010,8 @@ class Handler(BaseHTTPRequestHandler):
       return
     if path != "/api/approve":
       self.send_json(404, {"error": "not found"})
+      return
+    if not self.action_allowed():
       return
     try:
       length = int(self.headers.get("Content-Length", "0"))
