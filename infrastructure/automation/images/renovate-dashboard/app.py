@@ -642,6 +642,7 @@ def page():
   <script>
     const labels = ["approval","conflict","blocked","waiting","repaired","approved","green","unreviewed"];
     const state = { open: [], merged_today: [], counts: {}, generated_at: "", reviewer: {}, activity: {} };
+    const locallyApproved = new Set();
     function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
     function unique(values) { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
     function fillSelect(id, values, label) {
@@ -653,6 +654,15 @@ def page():
     function showNotice(message, error = false) {
       const el = document.getElementById('notice');
       el.innerHTML = message ? `<div class="${error ? 'error' : 'notice'}">${esc(message)}</div>` : "";
+    }
+    function approvalKey(row) {
+      return `${row.owner}/${row.repo}#${row.number}@${row.sha}`;
+    }
+    function applyLocalApprovals(rows) {
+      return rows.map(row => {
+        if (!locallyApproved.has(approvalKey(row))) return row;
+        return { ...row, can_approve: false, approval: row.approval || 'approved from dashboard' };
+      });
     }
     function filteredRows() {
       const bucket = document.getElementById('stateFilter').value;
@@ -711,7 +721,7 @@ def page():
           <td>${esc(row.mergeable_state || "unknown")}</td>
           <td>${esc(row.decision)}<div class="muted">${esc(row.approval || row.action || "")}</div></td>
           <td class="reason">${esc(row.reason)}</td>
-          <td class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : ''}</td>
+          <td class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : row.approval ? '<button type="button" disabled>Approved</button>' : ''}</td>
         </tr>`).join("")}</tbody></table>`;
     }
     function renderMerged(rows) {
@@ -735,6 +745,9 @@ def page():
         });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        locallyApproved.add(approvalKey(row));
+        button.textContent = 'Approved';
+        button.disabled = true;
         showNotice(data.message || 'Approved.');
         await load();
       } catch (err) {
@@ -752,7 +765,7 @@ def page():
         state.counts = data.counts || {};
         state.reviewer = data.reviewer || {};
         state.activity = data.activity || {};
-        state.open = data.open || [];
+        state.open = applyLocalApprovals(data.open || []);
         state.merged_today = data.merged_today || [];
         fillSelect('stateFilter', unique(state.open.map(row => row.bucket)), 'All states');
         fillSelect('repoFilter', unique(state.open.map(row => row.repo)), 'All repos');
