@@ -91,6 +91,9 @@ def kube_configmap(name):
 def kube(path):
   return request("GET", f"{KUBE_API}{path}", kube_headers(), context=kube_context())
 
+def kube_post(path, body):
+  return request("POST", f"{KUBE_API}{path}", kube_headers(), body, context=kube_context())
+
 def kube_text(path):
   return request_text("GET", f"{KUBE_API}{path}", kube_headers(), context=kube_context())
 
@@ -424,6 +427,37 @@ def reviewer_run_status():
       "log_tail": [],
     }
 
+def trigger_reviewer():
+  cron = kube(f"/apis/batch/v1/namespaces/{NAMESPACE}/cronjobs/{REVIEWER_CRONJOB}")
+  job_template = cron.get("spec", {}).get("jobTemplate", {})
+  job_spec = job_template.get("spec")
+  if not job_spec:
+    raise ValueError(f"CronJob {REVIEWER_CRONJOB} does not have a job template")
+  timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d%H%M%S")
+  body = {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+      "name": f"{REVIEWER_CRONJOB}-manual-{timestamp}",
+      "namespace": NAMESPACE,
+      "labels": {
+        "app.kubernetes.io/name": REVIEWER_CRONJOB,
+        "renovate-dashboard.rupan.dev/manual": "true",
+      },
+      "annotations": {
+        "cronjob.kubernetes.io/instantiate": "manual",
+      },
+    },
+    "spec": job_spec,
+  }
+  job = kube_post(f"/apis/batch/v1/namespaces/{NAMESPACE}/jobs", body)
+  CACHE["expires"] = 0
+  return {
+    "ok": True,
+    "job": job.get("metadata", {}).get("name", body["metadata"]["name"]),
+    "message": f"Started reviewer job {job.get('metadata', {}).get('name', body['metadata']['name'])}.",
+  }
+
 def activity_history(state_data, merged_recent):
   now = datetime.datetime.now(ZoneInfo("America/New_York"))
   since_ts = int((now - datetime.timedelta(days=7)).timestamp())
@@ -560,12 +594,17 @@ def page():
     .panel-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 14px; margin-bottom: 20px; }
     .panel { border: 1px solid #27272a; background: #18181b; border-radius: 8px; padding: 14px; }
     .panel h2 { margin-bottom: 10px; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .panel-head h2 { margin-bottom: 0; }
     .kv { display: grid; grid-template-columns: 128px 1fr; gap: 7px 12px; font-size: 13px; }
     .log { margin: 12px 0 0; padding: 10px; border-radius: 6px; background: #101114; color: #d4d4d8; font-size: 12px; overflow: auto; white-space: pre-wrap; }
     .history { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
     .day { border: 1px solid #27272a; border-radius: 6px; padding: 8px; min-height: 76px; background: #101114; }
     .day strong { display: block; font-size: 12px; margin-bottom: 7px; }
     .mini { display: flex; justify-content: space-between; gap: 6px; color: #d4d4d8; font-size: 12px; }
+    .audit { display: grid; gap: 8px; }
+    .audit-item { border: 1px solid #27272a; background: #18181b; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+    .audit-top { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
     section { margin-top: 26px; }
     .panel-grid section { margin-top: 0; }
     .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
@@ -612,7 +651,10 @@ def page():
     <div class="grid" id="stats"></div>
     <div class="panel-grid">
       <section class="panel">
-        <h2>Reviewer Run</h2>
+        <div class="panel-head">
+          <h2>Reviewer Run</h2>
+          <button id="runReviewer" type="button">Run now</button>
+        </div>
         <div id="reviewer"></div>
       </section>
       <section class="panel">
@@ -633,6 +675,14 @@ def page():
       </div>
       <div id="notice"></div>
       <div id="open"></div>
+    </section>
+    <section>
+      <h2>Pending Approved</h2>
+      <div id="pending"></div>
+    </section>
+    <section>
+      <h2>Audit Trail</h2>
+      <div id="audit"></div>
     </section>
     <section>
       <h2>Merged Today</h2>
@@ -683,7 +733,12 @@ def page():
       document.getElementById('reviewer').innerHTML = renderReviewer(state.reviewer || {});
       document.getElementById('activity').innerHTML = renderActivity(state.activity || {});
       document.getElementById('open').innerHTML = renderRows(filteredRows());
+      document.getElementById('pending').innerHTML = renderRows(pendingApproved());
+      document.getElementById('audit').innerHTML = renderAudit(state.activity.recent_actions || []);
       document.getElementById('merged').innerHTML = renderMerged(state.merged_today || []);
+    }
+    function pendingApproved() {
+      return state.open.filter(row => row.approval && !['merged', 'repaired'].includes(row.action || ''));
     }
     function renderReviewer(row) {
       if (row.error) return `<div class="error">Reviewer status failed: ${esc(row.error)}</div>`;
@@ -723,6 +778,14 @@ def page():
           <td class="reason">${esc(row.reason)}</td>
           <td class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : row.approval ? '<button type="button" disabled>Approved</button>' : ''}</td>
         </tr>`).join("")}</tbody></table>`;
+    }
+    function renderAudit(rows) {
+      if (!rows.length) return '<div class="empty">No recent reviewer actions.</div>';
+      return `<div class="audit">${rows.map(row => `<div class="audit-item">
+        <div class="audit-top"><strong>${esc(row.repo)}#${esc(row.number)}</strong><span class="muted">${esc(row.processed_at)}</span></div>
+        <div>${esc(row.action || 'unknown')} / ${esc(row.decision || 'unknown')}</div>
+        <div class="muted">${esc(row.reason || '')}</div>
+      </div>`).join("")}</div>`;
     }
     function renderMerged(rows) {
       if (!rows.length) return '<div class="empty">No Renovate PRs merged today.</div>';
@@ -778,6 +841,23 @@ def page():
         document.getElementById('merged').innerHTML = '';
       }
     }
+    async function runReviewer(button) {
+      button.disabled = true;
+      button.textContent = 'Starting...';
+      showNotice("");
+      try {
+        const res = await fetch('/api/run-reviewer', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        showNotice(data.message || 'Reviewer started.');
+        await load();
+      } catch (err) {
+        showNotice(`Reviewer run failed: ${err.message}`, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Run now';
+      }
+    }
     document.getElementById('open').addEventListener('click', event => {
       if (event.target.tagName !== 'BUTTON') return;
       const button = event.target;
@@ -792,6 +872,7 @@ def page():
       document.getElementById(id).addEventListener('input', render);
     }
     document.getElementById('refresh').addEventListener('click', load);
+    document.getElementById('runReviewer').addEventListener('click', event => runReviewer(event.target));
     load();
     setInterval(load, 90000);
   </script>
@@ -837,6 +918,14 @@ class Handler(BaseHTTPRequestHandler):
 
   def do_POST(self):
     path = urllib.parse.urlparse(self.path).path
+    if path == "/api/run-reviewer":
+      try:
+        self.send_json(200, trigger_reviewer())
+      except HttpError as exc:
+        self.send_json(400, {"error": str(exc)})
+      except Exception as exc:
+        self.send_json(500, {"error": str(exc)})
+      return
     if path != "/api/approve":
       self.send_json(404, {"error": "not found"})
       return

@@ -23,6 +23,7 @@ rules:
   - cronjobs
   - jobs
   verbs:
+  - create
   - get
   - list
 - apiGroups:
