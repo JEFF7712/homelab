@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: volsync-system
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: snapshot-controller
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://piraeus.io/helm-charts
+    chart: snapshot-controller
+    targetRevision: 5.0.4
+    helm:
+      valuesObject:
+        installCRDs: true
+        volumeSnapshotClasses:
+          - name: longhorn-snapshot-vsc
+            annotations:
+              snapshot.storage.kubernetes.io/is-default-class: "true"
+            driver: driver.longhorn.io
+            deletionPolicy: Delete
+            parameters:
+              type: snap
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: volsync
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://backube.github.io/helm-charts
+    chart: volsync
+    targetRevision: 0.15.0
+    helm:
+      valuesObject:
+        manageCRDs: true
+        metrics:
+          disableAuth: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: volsync-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
