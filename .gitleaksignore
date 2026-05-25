@@ -3,3 +3,6 @@
 10aa3b70fb46ff6408295a7fd77349682a4f55cc:infrastructure/media/soularr.yaml:generic-api-key:95
 326bef7852ad8b9ac63b942ccbfcb5fbcdf9610f:secrets/gitlab-auth.yaml:generic-api-key:8
 df05ac176e535825b9230f8889f82a1fd9e9f1e5:infrastructure/sealed-gitlab-auth.yaml:generic-api-key:9
+bc9d3a5e2b3ab5d60b725e1b1405362997b016f4:apps/backups.yaml:generic-api-key:15
+50286869068a06334ea1930077f1f1788ed1df54:bootstrap/sealed-gitlab-auth.yaml:generic-api-key:8
+50286869068a06334ea1930077f1f1788ed1df54:secrets/gitlab-auth.yaml:generic-api-key:8
