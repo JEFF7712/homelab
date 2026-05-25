@@ -18,7 +18,7 @@ resource "proxmox_virtual_environment_container" "netbird" {
 
     user_account {
       password = var.password
-      keys     = [file("~/.ssh/id_ed25519.pub")]
+      keys     = compact([local.ssh_public_key])
     }
 
     ip_config {
@@ -85,7 +85,7 @@ resource "null_resource" "lxc_include_injector" {
     type        = "ssh"
     user        = "root"
     host        = var.host_ip_addr
-    private_key = file("~/.ssh/id_ed25519")
+    private_key = local.ssh_private_key
   }
 
   provisioner "remote-exec" {
@@ -116,7 +116,7 @@ resource "null_resource" "netbird_alpine_bootstrap" {
     type        = "ssh"
     user        = "root"
     host        = var.host_ip_addr
-    private_key = file("~/.ssh/id_ed25519")
+    private_key = local.ssh_private_key
   }
 
   provisioner "remote-exec" {
@@ -147,7 +147,7 @@ resource "null_resource" "reboot_container" {
     type        = "ssh"
     user        = "root"
     host        = var.host_ip_addr
-    private_key = file("~/.ssh/id_ed25519")
+    private_key = local.ssh_private_key
   }
 
   provisioner "remote-exec" {

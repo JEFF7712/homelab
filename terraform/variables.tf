@@ -12,6 +12,15 @@ variable "password" {
   type      = string
   sensitive = true
 }
+variable "ssh_private_key" {
+  type      = string
+  default   = null
+  sensitive = true
+}
+variable "ssh_public_key" {
+  type    = string
+  default = null
+}
 variable "gitlab_token" {
   type      = string
   sensitive = true
