@@ -8,3 +8,5 @@ bc9d3a5e2b3ab5d60b725e1b1405362997b016f4:apps/backups.yaml:generic-api-key:15
 50286869068a06334ea1930077f1f1788ed1df54:secrets/gitlab-auth.yaml:generic-api-key:8
 2b58a6a2411448580c72f9d124e5e9c718e3f56a:bootstrap/sealed-gitlab-auth.yaml:generic-api-key:8
 2b58a6a2411448580c72f9d124e5e9c718e3f56a:secrets/gitlab-auth.yaml:generic-api-key:8
+14dac1c2c39ea22d5e0910a9ec5529613d6d3e20:bootstrap/sealed-gitlab-auth.yaml:generic-api-key:8
+14dac1c2c39ea22d5e0910a9ec5529613d6d3e20:secrets/gitlab-auth.yaml:generic-api-key:8
