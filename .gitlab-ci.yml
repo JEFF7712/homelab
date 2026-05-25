@@ -30,7 +30,7 @@ workflow:
 
 yaml_lint:
   stage: lint
-  image: python:3.13-alpine
+  image: python:3.14-alpine
   before_script:
     - pip install --no-cache-dir yamllint
   script:
@@ -38,7 +38,7 @@ yaml_lint:
 
 json_validate:
   stage: lint
-  image: python:3.13-alpine
+  image: python:3.14-alpine
   script:
     - python -m json.tool renovate.json > /dev/null
 
@@ -51,7 +51,7 @@ terraform_format:
 
 ansible_lint:
   stage: lint
-  image: python:3.13-slim
+  image: python:3.14-slim
   before_script:
     - pip install --no-cache-dir ansible ansible-lint
     - ansible-galaxy collection install -r ansible/requirements.yml
@@ -61,7 +61,7 @@ ansible_lint:
 
 ansible_syntax:
   stage: validate
-  image: python:3.13-slim
+  image: python:3.14-slim
   before_script:
     - pip install --no-cache-dir ansible
     - ansible-galaxy collection install -r ansible/requirements.yml
@@ -71,7 +71,7 @@ ansible_syntax:
 
 argocd_app_validate:
   stage: validate
-  image: python:3.13-alpine
+  image: python:3.14-alpine
   before_script:
     - pip install --no-cache-dir pyyaml
   script:
