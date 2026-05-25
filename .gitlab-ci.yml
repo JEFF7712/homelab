@@ -105,6 +105,8 @@ terraform_validate:
 
 secret_scan:
   stage: security
+  variables:
+    GIT_DEPTH: "0"
   image:
     name: zricethezav/gitleaks:latest
     entrypoint: [""]
