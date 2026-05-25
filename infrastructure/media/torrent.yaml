@@ -35,10 +35,19 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: fix-permissions
           image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: config-storage
               mountPath: /config
@@ -46,6 +55,10 @@ spec:
         - name: configure-qbittorrent
           image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           args:
             - |
               mkdir -p /config/qBittorrent
@@ -67,8 +80,10 @@ spec:
         - name: gluetun
           image: qmcgaw/gluetun@sha256:725d3e51091dde4ca43e3e3f26e2e6d3d0ccc66821e92d505c3da04958f7d472
           securityContext:
+            allowPrivilegeEscalation: false
             capabilities:
               add: ["NET_ADMIN"]
+            readOnlyRootFilesystem: true
           env:
             - name: VPN_MTU
               value: "1320"
@@ -105,9 +120,19 @@ spec:
               value: "off"
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: gluetun-config
+              mountPath: /gluetun
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
 
         - name: qbittorrent
           image: lscr.io/linuxserver/qbittorrent@sha256:3679a75dd2304b695525d83a4ff14c458708b5da4a7ce53044240932139590e1
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           resources:
             limits:
               cpu: "2"
@@ -127,6 +152,10 @@ spec:
               mountPath: /data
             - name: config-storage
               mountPath: /config
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
       volumes:
         - name: media-storage
           persistentVolumeClaim:
@@ -134,6 +163,12 @@ spec:
         - name: config-storage
           persistentVolumeClaim:
             claimName: qbittorrent-config
+        - name: gluetun-config
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

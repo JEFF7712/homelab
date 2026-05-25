@@ -38,10 +38,17 @@ spec:
       labels:
         app: couchdb
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: copy-config
           image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ['sh', '-c', 'cp /tmp/config/10-cors.ini /opt/couchdb/etc/local.d/10-cors.ini']
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: cors-config-source
               mountPath: /tmp/config
@@ -51,6 +58,9 @@ spec:
         - name: couchdb
           image: couchdb:3.3.3
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           env:
             - name: COUCHDB_USER
               valueFrom:
@@ -70,6 +80,8 @@ spec:
               mountPath: /opt/couchdb/data
             - name: config-storage
               mountPath: /opt/couchdb/etc/local.d
+            - name: tmp
+              mountPath: /tmp
           livenessProbe:
             httpGet:
               path: /
@@ -84,6 +96,8 @@ spec:
           configMap:
             name: couchdb-cors-config
         - name: config-storage
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
 ---
 apiVersion: v1

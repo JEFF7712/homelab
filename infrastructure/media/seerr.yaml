@@ -33,10 +33,19 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: fix-permissions
           image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /app/config"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: config-storage
               mountPath: /app/config
@@ -46,13 +55,26 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5055
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: config-storage
               mountPath: /app/config
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: config-storage
           persistentVolumeClaim:
             claimName: seerr-config
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

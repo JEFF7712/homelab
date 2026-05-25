@@ -33,6 +33,11 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: prowlarr
           image: lscr.io/linuxserver/prowlarr@sha256:c5de2a8758a05594319263e7691c1dce56899442ed1720d6eca216c0958f4caf
@@ -45,13 +50,24 @@ spec:
               value: "America/Chicago"
           ports:
             - containerPort: 9696
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: config-storage
               mountPath: /config
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
       volumes:
         - name: config-storage
           persistentVolumeClaim:
             claimName: prowlarr-config
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

@@ -34,6 +34,8 @@ spec:
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
 
       volumes:
         - name: media-storage
@@ -46,6 +48,10 @@ spec:
           secret:
             secretName: slskd-seed-secret
         - name: gluetun-config
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: run
           emptyDir: {}
 
       initContainers:
@@ -68,7 +74,9 @@ spec:
               chown -R 1000:1000 /config
               chown 1000:1000 /data/downloads/soulseek /data/downloads/soulseek/incomplete
           securityContext:
-            privileged: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: slskd-config
               mountPath: /config
@@ -81,8 +89,10 @@ spec:
         - name: gluetun
           image: qmcgaw/gluetun@sha256:725d3e51091dde4ca43e3e3f26e2e6d3d0ccc66821e92d505c3da04958f7d472
           securityContext:
+            allowPrivilegeEscalation: false
             capabilities:
               add: ["NET_ADMIN"]
+            readOnlyRootFilesystem: true
           env:
             - name: VPN_SERVICE_PROVIDER
               value: "airvpn"
@@ -124,9 +134,22 @@ spec:
           volumeMounts:
             - name: gluetun-config
               mountPath: /gluetun
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
 
         - name: slskd
           image: slskd/slskd@sha256:17ef977563be206f3b5932080b1e23883b2cb39dc9010640f6f39b4eaec887e3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           env:
             - name: SLSKD_HTTP_URL
               value: "http://0.0.0.0:5030"
@@ -164,6 +187,8 @@ spec:
               mountPath: /data
             - name: slskd-config
               mountPath: /config
+            - name: tmp
+              mountPath: /tmp
 ---
 apiVersion: v1
 kind: Service

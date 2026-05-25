@@ -17,12 +17,23 @@ spec:
       labels:
         app: subgen
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: subgen
           volumeMounts:
             - name: media-storage
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           image: mccloud/subgen@sha256:0e3c1cd5bbe59901464b2e8e14dfbaeb2c6d47f5a0402c332d3e1761afbcfea3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           resources:
             limits:
               memory: 4Gi
@@ -49,6 +60,8 @@ spec:
         - name: media-storage
           persistentVolumeClaim:
             claimName: media-pvc-hdd
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

@@ -38,6 +38,8 @@ spec:
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
         - name: config-storage
           persistentVolumeClaim:
@@ -48,13 +50,19 @@ spec:
         - name: extended-config
           configMap:
             name: lidarr-extended-config
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
 
       initContainers:
         - name: fix-permissions
           image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
-            privileged: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: config-storage
               mountPath: /config
@@ -92,6 +100,15 @@ spec:
               mountPath: /config/extended.conf
               subPath: extended.conf
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
+          securityContext:
+            allowPrivilegeEscalation: false
+            # The container installs ffmpeg at startup; replace this with a
+            # custom image containing ffmpeg before making the rootfs read-only.
+            readOnlyRootFilesystem: false
 
 ---
 apiVersion: v1

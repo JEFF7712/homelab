@@ -33,10 +33,22 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
+        supplementalGroups:
+          - 44
+          - 109
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: fix-permissions
           image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: config-storage
               mountPath: /config
@@ -61,8 +73,14 @@ spec:
               mountPath: /data
             - name: render-device
               mountPath: /dev/dri
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
           securityContext:
-            privileged: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
       volumes:
         - name: media-storage
           persistentVolumeClaim:
@@ -73,6 +91,10 @@ spec:
         - name: render-device
           hostPath:
             path: /dev/dri
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

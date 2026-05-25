@@ -15,9 +15,15 @@ spec:
       labels:
         app: immich-server
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: immich-server
           image: ghcr.io/immich-app/immich-server:v2.5.6
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           env:
             - name: TZ
               value: America/Chicago
@@ -45,10 +51,14 @@ spec:
           volumeMounts:
             - name: library-volume
               mountPath: /usr/src/app/upload
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: library-volume
           persistentVolumeClaim:
             claimName: immich-library-pvc
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

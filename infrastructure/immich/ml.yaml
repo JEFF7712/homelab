@@ -13,15 +13,25 @@ spec:
       labels:
         app: immich-machine-learning
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: immich-machine-learning
           image: ghcr.io/immich-app/immich-machine-learning:v1.124.1
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: model-cache
               mountPath: /cache
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: model-cache
-          emptyDir: {} 
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
