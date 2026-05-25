@@ -30,6 +30,31 @@
   "commitMessageExtra": "from {{{currentVersion}}} to {{{newVersion}}}",
   "packageRules": [
     {
+      "description": "Group GitLab CI and Dockerfile image updates",
+      "matchManagers": [
+        "dockerfile",
+        "gitlabci"
+      ],
+      "groupName": "CI and Docker image updates",
+      "groupSlug": "ci-docker-images"
+    },
+    {
+      "description": "Group Terraform provider and module updates",
+      "matchManagers": [
+        "terraform"
+      ],
+      "groupName": "Terraform dependency updates",
+      "groupSlug": "terraform-dependencies"
+    },
+    {
+      "description": "Group Argo CD tracked Helm chart updates",
+      "matchManagers": [
+        "argocd"
+      ],
+      "groupName": "Argo CD Helm chart updates",
+      "groupSlug": "argocd-helm-charts"
+    },
+    {
       "description": "Automatically merge minor and patch updates",
       "matchUpdateTypes": [
         "minor",
