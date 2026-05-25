@@ -23,6 +23,7 @@ spec:
             image: jeff7712/homelab-renovate-agent:0.0.974
             securityContext:
               allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
               runAsNonRoot: true
               runAsUser: 65532
               runAsGroup: 65532
@@ -81,6 +82,8 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           volumes:
           - name: config
             projected:
@@ -90,6 +93,8 @@ spec:
                   name: automation-config
               - configMap:
                   name: renovate-reviewer-script
+          - name: tmp
+            emptyDir: {}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -121,11 +126,16 @@ spec:
       annotations:
         reloader.stakater.com/auto: 'true'
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: webhook
         image: python:3.12-alpine
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 65532
           runAsGroup: 65532
@@ -175,6 +185,8 @@ spec:
         - name: config
           mountPath: /config
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: config
         projected:
@@ -184,6 +196,8 @@ spec:
               name: automation-config
           - configMap:
               name: renovate-approval-webhook-script
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

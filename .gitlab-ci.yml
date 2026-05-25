@@ -116,9 +116,8 @@ kubernetes_security_scan:
   image:
     name: aquasec/trivy:latest
     entrypoint: [""]
-  allow_failure: true
   script:
-    - trivy config --severity HIGH,CRITICAL --exit-code 1 .
+    - trivy config --severity HIGH,CRITICAL .
 
 sync_to_github:
   stage: sync

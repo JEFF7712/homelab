@@ -30,11 +30,16 @@ spec:
         reloader.stakater.com/auto: 'true'
     spec:
       serviceAccountName: automation-runner
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: dashboard
         image: jeff7712/homelab-renovate-dashboard:0.0.11
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 65532
           runAsGroup: 65532
@@ -84,6 +89,8 @@ spec:
         - name: config
           mountPath: /config
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: config
         projected:
@@ -91,6 +98,8 @@ spec:
           sources:
           - configMap:
               name: automation-config
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

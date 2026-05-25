@@ -60,9 +60,22 @@ spec:
     spec:
       serviceAccountName: mimir-pvc-resizer
       restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: resize
           image: alpine/k8s:1.35.0
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
           command:
             - /bin/sh
             - -c

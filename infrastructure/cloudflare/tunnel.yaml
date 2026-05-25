@@ -17,6 +17,10 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0
@@ -33,6 +37,13 @@ spec:
                 secretKeyRef:
                   name: cloudflare-tunnel
                   key: tunnel-token
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           livenessProbe:
             httpGet:
               path: /ready

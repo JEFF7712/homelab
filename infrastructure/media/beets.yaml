@@ -42,6 +42,8 @@ spec:
           securityContext:
             fsGroup: 1000
             fsGroupChangePolicy: "OnRootMismatch"
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: beets
               image: lscr.io/linuxserver/beets@sha256:54b4d3424965f76a22affae64b7aa51b061fe45f4c84f17a6fe750de3b225ca6
@@ -66,6 +68,11 @@ spec:
                   echo "[$(date -Is)] beets nightly end status=$status";
                   exit $status
               securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
                 runAsUser: 1000
                 runAsGroup: 1000
               volumeMounts:

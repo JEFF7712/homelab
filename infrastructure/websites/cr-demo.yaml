@@ -33,6 +33,11 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           image: jeff7712/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387
@@ -41,6 +46,10 @@ spec:
             - containerPort: 8080
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 101
 ---

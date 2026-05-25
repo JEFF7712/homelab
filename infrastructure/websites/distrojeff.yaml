@@ -33,6 +33,11 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      securityContext:
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: web
         image: jeff7712/distrojeff-site:0.0.13
@@ -48,6 +53,10 @@ spec:
             memory: "128Mi"
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 101
 ---
