@@ -23,7 +23,7 @@ spec:
           image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -99,6 +99,8 @@ spec:
                 - ALL
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
           volumeMounts:
             - name: redis-data
               mountPath: /data

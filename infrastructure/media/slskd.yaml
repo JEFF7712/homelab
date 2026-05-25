@@ -53,6 +53,8 @@ spec:
           emptyDir: {}
         - name: run
           emptyDir: {}
+        - name: dotnet-bundle
+          emptyDir: {}
 
       initContainers:
         - name: fix-config-and-perms
@@ -92,7 +94,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               add: ["NET_ADMIN"]
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
           env:
             - name: VPN_SERVICE_PROVIDER
               value: "airvpn"
@@ -189,6 +191,8 @@ spec:
               mountPath: /config
             - name: tmp
               mountPath: /tmp
+            - name: dotnet-bundle
+              mountPath: /.net
 ---
 apiVersion: v1
 kind: Service

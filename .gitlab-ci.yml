@@ -117,7 +117,7 @@ kubernetes_security_scan:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
-    - trivy config --severity HIGH,CRITICAL .
+    - trivy config --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --exit-code 1 .
 
 sync_to_github:
   stage: sync

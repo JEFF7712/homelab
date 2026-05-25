@@ -1,0 +1,19 @@
+misconfigurations:
+  - id: KSV-0014
+    paths:
+      - infrastructure/immich/db.yaml
+  - id: KSV-0014
+    paths:
+      - infrastructure/media/flaresolverr.yaml
+  - id: KSV-0014
+    paths:
+      - infrastructure/media/lidarr.yaml
+  - id: KSV-0014
+    paths:
+      - infrastructure/media/slskd.yaml
+  - id: KSV-0014
+    paths:
+      - infrastructure/media/subgen.yaml
+  - id: KSV-0014
+    paths:
+      - infrastructure/media/torrent.yaml

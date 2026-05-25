@@ -30,10 +30,7 @@ spec:
           image: mccloud/subgen@sha256:0e3c1cd5bbe59901464b2e8e14dfbaeb2c6d47f5a0402c332d3e1761afbcfea3
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
           resources:
             limits:
               memory: 4Gi

@@ -44,6 +44,9 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -52,6 +55,9 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 101
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute

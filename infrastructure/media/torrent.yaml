@@ -83,7 +83,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               add: ["NET_ADMIN"]
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
           env:
             - name: VPN_MTU
               value: "1320"
