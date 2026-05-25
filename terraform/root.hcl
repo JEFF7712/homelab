@@ -19,8 +19,8 @@ remote_state {
 }
 
 inputs = {
-  cluster_name = "homelab"
+  cluster_name     = "homelab"
   cluster_endpoint = "https://10.0.20.101:6443"
-  gitlab_username = "JEFF7712"
-  gitlab_project = "homelab"
+  gitlab_username  = "JEFF7712"
+  gitlab_project   = "homelab"
 }

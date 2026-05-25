@@ -1,0 +1,12 @@
+---
+exclude_paths:
+  - group_vars/all.yml
+
+skip_list:
+  - command-instead-of-module
+  - fqcn
+  - ignore-errors
+  - no-changed-when
+  - risky-file-permissions
+  - risky-shell-pipe
+  - yaml

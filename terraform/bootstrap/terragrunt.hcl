@@ -3,7 +3,12 @@ include "root" {
 }
 
 dependency "infrastructure" {
-  config_path = "../infrastructure" 
+  config_path = "../infrastructure"
+
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
+  mock_outputs = {
+    kubeconfig = "ci-mock-kubeconfig"
+  }
 }
 
 inputs = {

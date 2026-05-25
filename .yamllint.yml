@@ -1,0 +1,16 @@
+---
+extends: default
+
+ignore: |
+  .git/
+  **/__pycache__/**
+
+rules:
+  comments: disable
+  comments-indentation: disable
+  document-start: disable
+  indentation: disable
+  line-length: disable
+  new-line-at-end-of-file: disable
+  trailing-spaces: disable
+  truthy: disable
