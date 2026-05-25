@@ -20,7 +20,10 @@ metadata:
   name: jellyfin
   namespace: media
 spec:
-  replicas: 1
+  # Scaled to 0 while operator is remote. Jellyfin transcoding was the
+  # likely trigger for the 2026-05-25 share-manager OOM on worker-02 that
+  # wedged the node; set back to 1 to resume streaming.
+  replicas: 0
   strategy:
     type: Recreate
   selector:
