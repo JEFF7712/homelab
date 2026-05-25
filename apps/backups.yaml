@@ -3,6 +3,32 @@ kind: Namespace
 metadata:
   name: volsync-system
 ---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: r2-backup-credentials
+  namespace: longhorn-system
+spec:
+  encryptedData:
+    AWS_ACCESS_KEY_ID: AgA9Udta+fDEz1H3gXG3tFb6HGLYd2sF8CfWpF/emcX656h+61lSBPEOYBLCdm+/SlNMYjdDqugk2ADHv9NR1maXZ5U9+YbXbPyupFIbAJdOq8BI21fdaYreyRzW6z9/U7EeW1PxoFQfuS1giNnOKZT/HxEvSzQYWQFMGOgNNRzR0Epep7mmAumrH80n+YMLjQEdMZAqoQTqRCjaVJVVDfodIdSKLKolzuzsdCr1Har4M6sRHpHgKzj9rxVDjRQdHtzIg+nJhkqzBrGE1hD8iRuHr/dHa/1eoLBWlroVP8cdNJgtMiusDTjPta3BUqxDArHQDJX8oVaIDs4IVXp60j/QAPcu2tGiZotsdNkePYgVxJ79B8S9P4YCs+RhlO5+JrGxE7fT9usuD9HbjtqEomh+0gyAyeBsemsSh3O96QVjRDnrZIcFXnHrGpC8UyN5FTroWKQtYivO8dRR6Hoy2THCQpZw+VbVsanB8RdIX9QfxoG+CfOPDbN9HIbm5oYT+e9/1RMINPeAviPtB8PpIfE6HlQsfo12GJ2JJr59cRgJG2G8NDb/lqMqxrES/0p21MKYi+J9q1dmKVkQA8zgsjBxpZdWYdbRlUqsgwrIaLcVUn9UTvsL4LDVWi/y6NEm/ZYafwhDfWbCTO0VMv/Xzky1qIeQOQeJXJpAIsZ7nghqYq7VunD7szBI2XYJ97uxdGBdYlVfjSNlZJHF8KCo6nP/B4c2wou0DBosyB+XJcjTmg==
+    AWS_ENDPOINTS: AgCfsb7/5PcvQVfe43YuAOFF74K/eb75j3lLiDC6Dq83qo5XdjLlPm90TUUSj/fr9tGXtYUazqC4XHlpWfu7uBOc+87jV0MFjhKKK9A6dl+guhJ88bWG6QGRrN51NfNbE7HeiSqi6jbjyh4L6UPYOjVKkPPdW2OWVZciZtL4SLaCGPmrLVcxoLrrlAlWaI+eflveUDBBY6VG4oJviLz4p3RsDEwjBxEfuPnkqhsLCQyPvOeq7XVm7nEWbmTmyeksRUY2ljPbTX8k8FTVMNrUqHXHWoDyajQicBKY/wL8ZXuIprECd0FtnHAZ1XqE5jyrwIkylUgXe9M4hVkbqxjfgWq5raNJvmg+FbTIbPRnx+PTy4NW53x06S3y/q1Zy70iG7gsqlx3KvnOGq0p0HYxDl72BcuEHNQae+gFID5b9rqiOW1Yp64KHgq56c51RRpejF+20KISmHjQEwA1W5jgDR++Vi4ZThytoqs78cMrX1s58O5+KrEn9jrzxzLl2rplyI59kqotHM+LnHnfcKVooSu8u3cZ94Dcc4nw0BfXf9wQ0n+BTHihmIkayuNfA6VQScV+UdWqSH8BOPOJGSU7H/XzEjSxHdaTzI7H0NsamIPrOQb0i6u62WKy2vKeFQSTciXINl6aN3pZc7QerSD/nYiN7qTADWjNyqki/W8Mbd8JU0vXbsP8CgRXFuoD4sxLh/1RlEY7oF6B8C7MmOO4jAxUswXHT+Eli3CIMj3e3MA/RpR2dQtguqG43WtY3vdT3a2cMvDm85VImT2rn8SeR2/8cw==
+    AWS_SECRET_ACCESS_KEY: AgAE0QMoo+iJ++L6lxtDh8HGG8DPo7+t6rlvQYZsMP5tViMD80rMBADhoDqWx2y7cTrKnudE7XrWdzX9+6PhQzsuxuiMoCHm7A9QCfUmE9m7wFdyJXGNfumFTci9pOBxUvZhLYPmj1xaSNQtd6+pLNcpS5V97o4dfRvnG7XjlBhqvzqEvWEnQPgH47Wn13r+NYbluhhieO1yBZjQgRB15aSeN5KFY609fLLmTuwxtLpVmia1KxD/Ljfpk63Jr7UTXoa+j/NFR34wnBHjcfaMzl2Qac8jW/OADhrd83qVL/FvHOJxFo9FJK9vpbMgA2CuIQVWnyBVlNAzkB+7NXBfXZyy4hkKdUW0JS79/il4e1+7AEWS1Kkp7tUniEeSdlxCb6ZiHIJbZTTEyAC9f+nfvuX+EvO7paRpIcAIhYNWuyY7ndBxiCcQZl4iVLawCJkfxzcMVZVn9vnYTbVvSRIF/jRKKlm7k1UUsXOFjmI/SuaSMjhfZbZtjF31MIJXqXuv8+A0+GzmaCjctjTY0rN7R+nE9lJvpAJ/kqaf1oMSJDuEYArj/VzQrCdAwa84FelDOU0XPC9WeNb5DKrmIMrbjX8tKakEd7gP8vuCsm0zEnZ1uwK15n6KuUbTPP++uUtjxGc4lYIV1qcTtJ78k3Uj1Te5YF5m54I0z4F+leoNiWkop6KndNVFO2K1KUmcZ0mELQTvYdkWBWX8dpm+6qmGM7y7BVy/UZMtWb+fAdIb1XHlcnIQmyu9GIC+/HKjH5Q0qeOO/GXVhU/tsb0kGJbA6cAk
+  template:
+    metadata:
+      name: r2-backup-credentials
+      namespace: longhorn-system
+    type: Opaque
+---
+apiVersion: longhorn.io/v1beta2
+kind: BackupTarget
+metadata:
+  name: default
+  namespace: longhorn-system
+spec:
+  backupTargetURL: "s3://homelab-longhorn-backup@us-east-1/"
+  credentialSecret: r2-backup-credentials
+  pollInterval: 5m0s
+---
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
@@ -22,18 +48,34 @@ spec:
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
+  name: app-configs-weekly-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 4 * * 0"
+  task: backup
+  groups:
+    - app-configs
+  retain: 4
+  concurrency: 1
+  labels:
+    managed-by: gitops
+    purpose: app-config-offsite
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
   name: important-data-daily
   namespace: longhorn-system
 spec:
   cron: "30 3 * * *"
-  task: snapshot
+  task: backup
   groups:
     - important-data
-  retain: 3
+  retain: 7
   concurrency: 1
   labels:
     managed-by: gitops
-    purpose: important-data-snapshot
+    purpose: important-data-offsite
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
