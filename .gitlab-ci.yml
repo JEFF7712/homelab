@@ -21,7 +21,7 @@ workflow:
 
 .terraform_terragrunt:
   image:
-    name: hashicorp/terraform:1.14.6
+    name: hashicorp/terraform:1.15.4
     entrypoint: [""]
   before_script:
     - apk add --no-cache curl
