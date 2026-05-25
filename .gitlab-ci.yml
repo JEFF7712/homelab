@@ -108,7 +108,7 @@ secret_scan:
   variables:
     GIT_DEPTH: "0"
   image:
-    name: zricethezav/gitleaks:latest
+    name: zricethezav/gitleaks:v8.30.1
     entrypoint: [""]
   script:
     - gitleaks detect --source . --redact --verbose
@@ -116,7 +116,7 @@ secret_scan:
 kubernetes_security_scan:
   stage: security
   image:
-    name: aquasec/trivy:latest
+    name: aquasec/trivy:0.70.0
     entrypoint: [""]
   script:
     - trivy config --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --exit-code 1 .
@@ -124,7 +124,7 @@ kubernetes_security_scan:
 sync_to_github:
   stage: sync
   image:
-    name: alpine/git:latest
+    name: alpine/git:2.52.0
     entrypoint: [""]
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
@@ -185,7 +185,7 @@ build_renovate_dashboard_image:
 scan_renovate_agent_image:
   stage: image_scan
   image:
-    name: aquasec/trivy:latest
+    name: aquasec/trivy:0.70.0
     entrypoint: [""]
   needs:
     - build_renovate_agent_image
@@ -204,7 +204,7 @@ scan_renovate_agent_image:
 scan_renovate_dashboard_image:
   stage: image_scan
   image:
-    name: aquasec/trivy:latest
+    name: aquasec/trivy:0.70.0
     entrypoint: [""]
   needs:
     - build_renovate_dashboard_image

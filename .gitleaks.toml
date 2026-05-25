@@ -1,0 +1,14 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow kubeseal encryptedData payloads in SealedSecret manifests"
+condition = "AND"
+paths = [
+  '''(^|/)(bootstrap|secrets)/sealed-gitlab-auth\.yaml$''',
+  '''(^|/)secrets/gitlab-auth\.yaml$''',
+  '''(^|/)infrastructure/sealed-gitlab-auth\.yaml$'''
+]
+regexes = [
+  '''^Ag[0-9A-Za-z+/=]+$'''
+]
