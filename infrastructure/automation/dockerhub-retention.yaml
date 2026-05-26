@@ -52,6 +52,8 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           volumes:
           - name: config
             projected:
@@ -61,3 +63,5 @@ spec:
                   name: automation-config
               - configMap:
                   name: dockerhub-retention-config
+          - name: tmp
+            emptyDir: {}
