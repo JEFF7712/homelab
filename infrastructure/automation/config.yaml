@@ -11,6 +11,7 @@ data:
     darkbit|https://darkbitapparel.com
     distrojeff|https://distrojeff.com
     pulse|https://pulseagent.dev
+    notes|https://notes.rupan.dev
     rupanism|https://rupanism.rupan.dev
     soluble|https://soluble.rupan.dev
     spatia|https://spatia.rupan.dev
@@ -19,6 +20,7 @@ data:
     darkbit|website-deploy
     distrojeff|website-deploy
     pulse|website-deploy
+    obsidian|quartz-notes
     rupanism|website-deploy
     soluble-rupan|website-deploy
     spatia|website-deploy
@@ -27,6 +29,7 @@ data:
     jeff7712|darkbit|20
     jeff7712|distrojeff-site|20
     jeff7712|pulse-site|20
+    jeff7712|quartz|20
     jeff7712|rupanism|20
     jeff7712|solubility-gnn|20
     jeff7712|spatia-site|20

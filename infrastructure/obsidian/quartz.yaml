@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: quartz
-          image: jeff7712/quartz@sha256:57633835d0e76e0541149fe917022b71b2be3c3f188d774777beb6f4732bb2a6
+          image: jeff7712/quartz:latest@sha256:fb83c982e37d2b9edd9c8051d392be8b690e53dcdc1e7e57b9b1892e53162d9e
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

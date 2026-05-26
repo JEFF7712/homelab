@@ -28,6 +28,11 @@
   "commitMessagePrefix": "renovate:",
   "commitMessageAction": "Bump",
   "commitMessageExtra": "from {{{currentVersion}}} to {{{newVersion}}}",
+  "kubernetes": {
+    "managerFilePatterns": [
+      "/^(apps|bootstrap|infrastructure|secrets)/.*\\.ya?ml$/"
+    ]
+  },
   "packageRules": [
     {
       "description": "Group GitLab CI and Dockerfile image updates",
@@ -53,6 +58,14 @@
       ],
       "groupName": "Argo CD Helm chart updates",
       "groupSlug": "argocd-helm-charts"
+    },
+    {
+      "description": "Group Kubernetes manifest image updates",
+      "matchManagers": [
+        "kubernetes"
+      ],
+      "groupName": "Kubernetes image updates",
+      "groupSlug": "kubernetes-images"
     },
     {
       "description": "Automatically merge minor and patch updates",
