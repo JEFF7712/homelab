@@ -72,13 +72,13 @@ def github(method, path, body=None):
   }
   return request(method, f"https://api.github.com{path}", headers, body)
 
-def gitlab(method, path):
+def gitlab(method, path, body=None):
   headers = {
     "PRIVATE-TOKEN": GITLAB_TOKEN,
     "Accept": "application/json",
     "User-Agent": "homelab-renovate-dashboard",
   }
-  return request(method, f"{GITLAB_ENDPOINT}{path}", headers)
+  return request(method, f"{GITLAB_ENDPOINT}{path}", headers, body)
 
 def kube_headers():
   with open(SA_TOKEN_PATH, encoding="utf-8") as token_file:
@@ -117,6 +117,12 @@ def github_allowlist():
   return {
     (owner.lower(), repo.lower())
     for owner, repo in load_repo_file("/config/renovate-agent-repositories.txt")
+  }
+
+def gitlab_allowlist():
+  return {
+    (namespace.lower(), project.lower())
+    for namespace, project in load_repo_file("/config/renovate-agent-gitlab-infra-repositories.txt")
   }
 
 def renovate_pr(pr):
@@ -181,6 +187,23 @@ def latest_state(state_data, owner, repo, number, sha=None):
     return {}
   return max(candidates, key=lambda item: item.get("processed_at", 0))
 
+def latest_gitlab_state(state_data, namespace, project, number, sha=None):
+  prefix = f"gitlab-{namespace}-{project}-{number}-"
+  candidates = []
+  for key, raw in state_data.items():
+    if not key.startswith(prefix):
+      continue
+    try:
+      item = json.loads(raw)
+    except Exception:
+      continue
+    if sha and item.get("sha") == sha:
+      return item
+    candidates.append(item)
+  if not candidates:
+    return {}
+  return max(candidates, key=lambda item: item.get("processed_at", 0))
+
 def checks_for(owner, repo, sha):
   failures = []
   pending = []
@@ -218,6 +241,26 @@ def checks_for(owner, repo, sha):
   else:
     state = "unknown"
   return {"state": state, "failures": failures[:5], "pending": pending[:5], "successes": successes[:5]}
+
+def gitlab_checks(project_id, iid):
+  pipelines = gitlab("GET", f"/projects/{project_id}/merge_requests/{iid}/pipelines?per_page=10")
+  if not pipelines:
+    return {"state": "unknown", "failures": [], "pending": [], "successes": []}
+  status = pipelines[0].get("status")
+  if status == "success":
+    state = "success"
+  elif status in ("pending", "running", "created", "waiting_for_resource", "preparing"):
+    state = "pending"
+  elif status in ("failed", "canceled", "skipped", "manual"):
+    state = "failure"
+  else:
+    state = "unknown"
+  return {
+    "state": state,
+    "failures": [pipelines[0].get("web_url", "pipeline")] if state == "failure" else [],
+    "pending": [pipelines[0].get("web_url", "pipeline")] if state == "pending" else [],
+    "successes": [pipelines[0].get("web_url", "pipeline")] if state == "success" else [],
+  }
 
 def merge_status(owner, repo, number):
   pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
@@ -318,7 +361,7 @@ def github_status(state_data):
       })
   return rows, merged_recent
 
-def gitlab_status():
+def gitlab_status(state_data):
   rows = []
   merged_recent = []
   now = datetime.datetime.now(ZoneInfo("America/New_York"))
@@ -333,6 +376,22 @@ def gitlab_status():
       for mr in opened:
         if not renovate_pr(mr):
           continue
+        sha = mr.get("sha") or ""
+        state_item = latest_gitlab_state(state_data, namespace, project, mr.get("iid"), sha)
+        decision = state_item.get("decision", {}) or {}
+        approval = state_item.get("approval", {}) or {}
+        checks = gitlab_checks(project_id, mr.get("iid"))
+        labels = {label.lower() for label in mr.get("labels", [])}
+        approved = approval.get("approved") or APPROVAL_LABEL.lower() in labels
+        merge_state = mr.get("detailed_merge_status") or mr.get("merge_status") or "unknown"
+        has_conflicts = merge_state in ("conflict", "cannot_be_merged")
+        bucket = "approved" if approved else "approval"
+        if has_conflicts:
+          bucket = "conflict"
+        elif checks["state"] in ("pending", "unknown"):
+          bucket = "waiting"
+        elif checks["state"] == "failure":
+          bucket = "blocked"
         rows.append({
           "platform": "gitlab",
           "owner": namespace,
@@ -340,19 +399,19 @@ def gitlab_status():
           "number": mr.get("iid"),
           "title": mr.get("title"),
           "url": mr.get("web_url"),
-          "sha": (mr.get("sha") or "")[:12],
-          "short_sha": (mr.get("sha") or "")[:12],
+          "sha": sha,
+          "short_sha": sha[:12],
           "branch": mr.get("source_branch"),
-          "bucket": "approval",
-          "checks": "unknown",
+          "bucket": bucket,
+          "checks": checks["state"],
           "mergeable": None,
-          "mergeable_state": "unknown",
-          "decision": "infra-review",
-          "approval": "",
-          "action": "",
-          "reason": "Homelab infra Renovate MRs are approval-gated.",
-          "processed_at": 0,
-          "can_approve": False,
+          "mergeable_state": merge_state,
+          "decision": decision.get("decision", "infra-review"),
+          "approval": approval.get("method") or (f"label:{APPROVAL_LABEL}" if approved else ""),
+          "action": state_item.get("action", ""),
+          "reason": decision.get("reason", "Homelab infra Renovate MRs are approval-gated."),
+          "processed_at": state_item.get("processed_at", 0),
+          "can_approve": checks["state"] == "success" and not approved and not has_conflicts,
         })
       closed = gitlab("GET", f"/projects/{project_id}/merge_requests?state=merged&order_by=updated_at&sort=desc&per_page=100")
       for mr in closed:
@@ -548,7 +607,7 @@ def status_payload():
   state_cm = kube_configmap(STATE_CM)
   state_data = state_cm.get("data", {})
   github_rows, github_merged = github_status(state_data)
-  gitlab_rows, gitlab_merged = gitlab_status()
+  gitlab_rows, gitlab_merged = gitlab_status(state_data)
   rows = sorted(github_rows + gitlab_rows, key=lambda item: (item["bucket"], item["repo"], item["number"]))
   merged_recent = sorted(github_merged + gitlab_merged, key=lambda item: item["merged_at"], reverse=True)
   merged_today = [item for item in merged_recent if item.get("is_today")]
@@ -569,12 +628,17 @@ def status_payload():
   return payload
 
 def approve_pr(body):
+  platform = str(body.get("platform", "github")).strip().lower()
   owner = str(body.get("owner", "")).strip()
   repo = str(body.get("repo", "")).strip()
   number = int(body.get("number", 0))
   expected_sha = str(body.get("sha", "")).strip()
   if not owner or not repo or number <= 0 or not expected_sha:
     raise ValueError("owner, repo, number, and sha are required")
+  if platform == "gitlab":
+    return approve_gitlab_mr(owner, repo, number, expected_sha)
+  if platform != "github":
+    raise ValueError("unsupported approval platform")
   if (owner.lower(), repo.lower()) not in github_allowlist():
     raise PermissionError("repository is not in the Renovate agent allowlist")
 
@@ -597,6 +661,31 @@ def approve_pr(body):
   return {
     "ok": True,
     "message": f"Approved {owner}/{repo}#{number}. The reviewer will merge it on the next run once checks are green.",
+  }
+
+def approve_gitlab_mr(namespace, project, number, expected_sha):
+  if not GITLAB_TOKEN:
+    raise PermissionError("GitLab token is not configured")
+  if (namespace.lower(), project.lower()) not in gitlab_allowlist():
+    raise PermissionError("GitLab repository is not in the Renovate agent allowlist")
+  project_id = urllib.parse.quote(f"{namespace}/{project}", safe="")
+  mr = gitlab("GET", f"/projects/{project_id}/merge_requests/{number}")
+  if mr.get("state") != "opened":
+    raise ValueError("merge request is not open")
+  current_sha = mr.get("sha") or ""
+  if current_sha != expected_sha:
+    raise ValueError("merge request head changed; refresh before approving")
+  if not renovate_pr(mr):
+    raise ValueError("merge request does not look like a Renovate MR")
+  merge_state = mr.get("detailed_merge_status") or mr.get("merge_status") or "unknown"
+  if merge_state in ("conflict", "cannot_be_merged"):
+    raise ValueError("merge request has merge conflicts")
+  gitlab("PUT", f"/projects/{project_id}/merge_requests/{number}", {"add_labels": APPROVAL_LABEL})
+  gitlab("POST", f"/projects/{project_id}/merge_requests/{number}/notes", {"body": APPROVAL_COMMAND})
+  CACHE["expires"] = 0
+  return {
+    "ok": True,
+    "message": f"Approved {namespace}/{project}!{number}. The reviewer will merge it on the next run once checks are green.",
   }
 
 def page():
@@ -836,7 +925,7 @@ def page():
           <td data-label="Merge">${esc(row.mergeable_state || "unknown")}</td>
           <td data-label="Decision">${esc(row.decision)}<div class="muted">${esc(row.approval || row.action || "")}</div></td>
           <td data-label="Reason" class="reason">${esc(row.reason)}</td>
-          <td data-label="Actions" class="actions">${row.can_approve ? `<button class="primary" type="button" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : row.approval ? '<button type="button" disabled>Approved</button>' : ''}</td>
+          <td data-label="Actions" class="actions">${row.can_approve ? `<button class="primary" type="button" data-platform="${esc(row.platform)}" data-owner="${esc(row.owner)}" data-repo="${esc(row.repo)}" data-number="${esc(row.number)}" data-sha="${esc(row.sha)}">Approve</button>` : row.approval ? '<button type="button" disabled>Approved</button>' : ''}</td>
         </tr>`).join("")}</tbody></table>`;
     }
     function renderAudit(rows) {
@@ -926,6 +1015,7 @@ def page():
       if (event.target.tagName !== 'BUTTON') return;
       const button = event.target;
       approve({
+        platform: button.dataset.platform || 'github',
         owner: button.dataset.owner,
         repo: button.dataset.repo,
         number: button.dataset.number,

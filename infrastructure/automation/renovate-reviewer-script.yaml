@@ -898,6 +898,36 @@ data:
         })
       return files
 
+    def gitlab_approval_for(project_id, mr):
+      labels = {label.lower() for label in mr.get("labels", [])}
+      if APPROVAL_LABEL.lower() in labels:
+        return {
+          "approved": True,
+          "method": f"label:{APPROVAL_LABEL}",
+        }
+      iid = mr.get("iid")
+      if not iid:
+        return {
+          "approved": False,
+          "method": "",
+        }
+      try:
+        notes = gitlab("GET", f"/projects/{project_id}/merge_requests/{iid}/notes?per_page=100")
+      except Exception:
+        notes = []
+      for note in notes:
+        author = (note.get("author", {}) or {}).get("username", "").lower()
+        body = (note.get("body") or "").lower()
+        if author in APPROVERS and APPROVAL_COMMAND.lower() in body:
+          return {
+            "approved": True,
+            "method": f"comment:{author}",
+          }
+      return {
+        "approved": False,
+        "method": "",
+      }
+
     def gitlab_pipeline_status(pipeline):
       if not pipeline:
         return None
@@ -977,21 +1007,46 @@ data:
       iid = mr["iid"]
       sha = mr.get("sha") or mr.get("diff_refs", {}).get("head_sha", "")
       key = gitlab_state_key(namespace, project, iid, sha)
-      if state.get("data", {}).get(key):
+      approval = gitlab_approval_for(project_id, mr)
+      existing_raw = state.get("data", {}).get(key)
+      existing = json.loads(existing_raw) if existing_raw else {}
+      if existing and not approval.get("approved"):
         print(f"gitlab:{namespace}/{project}!{iid}: already processed {sha[:12]}")
+        return
+      if existing and existing.get("action") == "merged":
+        print(f"gitlab:{namespace}/{project}!{iid}: already merged {sha[:12]}")
         return
       checks = gitlab_checks(project_id, sha, mr)
       files = gitlab_changed_files(project_id, iid)
       decision = infra_decision(mr, checks, files)
+      action = "notified"
+      if approval.get("approved") and checks["state"] == "success" and decision.get("decision") == "needs_approval":
+        try:
+          gitlab("PUT", f"/projects/{project_id}/merge_requests/{iid}/merge", {"should_remove_source_branch": True})
+          action = "merged"
+        except Exception as exc:
+          decision = {
+            "decision": "blocked",
+            "confidence": "high",
+            "reason": f"GitLab merge failed: {exc}",
+            "requires_permission": True,
+            "can_merge": False,
+          }
+          action = "merge_failed"
       title = f"Renovate infra approval needed: {project}!{iid}" if decision.get("requires_permission") else f"Renovate infra waiting: {project}!{iid}"
+      if action == "merged":
+        title = f"Renovate infra merged: {project}!{iid}"
       priority = "high" if decision.get("requires_permission") else "low"
+      if action == "merged":
+        priority = "default"
       message = "\n".join([
         mr.get("title", ""),
         mr.get("web_url", ""),
         "scope: gitlab-infra",
-        f"action: notified",
+        f"action: {action}",
         f"decision: {decision.get('decision')} ({decision.get('confidence')})",
         f"checks: {checks['state']}",
+        f"approval: {approval.get('method') or 'none'}",
         "files: " + ", ".join(item.get("filename", "") for item in files[:8]),
         f"reason: {decision.get('reason', '')}",
       ])
@@ -1002,10 +1057,11 @@ data:
         "number": iid,
         "sha": sha,
         "decision": decision,
-        "action": "notified",
+        "approval": approval,
+        "action": action,
         "processed_at": int(time.time()),
       }, sort_keys=True))
-      print(f"gitlab:{namespace}/{project}!{iid}: notified {decision.get('decision')}")
+      print(f"gitlab:{namespace}/{project}!{iid}: {action} {decision.get('decision')}")
 
     def process_pr(owner, repo, pr, state):
       number = pr["number"]
