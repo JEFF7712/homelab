@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-permissions
-          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+          image: busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -51,7 +51,7 @@ spec:
               mountPath: /config
       containers:
         - name: sonarr
-          image: lscr.io/linuxserver/sonarr@sha256:3580aec3802c915f0f819a88d5099abce61734b925732b8393d176b5dc561020
+          image: lscr.io/linuxserver/sonarr@sha256:0b5c4803f92456fb9b65bae8375716ea120b4ea17b3cced7da32b63f0085782b
           env:
             - name: PUID
               value: "1000"

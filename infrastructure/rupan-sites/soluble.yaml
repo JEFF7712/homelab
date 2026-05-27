@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: web
-        image: jeff7712/solubility-gnn:0.0.35
+        image: jeff7712/solubility-gnn:0.0.45
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

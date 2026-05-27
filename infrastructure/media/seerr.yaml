@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-permissions
-          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+          image: busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ["sh", "-c", "chown -R 1000:1000 /app/config"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -51,7 +51,7 @@ spec:
               mountPath: /app/config
       containers:
         - name: seerr
-          image: seerr/seerr@sha256:b35ba0461c4a1033d117ac1e5968fd4cbe777899e4cbfbdeaf3d10a42a0eb7e9
+          image: seerr/seerr@sha256:c4cbd5121236ac2f70a843a0b920b68a27976be57917555f1c45b08a1e6b2aad
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5055

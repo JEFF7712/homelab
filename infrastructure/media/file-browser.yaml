@@ -41,7 +41,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: filebrowser
-          image: filebrowser/filebrowser@sha256:4dce87308b9f9cfbcf8d0a284fc9565d2b515530a6bae2d920b388161e093f26
+          image: filebrowser/filebrowser@sha256:aefb0c20de10ef8b617995ca5522479ad40d41e6386bd01946a345c6026ff31c
           args:
             - "--root=/srv"
             - "--database=/database/filebrowser.db"
