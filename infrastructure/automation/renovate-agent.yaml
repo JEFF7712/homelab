@@ -20,7 +20,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: renovate-major-reviewer
-            image: jeff7712/homelab-renovate-agent:0.0.1061
+            image: jeff7712/homelab-renovate-agent:0.0.1081
             command:
             - python
             - /config/renovate-agent.py
