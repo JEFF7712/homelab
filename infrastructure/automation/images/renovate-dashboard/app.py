@@ -751,6 +751,21 @@ def page():
     .empty { color: #a1a1aa; background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 16px; }
     .error { color: #fecaca; background: #3f1d22; border: 1px solid #7f1d1d; border-radius: 8px; padding: 16px; margin-bottom: 18px; }
     .actions { white-space: nowrap; }
+    .refresh-actions { display: flex; align-items: center; gap: 10px; }
+    .refresh-state { color: #a1a1aa; font-size: 12px; min-width: 92px; text-align: right; }
+    button.loading::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 7px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 999px;
+      vertical-align: -1px;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 900px) { .panel-grid { grid-template-columns: 1fr; } .history { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 760px) {
       header { display: block; }
@@ -792,7 +807,10 @@ def page():
     <section>
       <div class="section-head">
         <h2>Open PRs</h2>
-        <button id="refresh" type="button">Refresh</button>
+        <div class="refresh-actions">
+          <span id="refreshState" class="refresh-state"></span>
+          <button id="refresh" type="button">Refresh</button>
+        </div>
       </div>
       <div class="controls">
         <select id="stateFilter"><option value="">All states</option></select>
@@ -821,6 +839,7 @@ def page():
     const labels = ["approval","conflict","blocked","waiting","repaired","approved","green","unreviewed"];
     const state = { open: [], merged_today: [], counts: {}, generated_at: "", reviewer: {}, activity: {} };
     const locallyApproved = new Set();
+    let loading = false;
     function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c])); }
     function formatTime(value) {
       if (!value) return "";
@@ -852,6 +871,9 @@ def page():
     function showNotice(message, error = false) {
       const el = document.getElementById('notice');
       el.innerHTML = message ? `<div class="${error ? 'error' : 'notice'}">${esc(message)}</div>` : "";
+    }
+    function setRefreshState(message) {
+      document.getElementById('refreshState').textContent = message || "";
     }
     function approvalKey(row) {
       return `${row.owner}/${row.repo}#${row.number}@${row.sha}`;
@@ -961,14 +983,25 @@ def page():
         button.textContent = 'Approved';
         button.disabled = true;
         showNotice(data.message || 'Approved.');
-        await load();
+        await load({ reason: 'approval' });
       } catch (err) {
         showNotice(`Approval failed: ${err.message}`, true);
         button.disabled = false;
         button.textContent = 'Approve';
       }
     }
-    async function load() {
+    async function load(options = {}) {
+      if (loading) return;
+      loading = true;
+      const manual = options.reason === 'manual';
+      const refreshButton = document.getElementById('refresh');
+      const started = Date.now();
+      if (manual) {
+        refreshButton.disabled = true;
+        refreshButton.classList.add('loading');
+        refreshButton.textContent = 'Refreshing';
+        setRefreshState('Refreshing...');
+      }
       try {
         const res = await fetch('/api/status', { cache: 'no-store' });
         const data = await res.json();
@@ -983,11 +1016,23 @@ def page():
         fillSelect('repoFilter', unique(state.open.map(row => row.repo)), 'All repos');
         fillSelect('platformFilter', unique(state.open.map(row => row.platform)), 'All platforms');
         render();
+        if (manual) {
+          const elapsed = Math.max(1, Math.round((Date.now() - started) / 100) / 10);
+          setRefreshState(`Updated in ${elapsed}s`);
+        }
       } catch (err) {
         document.getElementById('generated').textContent = 'Status unavailable';
         document.getElementById('stats').innerHTML = '';
         document.getElementById('open').innerHTML = `<div class="error">Dashboard API failed: ${esc(err.message)}</div>`;
         document.getElementById('merged').innerHTML = '';
+        if (manual) setRefreshState('Refresh failed');
+      } finally {
+        loading = false;
+        if (manual) {
+          refreshButton.disabled = false;
+          refreshButton.classList.remove('loading');
+          refreshButton.textContent = 'Refresh';
+        }
       }
     }
     async function runReviewer(button) {
@@ -1003,7 +1048,7 @@ def page():
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
         showNotice(data.message || 'Reviewer started.');
-        await load();
+        await load({ reason: 'reviewer' });
       } catch (err) {
         showNotice(`Reviewer run failed: ${err.message}`, true);
       } finally {
@@ -1025,7 +1070,7 @@ def page():
     for (const id of ['stateFilter', 'repoFilter', 'platformFilter', 'searchFilter']) {
       document.getElementById(id).addEventListener('input', render);
     }
-    document.getElementById('refresh').addEventListener('click', load);
+    document.getElementById('refresh').addEventListener('click', () => load({ reason: 'manual' }));
     document.getElementById('runReviewer').addEventListener('click', event => runReviewer(event.target));
     load();
     setInterval(load, 90000);
