@@ -68,6 +68,14 @@
       "groupSlug": "kubernetes-images"
     },
     {
+      "description": "Bookshelf publishes parallel softcover-/hardcover- tag streams that Renovate can't auto-parse; restrict to softcover- and provide a regex versioning scheme",
+      "matchPackageNames": [
+        "ghcr.io/pennydreadful/bookshelf"
+      ],
+      "versioning": "regex:^softcover-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.(?<build>\\d+))?$",
+      "allowedVersions": "/^softcover-/"
+    },
+    {
       "description": "Automatically merge minor and patch updates",
       "matchUpdateTypes": [
         "minor",
