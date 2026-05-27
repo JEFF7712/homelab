@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: prowlarr
-          image: lscr.io/linuxserver/prowlarr@sha256:c5de2a8758a05594319263e7691c1dce56899442ed1720d6eca216c0958f4caf
+          image: lscr.io/linuxserver/prowlarr@sha256:c9fe528f34b1fd3715438b6f6d6991d64e2965f2c055db36398bc66a0e7eab01
           env:
             - name: PUID
               value: "1000"

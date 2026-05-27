@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-permissions
-          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+          image: busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -52,7 +52,7 @@ spec:
               
       containers:
         - name: radarr
-          image: lscr.io/linuxserver/radarr@sha256:b01097ad2d948c9f5eca39eb60bb529e2e55b0738c4bf7db09383bef0abab59d
+          image: lscr.io/linuxserver/radarr@sha256:079e48870584baf2a3e7e43e7ba6d3c834555931851a59c82c51cc792d285caf
           env:
             - name: PUID
               value: "1000"

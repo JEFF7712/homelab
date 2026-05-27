@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-permissions
-          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+          image: busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -53,7 +53,7 @@ spec:
               mountPath: /config
               
         - name: configure-qbittorrent
-          image: busybox@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
+          image: busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ["sh", "-c"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -78,7 +78,7 @@ spec:
               mountPath: /config
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun@sha256:725d3e51091dde4ca43e3e3f26e2e6d3d0ccc66821e92d505c3da04958f7d472
+          image: qmcgaw/gluetun@sha256:10b4895fde4499c2d1d9fbd8e681d040ede0efe8c6cfe5d0c51daf0461836ee8
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -129,7 +129,7 @@ spec:
               mountPath: /run
 
         - name: qbittorrent
-          image: lscr.io/linuxserver/qbittorrent@sha256:3679a75dd2304b695525d83a4ff14c458708b5da4a7ce53044240932139590e1
+          image: lscr.io/linuxserver/qbittorrent@sha256:715d2bfbcf1cd3d734cbbd4fbd599eb7ea0642eaa079a372dd0d343f59516700
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

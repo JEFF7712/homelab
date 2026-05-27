@@ -20,7 +20,10 @@ spec:
               type: RuntimeDefault
           containers:
           - name: renovate-major-reviewer
-            image: jeff7712/homelab-renovate-agent:0.0.974
+            image: jeff7712/homelab-renovate-agent:0.0.1085
+            command:
+            - python
+            - /config/renovate-agent.py
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -132,7 +135,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: webhook
-        image: python:3.12-alpine
+        image: python:3.14-alpine
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

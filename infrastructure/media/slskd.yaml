@@ -89,7 +89,7 @@ spec:
 
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun@sha256:725d3e51091dde4ca43e3e3f26e2e6d3d0ccc66821e92d505c3da04958f7d472
+          image: qmcgaw/gluetun@sha256:10b4895fde4499c2d1d9fbd8e681d040ede0efe8c6cfe5d0c51daf0461836ee8
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -102,10 +102,6 @@ spec:
               value: "wireguard"
             - name: FIREWALL_INPUT_PORTS
               value: "5030"
-            - name: DOT
-              value: "off"
-            - name: DNS_KEEP_NAMESERVER
-              value: "on"
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
             - name: WIREGUARD_MTU
@@ -142,7 +138,7 @@ spec:
               mountPath: /run
 
         - name: slskd
-          image: slskd/slskd@sha256:17ef977563be206f3b5932080b1e23883b2cb39dc9010640f6f39b4eaec887e3
+          image: slskd/slskd@sha256:ab9ed50e028b524cefdb7c1dd8ebca368a076e18441ee8ac2326473eb850b4c3
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -165,10 +161,6 @@ spec:
               value: "/config"
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
-            - name: PUID
-              value: "1000"
-            - name: PGID
-              value: "1000"
             - name: SLSKD_SOULSEEK__LISTEN_PORT
               valueFrom:
                 secretKeyRef:
