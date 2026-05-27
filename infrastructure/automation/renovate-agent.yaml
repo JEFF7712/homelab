@@ -21,6 +21,9 @@ spec:
           containers:
           - name: renovate-major-reviewer
             image: jeff7712/homelab-renovate-agent:0.0.1061
+            command:
+            - python
+            - /config/renovate-agent.py
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

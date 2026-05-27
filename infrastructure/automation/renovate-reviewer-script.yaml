@@ -7,6 +7,7 @@ metadata:
 data:
   renovate-agent.py: |
     #!/usr/bin/env python3
+    import hashlib
     import json
     import os
     import re
@@ -185,6 +186,25 @@ data:
           resp.read()
       except Exception as exc:
         print(f"warning: ntfy notification failed: {exc}", file=sys.stderr)
+
+    def notification_dedupe_key(*parts):
+      raw = "|".join(str(part or "") for part in parts)
+      digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+      label = "-".join(str(part or "") for part in parts[:4])
+      return f"notification-{label}-{digest}"
+
+    def notify_once(state, key, title, priority, message, actions=None, click=None):
+      if state.get("data", {}).get(key):
+        print(f"notification suppressed for repeated issue: {key}")
+        return
+      notify(title, priority, message, actions=actions, click=click)
+      value = json.dumps({
+        "title": title,
+        "message": message[:500],
+        "processed_at": int(time.time()),
+      }, sort_keys=True)
+      patch_state(key, value)
+      state.setdefault("data", {})[re.sub(r"[^A-Za-z0-9._-]", "-", key)] = value
 
     def queue_digest(kind, title, repo, number, url, decision, checks, approval, reason):
       DIGEST_ITEMS.append({
@@ -878,11 +898,9 @@ data:
         })
       return files
 
-    def gitlab_checks(project_id, sha):
-      pipelines = gitlab("GET", f"/projects/{project_id}/repository/commits/{sha}/pipelines?per_page=10")
-      if not pipelines:
-        return {"state": "unknown", "successes": [], "pending": [], "failures": [], "errors": ["no pipelines found"]}
-      pipeline = pipelines[0]
+    def gitlab_pipeline_status(pipeline):
+      if not pipeline:
+        return None
       status = pipeline.get("status")
       if status == "success":
         state = "success"
@@ -892,13 +910,28 @@ data:
         state = "failure"
       else:
         state = "unknown"
+      web_url = pipeline.get("web_url", "pipeline")
       return {
         "state": state,
-        "successes": [pipeline.get("web_url", "pipeline")] if state == "success" else [],
-        "pending": [pipeline.get("web_url", "pipeline")] if state == "pending" else [],
-        "failures": [pipeline.get("web_url", "pipeline")] if state == "failure" else [],
+        "successes": [web_url] if state == "success" else [],
+        "pending": [web_url] if state == "pending" else [],
+        "failures": [web_url] if state == "failure" else [],
         "errors": [],
       }
+
+    def gitlab_checks(project_id, sha, mr=None):
+      embedded = gitlab_pipeline_status((mr or {}).get("head_pipeline") or (mr or {}).get("pipeline"))
+      if embedded:
+        return embedded
+      iid = (mr or {}).get("iid")
+      if iid:
+        pipelines = gitlab("GET", f"/projects/{project_id}/merge_requests/{iid}/pipelines?per_page=10")
+        if pipelines:
+          return gitlab_pipeline_status(pipelines[0])
+      pipelines = gitlab("GET", f"/projects/{project_id}/repository/commits/{sha}/pipelines?per_page=10")
+      if not pipelines:
+        return {"state": "unknown", "successes": [], "pending": [], "failures": [], "errors": ["no pipelines found"]}
+      return gitlab_pipeline_status(pipelines[0])
 
     def infra_decision(mr, checks, files):
       filenames = [item.get("filename", "") for item in files]
@@ -947,7 +980,7 @@ data:
       if state.get("data", {}).get(key):
         print(f"gitlab:{namespace}/{project}!{iid}: already processed {sha[:12]}")
         return
-      checks = gitlab_checks(project_id, sha)
+      checks = gitlab_checks(project_id, sha, mr)
       files = gitlab_changed_files(project_id, iid)
       decision = infra_decision(mr, checks, files)
       title = f"Renovate infra approval needed: {project}!{iid}" if decision.get("requires_permission") else f"Renovate infra waiting: {project}!{iid}"
@@ -1207,13 +1240,17 @@ data:
               processed += 1
             except Exception as exc:
               print(f"{owner}/{repo}#{pr.get('number')}: processing failed: {exc}", file=sys.stderr)
-              notify(
+              notify_once(
+                state,
+                notification_dedupe_key("github-pr", owner, repo, pr.get("number"), pr.get("head", {}).get("sha", ""), exc),
                 f"Renovate agent: PR review failed {repo}#{pr.get('number')}",
                 "high",
                 f"{owner}/{repo}#{pr.get('number')} could not be reviewed: {exc}\n{pr.get('html_url', '')}",
               )
         except Exception as exc:
-          notify(
+          notify_once(
+            state,
+            notification_dedupe_key("github-repo", owner, repo, exc),
             f"Renovate agent: repo scan failed {repo}",
             "high",
             f"{owner}/{repo} could not be scanned: {exc}",
@@ -1233,13 +1270,17 @@ data:
               processed += 1
             except Exception as exc:
               print(f"gitlab:{namespace}/{project}!{mr.get('iid')}: processing failed: {exc}", file=sys.stderr)
-              notify(
+              notify_once(
+                state,
+                notification_dedupe_key("gitlab-mr", namespace, project, mr.get("iid"), mr.get("sha", ""), exc),
                 f"Renovate agent: GitLab MR review failed {project}!{mr.get('iid')}",
                 "high",
                 f"{namespace}/{project}!{mr.get('iid')} could not be reviewed: {exc}\n{mr.get('web_url', '')}",
               )
         except Exception as exc:
-          notify(
+          notify_once(
+            state,
+            notification_dedupe_key("gitlab-repo", namespace, project, exc),
             f"Renovate agent: GitLab repo scan failed {project}",
             "high",
             f"{namespace}/{project} could not be scanned: {exc}",
