@@ -102,10 +102,6 @@ spec:
               value: "wireguard"
             - name: FIREWALL_INPUT_PORTS
               value: "5030"
-            - name: DOT
-              value: "off"
-            - name: DNS_KEEP_NAMESERVER
-              value: "on"
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
             - name: WIREGUARD_MTU
@@ -165,10 +161,6 @@ spec:
               value: "/config"
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
-            - name: PUID
-              value: "1000"
-            - name: PGID
-              value: "1000"
             - name: SLSKD_SOULSEEK__LISTEN_PORT
               valueFrom:
                 secretKeyRef:
