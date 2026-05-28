@@ -256,6 +256,29 @@ scan_renovate_dashboard_image:
   script:
     - trivy image --severity HIGH,CRITICAL --exit-code 1 "$IMAGE_NAME:$IMAGE_TAG"
 
+build_ci_image:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.24.0-debug
+    entrypoint: [""]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - flake.nix
+        - flake.lock
+        - infrastructure/automation/images/ci/**/*
+        - .gitlab-ci.yml
+  variables:
+    IMAGE_TAG: "0.0.$CI_PIPELINE_IID"
+    IMAGE_NAME: "jeff7712/homelab-ci"
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"username\":\"$DOCKERHUB_USERNAME\",\"password\":\"$DOCKERHUB_TOKEN\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/infrastructure/automation/images/ci/Dockerfile"
+      --destination "$IMAGE_NAME:$IMAGE_TAG"
+
 # check-cluster-access:
 #   stage: test
 #   image:
