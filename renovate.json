@@ -33,6 +33,18 @@
       "/^(apps|bootstrap|infrastructure|secrets)/.*\\.ya?ml$/"
     ]
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.gitlab-ci\\.yml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*CI_IMAGE_TAG:\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "versioningTemplate": "loose"
+    }
+  ],
   "packageRules": [
     {
       "description": "Group GitLab CI and Dockerfile image updates",
