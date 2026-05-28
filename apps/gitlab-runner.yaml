@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitlab-runner
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.gitlab.io
+    targetRevision: 0.89.0
+    chart: gitlab-runner
+    helm:
+      values: |
+        gitlabUrl: https://gitlab.com/
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+
+        concurrent: 4
+        checkInterval: 10
+
+        rbac:
+          create: false
+        serviceAccount:
+          create: false
+          name: gitlab-runner
+
+        runners:
+          secret: gitlab-runner-token
+          config: |
+            [[runners]]
+              name = "homelab-k8s-runner"
+              executor = "kubernetes"
+
+              [runners.kubernetes]
+                namespace = "gitlab-runner"
+                image = "alpine:3.23"
+                privileged = false
+                poll_timeout = 600
+                cpu_request = "250m"
+                cpu_limit = "1"
+                memory_request = "256Mi"
+                memory_limit = "1Gi"
+                helper_cpu_request = "50m"
+                helper_memory_request = "64Mi"
+                helper_cpu_limit = "200m"
+                helper_memory_limit = "256Mi"
+                pod_termination_grace_period_seconds = 30
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitlab-runner
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitlab-runner-config
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
+    targetRevision: main
+    path: infrastructure/gitlab-runner
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: gitlab-runner
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
