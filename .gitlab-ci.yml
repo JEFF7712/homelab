@@ -94,11 +94,6 @@ kubernetes_validate:
 terraform_validate:
   stage: validate
   extends: .terraform_terragrunt
-  cache:
-    key: terraform-${CI_COMMIT_REF_SLUG}
-    paths:
-      - terraform/**/.terraform/
-      - terraform/**/.terragrunt-cache/
   script:
     - terragrunt run --all init --non-interactive --working-dir terraform
     - terragrunt run --all validate --non-interactive --working-dir terraform
