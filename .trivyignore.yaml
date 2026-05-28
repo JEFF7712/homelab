@@ -20,3 +20,6 @@ misconfigurations:
   - id: KSV-0053
     paths:
       - infrastructure/gitlab-runner/rbac.yaml
+  - id: DS-0002
+    paths:
+      - infrastructure/automation/images/ci/Dockerfile
