@@ -104,13 +104,13 @@ spec:
               mountPath: /var/lib/atticd
           readinessProbe:
             httpGet:
-              path: /
+              path: /metrics
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /
+              path: /metrics
               port: http
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -127,6 +127,8 @@ kind: Service
 metadata:
   name: atticd
   namespace: nix-cache
+  labels:
+    app: atticd
   annotations:
     io.cilium/lb-ipam-ips: "10.0.20.190"
 spec:
