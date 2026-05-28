@@ -1,5 +1,10 @@
 FROM nixos/nix:2.31.2
 
+# Image runs as root: nixos/nix ships /nix/store owned by root and switching
+# to a non-root USER would require chowning the store and reworking the
+# multi-user daemon assumption. DS-0002 is suppressed for this path in
+# .trivyignore.yaml.
+
 # Enable flakes and the new nix command.
 # filter-syscalls=false is required for Nix to run inside kaniko's user-namespace container.
 RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf \
