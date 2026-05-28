@@ -1,0 +1,62 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: attic-gc
+  namespace: nix-cache
+spec:
+  schedule: "0 4 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: gc
+              image: ghcr.io/zhaofengli/attic@sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0
+              command:
+                - atticd
+                - --mode
+                - garbage-collector-once
+                - -f
+                - /etc/atticd/server.toml
+              env:
+                - name: ATTIC_SERVER_TOKEN_HS256_SECRET_BASE64
+                  valueFrom:
+                    secretKeyRef:
+                      name: attic-tokens
+                      key: ATTIC_SERVER_TOKEN_HS256_SECRET_BASE64
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-creds-nix-cache
+                      key: rootUser
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-creds-nix-cache
+                      key: rootPassword
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/atticd
+                  readOnly: true
+                - name: data
+                  mountPath: /var/lib/atticd
+          volumes:
+            - name: config
+              configMap:
+                name: attic-config
+            - name: data
+              persistentVolumeClaim:
+                claimName: attic-data
