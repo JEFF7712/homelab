@@ -271,6 +271,12 @@ build_ci_image:
   variables:
     IMAGE_TAG: "0.0.$CI_PIPELINE_IID"
     IMAGE_NAME: "jeff7712/homelab-ci"
+    # Nix needs to build terraform from source (HashiCorp BSL is excluded from
+    # cache.nixos.org); the default 1Gi pod limit OOMs during the Go build.
+    KUBERNETES_MEMORY_REQUEST: "2Gi"
+    KUBERNETES_MEMORY_LIMIT: "8Gi"
+    KUBERNETES_CPU_REQUEST: "500m"
+    KUBERNETES_CPU_LIMIT: "4"
   script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"username\":\"$DOCKERHUB_USERNAME\",\"password\":\"$DOCKERHUB_TOKEN\"}}}" > /kaniko/.docker/config.json
