@@ -48,7 +48,8 @@ spec:
                 tempo-data \
                 mimir-data \
                 mimir-ruler \
-                mimir-alertmanager
+                mimir-alertmanager \
+                attic-homelab
               do
                 mc mb --ignore-existing "local/${bucket}"
                 mc anonymous set none "local/${bucket}"
