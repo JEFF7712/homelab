@@ -1,0 +1,153 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nix-cache
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: attic-config
+  namespace: nix-cache
+data:
+  server.toml: |
+    listen = "0.0.0.0:8080"
+
+    [database]
+    url = "sqlite:///var/lib/atticd/db.sqlite?mode=rwc"
+
+    [storage]
+    type = "s3"
+    bucket = "attic-homelab"
+    region = "us-east-1"
+    endpoint = "http://minio.observability.svc:9000"
+
+    [chunking]
+    nar-size-threshold = 65536
+    min-size = 16384
+    avg-size = 65536
+    max-size = 262144
+
+    [garbage-collection]
+    interval = "12 hours"
+    default-retention-period = "60 days"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: attic-data
+  namespace: nix-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atticd
+  namespace: nix-cache
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: atticd
+  template:
+    metadata:
+      labels:
+        app: atticd
+    spec:
+      containers:
+        - name: atticd
+          image: ghcr.io/zhaofengli/attic@sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0
+          args:
+            - "-f"
+            - "/etc/atticd/server.toml"
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ATTIC_SERVER_TOKEN_HS256_SECRET_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: attic-tokens
+                  key: ATTIC_SERVER_TOKEN_HS256_SECRET_BASE64
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds-nix-cache
+                  key: rootUser
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds-nix-cache
+                  key: rootPassword
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/atticd
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/atticd
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: attic-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: attic-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atticd
+  namespace: nix-cache
+  annotations:
+    io.cilium/lb-ipam-ips: "10.0.20.190"
+spec:
+  type: LoadBalancer
+  selector:
+    app: atticd
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: atticd
+  namespace: nix-cache
+spec:
+  selector:
+    matchLabels:
+      app: atticd
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
