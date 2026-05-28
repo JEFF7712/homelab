@@ -17,3 +17,6 @@ misconfigurations:
   - id: KSV-0014
     paths:
       - infrastructure/media/torrent.yaml
+  - id: KSV-0053
+    paths:
+      - infrastructure/gitlab-runner/rbac.yaml
