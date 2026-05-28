@@ -44,8 +44,12 @@ spec:
                 poll_timeout = 600
                 cpu_request = "250m"
                 cpu_limit = "1"
+                cpu_request_overwrite_max_allowed = "4"
+                cpu_limit_overwrite_max_allowed = "4"
                 memory_request = "256Mi"
                 memory_limit = "1Gi"
+                memory_request_overwrite_max_allowed = "4Gi"
+                memory_limit_overwrite_max_allowed = "8Gi"
                 helper_cpu_request = "50m"
                 helper_memory_request = "64Mi"
                 helper_cpu_limit = "200m"
