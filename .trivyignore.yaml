@@ -23,3 +23,15 @@ misconfigurations:
   - id: DS-0002
     paths:
       - infrastructure/automation/images/ci/Dockerfile
+  - id: KSV-0014
+    paths:
+      - infrastructure/nix-cache/attic.yaml
+  - id: KSV-0014
+    paths:
+      - infrastructure/nix-cache/gc-cronjob.yaml
+  - id: KSV-0118
+    paths:
+      - infrastructure/nix-cache/attic.yaml
+  - id: KSV-0118
+    paths:
+      - infrastructure/nix-cache/gc-cronjob.yaml
