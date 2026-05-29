@@ -7,6 +7,7 @@ FROM nixos/nix:2.34.7
 
 # Enable flakes and the new nix command.
 # filter-syscalls=false is required for Nix to run inside kaniko's user-namespace container.
+# substituters: cache.nixos.org for free pkgs, homelab Attic for unfree/rebuilt closures (terraform).
 RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf \
  && echo "filter-syscalls = false" >> /etc/nix/nix.conf \
  && echo "substituters = https://cache.nixos.org/ http://10.0.20.190:8080/homelab" >> /etc/nix/nix.conf \
