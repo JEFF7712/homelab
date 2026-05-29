@@ -268,6 +268,30 @@ build_ci_image:
       --dockerfile "$CI_PROJECT_DIR/infrastructure/automation/images/ci/Dockerfile"
       --destination "$IMAGE_NAME:$IMAGE_TAG"
 
+push_ci_closure_to_attic:
+  stage: image_scan
+  image: jeff7712/homelab-ci:$CI_IMAGE_TAG
+  needs:
+    - build_ci_image
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - flake.nix
+        - flake.lock
+        - infrastructure/automation/images/ci/**/*
+        - .gitlab-ci.yml
+  variables:
+    KUBERNETES_MEMORY_REQUEST: "1Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+  script:
+    - |
+      nix develop /etc/ci-flake#ci -c bash -e -c '
+        attic login homelab http://10.0.20.190:8080 "$ATTIC_CI_PUSH_TOKEN"
+        root=$(cut -d" " -f3 /etc/ci-flake/gc-roots | head -1)
+        attic push homelab $(nix path-info --recursive --offline "$root")
+      '
+
 # check-cluster-access:
 #   stage: test
 #   image:
