@@ -10,7 +10,7 @@ stages:
 
 variables:
   # renovate: datasource=docker depName=jeff7712/homelab-ci
-  CI_IMAGE_TAG: "0.0.1169"
+  CI_IMAGE_TAG: "0.0.1173"
 
   KUBERNETES_VERSION: "1.35.0"
   TF_IN_AUTOMATION: "true"
