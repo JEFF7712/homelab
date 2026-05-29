@@ -270,7 +270,10 @@ build_ci_image:
 
 push_ci_closure_to_attic:
   stage: image_scan
-  image: jeff7712/homelab-ci:$CI_IMAGE_TAG
+  # Use the just-built image (matches build_ci_image's IMAGE_TAG) so the
+  # push job always has the same attic-client version as the closure it
+  # pushes; avoids waiting for Renovate to bump $CI_IMAGE_TAG.
+  image: jeff7712/homelab-ci:0.0.$CI_PIPELINE_IID
   needs:
     - build_ci_image
   allow_failure: true
