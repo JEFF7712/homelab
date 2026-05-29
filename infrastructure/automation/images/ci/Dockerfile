@@ -8,7 +8,9 @@ FROM nixos/nix:2.34.7
 # Enable flakes and the new nix command.
 # filter-syscalls=false is required for Nix to run inside kaniko's user-namespace container.
 RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf \
- && echo "filter-syscalls = false" >> /etc/nix/nix.conf
+ && echo "filter-syscalls = false" >> /etc/nix/nix.conf \
+ && echo "substituters = https://cache.nixos.org/ http://10.0.20.190:8080/homelab" >> /etc/nix/nix.conf \
+ && echo "trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= homelab:s17u8G3szjlQ6UmMAPsszVS/J1jaw6gDwSDM9+/QeNQ=" >> /etc/nix/nix.conf
 
 # Copy only the files that affect what gets installed.
 WORKDIR /etc/ci-flake
