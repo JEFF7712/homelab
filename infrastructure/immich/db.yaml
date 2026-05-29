@@ -15,8 +15,6 @@ spec:
       labels:
         app: immich-postgres
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: worker-01-cli
       securityContext:
         seccompProfile:
           type: RuntimeDefault
