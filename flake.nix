@@ -1,6 +1,11 @@
 {
   description = "Homelab devShells + CI image source";
 
+  nixConfig = {
+    extra-substituters = [ "http://10.0.20.190:8080/homelab" ];
+    extra-trusted-public-keys = [ "homelab:s17u8G3szjlQ6UmMAPsszVS/J1jaw6gDwSDM9+/QeNQ=" ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
@@ -20,6 +25,7 @@
           kubeconform
           gitleaks
           trivy
+          attic-client
           git
           coreutils
           gnused
