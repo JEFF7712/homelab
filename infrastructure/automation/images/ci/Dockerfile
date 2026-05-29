@@ -32,3 +32,4 @@ WORKDIR /work
 # container, so jobs explicitly prefix scripts with `nix develop /etc/ci-flake#ci -c …`.
 ENTRYPOINT ["nix", "develop", "/etc/ci-flake#ci", "--command"]
 CMD ["bash"]
+
