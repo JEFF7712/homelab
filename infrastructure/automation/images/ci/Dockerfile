@@ -18,9 +18,11 @@ WORKDIR /etc/ci-flake
 COPY flake.nix flake.lock ./
 
 # Pre-build the CI devShell so its closure lives in /nix/store and `nix develop`
-# at job runtime is instant (no eval, no network).
-RUN nix build --no-link '.#devShells.x86_64-linux.ci' \
- && nix-store --gc --print-roots > /etc/ci-flake/gc-roots
+# at job runtime is instant (no eval, no network). Capture the store path
+# of the dev shell to /etc/ci-flake/closure-root so push_ci_closure_to_attic
+# knows exactly what to upload (NOT system gc-roots, which include
+# unrelated stuff like base-system).
+RUN nix build --no-link --print-out-paths '.#devShells.x86_64-linux.ci' > /etc/ci-flake/closure-root
 
 # Sanity check: drop into the shell and run trivial command. Fails the build
 # early if any package in ciPackages is broken on the pinned nixpkgs.

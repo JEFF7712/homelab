@@ -292,9 +292,10 @@ push_ci_closure_to_attic:
       nix develop /etc/ci-flake#ci -c bash -c '
         set -u
         attic login homelab http://10.0.20.190:8080 "$ATTIC_CI_PUSH_TOKEN" || exit 1
-        root=$(cut -d" " -f3 /etc/ci-flake/gc-roots | head -1)
+        root=$(cat /etc/ci-flake/closure-root)
+        echo "Pushing closure of $root"
         # Push paths one-at-a-time so a single "Bad chunk hash or size"
-        # failure (Attic server-side quirk) does not abort the whole batch.
+        # failure does not abort the whole batch.
         failed=0
         total=0
         while read -r path; do
