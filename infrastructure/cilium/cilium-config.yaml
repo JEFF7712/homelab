@@ -69,3 +69,21 @@ spec:
         matchExpressions:
           - key: ignore-me
             operator: DoesNotExist
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: homelab-l2-pool
+spec:
+  # Match the worker-NIC name on each node:
+  # - worker-01-cli / worker-02-cli / worker-03-wyse: enp1s0
+  # - controlplane-01-vm (Proxmox guest):             ens18
+  interfaces:
+    - "^(enp1s0|ens18)$"
+  externalIPs: true
+  loadBalancerIPs: true
+  # Same "select everything that doesn't opt out" pattern as the BGP advertisement.
+  serviceSelector:
+    matchExpressions:
+      - key: ignore-me
+        operator: DoesNotExist

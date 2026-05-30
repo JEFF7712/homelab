@@ -38,6 +38,23 @@ resource "helm_release" "cilium" {
       name  = "externalIPs.enabled"
       value = "true"
     },
+    # L2 announcement: Cilium answers ARP for LB IPs on the cluster LAN
+    # so off-cluster hosts (e.g. the NetBird LXC peer) can reach them
+    # without depending on OPNsense proxy-ARP. Coexists with BGP.
+    {
+      name  = "l2announcements.enabled"
+      value = "true"
+    },
+    # Default k8sClientRateLimit is too low for L2 leader election traffic
+    # (Cilium does a Lease per announced IP); per Cilium docs, bump it.
+    {
+      name  = "k8sClientRateLimit.qps"
+      value = "10"
+    },
+    {
+      name  = "k8sClientRateLimit.burst"
+      value = "20"
+    },
     {
       name  = "securityContext.privileged"
       value = "true"
