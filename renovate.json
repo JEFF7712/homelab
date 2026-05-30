@@ -88,6 +88,17 @@
       "allowedVersions": "/^softcover-/"
     },
     {
+      "description": "Throttle the CI_IMAGE_TAG bump (driven by the customManager above) to weekly Sunday nights — belt-and-suspenders since the .gitlab-ci.yml→build_ci_image feedback loop is already broken by removing .gitlab-ci.yml from build_ci_image's change rules.",
+      "matchPackageNames": [
+        "jeff7712/homelab-ci"
+      ],
+      "schedule": [
+        "before 6am on sunday"
+      ],
+      "groupName": "CI image tag",
+      "groupSlug": "ci-image-tag"
+    },
+    {
       "description": "Automatically merge minor and patch updates",
       "matchUpdateTypes": [
         "minor",

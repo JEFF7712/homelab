@@ -244,13 +244,15 @@ build_ci_image:
   image:
     name: gcr.io/kaniko-project/executor:v1.24.0-debug
     entrypoint: [""]
+  # NOTE: do NOT include .gitlab-ci.yml in changes — that would feedback-loop
+  # with Renovate's CI_IMAGE_TAG bumps. The image's content only depends on
+  # flake.nix, flake.lock, and the Dockerfile.
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - flake.nix
         - flake.lock
         - infrastructure/automation/images/ci/**/*
-        - .gitlab-ci.yml
   variables:
     IMAGE_TAG: "0.0.$CI_PIPELINE_IID"
     IMAGE_NAME: "jeff7712/homelab-ci"
@@ -277,13 +279,13 @@ push_ci_closure_to_attic:
   needs:
     - build_ci_image
   allow_failure: true
+  # Mirror build_ci_image rules — only fire when actual image inputs change.
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - flake.nix
         - flake.lock
         - infrastructure/automation/images/ci/**/*
-        - .gitlab-ci.yml
   variables:
     KUBERNETES_MEMORY_REQUEST: "1Gi"
     KUBERNETES_MEMORY_LIMIT: "4Gi"
