@@ -69,7 +69,7 @@ spec:
 
       containers:
         - name: lidarr
-          image: ghcr.io/hotio/lidarr@sha256:2debd2924b592853422966c02807e33e0247688da7ae89bd42b88f60409b76d9
+          image: ghcr.io/hotio/lidarr@sha256:cb436a85f8f2f5035291890c079fe79d9002b180311d3b83bab11ed1f376446d
           command:
             - /bin/sh
             - -c
