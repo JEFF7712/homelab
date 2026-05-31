@@ -2,3 +2,5 @@
 10aa3b70fb46ff6408295a7fd77349682a4f55cc:infrastructure/media/soularr.yaml:generic-api-key:89
 10aa3b70fb46ff6408295a7fd77349682a4f55cc:infrastructure/media/soularr.yaml:generic-api-key:95
 bc9d3a5e2b3ab5d60b725e1b1405362997b016f4:apps/backups.yaml:generic-api-key:15
+d81fd17a62ccd7b5c2520f92c769eea0f2c773ff:credentials.example.yaml:private-key:32
+d81fd17a62ccd7b5c2520f92c769eea0f2c773ff:tests/fixtures/test_key.pem:private-key:1
