@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predmarkbot
+  namespace: predmarkbot
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: predmarkbot
+  template:
+    metadata:
+      labels:
+        app: predmarkbot
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: predmarkbot
+          # renovate: datasource=docker depName=jeff7712/predmarkbot
+          image: jeff7712/predmarkbot:0.0.1259
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: KALSHI_DEMO_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: predmarkbot-secrets
+                  key: KALSHI_DEMO_KEY_ID
+            - name: KALSHI_PROD_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: predmarkbot-secrets
+                  key: KALSHI_PROD_KEY_ID
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: predmarkbot-secrets
+                  key: NTFY_TOKEN
+          volumeMounts:
+            - name: config
+              mountPath: /etc/predmarkbot
+              readOnly: true
+            - name: kalshi-keys
+              mountPath: /var/run/secrets/kalshi
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/predmarkbot
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: predmarkbot-config
+        - name: kalshi-keys
+          secret:
+            secretName: predmarkbot-secrets
+            items:
+              - key: kalshi-demo-private-key.pem
+                path: kalshi-demo-private-key.pem
+                mode: 0400
+              - key: kalshi-prod-private-key.pem
+                path: kalshi-prod-private-key.pem
+                mode: 0400
+        - name: data
+          persistentVolumeClaim:
+            claimName: predmarkbot-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 50Mi

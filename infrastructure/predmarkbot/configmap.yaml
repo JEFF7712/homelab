@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predmarkbot-config
+  namespace: predmarkbot
+  annotations:
+    reloader.stakater.com/match: "true"
+data:
+  config.yaml: |
+    # predmarkbot runtime config.
+    # v1: shadow mode against Kalshi DEMO. Flip to demo (live demo orders)
+    # once shadow run is verified; flip to prod only after demo soak.
+
+    mode: shadow
+
+    kalshi:
+      api_base_url: https://demo-api.kalshi.co/trade-api/v2
+      ws_base_url: wss://demo-api.kalshi.co/trade-api/ws/v2
+      key_id_env: KALSHI_DEMO_KEY_ID
+      private_key_path: /var/run/secrets/kalshi/kalshi-demo-private-key.pem
+
+    discovery:
+      series:
+        - KXHIGHNY
+      poll_interval_seconds: 300
+
+    feed:
+      reconcile_interval_seconds: 60
+      ws_reconnect_max_backoff_seconds: 60
+
+    risk:
+      min_edge_cents: 1
+      max_per_market_dollars: 50
+      max_total_exposure_dollars: 200
+      max_orders_per_minute: 30
+      max_daily_loss_dollars: 25
+      max_intent_size: 10
+
+    state:
+      db_path: /var/lib/predmarkbot/state.db
+
+    notify:
+      ntfy_url: https://ntfy.rupan.dev
+      ntfy_topic: predmarkbot
+      ntfy_token_env: NTFY_TOKEN

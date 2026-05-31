@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: predmarkbot
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://gitlab.com/JEFF7712/homelab.git"
+    targetRevision: main
+    path: infrastructure/predmarkbot
+    directory:
+      exclude: "src/*"
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: predmarkbot
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

@@ -46,6 +46,15 @@
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*CI_IMAGE_TAG:\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "versioningTemplate": "loose"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "infrastructure/predmarkbot/deployment\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+image:\\s+\\S+:(?<currentValue>\\S+)"
+      ]
     }
   ],
   "packageRules": [
