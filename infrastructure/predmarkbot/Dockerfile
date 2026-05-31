@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.7
+# predmarkbot — Kalshi prediction-market trading bot.
 
 # ─── Builder stage: resolve deps with uv ───
 FROM python:3.12-slim AS builder
