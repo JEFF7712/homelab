@@ -1,0 +1,9 @@
+{
+  "type": "orderbook_snapshot",
+  "msg": {
+    "market_ticker": "KXHIGHNY-26MAY30-T75",
+    "seq": 100,
+    "yes": [[50, 10], [49, 5]],
+    "no": [[48, 4], [47, 8]]
+  }
+}
