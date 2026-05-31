@@ -48,11 +48,21 @@ async def run(config: Config) -> None:
     )
     notifier = _build_notifier(config)
 
+    # Clock skew check is best-effort: a real skew (> threshold) exits, but a
+    # network failure to reach the reference (e.g. cluster can't egress to
+    # time.cloudflare.com) just logs a warning and continues — Kalshi will
+    # reject signed requests if our clock is actually wrong, surfacing the
+    # problem through auth errors instead of preventing startup.
     try:
-        await check_clock_skew(now_provider=lambda: datetime.now(UTC))
+        skew = await check_clock_skew(now_provider=lambda: datetime.now(UTC))
+        _log.info("clock skew vs reference: %+.2fs", skew)
     except ClockSkewError as exc:
-        await notifier.notify_error(exc, context={"stage": "startup_clock_check"})
-        sys.exit(2)
+        msg = str(exc).lower()
+        if "could not reach" in msg or "no date header" in msg:
+            _log.warning("clock skew check skipped (network): %s", exc)
+        else:
+            await notifier.notify_error(exc, context={"stage": "startup_clock_check"})
+            sys.exit(2)
 
     signer = KalshiSigner(
         key_id=os.environ[config.kalshi.key_id_env],
