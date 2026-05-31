@@ -1,0 +1,40 @@
+# predmarkbot — example config. Copy to config.yaml and edit.
+
+mode: shadow  # shadow | demo | prod (prod also requires prod_confirmed: true)
+
+kalshi:
+  # Demo:
+  api_base_url: https://demo-api.kalshi.co/trade-api/v2
+  ws_base_url: wss://demo-api.kalshi.co/trade-api/ws/v2
+  # Prod (when ready):
+  # api_base_url: https://api.elections.kalshi.com/trade-api/v2
+  # ws_base_url: wss://api.elections.kalshi.com/trade-api/ws/v2
+  key_id_env: KALSHI_KEY_ID                       # env var that holds the key ID
+  private_key_path: /var/run/secrets/kalshi/private_key.pem
+
+discovery:
+  series:
+    - KXHIGHNY                                    # e.g. NYC high temperature
+  poll_interval_seconds: 300
+
+feed:
+  reconcile_interval_seconds: 60
+  ws_reconnect_max_backoff_seconds: 60
+
+risk:
+  min_edge_cents: 1
+  max_per_market_dollars: 50
+  max_total_exposure_dollars: 200
+  max_orders_per_minute: 30
+  max_daily_loss_dollars: 25
+  max_intent_size: 10                             # contracts per intent
+
+state:
+  db_path: /var/lib/predmarkbot/state.db
+
+notify:
+  ntfy_url: https://ntfy.rupan.dev
+  ntfy_topic: predmarkbot
+  ntfy_token_env: NTFY_TOKEN
+
+# prod_confirmed: true                            # required if mode == prod

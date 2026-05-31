@@ -1,0 +1,51 @@
+# Secrets — never commit
+bot.txt
+bot_key_id.txt
+credentials.yaml
+credentials.local.yaml
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Runtime state
+state.db
+state.db-journal
+state.db-wal
+state.db-shm
+state.db.killed
+*.log
+logs/
+
+# Local config (real config lives in ~/homelab; this repo only ships the example)
+config.yaml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+.venv/
+venv/
+
+# Nix / direnv
+.direnv/
+result
+result-*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

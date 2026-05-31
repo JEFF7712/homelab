@@ -1,0 +1,2 @@
+# Allow test-only key fixtures to be committed — these are NOT production keys.
+!*.pem

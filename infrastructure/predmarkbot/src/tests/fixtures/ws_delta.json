@@ -1,0 +1,10 @@
+{
+  "type": "orderbook_delta",
+  "msg": {
+    "market_ticker": "KXHIGHNY-26MAY30-T75",
+    "seq": 101,
+    "side": "yes",
+    "price": 50,
+    "delta": -3
+  }
+}
