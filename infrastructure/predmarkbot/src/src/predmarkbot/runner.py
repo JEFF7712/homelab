@@ -124,7 +124,9 @@ async def run(config: Config) -> None:
         updates: asyncio.Queue[OrderbookUpdate] = asyncio.Queue()
         feed = DataFeed(out=updates)
 
-        async with KalshiWsClient(base_url=config.kalshi.ws_base_url) as ws:
+        async with KalshiWsClient(
+            base_url=config.kalshi.ws_base_url, signer=signer
+        ) as ws:
             await ws.subscribe_orderbook(sorted(watched))
             tasks: list[asyncio.Task[None]] = [
                 asyncio.create_task(feed.consume(ws.messages()), name="feed"),
