@@ -102,6 +102,7 @@ kubernetes_validate:
         find apps bootstrap infrastructure secrets \
           -type f \( -name "*.yaml" -o -name "*.yml" \) \
           ! -path "bootstrap/wyse-disk-patch.yaml" \
+          ! -path "infrastructure/predmarkbot/src/*" \
           -print0 \
           | xargs -0 kubeconform -summary -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION"
       '

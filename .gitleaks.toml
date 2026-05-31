@@ -12,3 +12,9 @@ paths = [
 regexes = [
   '''^Ag[0-9A-Za-z+/=]+$'''
 ]
+
+[[allowlists]]
+description = "Allow synthetic test-only RSA key used by predmarkbot unit tests"
+paths = [
+  '''infrastructure/predmarkbot/src/tests/fixtures/test_key\.pem$'''
+]
