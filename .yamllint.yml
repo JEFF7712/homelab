@@ -4,6 +4,7 @@ extends: default
 ignore: |
   .git/
   **/__pycache__/**
+  infrastructure/predmarkbot/src/
 
 rules:
   comments: disable

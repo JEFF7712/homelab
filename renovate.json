@@ -23,6 +23,9 @@
     "main"
   ],
   "useBaseBranchConfig": "merge",
+  "ignorePaths": [
+    "infrastructure/predmarkbot/src/**"
+  ],
   "printConfig": false,
   "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
   "commitMessagePrefix": "renovate:",
