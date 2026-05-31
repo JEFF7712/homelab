@@ -1,6 +1,7 @@
 /terraform/secrets.tfvars
 *.terraform.lock.hcl
 *.terraform.tfstate.lock.info
+terraform/bootstrap/.terragrunt-cache/
 *backend.conf
 *.terraform/
 *.tfstate
