@@ -1,8 +1,8 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.24
 # predmarkbot — Kalshi prediction-market trading bot.
 
 # ─── Builder stage: resolve deps with uv ───
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 
 # Install uv. Pinned for reproducibility; bump via Renovate.
-COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.17 /uv /usr/local/bin/uv
 
 WORKDIR /build
 COPY src/pyproject.toml src/uv.lock ./
@@ -21,7 +21,7 @@ COPY src/src ./src
 RUN uv sync --frozen --no-dev --no-editable
 
 # ─── Runtime stage: minimal ───
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # Run as a non-root user. UID 1000 to match Longhorn fsGroup convention.
 RUN groupadd --system --gid 1000 predmark \
