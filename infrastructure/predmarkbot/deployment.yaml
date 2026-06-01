@@ -61,6 +61,24 @@ spec:
               mountPath: /var/lib/predmarkbot
             - name: tmp
               mountPath: /tmp
+          ports:
+            - name: dashboard
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
           resources:
             requests:
               cpu: 100m

@@ -73,3 +73,7 @@ data:
       ntfy_url: https://ntfy.rupan.dev
       ntfy_topic: predmarkbot
       ntfy_token_env: NTFY_TOKEN
+
+    dashboard:
+      enabled: true
+      port: 8080
