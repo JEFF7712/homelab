@@ -10,7 +10,8 @@ from pathlib import Path
 
 from predmarkbot import __version__
 from predmarkbot.clock import ClockSkewError, check_clock_skew
-from predmarkbot.config import Config, Mode
+from predmarkbot.config import Config, DashboardConfig, Mode
+from predmarkbot.dashboard import make_app
 from predmarkbot.discovery import MarketDiscovery
 from predmarkbot.events import KillSwitch, OrderbookUpdate, TradeOrder
 from predmarkbot.executor import Executor
@@ -162,6 +163,18 @@ async def run(config: Config) -> None:
                     name="meta_refresh",
                 ),
             ]
+            if config.dashboard.enabled:
+                tasks.append(
+                    asyncio.create_task(
+                        _dashboard_serve(
+                            state=state,
+                            mode=config.mode.value,
+                            kill_sentinel_path=config.state.db_path + ".killed",
+                            dashboard_cfg=config.dashboard,
+                        ),
+                        name="dashboard",
+                    )
+                )
             try:
                 await asyncio.gather(*tasks)
             except _KillSwitchSignal as signal:
@@ -295,6 +308,30 @@ async def _reconcile_orders_on_startup(
         len(pending),
         len(submitted),
     )
+
+
+async def _dashboard_serve(
+    *,
+    state: StateStore,
+    mode: str,
+    kill_sentinel_path: str,
+    dashboard_cfg: DashboardConfig,
+) -> None:
+    """Start the aiohttp dashboard and serve forever."""
+    from aiohttp import web
+
+    app = make_app(state=state, mode=mode, kill_sentinel_path=kill_sentinel_path)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host="0.0.0.0", port=dashboard_cfg.port)
+    await site.start()
+    _log.info("dashboard listening on port %d", dashboard_cfg.port)
+    try:
+        await asyncio.Event().wait()  # sleep forever; cancelled on shutdown
+    except asyncio.CancelledError:
+        _log.info("dashboard shutting down")
+        await runner.cleanup()
+        raise
 
 
 def _build_notifier(config: Config) -> Notifier:
