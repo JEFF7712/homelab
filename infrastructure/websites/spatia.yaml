@@ -55,7 +55,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: web
-          image: jeff7712/spatia-site:0.0.18
+          image: jeff7712/spatia-site:0.0.20
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
