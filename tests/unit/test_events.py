@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime
 
 import pytest
@@ -74,3 +75,19 @@ def test_fill_equality_by_fill_id() -> None:
 def test_killswitch_carries_reason() -> None:
     k = KillSwitch(reason="daily loss")
     assert "daily loss" in k.reason
+
+
+def test_market_meta_carries_close_ts_and_strike() -> None:
+    from predmarkbot.events import MarketMeta
+    m = MarketMeta(
+        ticker="KXHIGHNY-26JUN10-T75",
+        series_ticker="KXHIGHNY",
+        close_ts=datetime(2026, 6, 11, 4, 59, tzinfo=UTC),
+        yes_strike=75.0,
+    )
+    assert m.ticker == "KXHIGHNY-26JUN10-T75"
+    assert m.series_ticker == "KXHIGHNY"
+    assert m.yes_strike == 75.0
+    # frozen
+    with pytest.raises(FrozenInstanceError):
+        m.ticker = "other"  # type: ignore[misc]

@@ -82,6 +82,14 @@ class KalshiRestClient:
 
             if 200 <= resp.status_code < 300:
                 return resp.json() if resp.content else {}
+            if resp.status_code == 429:
+                # Rate-limited: back off and retry like 5xx (but with a
+                # bigger base delay so we don't immediately hammer again).
+                if attempt >= self._retry_max:
+                    raise KalshiApiError(429, resp.text)
+                backoff = max(self._retry_base_delay * (2 ** attempt), 1.0)
+                await asyncio.sleep(backoff)
+                continue
             if 400 <= resp.status_code < 500:
                 # Client error: don't retry
                 try:

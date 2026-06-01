@@ -29,6 +29,16 @@ dev = [
     "types-pyyaml",
 ]
 
+research = [
+    "pandas>=2.2",
+    "matplotlib>=3.9",
+    "seaborn>=0.13",
+    "scipy>=1.13",
+    "jupyterlab>=4.2",
+    "nbstripout>=0.7",
+    "pyarrow>=17",
+]
+
 [tool.uv]
 package = true
 
