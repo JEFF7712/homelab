@@ -65,6 +65,11 @@ class NotifyConfig(BaseModel):
     ntfy_token_env: str
 
 
+class DashboardConfig(BaseModel):
+    enabled: bool = True
+    port: int = 8080
+
+
 class Config(BaseModel):
     mode: Mode
     kalshi: KalshiConfig
@@ -74,6 +79,7 @@ class Config(BaseModel):
     strategy: StrategyConfig = Field(default_factory=StrategyConfig)
     state: StateConfig
     notify: NotifyConfig
+    dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
     prod_confirmed: bool = False
 
     @model_validator(mode="after")
