@@ -8,16 +8,17 @@ metadata:
 data:
   config.yaml: |
     # predmarkbot runtime config.
-    # v1: shadow mode against Kalshi DEMO. Flip to demo (live demo orders)
-    # once shadow run is verified; flip to prod only after demo soak.
+    # Shadow mode against Kalshi PROD: real prices, no orders submitted —
+    # strategy fires record to shadow_intents. Flip mode: live only after
+    # the shadow run shows expected fire rate.
 
     mode: shadow
 
     kalshi:
-      api_base_url: https://demo-api.kalshi.co/trade-api/v2
-      ws_base_url: wss://demo-api.kalshi.co/trade-api/ws/v2
-      key_id_env: KALSHI_DEMO_KEY_ID
-      private_key_path: /var/run/secrets/kalshi/kalshi-demo-private-key.pem
+      api_base_url: https://api.elections.kalshi.com/trade-api/v2
+      ws_base_url: wss://api.elections.kalshi.com/trade-api/ws/v2
+      key_id_env: KALSHI_PROD_KEY_ID
+      private_key_path: /var/run/secrets/kalshi/kalshi-prod-private-key.pem
 
     discovery:
       series:
