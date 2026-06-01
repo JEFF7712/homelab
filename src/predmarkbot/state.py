@@ -226,6 +226,31 @@ class StateStore:
             row = await cur.fetchone()
         return int(row["realized_cents"]) if row else 0
 
+    # ----- markets -----
+    async def upsert_market(
+        self,
+        *,
+        ticker: str,
+        series_ticker: str,
+        title: str,
+        status: str,
+        last_seen_ts: str,
+    ) -> None:
+        """Insert or update a discovered market row."""
+        await self.conn.execute(
+            """
+            INSERT INTO markets (ticker, series_ticker, title, status, last_seen_ts)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(ticker) DO UPDATE SET
+                series_ticker = excluded.series_ticker,
+                title = excluded.title,
+                status = excluded.status,
+                last_seen_ts = excluded.last_seen_ts
+            """,
+            (ticker, series_ticker, title, status, last_seen_ts),
+        )
+        await self.conn.commit()
+
     # ----- shadow -----
     async def record_shadow_intent(
         self, *, ts: datetime, ticker: str, side: Side,
