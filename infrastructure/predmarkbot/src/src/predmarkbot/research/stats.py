@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import math
 
-from scipy import stats  # type: ignore[import-untyped]  # scipy ships no py.typed
-
 BUCKET_WIDTH = 5
 NUM_BUCKETS = 100 // BUCKET_WIDTH  # = 20
 
@@ -32,6 +30,8 @@ def wilson_ci(
     More accurate than the normal-approximation CI for small n or
     extreme proportions. Returns (lo, hi). For n_total=0 returns (0, 1).
     """
+    from scipy import stats  # type: ignore[import-untyped]  # lazy: not available in bot container
+
     if n_total == 0:
         return (0.0, 1.0)
     alpha = 1.0 - confidence
@@ -49,6 +49,8 @@ def binomial_p_value(
     *, n_success: int, n_total: int, expected: float
 ) -> float:
     """Two-tailed binomial test p-value for H0: p = expected."""
+    from scipy import stats  # type: ignore[import-untyped]  # lazy: not available in bot container
+
     if n_total == 0:
         return 1.0
     result = stats.binomtest(k=n_success, n=n_total, p=expected, alternative="two-sided")

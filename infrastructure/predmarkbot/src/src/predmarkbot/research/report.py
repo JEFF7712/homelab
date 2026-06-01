@@ -4,11 +4,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")  # headless backend; required before pyplot import
-import matplotlib.pyplot as plt  # noqa: E402  # must come after matplotlib.use()
-
 from predmarkbot.research.horizons import HORIZON_OFFSETS
 from predmarkbot.research.store import ResearchStore
 
@@ -173,6 +168,10 @@ async def write_report(*, store: ResearchStore, out_dir: Path) -> None:
 def _write_plot(
     *, rows: list[dict], horizon: str, category: str, out_dir: Path  # type: ignore[type-arg]
 ) -> None:
+    import matplotlib  # lazy: not installed in bot container
+    matplotlib.use("Agg")  # headless backend; must come before pyplot
+    import matplotlib.pyplot as plt  # noqa: E402
+
     filtered = [
         r for r in rows
         if r["horizon"] == horizon and r["category"] == category
@@ -202,6 +201,10 @@ def _write_strat_heatmap(
     *, rows: list[dict], horizon: str,  # type: ignore[type-arg]
     series_ticker: str, out_dir: Path,
 ) -> None:
+    import matplotlib  # lazy: not installed in bot container
+    matplotlib.use("Agg")  # headless backend; must come before pyplot
+    import matplotlib.pyplot as plt  # noqa: E402
+
     cells = [
         r for r in rows
         if r["horizon"] == horizon
