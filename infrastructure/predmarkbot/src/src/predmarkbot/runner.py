@@ -5,7 +5,6 @@ import asyncio
 import logging
 import os
 import sys
-import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -19,10 +18,11 @@ from predmarkbot.feed import DataFeed
 from predmarkbot.kalshi.auth import KalshiSigner, load_private_key
 from predmarkbot.kalshi.rest import KalshiRestClient
 from predmarkbot.kalshi.ws import KalshiWsClient
+from predmarkbot.market_meta import MarketMetaCache
 from predmarkbot.notify import LogNotifier, Notifier, NtfyNotifier
 from predmarkbot.risk import RiskDecision, RiskManager
 from predmarkbot.state import StateStore
-from predmarkbot.strategy.arb import ArbStrategy
+from predmarkbot.strategy.longshot import LongshotStrategy
 
 _log = logging.getLogger(__name__)
 
@@ -92,17 +92,23 @@ async def run(config: Config) -> None:
             poll_interval_seconds=config.discovery.poll_interval_seconds,
         )
         watched = await discovery.discover_once()
+
+        meta_cache = MarketMetaCache(rest=rest)
+        await meta_cache.refresh(watched)
+
         await notifier.notify_startup(
             version=__version__, mode=config.mode.value, n_markets=len(watched),
         )
 
-        # v1 simplification: strategy `get_position` returns 0. Real lookups
-        # happen via the async StateStore; wiring a sync cache that refreshes
-        # after each fill is a follow-up listed in the plan's self-review.
-        strategy = ArbStrategy(
-            get_position=lambda _t, _s: 0,
-            min_edge_cents=config.risk.min_edge_cents,
-            max_intent_size=config.risk.max_intent_size,
+        strategy = LongshotStrategy(
+            series_allowlist=set(config.strategy.series_allowlist),
+            size_contracts=config.strategy.size_contracts,
+            max_price_cents=config.strategy.max_price_cents,
+            min_seconds_to_close=config.strategy.min_seconds_to_close,
+            max_seconds_to_close=config.strategy.max_seconds_to_close,
+            historical_yes_rate=config.strategy.historical_yes_rate,
+            get_market_meta=meta_cache.get,
+            now=lambda: datetime.now(UTC),
         )
 
         # v1 simplification: risk callbacks return 0. They should be wired to
@@ -139,12 +145,21 @@ async def run(config: Config) -> None:
                         state=state,
                         notifier=notifier,
                         mode=config.mode,
+                        meta_cache=meta_cache,
                     ),
                     name="strategy_loop",
                 ),
                 asyncio.create_task(
                     _daily_pnl_loop(state=state, notifier=notifier),
                     name="daily_pnl",
+                ),
+                asyncio.create_task(
+                    _meta_refresh_loop(
+                        discovery=discovery,
+                        meta_cache=meta_cache,
+                        interval_seconds=config.discovery.poll_interval_seconds,
+                    ),
+                    name="meta_refresh",
                 ),
             ]
             try:
@@ -198,15 +213,31 @@ async def _daily_pnl_loop(*, state: StateStore, notifier: Notifier) -> None:
         )
 
 
+async def _meta_refresh_loop(
+    *,
+    discovery: MarketDiscovery,
+    meta_cache: MarketMetaCache,
+    interval_seconds: int,
+) -> None:
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            watched = await discovery.discover_once()
+            await meta_cache.refresh(watched)
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("meta refresh failed: %s", exc)
+
+
 async def _drain_updates(
     *,
     updates: asyncio.Queue[OrderbookUpdate],
-    strategy: ArbStrategy,
+    strategy: LongshotStrategy,
     risk: RiskManager,
     executor: Executor,
     state: StateStore,
     notifier: Notifier,
     mode: Mode,
+    meta_cache: MarketMetaCache,
 ) -> None:
     """Pull updates off the queue, evaluate through strategy + risk, dispatch."""
     while True:
@@ -236,7 +267,7 @@ async def _drain_updates(
                 )
             else:
                 order = TradeOrder(
-                    client_order_id=str(uuid.uuid4()),
+                    client_order_id=f"longshot-{intent.ticker}",
                     ticker=intent.ticker,
                     side=intent.side,
                     price_cents=intent.price_cents,

@@ -64,3 +64,60 @@ def test_mode_prod_requires_explicit_confirm(tmp_path: Path) -> None:
     """))
     with pytest.raises(ValueError, match="prod_confirmed"):
         load_config(cfg_path)
+
+
+def test_strategy_config_defaults(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(dedent("""
+        mode: shadow
+        kalshi:
+          api_base_url: https://demo-api.kalshi.co/trade-api/v2
+          ws_base_url: wss://demo-api.kalshi.co/trade-api/ws/v2
+          key_id_env: KALSHI_KEY_ID
+          private_key_path: /tmp/key.pem
+        discovery:
+          series: [KXHIGHNY]
+        notify:
+          ntfy_url: https://ntfy.rupan.dev
+          ntfy_topic: predmarkbot
+          ntfy_token_env: NTFY_TOKEN
+        state:
+          db_path: /tmp/state.db
+    """))
+    cfg = load_config(cfg_path)
+    assert cfg.strategy.type == "longshot"
+    assert cfg.strategy.size_contracts == 5
+    assert cfg.strategy.max_price_cents == 5
+    assert cfg.strategy.min_seconds_to_close == 3600
+    assert cfg.strategy.max_seconds_to_close == 86400
+    assert cfg.strategy.historical_yes_rate == 0.14
+    assert "KXHIGHNY" in cfg.strategy.series_allowlist
+    assert "KXLOWNY" in cfg.strategy.series_allowlist
+
+
+def test_strategy_config_explicit_override(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(dedent("""
+        mode: shadow
+        kalshi:
+          api_base_url: https://demo-api.kalshi.co/trade-api/v2
+          ws_base_url: wss://demo-api.kalshi.co/trade-api/ws/v2
+          key_id_env: KALSHI_KEY_ID
+          private_key_path: /tmp/key.pem
+        discovery:
+          series: [KXHIGHNY]
+        strategy:
+          size_contracts: 20
+          max_price_cents: 3
+          series_allowlist: [KXHIGHNY, KXHIGHCHI]
+        notify:
+          ntfy_url: https://ntfy.rupan.dev
+          ntfy_topic: predmarkbot
+          ntfy_token_env: NTFY_TOKEN
+        state:
+          db_path: /tmp/state.db
+    """))
+    cfg = load_config(cfg_path)
+    assert cfg.strategy.size_contracts == 20
+    assert cfg.strategy.max_price_cents == 3
+    assert cfg.strategy.series_allowlist == ["KXHIGHNY", "KXHIGHCHI"]

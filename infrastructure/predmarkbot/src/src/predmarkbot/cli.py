@@ -15,6 +15,7 @@ from predmarkbot.clock import ClockSkewError, check_clock_skew
 from predmarkbot.config import Config, load_config
 from predmarkbot.kalshi.auth import KalshiSigner, load_private_key
 from predmarkbot.kalshi.rest import KalshiRestClient
+from predmarkbot.research.cli import research as _research_group
 from predmarkbot.runner import run as _run_bot
 from predmarkbot.state import StateStore
 
@@ -128,3 +129,6 @@ def smoke(config: Path) -> None:
     """Run startup self-checks (clock, signing, demo round-trip, ntfy)."""
     cfg = load_config(config)
     asyncio.run(_smoke(cfg))
+
+
+cli.add_command(_research_group, name="research")

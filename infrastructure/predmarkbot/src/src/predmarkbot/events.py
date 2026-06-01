@@ -80,3 +80,11 @@ class Fill:
 class KillSwitch:
     reason: str
     context: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MarketMeta:
+    ticker: str
+    series_ticker: str
+    close_ts: datetime
+    yes_strike: float | None

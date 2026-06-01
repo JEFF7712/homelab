@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -41,6 +42,19 @@ class RiskConfig(BaseModel):
     max_intent_size: int = 10  # contracts per intent
 
 
+class StrategyConfig(BaseModel):
+    type: Literal["longshot"] = "longshot"
+    size_contracts: int = 5
+    max_price_cents: int = 5
+    min_seconds_to_close: int = 3600
+    max_seconds_to_close: int = 86400
+    historical_yes_rate: float = 0.14
+    series_allowlist: list[str] = Field(default_factory=lambda: [
+        "KXHIGHNY", "KXHIGHCHI", "KXHIGHLAX", "KXHIGHMIA", "KXHIGHDEN", "KXHIGHHOU",
+        "KXLOWNY", "KXLOWCHI", "KXLOWLAX", "KXLOWMIA", "KXLOWDEN",
+    ])
+
+
 class StateConfig(BaseModel):
     db_path: str
 
@@ -57,6 +71,7 @@ class Config(BaseModel):
     discovery: DiscoveryConfig
     feed: FeedConfig = Field(default_factory=FeedConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
+    strategy: StrategyConfig = Field(default_factory=StrategyConfig)
     state: StateConfig
     notify: NotifyConfig
     prod_confirmed: bool = False

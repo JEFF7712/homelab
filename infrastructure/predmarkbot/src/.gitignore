@@ -49,3 +49,12 @@ result-*
 *.swp
 *.swo
 .DS_Store
+
+# Research
+research.db
+research.db-journal
+research.db-wal
+research.db-shm
+notebooks/.ipynb_checkpoints/
+# Note: docs/research/ reports ARE committed — they're small markdown+PNG
+# artifacts that complete the audit trail of "what we ran, what we found".
