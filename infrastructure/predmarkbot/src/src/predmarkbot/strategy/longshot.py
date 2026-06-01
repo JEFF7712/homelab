@@ -16,12 +16,12 @@ from predmarkbot.strategy.base import Strategy
 class LongshotStrategy(Strategy):
     """Buy YES when:
     - market's series is in `series_allowlist`
-    - YES top bid <= `max_price_cents`
+    - YES ask (derived as 100 - NO top bid) <= `max_price_cents`
     - close_ts is between `min_seconds_to_close` and `max_seconds_to_close` from now
     - we haven't already emitted for this ticker in this run
 
-    Entry price = YES top ask (derived as 100 - NO top bid), capped at
-    `max_price_cents`. Falls back to `yes_bid_price + 1` if NO has no bid.
+    Entry price = YES ask (derived as 100 - NO top bid). Falls back to
+    `yes_bid_price + 1` if NO has no bid. Skips if no liquidity on either side.
     """
 
     def __init__(
@@ -60,42 +60,40 @@ class LongshotStrategy(Strategy):
         if update.ticker in self._already_emitted:
             return []
 
-        # 4. Price filter
-        yes_top = update.yes.top_bid()
-        if yes_top is None:
-            return []
-        yes_bid_price, _yes_qty = yes_top
-        if yes_bid_price > self._max_price:
-            return []
-
-        # 5. Time-window filter
-        seconds_to_close = (meta.close_ts - self._now()).total_seconds()
-        if seconds_to_close < self._min_secs:
-            return []
-        if seconds_to_close > self._max_secs:
-            return []
-
-        # 6. Build the intent.
-        # YES ask is derived from NO bid: yes_ask = 100 - no_bid.
+        # 4. Derive YES ask (the price we'd actually buy at).
+        # Primary: 100 - NO top bid.  Fallback: YES top bid + 1.
         no_top = update.no.top_bid()
+        yes_top = update.yes.top_bid()
         if no_top is not None:
             no_bid_price, _ = no_top
-            enter_price = 100 - no_bid_price
+            yes_ask = 100 - no_bid_price
+        elif yes_top is not None:
+            yes_bid_price, _ = yes_top
+            yes_ask = yes_bid_price + 1
         else:
-            enter_price = yes_bid_price + 1
-        enter_price = min(enter_price, self._max_price)
-        # Clamp to valid price range [1, 99] per TradeIntent validator
-        enter_price = max(1, min(enter_price, 99))
+            return []  # no liquidity on either side
 
-        edge = round(100 * self._yes_rate - enter_price)
+        # 5. Price filter on YES ask (the actual entry price)
+        if yes_ask > self._max_price:
+            return []
+        # Clamp to valid TradeIntent range [1, 99]
+        yes_ask = max(1, min(yes_ask, 99))
+
+        # 6. Time-window filter
+        seconds_to_close = (meta.close_ts - self._now()).total_seconds()
+        if seconds_to_close < self._min_secs or seconds_to_close > self._max_secs:
+            return []
+
+        # 7. Build the intent.
+        edge = round(100 * self._yes_rate - yes_ask)
         intent = TradeIntent(
             ticker=update.ticker,
             side=Side.BUY_YES,
-            price_cents=enter_price,
+            price_cents=yes_ask,
             size=self._size,
             expected_edge_cents=edge,
             reasoning=(
-                f"longshot @ {enter_price}¢, "
+                f"longshot @ {yes_ask}¢, "
                 f"{int(seconds_to_close)}s to close, "
                 f"hist_yes_rate={self._yes_rate:.3f}"
             ),
