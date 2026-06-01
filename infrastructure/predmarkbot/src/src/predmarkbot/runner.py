@@ -91,6 +91,7 @@ async def run(config: Config) -> None:
             rest=rest,
             series=config.discovery.series,
             poll_interval_seconds=config.discovery.poll_interval_seconds,
+            state=state,
         )
         watched = await discovery.discover_once()
 
