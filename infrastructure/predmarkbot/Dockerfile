@@ -38,6 +38,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
 USER predmark
 WORKDIR /home/predmark
 
+# Dashboard HTTP port (aiohttp, read-only)
+EXPOSE 8080
+
 # Default: long-lived run mode. config is mounted at /etc/predmarkbot/config.yaml.
 ENTRYPOINT ["predmarkbot"]
 CMD ["run", "--config", "/etc/predmarkbot/config.yaml"]
