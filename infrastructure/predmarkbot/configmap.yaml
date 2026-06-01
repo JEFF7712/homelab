@@ -22,6 +22,16 @@ data:
     discovery:
       series:
         - KXHIGHNY
+        - KXHIGHCHI
+        - KXHIGHLAX
+        - KXHIGHMIA
+        - KXHIGHDEN
+        - KXHIGHHOU
+        - KXLOWNY
+        - KXLOWCHI
+        - KXLOWLAX
+        - KXLOWMIA
+        - KXLOWDEN
       poll_interval_seconds: 300
 
     feed:
@@ -35,6 +45,26 @@ data:
       max_orders_per_minute: 30
       max_daily_loss_dollars: 25
       max_intent_size: 10
+
+    strategy:
+      type: longshot
+      size_contracts: 5
+      max_price_cents: 5
+      min_seconds_to_close: 3600
+      max_seconds_to_close: 86400
+      historical_yes_rate: 0.14
+      series_allowlist:
+        - KXHIGHNY
+        - KXHIGHCHI
+        - KXHIGHLAX
+        - KXHIGHMIA
+        - KXHIGHDEN
+        - KXHIGHHOU
+        - KXLOWNY
+        - KXLOWCHI
+        - KXLOWLAX
+        - KXLOWMIA
+        - KXLOWDEN
 
     state:
       db_path: /var/lib/predmarkbot/state.db
