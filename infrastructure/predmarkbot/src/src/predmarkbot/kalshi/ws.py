@@ -69,6 +69,10 @@ def _levels(raw: object) -> list[tuple[int, int]]:
 
 
 def parse_message(raw: dict[str, Any]) -> ParsedMessage:
+    # Kalshi WS frame layout:
+    #   {"type": "...", "sid": N, "seq": N, "msg": {...}}
+    # seq is on the OUTER frame, not inside msg. yes/no may be absent on
+    # snapshots for markets with empty order books — treat as [].
     t = raw.get("type")
     if not isinstance(t, str):
         raise ValueError(f"message missing 'type': {raw!r}")
@@ -76,12 +80,14 @@ def parse_message(raw: dict[str, Any]) -> ParsedMessage:
         msg = raw.get("msg")
         if not isinstance(msg, dict):
             raise ValueError(f"snapshot missing 'msg': {raw!r}")
+        if "seq" not in raw:
+            raise ValueError(f"snapshot missing top-level 'seq': {raw!r}")
         try:
             return SnapshotMessage(
                 ticker=str(msg["market_ticker"]),
-                seq=int(msg["seq"]),
-                yes=_levels(msg["yes"]),
-                no=_levels(msg["no"]),
+                seq=int(raw["seq"]),
+                yes=_levels(msg.get("yes", [])),
+                no=_levels(msg.get("no", [])),
             )
         except KeyError as exc:
             raise ValueError(f"snapshot missing field: {exc}") from exc
@@ -89,10 +95,12 @@ def parse_message(raw: dict[str, Any]) -> ParsedMessage:
         msg = raw.get("msg")
         if not isinstance(msg, dict):
             raise ValueError(f"delta missing 'msg': {raw!r}")
+        if "seq" not in raw:
+            raise ValueError(f"delta missing top-level 'seq': {raw!r}")
         try:
             return DeltaMessage(
                 ticker=str(msg["market_ticker"]),
-                seq=int(msg["seq"]),
+                seq=int(raw["seq"]),
                 side=str(msg["side"]),
                 price=int(msg["price"]),
                 delta=int(msg["delta"]),
