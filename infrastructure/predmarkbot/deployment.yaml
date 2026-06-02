@@ -27,7 +27,7 @@ spec:
       containers:
         - name: predmarkbot
           # renovate: datasource=docker depName=jeff7712/predmarkbot
-          image: jeff7712/predmarkbot:0.0.1302
+          image: jeff7712/predmarkbot:0.0.1310
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
