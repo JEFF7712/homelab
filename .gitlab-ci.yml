@@ -102,7 +102,6 @@ kubernetes_validate:
         find apps bootstrap infrastructure secrets \
           -type f \( -name "*.yaml" -o -name "*.yml" \) \
           ! -path "bootstrap/wyse-disk-patch.yaml" \
-          ! -path "infrastructure/predmarkbot/src/*" \
           -print0 \
           | xargs -0 kubeconform -summary -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION"
       '
@@ -237,46 +236,6 @@ scan_renovate_dashboard_image:
   variables:
     IMAGE_TAG: "0.0.$CI_PIPELINE_IID"
     IMAGE_NAME: "jeff7712/homelab-renovate-dashboard"
-  script:
-    - nix develop /etc/ci-flake#ci -c trivy image --severity HIGH,CRITICAL --exit-code 1 "$IMAGE_NAME:$IMAGE_TAG"
-
-build_predmarkbot_image:
-  stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.24.0-debug
-    entrypoint: [""]
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - infrastructure/predmarkbot/Dockerfile
-        - infrastructure/predmarkbot/src/**/*
-        - .gitlab-ci.yml
-  variables:
-    IMAGE_TAG: "0.0.$CI_PIPELINE_IID"
-    IMAGE_NAME: "jeff7712/predmarkbot"
-  script:
-    - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"username\":\"$DOCKERHUB_USERNAME\",\"password\":\"$DOCKERHUB_TOKEN\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor
-      --context "$CI_PROJECT_DIR/infrastructure/predmarkbot"
-      --dockerfile "$CI_PROJECT_DIR/infrastructure/predmarkbot/Dockerfile"
-      --destination "$IMAGE_NAME:$IMAGE_TAG"
-
-scan_predmarkbot_image:
-  stage: image_scan
-  image: jeff7712/homelab-ci:$CI_IMAGE_TAG
-  needs:
-    - build_predmarkbot_image
-  allow_failure: true
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - infrastructure/predmarkbot/Dockerfile
-        - infrastructure/predmarkbot/src/**/*
-        - .gitlab-ci.yml
-  variables:
-    IMAGE_TAG: "0.0.$CI_PIPELINE_IID"
-    IMAGE_NAME: "jeff7712/predmarkbot"
   script:
     - nix develop /etc/ci-flake#ci -c trivy image --severity HIGH,CRITICAL --exit-code 1 "$IMAGE_NAME:$IMAGE_TAG"
 
