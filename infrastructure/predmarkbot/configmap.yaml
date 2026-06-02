@@ -33,6 +33,11 @@ data:
         - KXLOWLAX
         - KXLOWMIA
         - KXLOWDEN
+        - KXMLBRFI
+        - KXBRASILEIROTOTAL
+        - KXBRASILEIROSPREAD
+        - KXLOLTOTALMAPS
+        - KXLIGUE1SPREAD
       poll_interval_seconds: 300
 
     feed:
@@ -54,6 +59,9 @@ data:
       min_seconds_to_close: 3600
       max_seconds_to_close: 86400
       historical_yes_rate: 0.14
+      candidate_shadow_enabled: true
+      candidate_shadow_size_contracts: 1
+      shadow_milestone_event_counts: [30, 75, 100, 150, 250]
       series_allowlist:
         - KXHIGHNY
         - KXHIGHCHI
