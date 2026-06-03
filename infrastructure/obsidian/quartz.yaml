@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: quartz
-          image: jeff7712/quartz:0.0.158
+          image: jeff7712/quartz:0.0.160
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
