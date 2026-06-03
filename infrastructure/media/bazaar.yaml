@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bazarr
-          image: lscr.io/linuxserver/bazarr@sha256:95f27692c3de6dbe130cd035d342d8138ec74ade7b62cfc52e11ae222c52c855
+          image: lscr.io/linuxserver/bazarr@sha256:4b5e510042bf471c8bafab89cada9774fba2fb25f16ec64235151cacbe847c10
           env:
             - name: PUID
               value: "1000"
