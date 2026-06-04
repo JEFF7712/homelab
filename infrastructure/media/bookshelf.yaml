@@ -51,7 +51,7 @@ spec:
               mountPath: /config
       containers:
         - name: bookshelf
-          image: ghcr.io/pennydreadful/bookshelf@sha256:388eecc94362580eae31ee0a454be6af516f8a311f8432a521c202fb475f4359
+          image: ghcr.io/jeff7712/bookshelf@sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744
           env:
             - name: PUID
               value: "1000"
