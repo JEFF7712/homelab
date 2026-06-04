@@ -85,5 +85,5 @@ data:
       ntfy_token_env: NTFY_TOKEN
 
     dashboard:
-      enabled: true
+      enabled: false
       port: 8080
