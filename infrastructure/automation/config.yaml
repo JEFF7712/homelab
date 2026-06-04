@@ -14,7 +14,6 @@ data:
     notes|https://notes.rupan.dev
     rupanism|https://rupanism.rupan.dev
     soluble|https://soluble.rupan.dev
-    spatia|https://spatia.rupan.dev
   deployments.txt: |
     apolline|website-deploy
     darkbit|website-deploy
@@ -23,7 +22,6 @@ data:
     obsidian|quartz-notes
     rupanism|website-deploy
     soluble-rupan|website-deploy
-    spatia|website-deploy
   dockerhub-repositories.txt: |
     jeff7712|apolline|20
     jeff7712|darkbit|20
@@ -32,9 +30,9 @@ data:
     jeff7712|quartz|20
     jeff7712|rupanism|20
     jeff7712|solubility-gnn|20
-    jeff7712|spatia-site|20
     jeff7712|homelab-renovate-agent|20
     jeff7712|homelab-renovate-dashboard|20
+  # NOTE: keep in sync with apps/renovate.yaml -> autodiscoverFilter
   renovate-agent-repositories.txt: |
     JEFF7712|apolline-site
     JEFF7712|darkbit-site
@@ -42,6 +40,6 @@ data:
     JEFF7712|pulse
     JEFF7712|rupanism
     JEFF7712|solubility-predictor
-    JEFF7712|spatia
+    JEFF7712|obsidian-vault
   renovate-agent-gitlab-infra-repositories.txt: |
     JEFF7712|homelab

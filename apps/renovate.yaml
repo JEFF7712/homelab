@@ -82,6 +82,8 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+          # NOTE: autodiscoverFilter below must stay in sync with
+          # infrastructure/automation/config.yaml -> renovate-agent-repositories.txt
           config: |
             {
               "platform": "github",
@@ -94,7 +96,7 @@ spec:
                 "jeff7712/pulse",
                 "jeff7712/rupanism",
                 "jeff7712/solubility-predictor",
-                "jeff7712/spatia"
+                "jeff7712/obsidian-vault"
               ],
               "onboarding": true,
               "onboardingConfig": {
