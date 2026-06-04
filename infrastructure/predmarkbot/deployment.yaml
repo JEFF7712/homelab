@@ -27,8 +27,9 @@ spec:
       containers:
         - name: predmarkbot
           # renovate: datasource=docker depName=jeff7712/predmarkbot
-          image: jeff7712/predmarkbot:1.0.16
+          image: jeff7712/predmarkbot:1.0.17
           imagePullPolicy: Always
+          command: ["predmarkbot", "run", "--config", "/etc/predmarkbot/config.yaml"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -61,30 +62,56 @@ spec:
               mountPath: /var/lib/predmarkbot
             - name: tmp
               mountPath: /tmp
-          ports:
-            - name: dashboard
-              containerPort: 8080
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 30
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 15
-            failureThreshold: 3
           resources:
             requests:
               cpu: 100m
               memory: 128Mi
             limits:
               cpu: 500m
+              memory: 256Mi
+        - name: dashboard
+          # renovate: datasource=docker depName=jeff7712/predmarkbot
+          image: jeff7712/predmarkbot:1.0.17
+          imagePullPolicy: Always
+          command: ["predmarkbot", "dashboard", "--config", "/etc/predmarkbot/config.yaml"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/predmarkbot
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/predmarkbot
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
               memory: 256Mi
       volumes:
         - name: config
