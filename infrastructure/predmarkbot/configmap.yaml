@@ -38,6 +38,7 @@ data:
         - KXBRASILEIROSPREAD
         - KXLOLTOTALMAPS
         - KXLIGUE1SPREAD
+        - KXSOL15M
       poll_interval_seconds: 300
 
     feed:
