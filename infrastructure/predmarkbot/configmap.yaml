@@ -22,17 +22,6 @@ data:
 
     discovery:
       series:
-        - KXHIGHNY
-        - KXHIGHCHI
-        - KXHIGHLAX
-        - KXHIGHMIA
-        - KXHIGHDEN
-        - KXHIGHHOU
-        - KXLOWNY
-        - KXLOWCHI
-        - KXLOWLAX
-        - KXLOWMIA
-        - KXLOWDEN
         - KXMLBRFI
         - KXBRASILEIROTOTAL
         - KXBRASILEIROSPREAD
@@ -54,27 +43,9 @@ data:
       max_intent_size: 10
 
     strategy:
-      type: longshot
-      size_contracts: 5
-      max_price_cents: 5
-      min_seconds_to_close: 3600
-      max_seconds_to_close: 86400
-      historical_yes_rate: 0.14
       candidate_shadow_enabled: true
       candidate_shadow_size_contracts: 1
       shadow_milestone_event_counts: [30, 75, 100, 150, 250]
-      series_allowlist:
-        - KXHIGHNY
-        - KXHIGHCHI
-        - KXHIGHLAX
-        - KXHIGHMIA
-        - KXHIGHDEN
-        - KXHIGHHOU
-        - KXLOWNY
-        - KXLOWCHI
-        - KXLOWLAX
-        - KXLOWMIA
-        - KXLOWDEN
 
     state:
       db_path: /var/lib/predmarkbot/state.db
