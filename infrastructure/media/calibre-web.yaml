@@ -14,6 +14,24 @@ spec:
     requests:
       storage: 2Gi
 ---
+# Workaround for upstream CWA bug: the s6 startup script extracts the ingest
+# folder with grep -o '"ingest_folder": "[^"]*' (note the space), but the
+# bundled dirs.json has no space after the colon, so $WATCH_FOLDER ends up
+# empty and inotifywait/watch_fallback.py never watch anything. Overlay a
+# corrected dirs.json with the spaced format.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: calibre-web-dirs
+  namespace: media
+data:
+  dirs.json: |
+    {
+        "ingest_folder": "/cwa-book-ingest",
+        "calibre_library_dir": "/calibre-library",
+        "tmp_conversion_dir": "/config/.cwa_conversion_tmp"
+    }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -73,6 +91,10 @@ spec:
             - name: media-storage
               mountPath: /cwa-book-ingest
               subPath: books/ingest
+            - name: dirs-override
+              mountPath: /app/calibre-web-automated/dirs.json
+              subPath: dirs.json
+              readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: run
@@ -84,6 +106,12 @@ spec:
         - name: config-storage
           persistentVolumeClaim:
             claimName: calibre-web-config
+        - name: dirs-override
+          configMap:
+            name: calibre-web-dirs
+            items:
+              - key: dirs.json
+                path: dirs.json
         - name: tmp
           emptyDir: {}
         - name: run
