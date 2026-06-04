@@ -20,7 +20,12 @@ data:
     type = "s3"
     bucket = "attic-homelab"
     region = "us-east-1"
-    endpoint = "http://minio.observability.svc:9000"
+    # Externally-routable MinIO endpoint (see infrastructure/observability/minio-lb.yaml).
+    # atticd uses this both for its own object I/O and as the host in presigned
+    # GET URLs it hands back to external clients (laptop, CI). Using the
+    # in-cluster `minio.observability.svc` here would make those redirects
+    # unresolvable for off-cluster clients.
+    endpoint = "http://10.0.20.191:9000"
 
     [chunking]
     nar-size-threshold = 65536

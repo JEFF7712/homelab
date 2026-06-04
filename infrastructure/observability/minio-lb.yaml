@@ -1,0 +1,31 @@
+---
+# External LoadBalancer for MinIO's S3 API.
+#
+# Why: atticd (in nix-cache) presigns object URLs using the endpoint it was
+# configured with. When clients outside the cluster (laptop, CI runner) fetch
+# a NAR, atticd responds with a 307 to that presigned URL. If the URL uses
+# minio.observability.svc, the external client can't resolve it. Pointing
+# atticd at this LB IP keeps the redirect target resolvable everywhere.
+#
+# In-cluster consumers (mimir/loki/tempo/atticd) continue to use the chart's
+# ClusterIP Service `minio` on port 9000 -- this LB only covers the
+# presigned-URL flow.
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-lb
+  namespace: observability
+  labels:
+    app: minio
+  annotations:
+    io.cilium/lb-ipam-ips: "10.0.20.191"
+spec:
+  type: LoadBalancer
+  selector:
+    app: minio
+    release: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+      protocol: TCP
