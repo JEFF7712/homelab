@@ -38,7 +38,7 @@ metadata:
   name: calibre-web
   namespace: media
 spec:
-  replicas: 1
+  replicas: 0  # temporary: stop pod cycling so Longhorn can heal stuck engine — restore to 1 once volume is detached cleanly
   strategy:
     type: Recreate
   selector:
