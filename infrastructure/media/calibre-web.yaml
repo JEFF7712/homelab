@@ -67,6 +67,19 @@ spec:
           volumeMounts:
             - name: config-storage
               mountPath: /config
+        - name: prepare-calibre-bin
+          image: crocodilestick/calibre-web-automated@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d
+          command:
+            - sh
+            - -c
+            - cp -a /usr/bin/. /patched-usr-bin/ && ln -sf /app/calibre/calibredb /patched-usr-bin/calibredb
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: usr-bin
+              mountPath: /patched-usr-bin
       containers:
         - name: calibre-web
           image: crocodilestick/calibre-web-automated@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d
@@ -79,7 +92,8 @@ spec:
               value: "America/Chicago"
             # CWA's startup tries to symlink calibre binaries into /usr/local/bin
             # but readOnlyRootFilesystem blocks it, so calibredb is unreachable
-            # via PATH. Prepend /app/calibre (where the binaries actually live).
+            # via PATH. Prepend /app/calibre (where the binaries actually live)
+            # and provide /usr/bin/calibredb via the prepared /usr/bin overlay.
             - name: PATH
               value: "/app/calibre:/lsiopy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           ports:
@@ -100,6 +114,9 @@ spec:
               mountPath: /app/calibre-web-automated/dirs.json
               subPath: dirs.json
               readOnly: true
+            - name: usr-bin
+              mountPath: /usr/bin
+              readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: run
@@ -117,6 +134,8 @@ spec:
             items:
               - key: dirs.json
                 path: dirs.json
+        - name: usr-bin
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
         - name: run
