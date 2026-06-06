@@ -46,7 +46,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: beets
-              image: lscr.io/linuxserver/beets@sha256:650236e2f60a3ae99dadecc7b73974e9fe8515f6efca8d65acdec0b0ef963dc8
+              image: lscr.io/linuxserver/beets@sha256:f8b58e60a3b07d5a2d0048aedcf83235d02babf7cb4dc579a92a767ffaca1aae
               imagePullPolicy: IfNotPresent
               env:
                 - name: HOME
