@@ -27,7 +27,7 @@ spec:
       containers:
         - name: predmarkbot
           # renovate: datasource=docker depName=jeff7712/predmarkbot
-          image: jeff7712/predmarkbot:1.0.34
+          image: jeff7712/predmarkbot:1.0.36
           imagePullPolicy: Always
           command: ["predmarkbot", "run", "--config", "/etc/predmarkbot/config.yaml"]
           securityContext:
@@ -71,7 +71,7 @@ spec:
               memory: 256Mi
         - name: dashboard
           # renovate: datasource=docker depName=jeff7712/predmarkbot
-          image: jeff7712/predmarkbot:1.0.34
+          image: jeff7712/predmarkbot:1.0.36
           imagePullPolicy: Always
           command: ["predmarkbot", "dashboard", "--config", "/etc/predmarkbot/config.yaml"]
           securityContext:
