@@ -14,8 +14,14 @@ spec:
       restartPolicy: OnFailure
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: mc-config
+          emptyDir: {}
       containers:
         - name: bootstrap
           image: docker.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
@@ -26,6 +32,22 @@ spec:
                 - ALL
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+          volumeMounts:
+            - name: mc-config
+              mountPath: /tmp/.mc
+          env:
+            - name: MC_CONFIG_DIR
+              value: /tmp/.mc
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: rootUser
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: rootPassword
           command:
             - /bin/sh
             - -c
@@ -54,14 +76,3 @@ spec:
                 mc mb --ignore-existing "local/${bucket}"
                 mc anonymous set none "local/${bucket}"
               done
-          env:
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: minio-creds
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: minio-creds
-                  key: rootPassword

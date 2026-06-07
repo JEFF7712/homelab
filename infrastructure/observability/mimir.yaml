@@ -64,6 +64,7 @@ spec:
               ha_replica_label: __replica__
               ingestion_rate: 50000
               ingestion_burst_size: 1000000
+              compactor_blocks_retention_period: 720h
             distributor:
               ha_tracker:
                 enable_ha_tracker: true
