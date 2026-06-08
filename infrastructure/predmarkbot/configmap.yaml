@@ -27,7 +27,11 @@ data:
         - KXBRASILEIROSPREAD
         - KXLOLTOTALMAPS
         - KXLIGUE1SPREAD
+        - KXBTC15M
+        - KXETH15M
         - KXSOL15M
+        - KXDOGE15M
+        - KXXRP15M
       poll_interval_seconds: 300
 
     feed:
@@ -46,6 +50,19 @@ data:
       candidate_shadow_enabled: true
       candidate_shadow_size_contracts: 1
       shadow_milestone_event_counts: [30, 75, 100, 150, 250]
+      markov_shadow:
+        enabled: true
+        artifact_run_id: "2026-06-08-be2cbbc"
+        research_db_path: /app/markov-artifacts/2026-06-08-be2cbbc.db
+        edge_thresholds_cents: [3, 5, 8]
+        size_contracts: 1
+        spot_staleness_threshold_seconds: 30
+        kill_switch:
+          max_loss_cents_per_trade_avg: -5
+          max_brier_score: 0.25
+          last_n_trades: 100
+          last_window_days: 7
+          check_interval_seconds: 300
 
     state:
       db_path: /var/lib/predmarkbot/state.db
