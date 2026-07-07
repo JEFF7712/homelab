@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autocompress-runner
+  namespace: autocompress
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: autocompress-runner
+  template:
+    metadata:
+      labels:
+        app: autocompress-runner
+    spec:
+      # Pin to one CLI ar9070 worker: benchmarks must run on a fixed CPU model
+      # for ledger timing comparability, and the WYSE (8 GB) cannot fit the
+      # 10 Gi limit. Verify the node name when the cluster is back.
+      nodeSelector:
+        kubernetes.io/hostname: worker-01-cli
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: runner
+          # renovate: datasource=docker depName=jeff7712/autocompress-runner
+          image: jeff7712/autocompress-runner:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "/etc/autocompress/entrypoint.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              # The prize RAM cap: ram_enforcer = "external" delegates the
+              # 10 GB envelope to this limit. Do not raise it.
+              cpu: "1"
+              memory: 10Gi
+          env:
+            - name: GIT_REMOTE
+              value: "https://gitlab.com/JEFF7712/autocompress.git"
+          volumeMounts:
+            - name: cache
+              mountPath: /work
+            - name: config
+              mountPath: /etc/autocompress
+              readOnly: true
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: autocompress-cache
+        - name: config
+          configMap:
+            name: autocompress-config

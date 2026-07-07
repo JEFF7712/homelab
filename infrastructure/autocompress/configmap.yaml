@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: autocompress-config
+  namespace: autocompress
+  annotations:
+    reloader.stakater.com/match: "true"
+data:
+  config.toml: |
+    # Ryzen V1605B worker. MEASURE Geekbench 5 single-core on the node before
+    # trusting any envelope math; 0 makes the harness refuse to run, which is
+    # the correct failure mode until measured.
+    geekbench5_single_core = 0
+    # Homogeneous Zen cores; k8s cpuset makes pinning unnecessary.
+    # pin_cpu omitted on purpose.
+    ram_enforcer = "external"
