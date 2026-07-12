@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: quartz
-          image: jeff7712/quartz:0.0.182
+          image: ghcr.io/jeff7712/quartz:0.0.256
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
