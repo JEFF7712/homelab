@@ -18,7 +18,8 @@ config-backups/
 3d-prints/
 infrastructure/moltinator/result
 infrastructure/moltinator/flake.lock
-.claude
+.claude/*
+.cursor/
 .codex
 .VSCodeCounter
 .worktrees/

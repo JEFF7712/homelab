@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nixagent
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nixagent-tls
+  namespace: nixagent
+spec:
+  secretName: nixagent-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - nix-agent.rupan.dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: nixagent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nixagent-web
+  template:
+    metadata:
+      labels:
+        app: nixagent-web
+      annotations:
+        reloader.stakater.com/auto: "true"
+    spec:
+      securityContext:
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-nginx-tmp
+          image: busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+          command: ["sh", "-c", "mkdir -p /tmp/nginx"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 101
+            runAsNonRoot: true
+            runAsUser: 101
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: web
+          # renovate: datasource=docker depName=jeff7712/nix-agent-site
+          image: jeff7712/nix-agent-site:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 101
+            runAsNonRoot: true
+            runAsUser: 101
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nixagent-svc
+  namespace: nixagent
+spec:
+  selector:
+    app: nixagent-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nixagent-route
+  namespace: nixagent
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`nix-agent.rupan.dev`)
+      kind: Rule
+      services:
+        - name: nixagent-svc
+          port: 80
+  tls:
+    secretName: nixagent-tls-secret

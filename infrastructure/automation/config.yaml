@@ -10,14 +10,16 @@ data:
     apolline|https://apollinestore.com
     darkbit|https://darkbitapparel.com
     distrojeff|https://distrojeff.com
-    pulse|https://pulseagent.dev
+    nixagent|https://nix-agent.rupan.dev
     notes|https://notes.rupan.dev
+    pulse|https://pulseagent.dev
     rupanism|https://rupanism.rupan.dev
     soluble|https://soluble.rupan.dev
   deployments.txt: |
     apolline|website-deploy
     darkbit|website-deploy
     distrojeff|website-deploy
+    nixagent|website-deploy
     pulse|website-deploy
     obsidian|quartz-notes
     rupanism|website-deploy
@@ -26,6 +28,7 @@ data:
     jeff7712|apolline|20
     jeff7712|darkbit|20
     jeff7712|distrojeff-site|20
+    jeff7712|nix-agent-site|20
     jeff7712|pulse-site|20
     jeff7712|quartz|20
     jeff7712|rupanism|20

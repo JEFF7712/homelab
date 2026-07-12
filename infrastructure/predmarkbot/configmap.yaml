@@ -8,11 +8,10 @@ metadata:
 data:
   config.yaml: |
     # predmarkbot runtime config.
-    # Shadow mode against Kalshi PROD: real prices, no orders submitted —
-    # strategy fires record to shadow_intents. Flip mode: live only after
-    # the shadow run shows expected fire rate.
-
-    mode: shadow
+    # Against Kalshi PROD (real money). Shadow vs live is per-strategy (the
+    # `live` flag); there is no global mode. MLBRFI is LIVE (places real
+    # orders); all other strategies are shadow (record to shadow_intents only).
+    # A live strategy on the prod endpoint requires `prod_confirmed: true`.
 
     kalshi:
       api_base_url: https://api.elections.kalshi.com/trade-api/v2
@@ -50,6 +49,22 @@ data:
       candidate_shadow_enabled: true
       candidate_shadow_size_contracts: 1
       shadow_milestone_event_counts: [30, 75, 100, 150, 250]
+      mlbrfi:
+        enabled: true
+        live: true                   # LIVE: places real orders on the prod endpoint
+        # If redeploying a build with the capital_fraction/Kelly validator,
+        # a live strategy requires capital_fraction > 0 or the bot won't start.
+        # Uncomment and set the intended allocation, e.g.:
+        # capital_fraction: 1.0
+        series_allowlist: ["KXMLBRFI"]
+        size_contracts: 10
+        min_price_cents: 46
+        max_price_cents: 50
+        min_volume: 10
+        min_seconds_to_close: 82800  # T-25h
+        max_seconds_to_close: 90000  # T-23h
+        max_daily_trades: 5
+        kill_switch_loss_cents: -200
       markov_shadow:
         enabled: true
         artifact_run_id: "2026-06-08-be2cbbc"
@@ -63,6 +78,8 @@ data:
           last_n_trades: 100
           last_window_days: 7
           check_interval_seconds: 300
+
+    prod_confirmed: true            # required: a live strategy on the prod endpoint
 
     state:
       db_path: /var/lib/predmarkbot/state.db
