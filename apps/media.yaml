@@ -16,10 +16,13 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: 'https://gitlab.com/JEFF7712/homelab.git'
-    targetRevision: main
-    path: infrastructure/media
+  sources:
+    - repoURL: https://gitlab.com/JEFF7712/homelab.git
+      targetRevision: main
+      path: infrastructure/media
+    - repoURL: https://gitlab.com/JEFF7712/homelab.git
+      targetRevision: main
+      path: infrastructure/media-arr
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: media

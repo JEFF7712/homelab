@@ -1,0 +1,167 @@
+{{- $root := . -}}
+{{- range $name, $workload := .Values.workloads }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-config
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    recurring-job.longhorn.io/source: enabled
+    recurring-job-group.longhorn.io/app-configs: enabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ $root.Values.common.configStorageClass }}
+  resources:
+    requests:
+      storage: {{ default $root.Values.common.configStorage $workload.configStorage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+  {{- if $workload.deploymentLabels }}
+  labels:
+    app: {{ $name }}
+  {{- end }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+      {{- if $workload.reloader }}
+      annotations:
+        reloader.stakater.com/auto: "true"
+      {{- end }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if $workload.fixPermissions }}
+      initContainers:
+        - name: fix-permissions
+          image: {{ $root.Values.common.permissionImage }}
+          command: ["sh", "-c", "chown -R 1000:1000 /config"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: config-storage
+              mountPath: /config
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ $workload.image }}
+          {{- with $workload.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $workload.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: PUID
+              value: {{ $root.Values.common.uid | quote }}
+            - name: PGID
+              value: {{ $root.Values.common.gid | quote }}
+            - name: TZ
+              value: {{ $root.Values.common.timezone | quote }}
+            {{- with $workload.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - containerPort: {{ $workload.port }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: {{ if hasKey $workload "readOnlyRootFilesystem" }}{{ $workload.readOnlyRootFilesystem }}{{ else }}true{{ end }}
+          {{- with $workload.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config-storage
+              mountPath: /config
+            {{- if $workload.media }}
+            - name: media-storage
+              mountPath: /data
+            {{- end }}
+            {{- if $workload.extendedConfig }}
+            - name: extended-config
+              mountPath: /config/extended.conf
+              subPath: extended.conf
+              readOnly: true
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run
+      volumes:
+        {{- if $workload.media }}
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: {{ $root.Values.common.mediaClaim }}
+        {{- end }}
+        - name: config-storage
+          persistentVolumeClaim:
+            claimName: {{ $name }}-config
+        {{- if $workload.extendedConfig }}
+        - name: extended-config
+          configMap:
+            name: lidarr-extended-config
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+spec:
+  selector:
+    app: {{ $name }}
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: {{ $workload.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - {{ $name }}.rupan.dev
+      secretName: {{ $name }}-tls
+  rules:
+    - host: {{ $name }}.rupan.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $name }}
+                port:
+                  number: 80
+{{- end }}

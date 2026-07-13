@@ -81,10 +81,15 @@ argocd_app_validate:
   rules:
     - changes:
         - apps/**/*
+        - bootstrap/**/*
+        - infrastructure/**/*
+        - secrets/**/*
         - scripts/validate_argocd_apps.py
+        - tests/**/*
         - .gitlab-ci.yml
   script:
-    - nix develop /etc/ci-flake#ci -c python scripts/validate_argocd_apps.py
+    - nix develop "$CI_PROJECT_DIR#ci" -c python -m unittest discover -s tests
+    - nix develop "$CI_PROJECT_DIR#ci" -c python scripts/validate_argocd_apps.py
 
 kubernetes_validate:
   stage: validate
@@ -98,12 +103,16 @@ kubernetes_validate:
         - .gitlab-ci.yml
   script:
     - |
-      nix develop /etc/ci-flake#ci -c bash -e -c '
+      nix develop "$CI_PROJECT_DIR#ci" -c bash -e -c '
         find apps bootstrap infrastructure secrets \
           -type f \( -name "*.yaml" -o -name "*.yml" \) \
           ! -path "bootstrap/wyse-disk-patch.yaml" \
+          ! -path "infrastructure/media-arr/*" \
           -print0 \
           | xargs -0 kubeconform -summary -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION"
+        helm lint infrastructure/media-arr
+        helm template media-arr infrastructure/media-arr --namespace media \
+          | kubeconform -summary -strict -ignore-missing-schemas -kubernetes-version "$KUBERNETES_VERSION"
       '
 
 terraform_validate:

@@ -23,6 +23,7 @@
           terraform
           terragrunt
           kubeconform
+          kubernetes-helm
           gitleaks
           trivy
           attic-client
@@ -37,7 +38,6 @@
           kubectl
           talosctl
           cilium-cli
-          kubernetes-helm
           argocd
           k9s
           kubeseal

@@ -5,6 +5,7 @@ ignore: |
   .git/
   **/__pycache__/**
   infrastructure/predmarkbot/src/
+  infrastructure/media-arr/templates/**
 
 rules:
   comments: disable
