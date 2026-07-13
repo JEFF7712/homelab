@@ -14,10 +14,10 @@ locals {
     tp_switch = {
       subnet = "lan", ip = "192.168.1.2", mac = "bc:07:1d:2e:79:82", desc = "TP Link Switch"
     }
-    netbird_lxc = {
+    netbird_lxc_lan = {
       subnet = "lan", ip = var.netbird_lxc_ip_addr, mac = var.netbird_lxc_mac_address, desc = "Netbird LXC"
     }
-    netbird_lxc = {
+    netbird_lxc_cluster = {
       subnet = "cluster", ip = var.netbird_lxc_ip_addr2, mac = var.netbird_lxc_mac_address2, desc = "Netbird LXC"
     }
     adguard_lxc = {
@@ -39,6 +39,11 @@ locals {
       subnet = "cluster", ip = var.talos_worker_03_ip_addr, mac = var.wyse_mac_address, desc = "Talos Worker 3"
     }
   }
+}
+
+moved {
+  from = opnsense_kea_reservation.this["netbird_lxc"]
+  to   = opnsense_kea_reservation.this["netbird_lxc_cluster"]
 }
 
 resource "opnsense_kea_subnet" "lan" {

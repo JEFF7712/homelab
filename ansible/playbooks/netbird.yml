@@ -3,20 +3,15 @@
   gather_facts: false
   tasks:
     - name: Install Python3
-      raw: apk add --no-cache python3
-      changed_when: false
+      raw: test -x /usr/bin/python3 || { apk add --no-cache python3 > /dev/null && echo CHANGED; }
+      register: python_bootstrap
+      changed_when: "'CHANGED' in python_bootstrap.stdout"
 
 - name: Configure NetBird Gateway
   hosts: netbird_gateway
   gather_facts: true
 
   tasks:
-    - name: Enable Community Repository
-      replace:
-        path: /etc/apk/repositories
-        regexp: '^#http.*/community'
-        replace: 'http://dl-cdn.alpinelinux.org/alpine/v3.18/community'
-
     - name: Update Alpine Repositories
       apk:
         update_cache: yes
