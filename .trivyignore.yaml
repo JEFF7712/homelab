@@ -7,7 +7,7 @@ misconfigurations:
       - infrastructure/media/flaresolverr.yaml
   - id: KSV-0014
     paths:
-      - infrastructure/media/lidarr.yaml
+      - infrastructure/media-arr/templates/workloads.yaml
   - id: KSV-0014
     paths:
       - infrastructure/media/slskd.yaml

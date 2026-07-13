@@ -39,6 +39,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+            readOnlyRootFilesystem: true
           resources:
             requests:
               cpu: "1"
