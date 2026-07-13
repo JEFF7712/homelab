@@ -1,3 +1,5 @@
+# Temporary: while the cluster is down, nix-agent.rupan.dev is on Cloudflare Pages.
+# Teardown steps: infrastructure/websites/nixagent-TEMP-PAGES.md
 apiVersion: v1
 kind: Namespace
 metadata:
