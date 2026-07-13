@@ -56,8 +56,8 @@ spec:
               mountPath: /tmp
       containers:
         - name: web
-          # renovate: datasource=docker depName=jeff7712/nix-agent-site
-          image: jeff7712/nix-agent-site:0.0.1
+          # renovate: datasource=docker depName=ghcr.io/jeff7712/nix-agent-site
+          image: ghcr.io/jeff7712/nix-agent-site:0.0.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
