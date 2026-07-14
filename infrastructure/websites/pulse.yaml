@@ -1,3 +1,5 @@
+# Temporary: while the cluster is down, pulseagent.dev is on Cloudflare Pages.
+# Teardown steps: infrastructure/websites/pulse-TEMP-PAGES.md
 apiVersion: v1
 kind: Namespace
 metadata:
