@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: web
-        image: ghcr.io/jeff7712/rupanism:0.0.45
+        image: ghcr.io/jeff7712/rupanism:0.0.46
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000

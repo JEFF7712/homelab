@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: navidrome
-          image: deluan/navidrome@sha256:c4b5cb36a790b3eb63ca6a68bbe2fe149c2d7fa2e586f7a480e61db630e6664b
+          image: deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40
           imagePullPolicy: IfNotPresent
           env:
             - name: ND_MUSICFOLDER

@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: ghcr.io/jeff7712/pulse-site:0.0.67
+          image: ghcr.io/jeff7712/pulse-site:0.0.86
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

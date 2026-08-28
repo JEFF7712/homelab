@@ -58,7 +58,7 @@ spec:
 
       initContainers:
         - name: fix-config-and-perms
-          image: alpine@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+          image: alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -89,7 +89,7 @@ spec:
 
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun@sha256:5665416a97ad2823dda6986a581b8913cc3af1b196ac768f5130abad4b0d4f62
+          image: qmcgaw/gluetun@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -138,7 +138,7 @@ spec:
               mountPath: /run
 
         - name: slskd
-          image: slskd/slskd@sha256:ab9ed50e028b524cefdb7c1dd8ebca368a076e18441ee8ac2326473eb850b4c3
+          image: slskd/slskd@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

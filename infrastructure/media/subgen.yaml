@@ -27,7 +27,7 @@ spec:
               mountPath: /data
             - name: tmp
               mountPath: /tmp
-          image: mccloud/subgen@sha256:30ceb40c3d4ad8e923d638d4f6908ba9c5d57ab8ef59be5498a72d176998f1e7
+          image: mccloud/subgen@sha256:2841515a3b409677669f0a10d77d49160bffb8111db91640fb33a4db06b3396c
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
