@@ -1,3 +1,5 @@
+**NOTE - This repository is a mirror.** Active development happens on [GitLab](https://gitlab.com/JEFF7712/homelab).
+
 # Homelab
 
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35.0-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
