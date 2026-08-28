@@ -1,4 +1,4 @@
-FROM nixos/nix:2.34.7
+FROM nixos/nix:2.35.2
 
 # Image runs as root: nixos/nix ships /nix/store owned by root and switching
 # to a non-root USER would require chowning the store and reworking the
