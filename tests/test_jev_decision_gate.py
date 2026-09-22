@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.jev_decision_gate import PRODUCTION_MODEL, main
+from scripts.jev_decision_gate import PRODUCTION_MODEL, main  # noqa: E402
 
 
 def run_gate(argv: list[str]) -> tuple[int, dict[str, dict]]:
