@@ -26,7 +26,7 @@ spec:
         nvidia.com/gpu.present: "true"
       containers:
         - name: nvidia-device-plugin
-          image: registry.rupan.dev/upstream/nvcr.io/nvidia/k8s-device-plugin:v0.17.0@sha256:7089559ce6153018806857f5049085bae15b3bf6f1c8bd19d8b12f707d087dea  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/nvcr.io/nvidia/k8s-device-plugin@sha256:7089559ce6153018806857f5049085bae15b3bf6f1c8bd19d8b12f707d087dea  # yamllint disable-line rule:line-length
           resources:
             requests:
               cpu: 50m
