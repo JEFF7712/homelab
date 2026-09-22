@@ -218,7 +218,7 @@ finds the selected target and action in the utterance. Color actions also
 require the exact supported color, and compound syntax is rejected before any
 service call. The release gate replays this same L0 then L1 path, excludes L0
 cases from hosted latency, and calculates calibration only for commands the
-stack would execute. It does not lower confidence thresholds to improve recall.
+stack would execute. It does not lower confidence thresholds to improve recall. Only the pinned hosted production model gates release (`--gate-model`, default `jev-1-13-0`); local and research fixtures are scored as advisory and cannot fail the run.
 
 Fail-closed behavior is deliberate:
 
@@ -631,8 +631,8 @@ routing and personalization without modifying Home Assistant core:
    receptive field required by the neural network for high-confidence classification.
 5. The embedding is scored via cosine similarity against enrolled profiles
    in `profiles.json` (shipped as SOPS-encrypted Secret `voice-id-profiles`
-   in the `voice` namespace, mounted at `/app/profiles.json`; the plaintext
-   file stays out of git).
+   in the `voice` namespace, mounted at `/etc/voice-id/profiles.json`; the
+   plaintext file stays out of git).
 6. If the top score exceeds `threshold` (0.35) and exceeds the runner-up by
    `min_margin` (0.10), the speaker identity is confirmed (`Rupan` or `Sam`).
 7. When Whisper returns the `transcript` event, the proxy prefixes `speaker <Name>`
