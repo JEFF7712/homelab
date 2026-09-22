@@ -43,17 +43,14 @@ spec:
             - --config
             - /etc/cloudflared/config.yaml
             - run
-            - --token
-            - $(TUNNEL_TOKEN)
-          env:
-            - name: TUNNEL_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: cloudflare-tunnel
-                  key: tunnel-token
+            - --credentials-file
+            - /etc/cloudflared/creds/0f08d8c5-6f2c-409e-ba80-dc0601e0227e.json
           volumeMounts:
             - name: ingress-config
               mountPath: /etc/cloudflared
+              readOnly: true
+            - name: tunnel-credentials
+              mountPath: /etc/cloudflared/creds
               readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
@@ -78,3 +75,6 @@ spec:
         - name: ingress-config
           configMap:
             name: cloudflared-ingress
+        - name: tunnel-credentials
+          secret:
+            secretName: cloudflared-credentials
