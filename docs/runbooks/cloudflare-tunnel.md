@@ -6,7 +6,7 @@ Remote-configured tunnel fronting the new k3s cluster. Dashboard edits apply dir
 
 - Name: `homelab`
 - ID: `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`
-- Config source: `gitops/cloudflare/ingress-config.yaml` (cutover pending; dashboard remote config still present until the cutover checklist below is done)
+- Config source: `gitops/cloudflare/ingress-config.yaml` (cut over 2026-09-22; connectors authenticate with the SOPS `cloudflared-credentials` secret and log no remote versions; dashboard rules vestigial)
 - Connectors: 2 replicas from `gitops/cloudflare/tunnel.yaml` (`cloudflared 2026.8.3`)
 - Health: `healthy`, 8 connections on `ord10, mci03, ord15, ord06, mci01, ord02`
 - Public origin IP seen by edge: `50.93.213.22` (connector pods live in `10.0.30.0/24`)
