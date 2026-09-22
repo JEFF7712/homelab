@@ -1143,19 +1143,24 @@
       "consumers": [
         "gitops/websites/rupan-dev/deployment.yaml:22"
       ],
-      "destination_repository": "upstream/apps/rupan-dev",
+      "destination_repository": "apps/rupan-dev",
       "destination_tags": [
+        "0.0.11",
         "retention-deployed-2696987cc982af45"
       ],
       "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-      "id": "upstream-apps-rupan-dev-c6b2262cbcf7",
-      "kind": "upstream",
+      "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
+      "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
         "linux/amd64",
         "unknown/unknown"
       ],
-      "producer": null,
+      "producer": {
+        "location": "external-image-repository:ghcr.io/jeff7712/rupan-dev",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "referrers": {
         "required": [],
         "source_status": "not-enumerated"
@@ -1166,10 +1171,10 @@
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "reference": "registry.rupan.dev/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/rupan-dev",
-        "tag": null
+        "reference": "ghcr.io/jeff7712/rupan-dev:0.0.11@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+        "registry": "ghcr.io",
+        "repository": "jeff7712/rupan-dev",
+        "tag": "0.0.11"
       }
     },
     {
@@ -4538,11 +4543,11 @@
   "kind": "registry-image-lock",
   "mirror_exceptions": [
     {
-      "source_reference": "docker.io/nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c",
       "consumer": ".gitlab-ci.yml:*",
-      "tested": true,
       "evidence": "docs/runbooks/local-registry.md#ci-bootstrap-image",
-      "reason": "The protected nas-ci runner pulls its pinned Nix job image before the job can authenticate to the private registry; this is a CI bootstrap dependency, not a Kubernetes workload."
+      "reason": "The protected nas-ci runner pulls its pinned Nix job image before the job can authenticate to the private registry; this is a CI bootstrap dependency, not a Kubernetes workload.",
+      "source_reference": "docker.io/nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c",
+      "tested": true
     }
   ],
   "schema_version": 1,
