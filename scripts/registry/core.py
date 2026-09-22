@@ -193,6 +193,15 @@ def build_live_snapshot(
             )
             consumer_prefix = f"{namespace}/{name}"
         elif kind == "Job":
+            job_status = item.get("status") or {}
+            conditions = job_status.get("conditions", [])
+            if job_status.get("completionTime") or any(
+                isinstance(condition, dict)
+                and condition.get("status") == "True"
+                and condition.get("type") in {"Complete", "Failed"}
+                for condition in conditions
+            ):
+                continue
             spec = (item.get("spec") or {}).get("template", {}).get("spec", {})
             status_fields = ()
             consumer_prefix = f"{namespace}/job-{name}"
@@ -374,11 +383,9 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
                     if candidate["source"]["registry"] == reference.registry
                     and candidate["source"]["repository"] == reference.repository
                     and (
-                        candidate["source"]["tag"] == reference.tag
-                        or (
-                            reference.digest is not None
-                            and candidate["source"]["digest"] == reference.digest
-                        )
+                        candidate["source"]["digest"] == reference.digest
+                        if reference.digest is not None
+                        else candidate["source"]["tag"] == reference.tag
                     )
                 ),
                 None,

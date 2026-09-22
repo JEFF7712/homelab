@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-09-22T23:07:09+00:00",
+  "generated_at": "2026-09-22T23:40:06+00:00",
   "images": [
     {
       "consumers": [
         "gitops/websites/apolline/deployment.yaml:23",
-        "observed:apolline/website-deploy-f788d5ddd-swwfv/web"
+        "observed:apolline/website-deploy-56b94c784c-wk78s/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/apolline",
-      "id": "upstream-apps-apolline-8e851fc266a1",
+      "id": "upstream-apps-apolline-1f2b1b49319f",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a",
-        "reference": "registry.rupan.dev/apps/apolline@sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a",
+        "digest": "sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
+        "reference": "registry.rupan.dev/apps/apolline@sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
         "registry": "registry.rupan.dev",
         "repository": "apps/apolline",
         "tag": null
@@ -40,16 +40,16 @@
     {
       "consumers": [
         "gitops/websites/cr-demo/deployment.yaml:22",
-        "observed:cr-demo/website-deploy-55459d6bcc-p8ssn/web"
+        "observed:cr-demo/website-deploy-55d64cf699-s4d5l/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/cr-demo",
-      "id": "upstream-apps-cr-demo-3a0e9faeb997",
+      "id": "upstream-apps-cr-demo-9c35ec73d0e7",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387",
-        "reference": "registry.rupan.dev/apps/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387",
+        "digest": "sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
+        "reference": "registry.rupan.dev/apps/cr-demo@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
         "registry": "registry.rupan.dev",
         "repository": "apps/cr-demo",
         "tag": null
@@ -58,16 +58,16 @@
     {
       "consumers": [
         "gitops/websites/darkbit/deployment.yaml:23",
-        "observed:darkbit/website-deploy-686d669644-6hzpc/web"
+        "observed:darkbit/website-deploy-6c676797b4-jsz6w/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/darkbit",
-      "id": "upstream-apps-darkbit-ffe2dd0098f0",
+      "id": "upstream-apps-darkbit-5adeb638671c",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff",
-        "reference": "registry.rupan.dev/apps/darkbit@sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff",
+        "digest": "sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
+        "reference": "registry.rupan.dev/apps/darkbit@sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
         "registry": "registry.rupan.dev",
         "repository": "apps/darkbit",
         "tag": null
@@ -76,16 +76,16 @@
     {
       "consumers": [
         "gitops/websites/distrojeff/deployment.yaml:23",
-        "observed:distrojeff/website-deploy-5b696866cf-mtm22/web"
+        "observed:distrojeff/website-deploy-79c945646b-t262t/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/distrojeff-site",
-      "id": "upstream-apps-distrojeff-site-955de216deb8",
+      "id": "upstream-apps-distrojeff-site-6787008ea951",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7",
-        "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7",
+        "digest": "sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
+        "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
         "registry": "registry.rupan.dev",
         "repository": "apps/distrojeff-site",
         "tag": null
@@ -94,9 +94,7 @@
     {
       "consumers": [
         "gitops/automation/renovate-agent.yaml:23",
-        "observed:automation/cronjob-renovate-major-reviewer/renovate-major-reviewer",
-        "observed:automation/job-renovate-major-reviewer-29835197/renovate-major-reviewer",
-        "observed:automation/job-renovate-major-reviewer-29835257/renovate-major-reviewer"
+        "observed:automation/cronjob-renovate-major-reviewer/renovate-major-reviewer"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/homelab-renovate-agent",
       "id": "upstream-apps-homelab-renovate-agent-d670104077bd",
@@ -132,16 +130,16 @@
     {
       "consumers": [
         "gitops/websites/ism/deployment.yaml:22",
-        "observed:ism/website-deploy-5d5f6c97c9-jrgwh/web"
+        "observed:ism/website-deploy-9758489dd-9nwm8/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/ism",
-      "id": "upstream-apps-ism-4ff8af1f72fd",
+      "id": "upstream-apps-ism-3f9e94d29161",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488",
-        "reference": "registry.rupan.dev/apps/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488",
+        "digest": "sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
+        "reference": "registry.rupan.dev/apps/ism@sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
         "registry": "registry.rupan.dev",
         "repository": "apps/ism",
         "tag": null
@@ -168,16 +166,16 @@
     {
       "consumers": [
         "gitops/websites/nixagent/deployment.yaml:38",
-        "observed:nixagent/website-deploy-664cc74ddd-mvgfv/web"
+        "observed:nixagent/website-deploy-594d65557d-gv5gt/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/nix-agent-site",
-      "id": "upstream-apps-nix-agent-site-c3835c137785",
+      "id": "upstream-apps-nix-agent-site-93db39f24aea",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2",
-        "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2",
+        "digest": "sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
+        "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
         "tag": null
@@ -204,16 +202,16 @@
     {
       "consumers": [
         "gitops/websites/pulse/deployment.yaml:22",
-        "observed:pulse/website-deploy-6465bf7b76-bdqdk/web"
+        "observed:pulse/website-deploy-78f6f4c4cb-h6797/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/pulse-site",
-      "id": "upstream-apps-pulse-site-047a45b09868",
+      "id": "upstream-apps-pulse-site-ece379497c34",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4",
-        "reference": "registry.rupan.dev/apps/pulse-site@sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4",
+        "digest": "sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
+        "reference": "registry.rupan.dev/apps/pulse-site@sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
         "tag": null
@@ -258,16 +256,16 @@
     {
       "consumers": [
         "gitops/websites/rupanism/deployment.yaml:22",
-        "observed:rupanism/website-deploy-86797d9b7d-zdgp2/web"
+        "observed:rupanism/website-deploy-647547ffc7-fn787/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/rupanism",
-      "id": "upstream-apps-rupanism-de34527f0b46",
+      "id": "upstream-apps-rupanism-d8240b90281d",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5",
-        "reference": "registry.rupan.dev/apps/rupanism@sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5",
+        "digest": "sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
+        "reference": "registry.rupan.dev/apps/rupanism@sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupanism",
         "tag": null
@@ -276,17 +274,17 @@
     {
       "consumers": [
         "gitops/websites/soluble-rupan/deployment.yaml:22",
-        "observed:soluble-rupan/website-deploy-6469f5f84d-sqfp7/web",
-        "observed:soluble-rupan/website-deploy-6469f5f84d-tsrhn/web"
+        "observed:soluble-rupan/website-deploy-9574bfdbc-94m87/web",
+        "observed:soluble-rupan/website-deploy-9574bfdbc-b7tvx/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/solubility-gnn",
-      "id": "upstream-apps-solubility-gnn-1b7a7cf47320",
+      "id": "upstream-apps-solubility-gnn-e89144247428",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9",
-        "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9",
+        "digest": "sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
+        "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
         "registry": "registry.rupan.dev",
         "repository": "apps/solubility-gnn",
         "tag": null
@@ -295,16 +293,16 @@
     {
       "consumers": [
         "gitops/websites/spatia/deployment.yaml:37",
-        "observed:spatia/website-deploy-6ccc785c97-4txxh/web"
+        "observed:spatia/website-deploy-6b9b7854d4-d24j7/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/spatia-site",
-      "id": "upstream-apps-spatia-site-b7cafddd3aae",
+      "id": "upstream-apps-spatia-site-9862805d74dc",
       "kind": "upstream",
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4",
-        "reference": "registry.rupan.dev/apps/spatia-site@sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4",
+        "digest": "sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
+        "reference": "registry.rupan.dev/apps/spatia-site@sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
         "registry": "registry.rupan.dev",
         "repository": "apps/spatia-site",
         "tag": null
@@ -313,7 +311,7 @@
     {
       "consumers": [
         "gitops/music-assistant/server.yaml:73",
-        "observed:music-assistant/music-assistant-5b4b6648dc-6nrl7/pot-provider"
+        "observed:music-assistant/music-assistant-76b7c5b4d9-pnjh2/pot-provider"
       ],
       "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
       "id": "upstream-brainicism-bgutil-ytdlp-pot-provider-35887a062cb4",
@@ -330,7 +328,6 @@
     },
     {
       "consumers": [
-        "observed:voice/jarvis-exporter-86f558846c-gmc2r/exporter",
         "observed:voice/wyoming-stt-gateway-74dff88f4f-7dw26/gateway",
         "observed:voice/wyoming-stt-gateway-74dff88f4f-k5jr6/gateway",
         "observed:voice/wyoming-tts-gateway-56b867999d-dccp9/gateway",
@@ -351,23 +348,6 @@
     },
     {
       "consumers": [
-        "observed:music-assistant/music-assistant-5b4b6648dc-6nrl7/server"
-      ],
-      "destination_repository": "upstream/ghcr.io/music-assistant/server",
-      "id": "upstream-music-assistant-server-a91f057392cc",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de",
-        "reference": "ghcr.io/music-assistant/server:2.10.4@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de",
-        "registry": "ghcr.io",
-        "repository": "music-assistant/server",
-        "tag": "2.10.4"
-      }
-    },
-    {
-      "consumers": [
         ".gitlab-ci.yml:1",
         ".gitlab-ci.yml:742"
       ],
@@ -382,40 +362,6 @@
         "registry": "docker.io",
         "repository": "nixos/nix",
         "tag": "latest"
-      }
-    },
-    {
-      "consumers": [
-        "observed:voice/linux-voice-assistant-57fd577575-s5gx6/satellite"
-      ],
-      "destination_repository": "upstream/ghcr.io/ohf-voice/linux-voice-assistant",
-      "id": "upstream-ohf-voice-linux-voice-assistant-f3c4151abf20",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6",
-        "reference": "ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6",
-        "registry": "ghcr.io",
-        "repository": "ohf-voice/linux-voice-assistant",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
-        "observed:kube-system/job-helm-install-cilium/helm"
-      ],
-      "destination_repository": "upstream/docker.io/rancher/klipper-helm",
-      "id": "upstream-rancher-klipper-helm-3ea841372b2e",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": null,
-        "reference": "docker.io/rancher/klipper-helm:v0.13.3-build20260727",
-        "registry": "docker.io",
-        "repository": "rancher/klipper-helm",
-        "tag": "v0.13.3-build20260727"
       }
     },
     {
@@ -454,43 +400,8 @@
     },
     {
       "consumers": [
-        "observed:voice/wyoming-piper-7d49897466-xfvn8/piper"
-      ],
-      "destination_repository": "upstream/docker.io/rhasspy/wyoming-piper",
-      "id": "upstream-rhasspy-wyoming-piper-861e950cd809",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a",
-        "reference": "docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a",
-        "registry": "docker.io",
-        "repository": "rhasspy/wyoming-piper",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
-        "observed:voice/wyoming-nemotron-7ddd4b89df-4ts2r/bridge",
-        "observed:voice/wyoming-whisper-cf887b58d-v74pf/voice-id",
-        "observed:voice/wyoming-whisper-cf887b58d-v74pf/whisper"
-      ],
-      "destination_repository": "upstream/docker.io/rhasspy/wyoming-whisper",
-      "id": "upstream-rhasspy-wyoming-whisper-9dfb86807f60",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80",
-        "reference": "docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80",
-        "registry": "docker.io",
-        "repository": "rhasspy/wyoming-whisper",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
-        "gitops/websites/rupan-dev/deployment.yaml:22"
+        "gitops/websites/rupan-dev/deployment.yaml:22",
+        "observed:rupan-dev/website-deploy-756d5bd5d4-s76x8/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/apps/rupan-dev",
       "id": "upstream-upstream-apps-rupan-dev-f90a4617bd28",
@@ -514,15 +425,7 @@
         "observed:automation/cronjob-cluster-sentinel/cluster-sentinel",
         "observed:automation/cronjob-dockerhub-retention/dockerhub-retention",
         "observed:automation/cronjob-website-healthcheck/healthcheck",
-        "observed:automation/cronjob-website-image-watch/image-watch",
-        "observed:automation/job-cluster-sentinel-29835290/cluster-sentinel",
-        "observed:automation/job-cluster-sentinel-29835300/cluster-sentinel",
-        "observed:automation/job-dockerhub-retention-29833002/dockerhub-retention",
-        "observed:automation/job-dockerhub-retention-29834442/dockerhub-retention",
-        "observed:automation/job-website-healthcheck-29835300/healthcheck",
-        "observed:automation/job-website-healthcheck-29835305/healthcheck",
-        "observed:automation/job-website-image-watch-29835285/image-watch",
-        "observed:automation/job-website-image-watch-29835300/image-watch"
+        "observed:automation/cronjob-website-image-watch/image-watch"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/alpine/k8s",
       "id": "upstream-upstream-docker-io-alpine-k8s-091ab09bd987",
@@ -769,9 +672,9 @@
         "observed:media/radarr-6747969b69-nqwfk/fix-permissions",
         "observed:media/seerr-c78685b4d-vpvhd/fix-permissions",
         "observed:media/sonarr-769c7db87b-fzxmv/fix-permissions",
-        "observed:nixagent/website-deploy-664cc74ddd-mvgfv/prepare-nginx-tmp",
+        "observed:nixagent/website-deploy-594d65557d-gv5gt/prepare-nginx-tmp",
         "observed:obsidian/couchdb-67b85f9ddb-czccx/copy-config",
-        "observed:spatia/website-deploy-6ccc785c97-4txxh/prepare-nginx-tmp"
+        "observed:spatia/website-deploy-6b9b7854d4-d24j7/prepare-nginx-tmp"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/busybox",
       "id": "upstream-upstream-docker-io-library-busybox-96e13d465ebf",
@@ -865,18 +768,28 @@
     },
     {
       "consumers": [
-        "gitops/backups/db-dump.yaml:23",
+        "gitops/backups/home-assistant-db-dump.yaml:23",
+        "gitops/home-assistant/postgres.yaml:25",
         "observed:backups/cronjob-home-assistant-db-dump/pg-dump",
-        "observed:backups/cronjob-immich-db-dump/pg-dump",
-        "observed:backups/job-home-assistant-db-dump-29830050/pg-dump",
-        "observed:backups/job-home-assistant-db-dump-29831490/pg-dump",
-        "observed:backups/job-home-assistant-db-dump-29832930/pg-dump",
-        "observed:backups/job-home-assistant-db-dump-29834370/pg-dump",
-        "observed:backups/job-immich-db-dump-29830020/pg-dump",
-        "observed:backups/job-immich-db-dump-29831460/pg-dump",
-        "observed:backups/job-immich-db-dump-29832900/pg-dump",
-        "observed:backups/job-immich-db-dump-29834340/pg-dump",
         "observed:home-assistant/home-assistant-postgres-65d649576d-jr222/postgres"
+      ],
+      "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/postgres",
+      "id": "upstream-upstream-docker-io-library-postgres-a5b09f002c9f",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be",
+        "reference": "registry.rupan.dev/upstream/docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be",
+        "registry": "registry.rupan.dev",
+        "repository": "upstream/docker.io/library/postgres",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/backups/db-dump.yaml:23",
+        "observed:backups/cronjob-immich-db-dump/pg-dump"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/postgres",
       "id": "upstream-upstream-docker-io-library-postgres-d90541da2de7",
@@ -914,7 +827,10 @@
       "consumers": [
         "gitops/voice/exporter.yaml:640",
         "gitops/voice/gateway.yaml:20",
-        "gitops/voice/gateway.yaml:64"
+        "gitops/voice/gateway.yaml:64",
+        "observed:voice/jarvis-exporter-746b49b9fd-9dzx6/exporter",
+        "observed:voice/wyoming-stt-gateway-7b4f444c4d-z5vpt/gateway",
+        "observed:voice/wyoming-tts-gateway-7dc79c797f-9gfxc/gateway"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/python",
       "id": "upstream-upstream-docker-io-library-python-cc9d1f32a195",
@@ -987,15 +903,7 @@
         "gitops/backups/dumps-to-r2.yaml:23",
         "gitops/backups/library-local.yaml:23",
         "observed:backups/cronjob-dumps-to-r2/restic",
-        "observed:backups/job-dumps-to-r2-29830080/restic",
-        "observed:backups/job-dumps-to-r2-29831520/restic",
-        "observed:backups/job-dumps-to-r2-29832960/restic",
-        "observed:backups/job-dumps-to-r2-29834400/restic",
-        "observed:immich/cronjob-library-to-local-repo/restic",
-        "observed:immich/job-library-to-local-repo-29829960/restic",
-        "observed:immich/job-library-to-local-repo-29831400/restic",
-        "observed:immich/job-library-to-local-repo-29832840/restic",
-        "observed:immich/job-library-to-local-repo-29834280/restic"
+        "observed:immich/cronjob-library-to-local-repo/restic"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/restic/restic",
       "id": "upstream-upstream-docker-io-restic-restic-a18a3661f8a8",
@@ -1012,7 +920,8 @@
     },
     {
       "consumers": [
-        "gitops/voice/piper.yaml:26"
+        "gitops/voice/piper.yaml:26",
+        "observed:voice/wyoming-piper-dc4d7cb55-9wspm/piper"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper",
       "id": "upstream-upstream-docker-io-rhasspy-wyoming-piper-432550c2710a",
@@ -1031,7 +940,10 @@
       "consumers": [
         "gitops/voice/stt-nemotron.yaml:33",
         "gitops/voice/whisper.yaml:27",
-        "gitops/voice/whisper.yaml:76"
+        "gitops/voice/whisper.yaml:76",
+        "observed:voice/wyoming-nemotron-5f5bfc4bbd-4pnpk/bridge",
+        "observed:voice/wyoming-whisper-dc994c5cd-kvdp7/voice-id",
+        "observed:voice/wyoming-whisper-dc994c5cd-kvdp7/whisper"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper",
       "id": "upstream-upstream-docker-io-rhasspy-wyoming-whisper-9c272c42d87a",
@@ -1389,7 +1301,8 @@
     },
     {
       "consumers": [
-        "gitops/music-assistant/server.yaml:27"
+        "gitops/music-assistant/server.yaml:27",
+        "observed:music-assistant/music-assistant-76b7c5b4d9-pnjh2/server"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/music-assistant/server",
       "id": "upstream-upstream-ghcr-io-music-assistant-server-3f56f03914f1",
@@ -1406,7 +1319,8 @@
     },
     {
       "consumers": [
-        "gitops/voice/satellite.yaml:25"
+        "gitops/voice/satellite.yaml:25",
+        "observed:voice/linux-voice-assistant-6d855bcddb-khwx4/satellite"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant",
       "id": "upstream-upstream-ghcr-io-ohf-voice-linux-voice-assistant-ca85a75e28d9",
@@ -1424,13 +1338,7 @@
     {
       "consumers": [
         "observed:automation/cronjob-renovate-github/renovate",
-        "observed:automation/cronjob-renovate-gitlab/renovate",
-        "observed:automation/job-renovate-github-29834970/renovate",
-        "observed:automation/job-renovate-github-29835090/renovate",
-        "observed:automation/job-renovate-github-29835210/renovate",
-        "observed:automation/job-renovate-gitlab-29835180/renovate",
-        "observed:automation/job-renovate-gitlab-29835240/renovate",
-        "observed:automation/job-renovate-gitlab-29835300/renovate"
+        "observed:automation/cronjob-renovate-gitlab/renovate"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate",
       "id": "upstream-upstream-ghcr-io-renovatebot-renovate-b14d3a2c9ccf",
@@ -1483,10 +1391,7 @@
     {
       "consumers": [
         "gitops/media/music.yaml:113",
-        "observed:media/cronjob-beets-nightly/beets",
-        "observed:media/job-beets-nightly-29831520/beets",
-        "observed:media/job-beets-nightly-29832960/beets",
-        "observed:media/job-beets-nightly-29834400/beets"
+        "observed:media/cronjob-beets-nightly/beets"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/beets",
       "id": "upstream-upstream-lscr-io-linuxserver-beets-d9f2ac065402",
@@ -1929,6 +1834,6 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "4f3bcd352a480d98224478fd954d6d015452f05a",
+  "source_revision": "616ca2939b744964a8ac412b38874e33da03c719",
   "unresolved_inputs": []
 }

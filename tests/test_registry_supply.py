@@ -253,6 +253,20 @@ class LiveSnapshotTests(unittest.TestCase):
                         }
                     },
                 },
+                {
+                    "kind": "Job",
+                    "metadata": {"namespace": "kube-system", "name": "helm-install"},
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [
+                                    {"name": "helm", "image": "rancher/klipper-helm:v1"}
+                                ]
+                            }
+                        }
+                    },
+                    "status": {"completionTime": "2026-09-22T00:00:00Z"},
+                },
             ],
         }
 
@@ -316,6 +330,52 @@ class InventoryTest(unittest.TestCase):
         self.assertEqual(
             classes,
             {"helm-generated", "k3s-bootstrap", "live-workloads", "producer-pipeline"},
+        )
+
+    def test_keeps_observed_digest_separate_from_desired_digest_only_reference(
+        self,
+    ) -> None:
+        desired_digest = "sha256:" + "a" * 64
+        observed_digest = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "gitops").mkdir()
+            (root / "gitops/app.yaml").write_text(
+                f"image: registry.rupan.dev/apps/demo@{desired_digest}\n",
+                encoding="utf-8",
+            )
+            (root / "registry").mkdir()
+            (root / "registry/observed-images.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "kind": "registry-observed-images",
+                        "coverage": ["live-workloads"],
+                        "images": [
+                            {
+                                "reference": f"registry.rupan.dev/apps/demo@{observed_digest}",
+                                "consumers": ["demo/pod/web"],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            inventory = discover_inventory(root)
+
+        references = {
+            item["source"]["reference"]: item["consumers"]
+            for item in inventory["images"]
+        }
+        self.assertEqual(
+            references,
+            {
+                f"registry.rupan.dev/apps/demo@{desired_digest}": ["gitops/app.yaml:1"],
+                f"registry.rupan.dev/apps/demo@{observed_digest}": [
+                    "observed:demo/pod/web"
+                ],
+            },
         )
 
     def test_cli_inventory_is_offline_and_nonzero_when_gaps_remain(self) -> None:
