@@ -23,7 +23,7 @@ spec:
       containers:
         - name: piper
           # Pinned upstream tag: 2.5.2
-          image: docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a  # yamllint disable-line rule:line-length
           args:
             - "--voice"
             - "en_GB-alan-medium"

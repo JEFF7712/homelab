@@ -18,6 +18,7 @@ from .core import (
     discover_inventory,
     load_inventory,
     load_lock,
+    refresh_live_snapshot,
     render_access_control,
     render_node_config,
     resolve_inventory,
@@ -32,6 +33,10 @@ def _parser() -> argparse.ArgumentParser:
 
     inventory = subparsers.add_parser("inventory", help="discover image inputs offline")
     inventory.add_argument("--output", type=pathlib.Path)
+
+    subparsers.add_parser(
+        "snapshot-live", help="refresh sanitized live Kubernetes image observations"
+    )
 
     resolve = subparsers.add_parser(
         "resolve", help="resolve source manifests into a lock candidate"
@@ -89,6 +94,18 @@ def _print(value: object) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "snapshot-live":
+            snapshot = refresh_live_snapshot(args.root)
+            _print(
+                {
+                    "schema_version": 1,
+                    "command": "snapshot-live",
+                    "status": "ok",
+                    "observed_at": snapshot["observed_at"],
+                    "images": len(snapshot["images"]),
+                }
+            )
+            return 0
         if args.command == "inventory":
             inventory = discover_inventory(args.root)
             if args.output:

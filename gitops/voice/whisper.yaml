@@ -24,7 +24,7 @@ spec:
       containers:
         - name: whisper
           # Pinned upstream tag: 3.8.1
-          image: docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
           args:
             - "--model"
             - "base.en"
@@ -73,7 +73,7 @@ spec:
               mountPath: /data
         - name: voice-id
           # Pinned upstream tag: 3.8.1
-          image: docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
           command:
             - "/usr/src/.venv/bin/python3"
             - "/app/proxy.py"

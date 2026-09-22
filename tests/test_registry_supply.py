@@ -18,6 +18,7 @@ from scripts.registry.core import (
     ImageReference,
     OciClient,
     RegistryError,
+    build_live_snapshot,
     check_consumers,
     copy_lock,
     copy_plan,
@@ -164,8 +165,6 @@ class ImageReferenceTest(unittest.TestCase):
         self.assertEqual(
             destination_repository(nginx), "upstream/docker.io/library/nginx"
         )
-        app = ImageReference.parse("ghcr.io/jeff7712/site:1")
-        self.assertEqual(destination_repository(app), "apps/site")
 
     def test_registry_port_mapping_is_valid_and_explicit(self) -> None:
         reference = ImageReference.parse("registry.example:5443/team/app:v1")
@@ -182,6 +181,103 @@ class ImageReferenceTest(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(RegistryError):
                 ImageReference.parse(value)
+
+
+class LiveSnapshotTests(unittest.TestCase):
+    def test_snapshot_uses_running_image_ids_and_job_templates(self) -> None:
+        digest = "sha256:" + "a" * 64
+        payload = {
+            "kind": "List",
+            "items": [
+                {
+                    "kind": "Pod",
+                    "metadata": {"namespace": "voice", "name": "satellite"},
+                    "spec": {
+                        "containers": [
+                            {"name": "satellite", "image": "ghcr.io/example/app:latest"}
+                        ]
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [
+                            {
+                                "name": "satellite",
+                                "imageID": f"docker-pullable://ghcr.io/example/app@{digest}",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "kind": "Pod",
+                    "metadata": {"namespace": "voice", "name": "old-job"},
+                    "spec": {
+                        "containers": [{"name": "task", "image": "busybox:latest"}]
+                    },
+                    "status": {"phase": "Succeeded"},
+                },
+                {
+                    "kind": "Pod",
+                    "metadata": {"namespace": "web", "name": "local-site"},
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "web",
+                                "image": f"registry.rupan.dev/apps/demo@{digest}",
+                            }
+                        ]
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [
+                            {
+                                "name": "web",
+                                "imageID": f"docker-pullable://ghcr.io/example/app@{digest}",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "kind": "CronJob",
+                    "metadata": {"namespace": "default", "name": "backup"},
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "containers": [
+                                            {"name": "backup", "image": "busybox:1.36"}
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            ],
+        }
+
+        snapshot = build_live_snapshot(payload, observed_at="2026-09-22T00:00:00Z")
+
+        self.assertEqual(snapshot["observed_at"], "2026-09-22T00:00:00Z")
+        self.assertEqual(
+            snapshot["images"],
+            [
+                {
+                    "reference": "docker.io/library/busybox:1.36",
+                    "consumers": ["default/cronjob-backup/backup"],
+                },
+                {
+                    "reference": f"ghcr.io/example/app:latest@{digest}",
+                    "consumers": ["voice/satellite/satellite"],
+                },
+                {
+                    "reference": f"registry.rupan.dev/apps/demo@{digest}",
+                    "consumers": ["web/local-site/web"],
+                },
+            ],
+        )
+        app = ImageReference.parse("ghcr.io/jeff7712/site:1")
+        self.assertEqual(destination_repository(app), "apps/site")
 
 
 class InventoryTest(unittest.TestCase):

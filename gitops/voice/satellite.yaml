@@ -22,7 +22,7 @@ spec:
       containers:
         - name: satellite
           # Pinned upstream working image
-          image: ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6  # yamllint disable-line rule:line-length
           securityContext:
             privileged: true
             runAsUser: 1001

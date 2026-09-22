@@ -30,7 +30,7 @@ spec:
           # Same image as the production voice-ID proxy (python, wyoming,
           # numpy, sherpa_onnx all present); native engine via hostPath.
           # Pinned upstream tag: 3.8.1
-          image: docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
           # The native libs are built against NixOS glibc 2.42 while the
           # image ships Debian glibc 2.36, so python itself runs under the
           # staged Nix dynamic loader (glibc is backward compatible).

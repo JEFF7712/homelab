@@ -159,6 +159,139 @@ def _timestamp() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
 
+def build_live_snapshot(
+    payload: Mapping[str, Any], *, observed_at: str | None = None
+) -> dict[str, Any]:
+    if payload.get("kind") != "List" or not isinstance(payload.get("items"), list):
+        raise RegistryError("kubectl workload response must be a Kubernetes List")
+
+    images: dict[str, set[str]] = {}
+    for item in payload["items"]:
+        if not isinstance(item, dict):
+            raise RegistryError("kubectl workload response contains an invalid item")
+        kind = item.get("kind")
+        metadata = item.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        namespace = metadata.get("namespace", "default")
+        name = metadata.get("name")
+        if not isinstance(name, str):
+            continue
+
+        if kind == "Pod":
+            pod_status = item.get("status")
+            if isinstance(pod_status, dict) and pod_status.get("phase") in {
+                "Succeeded",
+                "Failed",
+            }:
+                continue
+            spec = item.get("spec") or {}
+            status_fields = (
+                "initContainerStatuses",
+                "containerStatuses",
+                "ephemeralContainerStatuses",
+            )
+            consumer_prefix = f"{namespace}/{name}"
+        elif kind == "Job":
+            spec = (item.get("spec") or {}).get("template", {}).get("spec", {})
+            status_fields = ()
+            consumer_prefix = f"{namespace}/job-{name}"
+        elif kind == "CronJob":
+            spec = (
+                (item.get("spec") or {})
+                .get("jobTemplate", {})
+                .get("spec", {})
+                .get("template", {})
+                .get("spec", {})
+            )
+            status_fields = ()
+            consumer_prefix = f"{namespace}/cronjob-{name}"
+        else:
+            continue
+
+        if not isinstance(spec, dict):
+            continue
+        statuses: dict[str, str] = {}
+        status = item.get("status", {})
+        if isinstance(status, dict):
+            for field in status_fields:
+                entries = status.get(field, [])
+                if isinstance(entries, list):
+                    statuses.update(
+                        {
+                            entry["name"]: entry["imageID"]
+                            for entry in entries
+                            if isinstance(entry, dict)
+                            and isinstance(entry.get("name"), str)
+                            and isinstance(entry.get("imageID"), str)
+                        }
+                    )
+
+        containers = []
+        for field in ("initContainers", "containers", "ephemeralContainers"):
+            values = spec.get(field, [])
+            if isinstance(values, list):
+                containers.extend(values)
+        for container in containers:
+            if not isinstance(container, dict):
+                continue
+            container_name = container.get("name")
+            spec_image = container.get("image")
+            if not isinstance(container_name, str) or not isinstance(spec_image, str):
+                continue
+            reference = ImageReference.parse(spec_image)
+            image_id = statuses.get(container_name, "").removeprefix(
+                "docker-pullable://"
+            )
+            if reference.digest is None and "@sha256:" in image_id:
+                observed = ImageReference.parse(image_id)
+                if (
+                    observed.registry == reference.registry
+                    and observed.repository == reference.repository
+                    and observed.digest is not None
+                ):
+                    reference = dataclasses.replace(reference, digest=observed.digest)
+            consumer = f"{consumer_prefix}/{container_name}"
+            images.setdefault(reference.canonical, set()).add(consumer)
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "registry-observed-images",
+        "observed_at": observed_at or _timestamp(),
+        "evidence": "sanitized read-only Kubernetes Pod, Job, and CronJob image snapshot",
+        "coverage": ["helm-generated", "k3s-bootstrap", "live-workloads"],
+        "images": [
+            {"reference": reference, "consumers": sorted(consumers)}
+            for reference, consumers in sorted(images.items())
+        ],
+    }
+
+
+def refresh_live_snapshot(root: pathlib.Path) -> dict[str, Any]:
+    try:
+        result = subprocess.run(
+            ["kubectl", "get", "pods,jobs,cronjobs", "-A", "-o", "json"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RegistryError("cannot read live Kubernetes image inventory") from error
+    if result.returncode != 0:
+        raise RegistryError("kubectl could not read live Kubernetes image inventory")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise RegistryError(
+            "kubectl returned invalid JSON for live image inventory"
+        ) from error
+    snapshot = build_live_snapshot(payload)
+    atomic_write_json(root / "registry/observed-images.json", snapshot)
+    return snapshot
+
+
 def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
     root = root.resolve()
     candidates = [root / "gitops", root / "flake"]

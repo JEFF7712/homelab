@@ -637,7 +637,7 @@ spec:
       containers:
         - name: exporter
           # Pinned upstream tag: 3.13-slim
-          image: docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
           command:
             - python3
             - /app/exporter.py

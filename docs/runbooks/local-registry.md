@@ -100,7 +100,7 @@ If it already exists, verify its pool identity, mountpoint, ownership, and conte
 4. Trigger `deploy_registry_dns`. Verify `registry.rupan.dev` resolves to `10.0.30.20` from the NAS, runner, all nodes, and an authorized NetBird client. The job also requires a TLS-valid anonymous `/v2/` request to return HTTP 401.
 5. Verify anonymous denial, trusted HTTPS hostname validation, UI availability after authentication, zot persistence, mount failure behavior, and node-exporter metrics.
 6. Generate the locked copy plan. Import current, bootstrap, and retained rollback images from the NAS runner. Verify destination manifest or index digest equality, platform coverage, and required referrers.
-7. Trigger `deploy_registry_node_01`, then `_02`, then `_03`. The jobs are dependency-chained and use the `homelab-0N-registry` NixOS variants. The first job authenticates as the read-only node identity and verifies the complete lock before any activation. Each generates the protected `registries.yaml` from the same lock.
+7. Trigger `deploy_registry_node_01` through `_05`. The control-plane jobs are dependency-chained (`_01` → `_02` → `_03`); agent jobs `_04` and `_05` chain from `registry_lock` and `_04`. All use the `homelab-0N-registry` NixOS variants. The first job authenticates as the read-only node identity and verifies the complete lock before any activation. Each generates the protected `registries.yaml` from the same lock.
 8. Each node job requires the local config, active k3s, API readiness including etcd, and all nodes Ready before the next job becomes available. Do not delete node image caches.
 9. Prove an uncached local pull with a disposable image digest that is already in the lock. Use fresh containerd, kubelet, and zot access logs as evidence.
 10. Enable the separately reviewable Flux consumer cutover only after `python -m scripts.registry verify` passes from the node network. Migrate a small stateless workload first, then cohorts, then bootstrap/system images.
@@ -133,6 +133,27 @@ All registry deployment and mutation jobs are manual. A repository push does not
 ## Import and update rules
 
 `registry/images.lock.json` is the authoritative mapping for import, policy, update discovery, retention, and node mirror rewrites.
+
+### CI bootstrap image
+
+The pinned `docker.io/nixos/nix` image in `.gitlab-ci.yml` is an explicit
+exception: the protected `nas-ci` runner must pull its job image before the job
+can authenticate to the private registry. Keep it digest-pinned and scope the
+lock exception to `.gitlab-ci.yml`; Kubernetes workloads must use locked local
+registry references.
+
+Refresh the sanitized live workload snapshot before evaluating drift. This reads
+Pod, Job, and CronJob image specifications/status from the current Kubernetes
+context and writes only `registry/observed-images.json`:
+
+```sh
+just registry-snapshot-live
+just registry-inventory
+just registry-check
+```
+
+The snapshot command is read-only against the cluster. Review the generated
+snapshot diff before updating or resolving the lock.
 
 ```sh
 python -m scripts.registry inventory --output registry/images.inventory.json

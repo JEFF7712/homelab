@@ -67,6 +67,9 @@ check-registry:
 registry-inventory:
     python -m scripts.registry inventory --output registry/images.inventory.json
 
+registry-snapshot-live:
+    python -m scripts.registry snapshot-live
+
 registry-resolve:
     python -m scripts.registry resolve --inventory registry/images.inventory.json --output registry/images.lock.json
 

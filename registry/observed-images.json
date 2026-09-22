@@ -1,1054 +1,712 @@
 {
-  "schema_version": 1,
-  "kind": "registry-observed-images",
-  "observed_at": "2026-09-09T14:27:00Z",
-  "evidence": "sanitized read-only k3s Pod status and node containerd content inventory",
   "coverage": [
     "helm-generated",
     "k3s-bootstrap",
     "live-workloads"
   ],
+  "evidence": "sanitized read-only Kubernetes Pod, Job, and CronJob image snapshot",
   "images": [
     {
-      "reference": "docker.io/alpine/k8s:1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47",
       "consumers": [
-        "rendered/automation/kubernetes-jobs"
+        "music-assistant/music-assistant-5b4b6648dc-6nrl7/pot-provider"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64"
-        ]
-      }
+      "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
     },
     {
-      "reference": "docker.io/binwiederhier/ntfy:v2.28.0@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da",
       "consumers": [
-        "observability/ntfy-ntfy-5cc6bb76b7-kphmw/ntfy"
+        "voice/jarvis-exporter-86f558846c-gmc2r/exporter",
+        "voice/wyoming-stt-gateway-74dff88f4f-7dw26/gateway",
+        "voice/wyoming-stt-gateway-74dff88f4f-k5jr6/gateway",
+        "voice/wyoming-tts-gateway-56b867999d-dccp9/gateway",
+        "voice/wyoming-tts-gateway-56b867999d-h9jft/gateway"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64"
-        ]
-      }
+      "reference": "docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
     },
     {
-      "reference": "docker.io/cloudflare/cloudflared@sha256:51c9cefcb4569df44e1ad403ab1d3d8065aa8e84339bcfc6aee75502e1140339",
       "consumers": [
-        "cloudflare/cloudflared-5fd59f884d-6ds6b/cloudflared",
-        "cloudflare/cloudflared-5fd59f884d-rvlff/cloudflared"
+        "kube-system/job-helm-install-cilium/helm"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64"
-        ]
-      }
+      "reference": "docker.io/rancher/klipper-helm:v0.13.3-build20260727"
     },
     {
-      "reference": "docker.io/grafana/alloy:v1.16.1@sha256:51aeb9d829239345070619dad3edd6873186f913c84f45b365b74574fcb38ec0",
       "consumers": [
-        "observability/alloy-5rh6k/alloy",
-        "observability/alloy-g645h/alloy",
-        "observability/alloy-vzrsp/alloy"
+        "kube-system/coredns-c5fdd76cf-846kr/coredns"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "docker.io/rancher/mirrored-coredns-coredns:1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea"
     },
     {
-      "reference": "docker.io/grafana/grafana:13.0.1-security-01@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5",
       "consumers": [
-        "observability/kube-prometheus-stack-grafana-85d88c488c-wp58r/grafana"
+        "kube-system/metrics-server-7f4b6d9bd7-9vszw/metrics-server"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64"
-        ]
-      }
+      "reference": "docker.io/rancher/mirrored-metrics-server:v0.9.0@sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0"
     },
     {
-      "reference": "docker.io/grafana/loki-canary:3.6.7@sha256:0dac7d5cb383adb8d3723676a70ed0c65b582e636846f4ce48703556dd509ad1",
       "consumers": [
-        "observability/loki-canary-cxzn2/loki-canary",
-        "observability/loki-canary-hzwrm/loki-canary",
-        "observability/loki-canary-lxq6c/loki-canary"
+        "voice/wyoming-piper-7d49897466-xfvn8/piper"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64"
-        ]
-      }
+      "reference": "docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a"
     },
     {
-      "reference": "docker.io/grafana/loki-helm-test:latest@sha256:2ed6447bbdbcd23019c3fdb02bce6db3fbef296d5a8f77a68d3dbc386bfa43fb",
       "consumers": [
-        "rendered/loki/test-hook"
+        "voice/wyoming-nemotron-7ddd4b89df-4ts2r/bridge",
+        "voice/wyoming-whisper-cf887b58d-v74pf/voice-id",
+        "voice/wyoming-whisper-cf887b58d-v74pf/whisper"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64"
-        ]
-      }
+      "reference": "docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80"
     },
     {
-      "reference": "docker.io/grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d",
+      "consumers": [
+        "music-assistant/music-assistant-5b4b6648dc-6nrl7/server"
+      ],
+      "reference": "ghcr.io/music-assistant/server:2.10.4@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
+    },
+    {
+      "consumers": [
+        "voice/linux-voice-assistant-57fd577575-s5gx6/satellite"
+      ],
+      "reference": "ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
+    },
+    {
+      "consumers": [
+        "apolline/website-deploy-f788d5ddd-swwfv/web"
+      ],
+      "reference": "registry.rupan.dev/apps/apolline@sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a"
+    },
+    {
+      "consumers": [
+        "media/bookshelf-7f89767968-9hxxn/bookshelf"
+      ],
+      "reference": "registry.rupan.dev/apps/bookshelf@sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744"
+    },
+    {
+      "consumers": [
+        "cr-demo/website-deploy-55459d6bcc-p8ssn/web"
+      ],
+      "reference": "registry.rupan.dev/apps/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387"
+    },
+    {
+      "consumers": [
+        "darkbit/website-deploy-686d669644-6hzpc/web"
+      ],
+      "reference": "registry.rupan.dev/apps/darkbit@sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff"
+    },
+    {
+      "consumers": [
+        "distrojeff/website-deploy-5b696866cf-mtm22/web"
+      ],
+      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7"
+    },
+    {
+      "consumers": [
+        "automation/cronjob-renovate-major-reviewer/renovate-major-reviewer",
+        "automation/job-renovate-major-reviewer-29835197/renovate-major-reviewer",
+        "automation/job-renovate-major-reviewer-29835257/renovate-major-reviewer"
+      ],
+      "reference": "registry.rupan.dev/apps/homelab-renovate-agent@sha256:128f085244a15c4fe45fe176be6bad3a112ba13f3fce3173825a9cb3bc4fea58"
+    },
+    {
+      "consumers": [
+        "automation/renovate-dashboard-75754c5759-2jpcw/dashboard"
+      ],
+      "reference": "registry.rupan.dev/apps/homelab-renovate-dashboard@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3"
+    },
+    {
+      "consumers": [
+        "ism/website-deploy-5d5f6c97c9-jrgwh/web"
+      ],
+      "reference": "registry.rupan.dev/apps/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488"
+    },
+    {
+      "consumers": [
+        "majorfinder/website-deploy-5878cdc676-zh29k/web"
+      ],
+      "reference": "registry.rupan.dev/apps/majorfinder@sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85"
+    },
+    {
+      "consumers": [
+        "nixagent/website-deploy-664cc74ddd-mvgfv/web"
+      ],
+      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2"
+    },
+    {
+      "consumers": [
+        "photography/website-deploy-7fd56fc86d-h6kxz/web"
+      ],
+      "reference": "registry.rupan.dev/apps/photography@sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6"
+    },
+    {
+      "consumers": [
+        "pulse/website-deploy-6465bf7b76-bdqdk/web"
+      ],
+      "reference": "registry.rupan.dev/apps/pulse-site@sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4"
+    },
+    {
+      "consumers": [
+        "obsidian/quartz-notes-7b94bb6f6f-5ss6w/quartz",
+        "obsidian/quartz-notes-7b94bb6f6f-gdgq4/quartz"
+      ],
+      "reference": "registry.rupan.dev/apps/quartz@sha256:0023aa4fff0cbe5df1ec652425cdc3b7177fba4641165f3ec8d2d8f8b025f797"
+    },
+    {
+      "consumers": [
+        "rupan-dev/website-deploy-75478c64db-5p62v/web"
+      ],
+      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac"
+    },
+    {
+      "consumers": [
+        "rupanism/website-deploy-86797d9b7d-zdgp2/web"
+      ],
+      "reference": "registry.rupan.dev/apps/rupanism@sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5"
+    },
+    {
+      "consumers": [
+        "soluble-rupan/website-deploy-6469f5f84d-sqfp7/web",
+        "soluble-rupan/website-deploy-6469f5f84d-tsrhn/web"
+      ],
+      "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9"
+    },
+    {
+      "consumers": [
+        "spatia/website-deploy-6ccc785c97-4txxh/web"
+      ],
+      "reference": "registry.rupan.dev/apps/spatia-site@sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4"
+    },
+    {
+      "consumers": [
+        "automation/cronjob-cluster-sentinel/cluster-sentinel",
+        "automation/cronjob-dockerhub-retention/dockerhub-retention",
+        "automation/cronjob-website-healthcheck/healthcheck",
+        "automation/cronjob-website-image-watch/image-watch",
+        "automation/job-cluster-sentinel-29835290/cluster-sentinel",
+        "automation/job-cluster-sentinel-29835300/cluster-sentinel",
+        "automation/job-dockerhub-retention-29833002/dockerhub-retention",
+        "automation/job-dockerhub-retention-29834442/dockerhub-retention",
+        "automation/job-website-healthcheck-29835300/healthcheck",
+        "automation/job-website-healthcheck-29835305/healthcheck",
+        "automation/job-website-image-watch-29835285/image-watch",
+        "automation/job-website-image-watch-29835300/image-watch"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47"
+    },
+    {
+      "consumers": [
+        "observability/ntfy-ntfy-58bbb6c64c-7tk9x/ntfy"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da"
+    },
+    {
+      "consumers": [
+        "cloudflare/cloudflared-77f9c58856-hwpsv/cloudflared",
+        "cloudflare/cloudflared-77f9c58856-rgnl9/cloudflared"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
+    },
+    {
+      "consumers": [
+        "media/calibre-web-6669989ff5-vjzrd/calibre-web"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/crocodilestick/calibre-web-automated@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d"
+    },
+    {
+      "consumers": [
+        "media/navidrome-766769c465-2llt7/navidrome"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40"
+    },
+    {
+      "consumers": [
+        "media/filebrowser-7bd6ff78f8-28wx6/filebrowser"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/filebrowser/filebrowser@sha256:a469ea076d4a1b4b1d86a41d130f2f536cd9da996a2b1fb39c0d7635f9d89b9a"
+    },
+    {
+      "consumers": [
+        "observability/alloy-5vq4p/alloy",
+        "observability/alloy-hkms9/alloy",
+        "observability/alloy-p9kb6/alloy",
+        "observability/alloy-ptbjf/alloy",
+        "observability/alloy-qkq6l/alloy"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/grafana/alloy@sha256:51aeb9d829239345070619dad3edd6873186f913c84f45b365b74574fcb38ec0"
+    },
+    {
+      "consumers": [
+        "observability/kube-prometheus-stack-grafana-5b8f77784c-9xlnd/grafana"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/grafana/grafana@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5"
+    },
+    {
+      "consumers": [
+        "observability/loki-canary-2tp9s/loki-canary",
+        "observability/loki-canary-p8lgp/loki-canary",
+        "observability/loki-canary-pp86t/loki-canary",
+        "observability/loki-canary-rq5fx/loki-canary",
+        "observability/loki-canary-t92nz/loki-canary"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/grafana/loki-canary@sha256:0dac7d5cb383adb8d3723676a70ed0c65b582e636846f4ce48703556dd509ad1"
+    },
+    {
       "consumers": [
         "observability/loki-0/loki"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/grafana/loki@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d"
     },
     {
-      "reference": "docker.io/jeff7712/homelab-renovate-agent:0.0.1415@sha256:128f085244a15c4fe45fe176be6bad3a112ba13f3fce3173825a9cb3bc4fea58",
-      "consumers": [
-        "rendered/automation/renovate-agent"
-      ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.manifest.v1+json",
-        "platforms": []
-      }
-    },
-    {
-      "reference": "docker.io/jeff7712/homelab-renovate-dashboard:0.0.1415@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3",
-      "consumers": [
-        "rendered/automation/renovate-dashboard"
-      ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.manifest.v1+json",
-        "platforms": []
-      }
-    },
-    {
-      "reference": "docker.io/jeff7712/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387",
-      "consumers": [
-        "cr-demo/website-deploy-5fdd8fd64f-kn8rv/web"
-      ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-        "platforms": []
-      }
-    },
-    {
-      "reference": "docker.io/jeff7712/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488",
-      "consumers": [
-        "ism/website-deploy-57b4f774c-4pqms/web"
-      ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-        "platforms": []
-      }
-    },
-    {
-      "reference": "docker.io/kiwigrid/k8s-sidecar:2.5.0@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df",
       "consumers": [
         "observability/loki-0/loki-sc-rules"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/kiwigrid/k8s-sidecar@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df"
     },
     {
-      "reference": "docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616",
       "consumers": [
-        "nixagent/website-deploy-796cd7c89d-dqdnf/prepare-nginx-tmp",
-        "spatia/website-deploy-5458fdffd-7ttmd/prepare-nginx-tmp"
+        "media/download-d5fc49cc9-s8m4t/seed-slskd"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v5",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     },
     {
-      "reference": "docker.io/library/couchdb@sha256:199ff89f9a930df6032a216570ae0169fcc36c449bb02b40fafeb6efecdb606f",
       "consumers": [
-        "rendered/obsidian/couchdb"
+        "home-assistant/home-assistant-57fc447fd8-btcbm/initialize-config",
+        "home-assistant/home-assistant-57fc447fd8-btcbm/install-hacs",
+        "media/bazarr-69b6cf7658-5lvpm/fix-permissions",
+        "media/bookshelf-7f89767968-9hxxn/fix-permissions",
+        "media/calibre-web-6669989ff5-vjzrd/fix-permissions",
+        "media/download-d5fc49cc9-s8m4t/configure-qbittorrent",
+        "media/download-d5fc49cc9-s8m4t/fix-permissions",
+        "media/jellyfin-6cf7b8975d-mjmsd/fix-permissions",
+        "media/lidarr-cdfbdf6c8-bn42n/fix-permissions",
+        "media/prowlarr-ff5b8d4d4-j7k69/fix-permissions",
+        "media/radarr-6747969b69-nqwfk/fix-permissions",
+        "media/seerr-c78685b4d-vpvhd/fix-permissions",
+        "media/sonarr-769c7db87b-fzxmv/fix-permissions",
+        "nixagent/website-deploy-664cc74ddd-mvgfv/prepare-nginx-tmp",
+        "obsidian/couchdb-67b85f9ddb-czccx/copy-config",
+        "spatia/website-deploy-6ccc785c97-4txxh/prepare-nginx-tmp"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.manifest.v1+json",
-        "platforms": []
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616"
     },
     {
-      "reference": "docker.io/library/memcached:1.6.39-alpine@sha256:c8503d4491edd3110cc07d0465089d3a41cf1daf8645e71149e39a51835e92cd",
       "consumers": [
-        "observability/loki-chunks-cache-0/memcached",
-        "observability/loki-results-cache-0/memcached"
+        "obsidian/couchdb-67b85f9ddb-czccx/couchdb"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/couchdb@sha256:199ff89f9a930df6032a216570ae0169fcc36c449bb02b40fafeb6efecdb606f"
     },
     {
-      "reference": "docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10",
       "consumers": [
-        "default/bgp-canary-85c4bcc749-lb4d7/web"
+        "automation/github-runner-apolline-df956c598-mwv2j/dind",
+        "automation/github-runner-darkbit-859f5d79b8-zz4s2/dind",
+        "automation/github-runner-distrojeff-5bfb7d689d-wwstw/dind",
+        "automation/github-runner-ism-6bd89f758-gc4vn/dind",
+        "automation/github-runner-majorfinder-788f4cb8b-b7pkb/dind",
+        "automation/github-runner-nix-agent-86cd68766-mhtcj/dind",
+        "automation/github-runner-photography-75d44674b8-x45dd/dind",
+        "automation/github-runner-pulse-57bbb57d58-tkj6g/dind",
+        "automation/github-runner-quartz-759f5d4665-vwx7c/dind",
+        "automation/github-runner-rupan-dev-886545b9c-4tdtf/dind",
+        "automation/github-runner-rupanism-668d976b6b-bqpmg/dind",
+        "automation/github-runner-soluble-7447c4687d-8jz62/dind",
+        "automation/github-runner-spatia-6fcbdd7996-tpfw9/dind"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/docker@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce"
     },
     {
-      "reference": "docker.io/library/postgres:14-alpine@sha256:727876d274666da0b92a445390ba093c84b8e9f8343e1c53cd4e9a7ab2d85310",
       "consumers": [
-        "backups/immich-db-dump-29811300-wrm9q/pg-dump"
+        "default/bgp-canary-b9cdb58d9-ndpx5/web"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10"
     },
     {
-      "reference": "docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be",
       "consumers": [
-        "home-assistant/home-assistant-postgres-85ccd74787-47sh9/postgres"
+        "backups/cronjob-home-assistant-db-dump/pg-dump",
+        "backups/job-home-assistant-db-dump-29830050/pg-dump",
+        "backups/job-home-assistant-db-dump-29831490/pg-dump",
+        "backups/job-home-assistant-db-dump-29832930/pg-dump",
+        "backups/job-home-assistant-db-dump-29834370/pg-dump",
+        "home-assistant/home-assistant-postgres-65d649576d-jr222/postgres"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.manifest.v1+json",
-        "platforms": []
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be"
     },
     {
-      "reference": "docker.io/library/python:3.14-alpine@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
       "consumers": [
-        "rendered/automation/renovate-agent-init"
+        "backups/cronjob-immich-db-dump/pg-dump",
+        "backups/job-immich-db-dump-29830020/pg-dump",
+        "backups/job-immich-db-dump-29831460/pg-dump",
+        "backups/job-immich-db-dump-29832900/pg-dump",
+        "backups/job-immich-db-dump-29834340/pg-dump"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
     },
     {
-      "reference": "docker.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
       "consumers": [
-        "observability/loki-gateway-54d4c5b8fb-kqcjq/nginx"
+        "automation/renovate-approval-webhook-6c7ddfbbd5-6z7q9/webhook"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v6",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
     },
     {
-      "reference": "docker.io/nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c",
       "consumers": [
-        "ci/default-image"
+        "media/subgen-58f479f67d-tgmst/subgen"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/mccloud/subgen@sha256:2841515a3b409677669f0a10d77d49160bffb8111db91640fb33a4db06b3396c"
     },
     {
-      "reference": "docker.io/prom/memcached-exporter:v0.15.4@sha256:b6763ecb3c47f2408e0398518851b7f8c5fc46232b2649f8c78a321130c54266",
       "consumers": [
-        "observability/loki-chunks-cache-0/exporter",
-        "observability/loki-results-cache-0/exporter"
+        "observability/loki-gateway-67dbb7cfcc-799jq/nginx"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6"
     },
     {
-      "reference": "docker.io/rancher/klipper-helm:v0.13.3-build20260727@sha256:5425a2b4613d2458dbdff99218e8d487ebb59c20e7a941f061c0777070f0aac1",
       "consumers": [
-        "kube-system/helm-install-cilium-cnhlj/helm"
+        "media/download-d5fc49cc9-s8m4t/gluetun"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/riscv64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/qmcgaw/gluetun@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4"
     },
     {
-      "reference": "docker.io/rancher/mirrored-coredns-coredns:1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea",
       "consumers": [
-        "kube-system/coredns-c5fdd76cf-q9xg7/coredns"
+        "backups/cronjob-dumps-to-r2/restic",
+        "backups/job-dumps-to-r2-29830080/restic",
+        "backups/job-dumps-to-r2-29831520/restic",
+        "backups/job-dumps-to-r2-29832960/restic",
+        "backups/job-dumps-to-r2-29834400/restic",
+        "immich/cronjob-library-to-local-repo/restic",
+        "immich/job-library-to-local-repo-29829960/restic",
+        "immich/job-library-to-local-repo-29831400/restic",
+        "immich/job-library-to-local-repo-29832840/restic",
+        "immich/job-library-to-local-repo-29834280/restic"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/loong64",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510"
     },
     {
-      "reference": "docker.io/rancher/mirrored-metrics-server:v0.9.0@sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0",
       "consumers": [
-        "kube-system/metrics-server-7f4b6d9bd7-c7j5n/metrics-server"
+        "media/seerr-c78685b4d-vpvhd/seerr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/seerr/seerr@sha256:f4768de5f616248d723e05891f3345a1402123775d03bf0890dbfedc0831bda1"
     },
     {
-      "reference": "docker.io/rancher/mirrored-pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4",
       "consumers": [
-        "k3s/sandbox-image"
+        "media/download-d5fc49cc9-s8m4t/slskd"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x",
-          "windows/amd64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/slskd/slskd@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6"
     },
     {
-      "reference": "docker.io/restic/restic:0.19.1@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510",
       "consumers": [
-        "backups/dumps-to-r2-29811360-v2g8k/restic",
-        "backups/test-r2b-2dqhn/restic",
-        "immich/library-to-local-repo-29811240-rqdmj/restic",
-        "immich/library-to-local-repo-29812680-7rk7m/restic",
-        "immich/test-lib5-wrstd/restic"
+        "immich/immich-valkey-86d66df974-g2hln/valkey"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/386",
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/docker.io/valkey/valkey@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d"
     },
     {
-      "reference": "docker.io/valkey/valkey@sha256:8e8d64b405ce18f41b8e5ee20aa4687a8ed0022d1298f2ce31cdcf3a76e09411",
       "consumers": [
-        "immich/immich-valkey-58bc4b8d86-6hlxt/valkey"
+        "automation/github-runner-apolline-df956c598-mwv2j/runner",
+        "automation/github-runner-darkbit-859f5d79b8-zz4s2/runner",
+        "automation/github-runner-distrojeff-5bfb7d689d-wwstw/runner",
+        "automation/github-runner-ism-6bd89f758-gc4vn/runner",
+        "automation/github-runner-majorfinder-788f4cb8b-b7pkb/runner",
+        "automation/github-runner-nix-agent-86cd68766-mhtcj/runner",
+        "automation/github-runner-photography-75d44674b8-x45dd/runner",
+        "automation/github-runner-pulse-57bbb57d58-tkj6g/runner",
+        "automation/github-runner-quartz-759f5d4665-vwx7c/runner",
+        "automation/github-runner-rupan-dev-886545b9c-4tdtf/runner",
+        "automation/github-runner-rupanism-668d976b6b-bqpmg/runner",
+        "automation/github-runner-soluble-7447c4687d-8jz62/runner",
+        "automation/github-runner-spatia-6fcbdd7996-tpfw9/runner"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4"
     },
     {
-      "reference": "ghcr.io/external-secrets/external-secrets:v2.10.0@sha256:814117b0fd6d121b03e8ba3b6db1cecbe7449a354fc0fc9c4faf73a37aa221b1",
       "consumers": [
-        "external-secrets/external-secrets-5dcc447d56-9wnsq/external-secrets",
-        "external-secrets/external-secrets-cert-controller-7bb979fc44-85gwg/cert-controller",
-        "external-secrets/external-secrets-webhook-55585c5576-9svqm/webhook"
+        "voice/wyoming-chatterbox-6966dc7b6-mvnq8/chatterbox",
+        "voice/wyoming-chatterbox-6966dc7b6-mvnq8/prepare-permissions",
+        "voice/wyoming-chatterbox-6966dc7b6-mvnq8/prepare-runtime"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
     {
-      "reference": "ghcr.io/fluxcd/helm-controller:v1.6.1@sha256:b113d67328a58ecaa04ce69aa41fb285a1ebd10f021e2371065598a1325042fd",
       "consumers": [
-        "flux-system/helm-controller-5494f46d8f-26j56/manager"
+        "external-secrets/external-secrets-84477dcb55-8prqc/external-secrets",
+        "external-secrets/external-secrets-cert-controller-647dcb9555-d4hcl/cert-controller",
+        "external-secrets/external-secrets-webhook-6fbbdcbd5c-55brk/webhook"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/external-secrets/external-secrets@sha256:814117b0fd6d121b03e8ba3b6db1cecbe7449a354fc0fc9c4faf73a37aa221b1"
     },
     {
-      "reference": "ghcr.io/fluxcd/kustomize-controller:v1.9.1@sha256:ae1a90c0c76d518618c5e2a64b82b6476c8213aa7a2b17ec8b94828f0230a6b8",
       "consumers": [
-        "flux-system/kustomize-controller-6f47d6dbd7-rzdbg/manager"
+        "media/flaresolverr-7d9fb85fc7-6kk89/flaresolverr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47"
     },
     {
-      "reference": "ghcr.io/fluxcd/notification-controller:v1.9.1@sha256:d52626555d96dd5666a942ef8aad09650e1bdbf58ca67ddb835d9de27e9002be",
       "consumers": [
-        "flux-system/notification-controller-548444584f-mhjtb/manager"
+        "flux-system/helm-controller-55fd84fffc-5gp8t/manager"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/helm-controller@sha256:b113d67328a58ecaa04ce69aa41fb285a1ebd10f021e2371065598a1325042fd"
     },
     {
-      "reference": "ghcr.io/fluxcd/source-controller:v1.9.1@sha256:773a90fa26e014d4f23d5c6a48ca5875c4686bdc6aac2ea73951b9cd9fda48dd",
       "consumers": [
-        "flux-system/source-controller-7b97955655-hcnfw/manager"
+        "flux-system/kustomize-controller-747cb9dc86-txsb8/manager"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/kustomize-controller@sha256:ae1a90c0c76d518618c5e2a64b82b6476c8213aa7a2b17ec8b94828f0230a6b8"
     },
     {
-      "reference": "ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17",
       "consumers": [
-        "home-assistant/home-assistant-654d5bcc89-r62dr/home-assistant"
+        "flux-system/notification-controller-588b5fc975-wqs44/manager"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.manifest.v1+json",
-        "platforms": []
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/notification-controller@sha256:d52626555d96dd5666a942ef8aad09650e1bdbf58ca67ddb835d9de27e9002be"
     },
     {
-      "reference": "ghcr.io/immich-app/immich-machine-learning:v3.1.0@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e",
       "consumers": [
-        "immich/immich-machine-learning-56c59d58f7-zg2np/immich-machine-learning"
+        "flux-system/source-controller-89b9d4d6f-sznrf/manager"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/source-controller@sha256:773a90fa26e014d4f23d5c6a48ca5875c4686bdc6aac2ea73951b9cd9fda48dd"
     },
     {
-      "reference": "ghcr.io/immich-app/immich-server:v3.1.0@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb",
       "consumers": [
-        "immich/immich-server-5659cbb99c-9g57n/immich-server"
+        "home-assistant/home-assistant-57fc447fd8-btcbm/home-assistant"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17"
     },
     {
-      "reference": "ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23",
       "consumers": [
-        "immich/immich-postgres-86588ff89-ptdwb/postgres"
+        "media/lidarr-cdfbdf6c8-bn42n/lidarr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f"
     },
     {
-      "reference": "ghcr.io/jkroepke/kube-webhook-certgen:1.8.3@sha256:8ce13c365c8e9ced0aad5ef350a53c50b7ca5817f99d856b9eec895db1056728",
       "consumers": [
-        "rendered/kube-prometheus-stack/admission-hook"
+        "immich/immich-machine-learning-595c54b9f6-xplnp/immich-machine-learning"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "linux/s390x",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
     {
-      "reference": "ghcr.io/jeff7712/apolline:0.0.13@sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a",
       "consumers": [
-        "apolline/website-deploy-5b9d449c7f-l5d85/web"
+        "immich/immich-server-554f44b75b-jljnf/immich-server"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-server@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb"
     },
     {
-      "reference": "ghcr.io/jeff7712/darkbit:0.0.25@sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff",
       "consumers": [
-        "darkbit/website-deploy-5c87cf8d7d-lgrn8/web"
+        "immich/immich-postgres-7798f756f7-z6h56/postgres"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/postgres@sha256:1a078b237c1d9b420b0ee59147386b4aa60d3a07a8e6a402fc84a57e41b043a4"
     },
     {
-      "reference": "ghcr.io/jeff7712/distrojeff-site:0.0.22@sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7",
       "consumers": [
-        "distrojeff/website-deploy-79b9b9896c-cjx5f/web"
+        "home-assistant/home-assistant-57fc447fd8-btcbm/matter-server"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236"
     },
     {
-      "reference": "ghcr.io/jeff7712/majorfinder@sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85",
       "consumers": [
-        "majorfinder/website-deploy-f99cbbc9c-bjpn9/web"
+        "automation/cronjob-renovate-github/renovate",
+        "automation/cronjob-renovate-gitlab/renovate",
+        "automation/job-renovate-github-29834970/renovate",
+        "automation/job-renovate-github-29835090/renovate",
+        "automation/job-renovate-github-29835210/renovate",
+        "automation/job-renovate-gitlab-29835180/renovate",
+        "automation/job-renovate-gitlab-29835240/renovate",
+        "automation/job-renovate-gitlab-29835300/renovate"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-        "platforms": []
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130"
     },
     {
-      "reference": "ghcr.io/jeff7712/nix-agent-site:0.0.19@sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2",
       "consumers": [
-        "nixagent/website-deploy-796cd7c89d-dqdnf/web"
+        "flux-system/reloader-6f96b57fc9-mnztg/reloader"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/ghcr.io/stakater/reloader@sha256:def2480040adc164b3a57340e77674eadfd88fb7f0593df25e93297f29c7fd7c"
     },
     {
-      "reference": "ghcr.io/jeff7712/photography@sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6",
       "consumers": [
-        "photography/website-deploy-777cb5d6df-2c2gt/web"
+        "media/bazarr-69b6cf7658-5lvpm/bazarr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-        "platforms": []
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr@sha256:3a820372f19fcb2981ea19fe4b5382934d67414afaba974bce831ddda0a64a02"
     },
     {
-      "reference": "ghcr.io/jeff7712/pulse-site:0.0.86@sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4",
       "consumers": [
-        "pulse/website-deploy-7bc958f8c5-xpb59/web"
+        "media/cronjob-beets-nightly/beets",
+        "media/job-beets-nightly-29831520/beets",
+        "media/job-beets-nightly-29832960/beets",
+        "media/job-beets-nightly-29834400/beets"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/beets@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c"
     },
     {
-      "reference": "ghcr.io/jeff7712/quartz:0.0.278@sha256:0023aa4fff0cbe5df1ec652425cdc3b7177fba4641165f3ec8d2d8f8b025f797",
       "consumers": [
-        "obsidian/quartz-notes-64b8478c64-69cfh/quartz",
-        "obsidian/quartz-notes-64b8478c64-fzmfs/quartz"
+        "media/jellyfin-6cf7b8975d-mjmsd/jellyfin"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f"
     },
     {
-      "reference": "ghcr.io/jeff7712/rupanism:0.0.46@sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5",
       "consumers": [
-        "rupanism/website-deploy-868b45d7fb-kdg9m/web"
+        "media/prowlarr-ff5b8d4d4-j7k69/prowlarr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr@sha256:ab91301778251f82a31bbfc87f0497376d59e84439d9a1ceff6a61d594d1e3d7"
     },
     {
-      "reference": "ghcr.io/jeff7712/solubility-gnn:0.0.46@sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9",
       "consumers": [
-        "soluble-rupan/website-deploy-bfdcd7cb4-8mmfd/web",
-        "soluble-rupan/website-deploy-bfdcd7cb4-kbbhc/web"
+        "media/download-d5fc49cc9-s8m4t/qbittorrent"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:304b19cf94bf4fda534e0b086cab9c5f1a9e139a8180c05c0ad7d2ba1526fa99"
     },
     {
-      "reference": "ghcr.io/jeff7712/spatia-site:0.0.27@sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4",
       "consumers": [
-        "spatia/website-deploy-5458fdffd-7ttmd/web"
+        "media/radarr-6747969b69-nqwfk/radarr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/radarr@sha256:119aaa4a4f7349bcd2a136c5373a0d7925b5479915c7dfe0c0ad352db2a6d438"
     },
     {
-      "reference": "ghcr.io/renovatebot/renovate:42.70.2@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130",
       "consumers": [
-        "automation/renovate-gitlab-29812680-2p7bs/renovate"
+        "media/sonarr-769c7db87b-fzxmv/sonarr"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/sonarr@sha256:c19aa4ecdf03d73e1d5c901da33744cb7eb4d921f89bafed1ca264601d7fa224"
     },
     {
-      "reference": "ghcr.io/stakater/reloader:v1.4.22@sha256:def2480040adc164b3a57340e77674eadfd88fb7f0593df25e93297f29c7fd7c",
       "consumers": [
-        "flux-system/reloader-fd8c56848-hkwz7/reloader"
+        "kube-system/nvidia-device-plugin-ch7p4/nvidia-device-plugin",
+        "kube-system/nvidia-device-plugin-p2cfq/nvidia-device-plugin"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/nvcr.io/nvidia/k8s-device-plugin@sha256:7089559ce6153018806857f5049085bae15b3bf6f1c8bd19d8b12f707d087dea"
     },
     {
-      "reference": "quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91",
       "consumers": [
-        "kube-system/cilium-envoy-b7xdj/cilium-envoy",
-        "kube-system/cilium-envoy-fwd4s/cilium-envoy",
-        "kube-system/cilium-envoy-ggfnf/cilium-envoy"
+        "kube-system/cilium-envoy-8t9wz/cilium-envoy",
+        "kube-system/cilium-envoy-f6b2v/cilium-envoy",
+        "kube-system/cilium-envoy-mkk2m/cilium-envoy",
+        "kube-system/cilium-envoy-njj28/cilium-envoy",
+        "kube-system/cilium-envoy-zcrhr/cilium-envoy"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91"
     },
     {
-      "reference": "quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b",
       "consumers": [
-        "kube-system/cilium-9l549/apply-sysctl-overwrites",
-        "kube-system/cilium-9l549/cilium-agent",
-        "kube-system/cilium-9l549/clean-cilium-state",
-        "kube-system/cilium-9l549/config",
-        "kube-system/cilium-9l549/install-cni-binaries",
-        "kube-system/cilium-9l549/mount-bpf-fs",
-        "kube-system/cilium-9l549/mount-cgroup",
-        "kube-system/cilium-fs9fl/apply-sysctl-overwrites",
-        "kube-system/cilium-fs9fl/cilium-agent",
-        "kube-system/cilium-fs9fl/clean-cilium-state",
-        "kube-system/cilium-fs9fl/config",
-        "kube-system/cilium-fs9fl/install-cni-binaries",
-        "kube-system/cilium-fs9fl/mount-bpf-fs",
-        "kube-system/cilium-fs9fl/mount-cgroup",
-        "kube-system/cilium-nzjv2/apply-sysctl-overwrites",
-        "kube-system/cilium-nzjv2/cilium-agent",
-        "kube-system/cilium-nzjv2/clean-cilium-state",
-        "kube-system/cilium-nzjv2/config",
-        "kube-system/cilium-nzjv2/install-cni-binaries",
-        "kube-system/cilium-nzjv2/mount-bpf-fs",
-        "kube-system/cilium-nzjv2/mount-cgroup"
+        "kube-system/cilium-chx8r/apply-sysctl-overwrites",
+        "kube-system/cilium-chx8r/cilium-agent",
+        "kube-system/cilium-chx8r/clean-cilium-state",
+        "kube-system/cilium-chx8r/config",
+        "kube-system/cilium-chx8r/install-cni-binaries",
+        "kube-system/cilium-chx8r/mount-bpf-fs",
+        "kube-system/cilium-chx8r/mount-cgroup",
+        "kube-system/cilium-k7zzw/apply-sysctl-overwrites",
+        "kube-system/cilium-k7zzw/cilium-agent",
+        "kube-system/cilium-k7zzw/clean-cilium-state",
+        "kube-system/cilium-k7zzw/config",
+        "kube-system/cilium-k7zzw/install-cni-binaries",
+        "kube-system/cilium-k7zzw/mount-bpf-fs",
+        "kube-system/cilium-k7zzw/mount-cgroup",
+        "kube-system/cilium-qxz6b/apply-sysctl-overwrites",
+        "kube-system/cilium-qxz6b/cilium-agent",
+        "kube-system/cilium-qxz6b/clean-cilium-state",
+        "kube-system/cilium-qxz6b/config",
+        "kube-system/cilium-qxz6b/install-cni-binaries",
+        "kube-system/cilium-qxz6b/mount-bpf-fs",
+        "kube-system/cilium-qxz6b/mount-cgroup",
+        "kube-system/cilium-x9pcp/apply-sysctl-overwrites",
+        "kube-system/cilium-x9pcp/cilium-agent",
+        "kube-system/cilium-x9pcp/clean-cilium-state",
+        "kube-system/cilium-x9pcp/config",
+        "kube-system/cilium-x9pcp/install-cni-binaries",
+        "kube-system/cilium-x9pcp/mount-bpf-fs",
+        "kube-system/cilium-x9pcp/mount-cgroup",
+        "kube-system/cilium-xgjgg/apply-sysctl-overwrites",
+        "kube-system/cilium-xgjgg/cilium-agent",
+        "kube-system/cilium-xgjgg/clean-cilium-state",
+        "kube-system/cilium-xgjgg/config",
+        "kube-system/cilium-xgjgg/install-cni-binaries",
+        "kube-system/cilium-xgjgg/mount-bpf-fs",
+        "kube-system/cilium-xgjgg/mount-cgroup"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b"
     },
     {
-      "reference": "quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf",
       "consumers": [
-        "kube-system/cilium-operator-5bb996d486-4jqqn/cilium-operator",
-        "kube-system/cilium-operator-5bb996d486-jjgsl/cilium-operator"
+        "kube-system/cilium-operator-7d6f4cc4fc-fm5tj/cilium-operator",
+        "kube-system/cilium-operator-7d6f4cc4fc-pqqv5/cilium-operator"
       ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm64"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf"
     },
     {
-      "reference": "quay.io/jetstack/cert-manager-acmesolver:v1.21.1@sha256:dbc7cc1354f603918e7c5af7f55a0a620537394452c93a565bde75c6f48e8837",
       "consumers": [
-        "rendered/cert-manager/acmesolver"
-      ]
-    },
-    {
-      "reference": "quay.io/jetstack/cert-manager-cainjector:v1.21.1@sha256:ccf6b919ec0500745a47a910118f834f9636d0aac1ff221245cd2557ed8c7c98",
-      "consumers": [
-        "cert-manager/cert-manager-cainjector-65bd78d6b6-dflsn/cert-manager-cainjector"
+        "cert-manager/cert-manager-cainjector-5447486b66-pm7t6/cert-manager-cainjector"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/jetstack/cert-manager-cainjector@sha256:ccf6b919ec0500745a47a910118f834f9636d0aac1ff221245cd2557ed8c7c98"
     },
     {
-      "reference": "quay.io/jetstack/cert-manager-controller:v1.21.1@sha256:416a2d76870d996460e62bd7f521bf14fa017be9e3e904aab92163a331fcb61a",
       "consumers": [
-        "cert-manager/cert-manager-7f9d478f4f-bmzhx/cert-manager-controller"
+        "cert-manager/cert-manager-74f59c65b5-x5s57/cert-manager-controller"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/jetstack/cert-manager-controller@sha256:416a2d76870d996460e62bd7f521bf14fa017be9e3e904aab92163a331fcb61a"
     },
     {
-      "reference": "quay.io/jetstack/cert-manager-startupapicheck:v1.21.1@sha256:d8ab6416e6e7303a86fa0a8daa82c94a8001f21c9d78eb2e7db20534e5d07ae8",
       "consumers": [
-        "rendered/cert-manager/startupapicheck"
+        "cert-manager/cert-manager-webhook-65dc798f85-fgcxb/cert-manager-webhook"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/jetstack/cert-manager-webhook@sha256:d8b3961b51c8c7320633f8208dc46bf88aa13804d0f7cbe48a096b2c523cee42"
     },
     {
-      "reference": "quay.io/jetstack/cert-manager-webhook:v1.21.1@sha256:d8b3961b51c8c7320633f8208dc46bf88aa13804d0f7cbe48a096b2c523cee42",
       "consumers": [
-        "cert-manager/cert-manager-webhook-7f4879c75f-2mrd4/cert-manager-webhook"
+        "observability/kube-prometheus-stack-grafana-5b8f77784c-9xlnd/grafana-sc-dashboard",
+        "observability/kube-prometheus-stack-grafana-5b8f77784c-9xlnd/grafana-sc-datasources"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/kiwigrid/k8s-sidecar@sha256:694950d736c8b532eba4006527ccbdac98fefc9f30b3346ba2de50b6cad91c94"
     },
     {
-      "reference": "quay.io/kiwigrid/k8s-sidecar:2.7.3@sha256:694950d736c8b532eba4006527ccbdac98fefc9f30b3346ba2de50b6cad91c94",
-      "consumers": [
-        "observability/kube-prometheus-stack-grafana-85d88c488c-wp58r/grafana-sc-dashboard",
-        "observability/kube-prometheus-stack-grafana-85d88c488c-wp58r/grafana-sc-datasources"
-      ],
-      "manifest": {
-        "media_type": "application/vnd.oci.image.index.v1+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "unknown/unknown"
-        ]
-      }
-    },
-    {
-      "reference": "quay.io/prometheus-operator/prometheus-config-reloader:v0.91.0@sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1",
       "consumers": [
         "observability/alertmanager-kube-prometheus-stack-alertmanager-0/config-reloader",
         "observability/alertmanager-kube-prometheus-stack-alertmanager-0/init-config-reloader",
-        "observability/alloy-5rh6k/config-reloader",
         "observability/prometheus-kube-prometheus-stack-prometheus-0/config-reloader",
         "observability/prometheus-kube-prometheus-stack-prometheus-0/init-config-reloader"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-config-reloader:v0.94.0@sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7"
     },
     {
-      "reference": "quay.io/prometheus-operator/prometheus-config-reloader@sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1",
       "consumers": [
-        "observability/alloy-g645h/config-reloader",
-        "observability/alloy-vzrsp/config-reloader"
+        "observability/alloy-5vq4p/config-reloader",
+        "observability/alloy-hkms9/config-reloader",
+        "observability/alloy-p9kb6/config-reloader",
+        "observability/alloy-ptbjf/config-reloader",
+        "observability/alloy-qkq6l/config-reloader"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-config-reloader@sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1"
     },
     {
-      "reference": "quay.io/prometheus-operator/prometheus-operator:v0.91.0@sha256:9e53e13139218aca79ee000172de73355e9174ef2904585bfad9497fc71aae2d",
       "consumers": [
-        "observability/kube-prometheus-stack-operator-6cd9d8fb8d-jz7fr/kube-prometheus-stack"
+        "observability/kube-prometheus-stack-operator-86cbb954f5-mrsfs/kube-prometheus-stack"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-operator@sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55"
     },
     {
-      "reference": "quay.io/prometheus/alertmanager:v0.32.1@sha256:51a825c2a40acc3e338fdd00d622e01ec090f72be2b3ea46be0839cd47a4d286",
       "consumers": [
         "observability/alertmanager-kube-prometheus-stack-alertmanager-0/alertmanager"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/prometheus/alertmanager:v0.32.1@sha256:51a825c2a40acc3e338fdd00d622e01ec090f72be2b3ea46be0839cd47a4d286"
     },
     {
-      "reference": "quay.io/prometheus/node-exporter:v1.11.1-distroless@sha256:6112664fd761bb964d8a2d3d0119d6c8402618a89edbb3a43c8f7b4090fb53c9",
       "consumers": [
-        "observability/kube-prometheus-stack-prometheus-node-exporter-mmpzt/node-exporter",
-        "observability/kube-prometheus-stack-prometheus-node-exporter-mpsck/node-exporter",
-        "observability/kube-prometheus-stack-prometheus-node-exporter-tk4sk/node-exporter"
+        "observability/kube-prometheus-stack-prometheus-node-exporter-72t4f/node-exporter",
+        "observability/kube-prometheus-stack-prometheus-node-exporter-dxmtp/node-exporter",
+        "observability/kube-prometheus-stack-prometheus-node-exporter-kkwsc/node-exporter",
+        "observability/kube-prometheus-stack-prometheus-node-exporter-rdnc8/node-exporter",
+        "observability/kube-prometheus-stack-prometheus-node-exporter-sjx9r/node-exporter"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/prometheus/node-exporter@sha256:6112664fd761bb964d8a2d3d0119d6c8402618a89edbb3a43c8f7b4090fb53c9"
     },
     {
-      "reference": "quay.io/prometheus/prometheus:v3.12.0-distroless@sha256:f39df5334dee301b885f77e0ff1159f5d8a43bf9db518f885544594799a1e3c2",
       "consumers": [
         "observability/prometheus-kube-prometheus-stack-prometheus-0/prometheus"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/riscv64",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/quay.io/prometheus/prometheus:v3.12.0-distroless@sha256:f39df5334dee301b885f77e0ff1159f5d8a43bf9db518f885544594799a1e3c2"
     },
     {
-      "reference": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.19.0@sha256:6b2f0b6f2f86ac5b1aa883a033a8dd55bb96c16d191ec973393bdaadaddac914",
       "consumers": [
-        "observability/kube-prometheus-stack-kube-state-metrics-58f5d9c5d4-9wxvt/kube-state-metrics"
+        "observability/kube-prometheus-stack-kube-state-metrics-568c54f8cf-mwz87/kube-state-metrics"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64/v8",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/registry.k8s.io/kube-state-metrics/kube-state-metrics@sha256:6b2f0b6f2f86ac5b1aa883a033a8dd55bb96c16d191ec973393bdaadaddac914"
     },
     {
-      "reference": "registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2@sha256:63d5e04551ec8b5aae83b6f35938ca5ddc50a88d85492d9731810c31591fa4c9",
       "consumers": [
-        "storage/nfs-subdir-external-provisioner-54bd59cbd-l4qvp/nfs-subdir-external-provisioner"
+        "storage/nfs-subdir-external-provisioner-ff64f94dc-xq78f/nfs-subdir-external-provisioner"
       ],
-      "manifest": {
-        "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-        "platforms": [
-          "linux/amd64",
-          "linux/arm/v7",
-          "linux/arm64",
-          "linux/ppc64le",
-          "linux/s390x"
-        ]
-      }
+      "reference": "registry.rupan.dev/upstream/registry.k8s.io/sig-storage/nfs-subdir-external-provisioner@sha256:63d5e04551ec8b5aae83b6f35938ca5ddc50a88d85492d9731810c31591fa4c9"
     }
-  ]
+  ],
+  "kind": "registry-observed-images",
+  "observed_at": "2026-09-22T23:06:45+00:00",
+  "schema_version": 1
 }

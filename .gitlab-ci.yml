@@ -1,4 +1,4 @@
-image: nixos/nix:latest
+image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
 
 workflow:
   rules:
@@ -739,7 +739,7 @@ sync_to_github:
   stage: sync
   tags:
     - nas-ci
-  image: nixos/nix:latest
+  image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   needs:
