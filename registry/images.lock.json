@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-22T18:20:08+00:00",
+  "generated_at": "2026-09-22T22:29:22+00:00",
   "images": [
     {
       "authenticity": {
@@ -12,11 +12,11 @@
       ],
       "destination_repository": "apps/apolline",
       "destination_tags": [
-        "0.0.13",
-        "retention-deployed-3e60662d89254ab8"
+        "0.0.15",
+        "retention-deployed-152348bd0101967c"
       ],
-      "digest": "sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a",
-      "id": "first-party-jeff7712-apolline-f6344821e8d9",
+      "digest": "sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
+      "id": "first-party-jeff7712-apolline-5974dfffe554",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -37,11 +37,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a",
-        "reference": "ghcr.io/jeff7712/apolline:0.0.13@sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a",
+        "digest": "sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
+        "reference": "ghcr.io/jeff7712/apolline:0.0.15@sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
         "registry": "ghcr.io",
         "repository": "jeff7712/apolline",
-        "tag": "0.0.13"
+        "tag": "0.0.15"
       }
     },
     {
@@ -96,13 +96,17 @@
       ],
       "destination_repository": "apps/cr-demo",
       "destination_tags": [
-        "retention-deployed-65aa32d6593b0d1e"
+        "0.0.1",
+        "retention-deployed-47f1ac728c8f74af"
       ],
-      "digest": "sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387",
-      "id": "first-party-jeff7712-cr-demo-1211582ac457",
+      "digest": "sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
+      "id": "first-party-jeff7712-cr-demo-9573b957c9dc",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:docker.io/jeff7712/cr-demo",
         "owner": "jeff7712",
@@ -113,16 +117,15 @@
         "source_status": "not-enumerated"
       },
       "resolution": {
-        "reason": "manifest inspection failed with exit code 1: time=\"2026-09-22T13:18:16-05:00\" level=fatal msg=\"Error parsing image name \\\"docker://docker.io/jeff7712/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387\\\": fetching manifest sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387 in docker.io/jeff7712/cr-demo: too many requests to registry\"",
-        "status": "runtime-cache-verified"
+        "status": "source-registry-verified"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387",
-        "reference": "docker.io/jeff7712/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387",
+        "digest": "sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
+        "reference": "docker.io/jeff7712/cr-demo:0.0.1@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
         "registry": "docker.io",
         "repository": "jeff7712/cr-demo",
-        "tag": null
+        "tag": "0.0.1"
       }
     },
     {
@@ -135,11 +138,11 @@
       ],
       "destination_repository": "apps/darkbit",
       "destination_tags": [
-        "0.0.25",
-        "retention-deployed-6c52241abf2223df"
+        "0.0.27",
+        "retention-deployed-c36b41cc28baa185"
       ],
-      "digest": "sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff",
-      "id": "first-party-jeff7712-darkbit-9b3ffba78d0f",
+      "digest": "sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
+      "id": "first-party-jeff7712-darkbit-dff8afdb518d",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -160,11 +163,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff",
-        "reference": "ghcr.io/jeff7712/darkbit:0.0.25@sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff",
+        "digest": "sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
+        "reference": "ghcr.io/jeff7712/darkbit:0.0.27@sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
         "registry": "ghcr.io",
         "repository": "jeff7712/darkbit",
-        "tag": "0.0.25"
+        "tag": "0.0.27"
       }
     },
     {
@@ -177,11 +180,11 @@
       ],
       "destination_repository": "apps/distrojeff-site",
       "destination_tags": [
-        "0.0.22",
-        "retention-deployed-a3e6461a7fc969a6"
+        "0.0.24",
+        "retention-deployed-819cdf207d6e8a21"
       ],
-      "digest": "sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7",
-      "id": "first-party-jeff7712-distrojeff-site-ab9710929827",
+      "digest": "sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
+      "id": "first-party-jeff7712-distrojeff-site-01461f3c170c",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -202,11 +205,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7",
-        "reference": "ghcr.io/jeff7712/distrojeff-site:0.0.22@sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7",
+        "digest": "sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
+        "reference": "ghcr.io/jeff7712/distrojeff-site:0.0.24@sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
         "registry": "ghcr.io",
         "repository": "jeff7712/distrojeff-site",
-        "tag": "0.0.22"
+        "tag": "0.0.24"
       }
     },
     {
@@ -299,13 +302,17 @@
       ],
       "destination_repository": "apps/ism",
       "destination_tags": [
-        "retention-deployed-41b1dc3eccd6d484"
+        "latest",
+        "retention-deployed-5bccd9d79af91c9c"
       ],
-      "digest": "sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488",
-      "id": "first-party-jeff7712-ism-c0694e47410b",
+      "digest": "sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
+      "id": "first-party-jeff7712-ism-17c0fc6856fb",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:docker.io/jeff7712/ism",
         "owner": "jeff7712",
@@ -316,16 +323,15 @@
         "source_status": "not-enumerated"
       },
       "resolution": {
-        "reason": "manifest inspection failed with exit code 1: time=\"2026-09-22T13:18:27-05:00\" level=fatal msg=\"Error parsing image name \\\"docker://docker.io/jeff7712/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488\\\": fetching manifest sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488 in docker.io/jeff7712/ism: too many requests to registry\"",
-        "status": "runtime-cache-verified"
+        "status": "source-registry-verified"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488",
-        "reference": "docker.io/jeff7712/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488",
-        "registry": "docker.io",
+        "digest": "sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
+        "reference": "ghcr.io/jeff7712/ism:latest@sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
+        "registry": "ghcr.io",
         "repository": "jeff7712/ism",
-        "tag": null
+        "tag": "latest"
       }
     },
     {
@@ -377,11 +383,11 @@
       ],
       "destination_repository": "apps/nix-agent-site",
       "destination_tags": [
-        "0.0.19",
-        "retention-deployed-901a466b3e9ed474"
+        "0.0.21",
+        "retention-deployed-f1f09ad3835377a8"
       ],
-      "digest": "sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2",
-      "id": "first-party-jeff7712-nix-agent-site-79adbb322813",
+      "digest": "sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
+      "id": "first-party-jeff7712-nix-agent-site-6727a36d7b92",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -402,11 +408,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2",
-        "reference": "ghcr.io/jeff7712/nix-agent-site:0.0.19@sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2",
+        "digest": "sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
+        "reference": "ghcr.io/jeff7712/nix-agent-site:0.0.21@sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
         "registry": "ghcr.io",
         "repository": "jeff7712/nix-agent-site",
-        "tag": "0.0.19"
+        "tag": "0.0.21"
       }
     },
     {
@@ -458,11 +464,11 @@
       ],
       "destination_repository": "apps/pulse-site",
       "destination_tags": [
-        "0.0.86",
-        "retention-deployed-b8564dd25c02ba6b"
+        "0.0.93",
+        "retention-deployed-6afc41ec0a9dfcf7"
       ],
-      "digest": "sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4",
-      "id": "first-party-jeff7712-pulse-site-e72cbcb116f7",
+      "digest": "sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
+      "id": "first-party-jeff7712-pulse-site-2fd6c4414659",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -483,11 +489,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4",
-        "reference": "ghcr.io/jeff7712/pulse-site:0.0.86@sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4",
+        "digest": "sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
+        "reference": "ghcr.io/jeff7712/pulse-site:0.0.93@sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
         "registry": "ghcr.io",
         "repository": "jeff7712/pulse-site",
-        "tag": "0.0.86"
+        "tag": "0.0.93"
       }
     },
     {
@@ -543,11 +549,11 @@
       ],
       "destination_repository": "apps/rupanism",
       "destination_tags": [
-        "0.0.46",
-        "retention-deployed-fdd2bc2a68439f1f"
+        "0.0.53",
+        "retention-deployed-b8e10045e42067d3"
       ],
-      "digest": "sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5",
-      "id": "first-party-jeff7712-rupanism-ee57f683dc8e",
+      "digest": "sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
+      "id": "first-party-jeff7712-rupanism-cb88e7bb7ba1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -568,11 +574,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5",
-        "reference": "ghcr.io/jeff7712/rupanism:0.0.46@sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5",
+        "digest": "sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
+        "reference": "ghcr.io/jeff7712/rupanism:0.0.53@sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
         "registry": "ghcr.io",
         "repository": "jeff7712/rupanism",
-        "tag": "0.0.46"
+        "tag": "0.0.53"
       }
     },
     {
@@ -586,11 +592,11 @@
       ],
       "destination_repository": "apps/solubility-gnn",
       "destination_tags": [
-        "0.0.46",
-        "retention-deployed-d08831ca8407fc8c"
+        "0.0.49",
+        "retention-deployed-491524851443429d"
       ],
-      "digest": "sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9",
-      "id": "first-party-jeff7712-solubility-gnn-6b9c8ea16068",
+      "digest": "sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
+      "id": "first-party-jeff7712-solubility-gnn-930147aee9bb",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -611,11 +617,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9",
-        "reference": "ghcr.io/jeff7712/solubility-gnn:0.0.46@sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9",
+        "digest": "sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
+        "reference": "ghcr.io/jeff7712/solubility-gnn:0.0.49@sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
         "registry": "ghcr.io",
         "repository": "jeff7712/solubility-gnn",
-        "tag": "0.0.46"
+        "tag": "0.0.49"
       }
     },
     {
@@ -628,11 +634,11 @@
       ],
       "destination_repository": "apps/spatia-site",
       "destination_tags": [
-        "0.0.27",
-        "retention-deployed-754085d236f6eece"
+        "0.0.30",
+        "retention-deployed-5ca14f82a819a236"
       ],
-      "digest": "sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4",
-      "id": "first-party-jeff7712-spatia-site-c1c5ac3f6ca0",
+      "digest": "sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
+      "id": "first-party-jeff7712-spatia-site-ae420f954d9c",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
@@ -653,11 +659,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4",
-        "reference": "ghcr.io/jeff7712/spatia-site:0.0.27@sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4",
+        "digest": "sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
+        "reference": "ghcr.io/jeff7712/spatia-site:0.0.30@sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
         "registry": "ghcr.io",
         "repository": "jeff7712/spatia-site",
-        "tag": "0.0.27"
+        "tag": "0.0.30"
       }
     },
     {
