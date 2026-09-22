@@ -9,6 +9,7 @@ ignore: |
   gitops/clusters/*/flux-system/gotk-*.yaml
   gitops/ingress/crds/gateway-api-*.yaml
   gitops/automation/
+  gitops/observability/grafana/dashboard-jarvis.yaml
   **/*.sops.yaml
 
 rules:
