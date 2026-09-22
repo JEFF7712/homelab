@@ -84,6 +84,13 @@ dhcpv4_reservations = {
     mac_address = "70:89:76:4d:66:e3"
     subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
   }
+  tuya_switch_02 = {
+    description = "Tuya smart switch"
+    hostname    = "tuya-switch-02"
+    ip_address  = "10.0.20.170"
+    mac_address = "70:89:76:5c:2d:7e"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
 }
 
 firewall_aliases = {
@@ -99,6 +106,13 @@ firewall_aliases = {
     type        = "host"
     content     = ["10.0.20.178"]
     description = "Feit smart switch reserved LAN address"
+    enabled     = true
+  }
+  iot_tuya_sw02 = {
+    name        = "iot_tuya_sw02"
+    type        = "host"
+    content     = ["10.0.20.170"]
+    description = "Tuya smart switch reserved LAN address"
     enabled     = true
   }
   iot_bambu_ports = {
@@ -352,7 +366,7 @@ firewall_filters = {
   infrastructure-allow-matter-bulbs = {
     description = "Allow Home Assistant Matter traffic to clients VLAN"
     enabled     = true
-    sequence    = 317
+    sequence    = 318
     interface   = { interface = ["opt3"] }
     filter = {
       action      = "pass"
@@ -397,10 +411,26 @@ firewall_filters = {
       destination = { net = "iot_tuya_sw01", port = "6668" }
     }
   }
+  infrastructure-allow-tuya-local-sw02 = {
+    description = "Allow infrastructure to second Tuya switch LAN protocol"
+    enabled     = true
+    sequence    = 317
+    interface   = { interface = ["opt3"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.30.0/24", port = "" }
+      destination = { net = "iot_tuya_sw02", port = "6668" }
+    }
+  }
   infrastructure-block-private = {
     description = "Block infrastructure from initiating to other private VLANs"
     enabled     = true
-    sequence    = 318
+    sequence    = 319
     interface   = { interface = ["opt3"] }
     filter = {
       action      = "block"
