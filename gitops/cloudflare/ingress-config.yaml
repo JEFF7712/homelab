@@ -55,4 +55,6 @@ data:
         service: http://pulse-svc.pulse:80
       - hostname: flux-wh-33b0c8004348.rupan.dev
         service: http://webhook-receiver.flux-system:80
+      - hostname: jellyfin.rupan.dev
+        service: http://jellyfin.media:80
       - service: http_status:404

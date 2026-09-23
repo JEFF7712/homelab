@@ -8,18 +8,9 @@
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-76b7c5b4d9-pnjh2/pot-provider"
+        "music-assistant/music-assistant-76b7c5b4d9-wltr8/pot-provider"
       ],
       "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
-    },
-    {
-      "consumers": [
-        "voice/wyoming-stt-gateway-74dff88f4f-7dw26/gateway",
-        "voice/wyoming-stt-gateway-74dff88f4f-k5jr6/gateway",
-        "voice/wyoming-tts-gateway-56b867999d-dccp9/gateway",
-        "voice/wyoming-tts-gateway-56b867999d-h9jft/gateway"
-      ],
-      "reference": "docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
     },
     {
       "consumers": [
@@ -35,7 +26,7 @@
     },
     {
       "consumers": [
-        "apolline/website-deploy-56b94c784c-wk78s/web"
+        "apolline/website-deploy-56b94c784c-hh5kb/web"
       ],
       "reference": "registry.rupan.dev/apps/apolline@sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3"
     },
@@ -47,19 +38,19 @@
     },
     {
       "consumers": [
-        "cr-demo/website-deploy-55d64cf699-s4d5l/web"
+        "cr-demo/website-deploy-55d64cf699-2gsw2/web"
       ],
       "reference": "registry.rupan.dev/apps/cr-demo@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1"
     },
     {
       "consumers": [
-        "darkbit/website-deploy-6c676797b4-jsz6w/web"
+        "darkbit/website-deploy-6c676797b4-zw2tz/web"
       ],
       "reference": "registry.rupan.dev/apps/darkbit@sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d"
     },
     {
       "consumers": [
-        "distrojeff/website-deploy-79c945646b-t262t/web"
+        "distrojeff/website-deploy-79c945646b-xns62/web"
       ],
       "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896"
     },
@@ -77,7 +68,7 @@
     },
     {
       "consumers": [
-        "ism/website-deploy-9758489dd-9nwm8/web"
+        "ism/website-deploy-9758489dd-9mdls/web"
       ],
       "reference": "registry.rupan.dev/apps/ism@sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220"
     },
@@ -89,7 +80,7 @@
     },
     {
       "consumers": [
-        "nixagent/website-deploy-594d65557d-gv5gt/web"
+        "nixagent/website-deploy-594d65557d-8nt4b/web"
       ],
       "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9"
     },
@@ -101,16 +92,16 @@
     },
     {
       "consumers": [
-        "pulse/website-deploy-78f6f4c4cb-h6797/web"
+        "pulse/website-deploy-78f6f4c4cb-r8znp/web"
       ],
       "reference": "registry.rupan.dev/apps/pulse-site@sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86"
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-7b94bb6f6f-5ss6w/quartz",
-        "obsidian/quartz-notes-7b94bb6f6f-gdgq4/quartz"
+        "obsidian/quartz-notes-7f7bb49df5-cph68/quartz",
+        "obsidian/quartz-notes-7f7bb49df5-vbrx8/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:0023aa4fff0cbe5df1ec652425cdc3b7177fba4641165f3ec8d2d8f8b025f797"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:65bdda88e4d46d863aaf7148eb4ec1e2da91f4d90a3b41e77effb1bf14b280bc"
     },
     {
       "consumers": [
@@ -120,20 +111,20 @@
     },
     {
       "consumers": [
-        "rupanism/website-deploy-647547ffc7-fn787/web"
+        "rupanism/website-deploy-647547ffc7-nstdj/web"
       ],
       "reference": "registry.rupan.dev/apps/rupanism@sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada"
     },
     {
       "consumers": [
-        "soluble-rupan/website-deploy-9574bfdbc-94m87/web",
-        "soluble-rupan/website-deploy-9574bfdbc-b7tvx/web"
+        "soluble-rupan/website-deploy-9574bfdbc-b7tvx/web",
+        "soluble-rupan/website-deploy-9574bfdbc-x2ss4/web"
       ],
       "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629"
     },
     {
       "consumers": [
-        "spatia/website-deploy-6b9b7854d4-d24j7/web"
+        "spatia/website-deploy-6b9b7854d4-xnjfs/web"
       ],
       "reference": "registry.rupan.dev/apps/spatia-site@sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57"
     },
@@ -223,8 +214,8 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-57fc447fd8-btcbm/initialize-config",
-        "home-assistant/home-assistant-57fc447fd8-btcbm/install-hacs",
+        "home-assistant/home-assistant-849c8db6f-qkt6m/initialize-config",
+        "home-assistant/home-assistant-849c8db6f-qkt6m/install-hacs",
         "media/bazarr-69b6cf7658-5lvpm/fix-permissions",
         "media/bookshelf-7f89767968-9hxxn/fix-permissions",
         "media/calibre-web-6669989ff5-vjzrd/fix-permissions",
@@ -236,9 +227,9 @@
         "media/radarr-6747969b69-nqwfk/fix-permissions",
         "media/seerr-c78685b4d-vpvhd/fix-permissions",
         "media/sonarr-769c7db87b-fzxmv/fix-permissions",
-        "nixagent/website-deploy-594d65557d-gv5gt/prepare-nginx-tmp",
+        "nixagent/website-deploy-594d65557d-8nt4b/prepare-nginx-tmp",
         "obsidian/couchdb-67b85f9ddb-czccx/copy-config",
-        "spatia/website-deploy-6b9b7854d4-d24j7/prepare-nginx-tmp"
+        "spatia/website-deploy-6b9b7854d4-xnjfs/prepare-nginx-tmp"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616"
     },
@@ -287,9 +278,11 @@
     },
     {
       "consumers": [
-        "voice/jarvis-exporter-746b49b9fd-9dzx6/exporter",
-        "voice/wyoming-stt-gateway-7b4f444c4d-z5vpt/gateway",
-        "voice/wyoming-tts-gateway-7dc79c797f-9gfxc/gateway"
+        "voice/jarvis-exporter-746b49b9fd-p2pfl/exporter",
+        "voice/wyoming-stt-gateway-7b4f444c4d-hhbz8/gateway",
+        "voice/wyoming-stt-gateway-7b4f444c4d-rv9g5/gateway",
+        "voice/wyoming-tts-gateway-7dc79c797f-x6nrn/gateway",
+        "voice/wyoming-tts-gateway-7dc79c797f-x7d5r/gateway"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
     },
@@ -376,9 +369,9 @@
     },
     {
       "consumers": [
-        "voice/wyoming-chatterbox-6966dc7b6-mvnq8/chatterbox",
-        "voice/wyoming-chatterbox-6966dc7b6-mvnq8/prepare-permissions",
-        "voice/wyoming-chatterbox-6966dc7b6-mvnq8/prepare-runtime"
+        "voice/wyoming-chatterbox-6966dc7b6-fxgs9/chatterbox",
+        "voice/wyoming-chatterbox-6966dc7b6-fxgs9/prepare-permissions",
+        "voice/wyoming-chatterbox-6966dc7b6-fxgs9/prepare-runtime"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
@@ -422,7 +415,7 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-57fc447fd8-btcbm/home-assistant"
+        "home-assistant/home-assistant-849c8db6f-qkt6m/home-assistant"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17"
     },
@@ -434,7 +427,7 @@
     },
     {
       "consumers": [
-        "immich/immich-machine-learning-595c54b9f6-xplnp/immich-machine-learning"
+        "immich/immich-machine-learning-595c54b9f6-h9zgr/immich-machine-learning"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
@@ -452,19 +445,19 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-57fc447fd8-btcbm/matter-server"
+        "home-assistant/home-assistant-849c8db6f-qkt6m/matter-server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236"
     },
     {
       "consumers": [
-        "music-assistant/music-assistant-76b7c5b4d9-pnjh2/server"
+        "music-assistant/music-assistant-76b7c5b4d9-wltr8/server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
     },
     {
       "consumers": [
-        "voice/linux-voice-assistant-6d855bcddb-khwx4/satellite"
+        "voice/linux-voice-assistant-5d4c5cbbc8-986dh/satellite"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
     },
@@ -673,6 +666,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-22T23:56:21+00:00",
+  "observed_at": "2026-09-23T20:02:44+00:00",
   "schema_version": 1
 }
