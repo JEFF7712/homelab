@@ -78,9 +78,9 @@ Removed 2026-09-22 (dead origins; no such Services in-cluster, verified via `kub
 
 ## Tunnel configuration source
 
-The Cloudflare API reported `config_src=cloudflare`, `remote_config=true`, and ingress version 75 on 2026-09-23. The connector logs also show they loaded remote ingress version 75. Supplying `--credentials-file` and a local `--config` file does not change the tunnel's configured source; the Cloudflare remote config remains active.
+The Cloudflare API reports `config_src=cloudflare` and `remote_config=true`. On 2026-09-23, the remote ingress was updated from version 75 to version 76 to match the GitOps mirror. Supplying `--credentials-file` and a local `--config` file does not change the tunnel's configured source; the Cloudflare remote config remains active.
 
-As checked on 2026-09-23, the active remote config has 25 rules while the GitOps mirror has 26. Every remote rule matches the mirror, but the Jellyfin hostname and origin are missing remotely, so the catch-all returns 404 for that hostname.
+Before that update, the active remote config had 25 rules while the GitOps mirror had 26. Every remote rule matched the mirror, but the Jellyfin hostname and origin were missing remotely, so the catch-all returned 404. Version 76 now has all 26 rules in the GitOps order, and the public Jellyfin health endpoints return HTTP 200.
 
 The Deployment opts into Stakater Reloader. This restarts connectors when the ConfigMap changes, but a restart alone does not make the local file authoritative. Keep the Cloudflare remote rule list and GitOps mirror in exact parity when changing hostnames.
 
