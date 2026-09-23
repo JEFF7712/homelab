@@ -1,0 +1,30 @@
+id: jarvis_music_previous
+alias: "Jarvis: Music Previous Track"
+description: >-
+  Deterministically go to previous song or replay current track on the satellite speaker.
+  Kept as a conversation trigger so it never depends on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: previous
+    command:
+      - "previous (song|track)"
+      - "[play] [the] previous (song|track)"
+      - "last (song|track)"
+      - "[play] [the] last (song|track)"
+      - "(go|skip) back [a (song|track)]"
+      - "go back to [the] previous (song|track)"
+      - "(replay|restart) [this|the] (song|track)"
+      - "speaker {speaker} previous (song|track)"
+      - "speaker {speaker} [play] [the] previous (song|track)"
+      - "speaker {speaker} last (song|track)"
+      - "speaker {speaker} [play] [the] last (song|track)"
+      - "speaker {speaker} (go|skip) back [a (song|track)]"
+      - "speaker {speaker} go back to [the] previous (song|track)"
+      - "speaker {speaker} (replay|restart) [this|the] (song|track)"
+conditions: []
+actions:
+  - action: media_player.media_previous_track
+    target:
+      entity_id: media_player.homelab_05_satellite_media_player_2
+  - set_conversation_response: Done.

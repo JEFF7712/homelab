@@ -1,0 +1,77 @@
+id: jarvis_music_modes
+alias: "Jarvis: Music Modes"
+description: >-
+  Deterministically control shuffle and repeat modes on the satellite speaker.
+  Kept as a conversation trigger so it never depends on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: shuffle_on
+    command:
+      - "shuffle [the] (music|queue|songs|playlist)"
+      - "turn on shuffle"
+      - "start shuffle"
+      - "speaker {speaker} shuffle [the] (music|queue|songs|playlist)"
+      - "speaker {speaker} turn on shuffle"
+      - "speaker {speaker} start shuffle"
+  - trigger: conversation
+    id: shuffle_off
+    command:
+      - "turn off shuffle"
+      - "stop shuffle"
+      - "speaker {speaker} turn off shuffle"
+      - "speaker {speaker} stop shuffle"
+  - trigger: conversation
+    id: repeat_on
+    command:
+      - "repeat [this] (song|track)"
+      - "loop [this] (song|track)"
+      - "speaker {speaker} repeat [this] (song|track)"
+      - "speaker {speaker} loop [this] (song|track)"
+  - trigger: conversation
+    id: repeat_off
+    command:
+      - "turn off repeat"
+      - "stop repeat"
+      - "speaker {speaker} turn off repeat"
+      - "speaker {speaker} stop repeat"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'shuffle_on' }}"
+        sequence:
+          - action: media_player.shuffle_set
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              shuffle: true
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'shuffle_off' }}"
+        sequence:
+          - action: media_player.shuffle_set
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              shuffle: false
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'repeat_on' }}"
+        sequence:
+          - action: media_player.repeat_set
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              repeat: "one"
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'repeat_off' }}"
+        sequence:
+          - action: media_player.repeat_set
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              repeat: "off"
+  - set_conversation_response: Done.

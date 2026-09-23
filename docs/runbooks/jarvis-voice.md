@@ -163,17 +163,27 @@ automation referencing them.
      phrasings keep narrower lookups. Individual song requests play immediately
      and continue autoplaying tracks by that artist (`music_assistant.play_media` with `enqueue: replace_next`).
    - Stopping is deterministic and local: `home-assistant/automations/jarvis_music_stop.yaml`
-     pauses the satellite speaker on "turn off [the] music" / "turn [the] music
-     off" (built-in intents already cover "stop the music"). Never route music
+     pauses the satellite speaker on "turn off [the] music", pronoun "turn it off",
+     pause, stop, and urgent silence ("shut up", "be quiet"). Never route music
      stop through the conversation agent: on 2026-09-18 "turn off the music" fell to the
      local LLM and
      died on a poisoned chat log while "stop the music" paused in 13 ms.
    - Skipping is deterministic and local: `home-assistant/automations/jarvis_music_skip.yaml`
      advances the satellite speaker on "skip", "skip [this] song", and "next song/track".
      Never route music skip through the conversation agent.
+   - Previous and replay track are deterministic and local: `home-assistant/automations/jarvis_music_previous.yaml`
+     goes to the previous track or restarts the current track on the satellite speaker.
+   - Resuming is deterministic and local: `home-assistant/automations/jarvis_music_resume.yaml`
+     resumes or unpauses playback on the satellite speaker.
    - Volume control is deterministic and local: `home-assistant/automations/jarvis_music_volume.yaml`
      handles semantic volume nudges ("turn up/down the volume a bit" -> ±10%,
-     "turn it up/down a lot" / "crank it up" -> ±40%, default nudge -> ±10%, mute, unmute).
+     "turn it up/down a lot" / "crank it up" -> ±40%, default nudge -> ±10%, mute, unmute,
+     numeric target setting "set volume to 50%", and max/min volume).
+   - Playback modes are deterministic and local: `home-assistant/automations/jarvis_music_modes.yaml`
+     controls shuffle and repeat on the satellite speaker.
+   - Track queries are deterministic and local: `JarvisWhatsPlaying` in
+     `home-assistant/custom_sentences/en/jarvis_home.yaml` answers "what's playing",
+     "what song is this", "what track is this", and "who sings this" directly from speaker state.
    - Platform parameter supports `spotify` (default) and `youtube_music` (`ytmusic`).
    - Music Assistant runs on `homelab-05` host network
      (`gitops/music-assistant/server.yaml`) and routes audio to the satellite speaker.
@@ -598,7 +608,7 @@ in the ConfigMap.
 
 ### Eval loop
 
-`tests/jarvis_voice_eval_corpus.yaml` holds 30 to 60 canonical commands with
+`tests/jarvis_voice_eval_corpus.yaml` holds 30 to 70 canonical commands with
 their expected routing (`local` vs `llm`), target entities, tools, and replies.
 `tests/test_jarvis_voice_eval.py` keeps the corpus consistent offline: local
 entries must name an intent overridden in

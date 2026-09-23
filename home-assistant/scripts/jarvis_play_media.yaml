@@ -132,13 +132,15 @@ sequence:
           - variables:
               track_uri: >-
                 {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
-                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
+                              else '^spotify:' %}
                 {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
                 {% set matched = (plat + tracks) | first | default({}, true) %}
                 {{ matched.uri | default(clean_track_query, true) }}
               artist_uri: >-
                 {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
-                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
+                              else '^spotify:' %}
                 {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
                 {% set matched = (plat + tracks) | first | default({}, true) %}
                 {{ (matched.artists | default([], true) | map(attribute='uri') | list) | first | default('', true) }}

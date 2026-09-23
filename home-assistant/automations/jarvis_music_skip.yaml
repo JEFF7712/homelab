@@ -1,0 +1,26 @@
+id: jarvis_music_skip
+alias: "Jarvis: Music Skip"
+description: >-
+  Deterministically skip satellite-speaker playback to the next track on skip
+  phrasings. Kept as a conversation trigger so it executes locally without
+  depending on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: skip
+    command:
+      - "skip"
+      - "skip [this|the] (song|track)"
+      - "[play] [the] next (song|track)"
+      - "(go|skip) to [the] next (song|track)"
+      - "speaker {speaker} skip"
+      - "speaker {speaker} skip [this|the] (song|track)"
+      - "speaker {speaker} [play] [the] next (song|track)"
+      - "speaker {speaker} (go|skip) to [the] next (song|track)"
+conditions: []
+actions:
+  - action: media_player.media_next_track
+    target:
+      entity_id: media_player.homelab_05_satellite_media_player_2
+    continue_on_error: true
+  - set_conversation_response: Done.

@@ -1,11 +1,9 @@
 id: jarvis_music_stop
 alias: "Jarvis: Music Stop"
 description: >-
-  Deterministically pause satellite-speaker playback on turn-off phrasings.
-  "Stop the music" already resolves to a built-in local pause intent; the
-  "turn off" phrasings previously fell through to the LLM (and died there on
-  2026-09-18 when echo-loop turns had poisoned the chat log). Kept as a
-  conversation trigger so it never depends on the conversation agent.
+  Deterministically pause satellite-speaker playback on turn-off, stop, pause,
+  pronoun, and urgent silence phrasings. Kept as a conversation trigger so it
+  never depends on the conversation agent.
 mode: restart
 triggers:
   - trigger: conversation
@@ -13,6 +11,30 @@ triggers:
     command:
       - "turn off [the] music"
       - "turn [the] music off"
+      - "turn it off"
+      - "stop [the] music"
+      - "stop it"
+      - "stop"
+      - "pause [the] music"
+      - "pause it"
+      - "pause"
+      - "shut up"
+      - "be quiet"
+      - "silence"
+      - "silence [the] music"
+      - "speaker {speaker} turn off [the] music"
+      - "speaker {speaker} turn [the] music off"
+      - "speaker {speaker} turn it off"
+      - "speaker {speaker} stop [the] music"
+      - "speaker {speaker} stop it"
+      - "speaker {speaker} stop"
+      - "speaker {speaker} pause [the] music"
+      - "speaker {speaker} pause it"
+      - "speaker {speaker} pause"
+      - "speaker {speaker} shut up"
+      - "speaker {speaker} be quiet"
+      - "speaker {speaker} silence"
+      - "speaker {speaker} silence [the] music"
 conditions: []
 actions:
   - action: media_player.media_pause

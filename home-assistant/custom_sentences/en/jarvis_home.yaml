@@ -12,6 +12,16 @@ intents:
           - "what's playing"
           - "what is playing"
           - "what's on [the speaker]"
+          - "what song is this"
+          - "what track is this"
+          - "what song is playing"
+          - "what track is playing"
+          - "what is this song"
+          - "what is this song called"
+          - "what's this song called"
+          - "who sings this [song]"
+          - "who is this [song] by"
+          - "who is singing"
   JarvisTempDownstairs:
     data:
       - sentences:
