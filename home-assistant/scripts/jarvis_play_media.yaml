@@ -10,9 +10,9 @@ description: >-
   some X" means the artist: pass media_content_type='artist' with the
   artist name and the script starts an endless artist mix (radio_mode)
   so playback continues past the first track. Never ask which album
-  or song; just play. Specific songs use 'music', albums 'album',
-  playlists 'playlist'. Individual songs autoplay related tracks via
-  radio mode by default.
+  or song; just play. Specific songs use 'music' or 'track', albums 'album',
+  playlists 'playlist'. Individual songs play immediately and continue autoplaying
+  tracks by that artist by default.
 fields:
   media_content_type:
     description: >-
@@ -114,6 +114,52 @@ sequence:
               media_id: "{{ artist_uri }}"
               enqueue: replace
               radio_mode: true
+      - conditions:
+          - condition: template
+            value_template: "{{ media_content_type in ['music', 'track'] }}"
+        sequence:
+          - variables:
+              clean_track_query: >-
+                {{ media_content_id | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
+          - action: music_assistant.search
+            data:
+              config_entry_id: 01M2PW1ZWNQ31HTTG69TBVKSV3
+              name: "{{ clean_track_query }}"
+              media_type: track
+              limit: 5
+            response_variable: mass_search
+            continue_on_error: true
+          - variables:
+              track_uri: >-
+                {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
+                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
+                {% set matched = (plat + tracks) | first | default({}, true) %}
+                {{ matched.uri | default(clean_track_query, true) }}
+              artist_uri: >-
+                {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
+                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
+                {% set matched = (plat + tracks) | first | default({}, true) %}
+                {{ (matched.artists | default([], true) | map(attribute='uri') | list) | first | default('', true) }}
+          - action: music_assistant.play_media
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              media_type: track
+              media_id: "{{ track_uri }}"
+              enqueue: replace
+          - if:
+              - condition: template
+                value_template: "{{ use_radio_mode | bool and artist_uri | length > 0 }}"
+            then:
+              - action: music_assistant.play_media
+                target:
+                  entity_id: media_player.homelab_05_satellite_media_player_2
+                data:
+                  media_type: artist
+                  media_id: "{{ artist_uri }}"
+                  enqueue: replace_next
       - conditions:
           - condition: template
             value_template: "{{ target_platform in ['youtube_music', 'youtube', 'ytmusic'] }}"

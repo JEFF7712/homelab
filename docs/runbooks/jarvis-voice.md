@@ -160,14 +160,20 @@ automation referencing them.
      ("play some X", "put on X") resolve the artist via search, then start
      an endless artist mix (`music_assistant.play_media`, `radio_mode: true`)
      so playback continues past the first track; song, album, and playlist
-     phrasings keep narrower lookups. Individual song requests continue autoplaying
-     related tracks via Music Assistant radio mode (`extra: radio_mode: true`).
+     phrasings keep narrower lookups. Individual song requests play immediately
+     and continue autoplaying tracks by that artist (`music_assistant.play_media` with `enqueue: replace_next`).
    - Stopping is deterministic and local: `home-assistant/automations/jarvis_music_stop.yaml`
      pauses the satellite speaker on "turn off [the] music" / "turn [the] music
      off" (built-in intents already cover "stop the music"). Never route music
      stop through the conversation agent: on 2026-09-18 "turn off the music" fell to the
      local LLM and
      died on a poisoned chat log while "stop the music" paused in 13 ms.
+   - Skipping is deterministic and local: `home-assistant/automations/jarvis_music_skip.yaml`
+     advances the satellite speaker on "skip", "skip [this] song", and "next song/track".
+     Never route music skip through the conversation agent.
+   - Volume control is deterministic and local: `home-assistant/automations/jarvis_music_volume.yaml`
+     handles semantic volume nudges ("turn up/down the volume a bit" -> ±10%,
+     "turn it up/down a lot" / "crank it up" -> ±40%, default nudge -> ±10%, mute, unmute).
    - Platform parameter supports `spotify` (default) and `youtube_music` (`ytmusic`).
    - Music Assistant runs on `homelab-05` host network
      (`gitops/music-assistant/server.yaml`) and routes audio to the satellite speaker.
@@ -592,7 +598,7 @@ in the ConfigMap.
 
 ### Eval loop
 
-`tests/jarvis_voice_eval_corpus.yaml` holds 30 to 50 canonical commands with
+`tests/jarvis_voice_eval_corpus.yaml` holds 30 to 60 canonical commands with
 their expected routing (`local` vs `llm`), target entities, tools, and replies.
 `tests/test_jarvis_voice_eval.py` keeps the corpus consistent offline: local
 entries must name an intent overridden in
