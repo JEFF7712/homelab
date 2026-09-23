@@ -6,7 +6,7 @@ Remote-configured tunnel fronting the new k3s cluster. Dashboard edits apply dir
 
 - Name: `homelab`
 - ID: `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`
-- Config source: `gitops/cloudflare/ingress-config.yaml` (cut over 2026-09-22; connectors authenticate with the SOPS `cloudflared-credentials` secret and log no remote versions; dashboard rules vestigial)
+- Config source: Cloudflare remote configuration (`config_src=cloudflare`; checked 2026-09-23). `gitops/cloudflare/ingress-config.yaml` is a tracked mirror, not the active source.
 - Connectors: 2 replicas from `gitops/cloudflare/tunnel.yaml` (`cloudflared 2026.8.3`)
 - Health: `healthy`, 8 connections on `ord10, mci03, ord15, ord06, mci01, ord02`
 - Public origin IP seen by edge: `50.93.213.22` (connector pods live in `10.0.30.0/24`)
@@ -72,26 +72,17 @@ Removed 2026-09-22 (dead origins; no such Services in-cluster, verified via `kub
 
 1. Add the `{hostname, service}` rule to `gitops/cloudflare/ingress-config.yaml` in Cloudflare-evaluated order (specifics first, catch-all last) and to the numbered list above in the same position.
 2. Run `python -m unittest tests.test_cloudflare_tunnel` — it asserts config order matches this runbook and every origin Service exists.
-3. Commit and push; Stakater Reloader restarts `cloudflared` when the mounted ConfigMap changes. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` must already exist (created once per hostname in the dashboard).
+3. Update the Cloudflare remote ingress configuration to match the GitOps list rule-for-rule and in the same order. The mounted ConfigMap and Reloader do not change remote ingress rules; Reloader only restarts the connector pods.
+4. Confirm the tunnel's remote config matches the GitOps list. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` must already exist (created once per hostname in the dashboard).
+5. Verify the public hostname serves the expected origin.
 
-## Previous dashboard-managed config issue (2026-09-22)
+## Tunnel configuration source
 
-At the time, the remote config was at v75 and the dashboard was the live source of truth. This was superseded by the local config cutover described below.
+The Cloudflare API reports `config_src=cloudflare` and `remote_config=true`. On 2026-09-23, the remote ingress was updated from version 75 to version 76 to match the GitOps mirror. Supplying `--credentials-file` and a local `--config` file does not change the tunnel's configured source; the Cloudflare remote config remains active.
 
-Verified constraints (do not retry blindly):
-- With `cloudflared ... run --token`, the remote config always wins over the local `--config` file (connectors log `Updated to new configuration ... version=N` with remote rules; the mounted ConfigMap is inert).
-- Cloudflare rejects an empty remote ingress (error 1056, at least one rule required). A catch-all-only remote (v74) was picked up by both connectors and returned 404 for real hostnames; it was reverted within the window.
+Before that update, the active remote config had 25 rules while the GitOps mirror had 26. Every remote rule matched the mirror, but the Jellyfin hostname and origin were missing remotely, so the catch-all returned 404. Version 76 now has all 26 rules in the GitOps order, and the public Jellyfin health endpoints return HTTP 200.
 
-The conversion was completed on 2026-09-22: connectors now use a tunnel credentials file, which makes the tunnel locally managed and the local config authoritative. The steps taken were:
-1. Minted tunnel credentials and extracted the `TunnelSecret` for `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`.
-2. Stored the credentials as a SOPS secret under `gitops/secrets/`, mounted it into the Deployment, and switched to `--credentials-file` with `--config`.
-3. Rolled the connectors and confirmed they use the local configuration.
-4. Confirmed the public hostnames serve correctly from outside the LAN.
-5. Updated the Identity section to `Config source: gitops/cloudflare/ingress-config.yaml`.
-
-## Local config authority
-
-The connectors use `--credentials-file` with `/etc/cloudflared/config.yaml`, so `gitops/cloudflare/ingress-config.yaml` is authoritative. The old dashboard-managed rules are vestigial. The Deployment opts into Stakater Reloader so a ConfigMap update rolls the connectors and loads the new rules.
+The Deployment opts into Stakater Reloader. This restarts connectors when the ConfigMap changes, but a restart alone does not make the local file authoritative. Keep the Cloudflare remote rule list and GitOps mirror in exact parity when changing hostnames.
 
 ## Known gap
 
