@@ -98,7 +98,7 @@ spec:
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
             - name: FIREWALL_INPUT_PORTS
-              value: 8080,5030
+              value: 8080,5030,9999
             - name: FIREWALL_VPN_INPUT_PORTS
               valueFrom:
                 secretKeyRef:

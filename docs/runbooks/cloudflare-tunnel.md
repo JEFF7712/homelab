@@ -72,22 +72,26 @@ Removed 2026-09-22 (dead origins; no such Services in-cluster, verified via `kub
 
 1. Add the `{hostname, service}` rule to `gitops/cloudflare/ingress-config.yaml` in Cloudflare-evaluated order (specifics first, catch-all last) and to the numbered list above in the same position.
 2. Run `python -m unittest tests.test_cloudflare_tunnel` — it asserts config order matches this runbook and every origin Service exists.
-3. Commit and push; Flux rolls `cloudflared` with the new config. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` must already exist (created once per hostname in the dashboard).
+3. Commit and push; Stakater Reloader restarts `cloudflared` when the mounted ConfigMap changes. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` must already exist (created once per hostname in the dashboard).
 
-## Cutover from dashboard-managed ingress
+## Previous dashboard-managed config issue (2026-09-22)
 
-Status 2026-09-22: remote is at v75, which matches the git config rule-for-rule (restored by automation after a deletion attempt). Edge checks return 200. The dashboard remains the live source of truth.
+At the time, the remote config was at v75 and the dashboard was the live source of truth. This was superseded by the local config cutover described below.
 
 Verified constraints (do not retry blindly):
 - With `cloudflared ... run --token`, the remote config always wins over the local `--config` file (connectors log `Updated to new configuration ... version=N` with remote rules; the mounted ConfigMap is inert).
 - Cloudflare rejects an empty remote ingress (error 1056, at least one rule required). A catch-all-only remote (v74) was picked up by both connectors and returned 404 for real hostnames; it was reverted within the window.
 
-True conversion (still to do): switch the connectors from token auth to a tunnel credentials file, which makes the tunnel locally managed and the local config authoritative:
-1. Mint tunnel credentials (`cloudflared tunnel login` browser flow, or API token with tunnel edit rights, on a machine that has it) and extract the `TunnelSecret` for `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`.
-2. Store `{"AccountTag":..., "TunnelID":..., "TunnelSecret":...}` as a new SOPS secret under `gitops/secrets/`, mount it into the Deployment, replace `--token $(TUNNEL_TOKEN)` with `--credentials-file`, keep `--config`.
-3. After Flux rolls it and the connectors stop reporting remote versions, delete the remote ingress rules (or leave one harmless rule; empty is rejected).
-4. Confirm each public hostname serves correctly from outside the LAN.
-5. Update the Identity section below to `Config source: gitops/cloudflare/ingress-config.yaml`.
+The conversion was completed on 2026-09-22: connectors now use a tunnel credentials file, which makes the tunnel locally managed and the local config authoritative. The steps taken were:
+1. Minted tunnel credentials and extracted the `TunnelSecret` for `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`.
+2. Stored the credentials as a SOPS secret under `gitops/secrets/`, mounted it into the Deployment, and switched to `--credentials-file` with `--config`.
+3. Rolled the connectors and confirmed they use the local configuration.
+4. Confirmed the public hostnames serve correctly from outside the LAN.
+5. Updated the Identity section to `Config source: gitops/cloudflare/ingress-config.yaml`.
+
+## Local config authority
+
+The connectors use `--credentials-file` with `/etc/cloudflared/config.yaml`, so `gitops/cloudflare/ingress-config.yaml` is authoritative. The old dashboard-managed rules are vestigial. The Deployment opts into Stakater Reloader so a ConfigMap update rolls the connectors and loads the new rules.
 
 ## Known gap
 
