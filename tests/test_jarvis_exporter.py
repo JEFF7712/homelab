@@ -28,6 +28,30 @@ def load_exporter_module() -> dict:
 EXPORTER = load_exporter_module()
 
 
+class ExporterNetworkPolicyTest(unittest.TestCase):
+    def test_home_assistant_egress_targets_host_entity_on_only_port_8123(self) -> None:
+        docs = yaml.safe_load_all(
+            (REPO_ROOT / "gitops" / "voice" / "network-policy.yaml").read_text()
+        )
+        policy = next(
+            doc
+            for doc in docs
+            if doc.get("metadata", {}).get("name") == "allow-exporter-to-home-assistant"
+        )
+
+        self.assertEqual(policy["apiVersion"], "cilium.io/v2")
+        self.assertEqual(policy["kind"], "CiliumNetworkPolicy")
+        self.assertEqual(
+            policy["spec"]["endpointSelector"]["matchLabels"]["app"],
+            "jarvis-exporter",
+        )
+        self.assertEqual(policy["spec"]["egress"][0]["toEntities"], ["kube-apiserver"])
+        self.assertEqual(
+            policy["spec"]["egress"][0]["toPorts"][0]["ports"],
+            [{"port": "8123", "protocol": "TCP"}],
+        )
+
+
 class ExporterRenderTest(unittest.TestCase):
     def test_counter_render(self) -> None:
         counter = EXPORTER["Counter"]("demo_total", "Demo.", ("satellite",))

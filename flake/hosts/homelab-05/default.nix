@@ -144,18 +144,30 @@
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      Restart = "on-failure";
-      RestartSec = "10s";
     };
-    path = [ pkgs.alsa-utils ];
+    path = [
+      pkgs.alsa-utils
+      pkgs.gawk
+    ];
     script = ''
       if [ -e /sys/class/drm/card1-HDMI-A-2/status ]; then
         echo on > /sys/class/drm/card1-HDMI-A-2/status || true
       fi
       # Onboard stays unmuted as the fallback sink (WirePlumber priority 1000)
       # for when the HDMI soundbar is unreachable.
-      amixer -c 0 set Master unmute 100%
-      amixer -c 0 set Headphone unmute 100%
+      # Select the onboard card by its stable ALSA ID, not its USB-dependent index.
+      if amixer -c PCH scontrols | grep -Fq "Simple mixer control 'Master',0"; then
+        amixer -c PCH set Master unmute 100%
+      fi
+      if amixer -c PCH scontrols | grep -Fq "Simple mixer control 'Headphone',0"; then
+        amixer -c PCH set Headphone unmute 100%
+      fi
+
+      for card in $(awk -F'[][]' '/[Qq]uad[Cc]ast|[Hh]yper[Xx]/ { gsub(/ /, "", $2); print $2 }' /proc/asound/cards); do
+        if amixer -c "$card" scontrols | grep -Fq "Simple mixer control 'Mic',0"; then
+          amixer -c "$card" set Mic unmute 100%
+        fi
+      done
     '';
   };
 
