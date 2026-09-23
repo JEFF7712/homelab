@@ -400,6 +400,7 @@ class EvalCorpusTest(unittest.TestCase):
                 "light.kitchen_light",
                 "light.kitchen_light_2",
                 "light.kitchen_mushroom_lamp",
+                "light.kitchen_fuck_off_sign",
             },
         )
 
@@ -568,6 +569,42 @@ class EvalCorpusTest(unittest.TestCase):
             data = action.get("data", {})
             self.assertIn("extra", data)
             self.assertIn("radio_mode", data["extra"])
+
+    def test_track_branch_plays_song_and_enqueues_artist(self) -> None:
+        script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text(encoding="utf-8"))
+        choose = next(step["choose"] for step in script["sequence"] if "choose" in step)
+        track_branch = next(
+            branch
+            for branch in choose
+            if "track" in json.dumps(branch.get("conditions", []))
+        )
+        # Verify search for track
+        search_action = next(
+            a
+            for a in track_branch["sequence"]
+            if a.get("action") == "music_assistant.search"
+        )
+        self.assertEqual(search_action["data"]["media_type"], "track")
+
+        # Verify track play action
+        play_track_call = next(
+            a
+            for a in track_branch["sequence"]
+            if a.get("action") == "music_assistant.play_media"
+        )
+        self.assertEqual(play_track_call["data"]["media_type"], "track")
+        self.assertEqual(play_track_call["data"]["enqueue"], "replace")
+        self.assertIn("track_uri", play_track_call["data"]["media_id"])
+
+        # Verify conditional artist enqueue replace_next
+        if_step = next(step for step in track_branch["sequence"] if "if" in step)
+        self.assertIn("use_radio_mode", json.dumps(if_step["if"]))
+        self.assertIn("artist_uri", json.dumps(if_step["if"]))
+        artist_call = if_step["then"][0]
+        self.assertEqual(artist_call["action"], "music_assistant.play_media")
+        self.assertEqual(artist_call["data"]["media_type"], "artist")
+        self.assertEqual(artist_call["data"]["enqueue"], "replace_next")
+        self.assertIn("artist_uri", artist_call["data"]["media_id"])
 
 
 if __name__ == "__main__":

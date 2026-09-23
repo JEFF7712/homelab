@@ -11,6 +11,29 @@ description: >-
 mode: restart
 triggers:
   - trigger: conversation
+    id: track
+    command:
+      - "play the song {query}"
+      - "play [a] song {query}"
+      - "play song {query}"
+      - "put on the song {query}"
+      - "put on [a] song {query}"
+      - "put on [the] song {query}"
+      - "put on song {query}"
+      - "listen to the song {query}"
+      - "listen to [a] song {query}"
+      - "listen to song {query}"
+      - "[speaker {speaker}] play the song {query}"
+      - "[speaker {speaker}] play [a] song {query}"
+      - "[speaker {speaker}] play song {query}"
+      - "[speaker {speaker}] put on the song {query}"
+      - "[speaker {speaker}] put on [a] song {query}"
+      - "[speaker {speaker}] put on [the] song {query}"
+      - "[speaker {speaker}] put on song {query}"
+      - "[speaker {speaker}] listen to the song {query}"
+      - "[speaker {speaker}] listen to [a] song {query}"
+      - "[speaker {speaker}] listen to song {query}"
+  - trigger: conversation
     id: artist
     command:
       - "play some {query}"
@@ -26,11 +49,6 @@ triggers:
       - "[speaker {speaker}] listen to [some] {query}"
       - "[speaker {speaker}] play [some] music by {query}"
   - trigger: conversation
-    id: track
-    command:
-      - "play the song {query}"
-      - "[speaker {speaker}] play the song {query}"
-  - trigger: conversation
     id: album
     command:
       - "play the album {query}"
@@ -43,33 +61,51 @@ triggers:
       - "[speaker {speaker}] play the playlist {query}"
       - "[speaker {speaker}] play [my] {query} playlist"
   - trigger: conversation
+    id: youtube_track
+    command:
+      - "play {query} on youtube [music]"
+      - "play the song {query} on youtube [music]"
+      - "play [a] song {query} on youtube [music]"
+      - "play song {query} on youtube [music]"
+      - "put on {query} on youtube [music]"
+      - "put on the song {query} on youtube [music]"
+      - "put on [a] song {query} on youtube [music]"
+      - "put on song {query} on youtube [music]"
+      - "[speaker {speaker}] play {query} on youtube [music]"
+      - "[speaker {speaker}] play the song {query} on youtube [music]"
+      - "[speaker {speaker}] play [a] song {query} on youtube [music]"
+      - "[speaker {speaker}] play song {query} on youtube [music]"
+      - "[speaker {speaker}] put on {query} on youtube [music]"
+      - "[speaker {speaker}] put on the song {query} on youtube [music]"
+      - "[speaker {speaker}] put on [a] song {query} on youtube [music]"
+      - "[speaker {speaker}] put on song {query} on youtube [music]"
+  - trigger: conversation
     id: youtube_artist
     command:
       - "play some {query} on youtube [music]"
       - "put on [some] {query} on youtube [music]"
       - "[speaker {speaker}] play some {query} on youtube [music]"
       - "[speaker {speaker}] put on [some] {query} on youtube [music]"
-  - trigger: conversation
-    id: youtube_track
-    command:
-      - "play {query} on youtube [music]"
-      - "play the song {query} on youtube [music]"
-      - "[speaker {speaker}] play {query} on youtube [music]"
-      - "[speaker {speaker}] play the song {query} on youtube [music]"
 conditions: []
 actions:
   - action: script.jarvis_play_media
     data:
       media_content_type: >-
-        {{ {'artist': 'artist', 'track': 'music', 'album': 'album',
-            'playlist': 'playlist', 'youtube_artist': 'artist',
-            'youtube_track': 'music'}[trigger.id] }}
+        {% if trigger.slots.query is defined
+              and trigger.slots.query.lower().startswith(('the song ', 'a song ', 'song ')) %}
+          music
+        {% else %}
+          {{ {'artist': 'artist', 'track': 'music', 'album': 'album',
+              'playlist': 'playlist', 'youtube_artist': 'artist',
+              'youtube_track': 'music'}[trigger.id] }}
+        {% endif %}
       platform: >-
         {{ 'youtube_music' if trigger.id in ['youtube_artist', 'youtube_track']
             else 'youtube_music' if trigger.slots.speaker is defined and trigger.slots.speaker | lower == 'sam'
             else 'spotify' }}
       speaker: "{{ trigger.slots.speaker | default('') }}"
-      media_content_id: "{{ trigger.slots.query }}"
+      media_content_id: >-
+        {{ trigger.slots.query | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
     response_variable: playback
     continue_on_error: true
   - set_conversation_response: >-
