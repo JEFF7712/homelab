@@ -4,7 +4,7 @@ metadata:
   name: obsidian
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   path: ./gitops/obsidian
   prune: true
   sourceRef:
