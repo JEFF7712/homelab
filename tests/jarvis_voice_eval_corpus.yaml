@@ -321,6 +321,63 @@
   intent: JarvisMovieMode
   targets: [scene.movie_low_living_room]
   response: Done.
+- id: scene-cooking-mode
+  say: Start cooking.
+  path: local
+  intent: JarvisCookingMode
+  targets: [scene.shared_cooking]
+  response: Done.
+- id: scene-dinner-mode
+  say: Dinner time.
+  path: local
+  intent: JarvisDinnerMode
+  targets: [scene.shared_dinner]
+  response: Done.
+- id: climate-ac-on
+  say: Turn on the AC.
+  path: local
+  intent: JarvisClimateControl
+  targets: [climate.living_room_ac_living_room_ac_thermostat]
+  response: Done.
+- id: climate-cooler
+  say: Make it cooler down here.
+  path: local
+  intent: JarvisClimateControl
+  targets: [climate.living_room_ac_living_room_ac_thermostat]
+  response: Done.
+- id: weather-query
+  say: What is the weather outside?
+  path: local
+  intent: JarvisWeatherQuery
+  targets: []
+  response: It is 72 degrees and sunny.
+  dynamic: true
+- id: rain-query
+  say: Is it going to rain today?
+  path: local
+  intent: JarvisRainQuery
+  targets: []
+  response: No rain is expected.
+  dynamic: true
+- id: print-status-query
+  say: How is the 3D print doing?
+  path: local
+  intent: JarvisPrintStatus
+  targets: []
+  response: The 3D printer is idle.
+  dynamic: true
+- id: routine-goodnight
+  say: Goodnight.
+  path: local
+  intent: JarvisRoutines
+  targets: [light.downstairs_lights]
+  response: Goodnight.
+- id: routine-leaving
+  say: I'm leaving.
+  path: local
+  intent: JarvisRoutines
+  targets: [light.downstairs_lights]
+  response: Goodbye.
 - id: followup-brighter
   say: Make it brighter.
   path: llm

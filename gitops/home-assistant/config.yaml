@@ -89,6 +89,51 @@ data:
       JarvisAcState:
         speech:
           text: "{% if states('sensor.living_room_ac_mode') == 'off' %}No.{% else %}Yes.{% endif %}"
+      JarvisCookingMode:
+        action:
+          - service: scene.turn_on
+            target:
+              entity_id: scene.shared_cooking
+        speech:
+          text: "Done."
+      JarvisDinnerMode:
+        action:
+          - service: scene.turn_on
+            target:
+              entity_id: scene.shared_dinner
+        speech:
+          text: "Done."
+      JarvisWeatherQuery:
+        speech:
+          text: >-
+            {% set temp = state_attr('weather.forecast_home', 'temperature') | default('unknown') %}
+            {% set cond = states('weather.forecast_home') | replace('-', ' ') %}
+            It is {{ temp }} degrees and {{ cond }}.
+      JarvisRainQuery:
+        speech:
+          text: >-
+            {% set cond = states('weather.forecast_home') | lower %}
+            {% if 'rain' in cond or 'snow' in cond or 'hail' in cond or 'thunder' in cond %}
+              Yes, rain is in the forecast.
+            {% else %}
+              No rain is expected.
+            {% endif %}
+      JarvisPrintStatus:
+        speech:
+          text: >-
+            {% set status = states('sensor.a1_03900d642327265_print_status') %}
+            {% set progress = states('sensor.a1_03900d642327265_print_progress') %}
+            {% if status == 'running' %}
+              The 3D print is running at {{ progress }} percent.
+            {% elif status == 'finish' %}
+              The 3D print is finished.
+            {% elif status == 'failed' %}
+              The 3D print failed.
+            {% elif status in ('idle', 'offline', 'unavailable', 'unknown') %}
+              The 3D printer is idle.
+            {% else %}
+              The printer status is {{ status }}.
+            {% endif %}
       JarvisAliasOn:
         action:
           - service: light.turn_on
@@ -406,6 +451,44 @@ data:
               - "is the ac on"
               - "is the air conditioning on"
               - "is the living room ac on"
+      JarvisCookingMode:
+        data:
+          - sentences:
+              - "(set up|start|turn on) cooking mode"
+              - "cooking mode"
+              - "start cooking"
+      JarvisDinnerMode:
+        data:
+          - sentences:
+              - "(set up|start|turn on) dinner mode"
+              - "dinner mode"
+              - "dinner time"
+              - "start dinner"
+      JarvisWeatherQuery:
+        data:
+          - sentences:
+              - "what's the weather [outside]"
+              - "what is the weather [outside]"
+              - "how's the weather [outside]"
+              - "how is the weather [outside]"
+              - "what's the weather today"
+              - "what is the weather today"
+      JarvisRainQuery:
+        data:
+          - sentences:
+              - "is it going to rain [today]"
+              - "will it rain [today]"
+              - "is it raining [outside]"
+              - "do I need an umbrella [today]"
+      JarvisPrintStatus:
+        data:
+          - sentences:
+              - "how's the 3d print [doing]"
+              - "how is the 3d print [doing]"
+              - "what is the 3d print progress"
+              - "what's the 3d print progress"
+              - "is the 3d printer running"
+              - "3d printer status"
   en.jarvis_light_control.yaml: |
     language: en
     intents:

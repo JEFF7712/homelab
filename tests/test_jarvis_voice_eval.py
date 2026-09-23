@@ -47,6 +47,14 @@ MUSIC_VOLUME_INTENT = "MusicVolume"
 MUSIC_PREVIOUS_INTENT = "MusicPrevious"
 MUSIC_RESUME_INTENT = "MusicResume"
 MUSIC_MODES_INTENT = "MusicModes"
+CLIMATE_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_climate_control.yaml"
+)
+ROUTINES_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_routines.yaml"
+)
+CLIMATE_INTENT = "JarvisClimateControl"
+ROUTINES_INTENT = "JarvisRoutines"
 SATELLITE_MEDIA_PLAYER = "media_player.homelab_05_satellite_media_player_2"
 VOICE_EXTRA_TARGETS = frozenset({SATELLITE_MEDIA_PLAYER})
 MUSIC_INTENTS = {
@@ -68,7 +76,12 @@ CONTROL_FILE = (
 NUDGE_FILE = (
     REPO_ROOT / "home-assistant" / "custom_sentences" / "en" / "jarvis_nudge.yaml"
 )
-DONE_SCRIPTS = {"JarvisBrightnessNudge", "JarvisMovieMode"}
+DONE_SCRIPTS = {
+    "JarvisBrightnessNudge",
+    "JarvisMovieMode",
+    "JarvisCookingMode",
+    "JarvisDinnerMode",
+}
 ALIAS_INTENTS = {
     "JarvisAliasOn": "light.turn_on",
     "JarvisAliasOff": "light.turn_off",
@@ -83,11 +96,14 @@ TEMPLATE_QUERIES = {
     "JarvisTempDownstairs": "sensor.living_room_ac_ambient_temperature_degf",
     "JarvisKitchenLightsState": "light.kitchen_lights",
     "JarvisAcState": "sensor.living_room_ac_mode",
+    "JarvisWeatherQuery": "weather.forecast_home",
+    "JarvisRainQuery": "weather.forecast_home",
+    "JarvisPrintStatus": "sensor.a1_03900d642327265_print_status",
 }
 BUILTIN_DYNAMIC = {"HassShoppingListAddItem"}
 NEON_PINK_RGB = [255, 16, 240]
 MIN_CASES = 30
-MAX_CASES = 70
+MAX_CASES = 80
 
 
 def _parse_template(template: str) -> list:
@@ -215,6 +231,7 @@ def known_entity_ids() -> set[str]:
                 name = f.stem
             slug = re.sub(r"[^a-z0-9]+", "_", str(name).lower()).strip("_")
             known.add(f"scene.{slug}")
+            known.add(f"scene.{f.stem}")
     return known
 
 
@@ -255,6 +272,8 @@ class EvalCorpusTest(unittest.TestCase):
                         MUSIC_PREVIOUS_INTENT,
                         MUSIC_RESUME_INTENT,
                         MUSIC_MODES_INTENT,
+                        CLIMATE_INTENT,
+                        ROUTINES_INTENT,
                     }
                     | DONE_SCRIPTS
                     | set(TEMPLATE_QUERIES)
@@ -507,6 +526,43 @@ class EvalCorpusTest(unittest.TestCase):
             self.assertEqual(case["response"], "Done.", case["id"])
             self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
 
+    def test_climate_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(CLIMATE_AUTOMATION.read_text(encoding="utf-8"))
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        all_templates = [tmpl for commands in by_id.values() for tmpl in commands]
+        for case in self.cases:
+            if case.get("intent") != CLIMATE_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(sentence_matches(template, say) for template in all_templates)
+            self.assertTrue(
+                matched, f"{case['id']}: {say!r} matches no climate sentence"
+            )
+            self.assertEqual(case["response"], "Done.", case["id"])
+            self.assertEqual(
+                case["targets"],
+                ["climate.living_room_ac_living_room_ac_thermostat"],
+                case["id"],
+            )
+
+    def test_routines_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(ROUTINES_AUTOMATION.read_text(encoding="utf-8"))
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        all_templates = [tmpl for commands in by_id.values() for tmpl in commands]
+        for case in self.cases:
+            if case.get("intent") != ROUTINES_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(sentence_matches(template, say) for template in all_templates)
+            self.assertTrue(
+                matched, f"{case['id']}: {say!r} matches no routine sentence"
+            )
+            self.assertEqual(case["targets"], ["light.downstairs_lights"], case["id"])
+
     def test_done_scripts(self) -> None:
         scripts = self.core["intent_script"]
         nudge = scripts["JarvisBrightnessNudge"]
@@ -518,6 +574,16 @@ class EvalCorpusTest(unittest.TestCase):
         self.assertEqual(movie["speech"]["text"], "Done.")
         self.assertEqual(
             movie["action"][0]["target"]["entity_id"], "scene.movie_low_living_room"
+        )
+        cooking = scripts["JarvisCookingMode"]
+        self.assertEqual(cooking["speech"]["text"], "Done.")
+        self.assertEqual(
+            cooking["action"][0]["target"]["entity_id"], "scene.shared_cooking"
+        )
+        dinner = scripts["JarvisDinnerMode"]
+        self.assertEqual(dinner["speech"]["text"], "Done.")
+        self.assertEqual(
+            dinner["action"][0]["target"]["entity_id"], "scene.shared_dinner"
         )
         directions = {
             v["in"]: v["out"] for v in self.nudge["lists"]["jarvis_direction"]["values"]

@@ -82,6 +82,51 @@ intent_script:
   JarvisAcState:
     speech:
       text: "{% if states('sensor.living_room_ac_mode') == 'off' %}No.{% else %}Yes.{% endif %}"
+  JarvisCookingMode:
+    action:
+      - service: scene.turn_on
+        target:
+          entity_id: scene.shared_cooking
+    speech:
+      text: "Done."
+  JarvisDinnerMode:
+    action:
+      - service: scene.turn_on
+        target:
+          entity_id: scene.shared_dinner
+    speech:
+      text: "Done."
+  JarvisWeatherQuery:
+    speech:
+      text: >-
+        {% set temp = state_attr('weather.forecast_home', 'temperature') | default('unknown') %}
+        {% set cond = states('weather.forecast_home') | replace('-', ' ') %}
+        It is {{ temp }} degrees and {{ cond }}.
+  JarvisRainQuery:
+    speech:
+      text: >-
+        {% set cond = states('weather.forecast_home') | lower %}
+        {% if 'rain' in cond or 'snow' in cond or 'hail' in cond or 'thunder' in cond %}
+          Yes, rain is in the forecast.
+        {% else %}
+          No rain is expected.
+        {% endif %}
+  JarvisPrintStatus:
+    speech:
+      text: >-
+        {% set status = states('sensor.a1_03900d642327265_print_status') %}
+        {% set progress = states('sensor.a1_03900d642327265_print_progress') %}
+        {% if status == 'running' %}
+          The 3D print is running at {{ progress }} percent.
+        {% elif status == 'finish' %}
+          The 3D print is finished.
+        {% elif status == 'failed' %}
+          The 3D print failed.
+        {% elif status in ('idle', 'offline', 'unavailable', 'unknown') %}
+          The 3D printer is idle.
+        {% else %}
+          The printer status is {{ status }}.
+        {% endif %}
   JarvisAliasOn:
     action:
       - service: light.turn_on

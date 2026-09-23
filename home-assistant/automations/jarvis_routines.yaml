@@ -1,0 +1,80 @@
+id: jarvis_routines
+alias: "Jarvis: Routines"
+description: >-
+  Deterministically handle home routines (goodnight, leaving, good morning) via voice.
+  Kept as a conversation trigger so it never depends on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: goodnight
+    command:
+      - "goodnight"
+      - "good night"
+      - "bedtime"
+      - "it's bedtime"
+      - "going to bed"
+      - "speaker {speaker} goodnight"
+      - "speaker {speaker} good night"
+      - "speaker {speaker} bedtime"
+      - "speaker {speaker} it's bedtime"
+      - "speaker {speaker} going to bed"
+  - trigger: conversation
+    id: leaving
+    command:
+      - "I'm leaving"
+      - "im leaving"
+      - "leaving now"
+      - "goodbye"
+      - "bye"
+      - "speaker {speaker} I'm leaving"
+      - "speaker {speaker} im leaving"
+      - "speaker {speaker} leaving now"
+      - "speaker {speaker} goodbye"
+      - "speaker {speaker} bye"
+  - trigger: conversation
+    id: morning
+    command:
+      - "good morning"
+      - "morning"
+      - "wake up"
+      - "speaker {speaker} good morning"
+      - "speaker {speaker} morning"
+      - "speaker {speaker} wake up"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'goodnight' }}"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: light.downstairs_lights
+          - action: media_player.media_pause
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            continue_on_error: true
+          - set_conversation_response: "Goodnight."
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'leaving' }}"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: light.downstairs_lights
+          - action: media_player.media_pause
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            continue_on_error: true
+          - set_conversation_response: "Goodbye."
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'morning' }}"
+        sequence:
+          - set_conversation_response: >-
+              {% set name = ('Roopen' if trigger.slots.speaker == 'Rupan'
+                             else trigger.slots.speaker)
+                             if trigger.slots.speaker is defined and trigger.slots.speaker
+                             else '' %}
+              Good morning{% if name %}, {{ name }}{% endif %}. It is
+              {{ states('sensor.living_room_ac_ambient_temperature_degf') }} degrees downstairs.

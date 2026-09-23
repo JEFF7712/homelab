@@ -190,6 +190,16 @@ automation referencing them.
    - YouTube Music streaming requires a Proof-of-Origin (PO) token server; the
      `pot-provider` companion container (`brainicism/bgutil-ytdlp-pot-provider:1.2.1`)
      runs on `homelab-05` at `http://127.0.0.1:4416`.
+8. Fast local scenes, climate, weather, printer, and routines:
+   - Scenes: `JarvisCookingMode` and `JarvisDinnerMode` in `home-assistant/custom_sentences/en/jarvis_home.yaml`
+     activate `scene.shared_cooking` and `scene.shared_dinner` deterministically.
+   - Climate: `home-assistant/automations/jarvis_climate_control.yaml` controls AC on/off
+     and relative setpoint changes without hitting the cloud LLM.
+   - Weather & rain: `JarvisWeatherQuery` and `JarvisRainQuery` in `home-assistant/custom_sentences/en/jarvis_home.yaml`
+     read `weather.forecast_home` locally.
+   - 3D printer: `JarvisPrintStatus` reads Bambu Lab A1 print progress and status locally.
+   - Routines: `home-assistant/automations/jarvis_routines.yaml` executes "goodnight",
+     "leaving", and "good morning" routines deterministically.
 
 ## Conversation prompt (canonical)
 
@@ -608,7 +618,7 @@ in the ConfigMap.
 
 ### Eval loop
 
-`tests/jarvis_voice_eval_corpus.yaml` holds 30 to 70 canonical commands with
+`tests/jarvis_voice_eval_corpus.yaml` holds 30 to 80 canonical commands with
 their expected routing (`local` vs `llm`), target entities, tools, and replies.
 `tests/test_jarvis_voice_eval.py` keeps the corpus consistent offline: local
 entries must name an intent overridden in

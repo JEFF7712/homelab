@@ -1,0 +1,84 @@
+id: jarvis_climate_control
+alias: "Jarvis: Climate Control"
+description: >-
+  Deterministically control living room AC and temperature via voice.
+  Kept as a conversation trigger so it never depends on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: ac_on
+    command:
+      - "turn on [the] (ac|air conditioning)"
+      - "turn [the] (ac|air conditioning) on"
+      - "start [the] (ac|air conditioning)"
+      - "speaker {speaker} turn on [the] (ac|air conditioning)"
+      - "speaker {speaker} turn [the] (ac|air conditioning) on"
+      - "speaker {speaker} start [the] (ac|air conditioning)"
+  - trigger: conversation
+    id: ac_off
+    command:
+      - "turn off [the] (ac|air conditioning)"
+      - "turn [the] (ac|air conditioning) off"
+      - "stop [the] (ac|air conditioning)"
+      - "speaker {speaker} turn off [the] (ac|air conditioning)"
+      - "speaker {speaker} turn [the] (ac|air conditioning) off"
+      - "speaker {speaker} stop [the] (ac|air conditioning)"
+  - trigger: conversation
+    id: temp_cooler
+    command:
+      - "make it (cooler|colder) [downstairs|down here|in here]"
+      - "turn down [the] (ac|temperature)"
+      - "speaker {speaker} make it (cooler|colder) [downstairs|down here|in here]"
+      - "speaker {speaker} turn down [the] (ac|temperature)"
+  - trigger: conversation
+    id: temp_warmer
+    command:
+      - "make it warmer [downstairs|down here|in here]"
+      - "turn up [the] (ac|temperature)"
+      - "speaker {speaker} make it warmer [downstairs|down here|in here]"
+      - "speaker {speaker} turn up [the] (ac|temperature)"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'ac_on' }}"
+        sequence:
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: climate.living_room_ac_living_room_ac_thermostat
+            data:
+              hvac_mode: "cool"
+          - set_conversation_response: "Done."
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'ac_off' }}"
+        sequence:
+          - action: climate.turn_off
+            target:
+              entity_id: climate.living_room_ac_living_room_ac_thermostat
+          - set_conversation_response: "Done."
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'temp_cooler' }}"
+        sequence:
+          - action: climate.set_temperature
+            target:
+              entity_id: climate.living_room_ac_living_room_ac_thermostat
+            data:
+              temperature: >-
+                {{ (state_attr('climate.living_room_ac_living_room_ac_thermostat',
+                               'temperature') | default(72, true) | float(72.0)) - 2 }}
+          - set_conversation_response: "Done."
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'temp_warmer' }}"
+        sequence:
+          - action: climate.set_temperature
+            target:
+              entity_id: climate.living_room_ac_living_room_ac_thermostat
+            data:
+              temperature: >-
+                {{ (state_attr('climate.living_room_ac_living_room_ac_thermostat',
+                               'temperature') | default(72, true) | float(72.0)) + 2 }}
+          - set_conversation_response: "Done."

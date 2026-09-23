@@ -40,3 +40,41 @@ intents:
           - "is the ac on"
           - "is the air conditioning on"
           - "is the living room ac on"
+  JarvisCookingMode:
+    data:
+      - sentences:
+          - "(set up|start|turn on) cooking mode"
+          - "cooking mode"
+          - "start cooking"
+  JarvisDinnerMode:
+    data:
+      - sentences:
+          - "(set up|start|turn on) dinner mode"
+          - "dinner mode"
+          - "dinner time"
+          - "start dinner"
+  JarvisWeatherQuery:
+    data:
+      - sentences:
+          - "what's the weather [outside]"
+          - "what is the weather [outside]"
+          - "how's the weather [outside]"
+          - "how is the weather [outside]"
+          - "what's the weather today"
+          - "what is the weather today"
+  JarvisRainQuery:
+    data:
+      - sentences:
+          - "is it going to rain [today]"
+          - "will it rain [today]"
+          - "is it raining [outside]"
+          - "do I need an umbrella [today]"
+  JarvisPrintStatus:
+    data:
+      - sentences:
+          - "how's the 3d print [doing]"
+          - "how is the 3d print [doing]"
+          - "what is the 3d print progress"
+          - "what's the 3d print progress"
+          - "is the 3d printer running"
+          - "3d printer status"
