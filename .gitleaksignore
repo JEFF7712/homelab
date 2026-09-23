@@ -1,2 +1,6 @@
+# Gitleaks ignore list
+# Historical decision-recorder trajectory snapshot contains harmless synthetic idempotency_keys
 f7931202fdaa83784974a76b85dc662e7db860a8:trajectory-2026-09-21-045911.json:generic-api-key:895
 f7931202fdaa83784974a76b85dc662e7db860a8:trajectory-2026-09-21-045911.json:generic-api-key:930
+de092ba40aa7364b15535140a113f604021508fe:trajectory-2026-09-21-045911.json:generic-api-key:895
+de092ba40aa7364b15535140a113f604021508fe:trajectory-2026-09-21-045911.json:generic-api-key:930

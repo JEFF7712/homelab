@@ -519,8 +519,22 @@ opnsense_plan:
     # no IP SANs) and the tofu provider has no TLS server-name override, so it
     # must address the firewall by its certificate DNS name, not the IP literal.
     OPNSENSE_URI: "https://OPNsense.internal"
-    SSL_CERT_FILE: $OPNSENSE_CA_FILE
     TF_VAR_opnsense_uri: "https://OPNsense.internal"
+  before_script:
+    - export SSL_CERT_FILE="/tmp/opnsense-combined-ca.crt"
+    - >-
+      for bundle in "${NIX_SSL_CERT_FILE:-}" /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt; do
+        if [ -n "$bundle" ] && [ -f "$bundle" ]; then
+          cat "$bundle" > "$SSL_CERT_FILE"
+          break
+        fi
+      done
+    - >-
+      if [ -n "${OPNSENSE_CA_FILE:-}" ] && [ -f "${OPNSENSE_CA_FILE:-}" ]; then
+        cat "$OPNSENSE_CA_FILE" >> "$SSL_CERT_FILE"
+      fi
+  after_script:
+    - rm -f /tmp/opnsense-combined-ca.crt
   needs:
     - job: opnsense_inventory
       artifacts: true
@@ -564,7 +578,21 @@ opnsense_apply:
   resource_group: opnsense-control-plane
   variables:
     OPNSENSE_URI: "https://OPNsense.internal"
-    SSL_CERT_FILE: $OPNSENSE_CA_FILE
+  before_script:
+    - export SSL_CERT_FILE="/tmp/opnsense-combined-ca.crt"
+    - >-
+      for bundle in "${NIX_SSL_CERT_FILE:-}" /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt; do
+        if [ -n "$bundle" ] && [ -f "$bundle" ]; then
+          cat "$bundle" > "$SSL_CERT_FILE"
+          break
+        fi
+      done
+    - >-
+      if [ -n "${OPNSENSE_CA_FILE:-}" ] && [ -f "${OPNSENSE_CA_FILE:-}" ]; then
+        cat "$OPNSENSE_CA_FILE" >> "$SSL_CERT_FILE"
+      fi
+  after_script:
+    - rm -f /tmp/opnsense-combined-ca.crt
   needs:
     - job: opnsense_inventory
       artifacts: true
@@ -752,12 +780,17 @@ sync_to_github:
     - >-
       nix develop ./flake -c bash -e -c '
         export GIT_TERMINAL_PROMPT=0
-        printf "%s\n" "[credential \"https://github.com\"]" "helper =" > /tmp/gh-credential-config
-        printf "!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f\n" >> /tmp/gh-credential-config
-        git config --local include.path /tmp/gh-credential-config
+        if [ -z "${GITHUB_TOKEN:-}" ]; then
+          echo "WARNING: GITHUB_TOKEN is not set; skipping GitHub mirror sync."
+          exit 0
+        fi
+        cred_config=$(mktemp /tmp/gh-credential-config-XXXXXX)
+        printf "%s\n" "[credential \"https://github.com\"]" "helper =" > "$cred_config"
+        printf "!f() { echo username=x-access-token; echo password=%s; }; f\n" "$GITHUB_TOKEN" >> "$cred_config"
+        git config --local include.path "$cred_config"
         git remote set-url github https://github.com/JEFF7712/homelab-new.git 2>/dev/null ||
           git remote add github https://github.com/JEFF7712/homelab-new.git
-        git fetch --unshallow || git fetch --all
+        git fetch --unshallow origin 2>/dev/null || git fetch origin
 
         mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
         mirror_warning+="on [GitLab](https://gitlab.com/JEFF7712/homelab-new)."
@@ -769,13 +802,15 @@ sync_to_github:
 
         for attempt in 1 2 3; do
           if git -c http.version=HTTP/1.1 push github HEAD:main --force; then
+            rm -f "$cred_config"
             exit 0
           fi
           sleep $((attempt * 15))
         done
+        rm -f "$cred_config"
         exit 1
       '
   after_script:
     - git remote remove github 2>/dev/null || true
     - git config --local --unset-all include.path 2>/dev/null || true
-    - rm -f /tmp/gh-credential-config
+    - rm -f /tmp/gh-credential-config*
