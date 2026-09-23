@@ -14,7 +14,8 @@ recorded here so a rebuild restores them exactly.
 ## Signal chain
 
 Microphone on `homelab-05` (`HyperX QuadCast S` via Pipewire, pinned with
-top priority 2500 in WirePlumber) -> satellite container (`linux-voice-assistant`,
+top priority 3500 in WirePlumber, above sink monitors at 100) -> satellite
+container (`linux-voice-assistant`,
 wake word `hey_jarvis.tflite`, port 6053, device substring match `QuadCast`)
 -> Home Assistant on `homelab-03` -> stable STT gateway
 (`wyoming-whisper.voice:10300`) -> Nemotron primary, local Whisper fallback,
@@ -710,7 +711,9 @@ To add or update speaker voice profiles:
 still cycles states.
 - Mic not detected or satellite in CrashLoopBackOff: verify Pipewire/WirePlumber
   sees the QuadCast on `homelab-05` via `wpctl status`. WirePlumber assigns it
-  top priority 2500 (`~alsa_input.*QuadCast.*`), and the satellite container
+  top priority 3500 (`~alsa_input.*QuadCast.*`), while sink monitor sources are
+  lowered to 100. `satellite-alsa-restore.service` unmutes the QuadCast `Mic`
+  ALSA control when that card is present. The satellite container
   matches on substring `QuadCast` (first substring hit wins, so if several
   QuadCast nodes appear, confirm the USB source is listed first). For the exact
   Pulse source names the container sees, run it once with `LIST_DEVICES=1`.

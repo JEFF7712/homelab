@@ -50,6 +50,9 @@ spec:
               value: "1"
             - name: WAKE_MODEL
               value: "hey_jarvis.tflite"
+          args:
+            - --mic-volume
+            - "75"
           ports:
             - containerPort: 6053
               name: satellite

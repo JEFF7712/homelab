@@ -45,8 +45,20 @@
             ];
             actions = {
               update-props = {
-                "priority.driver" = 2500;
-                "priority.session" = 2500;
+                "priority.driver" = 3500;
+                "priority.session" = 3500;
+              };
+            };
+          }
+          # Keep sink monitor nodes from outranking physical microphone inputs.
+          {
+            matches = [
+              { "node.name" = "~.*monitor.*"; }
+            ];
+            actions = {
+              update-props = {
+                "priority.driver" = 100;
+                "priority.session" = 100;
               };
             };
           }
