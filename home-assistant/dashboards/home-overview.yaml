@@ -172,6 +172,8 @@ views:
                 name: Stairs
               - entity: switch.kitchen_mushroom_lamp
                 name: Mushroom Lamp
+              - entity: switch.fuck_off_sign
+                name: Fuck Off Sign
           - type: entities
             title: System
             entities:

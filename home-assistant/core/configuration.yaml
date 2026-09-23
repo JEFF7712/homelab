@@ -112,6 +112,7 @@ light:
       - light.kitchen_light
       - light.kitchen_light_2
       - light.kitchen_mushroom_lamp
+      - light.kitchen_fuck_off_sign
   - platform: group
     name: Living Room Lights
     entities:
@@ -136,6 +137,7 @@ light:
       - light.kitchen_light
       - light.kitchen_light_2
       - light.kitchen_mushroom_lamp
+      - light.kitchen_fuck_off_sign
       - light.living_room_mushroom_lamp
       - light.living_room_tulip_lamp
   - platform: switch
@@ -150,6 +152,9 @@ light:
   - platform: switch
     name: Kitchen Mushroom Lamp
     entity_id: switch.kitchen_mushroom_lamp
+  - platform: switch
+    name: Kitchen Fuck Off Sign
+    entity_id: switch.fuck_off_sign
 homekit:
   - name: Homelab Bridge
     port: 21063
@@ -170,6 +175,7 @@ homekit:
         - light.bedroom_mushroom_plug
         - light.living_room_good_vibes_sign
         - light.kitchen_mushroom_lamp
+        - light.kitchen_fuck_off_sign
         - switch.stairs_light
         - climate.living_room_ac_living_room_ac_thermostat
 recorder:

@@ -12,5 +12,7 @@ entities:
     state: "off"
   switch.kitchen_mushroom_lamp:
     state: "off"
+  switch.fuck_off_sign:
+    state: "off"
   switch.living_room_good_vibes_sign:
     state: "on"

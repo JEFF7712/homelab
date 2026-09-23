@@ -23,6 +23,7 @@ triggers:
     id: "return"
   - trigger: state
     entity_id:
+      - switch.fuck_off_sign
       - switch.living_room_good_vibes_sign
       - switch.stairs_light
       - light.kitchen_light
@@ -51,6 +52,7 @@ actions:
             data:
               scene_id: pre_away_shared
               snapshot_entities:
+                - switch.fuck_off_sign
                 - switch.living_room_good_vibes_sign
                 - switch.stairs_light
                 - switch.kitchen_mushroom_lamp
@@ -64,6 +66,7 @@ actions:
           - action: switch.turn_off
             target:
               entity_id:
+                - switch.fuck_off_sign
                 - switch.living_room_good_vibes_sign
                 - switch.stairs_light
                 - switch.kitchen_mushroom_lamp
@@ -101,6 +104,7 @@ actions:
           - action: switch.turn_off
             target:
               entity_id:
+                - switch.fuck_off_sign
                 - switch.living_room_good_vibes_sign
                 - switch.stairs_light
                 - switch.kitchen_mushroom_lamp

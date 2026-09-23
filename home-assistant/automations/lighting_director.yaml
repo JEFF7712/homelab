@@ -59,6 +59,7 @@ actions:
               entity_id:
                 - switch.living_room_good_vibes_sign
                 - switch.stairs_light
+                - switch.fuck_off_sign
       - conditions:
           - condition: trigger
             id: "sunset"
@@ -83,7 +84,9 @@ actions:
             then:
               - action: switch.turn_on
                 target:
-                  entity_id: switch.living_room_good_vibes_sign
+                  entity_id:
+                    - switch.living_room_good_vibes_sign
+                    - switch.fuck_off_sign
           - if:
               - condition: template
                 value_template: "{{ anyone_home or not guest_off }}"
@@ -113,7 +116,9 @@ actions:
             then:
               - action: switch.turn_on
                 target:
-                  entity_id: switch.living_room_good_vibes_sign
+                  entity_id:
+                    - switch.living_room_good_vibes_sign
+                    - switch.fuck_off_sign
           - action: switch.turn_on
             target:
               entity_id: switch.stairs_light
@@ -132,5 +137,7 @@ actions:
             then:
               - action: switch.turn_off
                 target:
-                  entity_id: switch.living_room_good_vibes_sign
+                  entity_id:
+                    - switch.living_room_good_vibes_sign
+                    - switch.fuck_off_sign
 mode: queued

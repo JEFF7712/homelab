@@ -400,6 +400,14 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.kitchen_fuck_off_sign
+            name: Fuck Off Sign
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
     subview: true
     type: sections
   - title: Living Room

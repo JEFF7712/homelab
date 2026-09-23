@@ -53,6 +53,10 @@ lists:
         out: "light.bedroom_mushroom_plug"
       - in: "good vibes sign"
         out: "light.living_room_good_vibes_sign"
+      - in: "fuck off sign"
+        out: "light.kitchen_fuck_off_sign"
+      - in: "kitchen sign"
+        out: "light.kitchen_fuck_off_sign"
   jarvis_color:
     values:
       - in: "neon pink"

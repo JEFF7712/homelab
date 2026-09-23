@@ -8,3 +8,5 @@ entities:
     color_temp_kelvin: 4000
   switch.kitchen_mushroom_lamp:
     state: "on"
+  switch.fuck_off_sign:
+    state: "on"

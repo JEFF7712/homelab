@@ -12,5 +12,7 @@ entities:
     color_temp_kelvin: 2700
   switch.kitchen_mushroom_lamp:
     state: "on"
+  switch.fuck_off_sign:
+    state: "on"
   switch.living_room_good_vibes_sign:
     state: "on"

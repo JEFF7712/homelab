@@ -40,4 +40,6 @@ actions:
             icon: mdi:movie
           - entity: switch.living_room_good_vibes_sign
             name: Good Vibes Sign
+          - entity: switch.fuck_off_sign
+            name: Fuck Off Sign
 mode: single

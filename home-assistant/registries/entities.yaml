@@ -719,6 +719,9 @@
 - disabled_by: integration
   entity_id: switch.frosted_glass_theme_pre_release
   labels: []
+- entity_id: switch.fuck_off_sign
+  labels:
+    - shared_space
 - disabled_by: integration
   entity_id: switch.govee_cloud_integration_pre_release
   labels: []
