@@ -25,8 +25,28 @@ MUSIC_AUTOMATION = (
 MUSIC_STOP_AUTOMATION = (
     REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_stop.yaml"
 )
+MUSIC_SKIP_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_skip.yaml"
+)
+MUSIC_VOLUME_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_volume.yaml"
+)
+MUSIC_PREVIOUS_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_previous.yaml"
+)
+MUSIC_RESUME_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_resume.yaml"
+)
+MUSIC_MODES_AUTOMATION = (
+    REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_modes.yaml"
+)
 PLAY_MEDIA_SCRIPT = REPO_ROOT / "home-assistant" / "scripts" / "jarvis_play_media.yaml"
 MUSIC_STOP_INTENT = "MusicStop"
+MUSIC_SKIP_INTENT = "MusicSkip"
+MUSIC_VOLUME_INTENT = "MusicVolume"
+MUSIC_PREVIOUS_INTENT = "MusicPrevious"
+MUSIC_RESUME_INTENT = "MusicResume"
+MUSIC_MODES_INTENT = "MusicModes"
 SATELLITE_MEDIA_PLAYER = "media_player.homelab_05_satellite_media_player_2"
 VOICE_EXTRA_TARGETS = frozenset({SATELLITE_MEDIA_PLAYER})
 MUSIC_INTENTS = {
@@ -67,7 +87,7 @@ TEMPLATE_QUERIES = {
 BUILTIN_DYNAMIC = {"HassShoppingListAddItem"}
 NEON_PINK_RGB = [255, 16, 240]
 MIN_CASES = 30
-MAX_CASES = 50
+MAX_CASES = 70
 
 
 def _parse_template(template: str) -> list:
@@ -228,7 +248,14 @@ class EvalCorpusTest(unittest.TestCase):
                     LOCAL_INTENTS
                     | {SIGNATURE_INTENT}
                     | set(MUSIC_INTENTS)
-                    | {MUSIC_STOP_INTENT}
+                    | {
+                        MUSIC_STOP_INTENT,
+                        MUSIC_SKIP_INTENT,
+                        MUSIC_VOLUME_INTENT,
+                        MUSIC_PREVIOUS_INTENT,
+                        MUSIC_RESUME_INTENT,
+                        MUSIC_MODES_INTENT,
+                    }
                     | DONE_SCRIPTS
                     | set(TEMPLATE_QUERIES)
                     | BUILTIN_DYNAMIC
@@ -358,6 +385,126 @@ class EvalCorpusTest(unittest.TestCase):
             matched = any(sentence_matches(template, say) for template in by_id["stop"])
             self.assertTrue(matched, f"{case['id']}: {say!r} matches no stop sentence")
             self.assertEqual(case["response"], "Paused.", case["id"])
+            self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
+
+    def test_music_skip_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(MUSIC_SKIP_AUTOMATION.read_text(encoding="utf-8"))
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        self.assertTrue(by_id.get("skip"), "skip trigger present")
+        actions = automation.get("actions", [])
+        next_call = next(
+            a for a in actions if a.get("action") == "media_player.media_next_track"
+        )
+        self.assertEqual(next_call["target"]["entity_id"], SATELLITE_MEDIA_PLAYER)
+        response = next(
+            a["set_conversation_response"]
+            for a in actions
+            if "set_conversation_response" in a
+        )
+        self.assertIn("Done.", response)
+        for case in self.cases:
+            if case.get("intent") != MUSIC_SKIP_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(sentence_matches(template, say) for template in by_id["skip"])
+            self.assertTrue(matched, f"{case['id']}: {say!r} matches no skip sentence")
+            self.assertEqual(case["response"], "Done.", case["id"])
+            self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
+
+    def test_music_previous_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(
+            MUSIC_PREVIOUS_AUTOMATION.read_text(encoding="utf-8")
+        )
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        self.assertTrue(by_id.get("previous"), "previous trigger present")
+        actions = automation.get("actions", [])
+        prev_call = next(
+            a for a in actions if a.get("action") == "media_player.media_previous_track"
+        )
+        self.assertEqual(prev_call["target"]["entity_id"], SATELLITE_MEDIA_PLAYER)
+        response = next(
+            a["set_conversation_response"]
+            for a in actions
+            if "set_conversation_response" in a
+        )
+        self.assertIn("Done.", response)
+        for case in self.cases:
+            if case.get("intent") != MUSIC_PREVIOUS_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(
+                sentence_matches(template, say) for template in by_id["previous"]
+            )
+            self.assertTrue(
+                matched, f"{case['id']}: {say!r} matches no previous sentence"
+            )
+            self.assertEqual(case["response"], "Done.", case["id"])
+            self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
+
+    def test_music_resume_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(MUSIC_RESUME_AUTOMATION.read_text(encoding="utf-8"))
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        self.assertTrue(by_id.get("resume"), "resume trigger present")
+        actions = automation.get("actions", [])
+        play_call = next(
+            a for a in actions if a.get("action") == "media_player.media_play"
+        )
+        self.assertEqual(play_call["target"]["entity_id"], SATELLITE_MEDIA_PLAYER)
+        response = next(
+            a["set_conversation_response"]
+            for a in actions
+            if "set_conversation_response" in a
+        )
+        self.assertIn("Done.", response)
+        for case in self.cases:
+            if case.get("intent") != MUSIC_RESUME_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(
+                sentence_matches(template, say) for template in by_id["resume"]
+            )
+            self.assertTrue(
+                matched, f"{case['id']}: {say!r} matches no resume sentence"
+            )
+            self.assertEqual(case["response"], "Done.", case["id"])
+            self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
+
+    def test_music_volume_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(MUSIC_VOLUME_AUTOMATION.read_text(encoding="utf-8"))
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        all_templates = [tmpl for commands in by_id.values() for tmpl in commands]
+        for case in self.cases:
+            if case.get("intent") != MUSIC_VOLUME_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(sentence_matches(template, say) for template in all_templates)
+            self.assertTrue(
+                matched, f"{case['id']}: {say!r} matches no volume sentence"
+            )
+            self.assertEqual(case["response"], "Done.", case["id"])
+            self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
+
+    def test_music_modes_cases_match_trigger_sentences(self) -> None:
+        automation = yaml.safe_load(MUSIC_MODES_AUTOMATION.read_text(encoding="utf-8"))
+        by_id = {
+            t.get("id"): t.get("command", []) for t in automation.get("triggers", [])
+        }
+        all_templates = [tmpl for commands in by_id.values() for tmpl in commands]
+        for case in self.cases:
+            if case.get("intent") != MUSIC_MODES_INTENT:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(sentence_matches(template, say) for template in all_templates)
+            self.assertTrue(matched, f"{case['id']}: {say!r} matches no mode sentence")
+            self.assertEqual(case["response"], "Done.", case["id"])
             self.assertEqual(case["targets"], [SATELLITE_MEDIA_PLAYER], case["id"])
 
     def test_done_scripts(self) -> None:

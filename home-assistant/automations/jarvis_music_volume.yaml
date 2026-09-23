@@ -1,0 +1,207 @@
+id: jarvis_music_volume
+alias: "Jarvis: Music Volume"
+description: >-
+  Deterministically adjust satellite-speaker volume on voice commands.
+  Supports semantic volume changes: 'a bit' (10%), 'a lot' (40%), default
+  step (10%), mute, and unmute. Kept as a conversation trigger so it executes
+  locally without depending on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: volume_up_bit
+    command:
+      - "(turn|crank) [the] (volume|music) up (a bit|a little bit|a little|slightly|a tad)"
+      - "(turn|crank) up [the] (volume|music) (a bit|a little bit|a little|slightly|a tad)"
+      - "turn it up (a bit|a little bit|a little|slightly|a tad)"
+      - "volume up (a bit|a little bit|a little|slightly|a tad)"
+      - "[make it] (a bit|a little bit|a little|slightly|a tad) louder"
+      - "speaker {speaker} (turn|crank) [the] (volume|music) up (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} (turn|crank) up [the] (volume|music) (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} turn it up (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} volume up (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} [make it] (a bit|a little bit|a little|slightly|a tad) louder"
+  - trigger: conversation
+    id: volume_up_lot
+    command:
+      - "(turn|crank) [the] (volume|music) up (a lot|way up)"
+      - "(turn|crank) up [the] (volume|music) (a lot|way up)"
+      - "turn it up (a lot|way up)"
+      - "turn it way up"
+      - "turn [the] (volume|music) way up"
+      - "(crank|pump) it [up]"
+      - "(crank|pump) [the] (volume|music) [up]"
+      - "crank up [the] (volume|music)"
+      - "blast it"
+      - "volume (up a lot|way up)"
+      - "[make it] (a lot|much) louder"
+      - "speaker {speaker} (turn|crank) [the] (volume|music) up (a lot|way up)"
+      - "speaker {speaker} (turn|crank) up [the] (volume|music) (a lot|way up)"
+      - "speaker {speaker} turn it up (a lot|way up)"
+      - "speaker {speaker} turn it way up"
+      - "speaker {speaker} turn [the] (volume|music) way up"
+      - "speaker {speaker} (crank|pump) it [up]"
+      - "speaker {speaker} (crank|pump) [the] (volume|music) [up]"
+      - "speaker {speaker} crank up [the] (volume|music)"
+      - "speaker {speaker} blast it"
+      - "speaker {speaker} volume (up a lot|way up)"
+      - "speaker {speaker} [make it] (a lot|much) louder"
+  - trigger: conversation
+    id: volume_up
+    command:
+      - "(turn|crank) [the] (volume|music) up"
+      - "(turn|crank) up [the] (volume|music)"
+      - "turn it up"
+      - "volume up"
+      - "make it louder"
+      - "louder"
+      - "speaker {speaker} (turn|crank) [the] (volume|music) up"
+      - "speaker {speaker} (turn|crank) up [the] (volume|music)"
+      - "speaker {speaker} turn it up"
+      - "speaker {speaker} volume up"
+      - "speaker {speaker} make it louder"
+      - "speaker {speaker} louder"
+  - trigger: conversation
+    id: volume_down_bit
+    command:
+      - "turn [the] (volume|music) down (a bit|a little bit|a little|slightly|a tad)"
+      - "turn down [the] (volume|music) (a bit|a little bit|a little|slightly|a tad)"
+      - "turn it down (a bit|a little bit|a little|slightly|a tad)"
+      - "volume down (a bit|a little bit|a little|slightly|a tad)"
+      - "[make it] (a bit|a little bit|a little|slightly|a tad) quieter"
+      - "speaker {speaker} turn [the] (volume|music) down (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} turn down [the] (volume|music) (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} turn it down (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} volume down (a bit|a little bit|a little|slightly|a tad)"
+      - "speaker {speaker} [make it] (a bit|a little bit|a little|slightly|a tad) quieter"
+  - trigger: conversation
+    id: volume_down_lot
+    command:
+      - "turn [the] (volume|music) down (a lot|way down)"
+      - "turn down [the] (volume|music) (a lot|way down)"
+      - "turn it down (a lot|way down)"
+      - "turn it way down"
+      - "turn [the] (volume|music) way down"
+      - "volume (down a lot|way down)"
+      - "[make it] (a lot|much) quieter"
+      - "speaker {speaker} turn [the] (volume|music) down (a lot|way down)"
+      - "speaker {speaker} turn down [the] (volume|music) (a lot|way down)"
+      - "speaker {speaker} turn it down (a lot|way down)"
+      - "speaker {speaker} turn it way down"
+      - "speaker {speaker} turn [the] (volume|music) way down"
+      - "speaker {speaker} volume (down a lot|way down)"
+      - "speaker {speaker} [make it] (a lot|much) quieter"
+  - trigger: conversation
+    id: volume_down
+    command:
+      - "turn [the] (volume|music) down"
+      - "turn down [the] (volume|music)"
+      - "turn it down"
+      - "volume down"
+      - "make it quieter"
+      - "quieter"
+      - "speaker {speaker} turn [the] (volume|music) down"
+      - "speaker {speaker} turn down [the] (volume|music)"
+      - "speaker {speaker} turn it down"
+      - "speaker {speaker} volume down"
+      - "speaker {speaker} make it quieter"
+      - "speaker {speaker} quieter"
+  - trigger: conversation
+    id: volume_mute
+    command:
+      - "mute [the] (music|volume|speaker)"
+      - "mute"
+      - "speaker {speaker} mute [the] (music|volume|speaker)"
+      - "speaker {speaker} mute"
+  - trigger: conversation
+    id: volume_unmute
+    command:
+      - "unmute [the] (music|volume|speaker)"
+      - "unmute"
+      - "speaker {speaker} unmute [the] (music|volume|speaker)"
+      - "speaker {speaker} unmute"
+  - trigger: conversation
+    id: volume_level
+    command:
+      - "set [the] (volume|music) [level] to {level} [percent]"
+      - "set [the] (volume|music) [level] at {level} [percent]"
+      - "(volume|music) [to] {level} [percent]"
+      - "speaker {speaker} set [the] (volume|music) [level] to {level} [percent]"
+      - "speaker {speaker} set [the] (volume|music) [level] at {level} [percent]"
+      - "speaker {speaker} (volume|music) [to] {level} [percent]"
+  - trigger: conversation
+    id: volume_max
+    command:
+      - "max (volume|music)"
+      - "(maximum|full) (volume|music)"
+      - "turn [the] (volume|music) (all the way up|to the max)"
+      - "turn it (all the way up|to the max)"
+      - "speaker {speaker} max (volume|music)"
+      - "speaker {speaker} (maximum|full) (volume|music)"
+      - "speaker {speaker} turn [the] (volume|music) (all the way up|to the max)"
+      - "speaker {speaker} turn it (all the way up|to the max)"
+  - trigger: conversation
+    id: volume_min
+    command:
+      - "minimum (volume|music)"
+      - "min (volume|music)"
+      - "turn [the] (volume|music) all the way down"
+      - "turn it all the way down"
+      - "speaker {speaker} minimum (volume|music)"
+      - "speaker {speaker} min (volume|music)"
+      - "speaker {speaker} turn [the] (volume|music) all the way down"
+      - "speaker {speaker} turn it all the way down"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'volume_mute' }}"
+        sequence:
+          - action: media_player.volume_mute
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              is_volume_muted: true
+            continue_on_error: true
+          - set_conversation_response: Done.
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'volume_unmute' }}"
+        sequence:
+          - action: media_player.volume_mute
+            target:
+              entity_id: media_player.homelab_05_satellite_media_player_2
+            data:
+              is_volume_muted: false
+            continue_on_error: true
+          - set_conversation_response: Done.
+    default:
+      - variables:
+          current_vol: >-
+            {{ state_attr('media_player.homelab_05_satellite_media_player_2',
+                          'volume_level') | default(0.5, true) | float(0.5) }}
+          target_vol: >-
+            {% if trigger.id == 'volume_max' %}
+              1.0
+            {% elif trigger.id == 'volume_min' %}
+              0.0
+            {% elif trigger.id == 'volume_level' %}
+              {% set raw = trigger.slots.level | default('50') | string | replace('%', '') | trim %}
+              {% set val = raw | float(50.0) %}
+              {{ (((val / 100.0) if val > 1.0 else val) | max(0.0) | min(1.0)) | round(2) }}
+            {% else %}
+              {% set step = {'volume_up_bit': 0.10,
+                             'volume_up': 0.10,
+                             'volume_up_lot': 0.40,
+                             'volume_down_bit': -0.10,
+                             'volume_down': -0.10,
+                             'volume_down_lot': -0.40}[trigger.id] %}
+              {{ (((current_vol + step) | max(0.0)) | min(1.0)) | round(2) }}
+            {% endif %}
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.homelab_05_satellite_media_player_2
+        data:
+          volume_level: "{{ target_vol }}"
+        continue_on_error: true
+      - set_conversation_response: Done.

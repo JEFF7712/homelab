@@ -191,6 +191,79 @@
   intent: MusicStop
   targets: [media_player.homelab_05_satellite_media_player_2]
   response: Paused.
+- id: music-skip-this-song
+  say: Skip this song.
+  path: local
+  intent: MusicSkip
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-skip-bare
+  say: Skip.
+  path: local
+  intent: MusicSkip
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-volume-up-bit
+  say: Turn up the volume a bit.
+  path: local
+  intent: MusicVolume
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-volume-up-lot
+  say: Turn it up a lot.
+  path: local
+  intent: MusicVolume
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-volume-down-bit
+  say: Turn down the volume a bit.
+  path: local
+  intent: MusicVolume
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-volume-set-numeric
+  say: Set the volume to 50 percent.
+  path: local
+  intent: MusicVolume
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-stop-pronoun
+  say: Turn it off.
+  path: local
+  intent: MusicStop
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Paused.
+- id: music-stop-quiet
+  say: Be quiet.
+  path: local
+  intent: MusicStop
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Paused.
+- id: music-previous-song
+  say: Previous song.
+  path: local
+  intent: MusicPrevious
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-resume
+  say: Resume the music.
+  path: local
+  intent: MusicResume
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-modes-shuffle
+  say: Shuffle the music.
+  path: local
+  intent: MusicModes
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Done.
+- id: music-whats-playing-song
+  say: What song is this?
+  path: local
+  intent: JarvisWhatsPlaying
+  targets: []
+  response: Nights by Frank Ocean.
+  dynamic: true
 - id: music-put-trailing-on
   say: Put some Travis Scott on.
   path: local

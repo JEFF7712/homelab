@@ -1,0 +1,34 @@
+id: jarvis_music_resume
+alias: "Jarvis: Music Resume"
+description: >-
+  Deterministically resume or unpause music playback on the satellite speaker.
+  Kept as a conversation trigger so it never depends on the conversation agent.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: resume
+    command:
+      - "resume [the] (music|playback|song|track)"
+      - "resume"
+      - "unpause [the] (music|playback|song|track)"
+      - "unpause"
+      - "continue [the] (music|song|track)"
+      - "continue playing [the] (music|song|track)"
+      - "continue playing"
+      - "keep playing [the] (music|song|track)"
+      - "keep playing"
+      - "speaker {speaker} resume [the] (music|playback|song|track)"
+      - "speaker {speaker} resume"
+      - "speaker {speaker} unpause [the] (music|playback|song|track)"
+      - "speaker {speaker} unpause"
+      - "speaker {speaker} continue [the] (music|song|track)"
+      - "speaker {speaker} continue playing [the] (music|song|track)"
+      - "speaker {speaker} continue playing"
+      - "speaker {speaker} keep playing [the] (music|song|track)"
+      - "speaker {speaker} keep playing"
+conditions: []
+actions:
+  - action: media_player.media_play
+    target:
+      entity_id: media_player.homelab_05_satellite_media_player_2
+  - set_conversation_response: Done.
