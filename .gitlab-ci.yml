@@ -787,7 +787,8 @@ sync_to_github:
         cred_config=$(mktemp /tmp/gh-credential-config-XXXXXX)
         printf "%s\n" "[credential \"https://github.com\"]" "helper =" > "$cred_config"
         printf "!f() { echo username=x-access-token; echo password=%s; }; f\n" "$GITHUB_TOKEN" >> "$cred_config"
-        git config --local include.path "$cred_config"
+        git config --local --unset-all include.path 2>/dev/null || true
+        git config --local --add include.path "$cred_config"
         git remote set-url github https://github.com/JEFF7712/homelab-new.git 2>/dev/null ||
           git remote add github https://github.com/JEFF7712/homelab-new.git
         git fetch --unshallow origin 2>/dev/null || git fetch origin

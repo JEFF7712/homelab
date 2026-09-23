@@ -124,6 +124,6 @@ import {
 }
 
 import {
-  to = opnsense_firewall_filter.managed["netbird-allow-private"]
+  to = opnsense_firewall_filter.managed["netbird-allow-infrastructure"]
   id = "58fe1b1a-e896-45f5-a2e0-93d59eb14d6e"
 }
