@@ -24,6 +24,7 @@ from scripts.registry.core import (
     copy_plan,
     destination_repository,
     discover_inventory,
+    image_kind,
     load_lock,
     render_access_control,
     render_node_config,
@@ -173,6 +174,13 @@ class ImageReferenceTest(unittest.TestCase):
             "upstream/registry.example/port-5443/team/app",
         )
 
+    def test_local_first_party_images_are_not_upstream_imports(self) -> None:
+        reference = ImageReference.parse(
+            "registry.rupan.dev/apps/apolline@sha256:" + "a" * 64
+        )
+        self.assertEqual(image_kind(reference), "first-party")
+        self.assertEqual(destination_repository(reference), "apps/apolline")
+
     def test_rejects_invalid_digest_port_and_repository(self) -> None:
         for value in (
             "busybox@sha256:1234",
@@ -315,6 +323,10 @@ class InventoryTest(unittest.TestCase):
             (root / "gitops/first.yaml").write_text(
                 "image: ghcr.io/jeff7712/app:1\n", encoding="utf-8"
             )
+            (root / "gitops/local.yaml").write_text(
+                "image: registry.rupan.dev/apps/apolline@sha256:" + "a" * 64 + "\n",
+                encoding="utf-8",
+            )
             (root / "flake/modules/k3s-server.nix").write_text("{}", encoding="utf-8")
             inventory = discover_inventory(root)
         references = {item["source"]["reference"] for item in inventory["images"]}
@@ -324,6 +336,7 @@ class InventoryTest(unittest.TestCase):
                 "docker.io/library/nginx:1.27",
                 "ghcr.io/fluxcd/source-controller:v1.9.1",
                 "ghcr.io/jeff7712/app:1",
+                "registry.rupan.dev/apps/apolline@sha256:" + "a" * 64,
             },
         )
         classes = {item["class"] for item in inventory["unresolved_inputs"]}
@@ -778,6 +791,21 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
     def test_node_config_rejects_multiline_password(self) -> None:
         with self.assertRaisesRegex(RegistryError, "one nonempty line"):
             render_node_config(valid_lock(manifest()), "node", "one\ntwo")
+
+    def test_node_config_does_not_rewrite_local_first_party_references(self) -> None:
+        value = valid_lock(manifest())
+        record = value["images"][0]
+        record["kind"] = "first-party"
+        record["source"].update(
+            {
+                "registry": "registry.rupan.dev",
+                "repository": "apps/apolline",
+                "reference": "registry.rupan.dev/apps/apolline@" + record["digest"],
+            }
+        )
+        record["destination_repository"] = "apps/apolline"
+        payload = render_node_config(value, "node-reader", "secret")
+        self.assertNotIn('"registry.rupan.dev":\n    endpoint:', payload)
 
 
 if __name__ == "__main__":

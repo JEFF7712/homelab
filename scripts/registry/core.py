@@ -108,6 +108,10 @@ def _validate_registry(registry: str) -> None:
 
 
 def image_kind(reference: ImageReference) -> str:
+    if reference.registry == DEFAULT_REGISTRY and reference.repository.startswith(
+        "apps/"
+    ):
+        return "first-party"
     if reference.registry in {
         "docker.io",
         "ghcr.io",
@@ -119,6 +123,10 @@ def image_kind(reference: ImageReference) -> str:
 def destination_repository(reference: ImageReference, kind: str | None = None) -> str:
     selected_kind = kind or image_kind(reference)
     if selected_kind == "first-party":
+        if reference.registry == DEFAULT_REGISTRY and reference.repository.startswith(
+            "apps/"
+        ):
+            return reference.repository
         if not reference.repository.startswith("jeff7712/"):
             raise RegistryError(
                 f"first-party repository lacks the expected owner: {reference.repository}"
@@ -1369,6 +1377,8 @@ def render_node_config(lock: Mapping[str, Any], username: str, password: str) ->
         registry = source["registry"]
         repository = source["repository"]
         destination = record["destination_repository"]
+        if registry == destination_registry and repository == destination:
+            continue
         previous = mappings.setdefault(registry, {}).setdefault(repository, destination)
         if previous != destination:
             raise RegistryError(

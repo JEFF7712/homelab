@@ -1,15 +1,19 @@
 {
-  "generated_at": "2026-09-22T23:56:21+00:00",
+  "generated_at": "2026-09-23T00:27:59+00:00",
   "images": [
     {
       "consumers": [
         "gitops/websites/apolline/deployment.yaml:23",
         "observed:apolline/website-deploy-56b94c784c-wk78s/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/apolline",
-      "id": "upstream-apps-apolline-1f2b1b49319f",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/apolline",
+      "id": "first-party-apps-apolline-1f2b1b49319f",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/apolline",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
@@ -24,10 +28,14 @@
         "gitops/media/books.yaml:145",
         "observed:media/bookshelf-7f89767968-9hxxn/bookshelf"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/bookshelf",
-      "id": "upstream-apps-bookshelf-8f4476ef7456",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/bookshelf",
+      "id": "first-party-apps-bookshelf-8f4476ef7456",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/bookshelf",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
@@ -42,10 +50,14 @@
         "gitops/websites/cr-demo/deployment.yaml:22",
         "observed:cr-demo/website-deploy-55d64cf699-s4d5l/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/cr-demo",
-      "id": "upstream-apps-cr-demo-9c35ec73d0e7",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/cr-demo",
+      "id": "first-party-apps-cr-demo-9c35ec73d0e7",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/cr-demo",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
@@ -60,10 +72,14 @@
         "gitops/websites/darkbit/deployment.yaml:23",
         "observed:darkbit/website-deploy-6c676797b4-jsz6w/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/darkbit",
-      "id": "upstream-apps-darkbit-5adeb638671c",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/darkbit",
+      "id": "first-party-apps-darkbit-5adeb638671c",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/darkbit",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
@@ -78,10 +94,14 @@
         "gitops/websites/distrojeff/deployment.yaml:23",
         "observed:distrojeff/website-deploy-79c945646b-t262t/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/distrojeff-site",
-      "id": "upstream-apps-distrojeff-site-6787008ea951",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/distrojeff-site",
+      "id": "first-party-apps-distrojeff-site-6787008ea951",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/distrojeff-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
@@ -96,10 +116,14 @@
         "gitops/automation/renovate-agent.yaml:23",
         "observed:automation/cronjob-renovate-major-reviewer/renovate-major-reviewer"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/homelab-renovate-agent",
-      "id": "upstream-apps-homelab-renovate-agent-d670104077bd",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/homelab-renovate-agent",
+      "id": "first-party-apps-homelab-renovate-agent-d670104077bd",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/homelab-renovate-agent",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:128f085244a15c4fe45fe176be6bad3a112ba13f3fce3173825a9cb3bc4fea58",
@@ -114,10 +138,14 @@
         "gitops/automation/renovate-dashboard.yaml:26",
         "observed:automation/renovate-dashboard-75754c5759-2jpcw/dashboard"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/homelab-renovate-dashboard",
-      "id": "upstream-apps-homelab-renovate-dashboard-4196d7b8fde7",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/homelab-renovate-dashboard",
+      "id": "first-party-apps-homelab-renovate-dashboard-4196d7b8fde7",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/homelab-renovate-dashboard",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3",
@@ -132,10 +160,14 @@
         "gitops/websites/ism/deployment.yaml:22",
         "observed:ism/website-deploy-9758489dd-9nwm8/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/ism",
-      "id": "upstream-apps-ism-3f9e94d29161",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/ism",
+      "id": "first-party-apps-ism-3f9e94d29161",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/ism",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
@@ -150,10 +182,14 @@
         "gitops/websites/majorfinder/deployment.yaml:24",
         "observed:majorfinder/website-deploy-5878cdc676-zh29k/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/majorfinder",
-      "id": "upstream-apps-majorfinder-e327a2109af2",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/majorfinder",
+      "id": "first-party-apps-majorfinder-e327a2109af2",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/majorfinder",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85",
@@ -168,10 +204,14 @@
         "gitops/websites/nixagent/deployment.yaml:38",
         "observed:nixagent/website-deploy-594d65557d-gv5gt/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/nix-agent-site",
-      "id": "upstream-apps-nix-agent-site-93db39f24aea",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/nix-agent-site",
+      "id": "first-party-apps-nix-agent-site-93db39f24aea",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/nix-agent-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
@@ -186,10 +226,14 @@
         "gitops/websites/photography/deployment.yaml:24",
         "observed:photography/website-deploy-7fd56fc86d-h6kxz/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/photography",
-      "id": "upstream-apps-photography-b593d8007be0",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/photography",
+      "id": "first-party-apps-photography-b593d8007be0",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/photography",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6",
@@ -204,10 +248,14 @@
         "gitops/websites/pulse/deployment.yaml:22",
         "observed:pulse/website-deploy-78f6f4c4cb-h6797/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/pulse-site",
-      "id": "upstream-apps-pulse-site-ece379497c34",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/pulse-site",
+      "id": "first-party-apps-pulse-site-ece379497c34",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/pulse-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
@@ -223,10 +271,14 @@
         "observed:obsidian/quartz-notes-7b94bb6f6f-5ss6w/quartz",
         "observed:obsidian/quartz-notes-7b94bb6f6f-gdgq4/quartz"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/quartz",
-      "id": "upstream-apps-quartz-266c648174f5",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/quartz",
+      "id": "first-party-apps-quartz-266c648174f5",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/quartz",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:0023aa4fff0cbe5df1ec652425cdc3b7177fba4641165f3ec8d2d8f8b025f797",
@@ -241,10 +293,14 @@
         "gitops/websites/rupan-dev/deployment.yaml:22",
         "observed:rupan-dev/website-deploy-75478c64db-5p62v/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/rupan-dev",
-      "id": "upstream-apps-rupan-dev-c6b2262cbcf7",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/rupan-dev",
+      "id": "first-party-apps-rupan-dev-c6b2262cbcf7",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/rupan-dev",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
@@ -259,10 +315,14 @@
         "gitops/websites/rupanism/deployment.yaml:22",
         "observed:rupanism/website-deploy-647547ffc7-fn787/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/rupanism",
-      "id": "upstream-apps-rupanism-d8240b90281d",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/rupanism",
+      "id": "first-party-apps-rupanism-d8240b90281d",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/rupanism",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
@@ -278,10 +338,14 @@
         "observed:soluble-rupan/website-deploy-9574bfdbc-94m87/web",
         "observed:soluble-rupan/website-deploy-9574bfdbc-b7tvx/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/solubility-gnn",
-      "id": "upstream-apps-solubility-gnn-e89144247428",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/solubility-gnn",
+      "id": "first-party-apps-solubility-gnn-e89144247428",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/solubility-gnn",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
@@ -296,10 +360,14 @@
         "gitops/websites/spatia/deployment.yaml:37",
         "observed:spatia/website-deploy-6b9b7854d4-d24j7/web"
       ],
-      "destination_repository": "upstream/registry.rupan.dev/apps/spatia-site",
-      "id": "upstream-apps-spatia-site-9862805d74dc",
-      "kind": "upstream",
-      "producer": null,
+      "destination_repository": "apps/spatia-site",
+      "id": "first-party-apps-spatia-site-9862805d74dc",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/spatia-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
@@ -809,8 +877,6 @@
     {
       "consumers": [
         "gitops/voice/exporter.yaml:640",
-        "gitops/voice/gateway.yaml:20",
-        "gitops/voice/gateway.yaml:64",
         "observed:voice/jarvis-exporter-746b49b9fd-9dzx6/exporter",
         "observed:voice/wyoming-stt-gateway-7b4f444c4d-z5vpt/gateway",
         "observed:voice/wyoming-tts-gateway-7dc79c797f-9gfxc/gateway"
@@ -1817,6 +1883,143 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "dea587e28c1c2b7a009948a7f2e28fa42121a5f2",
-  "unresolved_inputs": []
+  "source_revision": "c69840cb7a64565d9b9e758d8dea1075740e2ff9",
+  "unresolved_inputs": [
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/apolline/deployment.yaml:23,observed:apolline/website-deploy-56b94c784c-wk78s/web",
+      "id": "producer:first-party-apps-apolline-1f2b1b49319f",
+      "input": "registry.rupan.dev/apps/apolline@sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/media/books.yaml:145,observed:media/bookshelf-7f89767968-9hxxn/bookshelf",
+      "id": "producer:first-party-apps-bookshelf-8f4476ef7456",
+      "input": "registry.rupan.dev/apps/bookshelf@sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/cr-demo/deployment.yaml:22,observed:cr-demo/website-deploy-55d64cf699-s4d5l/web",
+      "id": "producer:first-party-apps-cr-demo-9c35ec73d0e7",
+      "input": "registry.rupan.dev/apps/cr-demo@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/darkbit/deployment.yaml:23,observed:darkbit/website-deploy-6c676797b4-jsz6w/web",
+      "id": "producer:first-party-apps-darkbit-5adeb638671c",
+      "input": "registry.rupan.dev/apps/darkbit@sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/distrojeff/deployment.yaml:23,observed:distrojeff/website-deploy-79c945646b-t262t/web",
+      "id": "producer:first-party-apps-distrojeff-site-6787008ea951",
+      "input": "registry.rupan.dev/apps/distrojeff-site@sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/automation/renovate-agent.yaml:23,observed:automation/cronjob-renovate-major-reviewer/renovate-major-reviewer",
+      "id": "producer:first-party-apps-homelab-renovate-agent-d670104077bd",
+      "input": "registry.rupan.dev/apps/homelab-renovate-agent@sha256:128f085244a15c4fe45fe176be6bad3a112ba13f3fce3173825a9cb3bc4fea58",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/automation/renovate-dashboard.yaml:26,observed:automation/renovate-dashboard-75754c5759-2jpcw/dashboard",
+      "id": "producer:first-party-apps-homelab-renovate-dashboard-4196d7b8fde7",
+      "input": "registry.rupan.dev/apps/homelab-renovate-dashboard@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/ism/deployment.yaml:22,observed:ism/website-deploy-9758489dd-9nwm8/web",
+      "id": "producer:first-party-apps-ism-3f9e94d29161",
+      "input": "registry.rupan.dev/apps/ism@sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/majorfinder/deployment.yaml:24,observed:majorfinder/website-deploy-5878cdc676-zh29k/web",
+      "id": "producer:first-party-apps-majorfinder-e327a2109af2",
+      "input": "registry.rupan.dev/apps/majorfinder@sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/nixagent/deployment.yaml:38,observed:nixagent/website-deploy-594d65557d-gv5gt/web",
+      "id": "producer:first-party-apps-nix-agent-site-93db39f24aea",
+      "input": "registry.rupan.dev/apps/nix-agent-site@sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/photography/deployment.yaml:24,observed:photography/website-deploy-7fd56fc86d-h6kxz/web",
+      "id": "producer:first-party-apps-photography-b593d8007be0",
+      "input": "registry.rupan.dev/apps/photography@sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/pulse/deployment.yaml:22,observed:pulse/website-deploy-78f6f4c4cb-h6797/web",
+      "id": "producer:first-party-apps-pulse-site-ece379497c34",
+      "input": "registry.rupan.dev/apps/pulse-site@sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/obsidian/deployment.yaml:25,observed:obsidian/quartz-notes-7b94bb6f6f-5ss6w/quartz,observed:obsidian/quartz-notes-7b94bb6f6f-gdgq4/quartz",
+      "id": "producer:first-party-apps-quartz-266c648174f5",
+      "input": "registry.rupan.dev/apps/quartz@sha256:0023aa4fff0cbe5df1ec652425cdc3b7177fba4641165f3ec8d2d8f8b025f797",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/rupan-dev/deployment.yaml:22,observed:rupan-dev/website-deploy-75478c64db-5p62v/web",
+      "id": "producer:first-party-apps-rupan-dev-c6b2262cbcf7",
+      "input": "registry.rupan.dev/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/rupanism/deployment.yaml:22,observed:rupanism/website-deploy-647547ffc7-fn787/web",
+      "id": "producer:first-party-apps-rupanism-d8240b90281d",
+      "input": "registry.rupan.dev/apps/rupanism@sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/soluble-rupan/deployment.yaml:22,observed:soluble-rupan/website-deploy-9574bfdbc-94m87/web,observed:soluble-rupan/website-deploy-9574bfdbc-b7tvx/web",
+      "id": "producer:first-party-apps-solubility-gnn-e89144247428",
+      "input": "registry.rupan.dev/apps/solubility-gnn@sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/spatia/deployment.yaml:37,observed:spatia/website-deploy-6b9b7854d4-d24j7/web",
+      "id": "producer:first-party-apps-spatia-site-9862805d74dc",
+      "input": "registry.rupan.dev/apps/spatia-site@sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    }
+  ]
 }
