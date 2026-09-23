@@ -487,6 +487,66 @@ class LockTest(unittest.TestCase):
         )
         self.assertEqual(len(unresolved), 1)
 
+    def test_resolve_decodes_local_upstream_mirror_paths(self) -> None:
+        raw = manifest()
+        expected_digest = digest(raw)
+        local_reference = (
+            "registry.rupan.dev/upstream/quay.io/prometheus-operator/"
+            f"prometheus-config-reloader:v0.94.0@{expected_digest}"
+        )
+        inventory = {
+            "schema_version": 1,
+            "kind": "registry-inventory",
+            "source_revision": "b" * 40,
+            "images": [
+                {
+                    "id": "upstream-local-mirror",
+                    "kind": "upstream",
+                    "source": {
+                        "registry": "registry.rupan.dev",
+                        "repository": (
+                            "upstream/quay.io/prometheus-operator/"
+                            "prometheus-config-reloader"
+                        ),
+                        "tag": "v0.94.0",
+                        "digest": expected_digest,
+                        "reference": local_reference,
+                    },
+                    "destination_repository": (
+                        "upstream/registry.rupan.dev/upstream/quay.io/"
+                        "prometheus-operator/prometheus-config-reloader"
+                    ),
+                    "consumers": ["observed:observability/prometheus/config-reloader"],
+                    "producer": None,
+                    "retention_class": "deployed",
+                    "observed_manifest": {
+                        "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+                        "platforms": ["linux/amd64"],
+                    },
+                }
+            ],
+            "unresolved_inputs": [],
+        }
+        client = FakeClient(
+            {
+                f"quay.io/prometheus-operator/prometheus-config-reloader@{expected_digest}": raw
+            }
+        )
+
+        lock, unresolved = resolve_inventory(inventory, client)  # type: ignore[arg-type]
+
+        record = lock["images"][0]
+        self.assertEqual(unresolved, [])
+        self.assertEqual(
+            record["source"]["reference"],
+            "quay.io/prometheus-operator/prometheus-config-reloader:"
+            f"v0.94.0@{expected_digest}",
+        )
+        self.assertEqual(
+            record["destination_repository"],
+            "upstream/quay.io/prometheus-operator/prometheus-config-reloader",
+        )
+
     def test_plan_is_ordered_and_uses_digest_sources(self) -> None:
         raw = manifest()
         value = valid_lock(raw)
@@ -655,6 +715,27 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
             report = check_consumers(root, value)
             self.assertEqual(report["status"], "failed")
             self.assertIn("no tested mirror exception", report["errors"][0]["error"])
+
+    def test_check_consumers_accepts_locked_source_and_mirror_digest_with_tag(
+        self,
+    ) -> None:
+        raw = manifest()
+        value = valid_lock(raw)
+        source = value["images"][0]["source"]["reference"]
+        mirror = (
+            f"registry.rupan.dev/{value['images'][0]['destination_repository']}:1.0"
+            f"@{value['images'][0]['digest']}"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "gitops").mkdir()
+            (root / "gitops/app.yaml").write_text(
+                f"image: {source}\nimage: {mirror}\n", encoding="utf-8"
+            )
+
+            report = check_consumers(root, value)
+
+        self.assertEqual(report["status"], "ok")
 
     def test_node_config_uses_exact_rewrites_tls_and_private_atomic_output(
         self,

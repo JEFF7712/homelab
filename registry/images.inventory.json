@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22T23:40:06+00:00",
+  "generated_at": "2026-09-22T23:56:21+00:00",
   "images": [
     {
       "consumers": [
@@ -238,6 +238,7 @@
     },
     {
       "consumers": [
+        "gitops/websites/rupan-dev/deployment.yaml:22",
         "observed:rupan-dev/website-deploy-75478c64db-5p62v/web"
       ],
       "destination_repository": "upstream/registry.rupan.dev/apps/rupan-dev",
@@ -396,24 +397,6 @@
         "registry": "docker.io",
         "repository": "rancher/mirrored-metrics-server",
         "tag": "v0.9.0"
-      }
-    },
-    {
-      "consumers": [
-        "gitops/websites/rupan-dev/deployment.yaml:22",
-        "observed:rupan-dev/website-deploy-756d5bd5d4-s76x8/web"
-      ],
-      "destination_repository": "upstream/registry.rupan.dev/upstream/apps/rupan-dev",
-      "id": "upstream-upstream-apps-rupan-dev-f90a4617bd28",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "reference": "registry.rupan.dev/upstream/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "registry": "registry.rupan.dev",
-        "repository": "upstream/apps/rupan-dev",
-        "tag": null
       }
     },
     {
@@ -1834,6 +1817,6 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "616ca2939b744964a8ac412b38874e33da03c719",
+  "source_revision": "dea587e28c1c2b7a009948a7f2e28fa42121a5f2",
   "unresolved_inputs": []
 }

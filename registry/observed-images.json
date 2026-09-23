@@ -139,12 +139,6 @@
     },
     {
       "consumers": [
-        "rupan-dev/website-deploy-756d5bd5d4-s76x8/web"
-      ],
-      "reference": "registry.rupan.dev/upstream/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac"
-    },
-    {
-      "consumers": [
         "automation/cronjob-cluster-sentinel/cluster-sentinel",
         "automation/cronjob-dockerhub-retention/dockerhub-retention",
         "automation/cronjob-website-healthcheck/healthcheck",
@@ -679,6 +673,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-22T23:39:55+00:00",
+  "observed_at": "2026-09-22T23:56:21+00:00",
   "schema_version": 1
 }
