@@ -393,12 +393,14 @@ Bench results 2026-09-21 (live, `wyoming-chatterbox:10201`):
 
 ## Satellite health
 
-`gitops/voice/satellite.yaml` gates readiness on a TCP probe against port
-6053, so the pod leaves the rotation when the Wyoming server stops
-accepting connections even if the process is still alive. Startup and
-liveness keep the `pgrep -f linux_voice_assistant` exec checks. The HA-level
-`jarvis_satellite_watchdog.yaml` automation stays as the higher-level check
-for HA losing the satellite.
+`gitops/voice/satellite.yaml` gates readiness on a `pgrep -f linux_voice_assistant`
+exec check. Do not probe TCP port 6053: `linux-voice-assistant` implements the
+single-client ESPHome native protocol where any unauthenticated raw TCP
+probe immediately overwrites `state.satellite` and, upon closing, clears it to
+`None` (`ha_connected: false`), breaking the HA connection and disabling all
+audio processing. Liveness and startup keep the same `pgrep` exec checks.
+The HA-level `jarvis_satellite_watchdog.yaml` automation stays as the
+higher-level check for HA losing the satellite.
 
 ## Pinned images
 
@@ -731,7 +733,8 @@ still cycles states.
   `systemctl status satellite-hdmi-audio-clock` if soundbar audio does not return.
   The daemon keeps the ViewSonic on HDMI-A-1 at 1920x1080, position 0,0, and
   the soundbar output on HDMI-A-2 at its supported 1024x768 mode, position
-  1920,0. It reads both outputs and reapplies the combined layout only when
+  0,0 (overlapping to keep canvas width at 1920x1080 and the kiosk face centered).
+  It reads both outputs and reapplies the combined layout only when
   enabled state, mode, or position drifts, avoiding repeated compositor
   reconfiguration while preserving the video clock HDMI audio needs.
 - PipeWire WebRTC echo cancellation evaluated 2026-09-18 and parked: the

@@ -100,6 +100,17 @@
               };
             };
           }
+          # Force onboard audio card to pro-audio profile (exposing pro-output-3 for HDMI soundbar)
+          {
+            matches = [
+              { "device.name" = "~alsa_card.pci-0000_00_1f.3"; }
+            ];
+            actions = {
+              update-props = {
+                "device.profile" = "pro-audio";
+              };
+            };
+          }
           # Pin the LG soundbar PCM as the default output. Measured
           # 2026-09-18: pro-output-3 is the only onboard PCM reaching the
           # soundbar on HDMI-A-2. Placed after the generic onboard rule so
@@ -229,7 +240,7 @@
           output == "soundbar" {
             if (/Enabled: yes/) soundbar_enabled = 1
             if (/1024x768 px, 60\.004002 Hz .*current/) soundbar_mode = 1
-            if (/Position: 1920,0/) soundbar_position = 1
+            if (/Position: 0,0/) soundbar_position = 1
           }
           END {
             exit !(monitor_enabled && monitor_mode && monitor_position &&
@@ -238,7 +249,7 @@
         '; then
           wlr-randr \
             --output HDMI-A-1 --on --mode 1920x1080@60.000000 --pos 0,0 \
-            --output HDMI-A-2 --on --mode 1024x768@60.004002 --pos 1920,0 \
+            --output HDMI-A-2 --on --mode 1024x768@60.004002 --pos 0,0 \
             2>/dev/null || true
         fi
         sleep 2

@@ -24,25 +24,40 @@ spec:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
 metadata:
   name: allow-home-assistant-clients
   namespace: voice
 spec:
-  podSelector:
+  endpointSelector:
     matchExpressions:
       - key: app
         operator: In
         values: [wyoming-gateway, linux-voice-assistant]
-  policyTypes: [Ingress]
   ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: home-assistant
-        - ipBlock:
-            cidr: 10.0.30.13/32
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "10300"
+              protocol: TCP
+            - port: "10201"
+              protocol: TCP
+            - port: "6053"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: home-assistant
+      toPorts:
+        - ports:
+            - port: "10300"
+              protocol: TCP
+            - port: "10201"
+              protocol: TCP
+            - port: "6053"
+              protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -102,25 +117,30 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: observability
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
 metadata:
   name: allow-home-assistant-shadow
   namespace: voice
 spec:
-  podSelector:
+  endpointSelector:
     matchLabels:
       app: local-decision
-  policyTypes: [Ingress]
   ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: home-assistant
-        - ipBlock:
-            cidr: 10.0.30.13/32
-      ports:
-        - {protocol: TCP, port: 8080}
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: home-assistant
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
