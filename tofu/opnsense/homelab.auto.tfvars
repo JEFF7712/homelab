@@ -219,6 +219,22 @@ firewall_filters = {
       destination = { net = "10.0.30.15", port = "38801" }
     }
   }
+  clients-allow-music-assistant = {
+    description = "Allow clients to Music Assistant party view"
+    enabled     = true
+    sequence    = 217
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.20.0/24", port = "" }
+      destination = { net = "10.0.30.15", port = "8095" }
+    }
+  }
   clients-block-private = {
     description = "Block clients from other private VLANs"
     enabled     = true
@@ -489,6 +505,22 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.50.0/24", port = "" }
       destination = { net = "10.0.50.1", port = "53" }
+    }
+  }
+  guest-iot-allow-music-assistant = {
+    description = "Allow guest and IoT devices to Music Assistant party view"
+    enabled     = true
+    sequence    = 505
+    interface   = { interface = ["opt5"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.50.0/24", port = "" }
+      destination = { net = "10.0.30.15", port = "8095" }
     }
   }
   guest-iot-block-private = {
