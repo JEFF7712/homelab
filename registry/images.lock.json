@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-22T22:29:22+00:00",
+  "generated_at": "2026-09-23T00:11:46+00:00",
   "images": [
     {
       "authenticity": {
@@ -537,6 +537,48 @@
         "registry": "ghcr.io",
         "repository": "jeff7712/quartz",
         "tag": "0.0.278"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/websites/rupan-dev/deployment.yaml:22"
+      ],
+      "destination_repository": "apps/rupan-dev",
+      "destination_tags": [
+        "0.0.11",
+        "retention-deployed-2696987cc982af45"
+      ],
+      "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+      "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": {
+        "location": "external-image-repository:ghcr.io/jeff7712/rupan-dev",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+        "reference": "ghcr.io/jeff7712/rupan-dev:0.0.11@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+        "registry": "ghcr.io",
+        "repository": "jeff7712/rupan-dev",
+        "tag": "0.0.11"
       }
     },
     {
@@ -1141,48 +1183,6 @@
         "status": "unsupported"
       },
       "consumers": [
-        "gitops/websites/rupan-dev/deployment.yaml:22"
-      ],
-      "destination_repository": "apps/rupan-dev",
-      "destination_tags": [
-        "0.0.11",
-        "retention-deployed-2696987cc982af45"
-      ],
-      "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-      "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
-      "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
-      ],
-      "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/rupan-dev",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
-      },
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "reference": "ghcr.io/jeff7712/rupan-dev:0.0.11@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "registry": "ghcr.io",
-        "repository": "jeff7712/rupan-dev",
-        "tag": "0.0.11"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
         "gitops/websites/rupanism/deployment.yaml:22"
       ],
       "destination_repository": "upstream/apps/rupanism",
@@ -1327,6 +1327,46 @@
         "registry": "docker.io",
         "repository": "binwiederhier/ntfy",
         "tag": "v2.28.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/music-assistant/server.yaml:73",
+        "observed:music-assistant/music-assistant-76b7c5b4d9-pnjh2/pot-provider"
+      ],
+      "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
+      "destination_tags": [
+        "2.0.0",
+        "retention-deployed-ed86b6fdd5e430dd"
+      ],
+      "digest": "sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164",
+      "id": "upstream-brainicism-bgutil-ytdlp-pot-provider-35887a062cb4",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164",
+        "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164",
+        "registry": "docker.io",
+        "repository": "brainicism/bgutil-ytdlp-pot-provider",
+        "tag": "2.0.0"
       }
     },
     {
@@ -3013,6 +3053,134 @@
         "status": "unsupported"
       },
       "consumers": [
+        "observed:observability/alloy-5vq4p/config-reloader",
+        "observed:observability/alloy-hkms9/config-reloader",
+        "observed:observability/alloy-p9kb6/config-reloader",
+        "observed:observability/alloy-ptbjf/config-reloader",
+        "observed:observability/alloy-qkq6l/config-reloader"
+      ],
+      "destination_repository": "upstream/quay.io/prometheus-operator/prometheus-config-reloader",
+      "destination_tags": [
+        "retention-deployed-7d9e4eea5f1139e6"
+      ],
+      "digest": "sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1",
+      "id": "upstream-prometheus-operator-prometheus-config-reloader-065d2f8ad0ea",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1",
+        "reference": "quay.io/prometheus-operator/prometheus-config-reloader@sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1",
+        "registry": "quay.io",
+        "repository": "prometheus-operator/prometheus-config-reloader",
+        "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "observed:observability/alertmanager-kube-prometheus-stack-alertmanager-0/config-reloader",
+        "observed:observability/alertmanager-kube-prometheus-stack-alertmanager-0/init-config-reloader",
+        "observed:observability/prometheus-kube-prometheus-stack-prometheus-0/config-reloader",
+        "observed:observability/prometheus-kube-prometheus-stack-prometheus-0/init-config-reloader"
+      ],
+      "destination_repository": "upstream/quay.io/prometheus-operator/prometheus-config-reloader",
+      "destination_tags": [
+        "retention-deployed-142a1f11df8dd165",
+        "v0.94.0"
+      ],
+      "digest": "sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7",
+      "id": "upstream-prometheus-operator-prometheus-config-reloader-475df58f426c",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7",
+        "reference": "quay.io/prometheus-operator/prometheus-config-reloader:v0.94.0@sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7",
+        "registry": "quay.io",
+        "repository": "prometheus-operator/prometheus-config-reloader",
+        "tag": "v0.94.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "observed:observability/kube-prometheus-stack-operator-86cbb954f5-mrsfs/kube-prometheus-stack"
+      ],
+      "destination_repository": "upstream/quay.io/prometheus-operator/prometheus-operator",
+      "destination_tags": [
+        "retention-deployed-cf153f64d6c38113"
+      ],
+      "digest": "sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55",
+      "id": "upstream-prometheus-operator-prometheus-operator-eec2f60706ab",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55",
+        "reference": "quay.io/prometheus-operator/prometheus-operator@sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55",
+        "registry": "quay.io",
+        "repository": "prometheus-operator/prometheus-operator",
+        "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:observability/prometheus-kube-prometheus-stack-prometheus-0/prometheus"
       ],
       "destination_repository": "upstream/quay.io/prometheus/prometheus",
@@ -4551,5 +4719,6 @@
     }
   ],
   "schema_version": 1,
-  "source_revision": "unavailable"
+  "source_revision": "dea587e28c1c2b7a009948a7f2e28fa42121a5f2",
+  "unresolved_inputs": []
 }

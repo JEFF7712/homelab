@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d
+          image: >-
+            registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d
           args: ["python3", "/app/gateway.py", "--mode", "stt", "--port", "10300"]
           env:
             - name: WYOMING_BACKENDS
@@ -61,7 +62,8 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d
+          image: >-
+            registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d
           args: ["python3", "/app/gateway.py", "--mode", "tts", "--port", "10201"]
           env:
             - name: WYOMING_BACKENDS

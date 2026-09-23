@@ -143,6 +143,25 @@ def _stable_id(reference: ImageReference, kind: str) -> str:
     return f"{kind}-{slug}-{hashlib.sha256(identity).hexdigest()[:12]}"
 
 
+def _decode_local_upstream_mirror(
+    reference: ImageReference, destination_registry: str
+) -> ImageReference | None:
+    prefix = "upstream/"
+    if (
+        reference.registry != destination_registry
+        or not reference.repository.startswith(prefix)
+    ):
+        return None
+    try:
+        return ImageReference.parse(
+            reference.repository.removeprefix(prefix)
+            + (f":{reference.tag}" if reference.tag else "")
+            + (f"@{reference.digest}" if reference.digest else "")
+        )
+    except RegistryError:
+        return None
+
+
 def _source_revision(root: pathlib.Path) -> str:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -193,6 +212,15 @@ def build_live_snapshot(
             )
             consumer_prefix = f"{namespace}/{name}"
         elif kind == "Job":
+            job_status = item.get("status") or {}
+            conditions = job_status.get("conditions", [])
+            if job_status.get("completionTime") or any(
+                isinstance(condition, dict)
+                and condition.get("status") == "True"
+                and condition.get("type") in {"Complete", "Failed"}
+                for condition in conditions
+            ):
+                continue
             spec = (item.get("spec") or {}).get("template", {}).get("spec", {})
             status_fields = ()
             consumer_prefix = f"{namespace}/job-{name}"
@@ -374,11 +402,9 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
                     if candidate["source"]["registry"] == reference.registry
                     and candidate["source"]["repository"] == reference.repository
                     and (
-                        candidate["source"]["tag"] == reference.tag
-                        or (
-                            reference.digest is not None
-                            and candidate["source"]["digest"] == reference.digest
-                        )
+                        candidate["source"]["digest"] == reference.digest
+                        if reference.digest is not None
+                        else candidate["source"]["tag"] == reference.tag
                     )
                 ),
                 None,
@@ -873,6 +899,19 @@ def resolve_inventory(
     for image in inventory["images"]:
         source = image["source"]
         reference = ImageReference.parse(source["reference"])
+        original_reference = _decode_local_upstream_mirror(
+            reference, destination_registry
+        )
+        if original_reference is not None:
+            reference = original_reference
+            source = {
+                **source,
+                "registry": reference.registry,
+                "repository": reference.repository,
+                "tag": reference.tag,
+                "digest": reference.digest,
+                "reference": reference.canonical,
+            }
         try:
             observed_digest, media_type, platforms = manifest_details(
                 client, reference.immutable if reference.digest else reference.canonical
@@ -914,6 +953,11 @@ def resolve_inventory(
             f"retention-{image['retention_class']}-{digest.removeprefix('sha256:')[:16]}"
         )
         record = dict(image)
+        if original_reference is not None:
+            record["id"] = _stable_id(reference, str(image["kind"]))
+            record["destination_repository"] = destination_repository(
+                reference, str(image["kind"])
+            )
         record.pop("observed_manifest", None)
         records.append(
             {
@@ -1249,14 +1293,23 @@ def operation_report(
 def check_consumers(root: pathlib.Path, lock: Mapping[str, Any]) -> dict[str, Any]:
     inventory = discover_inventory(root)
     allowed = {
-        f"{lock['destination_registry']}/{record['destination_repository']}@{record['digest']}"
+        (registry, repository, digest)
         for record in lock["images"]
+        for registry, repository in (
+            (record["source"]["registry"], record["source"]["repository"]),
+            (lock["destination_registry"], record["destination_repository"]),
+        )
+        for digest in (record["digest"],)
     }
     exceptions = lock.get("mirror_exceptions", [])
     errors: list[dict[str, str]] = []
     for image in inventory["images"]:
         reference = image["source"]["reference"]
-        if reference in allowed:
+        parsed = ImageReference.parse(reference)
+        if (
+            parsed.digest is not None
+            and (parsed.registry, parsed.repository, parsed.digest) in allowed
+        ):
             continue
         for consumer in image["consumers"]:
             if _matches_exception(reference, consumer, exceptions):

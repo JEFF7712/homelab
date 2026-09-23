@@ -8,25 +8,18 @@
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-5b4b6648dc-6nrl7/pot-provider"
+        "music-assistant/music-assistant-76b7c5b4d9-pnjh2/pot-provider"
       ],
       "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
     },
     {
       "consumers": [
-        "voice/jarvis-exporter-86f558846c-gmc2r/exporter",
         "voice/wyoming-stt-gateway-74dff88f4f-7dw26/gateway",
         "voice/wyoming-stt-gateway-74dff88f4f-k5jr6/gateway",
         "voice/wyoming-tts-gateway-56b867999d-dccp9/gateway",
         "voice/wyoming-tts-gateway-56b867999d-h9jft/gateway"
       ],
       "reference": "docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
-    },
-    {
-      "consumers": [
-        "kube-system/job-helm-install-cilium/helm"
-      ],
-      "reference": "docker.io/rancher/klipper-helm:v0.13.3-build20260727"
     },
     {
       "consumers": [
@@ -42,35 +35,9 @@
     },
     {
       "consumers": [
-        "voice/wyoming-piper-7d49897466-xfvn8/piper"
+        "apolline/website-deploy-56b94c784c-wk78s/web"
       ],
-      "reference": "docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a"
-    },
-    {
-      "consumers": [
-        "voice/wyoming-nemotron-7ddd4b89df-4ts2r/bridge",
-        "voice/wyoming-whisper-cf887b58d-v74pf/voice-id",
-        "voice/wyoming-whisper-cf887b58d-v74pf/whisper"
-      ],
-      "reference": "docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80"
-    },
-    {
-      "consumers": [
-        "music-assistant/music-assistant-5b4b6648dc-6nrl7/server"
-      ],
-      "reference": "ghcr.io/music-assistant/server:2.10.4@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
-    },
-    {
-      "consumers": [
-        "voice/linux-voice-assistant-57fd577575-s5gx6/satellite"
-      ],
-      "reference": "ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
-    },
-    {
-      "consumers": [
-        "apolline/website-deploy-f788d5ddd-swwfv/web"
-      ],
-      "reference": "registry.rupan.dev/apps/apolline@sha256:3e60662d89254ab85ea9ab0a534d70922eee627a1de7b5b8cf08903435eb4c8a"
+      "reference": "registry.rupan.dev/apps/apolline@sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3"
     },
     {
       "consumers": [
@@ -80,27 +47,25 @@
     },
     {
       "consumers": [
-        "cr-demo/website-deploy-55459d6bcc-p8ssn/web"
+        "cr-demo/website-deploy-55d64cf699-s4d5l/web"
       ],
-      "reference": "registry.rupan.dev/apps/cr-demo@sha256:65aa32d6593b0d1e8284cd0339a2eafc092b779b99e2df98118c72a1e19e3387"
+      "reference": "registry.rupan.dev/apps/cr-demo@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1"
     },
     {
       "consumers": [
-        "darkbit/website-deploy-686d669644-6hzpc/web"
+        "darkbit/website-deploy-6c676797b4-jsz6w/web"
       ],
-      "reference": "registry.rupan.dev/apps/darkbit@sha256:6c52241abf2223df23394470d2c8851d9add4e706856247f3304b13edc5b7bff"
+      "reference": "registry.rupan.dev/apps/darkbit@sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d"
     },
     {
       "consumers": [
-        "distrojeff/website-deploy-5b696866cf-mtm22/web"
+        "distrojeff/website-deploy-79c945646b-t262t/web"
       ],
-      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:a3e6461a7fc969a68d561ffef660aab7684bd52a9f6d2eabdac34deb3db523d7"
+      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896"
     },
     {
       "consumers": [
-        "automation/cronjob-renovate-major-reviewer/renovate-major-reviewer",
-        "automation/job-renovate-major-reviewer-29835197/renovate-major-reviewer",
-        "automation/job-renovate-major-reviewer-29835257/renovate-major-reviewer"
+        "automation/cronjob-renovate-major-reviewer/renovate-major-reviewer"
       ],
       "reference": "registry.rupan.dev/apps/homelab-renovate-agent@sha256:128f085244a15c4fe45fe176be6bad3a112ba13f3fce3173825a9cb3bc4fea58"
     },
@@ -112,9 +77,9 @@
     },
     {
       "consumers": [
-        "ism/website-deploy-5d5f6c97c9-jrgwh/web"
+        "ism/website-deploy-9758489dd-9nwm8/web"
       ],
-      "reference": "registry.rupan.dev/apps/ism@sha256:41b1dc3eccd6d484877f744777b759c1339c550f560d237c7f6554d1fbef0488"
+      "reference": "registry.rupan.dev/apps/ism@sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220"
     },
     {
       "consumers": [
@@ -124,9 +89,9 @@
     },
     {
       "consumers": [
-        "nixagent/website-deploy-664cc74ddd-mvgfv/web"
+        "nixagent/website-deploy-594d65557d-gv5gt/web"
       ],
-      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:901a466b3e9ed474dba31a7000f1604a0170c306c0e35b72231de6f9cee235b2"
+      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9"
     },
     {
       "consumers": [
@@ -136,9 +101,9 @@
     },
     {
       "consumers": [
-        "pulse/website-deploy-6465bf7b76-bdqdk/web"
+        "pulse/website-deploy-78f6f4c4cb-h6797/web"
       ],
-      "reference": "registry.rupan.dev/apps/pulse-site@sha256:b8564dd25c02ba6ba52ba16b17839d94ed8a042540d0ade75ef6608aecc75db4"
+      "reference": "registry.rupan.dev/apps/pulse-site@sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86"
     },
     {
       "consumers": [
@@ -155,37 +120,29 @@
     },
     {
       "consumers": [
-        "rupanism/website-deploy-86797d9b7d-zdgp2/web"
+        "rupanism/website-deploy-647547ffc7-fn787/web"
       ],
-      "reference": "registry.rupan.dev/apps/rupanism@sha256:fdd2bc2a68439f1f993f2e554a60b973422a441caac251a78c32397e2981ecd5"
+      "reference": "registry.rupan.dev/apps/rupanism@sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada"
     },
     {
       "consumers": [
-        "soluble-rupan/website-deploy-6469f5f84d-sqfp7/web",
-        "soluble-rupan/website-deploy-6469f5f84d-tsrhn/web"
+        "soluble-rupan/website-deploy-9574bfdbc-94m87/web",
+        "soluble-rupan/website-deploy-9574bfdbc-b7tvx/web"
       ],
-      "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:d08831ca8407fc8ca2b0f3bbac78cfa8f00ea1cfcf53d24dd8a09113ac4720b9"
+      "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629"
     },
     {
       "consumers": [
-        "spatia/website-deploy-6ccc785c97-4txxh/web"
+        "spatia/website-deploy-6b9b7854d4-d24j7/web"
       ],
-      "reference": "registry.rupan.dev/apps/spatia-site@sha256:754085d236f6eecef224ff15c94d3b24ba17ce4580bba29733e28cd8220ecdf4"
+      "reference": "registry.rupan.dev/apps/spatia-site@sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57"
     },
     {
       "consumers": [
         "automation/cronjob-cluster-sentinel/cluster-sentinel",
         "automation/cronjob-dockerhub-retention/dockerhub-retention",
         "automation/cronjob-website-healthcheck/healthcheck",
-        "automation/cronjob-website-image-watch/image-watch",
-        "automation/job-cluster-sentinel-29835290/cluster-sentinel",
-        "automation/job-cluster-sentinel-29835300/cluster-sentinel",
-        "automation/job-dockerhub-retention-29833002/dockerhub-retention",
-        "automation/job-dockerhub-retention-29834442/dockerhub-retention",
-        "automation/job-website-healthcheck-29835300/healthcheck",
-        "automation/job-website-healthcheck-29835305/healthcheck",
-        "automation/job-website-image-watch-29835285/image-watch",
-        "automation/job-website-image-watch-29835300/image-watch"
+        "automation/cronjob-website-image-watch/image-watch"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47"
     },
@@ -279,9 +236,9 @@
         "media/radarr-6747969b69-nqwfk/fix-permissions",
         "media/seerr-c78685b4d-vpvhd/fix-permissions",
         "media/sonarr-769c7db87b-fzxmv/fix-permissions",
-        "nixagent/website-deploy-664cc74ddd-mvgfv/prepare-nginx-tmp",
+        "nixagent/website-deploy-594d65557d-gv5gt/prepare-nginx-tmp",
         "obsidian/couchdb-67b85f9ddb-czccx/copy-config",
-        "spatia/website-deploy-6ccc785c97-4txxh/prepare-nginx-tmp"
+        "spatia/website-deploy-6b9b7854d4-d24j7/prepare-nginx-tmp"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616"
     },
@@ -318,23 +275,23 @@
     {
       "consumers": [
         "backups/cronjob-home-assistant-db-dump/pg-dump",
-        "backups/job-home-assistant-db-dump-29830050/pg-dump",
-        "backups/job-home-assistant-db-dump-29831490/pg-dump",
-        "backups/job-home-assistant-db-dump-29832930/pg-dump",
-        "backups/job-home-assistant-db-dump-29834370/pg-dump",
         "home-assistant/home-assistant-postgres-65d649576d-jr222/postgres"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be"
     },
     {
       "consumers": [
-        "backups/cronjob-immich-db-dump/pg-dump",
-        "backups/job-immich-db-dump-29830020/pg-dump",
-        "backups/job-immich-db-dump-29831460/pg-dump",
-        "backups/job-immich-db-dump-29832900/pg-dump",
-        "backups/job-immich-db-dump-29834340/pg-dump"
+        "backups/cronjob-immich-db-dump/pg-dump"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+    },
+    {
+      "consumers": [
+        "voice/jarvis-exporter-746b49b9fd-9dzx6/exporter",
+        "voice/wyoming-stt-gateway-7b4f444c4d-z5vpt/gateway",
+        "voice/wyoming-tts-gateway-7dc79c797f-9gfxc/gateway"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
     },
     {
       "consumers": [
@@ -363,17 +320,23 @@
     {
       "consumers": [
         "backups/cronjob-dumps-to-r2/restic",
-        "backups/job-dumps-to-r2-29830080/restic",
-        "backups/job-dumps-to-r2-29831520/restic",
-        "backups/job-dumps-to-r2-29832960/restic",
-        "backups/job-dumps-to-r2-29834400/restic",
-        "immich/cronjob-library-to-local-repo/restic",
-        "immich/job-library-to-local-repo-29829960/restic",
-        "immich/job-library-to-local-repo-29831400/restic",
-        "immich/job-library-to-local-repo-29832840/restic",
-        "immich/job-library-to-local-repo-29834280/restic"
+        "immich/cronjob-library-to-local-repo/restic"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510"
+    },
+    {
+      "consumers": [
+        "voice/wyoming-piper-dc4d7cb55-9wspm/piper"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a"
+    },
+    {
+      "consumers": [
+        "voice/wyoming-nemotron-5f5bfc4bbd-4pnpk/bridge",
+        "voice/wyoming-whisper-dc994c5cd-kvdp7/voice-id",
+        "voice/wyoming-whisper-dc994c5cd-kvdp7/whisper"
+      ],
+      "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80"
     },
     {
       "consumers": [
@@ -495,14 +458,20 @@
     },
     {
       "consumers": [
+        "music-assistant/music-assistant-76b7c5b4d9-pnjh2/server"
+      ],
+      "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
+    },
+    {
+      "consumers": [
+        "voice/linux-voice-assistant-6d855bcddb-khwx4/satellite"
+      ],
+      "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
+    },
+    {
+      "consumers": [
         "automation/cronjob-renovate-github/renovate",
-        "automation/cronjob-renovate-gitlab/renovate",
-        "automation/job-renovate-github-29834970/renovate",
-        "automation/job-renovate-github-29835090/renovate",
-        "automation/job-renovate-github-29835210/renovate",
-        "automation/job-renovate-gitlab-29835180/renovate",
-        "automation/job-renovate-gitlab-29835240/renovate",
-        "automation/job-renovate-gitlab-29835300/renovate"
+        "automation/cronjob-renovate-gitlab/renovate"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130"
     },
@@ -520,10 +489,7 @@
     },
     {
       "consumers": [
-        "media/cronjob-beets-nightly/beets",
-        "media/job-beets-nightly-29831520/beets",
-        "media/job-beets-nightly-29832960/beets",
-        "media/job-beets-nightly-29834400/beets"
+        "media/cronjob-beets-nightly/beets"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/beets@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c"
     },
@@ -707,6 +673,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-22T23:06:45+00:00",
+  "observed_at": "2026-09-22T23:56:21+00:00",
   "schema_version": 1
 }
