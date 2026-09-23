@@ -189,6 +189,7 @@
     path = [
       pkgs.wlr-randr
       pkgs.curl
+      pkgs.gawk
     ];
     script = ''
       # Wait in-process for the kiosk browser instead of exiting: with
@@ -201,21 +202,32 @@
       # Steady state note: homelab.kiosk.disableOutputs turns HDMI-A-2 off on
       # every cage start so Chromium stays on the primary display; this daemon
       # re-enables it so the soundbar keeps the video clock its audio needs.
-      # HDMI-A-2 must stay at 1080p, not just enabled: a soundbar/TV hotplug
-      # can bring it back at 4K, and an overlapping 4K output crops the face
-      # on the 1080p primary down to one eye corner. 1080p still provides
-      # the video clock HDMI audio needs.
+      # Keep the physical display at the compositor origin and HDMI-A-2 to its
+      # supported soundbar mode. Reapply only after output state drifts.
       while true; do
         if ! wlr-randr 2>/dev/null | awk '
-          /^HDMI-A-2 / { f = 1; en = 0; ok = 0; next }
-          f && /^[^ ]/ { exit !(en && ok) }
-          f && /Enabled: yes/ { en = 1 }
-          f && /\(current\)/ && /1920x1080/ { ok = 1 }
-          END { exit !(en && ok) }
+          /^HDMI-A-1 / { output = "monitor"; next }
+          /^HDMI-A-2 / { output = "soundbar"; next }
+          /^[^ ]/ { output = "" }
+          output == "monitor" {
+            if (/Enabled: yes/) monitor_enabled = 1
+            if (/1920x1080 px, 60\.000000 Hz .*current/) monitor_mode = 1
+            if (/Position: 0,0/) monitor_position = 1
+          }
+          output == "soundbar" {
+            if (/Enabled: yes/) soundbar_enabled = 1
+            if (/1024x768 px, 60\.004002 Hz .*current/) soundbar_mode = 1
+            if (/Position: 1920,0/) soundbar_position = 1
+          }
+          END {
+            exit !(monitor_enabled && monitor_mode && monitor_position &&
+              soundbar_enabled && soundbar_mode && soundbar_position)
+          }
         '; then
-          wlr-randr --output HDMI-A-2 --on --mode 1920x1080@60.000000 2>/dev/null \
-            || wlr-randr --output HDMI-A-2 --on 2>/dev/null \
-            || true
+          wlr-randr \
+            --output HDMI-A-1 --on --mode 1920x1080@60.000000 --pos 0,0 \
+            --output HDMI-A-2 --on --mode 1024x768@60.004002 --pos 1920,0 \
+            2>/dev/null || true
         fi
         sleep 2
       done

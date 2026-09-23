@@ -726,10 +726,11 @@ still cycles states.
   and on via `wlr-randr` as the kiosk user to force a modeset and repopulate
   the ELD, then confirm with a test tone. Check
   `systemctl status satellite-hdmi-audio-clock` if soundbar audio does not return.
-  The daemon pins HDMI-A-2 to 1920x1080, not just enabled: a soundbar/TV
-  hotplug can bring that output back at 4K, and an overlapping 4K output
-  crops the kiosk face on the 1080p primary down to one eye corner. 1080p
-  still provides the video clock HDMI audio needs.
+  The daemon keeps the ViewSonic on HDMI-A-1 at 1920x1080, position 0,0, and
+  the soundbar output on HDMI-A-2 at its supported 1024x768 mode, position
+  1920,0. It reads both outputs and reapplies the combined layout only when
+  enabled state, mode, or position drifts, avoiding repeated compositor
+  reconfiguration while preserving the video clock HDMI audio needs.
 - PipeWire WebRTC echo cancellation evaluated 2026-09-18 and parked: the
   `libpipewire-module-echo-cancel` source exposed the mic with 0.0 dB measured
   reduction on both tonal and wideband playback (correct links, correct
