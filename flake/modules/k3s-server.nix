@@ -131,7 +131,9 @@ in
           ip saddr 10.0.30.0/24 udp dport 8472 accept
           ip saddr 10.42.0.0/16 tcp dport { 6443, 9100, 10250 } accept
           ip saddr { 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.42.0.0/16 } tcp dport { 8123, 21063 } accept
+          ip saddr { 10.0.10.0/24, 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.0.50.0/24, 10.42.0.0/16 } tcp dport 8888 accept
           ip saddr 10.0.30.0/24 udp dport 5353 accept
+          ip saddr 10.0.20.0/24 udp dport 4002 accept
           ip6 saddr { fd42:20::/64, fd42:30::/64 } udp dport { 5353, 5540 } accept
         '';
       };
