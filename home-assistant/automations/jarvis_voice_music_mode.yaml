@@ -1,0 +1,46 @@
+id: jarvis_voice_music_mode
+alias: "Jarvis: Voice Music Mode"
+description: >-
+  Deterministically enables or disables Govee Music Mode via voice.
+mode: restart
+triggers:
+  - trigger: conversation
+    id: "on"
+    command:
+      - "turn on music mode"
+      - "start music mode"
+      - "set music mode"
+      - "enable music mode"
+      - "music mode on"
+      - "turn on [the] govee music mode"
+      - "start [the] govee music mode"
+      - "turn on music mode [on|for] [all] [the] govee lights"
+  - trigger: conversation
+    id: "off"
+    command:
+      - "turn off music mode"
+      - "stop music mode"
+      - "disable music mode"
+      - "music mode off"
+      - "turn off [the] govee music mode"
+      - "stop [the] govee music mode"
+      - "turn off music mode [on|for] [all] [the] govee lights"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "on"
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.govee_music_mode
+          - set_conversation_response: "Done."
+      - conditions:
+          - condition: trigger
+            id: "off"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.govee_music_mode
+          - set_conversation_response: "Done."

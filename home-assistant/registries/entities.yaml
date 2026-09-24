@@ -77,6 +77,10 @@
   icon: mdi:lightbulb-auto
   entity_id: input_boolean.bedroom_lights_auto_on
   labels: []
+- name: Govee Music Mode
+  icon: mdi:music
+  entity_id: input_boolean.govee_music_mode
+  labels: []
 - name: Guest Mode
   icon: mdi:account-multiple
   entity_id: input_boolean.guest_mode
