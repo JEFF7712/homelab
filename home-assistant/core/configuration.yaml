@@ -11,6 +11,12 @@ homeassistant:
       allow_bypass_login: true
 frontend:
   themes: !include_dir_merge_named themes
+panel_iframe:
+  music_assistant:
+    title: Music
+    icon: mdi:music
+    url: http://10.0.30.15:8095
+    require_admin: false
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
