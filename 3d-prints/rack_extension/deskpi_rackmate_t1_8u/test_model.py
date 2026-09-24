@@ -111,7 +111,10 @@ class ExtensionParamsTests(unittest.TestCase):
 
     def test_boss_contains_insert(self) -> None:
         self.assertGreater(BOSS_DEPTH_TARGET_MM, INSERT_LEN_MM)
-        self.assertAlmostEqual(BOSS_DEPTH_TARGET_MM, 7.4)
+        self.assertEqual(params.INSERT_THREAD, "M5x0.8")
+        self.assertAlmostEqual(params.INSERT_OD_MM, 6.7)
+        self.assertAlmostEqual(BOSS_DEPTH_TARGET_MM, 9.3)
+        self.assertAlmostEqual(params.INSERT_PILOT_DIA_MM, 6.2)
 
     def test_rod_math_separates_protrusion_from_clearance(self) -> None:
         pocket = params.pocket_depth_required_mm()
@@ -186,8 +189,27 @@ class ExtensionParamsTests(unittest.TestCase):
         self.assertAlmostEqual(params.M5_INSERT_OD_MEASURED_MM, 6.7)
         self.assertAlmostEqual(params.M5_INSERT_LEAD_DIA_MEASURED_MM, 5.8)
         self.assertEqual(params.M5_INSERT_PILOT_CANDIDATES_MM, (5.8, 6.0, 6.2))
+        self.assertAlmostEqual(params.M5_INSERT_PILOT_ACCEPTED_MM, 6.2)
+        self.assertAlmostEqual(
+            params.INSERT_PILOT_DIA_MM, params.M5_INSERT_PILOT_ACCEPTED_MM
+        )
         self.assertGreater(
             params.M5_INSERT_COUPON_DEPTH_MM, params.M5_INSERT_LEN_MEASURED_MM
+        )
+
+    def test_every_extension_hole_has_one_owner(self) -> None:
+        from . import corner, seam
+
+        holes = seam.extension_hole_centers()
+        bottom = [z for z in holes if z <= params.BOTTOM_BLOCK_TOP_Z_MM]
+        lower = [z for z in holes if params.BOTTOM_BLOCK_TOP_Z_MM < z < corner.SPLICE_Z]
+        splice = [z for z in holes if z == corner.SPLICE_Z]
+        upper = [z for z in holes if corner.SPLICE_Z < z < params.TOP_BLOCK_BOTTOM_Z_MM]
+        top = [z for z in holes if z >= params.TOP_BLOCK_BOTTOM_Z_MM]
+        self.assertEqual(bottom + lower + splice + upper + top, holes)
+        self.assertEqual(
+            (len(bottom), len(lower), len(splice), len(upper), len(top)),
+            (2, 9, 0, 11, 1),
         )
 
 

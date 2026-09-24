@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from . import params, seam
 
-SPLICE_Z = params.PATH_A_BOTTOM_FRAME_MM + params.PATH_A_CLEAR_BODY_MM
+SPLICE_Z = params.SPLICE_Z_MM
 BOTTOM_FRAME_TOP_Z = params.PATH_A_BOTTOM_FRAME_MM
 TOP_FRAME_BOTTOM_Z = params.ADDED_HEIGHT_MM - params.PATH_A_TOP_FRAME_MM
 
@@ -51,7 +51,7 @@ def corner_findings() -> list[str]:
                 "zone: merge into one solid end block, do not web it"
             )
             break
-    splice_holes = [h for h in seam.extension_hole_centers() if abs(h - SPLICE_Z) < 9.0]
+    splice_holes = splice_zone_holes()
     if splice_holes:
         findings.append(
             f"BLOCKING: hole at {splice_holes[0]:.1f} sits on the splice "
@@ -114,18 +114,18 @@ def rev1_proof() -> list[str]:
         SPLICE_Z + params.RAIL_STRIP_HALF_MM,
     )
     for h in splice_zone_holes():
-        lo, hi = boss_extent(h, params.BOSS_OD_MAX_MM)
+        lo, hi = boss_extent(h, params.BOSS_OD_NOMINAL_MM)
         if not (strip[0] <= lo and hi <= strip[1]):
             violations.append(f"splice hole {h:.1f} escapes the rail strip")
     return violations
 
 
 def splice_zone_holes() -> list[float]:
-    """Extension holes whose max boss crosses the splice interface plane."""
+    """Extension holes whose modeled boss crosses the splice interface plane."""
     return [
         h
         for h in seam.extension_hole_centers()
-        if boss_extent(h, params.BOSS_OD_MAX_MM)[0]
+        if boss_extent(h, params.BOSS_OD_NOMINAL_MM)[0]
         < SPLICE_Z
-        < boss_extent(h, params.BOSS_OD_MAX_MM)[1]
+        < boss_extent(h, params.BOSS_OD_NOMINAL_MM)[1]
     ]

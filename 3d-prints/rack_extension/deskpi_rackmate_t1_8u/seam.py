@@ -115,12 +115,12 @@ def rev1_locks() -> list[str]:
             "reinforced end block"
         ),
         (
-            "Splice: continuous reinforced rail strip with local spigot "
-            "relief at the 177.8 mm interface hole"
+            "Splice: joint at 169.85 mm between complete insert bosses; "
+            "spigot relieved behind the rack bosses"
         ),
         (
             "Top corner: one integrated block packing washer seat, 7.8 mm "
-            "nyloc pocket, M4 insert boss, and M5 bore, proved in section"
+            "nyloc pocket, M5 insert boss, and M5 bore, proved in section"
         ),
     ]
 

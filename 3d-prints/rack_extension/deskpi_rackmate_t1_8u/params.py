@@ -21,6 +21,8 @@ U_PITCH_MM = 44.45
 EXTENSION_U = 8
 ADDED_HEIGHT_MM = U_PITCH_MM * EXTENSION_U  # 355.6
 STOCK_CLEAR_OPENING_MM = 222.5
+RACK_HOLE_SPACING_MM = 236.0
+RACK_HOLE_CENTER_X_MM = (BODY_WIDTH_MM - RACK_HOLE_SPACING_MM) / 2
 MAX_INWARD_PROJECTION_PER_SIDE_MM = (BODY_WIDTH_MM - STOCK_CLEAR_OPENING_MM) / 2
 
 # Stock rail phase, z=0 at original lid-support plane, +z upward (measured).
@@ -67,12 +69,13 @@ TIE_BORE_DIA_MM = 6.5
 SPLICE_ENGAGEMENT_MM = 22.0
 SPLICE_CLEARANCE_PER_SIDE_MM = 0.25
 SPIGOT_SHOULDER_MM = 3.0
+SPLICE_Z_MM = 169.85
 
 # --- Rack inserts --------------------------------------------------------------
-INSERT_THREAD = "M4x0.7"
-INSERT_OD_MM = 6.0
-INSERT_LEN_MM = 6.0
-BOSS_DEPTH_TARGET_MM = 7.4
+INSERT_THREAD = "M5x0.8"
+INSERT_OD_MM = 6.7
+INSERT_LEN_MM = 7.9
+BOSS_DEPTH_TARGET_MM = 9.3
 BOSS_OD_MIN_MM = 12.0
 BOSS_OD_MAX_MM = 18.0
 
@@ -152,14 +155,8 @@ def open_measurements() -> list[str]:
     return []
 
 
-# --- Revision 1 end-block detail (locked 2026-09-16) ------------------------------
-# Bottom block: hex nut capture (AF 8.3, 8.0 deep, floor at z=1.6 leaves
-# 0.2 rod-end clearance) + washer recess (dia 20.5, 1.4 deep). Bearing seat
-# at z=11.0. Block spans z=0..25 to swallow the first-hole boss (6.7..24.7).
-# Top block: round socket pocket (dia 12, 9.4 deep for nut + protrusion) +
-# washer recess (dia 20.5, 1.4 deep) from the 355.6 lid plane. Bearing seat
-# at z=344.8, rod end at 355.4. Block spans z=330..355.6 to swallow the
-# top-hole boss (330.9..348.9). Splice strip spans z=167.8..187.8.
+# The bottom mount ends between the 28.4 and 44.3 mm bosses. The upper
+# washer bears at z=344.8; its loading opening extends through the lid plane.
 HEX_POCKET_AF_MM = 8.3
 HEX_POCKET_DEPTH_MM = 8.0
 HEX_POCKET_FLOOR_Z_MM = 1.6
@@ -167,23 +164,23 @@ WASHER_RECESS_DIA_MM = 20.5
 WASHER_RECESS_DEPTH_MM = 1.4
 TOP_NUT_POCKET_DIA_MM = 12.0
 TOP_NUT_POCKET_DEPTH_MM = 9.4
-BOTTOM_BLOCK_TOP_Z_MM = 25.0
+BOTTOM_BLOCK_TOP_Z_MM = 36.35
 TOP_BLOCK_BOTTOM_Z_MM = 330.0
 RAIL_STRIP_HALF_MM = 10.0
 BOSS_OD_NOMINAL_MM = 15.0
-INSERT_PILOT_DIA_MM = 5.4
+INSERT_PILOT_DIA_MM = 6.2
 MAX_SCREW_PENETRATION_MM = 9.0
 BORE_CENTER_X_MM = 14.5
 BORE_CENTER_Y_MM = 15.0
 
-# M5 rack-insert hardware measured 2026-09-23. Final pilot remains gated on
-# the PETG heat-set coupon; the existing M4 production parameters above are
-# retained only until that physical result selects the replacement geometry.
+# M5 rack-insert hardware measured 2026-09-23. The 6.2 mm pilot was physically
+# accepted in PETG on 2026-09-24; 5.8 and 6.0 mm would not accept the insert.
 M5_INSERT_LEN_MEASURED_MM = 7.9
 M5_INSERT_OD_MEASURED_MM = 6.7
 M5_INSERT_LEAD_DIA_MEASURED_MM = 5.8
 M5_INSERT_PILOT_CANDIDATES_MM = (5.8, 6.0, 6.2)
 M5_INSERT_COUPON_DEPTH_MM = 9.3
+M5_INSERT_PILOT_ACCEPTED_MM = 6.2
 
 
 def bottom_pocket_depth_mm() -> float:
@@ -234,6 +231,9 @@ ATTACH_SEAT_Z_MM = 11.5
 M4_MOUNT_SCREW_LEN_MM = 16.0
 CORNER_LIP_START_MM = TOP_MEMBER_WIDTH_MM + LIP_CLEARANCE_MM
 BOTTOM_RETAINER_CLEARANCE_MM = 0.2
+BOTTOM_RETAINER_KEY_LENGTH_MM = 4.0
+BOTTOM_RETAINER_KEY_WIDTH_MM = 4.0
+BOTTOM_RETAINER_KEY_START_X_MM = 8.0
 
 
 def coupon_channel_mm() -> float:
@@ -290,11 +290,14 @@ class CradleEnvelope:
 
 
 def column_module_envelope() -> CradleEnvelope:
-    """Envelope of one 4U column module (clear body + spigot allowance)."""
+    """Largest height of the two printable upright prototypes."""
     return CradleEnvelope(
         x_mm=COLUMN_INWARD_MM,
         y_mm=COLUMN_DEPTH_MM,
-        z_mm=PATH_A_CLEAR_BODY_MM + SPLICE_ENGAGEMENT_MM,
+        z_mm=max(
+            SPLICE_Z_MM - BOTTOM_BLOCK_TOP_Z_MM + SPLICE_ENGAGEMENT_MM,
+            ADDED_HEIGHT_MM - SPLICE_Z_MM,
+        ),
     )
 
 
@@ -307,6 +310,12 @@ def validate() -> list[str]:
         errors.append("Path A stack must equal the 355.6 mm envelope")
     if COLUMN_INWARD_MM > MAX_INWARD_PROJECTION_PER_SIDE_MM + 1e-9:
         errors.append("column inward projection narrows the stock opening")
+    if (
+        not INSERT_OD_MM / 2
+        < RACK_HOLE_CENTER_X_MM
+        < COLUMN_INWARD_MM - INSERT_OD_MM / 2
+    ):
+        errors.append("rack insert must fit within the column width")
     if not fits_bed(
         column_module_envelope().x_mm,
         column_module_envelope().y_mm,
@@ -326,7 +335,7 @@ def validate() -> list[str]:
     ):
         errors.append("handle-hole Y spacing must match measured 131.0 mm")
     if BOSS_DEPTH_TARGET_MM <= INSERT_LEN_MM:
-        errors.append("boss depth must contain the 6 mm insert")
+        errors.append("boss depth must contain the rack insert")
     if USABLE_THREAD_DEPTH_MM is not None and not (
         0
         < THREAD_ENGAGEMENT_MIN_MM
@@ -344,6 +353,12 @@ def validate() -> list[str]:
         errors.append("rack screw tip must clear the M5 bore wall")
     if not BOSS_OD_NOMINAL_MM <= BOSS_OD_MAX_MM:
         errors.append("nominal boss must stay within the OD envelope")
+    for joint in (BOTTOM_BLOCK_TOP_Z_MM, SPLICE_Z_MM):
+        if any(
+            abs(z - joint) <= BOSS_OD_NOMINAL_MM / 2
+            for z in theoretical_hole_centers_below_or_near_seam()
+        ):
+            errors.append("joint plane must not split an insert boss")
     if not (COUPON_Y_START_MM < ATTACH_Y_MM[0] and ATTACH_Y_MM[1] < COUPON_Y_END_MM):
         errors.append("coupon must cover the corner attachment pair")
     if not LIP_CLEARANCE_MM > 0.0:

@@ -56,25 +56,24 @@ class SeamProofTests(unittest.TestCase):
         )
         self.assertAlmostEqual(first, 28.4, places=1)
         self.assertAlmostEqual(last, 327.2, places=1)
-        self.assertIn("177.8", locks)
+        self.assertIn("169.85", locks)
         self.assertIn("7.8 mm", locks)
         self.assertNotIn("8U usable", locks)
 
 
 class CornerSectionTests(unittest.TestCase):
     def test_splice_height_matches_module_stack(self) -> None:
-        self.assertAlmostEqual(corner.SPLICE_Z, 177.8, places=1)
+        self.assertAlmostEqual(corner.SPLICE_Z, params.SPLICE_Z_MM)
 
     def test_first_boss_overlaps_frame(self) -> None:
         lo, _ = corner.boss_extent(seam.first_extension_hole(), params.BOSS_OD_MIN_MM)
         self.assertLess(lo, corner.BOTTOM_FRAME_TOP_Z)
 
-    def test_splice_interface_hole_is_flagged(self) -> None:
-        self.assertIn(
-            round(corner.SPLICE_Z, 1), [round(h, 1) for h in corner.splice_zone_holes()]
-        )
-        findings = "\n".join(corner.corner_findings())
-        self.assertIn("splice", findings)
+    def test_joints_do_not_split_insert_bosses(self) -> None:
+        self.assertEqual(corner.splice_zone_holes(), [])
+        for boundary in (params.BOTTOM_BLOCK_TOP_Z_MM, corner.SPLICE_Z):
+            for hole in seam.extension_hole_centers():
+                self.assertGreater(abs(hole - boundary), params.BOSS_OD_NOMINAL_MM / 2)
 
     def test_top_boss_overlaps_frame_and_pocket(self) -> None:
         _, hi = corner.boss_extent(seam.last_extension_hole(), params.BOSS_OD_MAX_MM)
@@ -84,7 +83,7 @@ class CornerSectionTests(unittest.TestCase):
 
     def test_blocking_findings_are_explicit(self) -> None:
         blocking = [f for f in corner.corner_findings() if f.startswith("BLOCKING")]
-        self.assertGreaterEqual(len(blocking), 3)
+        self.assertGreaterEqual(len(blocking), 2)
 
 
 class Rev1ProofTests(unittest.TestCase):

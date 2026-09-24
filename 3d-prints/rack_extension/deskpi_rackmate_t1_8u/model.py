@@ -2,7 +2,7 @@
 
 Scope: lower interface frame (segmented for the A1 bed), four hollow
 ribbed columns split 4U+4U with spigot splice, continuous M5 tie-rod
-channels, and M4 insert-boss envelopes on front/rear rack faces.
+channels, and M5 insert-boss envelopes on front/rear rack faces.
 End blocks, seam drawing geometry, and measured handle datums beyond the
 PRD table are intentionally schematic and gated, not production.
 """
@@ -94,10 +94,12 @@ def column_body(z_base: float, length: float, with_bore: bool = True) -> Part:
     return cast(Part, col.locate(Location((0, 0, z_base))))
 
 
-def lower_column_module(origin_x: float, origin_y: float) -> Part:
-    """Lower 4U module with male spigot on top (zero added stack height)."""
+def lower_column_module(
+    origin_x: float, origin_y: float, face_high: bool = False
+) -> Part:
+    """Schematic lower column with male spigot, with zero added stack height."""
     z_base = Z0_LID_PLANE + params.PATH_A_BOTTOM_FRAME_MM
-    length = params.PATH_A_CLEAR_BODY_MM
+    length = corner.SPLICE_Z - z_base
     col = column_body(z_base, length)
     spigot_w = (
         params.COLUMN_INWARD_MM
@@ -123,12 +125,26 @@ def lower_column_module(origin_x: float, origin_y: float) -> Part:
             )
         )
     )
-    return cast(
+    part = cast(
         Part,
         col.moved(Location((origin_x, origin_y, 0)))
         + spigot
-        - tie_bore_at(origin_x, origin_y, z_base + length, params.SPLICE_ENGAGEMENT_MM),
+        - _spigot_rack_relief(
+            z_base + length, params.SPLICE_ENGAGEMENT_MM, face_high
+        ).moved(Location((origin_x, origin_y, 0)))
+        - tie_bore_at(
+            origin_x,
+            origin_y,
+            z_base + length - params.JOINT_OVERLAP_MM,
+            params.SPLICE_ENGAGEMENT_MM + params.JOINT_OVERLAP_MM,
+        ),
     )
+    holes = [
+        z
+        for z in seam.extension_hole_centers()
+        if params.BOTTOM_BLOCK_TOP_Z_MM < z < corner.SPLICE_Z
+    ]
+    return _add_rack_bosses(part, holes, face_high, origin_x, origin_y)
 
 
 def tie_bore_at(ox: float, oy: float, z: float, length: float) -> Part:
@@ -143,10 +159,12 @@ def tie_bore_at(ox: float, oy: float, z: float, length: float) -> Part:
     )
 
 
-def upper_column_module(origin_x: float, origin_y: float) -> Part:
-    """Upper 4U module with female socket (spigot overlap adds zero height)."""
-    z_base = Z0_LID_PLANE + params.PATH_A_BOTTOM_FRAME_MM + params.PATH_A_CLEAR_BODY_MM
-    length = params.PATH_A_CLEAR_BODY_MM
+def upper_column_module(
+    origin_x: float, origin_y: float, face_high: bool = False
+) -> Part:
+    """Upper column with female socket, with zero added stack height."""
+    z_base = corner.SPLICE_Z
+    length = params.ADDED_HEIGHT_MM - params.PATH_A_TOP_FRAME_MM - z_base
     col = column_body(z_base, length)
     socket_w = (
         params.COLUMN_INWARD_MM
@@ -172,12 +190,18 @@ def upper_column_module(origin_x: float, origin_y: float) -> Part:
             )
         )
     )
-    return cast(
+    part = cast(
         Part,
         col.moved(Location((origin_x, origin_y, 0)))
         - socket
         - tie_bore_at(origin_x, origin_y, z_base - 1.0, length + 2.0),
     )
+    holes = [
+        z
+        for z in seam.extension_hole_centers()
+        if corner.SPLICE_Z < z < params.TOP_BLOCK_BOTTOM_Z_MM
+    ]
+    return _add_rack_bosses(part, holes, face_high, origin_x, origin_y)
 
 
 def _y_cylinder(
@@ -191,9 +215,15 @@ def _y_cylinder(
     return cyl.locate(Location((cx, y_ref, z), (angle, 0, 0)))
 
 
-def _boss_and_pilot(hole_z: float, face_high: bool) -> tuple[Part, Part]:
+def _boss_and_pilot(
+    hole_z: float, face_high: bool, right: bool = False
+) -> tuple[Part, Part]:
     """Merged insert boss (additive) and pilot bore (subtractive) at a hole."""
-    cx = params.BORE_CENTER_X_MM
+    cx = (
+        params.COLUMN_INWARD_MM - params.RACK_HOLE_CENTER_X_MM
+        if right
+        else params.RACK_HOLE_CENTER_X_MM
+    )
     face = params.COLUMN_DEPTH_MM if face_high else 0.0
     cut_ref = params.COLUMN_DEPTH_MM + 1.0 if face_high else -1.0
     boss = _y_cylinder(
@@ -212,11 +242,31 @@ def _boss_and_pilot(hole_z: float, face_high: bool) -> tuple[Part, Part]:
         hole_z,
         outward=not face_high,
     )
-    return boss, pilot
+    envelope = Box(
+        params.COLUMN_INWARD_MM,
+        params.COLUMN_DEPTH_MM,
+        params.BOSS_OD_NOMINAL_MM + 2,
+        align=(Align.MIN, Align.MIN, Align.CENTER),
+    ).locate(Location((0, 0, hole_z)))
+    return cast(Part, boss & envelope), pilot
+
+
+def _add_rack_bosses(
+    part: Part,
+    hole_centers: list[float],
+    face_high: bool,
+    origin_x: float = 0.0,
+    origin_y: float = 0.0,
+) -> Part:
+    for hole_z in hole_centers:
+        boss, pilot = _boss_and_pilot(hole_z, face_high, right=origin_x > 0)
+        offset = Location((origin_x, origin_y, 0))
+        part = cast(Part, part + boss.moved(offset) - pilot.moved(offset))
+    return part
 
 
 def bottom_end_block(origin_x: float, origin_y: float, face_high: bool) -> Part:
-    """Merged frame/first-boss/nut-capture block, z=0..25 (Rev-1 bottom)."""
+    """Schematic end block; phase2_corner_mount adds hardware loading access."""
     w = params.COLUMN_INWARD_MM
     d = params.COLUMN_DEPTH_MM
     top = params.BOTTOM_BLOCK_TOP_Z_MM
@@ -251,8 +301,12 @@ def bottom_end_block(origin_x: float, origin_y: float, face_high: bool) -> Part:
         height=top + 2.0,
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, -1.0)))
-    boss, pilot = _boss_and_pilot(seam_first_hole_z(), face_high)
-    part = block + boss - hex_solid - washer - bore - pilot
+    part = block - hex_solid - washer - bore
+    part = _add_rack_bosses(
+        cast(Part, part),
+        [z for z in seam.extension_hole_centers() if z < params.BOTTOM_BLOCK_TOP_Z_MM],
+        face_high,
+    )
     return cast(Part, part.moved(Location((origin_x, origin_y, 0))))
 
 
@@ -275,31 +329,20 @@ def top_end_block(origin_x: float, origin_y: float, face_high: bool) -> Part:
         Location((0, 0, bottom))
     )
     seat = params.top_bearing_seat_z_mm()
-    nut = Cylinder(
-        radius=params.TOP_NUT_POCKET_DIA_MM / 2,
-        height=params.TOP_NUT_POCKET_DEPTH_MM,
+    hardware_access = Cylinder(
+        radius=params.WASHER_RECESS_DIA_MM / 2,
+        height=params.ADDED_HEIGHT_MM - seat + 1.0,
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, seat)))
-    washer = Cylinder(
-        radius=params.WASHER_RECESS_DIA_MM / 2,
-        height=params.WASHER_RECESS_DEPTH_MM,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    ).locate(
-        Location(
-            (
-                params.BORE_CENTER_X_MM,
-                params.BORE_CENTER_Y_MM,
-                seat + params.TOP_NUT_POCKET_DEPTH_MM,
-            )
-        )
-    )
     bore = Cylinder(
         radius=params.TIE_BORE_DIA_MM / 2,
         height=height + 2.0,
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, bottom - 1.0)))
-    boss, pilot = _boss_and_pilot(_seam.last_extension_hole(), face_high)
-    part = block + boss - nut - washer - bore - pilot
+    boss, pilot = _boss_and_pilot(
+        _seam.last_extension_hole(), face_high, right=origin_x > 0
+    )
+    part = block + boss - hardware_access - bore - pilot
     return cast(Part, part.moved(Location((origin_x, origin_y, 0))))
 
 
@@ -313,12 +356,12 @@ def splice_rail_strip(origin_x: float, origin_y: float, face_high: bool) -> Part
     )
     spigot_w = (
         params.COLUMN_INWARD_MM
-        - 2 * params.SPLICE_CLEARANCE_PER_SIDE_MM
+        + 2 * params.SPLICE_CLEARANCE_PER_SIDE_MM
         - 2 * params.COLUMN_WALL_MM
     )
     spigot_d = (
         params.COLUMN_DEPTH_MM
-        - 2 * params.SPLICE_CLEARANCE_PER_SIDE_MM
+        + 2 * params.SPLICE_CLEARANCE_PER_SIDE_MM
         - 2 * params.COLUMN_WALL_MM
     )
     relief = Box(
@@ -332,8 +375,11 @@ def splice_rail_strip(origin_x: float, origin_y: float, face_high: bool) -> Part
         height=2 * half + 2.0,
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((w / 2, d / 2, corner.SPLICE_Z - half - 1.0)))
-    boss, pilot = _boss_and_pilot(corner.SPLICE_Z, face_high)
-    part = strip + boss - relief - bore - pilot
+    part = strip - relief - bore
+    holes = [
+        z for z in seam.extension_hole_centers() if abs(z - corner.SPLICE_Z) < half
+    ]
+    part = _add_rack_bosses(cast(Part, part), holes, face_high)
     return cast(Part, part.moved(Location((origin_x, origin_y, 0))))
 
 
@@ -493,6 +539,14 @@ def m5_insert_pilot_coupon() -> Part:
     return cast(Part, coupon - marker)
 
 
+def m5_rack_boss_coupon() -> Part:
+    """Representative upright wall, M5 boss, pilot, and tie-rod clearance."""
+    height = 20.0
+    coupon = column_body(0.0, height)
+    boss, pilot = _boss_and_pilot(height / 2, False)
+    return cast(Part, coupon + boss - pilot)
+
+
 def _splice_strip_half(lower: bool) -> Part:
     half = params.RAIL_STRIP_HALF_MM
     z0 = corner.SPLICE_Z - half if lower else corner.SPLICE_Z
@@ -503,6 +557,26 @@ def _splice_strip_half(lower: bool) -> Part:
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((params.COLUMN_INWARD_MM / 2, params.COLUMN_DEPTH_MM / 2, z0)))
     return cast(Part, splice_rail_strip(0, 0, False) & clip)
+
+
+def _spigot_rack_relief(z: float, height: float, face_high: bool = False) -> Part:
+    depth = params.BOSS_DEPTH_TARGET_MM + params.SPLICE_CLEARANCE_PER_SIDE_MM
+    y = params.COLUMN_DEPTH_MM - depth if face_high else -1.0
+    return Box(
+        params.COLUMN_INWARD_MM + 2.0,
+        depth + 1.0,
+        height + 1.0,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((-1.0, y, z)))
+
+
+def _retainer_key(clearance: float = 0.0) -> Part:
+    return Box(
+        params.BOTTOM_RETAINER_KEY_LENGTH_MM + clearance,
+        params.BOTTOM_RETAINER_KEY_WIDTH_MM + 2 * clearance,
+        params.HEX_POCKET_FLOOR_Z_MM + params.HEX_POCKET_DEPTH_MM,
+        align=(Align.MIN, Align.CENTER, Align.MIN),
+    ).locate(Location((params.BOTTOM_RETAINER_KEY_START_X_MM, 0, 0)))
 
 
 def phase2_corner_mount() -> Part:
@@ -546,7 +620,10 @@ def phase2_corner_mount() -> Part:
             )
         )
         prototype = cast(Part, prototype - access)
-    _, pilot = _boss_and_pilot(seam_first_hole_z(), False)
+    for z in seam.extension_hole_centers():
+        if z < params.BOTTOM_BLOCK_TOP_Z_MM:
+            _, pilot = _boss_and_pilot(z, False)
+            prototype = cast(Part, prototype - pilot)
     tie_bore = tie_bore_at(0, 0, -1.0, mount_top + 2.0)
     hardware_opening = Cylinder(
         radius=params.WASHER_RECESS_DIA_MM / 2,
@@ -558,7 +635,18 @@ def phase2_corner_mount() -> Part:
         ),
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, -1.0)))
-    prototype = cast(Part, prototype - pilot - tie_bore - hardware_opening)
+    prototype = cast(
+        Part,
+        prototype
+        - tie_bore
+        - hardware_opening
+        - _retainer_key(params.BOTTOM_RETAINER_CLEARANCE_MM).moved(
+            Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, 0))
+        )
+        - _spigot_rack_relief(
+            params.BOTTOM_BLOCK_TOP_Z_MM, params.LOWER_MOUNT_SPIGOT_HEIGHT_MM
+        ),
+    )
     return prototype
 
 
@@ -579,7 +667,7 @@ def phase2_bottom_nut_retainer() -> Part:
         height=height + 2.0,
         align=(Align.CENTER, Align.CENTER, Align.MIN),
     ).locate(Location((0, 0, -1.0)))
-    return cast(Part, outer - nut - bore)
+    return cast(Part, outer + _retainer_key() - nut - bore)
 
 
 def phase2_lower_upright() -> Part:
@@ -643,22 +731,56 @@ def phase2_lower_upright() -> Part:
             0, 0, bottom - 1.0, top - bottom + params.SPLICE_ENGAGEMENT_MM + 2.0
         ),
     )
-    _, pilot = _boss_and_pilot(corner.SPLICE_Z, False)
-    prototype = cast(Part, prototype - pilot)
+    holes = [
+        z
+        for z in seam.extension_hole_centers()
+        if params.BOTTOM_BLOCK_TOP_Z_MM < z < corner.SPLICE_Z
+    ]
+    prototype = _add_rack_bosses(prototype, holes, False)
+    prototype = cast(
+        Part, prototype - _spigot_rack_relief(top, params.SPLICE_ENGAGEMENT_MM)
+    )
     return cast(Part, prototype.moved(Location((0, 0, -bottom))))
 
 
 def phase2_upper_upright() -> Part:
-    """Upper half-splice, upper 4U module, and reinforced top corner."""
+    """Upper splice shoulder, column, and reinforced top corner."""
     prototype = (
         _splice_strip_half(lower=False)
         + upper_column_module(0, 0)
         + top_end_block(0, 0, False)
     )
-    for z in (corner.SPLICE_Z, seam.last_extension_hole()):
+    holes = [
+        z
+        for z in seam.extension_hole_centers()
+        if corner.SPLICE_Z < z < params.TOP_BLOCK_BOTTOM_Z_MM
+    ]
+    prototype = _add_rack_bosses(cast(Part, prototype), holes, False)
+    for z in seam.extension_hole_centers():
         _, pilot = _boss_and_pilot(z, False)
         prototype = cast(Part, prototype - pilot)
     return cast(Part, prototype.moved(Location((0, 0, -corner.SPLICE_Z))))
+
+
+def m5_rack_pitch_coupon() -> Part:
+    """One production rack-hole triple with wall, bosses, and tie-rod channel."""
+    z0 = 20.0
+    height = 48.0
+    clip = Box(
+        params.COLUMN_INWARD_MM,
+        params.COLUMN_DEPTH_MM,
+        height,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((0, 0, z0)))
+    coupon = (
+        _add_rack_bosses(
+            column_body(z0, height),
+            [z for z in seam.extension_hole_centers() if z0 < z < z0 + height],
+            False,
+        )
+        & clip
+    )
+    return cast(Part, coupon.moved(Location((0, 0, -z0))))
 
 
 def phase2_mount_spigot_fit_coupon() -> Part:
@@ -686,6 +808,28 @@ def phase2_mount_socket_fit_coupon() -> Part:
     return cast(Part, phase2_lower_upright() & clip)
 
 
+def phase2_splice_fit_coupon(lower: bool) -> Part:
+    part = phase2_lower_upright() if lower else phase2_upper_upright()
+    z0 = corner.SPLICE_Z - params.BOTTOM_BLOCK_TOP_Z_MM - 18.0 if lower else 0.0
+    height = 18.0 + params.SPLICE_ENGAGEMENT_MM if lower else 32.0
+    clip = Box(
+        params.COLUMN_INWARD_MM,
+        params.COLUMN_DEPTH_MM,
+        height,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((0, 0, z0)))
+    return cast(Part, (part & clip).moved(Location((0, 0, -z0))))
+
+
+def rack_spacing_fit_coupon() -> Part:
+    """Test the 234 mm mounting pitch used by the existing Wyse cradle."""
+    coupon = Box(250.0, 12.0, 3.0, align=(Align.MIN, Align.MIN, Align.MIN))
+    for x in (8.0, 242.0):
+        hole = Cylinder(2.25, 5.0, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        coupon = coupon - hole.moved(Location((x, 6.0, -1.0)))
+    return cast(Part, coupon)
+
+
 def column_origins() -> list[tuple[float, float]]:
     w = params.COLUMN_INWARD_MM
     d = params.COLUMN_DEPTH_MM
@@ -700,8 +844,9 @@ def column_origins() -> list[tuple[float, float]]:
 def build_columns() -> list[Part]:
     parts: list[Part] = []
     for ox, oy in column_origins():
-        parts.append(lower_column_module(ox, oy))
-        parts.append(upper_column_module(ox, oy))
+        face_high = oy > 0
+        parts.append(lower_column_module(ox, oy, face_high))
+        parts.append(upper_column_module(ox, oy, face_high))
     return parts
 
 
@@ -713,11 +858,11 @@ def audit_gates() -> list[str]:
             "-0.2(omitted)/+15.7 provided; 7 full U + partials, see seam.py"
         ),
         (
-            "G2 corner section: supported end-block load path for the 7.8 mm "
-            "nyloc stack inside the 12 mm frame zone (1.2 mm residual web "
-            "is not structural)"
+            "G2 corner load path: revised washer seats require physical proof; "
+            "M4 seat at 11.5 mm locally overlaps the 11 mm pocket roof, "
+            "leaving only 0.5 mm separation"
         ),
-        "G3 insert/splice/end-pocket interference sections at three stations",
+        "G3 revised joints pass CAD interference checks; printed fit, insert setting and hardware access remain untested",
         "G4 PETG creep / retained-clamp lateral-load validation with limits",
         (
             "G5 final rod cut length from measured seat spacing, not the "
@@ -728,9 +873,9 @@ def audit_gates() -> list[str]:
             "footprint, heavy-low placement, and staged ballast test"
         ),
         (
-            "G7 measurements closed: M-01/M-02/M-03/M-04(5.8mm through, "
-            "consistent with 5.9mm member)/M-05..M-13 confirmed, M-06=5.9mm "
-            "flat bar, M-11 flat surrounds"
+            "G7 full assembly: frame joints, rear bracing, lid/handle mounts, "
+            "four corner variants, transverse hole spacing and rail alignment; "
+            "resolve 44.50 mm measured-cycle versus 44.45 mm nominal U pitch"
         ),
     ]
 
@@ -749,7 +894,66 @@ def validate() -> list[str]:
         if not valid:
             errors.append("invalid solid in preliminary assembly")
             break
+    mount = phase2_corner_mount()
+    lower = phase2_lower_upright().moved(Location((0, 0, params.BOTTOM_BLOCK_TOP_Z_MM)))
+    upper = phase2_upper_upright().moved(Location((0, 0, corner.SPLICE_Z)))
+    for part in (mount, lower, upper):
+        size = part.bounding_box().size
+        if not part.is_valid or len(part.solids()) != 1:
+            errors.append("prototype must be one valid solid")
+        if not params.fits_bed(size.X, size.Y, size.Z):
+            errors.append("prototype exceeds print envelope")
+    for a, b in ((mount, lower), (lower, upper)):
+        collision = a & b
+        if collision and abs(collision.volume) > 1e-5:
+            errors.append("assembled prototype joints collide")
     return errors
+
+
+def export_prototypes(out_dir: Path) -> dict[str, Path]:
+    from build123d import export_step, export_stl
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    parts = {
+        "phase2_corner_mount": phase2_corner_mount(),
+        "phase2_bottom_nut_retainer": phase2_bottom_nut_retainer(),
+        "phase2_lower_upright": phase2_lower_upright(),
+        "phase2_upper_upright": phase2_upper_upright(),
+        "phase2_mount_spigot_fit_coupon": phase2_mount_spigot_fit_coupon(),
+        "phase2_mount_socket_fit_coupon": phase2_mount_socket_fit_coupon(),
+        "phase2_splice_lower_fit_coupon": phase2_splice_fit_coupon(True),
+        "phase2_splice_upper_fit_coupon": phase2_splice_fit_coupon(False),
+        "phase2_top_hardware_coupon": top_end_block(0, 0, False).moved(
+            Location((0, 0, -params.TOP_BLOCK_BOTTOM_Z_MM))
+        ),
+        "m5_rack_boss_coupon": m5_rack_boss_coupon(),
+        "m5_rack_pitch_coupon": m5_rack_pitch_coupon(),
+        "rack_spacing_234_fit_coupon": rack_spacing_fit_coupon(),
+    }
+    paths: dict[str, Path] = {}
+    for name, part in parts.items():
+        if not part.is_valid or len(part.solids()) != 1:
+            raise ValueError(f"invalid or disconnected export: {name}")
+        size = part.bounding_box().size
+        if not params.fits_bed(size.X, size.Y, size.Z):
+            raise ValueError(f"export exceeds print envelope: {name}")
+        paths[name] = out_dir / f"{name}.stl"
+        export_stl(part, str(paths[name]))
+    assembled = Compound(
+        children=[
+            parts["phase2_corner_mount"],
+            parts["phase2_lower_upright"].moved(
+                Location((0, 0, params.BOTTOM_BLOCK_TOP_Z_MM))
+            ),
+            parts["phase2_upper_upright"].moved(Location((0, 0, corner.SPLICE_Z))),
+            parts["phase2_bottom_nut_retainer"].moved(
+                Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, 0))
+            ),
+        ]
+    )
+    paths["corner_step"] = out_dir / "corner_assembly.step"
+    export_step(assembled, str(paths["corner_step"]))
+    return paths
 
 
 def export_assembly(out_dir: Path) -> dict[str, Path]:
@@ -782,6 +986,10 @@ def export_assembly(out_dir: Path) -> dict[str, Path]:
     export_stl(phase2_corner_fit_coupon(), str(corner_coupon))
     insert_coupon = out_dir / "m5_insert_pilot_coupon.stl"
     export_stl(m5_insert_pilot_coupon(), str(insert_coupon))
+    boss_coupon = out_dir / "m5_rack_boss_coupon.stl"
+    export_stl(m5_rack_boss_coupon(), str(boss_coupon))
+    pitch_coupon = out_dir / "m5_rack_pitch_coupon.stl"
+    export_stl(m5_rack_pitch_coupon(), str(pitch_coupon))
     phase2_mount = out_dir / "phase2_corner_mount.stl"
     export_stl(phase2_corner_mount(), str(phase2_mount))
     phase2_retainer = out_dir / "phase2_bottom_nut_retainer.stl"
@@ -805,6 +1013,8 @@ def export_assembly(out_dir: Path) -> dict[str, Path]:
         "lateral_coupon": lateral_coupon,
         "phase2_corner_coupon": corner_coupon,
         "m5_insert_pilot_coupon": insert_coupon,
+        "m5_rack_boss_coupon": boss_coupon,
+        "m5_rack_pitch_coupon": pitch_coupon,
         "phase2_mount": phase2_mount,
         "phase2_bottom_nut_retainer": phase2_retainer,
         "phase2_lower_upright": phase2_lower,
@@ -818,6 +1028,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Export preliminary rack CAD")
     ap.add_argument("--export-dir", default="/tmp/opencode/rack_extension")
     ap.add_argument("--audit", action="store_true")
+    ap.add_argument("--prototype-only", action="store_true")
     args = ap.parse_args(argv)
     errors = validate()
     if errors:
@@ -825,7 +1036,9 @@ def main(argv: list[str] | None = None) -> int:
         for err in errors:
             print(f"  - {err}")
         return 1
-    paths = export_assembly(Path(args.export_dir))
+    paths = (export_prototypes if args.prototype_only else export_assembly)(
+        Path(args.export_dir)
+    )
     for name, path in paths.items():
         print(f"{name}: {path}")
     if args.audit:
