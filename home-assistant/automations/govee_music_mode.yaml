@@ -1,7 +1,7 @@
 id: govee_music_mode
 alias: "Lighting: Govee Music Mode"
 description: >-
-  Activates native Govee hardware dynamic rhythm effect across all shared Govee
+  Activates real-time LedFx audio-reactive lighting across all shared Govee
   bulbs when Govee Music Mode is turned on, locking Adaptive Lighting. When
   turned off, restores Adaptive Lighting control and circadian state without API spam.
 mode: restart
@@ -30,15 +30,16 @@ actions:
                 - light.living_room_mushroom_lamp
                 - light.living_room_tulip_lamp
               manual_control: true
-          - action: light.turn_on
-            target:
-              entity_id: light.all_govee_lights
+          - action: rest_command.ledfx_activate_scene
             data:
-              effect: Dance Party
+              scene_id: "music-mode"
       - conditions:
           - condition: trigger
             id: "mode_off"
         sequence:
+          - action: rest_command.ledfx_deactivate_scene
+            data:
+              scene_id: "music-mode"
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights

@@ -17,6 +17,22 @@ panel_iframe:
     icon: mdi:music
     url: http://10.0.30.15:8095
     require_admin: false
+  ledfx:
+    title: LedFx
+    icon: mdi:led-strip-variant
+    url: http://10.0.30.15:8888
+    require_admin: false
+rest_command:
+  ledfx_activate_scene:
+    url: "http://10.0.30.15:8888/api/scenes"
+    method: put
+    content_type: "application/json"
+    payload: '{"id": "{{ scene_id }}", "action": "activate"}'
+  ledfx_deactivate_scene:
+    url: "http://10.0.30.15:8888/api/scenes"
+    method: put
+    content_type: "application/json"
+    payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
