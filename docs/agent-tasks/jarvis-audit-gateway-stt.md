@@ -1,6 +1,6 @@
 # Jarvis Audit Remediation: Gateway, STT, and Network Policy
 
-**Owner:** Gateway / STT / Network Agent (Agent 1)  
+**Owner:** Gateway / STT / Network Agent (Agent 1)
 **Scope:**
 - `gitops/voice/gateway/gateway.py`
 - `gitops/voice/gateway.yaml`
