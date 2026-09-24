@@ -178,6 +178,13 @@ firewall_aliases = {
     description = "Govee H6004 smart bulbs"
     enabled     = true
   }
+  spotify_connect_ports = {
+    name        = "spotify_connect_ports"
+    type        = "port"
+    content     = ["38801", "38802", "38803", "38804", "38805", "38806", "38807", "38808", "38809", "38810"]
+    description = "Spotify Connect zeroconf ports for Music Assistant players"
+    enabled     = true
+  }
 }
 
 firewall_filters = {
@@ -246,7 +253,7 @@ firewall_filters = {
     }
   }
   clients-allow-spotify-connect = {
-    description = "Allow clients to Jarvis satellite Spotify Connect"
+    description = "Allow clients to Music Assistant Spotify Connect players"
     enabled     = true
     sequence    = 216
     interface   = { interface = ["opt1"] }
@@ -258,7 +265,7 @@ firewall_filters = {
       quick       = true
       log         = false
       source      = { net = "10.0.20.0/24", port = "" }
-      destination = { net = "10.0.30.15", port = "38801" }
+      destination = { net = "10.0.30.15", port = "spotify_connect_ports" }
     }
   }
   clients-allow-music-assistant = {

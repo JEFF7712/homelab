@@ -39,14 +39,26 @@ spec:
                   - |
                     if [ ! -f /usr/local/bin/go-librespot.orig ]; then
                       mv /usr/local/bin/go-librespot /usr/local/bin/go-librespot.orig
-                      printf '%s\n' \
-                        '#!/bin/sh' \
-                        'exec /usr/local/bin/go-librespot.orig \' \
-                        '  -c zeroconf_port=38801 \' \
-                        '  -c zeroconf_interfaces_to_advertise=enp0s31f6 \' \
-                        '  "$@"' > /usr/local/bin/go-librespot
-                      chmod +x /usr/local/bin/go-librespot
                     fi
+                    cat << 'EOF' > /usr/local/bin/go-librespot
+                    #!/bin/sh
+                    PORT=$(python3 -c "
+                    import socket
+                    for p in range(38801, 38820):
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            try:
+                                s.bind(('0.0.0.0', p))
+                                print(p)
+                                break
+                            except OSError:
+                                continue
+                    ")
+                    exec /usr/local/bin/go-librespot.orig \
+                      -c "zeroconf_port=${PORT:-38801}" \
+                      -c "zeroconf_interfaces_to_advertise=enp0s31f6" \
+                      "$@"
+                    EOF
+                    chmod +x /usr/local/bin/go-librespot
           resources:
             requests:
               cpu: 250m

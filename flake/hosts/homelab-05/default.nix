@@ -130,8 +130,10 @@
 
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 6053 accept
-    ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport { 8095, 8097, 38801 } accept
+    ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport { 8095, 8097, 38801, 38802, 38803, 38804, 38805, 38806, 38807, 38808, 38809, 38810 } accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
+    # Allow inbound UDP from internal subnets for Music Assistant AirPlay/RAOP timing and streaming
+    meta l4proto udp ip saddr { 10.0.0.0/16, 10.42.0.0/16 } accept
   '';
 
   systemd.services.satellite-alsa-restore = {
