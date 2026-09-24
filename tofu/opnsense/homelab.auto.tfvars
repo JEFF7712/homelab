@@ -91,6 +91,34 @@ dhcpv4_reservations = {
     mac_address = "70:89:76:5c:2d:7e"
     subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
   }
+  govee_floor_lamp = {
+    description = "Govee H6004 floor lamp"
+    hostname    = "govee-floor-lamp"
+    ip_address  = "10.0.20.166"
+    mac_address = "d4:13:68:01:65:91"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
+  govee_ceiling_1 = {
+    description = "Govee H6004 ceiling light 1"
+    hostname    = "govee-ceiling-1"
+    ip_address  = "10.0.20.167"
+    mac_address = "d4:13:68:01:65:ab"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
+  govee_ceiling_2 = {
+    description = "Govee H6004 ceiling light 2"
+    hostname    = "govee-ceiling-2"
+    ip_address  = "10.0.20.168"
+    mac_address = "d4:13:68:78:d5:36"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
+  govee_tulip_lamp = {
+    description = "Govee H6004 tulip lamp"
+    hostname    = "govee-tulip-lamp"
+    ip_address  = "10.0.20.169"
+    mac_address = "d4:13:68:4d:d9:d4"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
 }
 
 firewall_aliases = {
@@ -134,6 +162,20 @@ firewall_aliases = {
     type        = "network"
     content     = ["10.0.30.0/24", "10.0.40.0/24"]
     description = "NetBird peers may reach infrastructure and load-balancer VIPs only"
+    enabled     = true
+  }
+  govee_lan_ports = {
+    name        = "govee_lan_ports"
+    type        = "port"
+    content     = ["4001", "4002", "4003"]
+    description = "Govee LAN discovery, response, and control ports"
+    enabled     = true
+  }
+  govee_bulbs = {
+    name        = "govee_bulbs"
+    type        = "host"
+    content     = ["10.0.20.166", "10.0.20.167", "10.0.20.168", "10.0.20.169"]
+    description = "Govee H6004 smart bulbs"
     enabled     = true
   }
 }
@@ -199,7 +241,7 @@ firewall_filters = {
       protocol    = "UDP"
       quick       = true
       log         = false
-      source      = { net = "10.0.20.0/24", port = "4002" }
+      source      = { net = "govee_bulbs", port = "" }
       destination = { net = "10.0.30.0/24", port = "4002" }
     }
   }
@@ -359,8 +401,8 @@ firewall_filters = {
       protocol    = "UDP"
       quick       = true
       log         = false
-      source      = { net = "10.0.30.0/24", port = "4002" }
-      destination = { net = "10.0.20.0/24", port = "4001" }
+      source      = { net = "10.0.30.0/24", port = "" }
+      destination = { net = "10.0.20.0/24", port = "govee_lan_ports" }
     }
   }
   infrastructure-allow-govee-multicast = {
@@ -375,7 +417,7 @@ firewall_filters = {
       protocol    = "UDP"
       quick       = true
       log         = false
-      source      = { net = "10.0.30.0/24", port = "4002" }
+      source      = { net = "10.0.30.0/24", port = "" }
       destination = { net = "239.255.255.250/32", port = "4001" }
     }
   }

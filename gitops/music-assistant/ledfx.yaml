@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ledfx-data
+  namespace: music-assistant
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledfx
+  namespace: music-assistant
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ledfx
+  template:
+    metadata:
+      labels:
+        app: ledfx
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/hostname: homelab-05
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ledfx
+          image: docker.io/ledfx/ledfx:2.0.95
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: LEDFX_PORT
+              value: "8888"
+          ports:
+            - containerPort: 8888
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /root/.ledfx
+          readinessProbe:
+            httpGet:
+              path: /api/info
+              port: 8888
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/info
+              port: 8888
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ledfx-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledfx
+  namespace: music-assistant
+spec:
+  selector:
+    app: ledfx
+  ports:
+    - name: http
+      port: 8888
+      targetPort: 8888
