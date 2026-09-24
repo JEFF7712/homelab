@@ -33,16 +33,23 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: homelab-05
       securityContext:
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: ledfx
-          image: docker.io/ledfx/ledfx:2.0.95
+          image: registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036  # yamllint disable-line rule:line-length
           env:
             - name: TZ
               value: America/Chicago
             - name: LEDFX_PORT
               value: "8888"
+            - name: PULSECLIENTMODE
+              value: "true"
+            - name: PULSE_SERVER
+              value: unix:/run/user/1001/pulse/native
+            - name: PULSE_SOURCE
+              value: alsa_output.usb-Generic_USB_SPDIF_Adapter_202110200032-00.analog-stereo.monitor
           ports:
             - containerPort: 8888
               name: http
@@ -55,7 +62,9 @@ spec:
               memory: 1Gi
           volumeMounts:
             - name: data
-              mountPath: /root/.ledfx
+              mountPath: /home/ledfx/ledfx-config
+            - name: pulse-socket
+              mountPath: /run/user/1001/pulse
           readinessProbe:
             httpGet:
               path: /api/info
@@ -72,6 +81,10 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: ledfx-data
+        - name: pulse-socket
+          hostPath:
+            path: /run/user/1001/pulse
+            type: Directory
 ---
 apiVersion: v1
 kind: Service

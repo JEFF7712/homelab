@@ -510,7 +510,7 @@
         "0.0.278",
         "retention-deployed-0023aa4fff0cbe5d"
       ],
-      "digest": "sha256:65bdda88e4d46d863aaf7148eb4ec1e2da91f4d90a3b41e77effb1bf14b280bc",
+      "digest": "sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -532,8 +532,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:65bdda88e4d46d863aaf7148eb4ec1e2da91f4d90a3b41e77effb1bf14b280bc",
-        "reference": "ghcr.io/jeff7712/quartz:0.0.278@sha256:65bdda88e4d46d863aaf7148eb4ec1e2da91f4d90a3b41e77effb1bf14b280bc",
+        "digest": "sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454",
+        "reference": "ghcr.io/jeff7712/quartz:0.0.278@sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454",
         "registry": "ghcr.io",
         "repository": "jeff7712/quartz",
         "tag": "0.0.278"
@@ -4168,6 +4168,42 @@
         "registry": "nvcr.io",
         "repository": "nvidia/k8s-device-plugin",
         "tag": "v0.17.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/music-assistant/ledfx.yaml:40"
+      ],
+      "destination_repository": "upstream/ghcr.io/ledfx/ledfx",
+      "destination_tags": [
+        "retention-deployed-a5ff8549a847d1b2"
+      ],
+      "digest": "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
+      "id": "upstream-ghcr-io-ledfx-ledfx-a5ff8549a847",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
+        "reference": "ghcr.io/ledfx/ledfx:latest@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
+        "registry": "ghcr.io",
+        "repository": "ledfx/ledfx",
+        "tag": "latest"
       }
     }
   ],

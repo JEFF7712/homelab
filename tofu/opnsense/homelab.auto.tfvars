@@ -277,6 +277,22 @@ firewall_filters = {
       destination = { net = "10.0.30.15", port = "8095" }
     }
   }
+  clients-allow-ledfx = {
+    description = "Allow clients to LedFx web interface"
+    enabled     = true
+    sequence    = 218
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.20.0/24", port = "" }
+      destination = { net = "10.0.30.15", port = "8888" }
+    }
+  }
   clients-block-private = {
     description = "Block clients from other private VLANs"
     enabled     = true
@@ -563,6 +579,22 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.50.0/24", port = "" }
       destination = { net = "10.0.30.15", port = "8095" }
+    }
+  }
+  guest-iot-allow-ledfx = {
+    description = "Allow guest and IoT devices to LedFx web interface"
+    enabled     = true
+    sequence    = 506
+    interface   = { interface = ["opt5"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.50.0/24", port = "" }
+      destination = { net = "10.0.30.15", port = "8888" }
     }
   }
   guest-iot-block-private = {

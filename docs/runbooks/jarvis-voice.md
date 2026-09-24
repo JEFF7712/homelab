@@ -192,7 +192,7 @@ automation referencing them.
      runs on `homelab-05` at `http://127.0.0.1:4416`.
 8. Fast local scenes, climate, weather, printer, and routines:
    - Scenes: `JarvisCookingMode` and `JarvisDinnerMode` in `home-assistant/custom_sentences/en/jarvis_home.yaml`
-     activate `scene.shared_cooking` and `scene.shared_dinner` deterministically.
+     activate `scene.cooking_bright_kitchen` and `scene.dinner_warm_dim` deterministically.
    - Climate: `home-assistant/automations/jarvis_climate_control.yaml` controls AC on/off
      and relative setpoint changes without hitting the cloud LLM.
    - Weather & rain: `JarvisWeatherQuery` and `JarvisRainQuery` in `home-assistant/custom_sentences/en/jarvis_home.yaml`

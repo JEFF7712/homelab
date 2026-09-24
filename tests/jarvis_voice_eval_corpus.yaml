@@ -325,13 +325,13 @@
   say: Start cooking.
   path: local
   intent: JarvisCookingMode
-  targets: [scene.shared_cooking]
+  targets: [scene.cooking_bright_kitchen]
   response: Done.
 - id: scene-dinner-mode
   say: Dinner time.
   path: local
   intent: JarvisDinnerMode
-  targets: [scene.shared_dinner]
+  targets: [scene.dinner_warm_dim]
   response: Done.
 - id: climate-ac-on
   say: Turn on the AC.

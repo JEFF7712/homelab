@@ -62,9 +62,10 @@ class TestGoveeMusicMode(unittest.TestCase):
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
 
-        # Must use native hardware effect
-        self.assertIn("Dance Party", raw_text)
-        self.assertIn("light.all_govee_lights", raw_text)
+        # Must call LedFx scene activation
+        self.assertIn("rest_command.ledfx_activate_scene", raw_text)
+        self.assertIn("rest_command.ledfx_deactivate_scene", raw_text)
+        self.assertIn("music-mode", raw_text)
 
         # Must lock and restore Adaptive Lighting properly
         self.assertIn("adaptive_lighting.set_manual_control", raw_text)

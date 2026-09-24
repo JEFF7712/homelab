@@ -8,7 +8,7 @@
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-76b7c5b4d9-wltr8/pot-provider"
+        "music-assistant/music-assistant-76b7c5b4d9-848pw/pot-provider"
       ],
       "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
     },
@@ -98,10 +98,10 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-7f7bb49df5-cph68/quartz",
-        "obsidian/quartz-notes-7f7bb49df5-vbrx8/quartz"
+        "obsidian/quartz-notes-6b9cb5c997-kh967/quartz",
+        "obsidian/quartz-notes-6b9cb5c997-tj24c/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:65bdda88e4d46d863aaf7148eb4ec1e2da91f4d90a3b41e77effb1bf14b280bc"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454"
     },
     {
       "consumers": [
@@ -145,8 +145,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-77f9c58856-hwpsv/cloudflared",
-        "cloudflare/cloudflared-77f9c58856-rgnl9/cloudflared"
+        "cloudflare/cloudflared-569f55c947-dsf4c/cloudflared",
+        "cloudflare/cloudflared-569f55c947-vzk4m/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -208,21 +208,21 @@
     },
     {
       "consumers": [
-        "media/download-d5fc49cc9-s8m4t/seed-slskd"
+        "media/download-699c796b5c-swmtn/seed-slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-849c8db6f-qkt6m/initialize-config",
-        "home-assistant/home-assistant-849c8db6f-qkt6m/install-hacs",
+        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/initialize-config",
+        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/install-hacs",
         "media/bazarr-69b6cf7658-5lvpm/fix-permissions",
         "media/bookshelf-7f89767968-9hxxn/fix-permissions",
         "media/calibre-web-6669989ff5-vjzrd/fix-permissions",
-        "media/download-d5fc49cc9-s8m4t/configure-qbittorrent",
-        "media/download-d5fc49cc9-s8m4t/fix-permissions",
+        "media/download-699c796b5c-swmtn/configure-qbittorrent",
+        "media/download-699c796b5c-swmtn/fix-permissions",
         "media/jellyfin-6cf7b8975d-mjmsd/fix-permissions",
-        "media/lidarr-cdfbdf6c8-bn42n/fix-permissions",
+        "media/lidarr-cdfbdf6c8-mb6pw/fix-permissions",
         "media/prowlarr-ff5b8d4d4-j7k69/fix-permissions",
         "media/radarr-6747969b69-nqwfk/fix-permissions",
         "media/seerr-c78685b4d-vpvhd/fix-permissions",
@@ -306,7 +306,7 @@
     },
     {
       "consumers": [
-        "media/download-d5fc49cc9-s8m4t/gluetun"
+        "media/download-699c796b5c-swmtn/gluetun"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/qmcgaw/gluetun@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4"
     },
@@ -339,7 +339,7 @@
     },
     {
       "consumers": [
-        "media/download-d5fc49cc9-s8m4t/slskd"
+        "media/download-699c796b5c-swmtn/slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/slskd/slskd@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6"
     },
@@ -369,9 +369,9 @@
     },
     {
       "consumers": [
-        "voice/wyoming-chatterbox-6966dc7b6-fxgs9/chatterbox",
-        "voice/wyoming-chatterbox-6966dc7b6-fxgs9/prepare-permissions",
-        "voice/wyoming-chatterbox-6966dc7b6-fxgs9/prepare-runtime"
+        "voice/wyoming-chatterbox-6966dc7b6-xhdqm/chatterbox",
+        "voice/wyoming-chatterbox-6966dc7b6-xhdqm/prepare-permissions",
+        "voice/wyoming-chatterbox-6966dc7b6-xhdqm/prepare-runtime"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
@@ -415,19 +415,19 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-849c8db6f-qkt6m/home-assistant"
+        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/home-assistant"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17"
     },
     {
       "consumers": [
-        "media/lidarr-cdfbdf6c8-bn42n/lidarr"
+        "media/lidarr-cdfbdf6c8-mb6pw/lidarr"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f"
     },
     {
       "consumers": [
-        "immich/immich-machine-learning-595c54b9f6-h9zgr/immich-machine-learning"
+        "immich/immich-machine-learning-595c54b9f6-87qbg/immich-machine-learning"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
@@ -445,19 +445,25 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-849c8db6f-qkt6m/matter-server"
+        "music-assistant/ledfx-5b68b6fb-7gs9c/ledfx"
+      ],
+      "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
+    },
+    {
+      "consumers": [
+        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/matter-server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236"
     },
     {
       "consumers": [
-        "music-assistant/music-assistant-76b7c5b4d9-wltr8/server"
+        "music-assistant/music-assistant-76b7c5b4d9-848pw/server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
     },
     {
       "consumers": [
-        "voice/linux-voice-assistant-5d4c5cbbc8-986dh/satellite"
+        "voice/linux-voice-assistant-5d4c5cbbc8-zht9n/satellite"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
     },
@@ -500,7 +506,7 @@
     },
     {
       "consumers": [
-        "media/download-d5fc49cc9-s8m4t/qbittorrent"
+        "media/download-699c796b5c-swmtn/qbittorrent"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:304b19cf94bf4fda534e0b086cab9c5f1a9e139a8180c05c0ad7d2ba1526fa99"
     },
@@ -666,6 +672,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-23T20:02:44+00:00",
+  "observed_at": "2026-09-24T02:46:15+00:00",
   "schema_version": 1
 }
