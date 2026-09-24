@@ -198,3 +198,19 @@ Executed via pinned Nix dev shell (`nix develop ./flake`):
 3. **HDMI Clock Recovery:** Switch LG Soundbar input or TV input and return to eARC. Check `journalctl -u satellite-hdmi-audio-clock.service` to verify ELD validity check and mode cycle recovery.
 4. **Playback Inhibition & Probing:** Play a loud TTS announcement ("Jarvis, play music") and verify that running `/app/healthcheck.py` during playback does NOT interrupt audio, does NOT clear `playback_inhibited`, and does NOT cause self-wake. Speaking "Stop" halts TTS playback immediately.
 5. **Acoustic Corpus Capture:** Record 10-20 WAVs per `tests/acoustic/README.md` to unblock acoustic acceptance evaluation and threshold comparison.
+
+## Follow-up review corrections (2026-09-24)
+
+The satellite regression tests now execute the production protocol class with
+external transport/entity dependencies stubbed. They cover unauthenticated probes,
+old-session disconnects after takeover, owner disconnect with a probe present,
+stale tail/TTS callbacks, and manual mute preservation. The accidental placement
+of constructor initialization inside `_cancel_tail_timer` was corrected. Session
+takeover cancels the obsolete response; subsequent old callbacks cannot alter the
+new owner's playback. Embedded ConfigMap code is checked byte-for-byte against
+the tested source. Concurrent HA entity-list/subscription handshake support was
+preserved.
+
+The actual wake adapters were exercised against both installed engines using
+silence frames and the real feature extractors/WebRTC. This checks the interface,
+not acoustic accuracy. Physical recorded-corpus acceptance remains pending.

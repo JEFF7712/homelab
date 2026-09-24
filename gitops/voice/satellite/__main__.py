@@ -767,20 +767,45 @@ def process_audio(state: ServerState, mic, block_size: int):
                 consecutive_failures = 0
                 _LOGGER.info("Audio recorder successfully opened: %s", mic.name)
                 heartbeat_count = 0
+                silent_blocks = 0
                 while True:
                     # Shape: (block_size, n_channels) for stereo, (block_size, 1) for mono.
                     raw = mic_in.record(block_size)  # float32, range [-1, 1]
                     now = time.monotonic()
-                    state.last_audio_frame_time = now
+
+                    # Detect if audio stream has flatlined (synthetic zeros / PulseAudio hole / disconnected stream)
+                    # In a real room, an analog microphone has thermal and acoustic noise floor.
+                    # 1024 float32 samples being all exact 0.0 only happens when the stream is synthesized / dead.
+                    is_digital_silence = not bool(np.any(raw != 0))
+                    if is_digital_silence:
+                        silent_blocks += 1
+                        # At 16000Hz and block_size=1024, 1 block is 64ms (~15.6 blocks/sec).
+                        # 64 blocks is ~4.1 seconds of continuous digital silence.
+                        if silent_blocks >= 64:
+                            _LOGGER.critical(
+                                "Audio capture stream flatlined (%d consecutive silent blocks, ~%.1fs)! Terminating process for restart.",
+                                silent_blocks,
+                                silent_blocks * block_size / 16000.0,
+                            )
+                            try:
+                                if os.path.exists("/tmp/satellite_audio_healthy"):
+                                    os.remove("/tmp/satellite_audio_healthy")
+                            except OSError:
+                                pass
+                            os._exit(1)
+                    else:
+                        silent_blocks = 0
+                        state.last_audio_frame_time = now
 
                     heartbeat_count += 1
                     if heartbeat_count >= 16:  # ~1 second at 64ms/block
                         heartbeat_count = 0
-                        try:
-                            with open("/tmp/satellite_audio_healthy", "w") as f:
-                                f.write(f"{now}\n")
-                        except OSError:
-                            pass
+                        if not is_digital_silence:
+                            try:
+                                with open("/tmp/satellite_audio_healthy", "w") as f:
+                                    f.write(f"{now}\n")
+                            except OSError:
+                                pass
 
                     mic_vol_scalar = max(0.1, min(1.0, state.mic_volume / 100.0))
 

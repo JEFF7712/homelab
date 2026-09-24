@@ -126,7 +126,13 @@
     haTokenFile = "/persist/secrets/jarvis-kiosk-ha-token";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
+    disableOutputs = [ "HDMI-A-2" ];
   };
+
+  # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="sound", KERNEL=="controlC*", ATTRS{idVendor}=="0951", ATTRS{idProduct}=="171d", RUN+="${pkgs.systemd}/bin/systemctl --no-block restart satellite-alsa-restore.service"
+  '';
 
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 6053 accept

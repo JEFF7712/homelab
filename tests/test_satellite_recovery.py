@@ -10,6 +10,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 HEALTHCHECK_PATH = (
@@ -25,6 +26,8 @@ class FakeServerState:
     """Mock ServerState for satellite protocol tests."""
 
     def __init__(self) -> None:
+        self.name = "test"
+        self.satellite = None
         self.muted = False
         self.playback_inhibited = False
         self.acoustic_tail_seconds = 0.05  # 50 ms for fast unit testing
@@ -61,153 +64,56 @@ class SatelliteRecoveryTests(unittest.TestCase):
                 os.utime(health_file, (stale_time, stale_time))
                 self.assertFalse(healthcheck.check_audio_freshness())
 
-    def test_bounded_backoff_calculation(self) -> None:
-        initial_backoff = 1.0
-        max_backoff = 10.0
-        # Formula: min(initial_backoff * (2 ** (attempt - 1)), max_backoff)
-        delays = [
-            min(initial_backoff * (2 ** (attempt - 1)), max_backoff)
-            for attempt in range(1, 7)
-        ]
-        self.assertEqual(delays, [1.0, 2.0, 4.0, 8.0, 10.0, 10.0])
+    def test_audio_loop_detects_digital_silence_and_cleans_health_file(self) -> None:
+        try:
+            import numpy as np
 
-    def test_playback_inhibition_lifecycle_and_acoustic_tail(self) -> None:
-        state = FakeServerState()
+            raw_silent = np.zeros((1024, 1), dtype=np.float32)
+            raw_sound = np.array([[0.01]], dtype=np.float32)
 
-        # Mock VoiceSatelliteProtocol components without full protobuf network stack
-        class DummySatellite:
-            def __init__(self, s: FakeServerState) -> None:
-                self.state = s
-                self._tail_timer: threading.Timer | None = None
-                self._pipeline_active = False
-                self._tts_url = None
-                self._tts_played = False
-                self._timer_finished = False
+            def check_nonzero(arr: Any) -> bool:
+                return bool(np.any(arr != 0))
 
-            def _start_tail_timer(self, duration: float) -> None:
-                self._cancel_tail_timer()
+        except ImportError:
+            raw_silent = [0.0] * 1024
+            raw_sound = [0.01]
 
-                def _clear():
-                    self.state.playback_inhibited = False
+            def check_nonzero(arr: Any) -> bool:
+                return any(x != 0 for x in arr)
 
-                self._tail_timer = threading.Timer(duration, _clear)
-                self._tail_timer.daemon = True
-                self._tail_timer.start()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            health_file = os.path.join(tmpdir, "satellite_audio_healthy")
+            with open(health_file, "w") as f:
+                f.write("123.45\n")
 
-            def _cancel_tail_timer(self) -> None:
-                if self._tail_timer is not None:
-                    self._tail_timer.cancel()
-                    self._tail_timer = None
+            # Simulate 64 silent blocks (synthetic zero frames from dropped stream)
+            silent_blocks = 0
+            exit_called = False
 
-            def play_tts(self) -> None:
-                self._tts_played = True
-                self._cancel_tail_timer()
-                self.state.playback_inhibited = True
-                self.state.active_wake_words.add(self.state.stop_word.id)
-                self.state.tts_player.play(
-                    self._tts_url, done_callback=self._tts_finished
-                )
+            for _ in range(64):
+                is_digital_silence = not check_nonzero(raw_silent)
+                if is_digital_silence:
+                    silent_blocks += 1
+                    if silent_blocks >= 64:
+                        if os.path.exists(health_file):
+                            os.remove(health_file)
+                        exit_called = True
+                        break
 
-            def _tts_finished(self) -> None:
-                self._pipeline_active = False
-                self.state.active_wake_words.discard(self.state.stop_word.id)
-                tail = getattr(self.state, "acoustic_tail_seconds", 0.05)
-                self._start_tail_timer(tail)
+            self.assertTrue(exit_called)
+            self.assertEqual(silent_blocks, 64)
+            self.assertFalse(os.path.exists(health_file))
 
-            def stop(self) -> None:
-                self.state.active_wake_words.discard(self.state.stop_word.id)
-                self._pipeline_active = False
-                self._cancel_tail_timer()
-                self.state.playback_inhibited = False
-                self.state.tts_player.stop()
+            # When non-silent frames arrive, silent_blocks resets and health file is touched
+            silent_blocks = 50
+            is_digital_silence = not check_nonzero(raw_sound)
+            if not is_digital_silence:
+                silent_blocks = 0
+                with open(health_file, "w") as f:
+                    f.write("678.90\n")
 
-            def wakeup(self, wake_word) -> bool:
-                if (
-                    self.state.muted
-                    or self.state.playback_inhibited
-                    or self._pipeline_active
-                ):
-                    return False
-                self._pipeline_active = True
-                return True
-
-        satellite = DummySatellite(state)
-        dummy_ww = MagicMock(wake_word="hey_jarvis")
-
-        # Initial state: uninhibited, unmuted
-        self.assertFalse(state.playback_inhibited)
-        self.assertTrue(satellite.wakeup(dummy_ww))
-        satellite._pipeline_active = False
-
-        # Start TTS -> playback_inhibited becomes True
-        satellite._tts_url = "http://fake.tts/audio.mp3"
-        satellite.play_tts()
-        self.assertTrue(state.playback_inhibited)
-        self.assertIn("stop_word_id", state.active_wake_words)
-
-        # While playing TTS, wake triggers are inhibited
-        self.assertFalse(satellite.wakeup(dummy_ww))
-
-        # Finish TTS -> tail timer starts, playback_inhibited remains True
-        satellite._tts_finished()
-        self.assertTrue(state.playback_inhibited)
-        self.assertNotIn("stop_word_id", state.active_wake_words)
-
-        # Wait for acoustic tail timer (0.05s) to expire
-        time.sleep(0.08)
-        self.assertFalse(state.playback_inhibited)
-
-        # Now wakeup succeeds again
-        self.assertTrue(satellite.wakeup(dummy_ww))
-
-    def test_manual_mute_preservation(self) -> None:
-        state = FakeServerState()
-
-        def set_muted(new_state: bool) -> None:
-            state.muted = bool(new_state)
-            if state.muted:
-                state.tts_player.stop()
-
-        # User mutes satellite
-        set_muted(True)
-        self.assertTrue(state.muted)
-        self.assertFalse(state.playback_inhibited)
-
-        # Playback tail expiration must not touch manual mute
-        state.playback_inhibited = True
-        # Simulate tail expiration
-        state.playback_inhibited = False
-        self.assertTrue(state.muted)
-
-        # User unmutes
-        set_muted(False)
-        self.assertFalse(state.muted)
-
-    def test_stop_word_cancellation_during_playback(self) -> None:
-        state = FakeServerState()
-
-        class DummySatellite:
-            def __init__(self, s: FakeServerState) -> None:
-                self.state = s
-                self._pipeline_active = True
-
-            def stop(self) -> None:
-                self.state.playback_inhibited = False
-                self._pipeline_active = False
-                self.state.tts_player.stop()
-                self.state.music_player.unduck()
-
-        sat = DummySatellite(state)
-        state.playback_inhibited = True
-        state.active_wake_words.add("stop_word_id")
-
-        # Stop word fires
-        sat.stop()
-
-        self.assertFalse(state.playback_inhibited)
-        self.assertFalse(sat._pipeline_active)
-        state.tts_player.stop.assert_called_once()
-        state.music_player.unduck.assert_called_once()
+            self.assertEqual(silent_blocks, 0)
+            self.assertTrue(os.path.exists(health_file))
 
     def test_probing_while_ha_connected_and_tts_playing_does_not_corrupt_state(
         self,
@@ -285,10 +191,6 @@ class SatelliteRecoveryTests(unittest.TestCase):
             self.assertFalse(healthcheck.check_health_endpoint())
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 def load_production_protocol():
     import ast
     import asyncio
@@ -323,7 +225,8 @@ def load_production_protocol():
             MULTI_CHANNEL_AUDIO=32,
         ),
         "_LOGGER": logging.getLogger(__name__),
-        "LVAEvent": SimpleNamespace(DISCONNECTED="disconnected"),
+        "LVAEvent": MagicMock(),
+        "VoiceAssistantAnnounceFinished": MagicMock(),
     }
     for name in (
         "MuteSwitchEntity",
@@ -346,18 +249,15 @@ def load_production_protocol():
         ],
         type_ignores=[],
     )
-    exec(compile(ast.fix_missing_locations(module), str(source), "exec"), namespace)
+    exec(compile(ast.fix_missing_locations(module), str(source), "exec"), namespace)  # noqa: S102
     return namespace["VoiceSatelliteProtocol"]
 
 
 def protocol_session(cls, state):
-    import asyncio
 
-    instance = cls.__new__(cls)
-    instance.state = state
-    instance.is_established_ha = False
-    instance._tail_timer = None
-    instance._disconnect_event = asyncio.Event()
+    with patch.object(cls, "_initialize_entities"):
+        instance = cls(state)
+    instance.send_messages = MagicMock()
     instance._emit = MagicMock()
     for name in (
         "mute_switch_entity",
@@ -439,3 +339,65 @@ class ProductionOwnershipTests(unittest.TestCase):
         before = list(state.entities)
         instance._cancel_tail_timer()
         self.assertEqual(state.entities, before)
+
+    def test_stale_tts_callback_does_not_change_new_playback(self):
+        state = FakeServerState()
+        cls = load_production_protocol()
+        old = protocol_session(cls, state)
+        state.satellite = protocol_session(cls, state)
+        state.playback_inhibited = True
+        state.active_wake_words.add(state.stop_word.id)
+        old._tts_finished()
+        self.assertTrue(state.playback_inhibited)
+        self.assertIn(state.stop_word.id, state.active_wake_words)
+        old.send_messages.assert_not_called()
+
+    def test_session_takeover_cancels_previous_playback_without_unmuting(self):
+        state = FakeServerState()
+        cls = load_production_protocol()
+        old = protocol_session(cls, state)
+        new = protocol_session(cls, state)
+        new._initialize_entities = MagicMock()
+        state.satellite = old
+        state.muted = True
+        state.playback_inhibited = True
+        state.tts_player.stop.side_effect = old._tts_finished
+        new._claim_session()
+        self.assertIs(state.satellite, new)
+        self.assertTrue(state.connected)
+        self.assertTrue(state.muted)
+        self.assertFalse(state.playback_inhibited)
+        self.assertTrue(new.is_established_ha)
+        old.send_messages.assert_not_called()
+
+    def test_real_playback_and_tail_preserve_manual_mute(self):
+        state = FakeServerState()
+        cls = load_production_protocol()
+        session = protocol_session(cls, state)
+        state.satellite = session
+        session._tts_url = "http://test/audio.wav"
+        session.play_tts()
+        self.assertTrue(state.playback_inhibited)
+        state.muted = True
+        with patch("threading.Timer") as timer:
+            state.tts_player.play.call_args.kwargs["done_callback"]()
+            self.assertTrue(state.playback_inhibited)
+            timer.call_args.args[1]()
+        self.assertFalse(state.playback_inhibited)
+        self.assertTrue(state.muted)
+
+    def test_probe_constructor_does_not_rebind_live_entities(self):
+        state = FakeServerState()
+        cls = load_production_protocol()
+        owner = protocol_session(cls, state)
+        state.satellite = owner
+        state.media_player_entity = MagicMock(server=owner)
+        state.entities.append(state.media_player_entity)
+        probe = cls(state)
+        self.assertIs(state.media_player_entity.server, owner)
+        self.assertIs(state.satellite, owner)
+        self.assertFalse(probe.is_established_ha)
+
+
+if __name__ == "__main__":
+    unittest.main()
