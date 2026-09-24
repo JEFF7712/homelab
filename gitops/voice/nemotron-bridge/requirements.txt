@@ -1,5 +1,5 @@
 # Nemotron Bridge Python dependencies
 # Direct runtime dependency pins for wyoming server, array math, and speaker embeddings
-wyoming==1.6.0
+wyoming==1.10.2
 numpy==1.26.4
 sherpa-onnx==1.13.8
