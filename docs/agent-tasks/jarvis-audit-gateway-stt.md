@@ -4,7 +4,7 @@
 **Scope:**
 - `gitops/voice/gateway/gateway.py`
 - `gitops/voice/gateway.yaml`
-- `gitops/voice/nemotron-bridge/` (`bridge.py`, `Dockerfile`, `requirements.txt`, `nemo_speech_asr_c.c`, `proxy.py`, `MODEL_CONTRACT.md`, `verify_contract.py`)
+- `gitops/voice/nemotron-bridge/` (`bridge.py`, `Dockerfile`, `requirements.txt`, `proxy.py`, `MODEL_CONTRACT.md`, `verify_contract.py`)
 - `gitops/voice/stt-nemotron.yaml`
 - `gitops/voice/voice-id/` (`proxy.py`, symlink `scripts/voice_id/proxy.py`)
 - `gitops/voice/whisper.yaml`
@@ -131,7 +131,7 @@ All infrastructure and workload mutations follow the repository's GitOps contrac
    ```
 2. Verify contract and native C ABI:
    ```sh
-   python gitops/voice/nemotron-bridge/verify_contract.py
+   python gitops/voice/nemotron-bridge/verify_contract.py --manifest /corpus/manifest.json
    ```
 3. Run repository gates:
    ```sh

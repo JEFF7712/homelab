@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 import wave
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,7 +37,8 @@ class WakeDetectorHarness:
         if config.engine == "micro":
             from pymicro_wakeword import MicroWakeWord, MicroWakeWordFeatures
 
-            self.model = MicroWakeWord.from_config(config_path=config.model)
+            with redirect_stdout(sys.stderr):
+                self.model = MicroWakeWord.from_config(config_path=config.model)
             self.model.probability_cutoff = config.threshold
             self.features = MicroWakeWordFeatures()
         elif config.engine == "open":
@@ -80,6 +83,8 @@ def replay_wav(path: Path, config: DetectorConfig) -> dict:
         while pcm := wav.readframes(160):
             scores.extend(harness.process_chunk(pcm))
         elapsed = time.perf_counter() - started
+    if not scores:
+        raise ValueError(f"{path}: recording produced no model scores")
     return {
         "detected": any(score > config.threshold for score in scores),
         "max_score": max(scores, default=None),

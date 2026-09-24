@@ -55,7 +55,10 @@ def verify_recognition_request(
     from bridge import NativeConfig, NativeRecognizer
 
     cases = json.loads(manifest.read_text())["cases"]
-    normalize = lambda value: " ".join(re.findall(r"[a-z0-9]+", value.lower()))
+
+    def normalize(value: str) -> str:
+        return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
+
     expected = {normalize(case["expected"]) for case in cases}
     if "" not in expected or len(expected - {""}) < 2:
         raise ValueError(

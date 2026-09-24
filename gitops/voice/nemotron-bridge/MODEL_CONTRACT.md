@@ -28,11 +28,9 @@ The C ABI is built from NVIDIA/NeMo-Speech.cpp revision `07003daa7eefea542076310
 - `void nemo_speech_asr_stream_close(void* stream_ptr)`
 - `const char* nemo_speech_asr_result_transcript(const void* result_ptr, size_t index)`
 - `bool nemo_speech_asr_result_is_final(const void* result_ptr)`
-- `double nemo_speech_asr_result_audio_processed(const void* result_ptr)`
+- `float nemo_speech_asr_result_audio_processed(const void* result_ptr)`
 - `void nemo_speech_asr_result_destroy(void* result_ptr)`
 - `const char* nemo_speech_asr_last_error(void)`
-- `void* nemo_speech_asr_stream_open(void* recognizer)` (backward compatibility)
-- `int nemo_speech_asr_stream_push(void* stream, const char* pcm, int32_t pcm_len, int32_t rate)` (backward compatibility)
 
 Return code contract:
 - Status code `0` indicates success (`OK`).
@@ -49,8 +47,9 @@ Return code contract:
 The Dockerfile compiles the actual upstream runtime with CUDA for SM75 (T1000),
 installs its dependent libraries, and packages the bridge and speaker-ID module.
 Python versions are direct dependency pins, not a complete transitive lock.
-The build runs `verify_contract.py --abi-only`: library loading, exported symbols,
-and Python imports. This does not claim speech accuracy or model inference.
+The build runs `verify_contract.py --abi-only`: library loading with NVIDIA's driver link stub, exported symbols,
+and Python imports. The driver stub is mounted only for that build step and is
+absent from the runtime image; runtime checks require the real NVIDIA driver. This does not claim speech accuracy or model inference.
 
 Recognition verification is separate and requires a mounted model and labeled
 WAV manifest. Run `verify_contract.py --manifest /corpus/manifest.json` with

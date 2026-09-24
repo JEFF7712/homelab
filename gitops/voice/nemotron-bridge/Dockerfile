@@ -38,7 +38,10 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=build /opt/nemo /opt/nemo
 COPY bridge.py proxy.py verify_contract.py /app/
-RUN python3 /app/verify_contract.py --abi-only
+RUN --mount=from=build,source=/usr/local/cuda/lib64/stubs,target=/cuda-stubs \
+    ln -s /cuda-stubs/libcuda.so /tmp/libcuda.so.1 \
+ && LD_LIBRARY_PATH=/tmp:${LD_LIBRARY_PATH} python3 /app/verify_contract.py --abi-only \
+ && rm /tmp/libcuda.so.1
 EXPOSE 10300 9100
 USER 1000:1000
 ENTRYPOINT ["python3", "/app/bridge.py"]
