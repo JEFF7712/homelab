@@ -58,7 +58,11 @@ Cloudflare Access public bypass configured.
 25. `pulseagent.dev -> http://pulse-svc.pulse:80`
 26. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
 27. `jellyfin.rupan.dev -> http://jellyfin.media:80`
-28. `http_status:404`
+28. `navidrome.rupan.dev -> http://navidrome.media:80`
+29. `music.rupan.dev -> http://navidrome.media:80`
+30. `seerr.rupan.dev -> http://seerr.media:80`
+31. `requests.rupan.dev -> http://seerr.media:80`
+32. `http_status:404`
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)
