@@ -810,7 +810,11 @@ class EvalCorpusTest(unittest.TestCase):
         self.assertIn("track_uri", play_track_call["data"]["media_id"])
 
         # Verify conditional artist enqueue replace_next
-        if_step = next(step for step in track_branch["sequence"] if "if" in step)
+        if_step = next(
+            step
+            for step in track_branch["sequence"]
+            if "if" in step and "artist_uri" in json.dumps(step["if"])
+        )
         self.assertIn("use_radio_mode", json.dumps(if_step["if"]))
         self.assertIn("artist_uri", json.dumps(if_step["if"]))
         artist_call = if_step["then"][0]
