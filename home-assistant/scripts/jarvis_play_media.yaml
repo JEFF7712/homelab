@@ -171,8 +171,10 @@ sequence:
                   {% set matched = (plat + tracks) | first | default({}, true) %}
                 {% endif %}
                 {% set artists = matched.artists | default([], true) %}
-                {% set artist_pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
-                {{ (artists | selectattr('uri', 'search', artist_pref) | map(attribute='uri') | list) | first | default('', true) }}
+                {% set artist_pref = '^ytmusic:' if target_platform in
+                  ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {{ (artists | selectattr('uri', 'search', artist_pref)
+                  | map(attribute='uri') | list) | first | default('', true) }}
           - if:
               - condition: template
                 value_template: "{{ track_uri | length == 0 }}"
