@@ -4,8 +4,8 @@ description: >-
   Deterministically plays music on the Jarvis satellite speaker via Music
   Assistant. Bare artist requests ("play some MF DOOM") start an endless
   artist mix (radio_mode) so playback continues past the first track;
-  song, album, and playlist requests keep their narrower
-  lookup. The media type and platform ride the trigger id into
+  song, album, playlist, and favorites ("play my liked songs") requests keep
+  their narrower lookup. The media type and platform ride the trigger id into
   script.jarvis_play_media. The reply is "Done." when the script reports the
   request was accepted ('accepted') or playback was observed ('playing');
   "Done." therefore means the request was accepted, not independently
@@ -91,6 +91,13 @@ triggers:
       - "put on [some] {query} on youtube [music]"
       - "[speaker {speaker}] play some {query} on youtube [music]"
       - "[speaker {speaker}] put on [some] {query} on youtube [music]"
+  - trigger: conversation
+    id: favorites
+    command:
+      - "play my liked songs"
+      - "play my favorites"
+      - "play my liked music"
+      - "[speaker {speaker}] play my liked songs"
 conditions: []
 actions:
   - action: script.jarvis_play_media
@@ -101,7 +108,8 @@ actions:
           music
         {% else %}
           {{ {'artist': 'artist', 'track': 'music', 'album': 'album',
-              'playlist': 'playlist', 'youtube_artist': 'artist',
+              'playlist': 'playlist', 'favorites': 'playlist',
+              'youtube_artist': 'artist',
               'youtube_track': 'music'}[trigger.id] }}
         {% endif %}
       platform: >-
@@ -110,7 +118,11 @@ actions:
             else 'spotify' }}
       speaker: "{{ trigger.slots.speaker | default('') }}"
       media_content_id: >-
-        {{ trigger.slots.query | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
+        {% if trigger.id == 'favorites' %}
+          Liked Songs
+        {% else %}
+          {{ trigger.slots.query | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
+        {% endif %}
     response_variable: playback
     continue_on_error: true
   - set_conversation_response: >-
