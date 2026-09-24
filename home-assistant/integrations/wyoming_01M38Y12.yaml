@@ -1,0 +1,7 @@
+title: Bedroom Satellite
+disabled_by: null
+domain: wyoming
+entry_id: 01M38Y120AHHF5HYNG387TTTX8
+pref_disable_new_entities: false
+pref_disable_polling: false
+source: zeroconf
