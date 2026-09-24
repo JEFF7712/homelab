@@ -6,8 +6,11 @@ description: >-
   artist mix (radio_mode) so playback continues past the first track;
   song, album, and playlist requests keep their narrower
   lookup. The media type and platform ride the trigger id into
-  script.jarvis_play_media. The reply is only "Done." when the script
-  reports playback started.
+  script.jarvis_play_media. The reply is "Done." when the script reports the
+  request was accepted ('accepted') or playback was observed ('playing');
+  "Done." therefore means the request was accepted, not independently
+  verified playback. Service errors surface "Could not start playback."
+  instead of a false success.
 mode: restart
 triggers:
   - trigger: conversation
@@ -16,6 +19,7 @@ triggers:
       - "play the song {query}"
       - "play [a] song {query}"
       - "play song {query}"
+      - "play {query}"
       - "put on the song {query}"
       - "put on [a] song {query}"
       - "put on [the] song {query}"
@@ -26,6 +30,7 @@ triggers:
       - "[speaker {speaker}] play the song {query}"
       - "[speaker {speaker}] play [a] song {query}"
       - "[speaker {speaker}] play song {query}"
+      - "[speaker {speaker}] play {query}"
       - "[speaker {speaker}] put on the song {query}"
       - "[speaker {speaker}] put on [a] song {query}"
       - "[speaker {speaker}] put on [the] song {query}"
@@ -109,7 +114,7 @@ actions:
     response_variable: playback
     continue_on_error: true
   - set_conversation_response: >-
-      {% if playback is defined and playback.status == 'playing' %}
+      {% if playback is defined and playback.status in ['playing', 'accepted'] %}
         {% if trigger.slots.speaker is defined and trigger.slots.speaker %}
           Done, {{ 'Roopen' if trigger.slots.speaker == 'Rupan' else trigger.slots.speaker }}.
         {% else %}
