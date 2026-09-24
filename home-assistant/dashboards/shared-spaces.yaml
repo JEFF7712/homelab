@@ -153,14 +153,6 @@ views:
                 entity: sensor.sun_next_setting
                 name: Sunset
                 icon: mdi:weather-sunset-down
-          - type: media-control
-            entity: media_player.homelab_05_satellite_media_player_2
-            name: Speaker Output
-          - type: entities
-            title: Music shortcuts
-            entities:
-              - entity: script.jarvis_play_media
-                name: Play media (Spotify / YouTube Music)
           - type: iframe
             url: https://ma.rupan.dev
             aspect_ratio: 75%

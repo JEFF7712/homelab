@@ -5,7 +5,7 @@ show_in_sidebar: true
 kiosk_mode:
   kiosk: true
   hide_header: true
-  hide_sidebar: true
+  hide_sidebar: false
   hide_overflow: true
   hide_account: true
 views:
