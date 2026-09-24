@@ -1278,113 +1278,113 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: homelab-05
       containers:
-      - name: satellite
-        image: registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6
-        securityContext:
-          privileged: true
-          runAsUser: 1001
-          runAsGroup: 995
-        env:
-        - name: CLIENT_NAME
-          value: Homelab 05 Satellite
-        - name: PORT
-          value: '6053'
-        - name: PREFERENCES_FILE
-          value: /data/preferences.json
-        - name: PULSE_SERVER
-          value: unix:/run/user/1001/pulse/native
-        - name: SKIP_PULSE_AUDIO_WAIT
-          value: '1'
-        - name: PULSE_COOKIE
-          value: /tmp/pulse-cookie
-        - name: XDG_RUNTIME_DIR
-          value: /tmp
-        - name: ENABLE_DEBUG
-          value: '0'
-        - name: AUDIO_INPUT_DEVICE
-          value: QuadCast
-        - name: LISTEN_DURING_WAKE_SOUND
-          value: '1'
-        - name: WAKE_MODEL
-          value: hey_jarvis.tflite
-        - name: ACOUSTIC_TAIL_SECONDS
-          value: '0.35'
-        - name: AUDIO_STALL_TIMEOUT
-          value: '6.0'
-        - name: HEALTH_PORT
-          value: '10202'
-        args:
-        - --mic-volume
-        - '75'
-        ports:
-        - containerPort: 6053
-          name: satellite
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256Mi
-          limits:
-            cpu: '2'
-            memory: 1Gi
-        startupProbe:
-          exec:
-            command:
-            - /app/.venv/bin/python3
-            - /app/healthcheck.py
-          failureThreshold: 30
-          periodSeconds: 10
-        readinessProbe:
-          exec:
-            command:
-            - /app/.venv/bin/python3
-            - /app/healthcheck.py
-          periodSeconds: 10
-        livenessProbe:
-          exec:
-            command:
-            - /app/.venv/bin/python3
-            - /app/healthcheck.py
-          periodSeconds: 15
-        volumeMounts:
-        - name: sound-device
-          mountPath: /dev/snd
-        - name: pulse-socket
-          mountPath: /run/user/1001/pulse
-        - name: persist-data
-          mountPath: /data
-        - name: local-data
-          mountPath: /app/local
-        - name: tmp
-          mountPath: /tmp
-        - name: satellite-patches
-          mountPath: /app/linux_voice_assistant/__main__.py
-          subPath: __main__.py
-        - name: satellite-patches
-          mountPath: /app/linux_voice_assistant/satellite.py
-          subPath: satellite.py
-        - name: satellite-patches
-          mountPath: /app/healthcheck.py
-          subPath: healthcheck.py
+        - name: satellite
+          image: registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6
+          securityContext:
+            privileged: true
+            runAsUser: 1001
+            runAsGroup: 995
+          env:
+            - name: CLIENT_NAME
+              value: Homelab 05 Satellite
+            - name: PORT
+              value: '6053'
+            - name: PREFERENCES_FILE
+              value: /data/preferences.json
+            - name: PULSE_SERVER
+              value: unix:/run/user/1001/pulse/native
+            - name: SKIP_PULSE_AUDIO_WAIT
+              value: '1'
+            - name: PULSE_COOKIE
+              value: /tmp/pulse-cookie
+            - name: XDG_RUNTIME_DIR
+              value: /tmp
+            - name: ENABLE_DEBUG
+              value: '0'
+            - name: AUDIO_INPUT_DEVICE
+              value: QuadCast
+            - name: LISTEN_DURING_WAKE_SOUND
+              value: '1'
+            - name: WAKE_MODEL
+              value: hey_jarvis.tflite
+            - name: ACOUSTIC_TAIL_SECONDS
+              value: '0.35'
+            - name: AUDIO_STALL_TIMEOUT
+              value: '6.0'
+            - name: HEALTH_PORT
+              value: '10202'
+          args:
+            - --mic-volume
+            - '75'
+          ports:
+            - containerPort: 6053
+              name: satellite
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: '2'
+              memory: 1Gi
+          startupProbe:
+            exec:
+              command:
+                - /app/.venv/bin/python3
+                - /app/healthcheck.py
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - /app/.venv/bin/python3
+                - /app/healthcheck.py
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /app/.venv/bin/python3
+                - /app/healthcheck.py
+            periodSeconds: 15
+          volumeMounts:
+            - name: sound-device
+              mountPath: /dev/snd
+            - name: pulse-socket
+              mountPath: /run/user/1001/pulse
+            - name: persist-data
+              mountPath: /data
+            - name: local-data
+              mountPath: /app/local
+            - name: tmp
+              mountPath: /tmp
+            - name: satellite-patches
+              mountPath: /app/linux_voice_assistant/__main__.py
+              subPath: __main__.py
+            - name: satellite-patches
+              mountPath: /app/linux_voice_assistant/satellite.py
+              subPath: satellite.py
+            - name: satellite-patches
+              mountPath: /app/healthcheck.py
+              subPath: healthcheck.py
       volumes:
-      - name: sound-device
-        hostPath:
-          path: /dev/snd
-          type: Directory
-      - name: pulse-socket
-        hostPath:
-          path: /run/user/1001/pulse
-          type: Directory
-      - name: persist-data
-        hostPath:
-          path: /persist/voice-assistant
-          type: DirectoryOrCreate
-      - name: local-data
-        emptyDir: {}
-      - name: tmp
-        emptyDir: {}
-      - name: satellite-patches
-        configMap:
-          name: satellite-patch-code
+        - name: sound-device
+          hostPath:
+            path: /dev/snd
+            type: Directory
+        - name: pulse-socket
+          hostPath:
+            path: /run/user/1001/pulse
+            type: Directory
+        - name: persist-data
+          hostPath:
+            path: /persist/voice-assistant
+            type: DirectoryOrCreate
+        - name: local-data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: satellite-patches
+          configMap:
+            name: satellite-patch-code
 ---
 apiVersion: v1
 kind: Service
@@ -1395,6 +1395,6 @@ spec:
   selector:
     app: linux-voice-assistant
   ports:
-  - name: satellite
-    port: 6053
-    targetPort: 6053
+    - name: satellite
+      port: 6053
+      targetPort: 6053
