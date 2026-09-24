@@ -39,6 +39,10 @@ data:
         service: http://renovate-approval-webhook.automation.svc.cluster.local:80
       - hostname: ha.rupan.dev
         service: http://home-assistant.home-assistant:8123
+      - hostname: ma.rupan.dev
+        service: http://10.0.30.15:8095
+      - hostname: ledfx.rupan.dev
+        service: http://ledfx.music-assistant:8888
       - hostname: rupan.dev
         service: http://rupan-dev-svc.rupan-dev:80
       - hostname: www.rupan.dev

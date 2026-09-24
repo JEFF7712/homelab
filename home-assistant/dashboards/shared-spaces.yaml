@@ -162,7 +162,7 @@ views:
               - entity: script.jarvis_play_media
                 name: Play media (Spotify / YouTube Music)
           - type: iframe
-            url: http://10.0.30.15:8095
+            url: https://ma.rupan.dev
             aspect_ratio: 75%
       - cards:
           - heading: Family
