@@ -5,3 +5,4 @@ resources:
   - namespace.yaml
   - storage.yaml
   - server.yaml
+  - ledfx.yaml
