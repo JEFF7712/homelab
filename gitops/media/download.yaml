@@ -227,17 +227,23 @@ spec:
               mountPath: /tmp
             - name: dotnet-bundle
               mountPath: /.net
+          startupProbe:
+            httpGet:
+              path: /
+              port: 5030
+            failureThreshold: 180
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /
               port: 5030
-            initialDelaySeconds: 60
+            initialDelaySeconds: 10
             periodSeconds: 20
           livenessProbe:
             httpGet:
               path: /
               port: 5030
-            initialDelaySeconds: 120
+            initialDelaySeconds: 30
             periodSeconds: 20
           resources:
             requests:

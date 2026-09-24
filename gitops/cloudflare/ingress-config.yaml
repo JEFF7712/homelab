@@ -61,4 +61,12 @@ data:
         service: http://webhook-receiver.flux-system:80
       - hostname: jellyfin.rupan.dev
         service: http://jellyfin.media:80
+      - hostname: navidrome.rupan.dev
+        service: http://navidrome.media:80
+      - hostname: music.rupan.dev
+        service: http://navidrome.media:80
+      - hostname: seerr.rupan.dev
+        service: http://seerr.media:80
+      - hostname: requests.rupan.dev
+        service: http://seerr.media:80
       - service: http_status:404
