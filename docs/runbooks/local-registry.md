@@ -180,6 +180,28 @@ content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
 Git commit only after that job succeeds.
 
+## First-party promotion
+
+First-party sites (`0.0.N` tags, plus `ism` on `latest`) roll out without a
+manual pin. The scheduled `registry_promote_first_party` CI job lists producer
+tags, mirrors the newest digest into `registry.rupan.dev`, and commits the lock,
+inventory, and consumer digest updates together so `check-registry` stays green.
+Flux picks the commit up on its normal interval. End to end, a site push reaches
+the public site in roughly: site CI plus image build, then the promotion
+schedule interval, then Flux reconciliation (GitRepository `1m`,
+Kustomizations `10m`).
+
+```bash
+python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json
+python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json --dry-run
+python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json --only apps/rupan-dev
+```
+
+The job needs two project settings that live outside this repository: a pipeline
+schedule targeting `main` (for example nightly) and a `GITLAB_PUSH_TOKEN`
+project access token with `write_repository` scope (masked). Without the token
+the job still reports what it would promote but commits nothing.
+
 ## Producer migration contract
 
 Producer changes belong in their source repositories and require separate

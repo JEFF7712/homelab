@@ -18,10 +18,12 @@ from .core import (
     discover_inventory,
     load_inventory,
     load_lock,
+    promote_first_party_lock,
     refresh_live_snapshot,
     render_access_control,
     render_node_config,
     resolve_inventory,
+    rewrite_consumer_digests,
     verify_lock,
 )
 
@@ -48,6 +50,25 @@ def _parser() -> argparse.ArgumentParser:
 
     plan = subparsers.add_parser("plan", help="emit a deterministic copy plan")
     plan.add_argument("--lock", type=pathlib.Path, required=True)
+
+    promote = subparsers.add_parser(
+        "promote",
+        help="promote first-party images to newest producer tags and update consumers",
+    )
+    promote.add_argument("--lock", type=pathlib.Path, required=True)
+    promote.add_argument("--inventory", type=pathlib.Path, required=True)
+    promote.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="limit promotion to destination repositories (repeatable)",
+    )
+    promote.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="inspect registries without copying or writing files",
+    )
+    _network_options(promote)
 
     copy = subparsers.add_parser("copy", help="copy and verify locked content")
     copy.add_argument("--lock", type=pathlib.Path, required=True)
@@ -144,6 +165,48 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "plan":
             lock = load_lock(args.lock)
             _print(copy_plan(lock))
+            return 0
+        if args.command == "promote":
+            lock = load_lock(args.lock)
+            client = OciClient(timeout=args.timeout, retries=args.retries)
+            summary = promote_first_party_lock(
+                client,
+                lock,
+                only=set(args.only) if args.only else None,
+                dry_run=args.dry_run,
+            )
+            if not args.dry_run and summary["promoted"]:
+                atomic_write_json(args.lock, lock)
+                for item in summary["promoted"]:
+                    rewrite_consumer_digests(
+                        args.root,
+                        item["consumers"],
+                        destination_registry=lock["destination_registry"],
+                        destination_repository=item["destination_repository"],
+                        previous_digest=item["previous_digest"],
+                        digest=item["digest"],
+                    )
+                atomic_write_json(args.inventory, discover_inventory(args.root))
+                report = check_consumers(args.root, lock)
+                if report["status"] != "ok":
+                    raise RegistryError(
+                        "promoted consumers failed policy check: "
+                        + "; ".join(
+                            f"{item['consumer']} pins {item['reference']}"
+                            for item in report["errors"]
+                        )
+                    )
+            _print(
+                {
+                    "schema_version": 1,
+                    "command": "promote",
+                    "status": "ok",
+                    "dry_run": args.dry_run,
+                    "lock": str(args.lock),
+                    "promoted": summary["promoted"],
+                    "skipped": summary["skipped"],
+                }
+            )
             return 0
         if args.command in {"copy", "verify"}:
             lock = load_lock(args.lock)

@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import io
 import json
+import os
 import pathlib
 import stat
 import tempfile
@@ -26,9 +27,12 @@ from scripts.registry.core import (
     discover_inventory,
     image_kind,
     load_lock,
+    promote_first_party_lock,
     render_access_control,
     render_node_config,
     resolve_inventory,
+    rewrite_consumer_digests,
+    select_promotion_candidate,
     validate_lock,
     verify_lock,
 )
@@ -94,6 +98,26 @@ class RegistryCiContractTests(unittest.TestCase):
             template_script.index("nixos-rebuild"),
         )
         self.assertNotIn("REGISTRY_MIGRATION_AUTH_FILE", template_script)
+
+    def test_first_party_promotion_runs_on_schedule_and_commits_atomically(
+        self,
+    ) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        job = pipeline["registry_promote_first_party"]
+        script = "\n".join(job["script"])
+
+        rules = [rule.get("if", "") for rule in job["rules"]]
+        self.assertIn('$CI_PIPELINE_SOURCE == "schedule"', rules)
+        self.assertEqual(job["tags"], ["nas-ci"])
+        self.assertEqual(job["resource_group"], "registry-content")
+        self.assertIn("scripts.registry promote", script)
+        self.assertIn("just check-registry", script)
+        self.assertIn("GITLAB_PUSH_TOKEN", script)
+        self.assertLess(
+            script.index("scripts.registry promote"), script.index("git commit")
+        )
+        self.assertLess(script.index("just check-registry"), script.index("git commit"))
 
 
 def lock_record(
@@ -806,6 +830,226 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
         record["destination_repository"] = "apps/apolline"
         payload = render_node_config(value, "node-reader", "secret")
         self.assertNotIn('"registry.rupan.dev":\n    endpoint:', payload)
+
+
+def first_party_record(
+    raw: bytes, *, tag: str | None, repository: str = "jeff7712/rupan-dev"
+) -> dict[str, Any]:
+    expected = digest(raw)
+    reference = f"ghcr.io/{repository}:{tag}@{expected}" if tag else None
+    return {
+        "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
+        "kind": "first-party",
+        "source": {
+            "registry": "ghcr.io",
+            "repository": repository,
+            "tag": tag,
+            "digest": expected,
+            "reference": reference or f"ghcr.io/{repository}@{expected}",
+        },
+        "destination_repository": "apps/rupan-dev",
+        "consumers": ["gitops/websites/rupan-dev/deployment.yaml:22"],
+        "producer": {
+            "location": f"external-image-repository:ghcr.io/{repository}",
+            "owner": "jeff7712",
+            "pipeline_status": "unverified",
+        },
+        "retention_class": "deployed",
+        "digest": expected,
+        "media_type": "application/vnd.oci.image.index.v1+json",
+        "platforms": ["linux/amd64", "unknown/unknown"],
+        "destination_tags": (
+            [tag, f"retention-deployed-{expected[7:23]}"]
+            if tag
+            else [f"retention-deployed-{expected[7:23]}"]
+        ),
+        "resolution": {"status": "source-registry-verified"},
+        "referrers": {"required": [], "source_status": "not-enumerated"},
+        "authenticity": {"status": "unsupported", "reason": "no policy"},
+    }
+
+
+def first_party_lock(raw: bytes, *, tag: str | None = "0.0.11") -> dict[str, Any]:
+    value = valid_lock(raw)
+    value["images"] = [first_party_record(raw, tag=tag)]
+    return value
+
+
+class PromoteFakeClient(FakeClient):
+    def __init__(self, manifests: dict[str, bytes], tags: dict[str, list[str]]) -> None:
+        super().__init__(manifests)
+        self.tags = tags
+        self.listed: list[str] = []
+
+    def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
+        del destination
+        self.listed.append(repository)
+        return sorted(self.tags[repository])
+
+
+class PromoteFirstPartyTests(unittest.TestCase):
+    def test_selects_newest_numeric_tag(self) -> None:
+        self.assertEqual(
+            select_promotion_candidate(["0.0.9", "0.0.12", "0.0.3"], "0.0.9"),
+            "0.0.12",
+        )
+        self.assertIsNone(select_promotion_candidate(["latest", "edge"], "0.0.9"))
+        self.assertIsNone(select_promotion_candidate([], "0.0.9"))
+
+    def test_tracks_mutable_latest_tag(self) -> None:
+        self.assertEqual(
+            select_promotion_candidate(["latest", "0.0.99"], "latest"), "latest"
+        )
+
+    def test_skips_up_to_date_record(self) -> None:
+        raw = manifest()
+        lock = first_party_lock(raw)
+        client = PromoteFakeClient(
+            {"ghcr.io/jeff7712/rupan-dev:0.0.11": raw},
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.10", "0.0.11"]},
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(summary["promoted"], [])
+        self.assertEqual(len(summary["skipped"]), 1)
+        self.assertEqual(client.copies, [])
+        self.assertEqual(lock["images"][0]["source"]["tag"], "0.0.11")
+
+    def test_promotes_newest_tag_and_mirrors_it(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64"), ("linux", "arm64")])
+        new_digest = digest(new)
+        lock = first_party_lock(old)
+        client = PromoteFakeClient(
+            {"ghcr.io/jeff7712/rupan-dev:0.0.12": new},
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(len(summary["promoted"]), 1)
+        item = summary["promoted"][0]
+        self.assertEqual(item["tag"], "0.0.12")
+        self.assertEqual(item["digest"], new_digest)
+        self.assertEqual(
+            client.copies,
+            [
+                (
+                    "ghcr.io/jeff7712/rupan-dev:0.0.12",
+                    "registry.rupan.dev/apps/rupan-dev:0.0.12",
+                )
+            ],
+        )
+        record = lock["images"][0]
+        self.assertEqual(record["digest"], new_digest)
+        self.assertEqual(
+            record["source"]["reference"],
+            f"ghcr.io/jeff7712/rupan-dev:0.0.12@{new_digest}",
+        )
+        self.assertEqual(
+            record["destination_tags"],
+            sorted(["0.0.12", f"retention-deployed-{new_digest[7:23]}"]),
+        )
+        self.assertEqual(record["resolution"], {"status": "source-registry-verified"})
+        self.assertEqual(validate_lock(lock), [])
+
+    def test_promotes_latest_on_digest_change(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64")])
+        new_digest = digest(new)
+        lock = first_party_lock(old, tag="latest")
+        client = PromoteFakeClient(
+            {"ghcr.io/jeff7712/rupan-dev:latest": new},
+            {"ghcr.io/jeff7712/rupan-dev": ["latest", "0.0.99"]},
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(len(summary["promoted"]), 1)
+        self.assertEqual(summary["promoted"][0]["tag"], "latest")
+        self.assertEqual(lock["images"][0]["digest"], new_digest)
+
+    def test_dry_run_inspects_without_copying(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64")])
+        lock = first_party_lock(old)
+        client = PromoteFakeClient(
+            {"ghcr.io/jeff7712/rupan-dev:0.0.12": new},
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.12"]},
+        )
+        summary = promote_first_party_lock(client, lock, dry_run=True)
+        self.assertEqual(len(summary["promoted"]), 1)
+        self.assertEqual(client.copies, [])
+
+    def test_only_filter_limits_records(self) -> None:
+        raw = manifest()
+        lock = first_party_lock(raw)
+        client = PromoteFakeClient({}, {"ghcr.io/jeff7712/rupan-dev": ["0.0.11"]})
+        summary = promote_first_party_lock(client, lock, only={"apps/other"})
+        self.assertEqual(summary["promoted"], [])
+        self.assertEqual(summary["skipped"], [])
+        self.assertEqual(client.listed, [])
+
+    def test_list_tags_uses_source_authfile(self) -> None:
+        client = OciClient()
+        client.inspect_tool = "skopeo"
+        with (
+            patch.dict(
+                os.environ, {"REGISTRY_SOURCE_AUTH_FILE": "/tmp/auth.json"}, clear=False
+            ),
+            patch.object(
+                client,
+                "_run",
+                return_value=json.dumps({"Tags": ["0.0.2", "0.0.1"]}).encode(),
+            ) as run,
+        ):
+            self.assertEqual(
+                client.list_tags("ghcr.io/jeff7712/rupan-dev"), ["0.0.1", "0.0.2"]
+            )
+        command = run.call_args.args[0]
+        self.assertEqual(
+            command[:4], ["skopeo", "--registries-conf", "/dev/null", "list-tags"]
+        )
+        self.assertIn("/tmp/auth.json", command)
+
+    def test_rewrites_gitops_consumers_and_skips_observed(self) -> None:
+        old_digest = "sha256:" + "a" * 64
+        new_digest = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            target = root / "gitops/websites/rupan-dev/deployment.yaml"
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                f"image: registry.rupan.dev/apps/rupan-dev@{old_digest}\n",
+                encoding="utf-8",
+            )
+            updated = rewrite_consumer_digests(
+                root,
+                [
+                    "gitops/websites/rupan-dev/deployment.yaml:22",
+                    "observed:rupan-dev/website-deploy-xxx/web",
+                ],
+                destination_registry="registry.rupan.dev",
+                destination_repository="apps/rupan-dev",
+                previous_digest=old_digest,
+                digest=new_digest,
+            )
+            self.assertEqual(updated, ["gitops/websites/rupan-dev/deployment.yaml"])
+            self.assertIn(new_digest, target.read_text(encoding="utf-8"))
+
+    def test_rewrite_rejects_stale_consumer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            target = root / "gitops/websites/rupan-dev/deployment.yaml"
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                "image: registry.rupan.dev/apps/rupan-dev@sha256:other\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RegistryError, "no longer pins"):
+                rewrite_consumer_digests(
+                    root,
+                    ["gitops/websites/rupan-dev/deployment.yaml:22"],
+                    destination_registry="registry.rupan.dev",
+                    destination_repository="apps/rupan-dev",
+                    previous_digest="sha256:" + "a" * 64,
+                    digest="sha256:" + "b" * 64,
+                )
 
 
 if __name__ == "__main__":

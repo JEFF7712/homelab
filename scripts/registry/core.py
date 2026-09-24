@@ -814,6 +814,28 @@ class OciClient:
             )
         return self._run(args, operation="manifest inspection", timeout=timeout)
 
+    def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
+        if self.inspect_tool != "skopeo":
+            raise RegistryError("tag listing requires skopeo")
+        args = ["skopeo", "--registries-conf", "/dev/null", "list-tags"]
+        auth = os.environ.get(
+            "REGISTRY_DEST_AUTH_FILE" if destination else "REGISTRY_SOURCE_AUTH_FILE"
+        )
+        if auth:
+            args.extend(["--authfile", auth])
+        args.append(f"docker://{repository}")
+        raw = self._run(args, operation="tag listing")
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as error:
+            raise RegistryError(
+                f"registry returned invalid tag list JSON for {repository}"
+            ) from error
+        tags = payload.get("Tags") if isinstance(payload, dict) else None
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            raise RegistryError(f"registry returned invalid tags for {repository}")
+        return sorted(tags)
+
     def copy(
         self, source: str, destination: str, *, timeout: float | None = None
     ) -> None:
@@ -1003,6 +1025,178 @@ def resolve_inventory(
             "resolved lock candidate is invalid: " + "; ".join(validation_errors)
         )
     return lock, unresolved
+
+
+_PROMOTION_TAG_RE = re.compile(r"0\.0\.(\d+)\Z")
+_TRACKED_MUTABLE_TAGS = frozenset({"latest"})
+
+
+def promotion_version(tag: str | None) -> int | None:
+    match = _PROMOTION_TAG_RE.fullmatch(tag or "")
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
+def select_promotion_candidate(
+    tags: Sequence[str], current_tag: str | None
+) -> str | None:
+    if current_tag in _TRACKED_MUTABLE_TAGS:
+        return current_tag
+    best: str | None = None
+    best_version = -1
+    for tag in tags:
+        version = promotion_version(tag)
+        if version is not None and version > best_version:
+            best_version = version
+            best = tag
+    return best
+
+
+def promote_first_party_lock(
+    client: OciClient,
+    lock: dict[str, Any],
+    *,
+    only: set[str] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    destination_registry = lock.get("destination_registry")
+    if not isinstance(destination_registry, str) or not destination_registry:
+        raise RegistryError("lock has no destination registry")
+    promoted: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    records: list[dict[str, Any]] = []
+    for record in lock["images"]:
+        if record.get("kind") != "first-party" or (
+            only is not None and record.get("destination_repository") not in only
+        ):
+            records.append(record)
+            continue
+        destination_repository_name = str(record["destination_repository"])
+        source = record["source"]
+        source_repository = f"{source['registry']}/{source['repository']}"
+        source_is_local = source["registry"] == destination_registry
+        try:
+            tags = client.list_tags(source_repository, destination=source_is_local)
+        except RegistryError as error:
+            skipped.append(
+                {
+                    "destination_repository": destination_repository_name,
+                    "reason": f"tag listing failed: {error}",
+                }
+            )
+            records.append(record)
+            continue
+        candidate = select_promotion_candidate(tags, source.get("tag"))
+        if candidate is None:
+            skipped.append(
+                {
+                    "destination_repository": destination_repository_name,
+                    "reason": "no promotion tags found",
+                }
+            )
+            records.append(record)
+            continue
+        candidate_reference = f"{source_repository}:{candidate}"
+        new_digest, media_type, platforms = _inspect_digest(
+            client, candidate_reference, destination=source_is_local
+        )
+        previous_digest = str(record["digest"])
+        if candidate == source.get("tag") and new_digest == previous_digest:
+            skipped.append(
+                {
+                    "destination_repository": destination_repository_name,
+                    "reason": f"already at {candidate_reference}",
+                }
+            )
+            records.append(record)
+            continue
+        destination_tagged = (
+            f"{destination_registry}/{destination_repository_name}:{candidate}"
+        )
+        if not dry_run:
+            try:
+                observed_destination, _, _ = _inspect_digest(
+                    client, destination_tagged, destination=True
+                )
+            except RegistryError:
+                observed_destination = None
+            if observed_destination != new_digest:
+                client.copy(candidate_reference, destination_tagged)
+            observed_destination, _, _ = _inspect_digest(
+                client, destination_tagged, destination=True
+            )
+            if observed_destination != new_digest:
+                raise RegistryError(
+                    f"promotion copy failed for {destination_tagged}: "
+                    f"expected {new_digest}, observed {observed_destination}"
+                )
+        retention_class = str(record.get("retention_class", "deployed"))
+        updated = dict(record)
+        updated["source"] = {
+            **source,
+            "tag": candidate,
+            "digest": new_digest,
+            "reference": f"{candidate_reference}@{new_digest}",
+        }
+        updated["digest"] = new_digest
+        updated["media_type"] = media_type
+        updated["platforms"] = platforms
+        updated["destination_tags"] = sorted(
+            {
+                candidate,
+                f"retention-{retention_class}-{new_digest.removeprefix('sha256:')[:16]}",
+            }
+        )
+        updated["resolution"] = {"status": "source-registry-verified"}
+        records.append(updated)
+        promoted.append(
+            {
+                "destination_repository": destination_repository_name,
+                "consumers": list(record.get("consumers", [])),
+                "previous_tag": source.get("tag"),
+                "tag": candidate,
+                "previous_digest": previous_digest,
+                "digest": new_digest,
+            }
+        )
+    lock["images"] = sorted(records, key=lambda item: item["id"])
+    if promoted and not dry_run:
+        lock["generated_at"] = _timestamp()
+    errors = validate_lock(lock)
+    if errors:
+        raise RegistryError("promoted lock is invalid: " + "; ".join(errors))
+    return {"promoted": promoted, "skipped": skipped}
+
+
+def rewrite_consumer_digests(
+    root: pathlib.Path,
+    consumers: Sequence[str],
+    *,
+    destination_registry: str,
+    destination_repository: str,
+    previous_digest: str,
+    digest: str,
+) -> list[str]:
+    if previous_digest == digest:
+        return []
+    old = f"{destination_registry}/{destination_repository}@{previous_digest}"
+    new = f"{destination_registry}/{destination_repository}@{digest}"
+    updated: list[str] = []
+    for consumer in consumers:
+        if consumer.startswith("observed:"):
+            continue
+        relative, _, _ = consumer.partition(":")
+        path = root / relative
+        text = path.read_text(encoding="utf-8")
+        if old not in text:
+            raise RegistryError(f"consumer {consumer} no longer pins {old}")
+        path.write_text(text.replace(old, new), encoding="utf-8")
+        updated.append(relative)
+    return updated
 
 
 def copy_plan(lock: Mapping[str, Any]) -> dict[str, Any]:

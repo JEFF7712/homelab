@@ -8,7 +8,7 @@
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-76b7c5b4d9-848pw/pot-provider"
+        "music-assistant/music-assistant-7c6bfb44c8-p99hr/pot-provider"
       ],
       "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
     },
@@ -98,10 +98,10 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-6b9cb5c997-kh967/quartz",
-        "obsidian/quartz-notes-6b9cb5c997-tj24c/quartz"
+        "obsidian/quartz-notes-7694d484d-mkzr8/quartz",
+        "obsidian/quartz-notes-7694d484d-p4lj2/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3"
     },
     {
       "consumers": [
@@ -145,8 +145,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-569f55c947-dsf4c/cloudflared",
-        "cloudflare/cloudflared-569f55c947-vzk4m/cloudflared"
+        "cloudflare/cloudflared-67c86d6b-2sdcm/cloudflared",
+        "cloudflare/cloudflared-67c86d6b-47qtz/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -158,7 +158,7 @@
     },
     {
       "consumers": [
-        "media/navidrome-766769c465-2llt7/navidrome"
+        "media/navidrome-766769c465-vkbbr/navidrome"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40"
     },
@@ -214,14 +214,14 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/initialize-config",
-        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/install-hacs",
+        "home-assistant/home-assistant-78d769bc5-pcgbs/initialize-config",
+        "home-assistant/home-assistant-78d769bc5-pcgbs/install-hacs",
         "media/bazarr-69b6cf7658-5lvpm/fix-permissions",
         "media/bookshelf-7f89767968-9hxxn/fix-permissions",
         "media/calibre-web-6669989ff5-vjzrd/fix-permissions",
         "media/download-699c796b5c-swmtn/configure-qbittorrent",
         "media/download-699c796b5c-swmtn/fix-permissions",
-        "media/jellyfin-6cf7b8975d-mjmsd/fix-permissions",
+        "media/jellyfin-6cf7b8975d-9jfdf/fix-permissions",
         "media/lidarr-cdfbdf6c8-mb6pw/fix-permissions",
         "media/prowlarr-ff5b8d4d4-j7k69/fix-permissions",
         "media/radarr-6747969b69-nqwfk/fix-permissions",
@@ -279,10 +279,10 @@
     {
       "consumers": [
         "voice/jarvis-exporter-746b49b9fd-p2pfl/exporter",
-        "voice/wyoming-stt-gateway-7b4f444c4d-hhbz8/gateway",
-        "voice/wyoming-stt-gateway-7b4f444c4d-rv9g5/gateway",
-        "voice/wyoming-tts-gateway-7dc79c797f-x6nrn/gateway",
-        "voice/wyoming-tts-gateway-7dc79c797f-x7d5r/gateway"
+        "voice/wyoming-stt-gateway-6d658768f9-nsgcg/gateway",
+        "voice/wyoming-stt-gateway-6d658768f9-pvt9t/gateway",
+        "voice/wyoming-tts-gateway-5dcbc998b6-8qsk9/gateway",
+        "voice/wyoming-tts-gateway-5dcbc998b6-ctlv6/gateway"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
     },
@@ -325,9 +325,9 @@
     },
     {
       "consumers": [
-        "voice/wyoming-nemotron-5f5bfc4bbd-4pnpk/bridge",
-        "voice/wyoming-whisper-dc994c5cd-kvdp7/voice-id",
-        "voice/wyoming-whisper-dc994c5cd-kvdp7/whisper"
+        "voice/wyoming-nemotron-576b7f88dc-8tcqd/bridge",
+        "voice/wyoming-whisper-747d784788-xsslx/voice-id",
+        "voice/wyoming-whisper-747d784788-xsslx/whisper"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80"
     },
@@ -369,9 +369,9 @@
     },
     {
       "consumers": [
-        "voice/wyoming-chatterbox-6966dc7b6-xhdqm/chatterbox",
-        "voice/wyoming-chatterbox-6966dc7b6-xhdqm/prepare-permissions",
-        "voice/wyoming-chatterbox-6966dc7b6-xhdqm/prepare-runtime"
+        "voice/wyoming-chatterbox-5b698cf4d9-zx6gj/chatterbox",
+        "voice/wyoming-chatterbox-5b698cf4d9-zx6gj/prepare-permissions",
+        "voice/wyoming-chatterbox-5b698cf4d9-zx6gj/prepare-runtime"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
@@ -415,7 +415,7 @@
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/home-assistant"
+        "home-assistant/home-assistant-78d769bc5-pcgbs/home-assistant"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17"
     },
@@ -427,7 +427,7 @@
     },
     {
       "consumers": [
-        "immich/immich-machine-learning-595c54b9f6-87qbg/immich-machine-learning"
+        "immich/immich-machine-learning-595c54b9f6-qjwgn/immich-machine-learning"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
@@ -445,25 +445,25 @@
     },
     {
       "consumers": [
-        "music-assistant/ledfx-5b68b6fb-7gs9c/ledfx"
+        "music-assistant/ledfx-5cff695679-pd99d/ledfx"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-5f8dbbd5f5-xhf9s/matter-server"
+        "home-assistant/home-assistant-78d769bc5-pcgbs/matter-server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236"
     },
     {
       "consumers": [
-        "music-assistant/music-assistant-76b7c5b4d9-848pw/server"
+        "music-assistant/music-assistant-7c6bfb44c8-p99hr/server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
     },
     {
       "consumers": [
-        "voice/linux-voice-assistant-5d4c5cbbc8-zht9n/satellite"
+        "voice/linux-voice-assistant-5847b79d6b-xb5v9/satellite"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
     },
@@ -494,7 +494,7 @@
     },
     {
       "consumers": [
-        "media/jellyfin-6cf7b8975d-mjmsd/jellyfin"
+        "media/jellyfin-6cf7b8975d-9jfdf/jellyfin"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f"
     },
@@ -672,6 +672,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-24T02:46:15+00:00",
+  "observed_at": "2026-09-24T18:14:15+00:00",
   "schema_version": 1
 }

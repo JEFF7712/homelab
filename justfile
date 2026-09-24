@@ -76,6 +76,9 @@ registry-resolve:
 registry-plan:
     python -m scripts.registry plan --lock registry/images.lock.json
 
+registry-promote *args="":
+    python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json {{args}}
+
 registry-check:
     python -m scripts.registry check --lock registry/images.lock.json
 
