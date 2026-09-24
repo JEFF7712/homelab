@@ -15,6 +15,7 @@ actions:
   - action: watchman.report
     data:
       create_file: false
+      parse_config: true
     response_variable: wm_report
     continue_on_error: true
   - variables:
@@ -22,10 +23,13 @@ actions:
         - scene.pre_away_bedroom
         - scene.pre_away_shared
         - scene.pre_away_climate
+        - scene.shared_last_state
+  - variables:
       wm_bad_count: >-
-        {% set r = wm_report.response
-        if wm_report is defined and wm_report.response is defined
-        else (wm_report if wm_report is defined else {}) %}
+        {% set r = wm_report.service_response
+        if wm_report is defined and wm_report.service_response is defined
+        else (wm_report.response if wm_report is defined and wm_report.response is defined
+        else (wm_report if wm_report is defined else {})) %}
         {% set items = r.missing_entities
         if r is mapping and r.missing_entities is defined else [] %}
         {% set bad = items | selectattr('state', 'defined')
@@ -33,9 +37,10 @@ actions:
         | rejectattr('id', 'in', wm_known_missing) | list %}
         {{ bad | count }}
       wm_bad_ids: >-
-        {% set r = wm_report.response
-        if wm_report is defined and wm_report.response is defined
-        else (wm_report if wm_report is defined else {}) %}
+        {% set r = wm_report.service_response
+        if wm_report is defined and wm_report.service_response is defined
+        else (wm_report.response if wm_report is defined and wm_report.response is defined
+        else (wm_report if wm_report is defined else {})) %}
         {% set items = r.missing_entities
         if r is mapping and r.missing_entities is defined else [] %}
         {% set bad = items | selectattr('state', 'defined')

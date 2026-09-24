@@ -31,14 +31,12 @@ conditions:
     state: "off"
 actions:
   - variables:
-      wake_raw: "{{ states('input_datetime.bedroom_wake_time') }}"
-      wake_ts: >-
-        {{ as_timestamp(today_at(wake_raw), none)
-        if wake_raw not in ('unknown', 'unavailable', '') else none }}
-      alarm_ts: "{{ as_timestamp(states('sensor.sm_s948u1_next_alarm'), none) }}"
       target_ts: >-
-        {% set cands = [wake_ts | float(none), alarm_ts | float(none)]
-        | select('ne', none) | list %}
+        {% set wake_raw = states('input_datetime.bedroom_wake_time') %}
+        {% set wake_ts = as_timestamp(today_at(wake_raw), none)
+        if wake_raw not in ('unknown', 'unavailable', '') else none %}
+        {% set alarm_ts = as_timestamp(states('sensor.sm_s948u1_next_alarm'), none) %}
+        {% set cands = [wake_ts, alarm_ts] | select('ne', none) | list %}
         {{ cands | min if cands | count > 0 else 0 }}
   - choose:
       - conditions:
