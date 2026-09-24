@@ -1,5 +1,5 @@
 alias: Jarvis — play media
-mode: restart
+mode: queued
 description: >-
   Plays music, songs, artists, albums, or playlists on the Jarvis satellite
   speaker via Music Assistant. Supports Spotify and YouTube Music. Call this
@@ -12,7 +12,16 @@ description: >-
   so playback continues past the first track. Never ask which album
   or song; just play. Specific songs use 'music' or 'track', albums 'album',
   playlists 'playlist'. Individual songs play immediately and continue autoplaying
-  tracks by that artist by default.
+  tracks by that artist by default. Queued (not restart) so a second command
+  cannot interrupt the search/play/enqueue sequence mid-flight and leave a
+  stale queue update behind; each run completes, and the latest replace wins.
+  The result distinguishes 'accepted' (service submitted, playback not yet
+  observed) from 'playing' (the satellite media player is playing media
+  this request put in the queue). Confirmation compares the queue content
+  before and after the play calls, so a previous track that is still
+  playing never verifies a new request; same-track replay is confirmed by
+  a fresh position update near the start of the track. Callers must not
+  present 'accepted' as verified playback.
 fields:
   media_content_type:
     description: >-
@@ -82,6 +91,11 @@ sequence:
         {% else %}
           {{ media_content_type in ['music', 'track'] }}
         {% endif %}
+      satellite_player: media_player.homelab_05_satellite_media_player_2
+      request_started: "{{ now().isoformat() }}"
+      queue_before: >-
+        {{ state_attr('media_player.homelab_05_satellite_media_player_2',
+                      'media_content_id') | default('', true) | string }}
   - choose:
       - conditions:
           - condition: template
@@ -102,10 +116,15 @@ sequence:
           - variables:
               artist_uri: >-
                 {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
-                  {{ (artist_uris | select('search', '^ytmusic:') | list + artist_uris + [media_content_id]) | first }}
+                  {{ (artist_uris | select('search', '^ytmusic:') | list) | first | default('', true) }}
                 {% else %}
                   {{ (artist_uris | select('search', '^spotify:') | list + artist_uris + [media_content_id]) | first }}
                 {% endif %}
+          - if:
+              - condition: template
+                value_template: "{{ artist_uri | length == 0 }}"
+            then:
+              - stop: No artist result was found on {{ target_platform }}.
           - action: music_assistant.play_media
             target:
               entity_id: media_player.homelab_05_satellite_media_player_2
@@ -135,15 +154,32 @@ sequence:
                 {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
                               else '^spotify:' %}
                 {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
-                {% set matched = (plat + tracks) | first | default({}, true) %}
-                {{ matched.uri | default(clean_track_query, true) }}
+                {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
+                  {{ (plat | map(attribute='uri') | list) | first | default('', true) }}
+                {% else %}
+                  {% set matched = (plat + tracks) | first | default({}, true) %}
+                  {{ matched.uri | default(clean_track_query, true) }}
+                {% endif %}
               artist_uri: >-
                 {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
                 {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
                               else '^spotify:' %}
                 {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
-                {% set matched = (plat + tracks) | first | default({}, true) %}
-                {{ (matched.artists | default([], true) | map(attribute='uri') | list) | first | default('', true) }}
+                {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
+                  {% set matched = plat | first | default({}, true) %}
+                {% else %}
+                  {% set matched = (plat + tracks) | first | default({}, true) %}
+                {% endif %}
+                {% set artists = matched.artists | default([], true) %}
+                {% set artist_pref = '^ytmusic:' if target_platform in
+                  ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {{ (artists | selectattr('uri', 'search', artist_pref)
+                  | map(attribute='uri') | list) | first | default('', true) }}
+          - if:
+              - condition: template
+                value_template: "{{ track_uri | length == 0 }}"
+            then:
+              - stop: No track result was found on {{ target_platform }}.
           - action: music_assistant.play_media
             target:
               entity_id: media_player.homelab_05_satellite_media_player_2
@@ -194,7 +230,12 @@ sequence:
                 {% set pl = search.playlists | default([], true)
                   | selectattr('uri', 'search', '^ytmusic:')
                   | map(attribute='uri') | list %}
-                {{ (t + al + ar + pl) | first | default(media_content_id) }}
+                {{ (t + al + ar + pl) | first | default('', true) }}
+          - if:
+              - condition: template
+                value_template: "{{ yt_uri | length == 0 }}"
+            then:
+              - stop: No YouTube Music result was found.
           - action: media_player.play_media
             target:
               entity_id: media_player.homelab_05_satellite_media_player_2
@@ -212,11 +253,56 @@ sequence:
           media_content_id: "{{ media_content_id }}"
           extra:
             radio_mode: "{{ use_radio_mode | bool }}"
+  - if:
+      - condition: template
+        value_template: >-
+          {{ not (is_state(satellite_player, 'playing') and
+          ((state_attr(satellite_player, 'media_content_id')
+          | default('', true) | string) != queue_before or
+          ((state_attr(satellite_player, 'media_position_updated_at')
+          | default(0, true) | as_timestamp(0)) > (request_started | as_timestamp)
+          and (state_attr(satellite_player, 'media_position')
+          | default(9999, true) | float(9999)) < 15))) }}
+    then:
+      - repeat:
+          while:
+            - condition: template
+              value_template: >-
+                {{ repeat.index <= 6 and not (is_state(satellite_player, 'playing') and
+                ((state_attr(satellite_player, 'media_content_id')
+                | default('', true) | string) != queue_before or
+                ((state_attr(satellite_player, 'media_position_updated_at')
+                | default(0, true) | as_timestamp(0))
+                > (request_started | as_timestamp)
+                and (state_attr(satellite_player, 'media_position')
+                | default(9999, true) | float(9999)) < 15))) }}
+          sequence:
+            - wait_for_trigger:
+                - platform: state
+                  entity_id: media_player.homelab_05_satellite_media_player_2
+              timeout:
+                seconds: 1
+              continue_on_timeout: true
   - variables:
       playback_result:
         media: "{{ media_content_id }}"
         platform: "{{ target_platform }}"
-        status: playing
+        status: >-
+          {{ 'playing' if is_state(satellite_player, 'playing') and
+          ((state_attr(satellite_player, 'media_content_id')
+          | default('', true) | string) != queue_before or
+          ((state_attr(satellite_player, 'media_position_updated_at')
+          | default(0, true) | as_timestamp(0)) > (request_started | as_timestamp)
+          and (state_attr(satellite_player, 'media_position')
+          | default(9999, true) | float(9999)) < 15)) else 'accepted' }}
+        verified: >-
+          {{ 'true' if is_state(satellite_player, 'playing') and
+          ((state_attr(satellite_player, 'media_content_id')
+          | default('', true) | string) != queue_before or
+          ((state_attr(satellite_player, 'media_position_updated_at')
+          | default(0, true) | as_timestamp(0)) > (request_started | as_timestamp)
+          and (state_attr(satellite_player, 'media_position')
+          | default(9999, true) | float(9999)) < 15)) else 'false' }}
         autoplay: "{{ use_radio_mode | bool }}"
-  - stop: Playback started
+  - stop: Playback submitted
     response_variable: playback_result
