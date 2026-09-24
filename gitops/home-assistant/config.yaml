@@ -115,14 +115,14 @@ data:
         action:
           - service: scene.turn_on
             target:
-              entity_id: scene.shared_cooking
+              entity_id: scene.cooking_bright_kitchen
         speech:
           text: "Done."
       JarvisDinnerMode:
         action:
           - service: scene.turn_on
             target:
-              entity_id: scene.shared_dinner
+              entity_id: scene.dinner_warm_dim
         speech:
           text: "Done."
       JarvisWeatherQuery:

@@ -578,12 +578,12 @@ class EvalCorpusTest(unittest.TestCase):
         cooking = scripts["JarvisCookingMode"]
         self.assertEqual(cooking["speech"]["text"], "Done.")
         self.assertEqual(
-            cooking["action"][0]["target"]["entity_id"], "scene.shared_cooking"
+            cooking["action"][0]["target"]["entity_id"], "scene.cooking_bright_kitchen"
         )
         dinner = scripts["JarvisDinnerMode"]
         self.assertEqual(dinner["speech"]["text"], "Done.")
         self.assertEqual(
-            dinner["action"][0]["target"]["entity_id"], "scene.shared_dinner"
+            dinner["action"][0]["target"]["entity_id"], "scene.dinner_warm_dim"
         )
         directions = {
             v["in"]: v["out"] for v in self.nudge["lists"]["jarvis_direction"]["values"]
