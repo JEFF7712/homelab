@@ -228,7 +228,11 @@ spec:
         - name: lidarr
           image: registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f  # yamllint disable-line rule:line-length
           command: ["/bin/sh", "-c"]
-          args: ["apk add --no-cache ffmpeg && command -v ffprobe >/dev/null 2>&1 && exec /init"]
+          args:
+            - >-
+              apk add --no-cache ffmpeg python3 py3-pip jq flac &&
+              command -v ffprobe >/dev/null 2>&1 &&
+              exec /init
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
