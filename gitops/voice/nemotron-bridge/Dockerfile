@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS build
+FROM nvidia/cuda:12.9.2-devel-ubuntu22.04 AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -23,7 +23,7 @@ RUN cmake -S . -B build -G Ninja \
  && cmake --build build --parallel ${BUILD_JOBS} \
  && cmake --install build
 
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.9.2-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     LD_LIBRARY_PATH=/opt/nemo/lib64:/usr/local/cuda/lib64 \
