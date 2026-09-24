@@ -33,6 +33,7 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: homelab-05
       securityContext:
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -55,7 +56,7 @@ spec:
               memory: 1Gi
           volumeMounts:
             - name: data
-              mountPath: /root/.ledfx
+              mountPath: /home/ledfx/ledfx-config
           readinessProbe:
             httpGet:
               path: /api/info
