@@ -14,12 +14,19 @@ data:
 
     Stage semantics are externally observed, not internal: stt covers the
     listening phase (user utterance plus transcription), llm covers the
-    processing phase, tts covers the responding phase. Tool calls are
-    call_service bus events seen while the satellite is processing. The
-    handling path is a latency heuristic, not a pipeline label: turns whose
-    processing phase fits within FAST_TURN_MAX_SECONDS count as "fast",
-    slower turns count as "slow". Speed class is a latency metric, not
-    a routing label; use Assist trace processed_locally for routing truth.
+    processing     phase, tts covers the responding phase. A turn completing
+    (responding to idle) increments jarvis_requests_total: that observes the
+    response phase, it is not proof of audible playback or device effect.
+    Service calls count as tool calls only on positive correlation: the call
+    context id must equal the active turn context id, or its parent must
+    (automation-triggered actions run under a child context of the turn).
+    Anything else observed during processing increments
+    jarvis_unmatched_service_calls_total instead of being attributed to
+    Jarvis, including calls with no context at all. The handling path is a latency heuristic, not a pipeline label:
+    turns whose processing phase fits within FAST_TURN_MAX_SECONDS count as
+    "fast", slower turns count as "slow". Speed class is a latency metric,
+    not a routing label; use Assist trace processed_locally for routing
+    truth.
     """
 
     from __future__ import annotations
@@ -116,8 +123,10 @@ data:
         def __init__(self, satellite: str) -> None:
             self._satellite = satellite
             self._lock = threading.RLock()
-            self.requests = Counter("jarvis_requests_total", "Completed voice turns.", ("satellite",), lock=self._lock)
-            self.tool_calls = Counter("jarvis_tool_calls_total", "Service calls seen while the satellite was processing.", ("satellite",), lock=self._lock)
+            self.requests = Counter("jarvis_requests_total", "Turns where the satellite returned to idle after responding (response phase observed; not proof of audible playback or device effect).", ("satellite",), lock=self._lock)
+            self.tool_calls = Counter("jarvis_tool_calls_total", "Context-correlated service calls seen while the satellite was processing.", ("satellite",), lock=self._lock)
+            self.turns_with_action = Counter("jarvis_turns_with_action_total", "Completed turns with at least one context-correlated service call.", ("satellite",), lock=self._lock)
+            self.unmatched = Counter("jarvis_unmatched_service_calls_total", "Service calls during processing whose HA context did not match the active turn.", ("satellite",), lock=self._lock)
             self.failed = Counter("jarvis_failed_requests_total", "Turns abandoned after processing started without ever responding.", ("satellite", "stage"), lock=self._lock)
             self.aborted = Counter("jarvis_aborted_requests_total", "Turns cancelled from listening before processing.", ("satellite",), lock=self._lock)
             self.by_room = Counter("jarvis_requests_by_room_total", "Completed voice turns by target room.", ("room",), lock=self._lock)
@@ -166,7 +175,7 @@ data:
                     "# TYPE jarvis_exporter_last_event_age_seconds gauge",
                     f"jarvis_exporter_last_event_age_seconds {max(0.0, time.monotonic() - self._last_event_at) if self._last_event_at else 1e9}",
                 ]
-                for metric in (self.requests, self.tool_calls, self.failed, self.aborted, self.by_room, self.speed, self.reconnects, self.auth_failures):
+                for metric in (self.requests, self.tool_calls, self.turns_with_action, self.unmatched, self.failed, self.aborted, self.by_room, self.speed, self.reconnects, self.auth_failures):
                     lines.extend(metric.render())
                 for metric in (self.stt, self.llm, self.tts):
                     lines.extend(metric.render())
@@ -189,6 +198,7 @@ data:
             self.listening_start = 0.0
             self.processing_start = 0.0
             self.responding_start = 0.0
+            self.turn_context: str | None = None
             self.turn_tools = 0
             self.turn_areas: list[str] = []
 
@@ -198,13 +208,14 @@ data:
                 self.phase = state
                 self.emit = False
 
-        def observe_state(self, state: str, now: float, resolve_room) -> None:
+        def observe_state(self, state: str, now: float, resolve_room, context_id: str | None = None) -> None:
             with self._lock:
                 if state == "listening":
                     if self.phase != "idle":
                         self._abandon_locked(now)
                     self.reset()
                     self.listening_start = now
+                    self.turn_context = context_id
                     self.phase = "listening"
                     return
                 if self.phase == "idle" or not self.emit:
@@ -223,6 +234,8 @@ data:
                     if self.phase == "responding":
                         self._metrics.tts.labels(self._satellite).observe(now - self.responding_start)
                         self._metrics.requests.labels(self._satellite).inc()
+                        if self.turn_tools > 0:
+                            self._metrics.turns_with_action.labels(self._satellite).inc()
                         room = resolve_room(self.turn_areas) if resolve_room else "unknown"
                         self._metrics.by_room.labels(room).inc()
                         processing = self.responding_start - self.processing_start
@@ -235,9 +248,20 @@ data:
                     self._abandon_locked(now)
                     self.reset()
 
-        def observe_service_call(self, entity_ids: list[str]) -> None:
+        def observe_service_call(self, entity_ids: list[str], context_id: str | None = None, parent_context_id: str | None = None) -> None:
             with self._lock:
                 if self.phase == "processing" and self.emit:
+                    correlated = (
+                        self.turn_context is not None
+                        and context_id is not None
+                        and (
+                            context_id == self.turn_context
+                            or parent_context_id == self.turn_context
+                        )
+                    )
+                    if not correlated:
+                        self._metrics.unmatched.labels(self._satellite).inc()
+                        return
                     self.turn_tools += 1
                     self._metrics.tool_calls.labels(self._satellite).inc()
                     self.turn_areas.extend(entity_ids)
@@ -549,12 +573,15 @@ data:
                     if inner.get("event_type") == "state_changed":
                         data = inner.get("data", {})
                         if data.get("entity_id") == satellite:
-                            new_state = (data.get("new_state") or {}).get("state")
-                            if new_state:
-                                tracker.observe_state(str(new_state), time.time(), resolver.room_for)
+                            new_state = (data.get("new_state") or {})
+                            context = (new_state.get("context") or {}).get("id") or (inner.get("context") or {}).get("id")
+                            state_value = new_state.get("state")
+                            if state_value:
+                                tracker.observe_state(str(state_value), time.time(), resolver.room_for, context_id=context)
                     elif inner.get("event_type") == "call_service":
                         data = inner.get("data", {})
-                        tracker.observe_service_call(entity_ids_from(data.get("service_data", {})))
+                        context = inner.get("context") or {}
+                        tracker.observe_service_call(entity_ids_from(data.get("service_data", {})), context_id=context.get("id"), parent_context_id=context.get("parent_id"))
             except Exception as exc:
                 print(f"watch error: {exc}", flush=True)
                 if "authentication failed" in str(exc):

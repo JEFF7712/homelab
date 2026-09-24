@@ -7,6 +7,9 @@ OLLAMA_FALLBACK_AGENT = ""
 API_URL = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-1.13.0"
 REQUEST_TIMEOUT_SECONDS = 1.5
+# Total deadline for one fallback delegation turn, bounding hosted-agent
+# recursion cost even when the delegate responds slowly.
+FALLBACK_TIMEOUT_SECONDS = 10.0
 SHADOW_URL = "http://local-decision.voice.svc.cluster.local:8080/v1/systemone"
 SHADOW_TIMEOUT_SECONDS = 15.0
 

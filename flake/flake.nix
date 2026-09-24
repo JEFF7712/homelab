@@ -72,7 +72,10 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-        python = pkgs.python313.withPackages (pythonPackages: [ pythonPackages.pyyaml ]);
+        python = pkgs.python313.withPackages (pythonPackages: [
+          pythonPackages.pyyaml
+          pythonPackages.jinja2
+        ]);
       in
       {
         formatter = pkgs.nixfmt;

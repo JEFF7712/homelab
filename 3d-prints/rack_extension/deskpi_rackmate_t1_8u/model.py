@@ -393,6 +393,51 @@ def interface_coupon() -> Part:
     return part
 
 
+def corner_interface() -> Part:
+    """Front-corner interface with lips clear of the transverse T1 member."""
+    rail_w = params.TOP_MEMBER_WIDTH_MM
+    root = params.LIP_CLEARANCE_MM + params.LIP_THICK_MM
+    y0, y1 = params.COUPON_Y_START_MM, params.COUPON_Y_END_MM
+    lip_y0 = params.CORNER_LIP_START_MM
+    rail = Box(
+        rail_w + 2 * root,
+        y1 - y0,
+        params.FRAME_ZONE_MM,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((-root, y0, 0)))
+    ov = params.JOINT_OVERLAP_MM
+    lip_h = params.LIP_DEPTH_MM + ov
+    lip_out = Box(
+        params.LIP_THICK_MM,
+        y1 - lip_y0,
+        lip_h,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(
+        Location(
+            (
+                -params.LIP_CLEARANCE_MM - params.LIP_THICK_MM,
+                lip_y0,
+                -params.LIP_DEPTH_MM,
+            )
+        )
+    )
+    lip_in = Box(
+        params.LIP_THICK_MM,
+        y1 - lip_y0,
+        lip_h,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((rail_w + params.LIP_CLEARANCE_MM, lip_y0, -params.LIP_DEPTH_MM)))
+    part = cast(Part, rail + lip_out + lip_in)
+    for y in params.ATTACH_Y_MM[:2]:
+        hole = Cylinder(
+            radius=params.COUPON_HOLE_DIA_MM / 2,
+            height=params.FRAME_ZONE_MM + 2.0,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        ).locate(Location((params.STRUCTURAL_HOLE_X_LEFT_MM, y, -1.0)))
+        part = cast(Part, part - hole)
+    return part
+
+
 def lateral_fit_coupon() -> Part:
     """Short, hole-free slice of the interface coupon for lateral fit checks."""
     root = params.LIP_CLEARANCE_MM + params.LIP_THICK_MM
@@ -411,6 +456,41 @@ def lateral_fit_coupon() -> Part:
         )
     )
     return cast(Part, interface_coupon() & clip)
+
+
+def phase2_corner_fit_coupon() -> Part:
+    """Short corner interface proving both M4 holes and the transverse-bar relief."""
+    root = params.LIP_CLEARANCE_MM + params.LIP_THICK_MM
+    clip = Box(
+        params.TOP_MEMBER_WIDTH_MM + 2 * root,
+        30.0,
+        params.FRAME_ZONE_MM + params.LIP_DEPTH_MM,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((-root, 20.0, -params.LIP_DEPTH_MM)))
+    return cast(Part, corner_interface() & clip)
+
+
+def m5_insert_pilot_coupon() -> Part:
+    """Blind-hole PETG coupon for selecting the measured M5 insert pilot."""
+    length = 58.0
+    width = 20.0
+    height = 10.5
+    coupon = Box(length, width, height, align=(Align.MIN, Align.MIN, Align.MIN))
+    for x, diameter in zip(
+        (10.0, 29.0, 48.0), params.M5_INSERT_PILOT_CANDIDATES_MM, strict=True
+    ):
+        hole = Cylinder(
+            radius=diameter / 2,
+            height=params.M5_INSERT_COUPON_DEPTH_MM + 1.0,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        ).locate(Location((x, width / 2, height - params.M5_INSERT_COUPON_DEPTH_MM)))
+        coupon = coupon - hole
+    marker = Cylinder(
+        radius=1.5,
+        height=height + 2.0,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((3.0, 3.0, -1.0)))
+    return cast(Part, coupon - marker)
 
 
 def _splice_strip_half(lower: bool) -> Part:
@@ -443,7 +523,7 @@ def phase2_corner_mount() -> Part:
             )
         )
     )
-    prototype = cast(Part, interface_coupon() + bottom_end_block(0, 0, False) + spigot)
+    prototype = cast(Part, corner_interface() + bottom_end_block(0, 0, False) + spigot)
     mount_top = params.BOTTOM_BLOCK_TOP_Z_MM + params.LOWER_MOUNT_SPIGOT_HEIGHT_MM
     for y in params.ATTACH_Y_MM[:2]:
         hole = Cylinder(
@@ -454,22 +534,52 @@ def phase2_corner_mount() -> Part:
         prototype = cast(Part, prototype - hole)
         access = Cylinder(
             radius=params.ATTACH_ACCESS_DIA_MM / 2,
-            height=mount_top - params.FRAME_ZONE_MM + 1.0,
+            height=mount_top - params.ATTACH_SEAT_Z_MM + 1.0,
             align=(Align.CENTER, Align.CENTER, Align.MIN),
         ).locate(
             Location(
                 (
                     params.STRUCTURAL_HOLE_X_LEFT_MM,
                     y,
-                    params.FRAME_ZONE_MM,
+                    params.ATTACH_SEAT_Z_MM,
                 )
             )
         )
         prototype = cast(Part, prototype - access)
     _, pilot = _boss_and_pilot(seam_first_hole_z(), False)
     tie_bore = tie_bore_at(0, 0, -1.0, mount_top + 2.0)
-    prototype = cast(Part, prototype - pilot - tie_bore)
+    hardware_opening = Cylinder(
+        radius=params.WASHER_RECESS_DIA_MM / 2,
+        height=(
+            params.HEX_POCKET_FLOOR_Z_MM
+            + params.HEX_POCKET_DEPTH_MM
+            + params.WASHER_RECESS_DEPTH_MM
+            + 1.0
+        ),
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((params.BORE_CENTER_X_MM, params.BORE_CENTER_Y_MM, -1.0)))
+    prototype = cast(Part, prototype - pilot - tie_bore - hardware_opening)
     return prototype
+
+
+def phase2_bottom_nut_retainer() -> Part:
+    """Flush insert that keys the bottom M5 nyloc after underside loading."""
+    height = params.HEX_POCKET_FLOOR_Z_MM + params.HEX_POCKET_DEPTH_MM
+    outer = Cylinder(
+        radius=(params.WASHER_RECESS_DIA_MM / 2 - params.BOTTOM_RETAINER_CLEARANCE_MM),
+        height=height,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    )
+    nut_af_r = params.HEX_POCKET_AF_MM / 3**0.5
+    nut = extrude(
+        RegularPolygon(radius=nut_af_r, side_count=6), amount=height + 2.0
+    ).locate(Location((0, 0, -1.0)))
+    bore = Cylinder(
+        radius=params.TIE_BORE_DIA_MM / 2,
+        height=height + 2.0,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((0, 0, -1.0)))
+    return cast(Part, outer - nut - bore)
 
 
 def phase2_lower_upright() -> Part:
@@ -549,6 +659,31 @@ def phase2_upper_upright() -> Part:
         _, pilot = _boss_and_pilot(z, False)
         prototype = cast(Part, prototype - pilot)
     return cast(Part, prototype.moved(Location((0, 0, -corner.SPLICE_Z))))
+
+
+def phase2_mount_spigot_fit_coupon() -> Part:
+    """Exact mount spigot on a 2 mm section of its supporting shoulder."""
+    bottom = params.BOTTOM_BLOCK_TOP_Z_MM - params.JOINT_OVERLAP_MM
+    clip = Box(
+        params.COLUMN_INWARD_MM,
+        params.COLUMN_DEPTH_MM,
+        params.LOWER_MOUNT_SPIGOT_HEIGHT_MM + params.JOINT_OVERLAP_MM,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    ).locate(Location((0, 0, bottom)))
+    coupon = phase2_corner_mount() & clip
+    return cast(Part, coupon.moved(Location((0, 0, -bottom))))
+
+
+def phase2_mount_socket_fit_coupon() -> Part:
+    """Exact lower-upright socket in a short printable column section."""
+    height = params.LOWER_MOUNT_SPIGOT_HEIGHT_MM + 3.0
+    clip = Box(
+        params.COLUMN_INWARD_MM,
+        params.COLUMN_DEPTH_MM,
+        height,
+        align=(Align.MIN, Align.MIN, Align.MIN),
+    )
+    return cast(Part, phase2_lower_upright() & clip)
 
 
 def column_origins() -> list[tuple[float, float]]:
@@ -643,12 +778,22 @@ def export_assembly(out_dir: Path) -> dict[str, Path]:
     export_stl(interface_coupon(), str(coupon))
     lateral_coupon = out_dir / "phase1_lateral_fit_coupon.stl"
     export_stl(lateral_fit_coupon(), str(lateral_coupon))
+    corner_coupon = out_dir / "phase2_corner_fit_coupon.stl"
+    export_stl(phase2_corner_fit_coupon(), str(corner_coupon))
+    insert_coupon = out_dir / "m5_insert_pilot_coupon.stl"
+    export_stl(m5_insert_pilot_coupon(), str(insert_coupon))
     phase2_mount = out_dir / "phase2_corner_mount.stl"
     export_stl(phase2_corner_mount(), str(phase2_mount))
+    phase2_retainer = out_dir / "phase2_bottom_nut_retainer.stl"
+    export_stl(phase2_bottom_nut_retainer(), str(phase2_retainer))
     phase2_lower = out_dir / "phase2_lower_upright.stl"
     export_stl(phase2_lower_upright(), str(phase2_lower))
     phase2_upper = out_dir / "phase2_upper_upright.stl"
     export_stl(phase2_upper_upright(), str(phase2_upper))
+    phase2_spigot_coupon = out_dir / "phase2_mount_spigot_fit_coupon.stl"
+    export_stl(phase2_mount_spigot_fit_coupon(), str(phase2_spigot_coupon))
+    phase2_socket_coupon = out_dir / "phase2_mount_socket_fit_coupon.stl"
+    export_stl(phase2_mount_socket_fit_coupon(), str(phase2_socket_coupon))
     return {
         "step": step_path,
         "stl": stl_path,
@@ -658,9 +803,14 @@ def export_assembly(out_dir: Path) -> dict[str, Path]:
         "strip": strip,
         "coupon": coupon,
         "lateral_coupon": lateral_coupon,
+        "phase2_corner_coupon": corner_coupon,
+        "m5_insert_pilot_coupon": insert_coupon,
         "phase2_mount": phase2_mount,
+        "phase2_bottom_nut_retainer": phase2_retainer,
         "phase2_lower_upright": phase2_lower,
         "phase2_upper_upright": phase2_upper,
+        "phase2_mount_spigot_coupon": phase2_spigot_coupon,
+        "phase2_mount_socket_coupon": phase2_socket_coupon,
     }
 
 

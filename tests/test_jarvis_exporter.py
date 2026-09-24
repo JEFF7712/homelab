@@ -153,19 +153,23 @@ class TurnTrackerTest(unittest.TestCase):
             thread.join(timeout=30.0)
         self.assertEqual(errors, [])
 
-    def test_tool_calls_only_count_while_processing(self) -> None:
-        self.tracker.observe_state("listening", 1000.0, None)
-        self.tracker.observe_service_call(["light.a"])
+    def test_tool_calls_require_positive_correlation(self) -> None:
+        self.tracker.observe_state("listening", 1000.0, None, context_id="ctx-a")
+        self.tracker.observe_service_call(["light.a"], context_id="ctx-a")
         self.tracker.observe_state("processing", 1001.0, None)
-        self.tracker.observe_service_call(["light.a", "light.b"])
+        self.tracker.observe_service_call(
+            ["light.a", "light.b"], context_id="unrelated"
+        )
+        self.tracker.observe_service_call(["light.a"], context_id="ctx-a")
         text = self.metrics.render()
         self.assertIn('jarvis_tool_calls_total{satellite="sat"} 1.0', text)
+        self.assertIn('jarvis_unmatched_service_calls_total{satellite="sat"} 1.0', text)
 
     def test_room_from_first_area(self) -> None:
         areas = {"light.a": "kitchen", "light.b": "living_room"}
-        self.tracker.observe_state("listening", 1000.0, None)
+        self.tracker.observe_state("listening", 1000.0, None, context_id="ctx-a")
         self.tracker.observe_state("processing", 1001.0, None)
-        self.tracker.observe_service_call(["light.b"])
+        self.tracker.observe_service_call(["light.b"], context_id="ctx-a")
         self.tracker.observe_state("responding", 1002.0, None)
         self.tracker.observe_state(
             "idle",
@@ -207,6 +211,75 @@ class TurnTrackerTest(unittest.TestCase):
         self.tracker.observe_state("idle", 1002.0, None)
         text = self.metrics.render()
         self.assertNotIn('jarvis_requests_total{satellite="sat"} 1.0', text)
+
+
+class TurnCorrelationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.metrics = EXPORTER["Metrics"]("sat")
+        self.tracker = EXPORTER["TurnTracker"](self.metrics, "sat")
+
+    def test_matching_context_attributes_tool_call_and_action_turn(self) -> None:
+        self.tracker.observe_state("listening", 1000.0, None, context_id="ctx-a")
+        self.tracker.observe_state("processing", 1001.0, None)
+        self.tracker.observe_service_call(["light.a"], context_id="ctx-a")
+        self.tracker.observe_state("responding", 1002.0, None)
+        self.tracker.observe_state(
+            "idle", 1003.0, lambda areas: areas[0] if areas else "unknown"
+        )
+        text = self.metrics.render()
+        self.assertIn('jarvis_tool_calls_total{satellite="sat"} 1.0', text)
+        self.assertIn('jarvis_turns_with_action_total{satellite="sat"} 1.0', text)
+        self.assertNotIn('jarvis_unmatched_service_calls_total{satellite="sat"}', text)
+        self.assertIn('jarvis_requests_by_room_total{room="light.a"} 1.0', text)
+
+    def test_mismatched_context_is_not_attributed_to_jarvis(self) -> None:
+        self.tracker.observe_state("listening", 1000.0, None, context_id="ctx-a")
+        self.tracker.observe_state("processing", 1001.0, None)
+        self.tracker.observe_service_call(["light.a"], context_id="ctx-b")
+        self.tracker.observe_state("responding", 1002.0, None)
+        self.tracker.observe_state(
+            "idle", 1003.0, lambda areas: areas[0] if areas else "unknown"
+        )
+        text = self.metrics.render()
+        self.assertNotIn('jarvis_tool_calls_total{satellite="sat"}', text)
+        self.assertIn('jarvis_unmatched_service_calls_total{satellite="sat"} 1.0', text)
+        self.assertNotIn('jarvis_turns_with_action_total{satellite="sat"}', text)
+        self.assertIn('jarvis_requests_by_room_total{room="unknown"} 1.0', text)
+
+    def test_automation_child_context_counts_as_correlated(self) -> None:
+        self.tracker.observe_state("listening", 1000.0, None, context_id="ctx-a")
+        self.tracker.observe_state("processing", 1001.0, None)
+        self.tracker.observe_service_call(
+            ["light.a"], context_id="ctx-child", parent_context_id="ctx-a"
+        )
+        text = self.metrics.render()
+        self.assertIn('jarvis_tool_calls_total{satellite="sat"} 1.0', text)
+        self.assertNotIn('jarvis_unmatched_service_calls_total{satellite="sat"}', text)
+
+    def test_missing_context_is_not_correlated(self) -> None:
+        self.tracker.observe_state("listening", 1000.0, None, context_id="ctx-a")
+        self.tracker.observe_state("processing", 1001.0, None)
+        self.tracker.observe_service_call(["light.a"])
+        text = self.metrics.render()
+        self.assertNotIn('jarvis_tool_calls_total{satellite="sat"}', text)
+        self.assertIn('jarvis_unmatched_service_calls_total{satellite="sat"} 1.0', text)
+
+    def test_context_without_turn_context_is_not_correlated(self) -> None:
+        self.tracker.observe_state("listening", 1000.0, None)
+        self.tracker.observe_state("processing", 1001.0, None)
+        self.tracker.observe_service_call(["light.a"], context_id="ctx-a")
+        text = self.metrics.render()
+        self.assertNotIn('jarvis_tool_calls_total{satellite="sat"}', text)
+        self.assertIn('jarvis_unmatched_service_calls_total{satellite="sat"} 1.0', text)
+
+    def test_requests_metric_documents_response_observation(self) -> None:
+        text = self.metrics.render()
+        help_line = next(
+            line
+            for line in text.splitlines()
+            if line.startswith("# HELP jarvis_requests_total")
+        )
+        self.assertIn("not proof", help_line)
 
 
 class HandshakeTest(unittest.TestCase):

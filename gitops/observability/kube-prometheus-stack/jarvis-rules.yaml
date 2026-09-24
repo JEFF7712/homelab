@@ -62,3 +62,103 @@ spec:
           annotations:
             summary: High ratio of slow Jarvis turns
             description: More than 50% of turns exceed the fast threshold; check LLM/TTS latency.
+        - alert: JarvisVoiceScrapeDown
+          expr: >-
+            up{job=~"wyoming-gateway-metrics|wyoming-tts-chatterbox|wyoming-stt-nemotron-metrics|jarvis-exporter|local-decision"}
+            == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: A Jarvis voice metrics target is not scraping
+            description: >-
+              Prometheus cannot scrape {{ $labels.job }};
+              check the pod, ServiceMonitor, and (for Chatterbox) the observability ingress policy.
+        - alert: JarvisSttAllBackendsDown
+          expr: sum(jarvis_gateway_backend_available{mode="stt"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: All STT backends report unavailable
+            description: >-
+              The STT gateway has no healthy backend. Requires the gateway availability accounting
+              from the gateway repair; pending until that series
+              is driven by protocol outcomes.
+        - alert: JarvisTtsAllBackendsDown
+          expr: sum(jarvis_gateway_backend_available{mode="tts"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: All TTS backends report unavailable
+            description: >-
+              The TTS gateway has no healthy backend. Requires the gateway availability accounting
+              from the gateway repair; pending until that series
+              is driven by protocol outcomes.
+        - alert: JarvisSttBackendDegraded
+          expr: >-
+            count(jarvis_gateway_backend_available{mode="stt"}) > 0
+            and sum(jarvis_gateway_backend_available{mode="stt"})
+              < count(jarvis_gateway_backend_available{mode="stt"})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: An STT backend is unavailable
+            description: >-
+              At least one STT backend reports unavailable while others still serve;
+              check the failing backend before the next one degrades.
+        - alert: JarvisTtsBackendDegraded
+          expr: >-
+            count(jarvis_gateway_backend_available{mode="tts"}) > 0
+            and sum(jarvis_gateway_backend_available{mode="tts"})
+              < count(jarvis_gateway_backend_available{mode="tts"})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: A TTS backend is unavailable
+            description: >-
+              At least one TTS backend reports unavailable while others still serve;
+              fallback TTS voice mapping must already be repaired for this to help.
+        - alert: JarvisFailedTurns
+          expr: sum(increase(jarvis_failed_requests_total[15m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Jarvis turns are stalling after processing started
+            description: >-
+              Turns abandoned after processing without ever responding;
+              check the stage label, then gateway/STT/TTS health.
+        - alert: JarvisAbortedSpike
+          expr: sum(increase(jarvis_aborted_requests_total[15m])) > 10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Spike in turns cancelled during listening
+            description: >-
+              Many turns cancelled before processing; check wake behavior
+              , endpointing, and False activations. Threshold is tunable.
+        - alert: JarvisUnmatchedServiceCalls
+          expr: sum(increase(jarvis_unmatched_service_calls_total[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Unattributed service calls during Jarvis turns
+            description: >-
+              Service calls fired mid-turn under a different HA context; they are not Jarvis tool calls.
+              Identify the automation before trusting tool-call counts.
+        - alert: JarvisTtsSynthesisFailures
+          expr: sum(increase(jarvis_tts_synthesis_failures_total[15m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: TTS synthesis failures detected
+            description: >-
+              Gateway or Chatterbox synthesis failures; requires the TTS failure seri
+              es from the gateway/Chatterbox repairs and the Piper voice-mapping fix.

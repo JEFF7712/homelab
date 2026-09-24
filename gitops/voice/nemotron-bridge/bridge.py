@@ -62,7 +62,9 @@ SPEAKER_LOCK = threading.Lock()
 OK = 0
 
 
-def record_speaker_result(speaker: str | None, scores: dict, classifier: object) -> None:
+def record_speaker_result(
+    speaker: str | None, scores: dict, classifier: object
+) -> None:
     outcome = "accepted"
     if speaker is None:
         ordered = sorted(scores.values(), reverse=True)
@@ -102,6 +104,7 @@ def start_metrics_server(port: int = 9100) -> None:
         target=ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever,
         daemon=True,
     ).start()
+
 
 # Closed-vocabulary ASR normalization. Only exact (variant, device-word)
 # bigrams rewrite; bare "gov" and words like "governor"/"government" never
@@ -567,8 +570,8 @@ async def handle_client(
 ) -> None:
     peer = writer.get_extra_info("peername")
     pcm = bytearray()
-    rate = 16000
     stream_id: int | None = None
+    native_error: str | None = None
     timings = TurnTimings()
     try:
         while True:
@@ -592,6 +595,7 @@ async def handle_client(
                 width = int(data.get("width", 2))
                 channels = int(data.get("channels", 1))
                 pcm.clear()
+                native_error = None
                 if stream_id is not None:
                     await asyncio.to_thread(recognizer.close_stream, stream_id)
                     stream_id = None
@@ -602,8 +606,9 @@ async def handle_client(
                     continue
                 try:
                     stream_id = await asyncio.to_thread(recognizer.open_stream)
-                except Exception:
+                except Exception as e:
                     LOG.exception("open_stream failed for %s", peer)
+                    native_error = str(e) or "open_stream failed"
                     stream_id = None
             elif kind == "audio-chunk":
                 payload = event["payload"]
@@ -613,8 +618,9 @@ async def handle_client(
                         await asyncio.to_thread(
                             recognizer.push, stream_id, bytes(payload), rate
                         )
-                    except Exception:
+                    except Exception as e:
                         LOG.exception("push failed for %s", peer)
+                        native_error = str(e) or "push failed"
                         await asyncio.to_thread(recognizer.close_stream, stream_id)
                         stream_id = None
                 elif payload:
@@ -624,6 +630,19 @@ async def handle_client(
                 text = ""
                 finish_ms = 0.0
                 speaker_ms = 0.0
+                if native_error is not None:
+                    writer.write(
+                        encode_event(
+                            "error",
+                            {
+                                "text": f"ASR recognition failed: {native_error}",
+                                "code": "recognition_failed",
+                            },
+                        )
+                    )
+                    await writer.drain()
+                    pcm.clear()
+                    continue
                 if stream_id is not None:
                     t_finish = time.monotonic()
 
@@ -653,13 +672,28 @@ async def handle_client(
                         )
                         finish_ms = (time.monotonic() - t_finish) * 1000.0
                         speaker_ms = stage_ms.get("speaker", 0.0)
-                    except Exception:
+                    except Exception as e:
                         LOG.exception("finish failed for %s", peer)
+                        native_error = str(e) or "finish failed"
                         text, speaker = "", None
                         speaker_ms = 0.0
                     finally:
                         await asyncio.to_thread(recognizer.close_stream, stream_id)
                         stream_id = None
+
+                    if native_error is not None:
+                        writer.write(
+                            encode_event(
+                                "error",
+                                {
+                                    "text": f"ASR recognition failed: {native_error}",
+                                    "code": "recognition_failed",
+                                },
+                            )
+                        )
+                        await writer.drain()
+                        pcm.clear()
+                        continue
                 else:
                     speaker = None
                     if classifier is not None and bytes(pcm):

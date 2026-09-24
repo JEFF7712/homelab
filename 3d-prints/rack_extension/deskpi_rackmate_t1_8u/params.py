@@ -176,6 +176,15 @@ MAX_SCREW_PENETRATION_MM = 9.0
 BORE_CENTER_X_MM = 14.5
 BORE_CENTER_Y_MM = 15.0
 
+# M5 rack-insert hardware measured 2026-09-23. Final pilot remains gated on
+# the PETG heat-set coupon; the existing M4 production parameters above are
+# retained only until that physical result selects the replacement geometry.
+M5_INSERT_LEN_MEASURED_MM = 7.9
+M5_INSERT_OD_MEASURED_MM = 6.7
+M5_INSERT_LEAD_DIA_MEASURED_MM = 5.8
+M5_INSERT_PILOT_CANDIDATES_MM = (5.8, 6.0, 6.2)
+M5_INSERT_COUPON_DEPTH_MM = 9.3
+
 
 def bottom_pocket_depth_mm() -> float:
     """Stack: floor clearance + hex + washer recess."""
@@ -221,11 +230,19 @@ LIP_DEPTH_MM = 3.0
 LOWER_MOUNT_SPIGOT_HEIGHT_MM = 12.0
 LOWER_MOUNT_SOCKET_CLEARANCE_MM = 0.25
 ATTACH_ACCESS_DIA_MM = 8.0
+ATTACH_SEAT_Z_MM = 11.5
+M4_MOUNT_SCREW_LEN_MM = 16.0
+CORNER_LIP_START_MM = TOP_MEMBER_WIDTH_MM + LIP_CLEARANCE_MM
+BOTTOM_RETAINER_CLEARANCE_MM = 0.2
 
 
 def coupon_channel_mm() -> float:
     """Lip-to-lip channel the aluminum member must fit."""
     return TOP_MEMBER_WIDTH_MM + 2 * LIP_CLEARANCE_MM
+
+
+def mount_thread_engagement_mm() -> float:
+    return M4_MOUNT_SCREW_LEN_MM - ATTACH_SEAT_Z_MM
 
 
 # --- Joint overlap -----------------------------------------------------------------
@@ -335,4 +352,10 @@ def validate() -> list[str]:
         errors.append("lower mount socket needs positive clearance")
     if not ATTACH_ACCESS_DIA_MM > COUPON_HOLE_DIA_MM:
         errors.append("M4 attachment access must clear the screw head")
+    if (
+        not THREAD_ENGAGEMENT_MIN_MM
+        <= mount_thread_engagement_mm()
+        <= THREAD_ENGAGEMENT_MAX_MM
+    ):
+        errors.append("M4 mount screw engagement must stay inside the measured target")
     return errors

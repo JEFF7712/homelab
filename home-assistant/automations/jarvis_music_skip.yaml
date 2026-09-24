@@ -22,5 +22,4 @@ actions:
   - action: media_player.media_next_track
     target:
       entity_id: media_player.homelab_05_satellite_media_player_2
-    continue_on_error: true
   - set_conversation_response: Done.

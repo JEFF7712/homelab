@@ -18,6 +18,17 @@
   let reconnectAttempts = 0;
   let lastEntityStates = {};
 
+  // Bounded connection supervision: heartbeat ping every 30 s, reconnect
+  // when nothing (events or pongs) arrives for 90 s, backoff capped at
+  // 30 s with jitter. Retries continue so the kiosk recovers unattended;
+  // only the timers are bounded, never the recovery itself.
+  const HEARTBEAT_INTERVAL_MS = 30000;
+  const STALE_AFTER_MS = 90000;
+  const MAX_BACKOFF_MS = 30000;
+  let lastMessageAt = 0;
+  let heartbeatTimer = null;
+  let watchdogTimer = null;
+
   // DOM Elements
   const appEl = document.getElementById('app');
   const statusLabel = document.getElementById('status-text');
@@ -524,9 +535,12 @@
 
     ws.onopen = function () {
       reconnectAttempts = 0;
+      lastMessageAt = Date.now();
+      startSupervision();
     };
 
     ws.onmessage = function (event) {
+      lastMessageAt = Date.now();
       let data;
       try {
         data = JSON.parse(event.data);
@@ -543,36 +557,26 @@
         if (connectionBadge) connectionBadge.classList.remove('visible');
         if (promptModal) promptModal.style.display = 'none';
 
-        // 1. Fetch initial states
+        // Subscribe to exactly the entities the face displays. The server
+        // filters state traffic to this set; nothing else is retained.
         ws.send(JSON.stringify({
           id: ++msgId,
-          type: 'get_states'
-        }));
-
-        // 2. Subscribe to live state change events
-        ws.send(JSON.stringify({
-          id: ++msgId,
-          type: 'subscribe_events',
-          event_type: 'state_changed'
+          type: 'subscribe_entities',
+          entity_ids: [config.satelliteEntity, config.muteEntity, config.mediaPlayerEntity]
         }));
       } else if (data.type === 'auth_invalid') {
         localStorage.removeItem('jarvis_token');
         showTokenPrompt('Authentication failed. Please verify your token.');
-      } else if (data.type === 'result' && Array.isArray(data.result)) {
-        // Initial states payload
-        data.result.forEach(s => {
-          lastEntityStates[s.entity_id] = s;
-        });
-        evaluateEntities();
-      } else if (data.type === 'event' && data.event && data.event.event_type === 'state_changed') {
-        const evData = data.event.data;
-        if (!evData || !evData.entity_id) return;
-        lastEntityStates[evData.entity_id] = evData.new_state;
-        if (evData.entity_id === config.satelliteEntity ||
-            evData.entity_id === config.muteEntity ||
-            evData.entity_id === config.mediaPlayerEntity) {
-          evaluateEntities();
+      } else if (data.type === 'result') {
+        if (data.success === false) {
+          handleDisconnect();
         }
+        // subscribe_entities answers result:null; initial states arrive
+        // as an event below. Nothing else to do here.
+      } else if (data.type === 'pong') {
+        // Heartbeat reply; liveness already recorded above.
+      } else if (data.type === 'event' && data.event) {
+        handleEntityEvent(data.event);
       }
     };
 
@@ -586,11 +590,117 @@
   }
 
   function handleDisconnect() {
+    stopSupervision();
+    try {
+      if (ws && ws.readyState !== WebSocket.CLOSED) ws.close();
+    } catch (e) {}
+    ws = null;
     if (connectionBadge) connectionBadge.classList.add('visible');
     clearTimeout(reconnectTimer);
     reconnectAttempts++;
-    const backoff = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 5000);
-    reconnectTimer = setTimeout(connectWebSocket, backoff);
+    const backoff = Math.min(1000 * Math.pow(1.5, reconnectAttempts), MAX_BACKOFF_MS);
+    const jitter = backoff * (0.5 + Math.random() * 0.5);
+    reconnectTimer = setTimeout(connectWebSocket, jitter);
+  }
+
+  function startSupervision() {
+    stopSupervision();
+    heartbeatTimer = setInterval(() => {
+      try {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ id: ++msgId, type: 'ping' }));
+        }
+      } catch (e) {}
+    }, HEARTBEAT_INTERVAL_MS);
+    watchdogTimer = setInterval(() => {
+      if (lastMessageAt && Date.now() - lastMessageAt > STALE_AFTER_MS) {
+        handleDisconnect();
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  function stopSupervision() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    heartbeatTimer = null;
+    watchdogTimer = null;
+  }
+
+  // Entity-subscription event handling. The server only sends our three
+  // entities; anything else is ignored and never retained. Shapes follow
+  // HA 2026.9.1 websocket_api/messages._state_diff_event exactly: initial
+  // states arrive as {"a": {entity: {s, a, c, lc, lu}}}, changes as
+  // {"c": {entity: {"+": {s?, a? (partial), c?, lc?, lu?},
+  //                    "-": {a?: [removed keys]}}}}, removals as {"r": [...]}.
+  // Unknown shapes are ignored, never merged.
+  function isTracked(entityId) {
+    return entityId === config.satelliteEntity ||
+      entityId === config.muteEntity ||
+      entityId === config.mediaPlayerEntity;
+  }
+
+  function storeFullState(entityId, compressed) {
+    if (!isTracked(entityId) || !compressed) return false;
+    lastEntityStates[entityId] = {
+      entity_id: entityId,
+      state: compressed.s,
+      attributes: compressed.a || {},
+      context: compressed.c,
+      last_changed: compressed.lc,
+      last_updated: compressed.lu
+    };
+    return true;
+  }
+
+  function applyStateDiff(entityId, diff) {
+    if (!isTracked(entityId) || !diff || typeof diff !== 'object') return false;
+    const added = diff['+'];
+    const removed = diff['-'];
+    if (!added && !removed) return false;
+    const cur = lastEntityStates[entityId] || {
+      entity_id: entityId, state: 'unknown', attributes: {}
+    };
+    if (added) {
+      if (typeof added.s === 'string') cur.state = added.s;
+      if (added.a && typeof added.a === 'object') {
+        cur.attributes = Object.assign({}, cur.attributes, added.a);
+      }
+      if (added.c !== undefined) cur.context = added.c;
+      if (added.lc !== undefined) cur.last_changed = added.lc;
+      if (added.lu !== undefined) cur.last_updated = added.lu;
+    }
+    if (removed && Array.isArray(removed.a)) {
+      for (const key of removed.a) delete cur.attributes[key];
+    }
+    lastEntityStates[entityId] = cur;
+    return true;
+  }
+
+  function handleEntityEvent(ev) {
+    let changed = false;
+    if (ev.a) {
+      for (const entityId of Object.keys(ev.a)) {
+        changed = storeFullState(entityId, ev.a[entityId]) || changed;
+      }
+    }
+    if (ev.c) {
+      for (const entityId of Object.keys(ev.c)) {
+        changed = applyStateDiff(entityId, ev.c[entityId]) || changed;
+      }
+    }
+    if (ev.r) {
+      for (const entityId of ev.r) {
+        if (isTracked(entityId) && lastEntityStates[entityId]) {
+          delete lastEntityStates[entityId];
+          changed = true;
+        }
+      }
+    }
+    // Drop anything that is not a tracked entity, bounding retained state.
+    for (const entityId of Object.keys(lastEntityStates)) {
+      if (!isTracked(entityId)) delete lastEntityStates[entityId];
+    }
+    if (changed) evaluateEntities();
   }
 
   // --- Evaluate Entities to State ---
@@ -700,7 +810,12 @@
     getWs: () => ws,
     getLastStates: () => lastEntityStates,
     eyes: Eyes,
-    config: config
+    config: config,
+    _faceTest: {
+      handleEntityEvent: handleEntityEvent,
+      evaluateEntities: evaluateEntities,
+      isTracked: isTracked
+    }
   };
 
   // --- Initialize ---

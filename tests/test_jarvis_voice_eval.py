@@ -5,6 +5,14 @@ import re
 import unittest
 from pathlib import Path
 
+try:
+    import jinja2
+
+    HAS_JINJA2 = True
+except ImportError:
+    jinja2 = None  # type: ignore[assignment]
+    HAS_JINJA2 = False
+
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -578,12 +586,12 @@ class EvalCorpusTest(unittest.TestCase):
         cooking = scripts["JarvisCookingMode"]
         self.assertEqual(cooking["speech"]["text"], "Done.")
         self.assertEqual(
-            cooking["action"][0]["target"]["entity_id"], "scene.shared_cooking"
+            cooking["action"][0]["target"]["entity_id"], "scene.cooking_bright_kitchen"
         )
         dinner = scripts["JarvisDinnerMode"]
         self.assertEqual(dinner["speech"]["text"], "Done.")
         self.assertEqual(
-            dinner["action"][0]["target"]["entity_id"], "scene.shared_dinner"
+            dinner["action"][0]["target"]["entity_id"], "scene.dinner_warm_dim"
         )
         directions = {
             v["in"]: v["out"] for v in self.nudge["lists"]["jarvis_direction"]["values"]
@@ -683,7 +691,7 @@ class EvalCorpusTest(unittest.TestCase):
             for a in actions
             if "set_conversation_response" in a
         )
-        self.assertIn("Done.", response)
+        self.assertIn("Done,", response)
         self.assertIn("playback", response)
         script_call = next(
             a for a in actions if a.get("action") == "script.jarvis_play_media"
@@ -732,13 +740,18 @@ class EvalCorpusTest(unittest.TestCase):
         variable_steps = [
             step for step in artist_branch["sequence"] if "variables" in step
         ]
-        self.assertEqual(len(variable_steps), 2)
+        self.assertEqual(len(variable_steps), 4)
         self.assertEqual(set(variable_steps[0]["variables"]), {"artist_uris"})
         self.assertEqual(set(variable_steps[1]["variables"]), {"artist_uri"})
         self.assertIn("artist_uris", variable_steps[1]["variables"]["artist_uri"])
         self.assertIn(
             "default({}, true)", variable_steps[0]["variables"]["artist_uris"]
         )
+        self.assertEqual(set(variable_steps[2]["variables"]), {"artist_name"})
+        self.assertEqual(
+            set(variable_steps[3]["variables"]), {"confirm_kind", "confirm_needle"}
+        )
+        self.assertEqual(variable_steps[3]["variables"]["confirm_kind"].strip(), "name")
 
     def test_jarvis_play_media_autoplay(self) -> None:
         script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text(encoding="utf-8"))
@@ -813,7 +826,11 @@ class EvalCorpusTest(unittest.TestCase):
         if_step = next(
             step
             for step in track_branch["sequence"]
-            if "if" in step and "artist_uri" in json.dumps(step["if"])
+            if (
+                "if" in step
+                and "artist_uri" in json.dumps(step["if"])
+                and "use_radio_mode" in json.dumps(step["if"])
+            )
         )
         self.assertIn("use_radio_mode", json.dumps(if_step["if"]))
         self.assertIn("artist_uri", json.dumps(if_step["if"]))
@@ -822,6 +839,329 @@ class EvalCorpusTest(unittest.TestCase):
         self.assertEqual(artist_call["data"]["media_type"], "artist")
         self.assertEqual(artist_call["data"]["enqueue"], "replace_next")
         self.assertIn("artist_uri", artist_call["data"]["media_id"])
+
+
+class MusicFailureContractTest(unittest.TestCase):
+    """Accepted requests are not reported as verified playback (A4/B4)."""
+
+    def test_music_routes_default_to_spotify_when_identity_is_unknown(self) -> None:
+        automation = yaml.safe_load(MUSIC_AUTOMATION.read_text(encoding="utf-8"))
+        track_trigger = next(
+            trigger
+            for trigger in automation["triggers"]
+            if trigger.get("id") == "track"
+        )
+        self.assertIn("play {query}", track_trigger["command"])
+        self.assertIn("[speaker {speaker}] play {query}", track_trigger["command"])
+
+        actions = automation["actions"]
+        self.assertEqual(actions[0]["action"], "script.jarvis_play_media")
+        platform = actions[0]["data"]["platform"]
+        self.assertIn("trigger.slots.speaker | lower == 'sam'", platform)
+        self.assertIn("else 'spotify'", platform)
+        self.assertNotIn("I couldn't identify who is speaking", json.dumps(actions))
+
+    def test_youtube_music_track_search_never_falls_back_to_spotify(self) -> None:
+        script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text(encoding="utf-8"))
+        choose = next(step["choose"] for step in script["sequence"] if "choose" in step)
+        track_branch = next(
+            branch
+            for branch in choose
+            if "media_content_type in ['music', 'track']"
+            in json.dumps(branch.get("conditions", []))
+        )
+        sequence = track_branch["sequence"]
+        track_uri = next(
+            step["variables"]["track_uri"]
+            for step in sequence
+            if "track_uri" in step.get("variables", {})
+        )
+        self.assertIn("default('', true)", track_uri)
+        self.assertIn("No track result was found on", json.dumps(sequence))
+
+    def test_play_media_serializes_queue_updates(self) -> None:
+        script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text(encoding="utf-8"))
+        self.assertEqual(script.get("mode"), "queued")
+
+    def test_play_media_distinguishes_accepted_from_verified(self) -> None:
+        script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text(encoding="utf-8"))
+        flat = json.dumps(script["sequence"])
+        self.assertNotIn("status: playing", flat)
+        self.assertNotIn("queue_before", flat)
+        self.assertNotIn("request_started", flat)
+        self.assertNotIn("media_position", flat)
+        self.assertNotIn("default(9999", flat)
+        for branch, needle_source in (
+            ("artist", "artist_name"),
+            ("track", "track_uri"),
+            ("youtube", "yt_uri"),
+            ("default", "media_content_id"),
+        ):
+            with self.subTest(branch=branch):
+                self.assertIn("confirm_kind", flat)
+                self.assertIn("confirm_needle", flat)
+                self.assertIn(needle_source, flat)
+        repeat: dict = {}
+        for step in script["sequence"]:
+            if "repeat" in step:
+                repeat = step["repeat"]
+            for then in step.get("then", []):
+                if "repeat" in then:
+                    repeat = then["repeat"]
+        self.assertTrue(repeat, "confirmation repeat block exists")
+        self.assertNotIn("count", repeat)
+        self.assertIn("repeat.index >= 6", repeat["until"][0]["value_template"])
+        wait = next(step for step in repeat["sequence"] if "wait_for_trigger" in step)
+        self.assertEqual(wait["timeout"], {"seconds": 1})
+        self.assertTrue(wait.get("continue_on_timeout"))
+        self.assertNotIn("seconds: 6", flat)
+        until = json.dumps(repeat["until"])
+        self.assertIn("confirm_needle", until)
+        self.assertIn("media_content_id", until)
+        result = next(
+            step["variables"]["playback_result"]
+            for step in script["sequence"]
+            if isinstance(step, dict) and "playback_result" in step.get("variables", {})
+        )
+        self.assertIn("accepted", result["status"])
+        self.assertIn("playing", result["status"])
+        self.assertIn("confirm_needle", result["status"])
+        self.assertIn("verified", result)
+        stop = next(step for step in script["sequence"] if "stop" in step)
+        self.assertEqual(stop.get("response_variable"), "playback_result")
+
+    def test_playback_automation_never_claims_unreported_playback(self) -> None:
+        automation = yaml.safe_load(MUSIC_AUTOMATION.read_text(encoding="utf-8"))
+        actions = automation["actions"]
+        response = next(
+            a["set_conversation_response"]
+            for a in actions
+            if "set_conversation_response" in a
+        )
+        self.assertIn("playback.status", response)
+        self.assertIn("accepted", response)
+        self.assertIn("playing", response)
+        self.assertIn("Could not start playback.", response)
+
+    def test_single_step_music_actions_do_not_suppress_errors(self) -> None:
+        for path in (
+            MUSIC_STOP_AUTOMATION.parent / "jarvis_music_skip.yaml",
+            MUSIC_VOLUME_AUTOMATION,
+        ):
+            with self.subTest(automation=path.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("continue_on_error", text)
+
+
+@unittest.skipUnless(HAS_JINJA2, "jinja2 not installed in host python env")
+class PlaybackConfirmationRenderTest(unittest.TestCase):
+    """Render the real confirmation template against player fixtures.
+
+    The template is extracted from the script source, rendered with the
+    pinned Jinja2 engine, and checked against the false-positive scenarios:
+    stale playback, natural queue advance, and same-track restart at
+    position zero (which needs no position attribute at all).
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text(encoding="utf-8"))
+        result = next(
+            step["variables"]["playback_result"]
+            for step in script["sequence"]
+            if isinstance(step, dict) and "playback_result" in step.get("variables", {})
+        )
+        cls.status_template = result["status"]
+        cls.env = jinja2.Environment(undefined=jinja2.Undefined)
+
+    def test_confirmation_loop_is_bounded_without_exclusive_repeat_modes(self):
+        script = yaml.safe_load(PLAY_MEDIA_SCRIPT.read_text())
+        branch = next(
+            step
+            for step in script["sequence"]
+            if "if" in step
+            and "then" in step
+            and any("repeat" in item for item in step["then"])
+        )
+        repeat = branch["then"][0]["repeat"]
+        self.assertEqual(
+            set(repeat) & {"count", "until", "while", "for_each"}, {"until"}
+        )
+        template = self.env.from_string(repeat["until"][0]["value_template"])
+        context = dict(
+            is_state=lambda *_: False,
+            state_attr=lambda *_: None,
+            satellite_player="test",
+            confirm_kind="none",
+            confirm_needle="",
+        )
+        for index in range(1, 7):
+            self.assertEqual(
+                template.render(repeat={"index": index}, **context).strip(),
+                str(index >= 6),
+            )
+        context.update(
+            is_state=lambda *_: True,
+            state_attr=lambda *_: "track12345",
+            confirm_kind="id",
+            confirm_needle="track12345",
+        )
+        self.assertEqual(
+            template.render(repeat={"index": 1}, **context).strip(), "True"
+        )
+
+    def render_status(
+        self,
+        *,
+        state: str,
+        content_id: str | None,
+        artist: str = "",
+        title: str = "",
+        kind: str,
+        needle: str,
+    ) -> str:
+        attrs = {
+            "media_content_id": content_id,
+            "media_artist": artist,
+            "media_title": title,
+        }
+        return (
+            self.env.from_string(self.status_template)
+            .render(
+                is_state=lambda entity, want: state == want,
+                state_attr=lambda entity, attr: attrs.get(attr),
+                satellite_player="media_player.test",
+                confirm_kind=kind,
+                confirm_needle=needle,
+            )
+            .strip()
+        )
+
+    def test_stale_previous_track_stays_accepted(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/OLD123",
+                kind="id",
+                needle="NEW456",
+            ),
+            "accepted",
+        )
+
+    def test_naturally_advanced_unrelated_track_stays_accepted(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/OTHER999",
+                kind="id",
+                needle="NEW456",
+            ),
+            "accepted",
+        )
+
+    def test_same_track_restart_at_zero_is_playing(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/SAME123",
+                kind="id",
+                needle="SAME123",
+            ),
+            "playing",
+        )
+
+    def test_artist_name_match_is_playing(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/WHATEVER",
+                artist="MF DOOM",
+                title="MM..FOOD",
+                kind="name",
+                needle="mf doom",
+            ),
+            "playing",
+        )
+
+    def test_artist_name_mismatch_stays_accepted(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/WHATEVER",
+                artist="The Weeknd",
+                title="Out of Time",
+                kind="name",
+                needle="mf doom",
+            ),
+            "accepted",
+        )
+
+    def test_name_match_in_title_is_playing(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/WHATEVER",
+                artist="Someone Else",
+                title="MF DOOM Tribute",
+                kind="name",
+                needle="mf doom",
+            ),
+            "playing",
+        )
+
+    def test_missing_correlation_kind_stays_accepted(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/NEW456",
+                kind="none",
+                needle="NEW456",
+            ),
+            "accepted",
+        )
+
+    def test_short_needle_stays_accepted(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="playing",
+                content_id="spotify--conn://track/abc",
+                kind="id",
+                needle="abc",
+            ),
+            "accepted",
+        )
+
+    def test_paused_player_with_matching_needle_stays_accepted(self) -> None:
+        self.assertEqual(
+            self.render_status(
+                state="paused",
+                content_id="spotify--conn://track/NEW456",
+                kind="id",
+                needle="NEW456",
+            ),
+            "accepted",
+        )
+
+
+class SatelliteMuteContractTest(unittest.TestCase):
+    """The satellite mute switch is a manual shut-up control (B6).
+
+    No automation may drive it as automatic echo suppression: engaging it
+    stops TTS mid-utterance, and unmuting on idle would undo a deliberate
+    manual mute. Satellite-local playback inhibition is the replacement and
+    lives outside HA automations.
+    """
+
+    MUTE_SWITCH = "switch.homelab_05_satellite_mute"
+
+    def test_no_automation_drives_mute_switch(self) -> None:
+        automations = REPO_ROOT / "home-assistant" / "automations"
+        offenders = [
+            path.name
+            for path in sorted(automations.glob("*.yaml"))
+            if self.MUTE_SWITCH in path.read_text(encoding="utf-8")
+        ]
+        self.assertEqual(offenders, [])
 
 
 if __name__ == "__main__":

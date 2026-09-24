@@ -214,7 +214,7 @@ async def drive(
                     got += chunk
             except asyncio.TimeoutError:
                 pass
-            if b'"transcript"' in got:
+            if b'"transcript"' in got or b'"error"' in got:
                 await asyncio.sleep(0.3)
                 try:
                     while True:
@@ -339,14 +339,29 @@ class BridgeFaultTest(unittest.TestCase):
     def test_failed_finish_isolates_turn(self) -> None:
         native = FakeNative(transcripts=["second turn ok"], fail_on="finish")
         raw, _ = asyncio.run(drive(turn(b"\x00\x01" * 1600), native, FakeClassifier()))
-        found = transcripts_of(raw)
-        self.assertEqual(len(found), 1)
-        self.assertEqual(found[0]["data"]["text"], "")
+        errors = [e for e in decode_frames(raw) if e["type"] == "error"]
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]["data"]["code"], "recognition_failed")
+        self.assertEqual(len(transcripts_of(raw)), 0)
         self.assertEqual(native.open_stream_count(), 0)
         native.fail_on = ""
         raw, _ = asyncio.run(drive(turn(b"\x00\x01" * 1600), native, FakeClassifier()))
         found = transcripts_of(raw)
+        self.assertEqual(len(found), 1)
         self.assertEqual(found[0]["data"]["text"], "second turn ok")
+
+    def test_failed_open_stream_emits_error(self) -> None:
+        native = FakeNative(transcripts=["recovered"], fail_on="open")
+        raw, _ = asyncio.run(drive(turn(b"\x00\x01" * 1600), native, FakeClassifier()))
+        errors = [e for e in decode_frames(raw) if e["type"] == "error"]
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]["data"]["code"], "recognition_failed")
+        self.assertEqual(len(transcripts_of(raw)), 0)
+        native.fail_on = ""
+        raw, _ = asyncio.run(drive(turn(b"\x00\x01" * 1600), native, FakeClassifier()))
+        found = transcripts_of(raw)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["data"]["text"], "recovered")
 
     def test_garbage_transcript_dropped(self) -> None:
         native = FakeNative(transcripts=["Stu"])
@@ -383,6 +398,40 @@ class BridgeFaultTest(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0]["data"]["text"], "")
         self.assertEqual(native.opened, 0)
+
+
+class NativePackagingAndContractTest(unittest.TestCase):
+    def test_proxy_module_packaged_and_in_sync(self) -> None:
+        voice_id_proxy = REPO_ROOT / "gitops" / "voice" / "voice-id" / "proxy.py"
+        nemotron_proxy = REPO_ROOT / "gitops" / "voice" / "nemotron-bridge" / "proxy.py"
+        self.assertTrue(voice_id_proxy.is_file(), "voice-id/proxy.py missing")
+        self.assertTrue(nemotron_proxy.is_file(), "nemotron-bridge/proxy.py missing")
+        self.assertEqual(
+            nemotron_proxy.read_bytes(),
+            voice_id_proxy.read_bytes(),
+            "nemotron-bridge/proxy.py must stay in sync with voice-id/proxy.py",
+        )
+
+    def test_packaging_uses_upstream_not_replacement_recognizer(self):
+        folder = REPO_ROOT / "gitops/voice/nemotron-bridge"
+        self.assertFalse((folder / "nemo_speech_asr_c.c").exists())
+        dockerfile = (folder / "Dockerfile").read_text()
+        self.assertIn("https://github.com/NVIDIA/NeMo-Speech.cpp.git", dockerfile)
+        self.assertIn("07003daa7eefea542076310722ccaa89709ee3c3", dockerfile)
+        self.assertIn("cmake --install build", dockerfile)
+        self.assertIn("verify_contract.py --abi-only", dockerfile)
+
+    def test_verifier_rejects_missing_library_and_model(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "verify_contract",
+            REPO_ROOT / "gitops/voice/nemotron-bridge/verify_contract.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertFalse(module.verify_library_symbols("/missing/libnemo.so"))
+        self.assertFalse(module.verify_model_file("/missing/model.gguf"))
 
 
 if __name__ == "__main__":
