@@ -156,6 +156,14 @@ views:
           - type: media-control
             entity: media_player.homelab_05_satellite_media_player_2
             name: Speaker Output
+          - type: entities
+            title: Music shortcuts
+            entities:
+              - entity: script.jarvis_play_media
+                name: Play media (Spotify / YouTube Music)
+          - type: iframe
+            url: http://10.0.30.15:8095
+            aspect_ratio: 75%
       - cards:
           - heading: Family
             type: heading
@@ -196,6 +204,14 @@ views:
                   perform_action: scene.turn_on
                   target:
                     entity_id: scene.living_room_movie
+              - type: action
+                name: Music
+                icon: mdi:music
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.effects_music_mode
               - type: action
                 name: Party
                 icon: mdi:party-popper
@@ -318,6 +334,12 @@ views:
       - cards:
           - heading: Adaptive Lighting
             type: heading
+          - entity: input_boolean.govee_music_mode
+            name: Govee Music Mode
+            icon: mdi:music
+            features:
+              - type: toggle
+            type: tile
           - entity: switch.adaptive_lighting_all_dimmable_lights_sleep_mode
             name: Sleep Mode
             features:

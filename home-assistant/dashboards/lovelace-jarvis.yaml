@@ -60,6 +60,14 @@ views:
           - type: media-control
             entity: media_player.homelab_05_satellite_media_player_2
             name: Speaker Output
+          - type: entities
+            title: Music shortcuts
+            entities:
+              - entity: script.jarvis_play_media
+                name: Play media (Spotify / YouTube Music)
+          - type: iframe
+            url: http://10.0.30.15:8095
+            aspect_ratio: 75%
       - title: Satellite Controls
         cards:
           - type: entities
@@ -80,6 +88,10 @@ views:
             name: All Govee Lights
             features:
               - type: light-brightness
+          - type: tile
+            entity: input_boolean.govee_music_mode
+            name: Govee Music Mode
+            icon: mdi:music
           - type: tile
             entity: light.living_room_lights
             name: Living Room
