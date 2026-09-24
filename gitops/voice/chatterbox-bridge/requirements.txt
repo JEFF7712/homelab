@@ -5,7 +5,7 @@
 torch==2.6.0+cu126
 torchaudio==2.6.0+cu126
 chatterbox-tts==0.1.7
-huggingface-hub==0.28.1
+huggingface-hub==0.36.2
 safetensors==0.5.2
 numpy==1.26.4
 scipy==1.15.1
