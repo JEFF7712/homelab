@@ -510,7 +510,7 @@
         "0.0.278",
         "retention-deployed-0023aa4fff0cbe5d"
       ],
-      "digest": "sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454",
+      "digest": "sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -532,8 +532,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454",
-        "reference": "ghcr.io/jeff7712/quartz:0.0.278@sha256:a9a7542db5797fc57d600974957e2ee8d80921664fa4103c857b6c96efffa454",
+        "digest": "sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
+        "reference": "ghcr.io/jeff7712/quartz:0.0.278@sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
         "registry": "ghcr.io",
         "repository": "jeff7712/quartz",
         "tag": "0.0.278"
