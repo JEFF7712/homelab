@@ -15,6 +15,14 @@ spec:
         app: wyoming-gateway
         mode: stt
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: wyoming-gateway
+              mode: stt
       containers:
         - name: gateway
           image: >-
@@ -22,14 +30,14 @@ spec:
           args: ["python3", "/app/gateway.py", "--mode", "stt", "--port", "10300"]
           env:
             - name: WYOMING_BACKENDS
-              value: "nemotron=wyoming-stt-nemotron:10300,local=wyoming-stt-local:10300,groq=wyoming-stt-groq:10300"
+              value: "nemotron=wyoming-stt-nemotron:10300,local=wyoming-stt-local:10300"
           ports:
             - {name: wyoming, containerPort: 10300}
             - {name: metrics, containerPort: 8000}
           resources:
             requests: {cpu: 25m, memory: 32Mi}
             limits: {cpu: 250m, memory: 128Mi}
-          readinessProbe: {httpGet: {path: /healthz, port: metrics}}
+          readinessProbe: {httpGet: {path: /readyz, port: metrics}}
           livenessProbe: {httpGet: {path: /healthz, port: metrics}}
           securityContext:
             runAsNonRoot: true
@@ -60,6 +68,14 @@ spec:
         app: wyoming-gateway
         mode: tts
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: wyoming-gateway
+              mode: tts
       containers:
         - name: gateway
           image: >-
@@ -74,7 +90,7 @@ spec:
           resources:
             requests: {cpu: 25m, memory: 32Mi}
             limits: {cpu: 250m, memory: 128Mi}
-          readinessProbe: {httpGet: {path: /healthz, port: metrics}}
+          readinessProbe: {httpGet: {path: /readyz, port: metrics}}
           livenessProbe: {httpGet: {path: /healthz, port: metrics}}
           securityContext:
             runAsNonRoot: true
@@ -126,3 +142,27 @@ spec:
     matchLabels: {app: wyoming-gateway}
   endpoints:
     - {port: metrics, path: /metrics, interval: 15s}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wyoming-stt-gateway
+  namespace: voice
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: wyoming-gateway
+      mode: stt
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wyoming-tts-gateway
+  namespace: voice
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: wyoming-gateway
+      mode: tts

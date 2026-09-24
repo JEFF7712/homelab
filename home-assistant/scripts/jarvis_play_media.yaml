@@ -16,12 +16,16 @@ description: >-
   cannot interrupt the search/play/enqueue sequence mid-flight and leave a
   stale queue update behind; each run completes, and the latest replace wins.
   The result distinguishes 'accepted' (service submitted, playback not yet
-  observed) from 'playing' (the satellite media player is playing media
-  this request put in the queue). Confirmation compares the queue content
-  before and after the play calls, so a previous track that is still
-  playing never verifies a new request; same-track replay is confirmed by
-  a fresh position update near the start of the track. Callers must not
-  present 'accepted' as verified playback.
+  observed) from 'playing' (the player is playing the requested media).
+  Confirmation requires positive correlation between the request and the
+  player state: a URI request's trailing identity must appear in the
+  player's media content id, or an artist request's name must appear in
+  the player's artist/title. Anything else, including a still-playing
+  previous track or a naturally advanced unrelated track, stays
+  'accepted'. Same-track replay verifies through its own identity.
+  Album/playlist URIs and free-text fallbacks carry no verifiable item
+  identity and stay 'accepted'. Callers must not present 'accepted' as
+  verified playback.
 fields:
   media_content_type:
     description: >-
@@ -92,10 +96,6 @@ sequence:
           {{ media_content_type in ['music', 'track'] }}
         {% endif %}
       satellite_player: media_player.homelab_05_satellite_media_player_2
-      request_started: "{{ now().isoformat() }}"
-      queue_before: >-
-        {{ state_attr('media_player.homelab_05_satellite_media_player_2',
-                      'media_content_id') | default('', true) | string }}
   - choose:
       - conditions:
           - condition: template
@@ -120,6 +120,19 @@ sequence:
                 {% else %}
                   {{ (artist_uris | select('search', '^spotify:') | list + artist_uris + [media_content_id]) | first }}
                 {% endif %}
+          - variables:
+              artist_name: >-
+                {% set hits = (mass_search | default({}, true)).artists | default([], true) %}
+                {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
+                  {% set pref = '^ytmusic:' %}
+                {% else %}
+                  {% set pref = '^spotify:' %}
+                {% endif %}
+                {% set plat = hits | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
+                {{ (((plat + hits) | first | default({}, true)).name | default(media_content_id, true) | string) }}
+          - variables:
+              confirm_kind: name
+              confirm_needle: "{{ artist_name | lower | trim }}"
           - if:
               - condition: template
                 value_template: "{{ artist_uri | length == 0 }}"
@@ -171,10 +184,13 @@ sequence:
                   {% set matched = (plat + tracks) | first | default({}, true) %}
                 {% endif %}
                 {% set artists = matched.artists | default([], true) %}
-                {% set artist_pref = '^ytmusic:' if target_platform in
-                  ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {% set artist_pref = '^ytmusic:' if target_platform
+                  in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
                 {{ (artists | selectattr('uri', 'search', artist_pref)
                   | map(attribute='uri') | list) | first | default('', true) }}
+          - variables:
+              confirm_kind: "{{ 'id' if (':' in (track_uri | default('', true) | string)) else 'none' }}"
+              confirm_needle: "{{ (track_uri | default('', true) | string).split(':')[-1].split('/')[-1] }}"
           - if:
               - condition: template
                 value_template: "{{ track_uri | length == 0 }}"
@@ -231,6 +247,9 @@ sequence:
                   | selectattr('uri', 'search', '^ytmusic:')
                   | map(attribute='uri') | list %}
                 {{ (t + al + ar + pl) | first | default('', true) }}
+          - variables:
+              confirm_kind: "{{ 'id' if (':' in (yt_uri | default('', true) | string)) else 'none' }}"
+              confirm_needle: "{{ (yt_uri | default('', true) | string).split(':')[-1].split('/')[-1] }}"
           - if:
               - condition: template
                 value_template: "{{ yt_uri | length == 0 }}"
@@ -245,6 +264,9 @@ sequence:
               extra:
                 radio_mode: "{{ use_radio_mode | bool }}"
     default:
+      - variables:
+          confirm_kind: "{{ 'id' if (':' in (media_content_id | default('', true) | string)) else 'none' }}"
+          confirm_needle: "{{ (media_content_id | default('', true) | string).split(':')[-1].split('/')[-1] }}"
       - action: media_player.play_media
         target:
           entity_id: media_player.homelab_05_satellite_media_player_2
@@ -256,26 +278,31 @@ sequence:
   - if:
       - condition: template
         value_template: >-
-          {{ not (is_state(satellite_player, 'playing') and
-          ((state_attr(satellite_player, 'media_content_id')
-          | default('', true) | string) != queue_before or
-          ((state_attr(satellite_player, 'media_position_updated_at')
-          | default(0, true) | as_timestamp(0)) > (request_started | as_timestamp)
-          and (state_attr(satellite_player, 'media_position')
-          | default(9999, true) | float(9999)) < 15))) }}
+          {{ not (is_state(satellite_player, 'playing')
+          and confirm_kind != 'none' and (confirm_needle | length) > 3
+          and (confirm_needle
+          in (state_attr(satellite_player, 'media_content_id')
+          | default('', true) | string)
+          or (confirm_kind == 'name' and confirm_needle
+          in (((state_attr(satellite_player, 'media_artist')
+          | default('', true) | string) + ' '
+          + (state_attr(satellite_player, 'media_title')
+          | default('', true) | string)) | lower)))) }}
     then:
       - repeat:
-          while:
+          until:
             - condition: template
               value_template: >-
-                {{ repeat.index <= 6 and not (is_state(satellite_player, 'playing') and
-                ((state_attr(satellite_player, 'media_content_id')
-                | default('', true) | string) != queue_before or
-                ((state_attr(satellite_player, 'media_position_updated_at')
-                | default(0, true) | as_timestamp(0))
-                > (request_started | as_timestamp)
-                and (state_attr(satellite_player, 'media_position')
-                | default(9999, true) | float(9999)) < 15))) }}
+                {{ repeat.index >= 6 or (is_state(satellite_player, 'playing')
+                and confirm_kind != 'none' and (confirm_needle | length) > 3
+                and (confirm_needle
+                in (state_attr(satellite_player, 'media_content_id')
+                | default('', true) | string)
+                or (confirm_kind == 'name' and confirm_needle
+                in (((state_attr(satellite_player, 'media_artist')
+                | default('', true) | string) + ' '
+                + (state_attr(satellite_player, 'media_title')
+                | default('', true) | string)) | lower)))) }}
           sequence:
             - wait_for_trigger:
                 - platform: state
@@ -288,21 +315,27 @@ sequence:
         media: "{{ media_content_id }}"
         platform: "{{ target_platform }}"
         status: >-
-          {{ 'playing' if is_state(satellite_player, 'playing') and
-          ((state_attr(satellite_player, 'media_content_id')
-          | default('', true) | string) != queue_before or
-          ((state_attr(satellite_player, 'media_position_updated_at')
-          | default(0, true) | as_timestamp(0)) > (request_started | as_timestamp)
-          and (state_attr(satellite_player, 'media_position')
-          | default(9999, true) | float(9999)) < 15)) else 'accepted' }}
+          {{ 'playing' if is_state(satellite_player, 'playing')
+          and confirm_kind != 'none' and (confirm_needle | length) > 3
+          and (confirm_needle
+          in (state_attr(satellite_player, 'media_content_id')
+          | default('', true) | string)
+          or (confirm_kind == 'name' and confirm_needle
+          in (((state_attr(satellite_player, 'media_artist')
+          | default('', true) | string) + ' '
+          + (state_attr(satellite_player, 'media_title')
+          | default('', true) | string)) | lower))) else 'accepted' }}
         verified: >-
-          {{ 'true' if is_state(satellite_player, 'playing') and
-          ((state_attr(satellite_player, 'media_content_id')
-          | default('', true) | string) != queue_before or
-          ((state_attr(satellite_player, 'media_position_updated_at')
-          | default(0, true) | as_timestamp(0)) > (request_started | as_timestamp)
-          and (state_attr(satellite_player, 'media_position')
-          | default(9999, true) | float(9999)) < 15)) else 'false' }}
+          {{ 'true' if is_state(satellite_player, 'playing')
+          and confirm_kind != 'none' and (confirm_needle | length) > 3
+          and (confirm_needle
+          in (state_attr(satellite_player, 'media_content_id')
+          | default('', true) | string)
+          or (confirm_kind == 'name' and confirm_needle
+          in (((state_attr(satellite_player, 'media_artist')
+          | default('', true) | string) + ' '
+          + (state_attr(satellite_player, 'media_title')
+          | default('', true) | string)) | lower))) else 'false' }}
         autoplay: "{{ use_radio_mode | bool }}"
   - stop: Playback submitted
     response_variable: playback_result

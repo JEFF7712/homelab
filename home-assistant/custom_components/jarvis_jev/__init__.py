@@ -20,10 +20,17 @@ from .const import (
     API_URL,
     CONF_FALLBACK_AGENT,
     DOMAIN,
+    FALLBACK_TIMEOUT_SECONDS,
     OLLAMA_FALLBACK_AGENT,
     REQUEST_TIMEOUT_SECONDS,
     SHADOW_TIMEOUT_SECONDS,
     SHADOW_URL,
+)
+from .fallback import (
+    DelegationGuard,
+    fallback_rejection,
+    known_conversation_agent_ids,
+    own_conversation_entity_ids,
 )
 from .l0 import parse_canonical
 from .router import TARGETS, Command, build_request, decide
@@ -82,6 +89,7 @@ class JarvisJevAgent(conversation.AbstractConversationAgent):
         self.hass = hass
         self.entry = entry
         self._shadow_active = False
+        self._delegation_guard = DelegationGuard()
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -133,32 +141,7 @@ class JarvisJevAgent(conversation.AbstractConversationAgent):
 
         decision = decide(user_input.text, payload)
         if decision.route == "fallback":
-            fallback_agent = self.entry.data.get(CONF_FALLBACK_AGENT, "")
-            if not fallback_agent or fallback_agent == self.entry.entry_id:
-                JEV_REQUESTS.labels("general_disabled").inc()
-                return _speech(
-                    user_input,
-                    "General conversation is unavailable.",
-                )
-            try:
-                JEV_REQUESTS.labels("general_delegate").inc()
-                return await conversation.async_converse(
-                    self.hass,
-                    text=user_input.text,
-                    conversation_id=user_input.conversation_id,
-                    context=user_input.context,
-                    language=user_input.language,
-                    agent_id=fallback_agent,
-                    device_id=user_input.device_id,
-                    satellite_id=user_input.satellite_id,
-                    extra_system_prompt=user_input.extra_system_prompt,
-                )
-            except Exception:  # noqa: BLE001
-                JEV_REQUESTS.labels("general_error").inc()
-                return _speech(
-                    user_input,
-                    "General conversation is unavailable.",
-                )
+            return await self._async_delegate_fallback(user_input)
         if decision.route != "execute" or decision.command is None:
             JEV_REQUESTS.labels(decision.route).inc()
             return _speech(
@@ -172,6 +155,55 @@ class JarvisJevAgent(conversation.AbstractConversationAgent):
             return _speech(user_input, "The home action failed.")
         JEV_REQUESTS.labels("execute").inc()
         return _speech(user_input, "Done.")
+
+    async def _async_delegate_fallback(
+        self, user_input: conversation.ConversationInput
+    ) -> conversation.ConversationResult:
+        fallback_agent = self.entry.options.get(
+            CONF_FALLBACK_AGENT, self.entry.data.get(CONF_FALLBACK_AGENT, "")
+        )
+        rejection = fallback_rejection(
+            fallback_agent=fallback_agent,
+            entry_id=self.entry.entry_id,
+            unique_id=self.entry.unique_id,
+            own_entity_ids=own_conversation_entity_ids(self.hass, self.entry),
+            known_agent_ids=known_conversation_agent_ids(self.hass),
+        )
+        if rejection is not None:
+            JEV_REQUESTS.labels(
+                "general_disabled" if rejection == "disabled" else "general_rejected"
+            ).inc()
+            if rejection != "disabled":
+                _LOGGER.warning(
+                    "jarvis_jev fallback rejected reason=%s", rejection
+                )
+            return _speech(user_input, "General conversation is unavailable.")
+        if not self._delegation_guard.acquire(user_input.conversation_id):
+            JEV_REQUESTS.labels("general_rejected").inc()
+            _LOGGER.warning("jarvis_jev fallback delegation depth exceeded")
+            return _speech(user_input, "General conversation is unavailable.")
+        try:
+            JEV_REQUESTS.labels("general_delegate").inc()
+            async with asyncio.timeout(FALLBACK_TIMEOUT_SECONDS):
+                return await conversation.async_converse(
+                    self.hass,
+                    text=user_input.text,
+                    conversation_id=user_input.conversation_id,
+                    context=user_input.context,
+                    language=user_input.language,
+                    agent_id=fallback_agent,
+                    device_id=user_input.device_id,
+                    satellite_id=user_input.satellite_id,
+                    extra_system_prompt=user_input.extra_system_prompt,
+                )
+        except Exception:  # noqa: BLE001
+            JEV_REQUESTS.labels("general_error").inc()
+            return _speech(
+                user_input,
+                "General conversation is unavailable.",
+            )
+        finally:
+            self._delegation_guard.release(user_input.conversation_id)
 
     def _start_shadow(
         self, request: dict[str, Any]

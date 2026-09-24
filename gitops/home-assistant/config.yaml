@@ -589,10 +589,17 @@ data:
         API_URL,
         CONF_FALLBACK_AGENT,
         DOMAIN,
+        FALLBACK_TIMEOUT_SECONDS,
         OLLAMA_FALLBACK_AGENT,
         REQUEST_TIMEOUT_SECONDS,
         SHADOW_TIMEOUT_SECONDS,
         SHADOW_URL,
+    )
+    from .fallback import (
+        DelegationGuard,
+        fallback_rejection,
+        known_conversation_agent_ids,
+        own_conversation_entity_ids,
     )
     from .l0 import parse_canonical
     from .router import TARGETS, Command, build_request, decide
@@ -651,6 +658,7 @@ data:
             self.hass = hass
             self.entry = entry
             self._shadow_active = False
+            self._delegation_guard = DelegationGuard()
 
         @property
         def supported_languages(self) -> list[str] | Literal["*"]:
@@ -702,32 +710,7 @@ data:
 
             decision = decide(user_input.text, payload)
             if decision.route == "fallback":
-                fallback_agent = self.entry.data.get(CONF_FALLBACK_AGENT, "")
-                if not fallback_agent or fallback_agent == self.entry.entry_id:
-                    JEV_REQUESTS.labels("general_disabled").inc()
-                    return _speech(
-                        user_input,
-                        "General conversation is unavailable.",
-                    )
-                try:
-                    JEV_REQUESTS.labels("general_delegate").inc()
-                    return await conversation.async_converse(
-                        self.hass,
-                        text=user_input.text,
-                        conversation_id=user_input.conversation_id,
-                        context=user_input.context,
-                        language=user_input.language,
-                        agent_id=fallback_agent,
-                        device_id=user_input.device_id,
-                        satellite_id=user_input.satellite_id,
-                        extra_system_prompt=user_input.extra_system_prompt,
-                    )
-                except Exception:  # noqa: BLE001
-                    JEV_REQUESTS.labels("general_error").inc()
-                    return _speech(
-                        user_input,
-                        "General conversation is unavailable.",
-                    )
+                return await self._async_delegate_fallback(user_input)
             if decision.route != "execute" or decision.command is None:
                 JEV_REQUESTS.labels(decision.route).inc()
                 return _speech(
@@ -741,6 +724,55 @@ data:
                 return _speech(user_input, "The home action failed.")
             JEV_REQUESTS.labels("execute").inc()
             return _speech(user_input, "Done.")
+
+        async def _async_delegate_fallback(
+            self, user_input: conversation.ConversationInput
+        ) -> conversation.ConversationResult:
+            fallback_agent = self.entry.options.get(
+                CONF_FALLBACK_AGENT, self.entry.data.get(CONF_FALLBACK_AGENT, "")
+            )
+            rejection = fallback_rejection(
+                fallback_agent=fallback_agent,
+                entry_id=self.entry.entry_id,
+                unique_id=self.entry.unique_id,
+                own_entity_ids=own_conversation_entity_ids(self.hass, self.entry),
+                known_agent_ids=known_conversation_agent_ids(self.hass),
+            )
+            if rejection is not None:
+                JEV_REQUESTS.labels(
+                    "general_disabled" if rejection == "disabled" else "general_rejected"
+                ).inc()
+                if rejection != "disabled":
+                    _LOGGER.warning(
+                        "jarvis_jev fallback rejected reason=%s", rejection
+                    )
+                return _speech(user_input, "General conversation is unavailable.")
+            if not self._delegation_guard.acquire(user_input.conversation_id):
+                JEV_REQUESTS.labels("general_rejected").inc()
+                _LOGGER.warning("jarvis_jev fallback delegation depth exceeded")
+                return _speech(user_input, "General conversation is unavailable.")
+            try:
+                JEV_REQUESTS.labels("general_delegate").inc()
+                async with asyncio.timeout(FALLBACK_TIMEOUT_SECONDS):
+                    return await conversation.async_converse(
+                        self.hass,
+                        text=user_input.text,
+                        conversation_id=user_input.conversation_id,
+                        context=user_input.context,
+                        language=user_input.language,
+                        agent_id=fallback_agent,
+                        device_id=user_input.device_id,
+                        satellite_id=user_input.satellite_id,
+                        extra_system_prompt=user_input.extra_system_prompt,
+                    )
+            except Exception:  # noqa: BLE001
+                JEV_REQUESTS.labels("general_error").inc()
+                return _speech(
+                    user_input,
+                    "General conversation is unavailable.",
+                )
+            finally:
+                self._delegation_guard.release(user_input.conversation_id)
 
         def _start_shadow(
             self, request: dict[str, Any]
@@ -895,9 +927,21 @@ data:
     import os
     from typing import Any
 
-    from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+    import voluptuous as vol
+    from homeassistant.config_entries import (
+        ConfigEntry,
+        ConfigFlow,
+        ConfigFlowResult,
+        OptionsFlow,
+    )
+    from homeassistant.core import callback
 
     from .const import CONF_FALLBACK_AGENT, DOMAIN, OLLAMA_FALLBACK_AGENT
+    from .fallback import (
+        fallback_rejection,
+        known_conversation_agent_ids,
+        own_conversation_entity_ids,
+    )
 
 
     class JarvisJevConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -914,6 +958,54 @@ data:
                 title="Jarvis Jev Router",
                 data={CONF_FALLBACK_AGENT: OLLAMA_FALLBACK_AGENT},
             )
+
+        @staticmethod
+        @callback
+        def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+            return JarvisJevOptionsFlow(config_entry)
+
+
+    class JarvisJevOptionsFlow(OptionsFlow):
+        """Configure the general-conversation fallback with recursion validation.
+
+        An empty value keeps general conversation disabled. Any other value must
+        resolve to a registered agent that is not this entry under any identity.
+        """
+
+        def __init__(self, config_entry: ConfigEntry) -> None:
+            self._config_entry = config_entry
+
+        async def async_step_init(
+            self, user_input: dict[str, Any] | None = None
+        ) -> ConfigFlowResult:
+            errors: dict[str, str] = {}
+            current = self._config_entry.options.get(
+                CONF_FALLBACK_AGENT,
+                self._config_entry.data.get(CONF_FALLBACK_AGENT, ""),
+            )
+            if user_input is not None:
+                candidate = str(user_input.get(CONF_FALLBACK_AGENT, "") or "").strip()
+                rejection = fallback_rejection(
+                    fallback_agent=candidate,
+                    entry_id=self._config_entry.entry_id,
+                    unique_id=self._config_entry.unique_id,
+                    own_entity_ids=own_conversation_entity_ids(
+                        self.hass, self._config_entry
+                    ),
+                    known_agent_ids=known_conversation_agent_ids(self.hass),
+                )
+                if rejection in (None, "disabled"):
+                    return self.async_create_entry(
+                        title="", data={CONF_FALLBACK_AGENT: candidate}
+                    )
+                errors[CONF_FALLBACK_AGENT] = rejection
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema(
+                    {vol.Required(CONF_FALLBACK_AGENT, default=current): str}
+                ),
+                errors=errors,
+            )
   component.jarvis_jev.const.py: |
     DOMAIN = "jarvis_jev"
     CONF_FALLBACK_AGENT = "fallback_agent"
@@ -924,6 +1016,9 @@ data:
     API_URL = "https://api.typesafe.ai/v1/systemone"
     MODEL = "jev-1.13.0"
     REQUEST_TIMEOUT_SECONDS = 1.5
+    # Total deadline for one fallback delegation turn, bounding hosted-agent
+    # recursion cost even when the delegate responds slowly.
+    FALLBACK_TIMEOUT_SECONDS = 10.0
     SHADOW_URL = "http://local-decision.voice.svc.cluster.local:8080/v1/systemone"
     SHADOW_TIMEOUT_SECONDS = 15.0
 
@@ -956,6 +1051,125 @@ data:
         }
     )
     RESTRICTED_ACTIONS = frozenset()
+  component.jarvis_jev.fallback.py: |
+    """General-conversation fallback delegation guard for the Jev agent.
+
+    General conversation is a separate trust domain and stays disabled until a
+    fallback passes its own exposure, prompt, history, privacy, and recursion
+    evaluation. When a fallback is configured, delegation must never recurse
+    into this same agent under another identity, must stay depth-bounded, and
+    must carry a total deadline (applied by the caller with
+    ``FALLBACK_TIMEOUT_SECONDS``).
+
+    This module has no Home Assistant imports so the decision logic is directly
+    unit-testable; the thin hass-dependent resolvers below use lazy imports.
+    """
+
+    from __future__ import annotations
+
+    from typing import Any
+
+    MAX_DELEGATION_DEPTH = 1
+
+    # Rejection reasons returned by fallback_rejection. All values are safe to
+    # expose in logs; only aggregates become metric labels.
+    DISABLED = "disabled"
+    SELF = "self"
+    SELF_ALIAS = "self_alias"
+    UNKNOWN_AGENT = "unknown_agent"
+
+
+    def fallback_rejection(
+        *,
+        fallback_agent: str,
+        entry_id: str,
+        unique_id: str | None,
+        own_entity_ids: set[str] | frozenset[str],
+        known_agent_ids: set[str] | frozenset[str] | None,
+    ) -> str | None:
+        """Return None when delegation may proceed, else a rejection reason.
+
+        ``own_entity_ids`` holds this entry's conversation entity ids (aliases
+        that would resolve back to this same agent). ``known_agent_ids`` holds
+        every registered agent identity (conversation entity ids plus config
+        entry ids); None skips the registration check when the registry is
+        unavailable, in which case an unresolvable target still fails safely at
+        delegation time.
+        """
+        candidate = (fallback_agent or "").strip()
+        if not candidate:
+            return DISABLED
+        if candidate == entry_id:
+            return SELF
+        if unique_id and candidate == unique_id:
+            return SELF
+        if candidate in own_entity_ids:
+            return SELF_ALIAS
+        if known_agent_ids is not None and candidate not in known_agent_ids:
+            return UNKNOWN_AGENT
+        return None
+
+
+    class DelegationGuard:
+        """Bound re-entrant fallback delegation per conversation.
+
+        A delegated turn that routes back into this agent (same conversation id)
+        is refused once the in-flight depth reaches the bound, which caps hosted
+        request loops from a later fallback configuration.
+        """
+
+        def __init__(self, max_depth: int = MAX_DELEGATION_DEPTH) -> None:
+            self._max_depth = max_depth
+            self._active: dict[str, int] = {}
+
+        def acquire(self, conversation_id: str | None) -> bool:
+            key = conversation_id or ""
+            depth = self._active.get(key, 0)
+            if depth >= self._max_depth:
+                return False
+            self._active[key] = depth + 1
+            return True
+
+        def release(self, conversation_id: str | None) -> None:
+            key = conversation_id or ""
+            depth = self._active.get(key, 0)
+            if depth <= 1:
+                self._active.pop(key, None)
+            else:
+                self._active[key] = depth - 1
+
+
+    def own_conversation_entity_ids(hass: Any, entry: Any) -> set[str]:
+        """Conversation entity ids owned by this config entry (lazy HA import)."""
+        try:
+            from homeassistant.helpers import entity_registry as entity_registry_module
+
+            registry = entity_registry_module.async_get(hass)
+            return {
+                entity.entity_id
+                for entity in registry.entities.values()
+                if entity.config_entry_id == entry.entry_id
+                and entity.entity_id.split(".", 1)[0] == "conversation"
+            }
+        except Exception:
+            return set()
+
+
+    def known_conversation_agent_ids(hass: Any) -> set[str] | None:
+        """Registered agent identities, or None when the registries are unreadable."""
+        try:
+            from homeassistant.helpers import entity_registry as entity_registry_module
+
+            registry = entity_registry_module.async_get(hass)
+            entity_ids = {
+                entity.entity_id
+                for entity in registry.entities.values()
+                if entity.entity_id.split(".", 1)[0] == "conversation"
+            }
+            entry_ids = {entry.entry_id for entry in hass.config_entries.async_entries()}
+            return entity_ids | entry_ids
+        except Exception:
+            return None
   component.jarvis_jev.l0.py: |
     """L0 deterministic fast path for unambiguous canonical commands.
 
@@ -1777,6 +1991,22 @@ data:
         "abort": {
           "already_configured": "Jarvis Jev Router is already configured",
           "missing_api_key": "TYPESAFE_API_KEY is not configured in the Home Assistant container"
+        }
+      },
+      "options": {
+        "step": {
+          "init": {
+            "title": "Jarvis Jev Router options",
+            "description": "Leave the fallback agent empty to keep general conversation disabled.",
+            "data": {
+              "fallback_agent": "Fallback conversation agent (empty disables general conversation)"
+            }
+          }
+        },
+        "error": {
+          "self": "That fallback is this same router; delegation would recurse",
+          "self_alias": "That conversation entity belongs to this same router; delegation would recurse",
+          "unknown_agent": "That agent is not registered in Home Assistant"
         }
       }
     }

@@ -16,5 +16,21 @@
       "already_configured": "Jarvis Jev Router is already configured",
       "missing_api_key": "TYPESAFE_API_KEY is not configured in the Home Assistant container"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Jarvis Jev Router options",
+        "description": "Leave the fallback agent empty to keep general conversation disabled.",
+        "data": {
+          "fallback_agent": "Fallback conversation agent (empty disables general conversation)"
+        }
+      }
+    },
+    "error": {
+      "self": "That fallback is this same router; delegation would recurse",
+      "self_alias": "That conversation entity belongs to this same router; delegation would recurse",
+      "unknown_agent": "That agent is not registered in Home Assistant"
+    }
   }
 }

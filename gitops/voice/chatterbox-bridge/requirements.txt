@@ -1,0 +1,15 @@
+# Pinned dependencies for Chatterbox Turbo Wyoming TTS Bridge
+# Verified against ResembleAI/chatterbox-turbo 749d1c1a
+--extra-index-url https://download.pytorch.org/whl/cu126
+
+torch==2.6.0+cu126
+torchaudio==2.6.0+cu126
+chatterbox-tts==0.1.7
+huggingface-hub==0.28.1
+safetensors==0.5.2
+numpy==1.26.4
+scipy==1.15.1
+soundfile==0.13.1
+transformers==4.49.0
+librosa==0.10.2.post1
+resemble-perth==1.0.1

@@ -173,6 +173,22 @@ class ExtensionParamsTests(unittest.TestCase):
             params.BOTTOM_BLOCK_TOP_Z_MM + params.LOWER_MOUNT_SPIGOT_HEIGHT_MM,
             params.BED_Z_MM,
         )
+        self.assertGreaterEqual(
+            params.CORNER_LIP_START_MM,
+            params.TOP_MEMBER_WIDTH_MM + params.LIP_CLEARANCE_MM,
+        )
+        self.assertGreater(params.BOTTOM_RETAINER_CLEARANCE_MM, 0.0)
+        self.assertAlmostEqual(params.M4_MOUNT_SCREW_LEN_MM, 16.0)
+        self.assertAlmostEqual(params.mount_thread_engagement_mm(), 4.5)
+
+    def test_m5_insert_coupon_uses_measured_hardware(self) -> None:
+        self.assertAlmostEqual(params.M5_INSERT_LEN_MEASURED_MM, 7.9)
+        self.assertAlmostEqual(params.M5_INSERT_OD_MEASURED_MM, 6.7)
+        self.assertAlmostEqual(params.M5_INSERT_LEAD_DIA_MEASURED_MM, 5.8)
+        self.assertEqual(params.M5_INSERT_PILOT_CANDIDATES_MM, (5.8, 6.0, 6.2))
+        self.assertGreater(
+            params.M5_INSERT_COUPON_DEPTH_MM, params.M5_INSERT_LEN_MEASURED_MM
+        )
 
 
 if __name__ == "__main__":

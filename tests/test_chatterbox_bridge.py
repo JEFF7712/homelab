@@ -8,7 +8,9 @@ No GPU, model weights, or third-party Wyoming libraries required.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -285,6 +287,142 @@ class TtsTextTest(unittest.TestCase):
                 sys.modules["perth"] = saved
             else:
                 sys.modules.pop("perth", None)
+
+    def test_metrics_bounded_histograms(self) -> None:
+        metrics = SERVER.RuntimeMetrics()
+        for i in range(100):
+            metrics.observe("test_latency", 0.1 * i)
+        rendered = metrics.render().decode()
+        self.assertIn('test_latency_bucket{le="0.25"}', rendered)
+        self.assertIn('test_latency_bucket{le="+Inf"} 100', rendered)
+        self.assertIn("test_latency_count 100", rendered)
+        # Verify bounded memory: buckets dict only contains defined buckets
+        h = metrics.histograms["test_latency"]
+        self.assertEqual(len(h["buckets"]), len(SERVER.HISTOGRAM_BUCKETS))
+
+    def test_tts_cache_lru(self) -> None:
+        cache = SERVER.TtsCache(capacity=2)
+        cache.put(("one", "jarvis"), (b"11", 24000))
+        cache.put(("two", "jarvis"), (b"22", 24000))
+        self.assertEqual(cache.get(("one", "jarvis")), (b"11", 24000))
+        # Adding a 3rd should evict "two" since "one" was accessed
+        cache.put(("three", "jarvis"), (b"33", 24000))
+        self.assertIsNone(cache.get(("two", "jarvis")))
+        self.assertEqual(cache.get(("one", "jarvis")), (b"11", 24000))
+        self.assertEqual(cache.get(("three", "jarvis")), (b"33", 24000))
+
+    def test_pcm_conversion_rounding_and_clipping(self) -> None:
+        # Rounding half to even:
+        # 0.5 / 32767.0 * 32767.0 = 0.5 -> round to even is 0
+        # 1.5 / 32767.0 * 32767.0 = 1.5 -> round to even is 2
+        samples = [
+            0.5 / 32767.0,
+            1.5 / 32767.0,
+            2.5 / 32767.0,
+            3.5 / 32767.0,
+            -1.5,  # Clipped to -32768
+            1.5,  # Clipped to 32767
+        ]
+        pcm = SERVER.samples_to_pcm16(samples)
+        import struct
+
+        unpacked = struct.unpack("<6h", pcm)
+        self.assertEqual(unpacked, (0, 2, 2, 4, -32768, 32767))
+
+    def test_explicit_cpu_fallback_rejected(self) -> None:
+        config = make_config(device="cuda", allow_cpu_fallback=False)
+        engine = SERVER.ChatterboxEngine(config)
+        import types
+
+        torch_stub = types.ModuleType("torch")
+        torch_stub.cuda = types.SimpleNamespace(is_available=lambda: False)
+        saved = sys.modules.get("torch")
+        sys.modules["torch"] = torch_stub
+        try:
+            with self.assertRaises(RuntimeError) as ctx:
+                engine.load()
+            self.assertIn("CPU fallback is disabled", str(ctx.exception))
+            self.assertFalse(engine.is_healthy)
+        finally:
+            if saved is not None:
+                sys.modules["torch"] = saved
+            else:
+                sys.modules.pop("torch", None)
+
+    def test_queue_depth_bounding_and_rejection(self) -> None:
+        config = make_config(max_queue_depth=1)
+        engine = FakeEngine()
+        metrics = SERVER.RuntimeMetrics()
+        server = SERVER.TtsServer(config, engine, metrics)
+        # Pre-fill the pending queue to 1
+        server._pending_queue = 1
+
+        async def run_check():
+            class DummyWriter:
+                def __init__(self):
+                    self.buf = bytearray()
+
+                def write(self, data):
+                    self.buf += data
+
+                async def drain(self):
+                    pass
+
+                def is_closing(self):
+                    return False
+
+            writer = DummyWriter()
+            await server.synthesize_turn(writer, "Hello", "jarvis")
+            events = decode_frames(bytes(writer.buf))
+            return events
+
+        events = asyncio.run(run_check())
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["type"], "error")
+        self.assertIn("queue full", events[0]["data"]["text"])
+        self.assertEqual(metrics.counters.get("jarvis_tts_queue_rejections_total"), 1)
+
+    def test_cache_paths_validation_with_actual_mount_permissions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            models_dir = tmp_path / "models"
+            models_dir.mkdir(parents=True)
+            hub_dir = models_dir / "hub"
+            hub_dir.mkdir(parents=True)
+
+            runtime_dir = tmp_path / "runtime"
+            runtime_dir.mkdir(parents=True)
+            hf_cache = runtime_dir / "cache/huggingface"
+            torch_cache = runtime_dir / "cache/torch"
+            triton_cache = runtime_dir / "cache/triton"
+            xdg_cache = runtime_dir / "cache/xdg"
+
+            # Make models_dir and hub_dir read-only (mimicking mountPath: /models, readOnly: true)
+            models_dir.chmod(0o555)
+
+            old_env = os.environ.copy()
+            try:
+                os.environ["HF_HOME"] = str(hf_cache)
+                os.environ["HF_HUB_CACHE"] = str(hub_dir)
+                os.environ["TRANSFORMERS_CACHE"] = str(hub_dir)
+                os.environ["TORCH_HOME"] = str(torch_cache)
+                os.environ["TRITON_CACHE_DIR"] = str(triton_cache)
+                os.environ["XDG_CACHE_HOME"] = str(xdg_cache)
+
+                # Validation must succeed with read-only models and writable runtime
+                SERVER.validate_cache_paths()
+
+                # Now test that if a writable runtime cache is made read-only, it fails
+                hf_cache.chmod(0o555)
+                with self.assertRaises(RuntimeError) as ctx:
+                    SERVER.validate_cache_paths()
+                self.assertIn("HF_HOME cache is not writable", str(ctx.exception))
+            finally:
+                models_dir.chmod(0o777)
+                if hf_cache.exists():
+                    hf_cache.chmod(0o777)
+                os.environ.clear()
+                os.environ.update(old_env)
 
 
 if __name__ == "__main__":

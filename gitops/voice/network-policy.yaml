@@ -109,13 +109,18 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [wyoming-gateway, jarvis-exporter, local-decision, wyoming-whisper]
+        values: [wyoming-gateway, jarvis-exporter, local-decision, wyoming-whisper, wyoming-chatterbox]
   policyTypes: [Ingress]
   ingress:
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: observability
+      ports:
+        - {protocol: TCP, port: 8000}
+        - {protocol: TCP, port: 8001}
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 9100}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy

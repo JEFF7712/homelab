@@ -1,0 +1,56 @@
+{
+  "a": {
+    "assist_satellite.homelab_05_satellite_assist_satellite": {
+      "a": {
+        "friendly_name": "Homelab 05 Satellite Assist satellite",
+        "supported_features": 3
+      },
+      "c": "01M37YE5H45YDW6PTP1P8F1NX8",
+      "lc": 1790194423.3324065,
+      "s": "idle"
+    },
+    "media_player.homelab_05_satellite_media_player_2": {
+      "a": {
+        "active_queue": "media_player.homelab_05_satellite_media_player",
+        "app_id": "music_assistant",
+        "device_class": "speaker",
+        "entity_picture": "/api/media_player_proxy/media_player.homelab_05_satellite_media_player_2?token=fea5260eda29f7e7876b51e8747af9338ccf7c21f3fe29d107281462350f0ba4&cache=a1184577e556798b",
+        "friendly_name": "Soundbar",
+        "icon": "mdi:speaker",
+        "is_volume_muted": false,
+        "mass_player_type": "player",
+        "media_album_artist": "The Weeknd",
+        "media_album_name": "Dawn FM",
+        "media_artist": "The Weeknd",
+        "media_content_id": "spotify--cdkhL4NS://track/2SLwbpExuoBDZBpjfefCtV",
+        "media_content_type": "music",
+        "media_duration": 214,
+        "media_position": 3,
+        "media_position_updated_at": "2026-09-23T18:12:15.619149+00:00",
+        "media_title": "Out of Time",
+        "repeat": "off",
+        "shuffle": true,
+        "source": "Music Assistant Queue",
+        "source_list": [
+          "Music Assistant Queue",
+          "Spotify Connect (Soundbar)"
+        ],
+        "supported_features": 7798335,
+        "volume_level": 1.0
+      },
+      "c": "01M37YGKEZKZQNHESMZQCM6VD7",
+      "lc": 1790194503.11951,
+      "lu": 1790194503.135704,
+      "s": "idle"
+    },
+    "switch.homelab_05_satellite_mute": {
+      "a": {
+        "friendly_name": "Homelab 05 Satellite Mute",
+        "icon": "mdi:microphone-off"
+      },
+      "c": "01M37YE5HE1RCF5GG7VQ73WRWM",
+      "lc": 1790194423.3423789,
+      "s": "off"
+    }
+  }
+}

@@ -151,6 +151,7 @@ class TestSessionState(unittest.TestCase):
         session = SessionState()
         self.assertTrue(session.recognition_done.is_set())
         self.assertIsNone(session.speaker)
+        self.assertIsNone(session.identify_task)
 
         session.audio_buffer.extend(b"1234")
         session.speaker = "Rupan"
@@ -161,6 +162,24 @@ class TestSessionState(unittest.TestCase):
         self.assertEqual(len(session.audio_buffer), 0)
         self.assertIsNone(session.speaker)
         self.assertTrue(session.recognition_done.is_set())
+        self.assertIsNone(session.identify_task)
+
+    def test_session_state_task_cancellation(self) -> None:
+        import asyncio
+
+        session = SessionState()
+
+        async def run() -> None:
+            async def slow():
+                await asyncio.sleep(10)
+
+            task = asyncio.create_task(slow())
+            session.identify_task = task
+            session.reset_audio()
+            self.assertIsNone(session.identify_task)
+            self.assertTrue(task.cancelled())
+
+        asyncio.run(run())
 
 
 class TestFormatTranscript(unittest.TestCase):

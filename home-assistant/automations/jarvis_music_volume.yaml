@@ -4,7 +4,10 @@ description: >-
   Deterministically adjust satellite-speaker volume on voice commands.
   Supports semantic volume changes: 'a bit' (10%), 'a lot' (40%), default
   step (10%), mute, and unmute. Kept as a conversation trigger so it executes
-  locally without depending on the conversation agent.
+  locally without depending on the conversation agent. Spoken numeric levels
+  are always percentages (1 means 1%), clamped to 0-100%; unparseable levels
+  are rejected with a spoken error instead of silently substituting 50%.
+  Service errors fail the run instead of reporting Done.
 mode: restart
 triggers:
   - trigger: conversation
@@ -162,7 +165,6 @@ actions:
               entity_id: media_player.homelab_05_satellite_media_player_2
             data:
               is_volume_muted: true
-            continue_on_error: true
           - set_conversation_response: Done.
       - conditions:
           - condition: template
@@ -173,22 +175,24 @@ actions:
               entity_id: media_player.homelab_05_satellite_media_player_2
             data:
               is_volume_muted: false
-            continue_on_error: true
           - set_conversation_response: Done.
     default:
       - variables:
           current_vol: >-
             {{ state_attr('media_player.homelab_05_satellite_media_player_2',
-                          'volume_level') | default(0.5, true) | float(0.5) }}
+                          'volume_level') | float(0.5) }}
           target_vol: >-
             {% if trigger.id == 'volume_max' %}
               1.0
             {% elif trigger.id == 'volume_min' %}
               0.0
             {% elif trigger.id == 'volume_level' %}
-              {% set raw = trigger.slots.level | default('50') | string | replace('%', '') | trim %}
-              {% set val = raw | float(50.0) %}
-              {{ (((val / 100.0) if val > 1.0 else val) | max(0.0) | min(1.0)) | round(2) }}
+              {% set raw = trigger.slots.level | default('', true) | string | replace('%', '') | trim %}
+              {% if raw is match('^-?[0-9]+(\.[0-9]+)?$') %}
+                {{ (([0.0, (raw | float / 100.0), 1.0] | sort)[1]) | round(2) }}
+              {% else %}
+                invalid
+              {% endif %}
             {% else %}
               {% set step = {'volume_up_bit': 0.10,
                              'volume_up': 0.10,
@@ -196,12 +200,18 @@ actions:
                              'volume_down_bit': -0.10,
                              'volume_down': -0.10,
                              'volume_down_lot': -0.40}[trigger.id] %}
-              {{ (((current_vol + step) | max(0.0)) | min(1.0)) | round(2) }}
+              {{ (([0.0, current_vol + step, 1.0] | sort)[1]) | round(2) }}
             {% endif %}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target_vol | trim == 'invalid' }}"
+            sequence:
+              - set_conversation_response: I didn't understand that volume level.
+              - stop: Invalid volume level.
       - action: media_player.volume_set
         target:
           entity_id: media_player.homelab_05_satellite_media_player_2
         data:
           volume_level: "{{ target_vol }}"
-        continue_on_error: true
       - set_conversation_response: Done.

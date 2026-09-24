@@ -77,7 +77,8 @@ spec:
               # (~5 GB with CUDA libs) into /runtime on first start.
               uv pip install --python /runtime/venv/bin/python 'chatterbox-tts==0.1.7'
               REPO_CACHE=/models/hub/models--ResembleAI--chatterbox-turbo
-              if [ ! -d "$REPO_CACHE/snapshots" ]; then
+              SNAPSHOT_DIR="$REPO_CACHE/snapshots/749d1c1a46eb10492095d68fbcf55691ccf137cd"
+              if [ ! -f "$SNAPSHOT_DIR/model.safetensors" ] || [ ! -f "$SNAPSHOT_DIR/config.json" ]; then
                 HF_HOME=/models /runtime/venv/bin/python -c '
               from huggingface_hub import snapshot_download
               snapshot_download(
@@ -97,13 +98,8 @@ spec:
                 > "$REPO_CACHE/refs/main"
               mkdir -p "$MODEL_DIR"
               touch "$MODEL_DIR/.complete"
-              mkdir -p /runtime/cache/huggingface /runtime/cache/torch \
+              mkdir -p /runtime/cache/torch \
                 /runtime/cache/triton /runtime/cache/xdg /runtime/cache/numba
-              RUNTIME_REPO_CACHE=/runtime/cache/huggingface/hub/models--ResembleAI--chatterbox-turbo
-              if [ ! -d "$RUNTIME_REPO_CACHE/snapshots" ]; then
-                mkdir -p "$(dirname "$RUNTIME_REPO_CACHE")"
-                cp -a "$REPO_CACHE" "$RUNTIME_REPO_CACHE"
-              fi
           env:
             - name: MODEL_DIR
               value: /models/chatterbox-turbo-749d1c1
@@ -157,9 +153,9 @@ spec:
             - name: HF_HOME
               value: /runtime/cache/huggingface
             - name: HF_HUB_CACHE
-              value: /runtime/cache/huggingface/hub
+              value: /models/hub
             - name: TRANSFORMERS_CACHE
-              value: /runtime/cache/huggingface/transformers
+              value: /models/hub
             - name: TORCH_HOME
               value: /runtime/cache/torch
             - name: TRITON_CACHE_DIR
@@ -191,8 +187,9 @@ spec:
             failureThreshold: 60
             periodSeconds: 10
           readinessProbe:
-            tcpSocket:
-              port: wyoming
+            httpGet:
+              path: /healthz
+              port: metrics
             periodSeconds: 10
           livenessProbe:
             tcpSocket:

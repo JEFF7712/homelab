@@ -25,7 +25,7 @@ Turbo primary and Piper fallback. Backend preference and circuit state belong to
 the gateways, so HA pipeline identifiers do not change during backend failover.
 There is no local LLM: Qwen/Ollama was removed in Phase 0 to free the
 T1000 GPU, and the cloud replacement is not wired yet.
--> audio back to the `homelab-05` soundbar (HDMI-A-2 with continuous video clocking daemon,
+-> audio back to the `homelab-05` soundbar (USB SPDIF optical adapter,
 prioritized at 3000 in WirePlumber) -> face state via the HA websocket.
 
 ## Canonical entity IDs
@@ -745,24 +745,15 @@ still cycles states.
   matches on substring `QuadCast` (first substring hit wins, so if several
   QuadCast nodes appear, confirm the USB source is listed first). For the exact
   Pulse source names the container sees, run it once with `LIST_DEVICES=1`.
-- Soundbar loses sound after switching inputs: HDMI audio requires active video
-  clocking. On `homelab-05`, `satellite-hdmi-audio-clock.service` runs as a
-  continuous daemon re-clocking `HDMI-A-2` via `wlr-randr` whenever the soundbar
-  reconnects. The soundbar PCM is onboard `pro-output-3`, pinned as default
-  output at WirePlumber priority 3000 (measured 2026-09-18: the only onboard
-  PCM reaching the soundbar); Nvidia HDMI stays at 2000, onboard fallback at
-  1000, QuadCast headphone jack at 500. If the soundbar slept through silence,
-  its kernel audio descriptor goes stale (`eld_valid 0` under
-  `/proc/asound/PCH/eld*` while EDID is still present): toggle `HDMI-A-2` off
-  and on via `wlr-randr` as the kiosk user to force a modeset and repopulate
-  the ELD, then confirm with a test tone. Check
-  `systemctl status satellite-hdmi-audio-clock` if soundbar audio does not return.
-  The daemon keeps the ViewSonic on HDMI-A-1 at 1920x1080, position 0,0, and
-  the soundbar output on HDMI-A-2 at its supported 1024x768 mode, position
-  0,0 (overlapping to keep canvas width at 1920x1080 and the kiosk face centered).
-  It reads both outputs and reapplies the combined layout only when
-  enabled state, mode, or position drifts, avoiding repeated compositor
-  reconfiguration while preserving the video clock HDMI audio needs.
+- Soundbar loses sound: output runs over the USB SPDIF optical adapter
+  (`alsa_output.usb-*SPDIF*`, pinned as default output at WirePlumber
+  priority 3000; onboard fallback at 1000, QuadCast headphone jack at 500).
+  Optical needs no video clock, so there is no HDMI clock daemon and no ELD
+  to repopulate. Check `wpctl status` on `homelab-05` as the kiosk user: the
+  default sink (`*`) must be `USB SPDIF Adapter Analog Stereo`. If the adapter
+  is missing, reseat USB (card `Adapter` in `/proc/asound/cards`) and confirm
+  the soundbar input is set to optical. `satellite-alsa-restore.service`
+  unmutes the QuadCast `Mic` ALSA control when that card is present.
 - PipeWire WebRTC echo cancellation evaluated 2026-09-18 and parked: the
   `libpipewire-module-echo-cancel` source exposed the mic with 0.0 dB measured
   reduction on both tonal and wideband playback (correct links, correct

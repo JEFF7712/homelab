@@ -74,20 +74,6 @@
               };
             };
           }
-          # Nvidia HDMI audio (nothing plugged into the T600 mini-DP ports).
-          # Keep this narrow: a generic pci.*pro-output-3 pattern would also
-          # match onboard 00:1f.3 pro-output-3, which the rules below own.
-          {
-            matches = [
-              { "node.name" = "~alsa_output.pci-0000_01_00.1.*"; }
-            ];
-            actions = {
-              update-props = {
-                "priority.driver" = 2000;
-                "priority.session" = 2000;
-              };
-            };
-          }
           # Fallback onboard line-out audio
           {
             matches = [
@@ -100,24 +86,15 @@
               };
             };
           }
-          # Force onboard audio card to pro-audio profile (exposing pro-output-3 for HDMI soundbar)
+          # Pin the USB SPDIF optical adapter as the default output. It feeds
+          # the LG soundbar over Toslink (measured 2026-09-23: node
+          # alsa_output.usb-Generic_USB_SPDIF_Adapter_202110200032-00.analog-stereo,
+          # USB 0bda:4e27). The usb-*SPDIF* substring survives USB bus-path
+          # renames. Placed after the generic onboard rule so it wins the
+          # priority for this one node.
           {
             matches = [
-              { "device.name" = "~alsa_card.pci-0000_00_1f.3"; }
-            ];
-            actions = {
-              update-props = {
-                "device.profile" = "pro-audio";
-              };
-            };
-          }
-          # Pin the LG soundbar PCM as the default output. Measured
-          # 2026-09-18: pro-output-3 is the only onboard PCM reaching the
-          # soundbar on HDMI-A-2. Placed after the generic onboard rule so
-          # it wins the priority for this one node.
-          {
-            matches = [
-              { "node.name" = "~alsa_output.pci-0000_00_1f.3.pro-output-3"; }
+              { "node.name" = "~alsa_output.usb-*SPDIF*"; }
             ];
             actions = {
               update-props = {
@@ -149,7 +126,6 @@
     haTokenFile = "/persist/secrets/jarvis-kiosk-ha-token";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
-    disableOutputs = [ "HDMI-A-2" ];
   };
 
   networking.firewall.extraInputRules = ''
@@ -158,10 +134,8 @@
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
   '';
 
-  boot.kernelParams = [ "video=HDMI-A-2:e" ];
-
   systemd.services.satellite-alsa-restore = {
-    description = "Unmute onboard audio fallback for Jarvis satellite";
+    description = "Unmute QuadCast microphone for Jarvis satellite";
     after = [ "sound.target" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
@@ -173,86 +147,12 @@
       pkgs.gawk
     ];
     script = ''
-      if [ -e /sys/class/drm/card1-HDMI-A-2/status ]; then
-        echo on > /sys/class/drm/card1-HDMI-A-2/status || true
-      fi
-      # Onboard stays unmuted as the fallback sink (WirePlumber priority 1000)
-      # for when the HDMI soundbar is unreachable.
-      # Select the onboard card by its stable ALSA ID, not its USB-dependent index.
-      if amixer -c PCH scontrols | grep -Fq "Simple mixer control 'Master',0"; then
-        amixer -c PCH set Master unmute 100%
-      fi
-      if amixer -c PCH scontrols | grep -Fq "Simple mixer control 'Headphone',0"; then
-        amixer -c PCH set Headphone unmute 100%
-      fi
-
+      # Keep the QuadCast capture path unmuted for the satellite.
+      # Select the mic card by its stable ALSA ID, not its USB-dependent index.
       for card in $(awk -F'[][]' '/[Qq]uad[Cc]ast|[Hh]yper[Xx]/ { gsub(/ /, "", $2); print $2 }' /proc/asound/cards); do
         if amixer -c "$card" scontrols | grep -Fq "Simple mixer control 'Mic',0"; then
           amixer -c "$card" set Mic unmute 100%
         fi
-      done
-    '';
-  };
-
-  systemd.services.satellite-hdmi-audio-clock = {
-    description = "Clock HDMI-A-2 for Jarvis soundbar audio";
-    after = [ "cage-tty1.service" ];
-    wantedBy = [ "cage-tty1.service" ];
-    partOf = [ "cage-tty1.service" ];
-    serviceConfig = {
-      Type = "simple";
-      User = "kiosk";
-      Restart = "always";
-      RestartSec = "5s";
-    };
-    environment = {
-      XDG_RUNTIME_DIR = "/run/user/1001";
-      WAYLAND_DISPLAY = "wayland-0";
-    };
-    path = [
-      pkgs.wlr-randr
-      pkgs.curl
-      pkgs.gawk
-    ];
-    script = ''
-      # Wait in-process for the kiosk browser instead of exiting: with
-      # Restart=always an exit would spin a restart every RestartSec while
-      # HA/Chromium is down. Sleeping here keeps one quiet process.
-      while ! curl -s --max-time 5 http://127.0.0.1:9222/json | grep -q '"title": "JARVIS"'; do
-        sleep 5
-      done
-
-      # Steady state note: homelab.kiosk.disableOutputs turns HDMI-A-2 off on
-      # every cage start so Chromium stays on the primary display; this daemon
-      # re-enables it so the soundbar keeps the video clock its audio needs.
-      # Keep the physical display at the compositor origin and HDMI-A-2 to its
-      # supported soundbar mode. Reapply only after output state drifts.
-      while true; do
-        if ! wlr-randr 2>/dev/null | awk '
-          /^HDMI-A-1 / { output = "monitor"; next }
-          /^HDMI-A-2 / { output = "soundbar"; next }
-          /^[^ ]/ { output = "" }
-          output == "monitor" {
-            if (/Enabled: yes/) monitor_enabled = 1
-            if (/1920x1080 px, 60\.000000 Hz .*current/) monitor_mode = 1
-            if (/Position: 0,0/) monitor_position = 1
-          }
-          output == "soundbar" {
-            if (/Enabled: yes/) soundbar_enabled = 1
-            if (/1024x768 px, 60\.004002 Hz .*current/) soundbar_mode = 1
-            if (/Position: 0,0/) soundbar_position = 1
-          }
-          END {
-            exit !(monitor_enabled && monitor_mode && monitor_position &&
-              soundbar_enabled && soundbar_mode && soundbar_position)
-          }
-        '; then
-          wlr-randr \
-            --output HDMI-A-1 --on --mode 1920x1080@60.000000 --pos 0,0 \
-            --output HDMI-A-2 --on --mode 1024x768@60.004002 --pos 0,0 \
-            2>/dev/null || true
-        fi
-        sleep 2
       done
     '';
   };

@@ -38,6 +38,12 @@ _TAG_RE = re.compile(r"\[[^\[\]]{1,32}\]")
 WATERMARK_AVAILABLE = True
 
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+
 def strip_paralinguistic_tags(text: str) -> str:
     """Remove [laugh]-style tags HA replies must never vocalize."""
     cleaned = _TAG_RE.sub("", text)
@@ -45,12 +51,21 @@ def strip_paralinguistic_tags(text: str) -> str:
 
 
 def normalize_peak(samples, target: float = 0.89, max_gain: float = 10.0):
-    """Lift quiet Turbo output toward full scale (pure).
+    """Lift quiet Turbo output toward full scale (vectorized or pure).
 
     Turbo ships unnormalized audio (often -11 dB peak); played at the
     satellite's volume that is nearly inaudible next to Piper. Gain is
     capped so near-silence never becomes amplified noise.
     """
+    if np is not None and isinstance(samples, np.ndarray):
+        if samples.size == 0:
+            return samples
+        peak = float(np.max(np.abs(samples)))
+        if peak <= 0.0:
+            return samples
+        gain = min(target / peak, max_gain)
+        return samples * gain
+
     values = [float(v) for v in samples]
     peak = max((abs(v) for v in values), default=0.0)
     if peak <= 0.0:
@@ -60,7 +75,25 @@ def normalize_peak(samples, target: float = 0.89, max_gain: float = 10.0):
 
 
 def samples_to_pcm16(samples) -> bytes:
-    """Convert float samples in [-1, 1] to little-endian int16 PCM."""
+    """Convert float samples in [-1, 1] to little-endian int16 PCM (vectorized or pure)."""
+    if np is not None and isinstance(samples, np.ndarray):
+        if samples.size == 0:
+            return b""
+        scaled = np.rint(samples.astype(np.float32) * 32767.0)
+        clipped = np.clip(scaled, -32768.0, 32767.0).astype("<i2")
+        return clipped.tobytes()
+
+    if np is not None:
+        try:
+            arr = np.asarray(samples, dtype=np.float32)
+            if arr.size == 0:
+                return b""
+            scaled = np.rint(arr * 32767.0)
+            clipped = np.clip(scaled, -32768.0, 32767.0).astype("<i2")
+            return clipped.tobytes()
+        except Exception:
+            pass
+
     out = bytearray()
     for value in samples:
         scaled = int(round(float(value) * 32767.0))
@@ -93,6 +126,9 @@ class TtsConfig:
     top_p: float = 0.95
     repetition_penalty: float = 1.2
     require_watermark: bool = False
+    max_queue_depth: int = 2
+    allow_cpu_fallback: bool = False
+    cache_capacity: int = 64
 
     @classmethod
     def from_env(cls) -> TtsConfig:
@@ -110,6 +146,9 @@ class TtsConfig:
             top_p=float(get("CHATTERBOX_TOP_P", "0.95")),
             repetition_penalty=float(get("CHATTERBOX_REPETITION_PENALTY", "1.2")),
             require_watermark=get("CHATTERBOX_REQUIRE_WATERMARK", "0") == "1",
+            max_queue_depth=int(get("CHATTERBOX_MAX_QUEUE", "2")),
+            allow_cpu_fallback=get("CHATTERBOX_ALLOW_CPU_FALLBACK", "0") == "1",
+            cache_capacity=int(get("CHATTERBOX_CACHE_CAPACITY", "64")),
         )
 
     def validate(self) -> None:
@@ -129,6 +168,10 @@ class TtsConfig:
             raise ValueError("CHATTERBOX_TOP_P must be in (0, 1]")
         if not 1.0 <= self.repetition_penalty <= 2.0:
             raise ValueError("CHATTERBOX_REPETITION_PENALTY must be in [1, 2]")
+        if self.max_queue_depth < 1:
+            raise ValueError("CHATTERBOX_MAX_QUEUE must be >= 1")
+        if self.cache_capacity < 0:
+            raise ValueError("CHATTERBOX_CACHE_CAPACITY must be >= 0")
 
     def chunk_bytes(self, rate: int) -> int:
         frames = max(1, rate * self.chunk_ms // 1000)
@@ -157,7 +200,16 @@ def ensure_watermarker(required: bool = False) -> None:
     speech needs no provenance watermark, so fall back to passthrough.
     """
     global WATERMARK_AVAILABLE
-    import perth
+    try:
+        import perth
+    except ImportError:
+        WATERMARK_AVAILABLE = False
+        if required:
+            raise RuntimeError(
+                "watermarking is required but perth package is not installed"
+            )
+        LOG.warning("perth package not installed, shipping unwatermarked audio")
+        return
 
     if getattr(perth, "PerthImplicitWatermarker", None) is None:
         WATERMARK_AVAILABLE = False
@@ -175,20 +227,30 @@ def ensure_watermarker(required: bool = False) -> None:
 
 
 def validate_cache_paths() -> None:
-    """Fail early if model libraries would write into the read-only image."""
-    paths = {
+    """Fail early if model libraries would write into read-only filesystems, or if models are unreadable."""
+    writable_paths = {
         "HF_HOME": os.environ.get("HF_HOME", "/runtime/cache/huggingface"),
         "TORCH_HOME": os.environ.get("TORCH_HOME", "/runtime/cache/torch"),
         "TRITON_CACHE_DIR": os.environ.get("TRITON_CACHE_DIR", "/runtime/cache/triton"),
         "XDG_CACHE_HOME": os.environ.get("XDG_CACHE_HOME", "/runtime/cache/xdg"),
     }
-    for name, path in paths.items():
+    for name, path in writable_paths.items():
         try:
             os.makedirs(path, exist_ok=True)
             if not os.access(path, os.W_OK):
                 raise PermissionError(path)
         except OSError as exc:
             raise RuntimeError(f"{name} cache is not writable: {path}") from exc
+
+    # Immutable model storage: must be readable; read-only mounts are expected and supported.
+    readable_paths = {
+        "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/models/hub"),
+        "TRANSFORMERS_CACHE": os.environ.get("TRANSFORMERS_CACHE", "/models/hub"),
+    }
+    for name, path in readable_paths.items():
+        if os.path.exists(path):
+            if not os.access(path, os.R_OK):
+                raise RuntimeError(f"{name} model storage is not readable: {path}")
 
 
 class ChatterboxEngine:
@@ -198,6 +260,8 @@ class ChatterboxEngine:
         self._config = config
         self._model = None
         self._sample_rate = 24000
+        self.device_used: str = config.device
+        self.is_healthy: bool = True
 
     @property
     def sample_rate(self) -> int:
@@ -206,14 +270,23 @@ class ChatterboxEngine:
     def load(self) -> None:
         import torch
 
-        ensure_watermarker(self._config.require_watermark)
-        from chatterbox.tts_turbo import ChatterboxTurboTTS
-
         config = self._config
         device = config.device
         if device == "cuda" and not torch.cuda.is_available():
-            LOG.warning("CUDA unavailable, falling back to CPU")
+            if not config.allow_cpu_fallback:
+                self.is_healthy = False
+                raise RuntimeError(
+                    "CUDA requested for Chatterbox Turbo but torch.cuda is unavailable; CPU fallback is disabled"
+                )
+            LOG.warning(
+                "CUDA unavailable, explicit CPU fallback permitted by configuration"
+            )
             device = "cpu"
+        self.device_used = device
+
+        ensure_watermarker(self._config.require_watermark)
+        from chatterbox.tts_turbo import ChatterboxTurboTTS
+
         if config.model_dir:
             LOG.info("loading Turbo weights from %s", config.model_dir)
             self._model = ChatterboxTurboTTS.from_local(config.model_dir, device=device)
@@ -243,33 +316,95 @@ class ChatterboxEngine:
             top_p=config.top_p,
             repetition_penalty=config.repetition_penalty,
         )
-        samples = wav.squeeze(0).detach().cpu().numpy().tolist()
-        return samples_to_pcm16(normalize_peak(samples)), self._sample_rate
+        arr = wav.squeeze(0).detach().cpu().numpy()
+        return samples_to_pcm16(normalize_peak(arr)), self._sample_rate
+
+
+class TtsCache:
+    """Bounded LRU cache for synthesized PCM responses."""
+
+    def __init__(self, capacity: int = 64) -> None:
+        self.capacity = capacity
+        self._cache: dict[tuple[str, str], tuple[bytes, int]] = {}
+        self._order: list[tuple[str, str]] = []
+        self._lock = Lock()
+
+    def get(self, key: tuple[str, str]) -> tuple[bytes, int] | None:
+        if self.capacity <= 0:
+            return None
+        with self._lock:
+            if key in self._cache:
+                self._order.remove(key)
+                self._order.append(key)
+                return self._cache[key]
+            return None
+
+    def put(self, key: tuple[str, str], val: tuple[bytes, int]) -> None:
+        if self.capacity <= 0:
+            return
+        with self._lock:
+            if key in self._cache:
+                self._order.remove(key)
+            elif len(self._cache) >= self.capacity:
+                oldest = self._order.pop(0)
+                self._cache.pop(oldest, None)
+            self._cache[key] = val
+            self._order.append(key)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+            self._order.clear()
+
+
+HISTOGRAM_BUCKETS = (0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0)
 
 
 class RuntimeMetrics:
     def __init__(self) -> None:
         self._lock = Lock()
         self.counters: dict[str, int] = {}
-        self.samples: dict[str, list[float]] = {}
-        self.gauges = {"jarvis_tts_unwatermarked_audio": 0}
+        self.histograms: dict[str, dict] = {}
+        self.gauges: dict[str, int | float] = {
+            "jarvis_tts_unwatermarked_audio": 0,
+            "jarvis_tts_cpu_fallback": 0,
+        }
 
-    def inc(self, name: str) -> None:
+    def inc(self, name: str, delta: int = 1) -> None:
         with self._lock:
-            self.counters[name] = self.counters.get(name, 0) + 1
+            self.counters[name] = self.counters.get(name, 0) + delta
+
+    def set_gauge(self, name: str, value: int | float) -> None:
+        with self._lock:
+            self.gauges[name] = value
 
     def observe(self, name: str, value: float) -> None:
         with self._lock:
-            self.samples.setdefault(name, []).append(value)
+            if name not in self.histograms:
+                self.histograms[name] = {
+                    "sum": 0.0,
+                    "count": 0,
+                    "buckets": {b: 0 for b in HISTOGRAM_BUCKETS},
+                }
+            h = self.histograms[name]
+            h["sum"] += value
+            h["count"] += 1
+            for b in HISTOGRAM_BUCKETS:
+                if value <= b:
+                    h["buckets"][b] += 1
 
     def render(self) -> bytes:
         with self._lock:
             lines = []
             for name, value in sorted(self.counters.items()):
                 lines.append(f"{name} {value}")
-            for name, values in sorted(self.samples.items()):
-                lines.append(f"{name}_sum {sum(values)}")
-                lines.append(f"{name}_count {len(values)}")
+            for name, h in sorted(self.histograms.items()):
+                b_dict = h["buckets"]
+                for b in HISTOGRAM_BUCKETS:
+                    lines.append(f'{name}_bucket{{le="{b}"}} {b_dict[b]}')
+                lines.append(f'{name}_bucket{{le="+Inf"}} {h["count"]}')
+                lines.append(f"{name}_sum {h['sum']}")
+                lines.append(f"{name}_count {h['count']}")
             for name, value in sorted(self.gauges.items()):
                 lines.append(f"{name} {value}")
             return ("\n".join(lines) + "\n").encode()
@@ -350,7 +485,9 @@ class TtsServer:
     config: TtsConfig
     engine: object
     metrics: RuntimeMetrics | None = None
+    cache: TtsCache | None = None
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    _pending_queue: int = field(default=0, init=False)
 
     def _prepare_text(self, text: str) -> str:
         if not self.config.allow_tags:
@@ -370,7 +507,9 @@ class TtsServer:
         await writer.drain()
 
     async def _send_silence(self, writer: asyncio.StreamWriter) -> None:
-        writer.write(encode_event("audio-start", {"rate": 24000, "width": 2, "channels": 1}))
+        writer.write(
+            encode_event("audio-start", {"rate": 24000, "width": 2, "channels": 1})
+        )
         writer.write(encode_event("audio-stop", {}))
         await writer.drain()
 
@@ -386,13 +525,49 @@ class TtsServer:
         prepared = self._prepare_text(text)
         if voice and voice != self.config.voice_name:
             LOG.info("unknown voice %r, using %r", voice, self.config.voice_name)
+        effective_voice = voice or self.config.voice_name
         if not prepared:
             await self._send_silence(writer)
             return
+
+        if self._pending_queue >= self.config.max_queue_depth:
+            LOG.warning(
+                "Chatterbox queue full (%d pending >= limit %d), rejecting request",
+                self._pending_queue,
+                self.config.max_queue_depth,
+            )
+            if self.metrics:
+                self.metrics.inc("jarvis_tts_queue_rejections_total")
+            await self._send_error(
+                writer,
+                RuntimeError(f"queue full: {self._pending_queue} requests pending"),
+            )
+            return
+
+        if self.cache:
+            cache_key = (prepared, effective_voice)
+            cached = self.cache.get(cache_key)
+            if cached is not None:
+                if self.metrics:
+                    self.metrics.inc("jarvis_tts_cache_hits_total")
+                pcm, rate = cached
+                await self._send_audio(writer, pcm, rate)
+                return
+
+        self._pending_queue += 1
         try:
             started = asyncio.get_running_loop().time()
             async with self._lock:
+                if writer.is_closing():
+                    LOG.info(
+                        "Client disconnected before synthesis started; abandoning request"
+                    )
+                    if self.metrics:
+                        self.metrics.inc("jarvis_tts_abandoned_requests_total")
+                    return
                 pcm, rate = await asyncio.to_thread(self.engine.synthesize, prepared)
+            if self.cache:
+                self.cache.put((prepared, effective_voice), (pcm, rate))
             if self.metrics:
                 self.metrics.inc("jarvis_tts_synthesis_success_total")
                 self.metrics.observe(
@@ -409,6 +584,8 @@ class TtsServer:
                 self.metrics.inc("jarvis_tts_synthesis_failures_total")
             await self._send_error(writer, error)
             return
+        finally:
+            self._pending_queue -= 1
         await self._send_audio(writer, pcm, rate)
 
     async def handle_client(
@@ -457,9 +634,26 @@ async def amain() -> None:
     await asyncio.to_thread(engine.load)
     metrics = RuntimeMetrics()
     metrics.gauges["jarvis_tts_unwatermarked_audio"] = int(not WATERMARK_AVAILABLE)
-    server = TtsServer(config, engine, metrics)
+    metrics.gauges["jarvis_tts_cpu_fallback"] = int(
+        getattr(engine, "device_used", "") == "cpu"
+    )
+    cache = TtsCache(config.cache_capacity)
+    server = TtsServer(config, engine, metrics, cache)
+
     class MetricsHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
+            if self.path == "/healthz":
+                if getattr(engine, "is_healthy", True):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"OK\n")
+                else:
+                    self.send_response(503)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Service Unavailable\n")
+                return
             if self.path != "/metrics":
                 self.send_response(404)
                 self.end_headers()
@@ -474,7 +668,10 @@ async def amain() -> None:
         def log_message(self, *_args: object) -> None:
             pass
 
-    metrics_server = ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("CHATTERBOX_METRICS_PORT", "8001"))), MetricsHandler)
+    metrics_server = ThreadingHTTPServer(
+        ("0.0.0.0", int(os.environ.get("CHATTERBOX_METRICS_PORT", "8001"))),
+        MetricsHandler,
+    )
     Thread(target=metrics_server.serve_forever, daemon=True).start()
     tcp = await asyncio.start_server(server.handle_client, "0.0.0.0", config.port)
     LOG.info("listening on %d", config.port)
