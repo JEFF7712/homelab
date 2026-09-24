@@ -40,6 +40,12 @@ class VoiceSatelliteConfigTests(unittest.TestCase):
         self.assertIn("__main__.py", configmap["data"])
         self.assertIn("satellite.py", configmap["data"])
         self.assertIn("healthcheck.py", configmap["data"])
+        for name in ("__main__.py", "satellite.py", "healthcheck.py"):
+            self.assertEqual(
+                configmap["data"][name],
+                (root / "gitops/voice/satellite" / name).read_text(),
+                f"Embedded {name} must match the tested source",
+            )
 
         deployment = next(item for item in manifests if item["kind"] == "Deployment")
         container = deployment["spec"]["template"]["spec"]["containers"][0]

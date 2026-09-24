@@ -127,6 +127,10 @@ class VoiceSatelliteProtocol(APIServer):
                 previous._cancel_tail_timer()
             self._initialize_entities()
             self.state.satellite = self
+            if previous is not None:
+                self.state.tts_player.stop()
+                self.state.active_wake_words.discard(self.state.stop_word.id)
+                self.state.playback_inhibited = False
         self.is_established_ha = True
         self.state.connected = True
 
@@ -749,6 +753,7 @@ class VoiceSatelliteProtocol(APIServer):
             # Standard ESPHome state subscription. Replay current entity state to
             # the subscribing client. (Entities answer SubscribeHomeAssistantStatesRequest;
             # initial state was previously only sent as a side effect of auth.)
+            self._claim_session()
             for entity in self.state.entities:
                 yield from entity.handle_message(SubscribeHomeAssistantStatesRequest())
         elif isinstance(
@@ -763,6 +768,9 @@ class VoiceSatelliteProtocol(APIServer):
                 LightCommandRequest,
             ),
         ):
+            if isinstance(msg, ListEntitiesRequest):
+                self._claim_session()
+
             for entity in self.state.entities:
                 yield from entity.handle_message(msg)
 
@@ -1082,6 +1090,8 @@ class VoiceSatelliteProtocol(APIServer):
         self.state.tts_player.play(self._tts_url, done_callback=self._tts_finished)
 
     def _tts_finished(self) -> None:
+        if self.state.satellite is not self:
+            return
         self._pipeline_active = False
         self.state.active_wake_words.discard(self.state.stop_word.id)
         self.send_messages([VoiceAssistantAnnounceFinished()])
@@ -1106,6 +1116,8 @@ class VoiceSatelliteProtocol(APIServer):
             )
 
             def _start_continued_conversation() -> None:
+                if self.state.satellite is not self:
+                    return
                 if self.state.muted:
                     _LOGGER.debug("Skipping continued conversation: muted")
                     self._pipeline_active = False

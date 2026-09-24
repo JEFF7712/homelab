@@ -624,20 +624,27 @@ data:
     \ VoiceAssistantFeature.TIMERS\n            )\n            # Channel 1 is a secondary\
     \ stereo capsule, not an AEC speaker reference.\n            if state.audio_input_channels\
     \ >= 2:\n                self.supported_features |= VoiceAssistantFeature.MULTI_CHANNEL_AUDIO\
-    \  # pylint: disable=no-member\n\n    def _start_tail_timer(self, duration: float)\
-    \ -> None:\n        self._cancel_tail_timer()\n\n        def _clear_inhibition()\
-    \ -> None:\n            self.state.playback_inhibited = False\n            _LOGGER.debug(\n\
-    \                \"Acoustic tail completed (%.2fs); playback inhibition cleared\"\
-    , duration\n            )\n\n        self._tail_timer = threading.Timer(duration,\
-    \ _clear_inhibition)\n        self._tail_timer.daemon = True\n        self._tail_timer.start()\n\
-    \n    def _cancel_tail_timer(self) -> None:\n        if self._tail_timer is not\
-    \ None:\n            self._tail_timer.cancel()\n            self._tail_timer =\
-    \ None\n\n        existing_mute_switches = [\n            entity\n           \
-    \ for entity in self.state.entities\n            if isinstance(entity, MuteSwitchEntity)\n\
-    \        ]\n        existing_media_players = [\n            entity\n         \
-    \   for entity in self.state.entities\n            if isinstance(entity, MediaPlayerEntity)\n\
-    \        ]\n\n        if existing_media_players:\n            # Keep the first\
-    \ instance and remove any extras.\n            self.state.media_player_entity\
+    \  # pylint: disable=no-member\n\n        # ---- Instance variables ----\n\n \
+    \       self._is_streaming_audio = False\n        self._tts_url: Optional[str]\
+    \ = None\n        self._tts_played = False\n        self._continue_conversation\
+    \ = False\n        self._timer_finished = False\n        self._timer_ring_start:\
+    \ Optional[float] = None\n        self._processing = False\n        self._pipeline_active\
+    \ = False\n        self._external_wake_words: Dict[str, VoiceAssistantExternalWakeWord]\
+    \ = {}\n        self._disconnect_event = asyncio.Event()\n\n    # ------------------------------------------------------------------\n\
+    \    # Peripheral API helper\n    # ------------------------------------------------------------------\n\
+    \n    def _claim_session(self) -> None:\n        if self.state.satellite is not\
+    \ self:\n            previous = self.state.satellite\n            if previous\
+    \ is not None:\n                previous._cancel_tail_timer()\n            self._initialize_entities()\n\
+    \            self.state.satellite = self\n            if previous is not None:\n\
+    \                self.state.tts_player.stop()\n                self.state.active_wake_words.discard(self.state.stop_word.id)\n\
+    \                self.state.playback_inhibited = False\n        self.is_established_ha\
+    \ = True\n        self.state.connected = True\n\n    def _initialize_entities(self)\
+    \ -> None:\n        state = self.state\n        existing_mute_switches = [\n \
+    \           entity\n            for entity in self.state.entities\n          \
+    \  if isinstance(entity, MuteSwitchEntity)\n        ]\n        existing_media_players\
+    \ = [\n            entity\n            for entity in self.state.entities\n   \
+    \         if isinstance(entity, MediaPlayerEntity)\n        ]\n\n        if existing_media_players:\n\
+    \            # Keep the first instance and remove any extras.\n            self.state.media_player_entity\
     \ = existing_media_players[0]\n            for extra_player in existing_media_players[1:]:\n\
     \                self.state.entities.remove(extra_player)\n\n        if existing_mute_switches:\n\
     \            self.state.mute_switch_entity = existing_mute_switches[0]\n     \
@@ -776,30 +783,31 @@ data:
     \        # Materialise ButtonEventSensorEntity if a peripheral already registered\n\
     \        # button support before this satellite was constructed (e.g. on an HA\n\
     \        # reconnect while the peripheral container stayed connected to LVA).\n\
-    \        self.register_pending_button()\n\n        # ---- Instance variables ----\n\
-    \n        self._is_streaming_audio = False\n        self._tts_url: Optional[str]\
-    \ = None\n        self._tts_played = False\n        self._continue_conversation\
-    \ = False\n        self._timer_finished = False\n        self._timer_ring_start:\
-    \ Optional[float] = None\n        self._processing = False\n        self._pipeline_active\
-    \ = False\n        self._external_wake_words: Dict[str, VoiceAssistantExternalWakeWord]\
-    \ = {}\n        self._disconnect_event = asyncio.Event()\n\n    # ------------------------------------------------------------------\n\
-    \    # Peripheral API helper\n    # ------------------------------------------------------------------\n\
-    \n    def _emit(\n        self,\n        event: LVAEvent,\n        data: Optional[Dict[str,\
-    \ Any]] = None,\n    ) -> None:\n        \"\"\"\n        Emit a peripheral LED/button\
-    \ event.\n\n        Thread-safe: delegates to ``emit_event_sync`` which uses\n\
-    \        ``run_coroutine_threadsafe`` when called from outside the event loop.\n\
-    \        \"\"\"\n        api = self.state.peripheral_api\n        if api is not\
-    \ None:\n            api.emit_event_sync(event, data)\n\n    def register_pending_lights(self)\
-    \ -> None:\n        \"\"\"Materialise LightEntities for peripheral registered\
-    \ lights.\n\n        Called from __init__ so entities exist by the time HA enumerates,\n\
-    \        and again from the peripheral_api dispatcher when a light arrives\n \
-    \       after the satellite is already running. HA only sees a late\n        registration\
-    \ after its next reconnect, but LVA stays consistent.\n        \"\"\"\n      \
-    \  for spec in self.state.pending_lights:\n            if spec.object_id in self.state.led_light_entities:\n\
-    \                # Already materialised. Reattach the server in case the\n   \
-    \             # satellite has been reconstructed (HA reconnect).\n           \
-    \     self.state.led_light_entities[spec.object_id].server = self\n          \
-    \      if (\n                    self.state.led_light_entities[spec.object_id]\n\
+    \        self.register_pending_button()\n\n    def _start_tail_timer(self, duration:\
+    \ float) -> None:\n        self._cancel_tail_timer()\n\n        def _clear_inhibition()\
+    \ -> None:\n            if self.state.satellite is not self:\n               \
+    \ return\n            self.state.playback_inhibited = False\n            _LOGGER.debug(\n\
+    \                \"Acoustic tail completed (%.2fs); playback inhibition cleared\"\
+    , duration\n            )\n\n        self._tail_timer = threading.Timer(duration,\
+    \ _clear_inhibition)\n        self._tail_timer.daemon = True\n        self._tail_timer.start()\n\
+    \n    def _cancel_tail_timer(self) -> None:\n        if self._tail_timer is not\
+    \ None:\n            self._tail_timer.cancel()\n            self._tail_timer =\
+    \ None\n\n    def _emit(\n        self,\n        event: LVAEvent,\n        data:\
+    \ Optional[Dict[str, Any]] = None,\n    ) -> None:\n        \"\"\"\n        Emit\
+    \ a peripheral LED/button event.\n\n        Thread-safe: delegates to ``emit_event_sync``\
+    \ which uses\n        ``run_coroutine_threadsafe`` when called from outside the\
+    \ event loop.\n        \"\"\"\n        api = self.state.peripheral_api\n     \
+    \   if api is not None:\n            api.emit_event_sync(event, data)\n\n    def\
+    \ register_pending_lights(self) -> None:\n        \"\"\"Materialise LightEntities\
+    \ for peripheral registered lights.\n\n        Called from __init__ so entities\
+    \ exist by the time HA enumerates,\n        and again from the peripheral_api\
+    \ dispatcher when a light arrives\n        after the satellite is already running.\
+    \ HA only sees a late\n        registration after its next reconnect, but LVA\
+    \ stays consistent.\n        \"\"\"\n        for spec in self.state.pending_lights:\n\
+    \            if spec.object_id in self.state.led_light_entities:\n           \
+    \     # Already materialised. Reattach the server in case the\n              \
+    \  # satellite has been reconstructed (HA reconnect).\n                self.state.led_light_entities[spec.object_id].server\
+    \ = self\n                if (\n                    self.state.led_light_entities[spec.object_id]\n\
     \                    not in self.state.entities\n                ):\n        \
     \            self.state.entities.append(\n                        self.state.led_light_entities[spec.object_id]\n\
     \                    )\n                continue\n\n            object_id = spec.object_id\n\
@@ -954,12 +962,14 @@ data:
     \ ESPHome state subscription. Replay current entity state to\n            # the\
     \ subscribing client. (Entities answer SubscribeHomeAssistantStatesRequest;\n\
     \            # initial state was previously only sent as a side effect of auth.)\n\
-    \            for entity in self.state.entities:\n                yield from entity.handle_message(SubscribeHomeAssistantStatesRequest())\n\
+    \            self._claim_session()\n            for entity in self.state.entities:\n\
+    \                yield from entity.handle_message(SubscribeHomeAssistantStatesRequest())\n\
     \        elif isinstance(\n            msg,\n            (\n                ListEntitiesRequest,\n\
     \                SubscribeHomeAssistantStatesRequest,\n                MediaPlayerCommandRequest,\n\
     \                SwitchCommandRequest,\n                NumberCommandRequest,\n\
     \                SelectCommandRequest,\n                LightCommandRequest,\n\
-    \            ),\n        ):\n            for entity in self.state.entities:\n\
+    \            ),\n        ):\n            if isinstance(msg, ListEntitiesRequest):\n\
+    \                self._claim_session()\n\n            for entity in self.state.entities:\n\
     \                yield from entity.handle_message(msg)\n\n            # Emit peripheral\
     \ event when background music starts playing.\n            # Announcements (TTS)\
     \ are explicitly excluded \u2014 those are covered\n            # by TTS_SPEAKING.\n\
@@ -998,17 +1008,16 @@ data:
     \ in self.state.active_wake_words\n            ]\n            _LOGGER.debug(\"\
     \   -> Active wake word IDs: %s\", active_ww_ids)\n\n            yield VoiceAssistantConfigurationResponse(\n\
     \                available_wake_words=available_wake_words,\n                active_wake_words=active_ww_ids,\n\
-    \                max_active_wake_words=2,\n            )\n\n            self.is_established_ha\
-    \ = True\n            self.state.connected = True\n            self.state.satellite\
-    \ = self\n\n            _LOGGER.info(\n                \"\u2705 Connected to Home\
-    \ Assistant - Configuration handshake completed\"\n            )\n           \
-    \ _LOGGER.debug(\"\u2705 VoiceAssistantConfigurationResponse sent successfully\"\
-    )\n        elif isinstance(msg, VoiceAssistantSetConfiguration):\n           \
-    \ # Change active wake words\n            active_wake_words: Set[str] = set()\n\
-    \            new_wake_words: List[Optional[str]] = [None, None]\n\n          \
-    \  # Get old positions before modification\n            old_positions: Dict[str,\
-    \ int] = {}\n            for idx, ww_id in enumerate(self.state.preferences.active_wake_words):\n\
-    \                if ww_id is not None and idx < 2:\n                    old_positions[ww_id]\
+    \                max_active_wake_words=2,\n            )\n\n            self._claim_session()\n\
+    \n            _LOGGER.info(\n                \"\u2705 Connected to Home Assistant\
+    \ - Configuration handshake completed\"\n            )\n            _LOGGER.debug(\"\
+    \u2705 VoiceAssistantConfigurationResponse sent successfully\")\n        elif\
+    \ isinstance(msg, VoiceAssistantSetConfiguration):\n            # Change active\
+    \ wake words\n            active_wake_words: Set[str] = set()\n            new_wake_words:\
+    \ List[Optional[str]] = [None, None]\n\n            # Get old positions before\
+    \ modification\n            old_positions: Dict[str, int] = {}\n            for\
+    \ idx, ww_id in enumerate(self.state.preferences.active_wake_words):\n       \
+    \         if ww_id is not None and idx < 2:\n                    old_positions[ww_id]\
     \ = idx\n\n            # Process new active wake words\n            for wake_word_id\
     \ in msg.active_wake_words:\n                if wake_word_id in self.state.wake_words:\n\
     \                    # Already active\n                    active_wake_words.add(wake_word_id)\n\
@@ -1119,7 +1128,8 @@ data:
     \        )\n\n        self.state.active_wake_words.add(self.state.stop_word.id)\n\
     \        self._emit(LVAEvent.TTS_SPEAKING)\n        self.state.tts_player.play(self._tts_url,\
     \ done_callback=self._tts_finished)\n\n    def _tts_finished(self) -> None:\n\
-    \        self._pipeline_active = False\n        self.state.active_wake_words.discard(self.state.stop_word.id)\n\
+    \        if self.state.satellite is not self:\n            return\n        self._pipeline_active\
+    \ = False\n        self.state.active_wake_words.discard(self.state.stop_word.id)\n\
     \        self.send_messages([VoiceAssistantAnnounceFinished()])\n        self._emit(LVAEvent.TTS_FINISHED)\n\
     \n        tail = getattr(self.state, \"acoustic_tail_seconds\", 0.35)\n      \
     \  _LOGGER.debug(\n            \"TTS response finished; holding playback_inhibited\
@@ -1131,7 +1141,8 @@ data:
     \            _LOGGER.debug(\n                \"Continuing conversation after %.2fs\
     \ settle delay\",\n                self.state.continue_conversation_delay,\n \
     \           )\n\n            def _start_continued_conversation() -> None:\n  \
-    \              if self.state.muted:\n                    _LOGGER.debug(\"Skipping\
+    \              if self.state.satellite is not self:\n                    return\n\
+    \                if self.state.muted:\n                    _LOGGER.debug(\"Skipping\
     \ continued conversation: muted\")\n                    self._pipeline_active\
     \ = False\n                    self.unduck()\n                    return\n   \
     \             self.send_messages([VoiceAssistantRequest(start=True)])\n      \
@@ -1173,15 +1184,16 @@ data:
     \ TCP connection closed.\n            # Must NOT alter active satellite session,\
     \ HA connection, or playback inhibition.\n            _LOGGER.debug(\"Unauthenticated\
     \ connection closed; active session preserved\")\n            return\n\n     \
-    \   self._disconnect_event.set()\n        self._cancel_tail_timer()\n        self.state.playback_inhibited\
-    \ = False\n        self._is_streaming_audio = False\n        self._tts_url = None\n\
-    \        self._tts_played = False\n        self._continue_conversation = False\n\
-    \        self._timer_finished = False\n        self._pipeline_active = False\n\
-    \n        # Only tear down shared playback/state when the LAST client disconnects.\n\
+    \   self._disconnect_event.set()\n        self._cancel_tail_timer()\n        self._is_streaming_audio\
+    \ = False\n        self._tts_url = None\n        self._tts_played = False\n  \
+    \      self._continue_conversation = False\n        self._timer_finished = False\n\
+    \        self._pipeline_active = False\n\n        if self.state.satellite is not\
+    \ self:\n            return\n        self.state.playback_inhibited = False\n\n\
+    \        # Only tear down shared playback/state when the LAST client disconnects.\n\
     \        # Otherwise a secondary client (a diagnostic tool, a second dashboard,\
     \ or\n        # Home Assistant's own overlapping reconnect) dropping would stop\
-    \ audio\n        # that belongs to a client still connected.\n        if not self.state.connections:\n\
-    \            # Stop any ongoing audio playback and wake/stop word processing.\n\
+    \ audio\n        # that belongs to a client still connected.\n        if self.state.satellite\
+    \ is self:\n            # Stop any ongoing audio playback and wake/stop word processing.\n\
     \            try:\n                self.state.music_player.stop()\n          \
     \  except Exception:  # pylint: disable=broad-except\n                _LOGGER.exception(\"\
     Failed to stop music player during disconnect\")\n\n            try:\n       \
@@ -1200,13 +1212,12 @@ data:
     \ Home Assistant; waiting for reconnection\")\n\n    def process_packet(self,\
     \ msg_type: int, packet_data: bytes) -> None:\n        super().process_packet(msg_type,\
     \ packet_data)\n\n        if msg_type == PROTO_TO_MESSAGE_TYPE[AuthenticationRequest]:\n\
-    \            self.is_established_ha = True\n            self.state.connected =\
-    \ True\n            self.state.satellite = self\n            _LOGGER.debug(\"\
-    Authentication successful, connected to Home Assistant\")\n\n            # Send\
-    \ states after connect\n            states: List[message.Message] = []\n     \
-    \       _LOGGER.debug(\"Found %d entities in state\", len(self.state.entities))\n\
-    \            for i, entity in enumerate(self.state.entities):\n              \
-    \  entity_states = list(\n                    entity.handle_message(SubscribeHomeAssistantStatesRequest())\n\
+    \            self._claim_session()\n            _LOGGER.debug(\"Authentication\
+    \ successful, connected to Home Assistant\")\n\n            # Send states after\
+    \ connect\n            states: List[message.Message] = []\n            _LOGGER.debug(\"\
+    Found %d entities in state\", len(self.state.entities))\n            for i, entity\
+    \ in enumerate(self.state.entities):\n                entity_states = list(\n\
+    \                    entity.handle_message(SubscribeHomeAssistantStatesRequest())\n\
     \                )\n                states.extend(entity_states)\n           \
     \     _LOGGER.debug(\n                    \"Entity %d (%s) returned %d state messages\"\
     ,\n                    i,\n                    type(entity).__name__,\n      \
