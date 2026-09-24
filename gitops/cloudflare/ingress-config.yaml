@@ -40,7 +40,7 @@ data:
       - hostname: ha.rupan.dev
         service: http://home-assistant.home-assistant:8123
       - hostname: ma.rupan.dev
-        service: http://10.0.30.15:8095
+        service: http://music-assistant.music-assistant:8095
       - hostname: ledfx.rupan.dev
         service: http://ledfx.music-assistant:8888
       - hostname: rupan.dev

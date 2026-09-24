@@ -22,7 +22,7 @@ Related manifests:
 - `gitops/cloudflare/tunnel.yaml`
 - `gitops/immich/server.yaml`
 
-## Ingress order (v73, 2026-09-20)
+## Ingress order (v79, 2026-09-24)
 
 Cloudflare evaluates top to bottom, first match wins. Keep specifics first, catch-all last.
 
@@ -47,16 +47,18 @@ Cloudflare Access public bypass configured.
 14. `renovate-status.rupan.dev -> http://renovate-dashboard.automation.svc.cluster.local:80`
 15. `renovate-approve.rupan.dev -> http://renovate-approval-webhook.automation.svc.cluster.local:80`
 16. `ha.rupan.dev -> http://home-assistant.home-assistant:8123`
-17. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
-18. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
-19. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
-20. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
-21. `apollinestore.com -> http://apolline-svc.apolline:80`
-22. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
-23. `pulseagent.dev -> http://pulse-svc.pulse:80`
-24. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
-25. `jellyfin.rupan.dev -> http://jellyfin.media:80`
-26. `http_status:404`
+17. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
+18. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
+19. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
+20. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
+21. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
+22. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
+23. `apollinestore.com -> http://apolline-svc.apolline:80`
+24. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
+25. `pulseagent.dev -> http://pulse-svc.pulse:80`
+26. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
+27. `jellyfin.rupan.dev -> http://jellyfin.media:80`
+28. `http_status:404`
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)
