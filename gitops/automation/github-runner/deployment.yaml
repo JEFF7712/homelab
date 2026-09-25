@@ -1936,3 +1936,143 @@ spec:
           hostPath:
             path: /persist/runner-storage/rupan-dev
             type: DirectoryOrCreate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-runner-bookshelf
+  namespace: automation
+  labels:
+    app.kubernetes.io/name: github-runner-bookshelf
+    app.kubernetes.io/component: runner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: github-runner-bookshelf
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: github-runner-bookshelf
+        app.kubernetes.io/component: runner
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - runner
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - homelab-04
+                      - homelab-05
+      containers:
+        - name: dind
+          image: registry.rupan.dev/upstream/docker.io/library/docker@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+          securityContext:
+            privileged: true
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              dockerd --host=unix:///var/run/docker.sock &
+              pid=$!
+              while [ ! -S /var/run/docker.sock ]; do
+                sleep 0.5
+              done
+              chmod 666 /var/run/docker.sock
+              wait $pid
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run
+            - name: dind-storage
+              mountPath: /var/lib/docker
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 4000m
+              memory: 4Gi
+        - name: runner
+          image: registry.rupan.dev/upstream/ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4
+          securityContext:
+            runAsUser: 1001
+            runAsGroup: 1001
+          workingDir: /home/runner
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: renovate-secrets
+                  key: github-token
+            - name: REPO_URL
+              value: "https://github.com/JEFF7712/bookshelf"
+            - name: RUNNER_NAME
+              value: "homelab-bookshelf"
+            - name: RUNNER_LABELS
+              value: "homelab,self-hosted"
+            - name: DOCKER_HOST
+              value: "unix:///var/run/docker.sock"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              while ! docker info >/dev/null 2>&1; do
+                sleep 1
+              done
+              REG_TOKEN=$(curl -s -S -f -X POST \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                https://api.github.com/repos/JEFF7712/bookshelf/actions/runners/registration-token | jq -r .token)
+              if [ -z "$REG_TOKEN" ] || [ "$REG_TOKEN" = "null" ]; then
+                exit 1
+              fi
+              cleanup() {
+                REM_TOKEN=$(curl -s -S -X POST \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  https://api.github.com/repos/JEFF7712/bookshelf/actions/runners/remove-token | jq -r .token)
+                if [ -n "$REM_TOKEN" ] && [ "$REM_TOKEN" != "null" ]; then
+                  ./config.sh remove --token "${REM_TOKEN}" || true
+                fi
+              }
+              trap cleanup EXIT SIGTERM SIGINT
+              ./config.sh --url "${REPO_URL}" \
+                --token "${REG_TOKEN}" \
+                --name "${RUNNER_NAME}" \
+                --labels "${RUNNER_LABELS}" \
+                --unattended \
+                --replace
+              ./run.sh
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+      volumes:
+        - name: docker-sock
+          emptyDir: {}
+        - name: dind-storage
+          hostPath:
+            path: /persist/runner-storage/bookshelf
+            type: DirectoryOrCreate
