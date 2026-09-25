@@ -98,7 +98,21 @@ spec:
             - name: FIREWALL_OUTBOUND_SUBNETS
               value: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
             - name: FIREWALL_INPUT_PORTS
-              value: 8080,5030,9999
+              value: 8080,5030,8888,9999
+            - name: HTTPPROXY
+              value: "on"
+            - name: HTTPPROXY_STEALTH
+              value: "on"
+            - name: HTTPPROXY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: media-vpn
+                  key: HTTPPROXY_USER
+            - name: HTTPPROXY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: media-vpn
+                  key: HTTPPROXY_PASSWORD
             - name: FIREWALL_VPN_INPUT_PORTS
               valueFrom:
                 secretKeyRef:
@@ -135,6 +149,8 @@ spec:
               name: qbit
             - containerPort: 5030
               name: slskd
+            - containerPort: 8888
+              name: httpproxy
           volumeMounts:
             - name: gluetun-config
               mountPath: /gluetun
@@ -294,3 +310,16 @@ spec:
     - name: http
       port: 80
       targetPort: 5030
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: download-proxy
+  namespace: media
+spec:
+  selector:
+    app: download
+  ports:
+    - name: httpproxy
+      port: 8888
+      targetPort: 8888
