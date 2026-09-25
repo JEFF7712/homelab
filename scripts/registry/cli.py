@@ -25,6 +25,7 @@ from .core import (
     render_node_config,
     resolve_inventory,
     rewrite_consumer_digests,
+    rewrite_observed_digests,
     verify_lock,
 )
 
@@ -181,6 +182,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                     rewrite_consumer_digests(
                         args.root,
                         item["consumers"],
+                        destination_registry=lock["destination_registry"],
+                        destination_repository=item["destination_repository"],
+                        previous_digest=item["previous_digest"],
+                        digest=item["digest"],
+                    )
+                    rewrite_observed_digests(
+                        args.root,
                         destination_registry=lock["destination_registry"],
                         destination_repository=item["destination_repository"],
                         previous_digest=item["previous_digest"],

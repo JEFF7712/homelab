@@ -1253,6 +1253,34 @@ def filter_transient_observed_errors(
     return remaining
 
 
+def rewrite_observed_digests(
+    root: pathlib.Path,
+    *,
+    destination_registry: str,
+    destination_repository: str,
+    previous_digest: str,
+    digest: str,
+) -> int:
+    """Advance explained live observations to a promoted digest.
+
+    The cluster converges on rollout; without this the pre-rollout snapshot
+    fails policy checks on the just-landed lock. Unknown digests are never
+    touched, so genuine drift still fails the gate.
+    """
+    if previous_digest == digest:
+        return 0
+    path = root / "registry/observed-images.json"
+    if not path.exists():
+        return 0
+    old = f"{destination_registry}/{destination_repository}@{previous_digest}"
+    new = f"{destination_registry}/{destination_repository}@{digest}"
+    text = path.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count:
+        path.write_text(text.replace(old, new), encoding="utf-8")
+    return count
+
+
 def rewrite_consumer_digests(
     root: pathlib.Path,
     consumers: Sequence[str],

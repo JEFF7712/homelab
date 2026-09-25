@@ -33,6 +33,7 @@ from scripts.registry.core import (
     render_node_config,
     resolve_inventory,
     rewrite_consumer_digests,
+    rewrite_observed_digests,
     select_promotion_candidate,
     validate_lock,
     verify_lock,
@@ -1156,6 +1157,52 @@ class PromoteFirstPartyTests(unittest.TestCase):
                 for item in remaining
             )
         )
+
+    def test_rewrites_explained_observations(self) -> None:
+        old_digest = "sha256:" + "a" * 64
+        new_digest = "sha256:" + "b" * 64
+        other = "registry.rupan.dev/apps/other@sha256:" + "c" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            observed = root / "registry/observed-images.json"
+            observed.parent.mkdir(parents=True)
+            observed.write_text(
+                json.dumps(
+                    {
+                        "images": [
+                            {
+                                "consumers": ["rupan-dev/website-deploy-xxx/web"],
+                                "reference": f"registry.rupan.dev/apps/rupan-dev@{old_digest}",
+                            },
+                            {"consumers": ["other/app/web"], "reference": other},
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            count = rewrite_observed_digests(
+                root,
+                destination_registry="registry.rupan.dev",
+                destination_repository="apps/rupan-dev",
+                previous_digest=old_digest,
+                digest=new_digest,
+            )
+            self.assertEqual(count, 1)
+            text = observed.read_text(encoding="utf-8")
+            self.assertIn(f"registry.rupan.dev/apps/rupan-dev@{new_digest}", text)
+            self.assertNotIn(old_digest, text)
+            self.assertIn(other, text)
+
+    def test_observed_rewrite_tolerates_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            count = rewrite_observed_digests(
+                pathlib.Path(directory),
+                destination_registry="registry.rupan.dev",
+                destination_repository="apps/rupan-dev",
+                previous_digest="sha256:" + "a" * 64,
+                digest="sha256:" + "b" * 64,
+            )
+            self.assertEqual(count, 0)
 
     def test_only_filter_limits_records(self) -> None:
         raw = manifest()
