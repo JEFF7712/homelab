@@ -1295,7 +1295,11 @@ def rewrite_consumer_digests(
     old = f"{destination_registry}/{destination_repository}@{previous_digest}"
     new = f"{destination_registry}/{destination_repository}@{digest}"
     updated: list[str] = []
-    for consumer in consumers:
+    consumers = list(consumers)
+    for image in discover_inventory(root)["images"]:
+        if image["source"]["reference"] == old:
+            consumers.extend(image["consumers"])
+    for consumer in dict.fromkeys(consumers):
         if consumer.startswith("observed:"):
             continue
         relative, _, _ = consumer.partition(":")

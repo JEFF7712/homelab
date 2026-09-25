@@ -1256,7 +1256,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
         )
         self.assertIn("/tmp/auth.json", command)
 
-    def test_rewrites_gitops_consumers_and_skips_observed(self) -> None:
+    def test_discovers_gitops_consumers_and_skips_observed(self) -> None:
         old_digest = "sha256:" + "a" * 64
         new_digest = "sha256:" + "b" * 64
         with tempfile.TemporaryDirectory() as directory:
@@ -1269,10 +1269,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             )
             updated = rewrite_consumer_digests(
                 root,
-                [
-                    "gitops/websites/rupan-dev/deployment.yaml:22",
-                    "observed:rupan-dev/website-deploy-xxx/web",
-                ],
+                ["observed:rupan-dev/website-deploy-xxx/web"],
                 destination_registry="registry.rupan.dev",
                 destination_repository="apps/rupan-dev",
                 previous_digest=old_digest,
