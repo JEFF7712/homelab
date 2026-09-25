@@ -533,6 +533,18 @@ spec:
               value: info
             - name: TZ
               value: America/Chicago
+            - name: PROXY_URL
+              value: http://download-proxy.media:8888
+            - name: PROXY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: media-vpn
+                  key: HTTPPROXY_USER
+            - name: PROXY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: media-vpn
+                  key: HTTPPROXY_PASSWORD
           ports:
             - containerPort: 8191
           volumeMounts:
