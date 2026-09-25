@@ -1,10 +1,12 @@
 import tempfile
 import unittest
+import urllib.error
 from argparse import Namespace
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from scripts.spotify_sync import (
+    HTTPClient,
     LidarrClient,
     LocalLibrary,
     SyncEngine,
@@ -89,6 +91,19 @@ class TestSpotifySync(unittest.TestCase):
         self.assertEqual((added, monitored), (0, 1))
         engine.lidarr.put.assert_called_once()
         self.assertTrue(engine.lidarr.put.call_args.args[1]["monitored"])
+
+    def test_rate_limit_is_reported_without_hour_long_sleep(self) -> None:
+        client = HTTPClient(retries=1)
+        error = urllib.error.HTTPError(
+            "https://api.spotify.com/v1/me/playlists",
+            429,
+            "Too Many Requests",
+            {"Retry-After": "50748"},
+            None,
+        )
+        with patch("urllib.request.urlopen", side_effect=error):
+            with self.assertRaisesRegex(RuntimeError, "50748 seconds"):
+                client.request("https://api.spotify.com/v1/me/playlists")
 
     def test_artist_defaults_use_lidarr_contract(self) -> None:
         engine = object.__new__(SyncEngine)

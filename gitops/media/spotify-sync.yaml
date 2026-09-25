@@ -73,9 +73,13 @@ data:
                         raise
                     retry_after = error.headers.get("Retry-After", "")
                     try:
-                        retry_delay = min(float(retry_after), 120.0)
+                        retry_delay = float(retry_after)
                     except ValueError:
                         retry_delay = min(2**attempt, 8)
+                    if retry_delay > 300:
+                        raise RuntimeError(
+                            f"upstream rate limit requires waiting {int(retry_delay)} seconds"
+                        ) from error
                     time.sleep(max(retry_delay, 1.0))
                 except (urllib.error.URLError, TimeoutError, OSError):
                     if attempt + 1 == self.retries:
