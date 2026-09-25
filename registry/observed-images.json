@@ -8,7 +8,7 @@
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-7c6bfb44c8-p99hr/pot-provider"
+        "music-assistant/music-assistant-7988f99765-5jhlm/pot-provider"
       ],
       "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
     },
@@ -32,7 +32,7 @@
     },
     {
       "consumers": [
-        "media/bookshelf-7f89767968-9hxxn/bookshelf"
+        "media/bookshelf-67cd8c5578-nhncs/bookshelf"
       ],
       "reference": "registry.rupan.dev/apps/bookshelf@sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd"
     },
@@ -74,7 +74,7 @@
     },
     {
       "consumers": [
-        "majorfinder/website-deploy-5878cdc676-zh29k/web"
+        "majorfinder/website-deploy-69bcfb8497-56gkb/web"
       ],
       "reference": "registry.rupan.dev/apps/majorfinder@sha256:8f12de2c5bfb1094efee833c234c413519f38da2ffe2113a2bed3fe0e42ce3ad"
     },
@@ -86,7 +86,7 @@
     },
     {
       "consumers": [
-        "photography/website-deploy-7fd56fc86d-h6kxz/web"
+        "photography/website-deploy-589c456b57-ctlqs/web"
       ],
       "reference": "registry.rupan.dev/apps/photography@sha256:4afc074434868a8c351fed38b4fdd000c4e9a5017ce857a2833859c7e62038d9"
     },
@@ -98,14 +98,14 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-7694d484d-mkzr8/quartz",
-        "obsidian/quartz-notes-7694d484d-p4lj2/quartz"
+        "obsidian/quartz-notes-5469546cf5-9h79g/quartz",
+        "obsidian/quartz-notes-5469546cf5-gvndq/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:cf23ea2a68579b9ec59697cf7b8faf85bfbf160fd4fb4e44ec139264f5621fe0"
     },
     {
       "consumers": [
-        "rupan-dev/website-deploy-75478c64db-5p62v/web"
+        "rupan-dev/website-deploy-5655458577-jnmvg/web"
       ],
       "reference": "registry.rupan.dev/apps/rupan-dev@sha256:161bf8d4be99776048e7f365e3bfa10db520c66644951fee628b09e5620874ed"
     },
@@ -145,8 +145,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-67c86d6b-2sdcm/cloudflared",
-        "cloudflare/cloudflared-67c86d6b-47qtz/cloudflared"
+        "cloudflare/cloudflared-84bd69c579-2msjs/cloudflared",
+        "cloudflare/cloudflared-84bd69c579-7k79r/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -158,7 +158,7 @@
     },
     {
       "consumers": [
-        "media/navidrome-766769c465-vkbbr/navidrome"
+        "media/navidrome-766769c465-scjlm/navidrome"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40"
     },
@@ -208,7 +208,7 @@
     },
     {
       "consumers": [
-        "media/download-699c796b5c-swmtn/seed-slskd"
+        "media/download-7c47b64558-r5sc7/seed-slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     },
@@ -217,15 +217,15 @@
         "home-assistant/home-assistant-78d769bc5-pcgbs/initialize-config",
         "home-assistant/home-assistant-78d769bc5-pcgbs/install-hacs",
         "media/bazarr-69b6cf7658-5lvpm/fix-permissions",
-        "media/bookshelf-7f89767968-9hxxn/fix-permissions",
+        "media/bookshelf-67cd8c5578-nhncs/fix-permissions",
         "media/calibre-web-6669989ff5-vjzrd/fix-permissions",
-        "media/download-699c796b5c-swmtn/configure-qbittorrent",
-        "media/download-699c796b5c-swmtn/fix-permissions",
-        "media/jellyfin-6cf7b8975d-9jfdf/fix-permissions",
-        "media/lidarr-cdfbdf6c8-mb6pw/fix-permissions",
-        "media/prowlarr-ff5b8d4d4-j7k69/fix-permissions",
+        "media/download-7c47b64558-r5sc7/configure-qbittorrent",
+        "media/download-7c47b64558-r5sc7/fix-permissions",
+        "media/jellyfin-6cf7b8975d-j8spf/fix-permissions",
+        "media/lidarr-5779bc7fbd-ft9sz/fix-permissions",
+        "media/prowlarr-ff5b8d4d4-r7zj6/fix-permissions",
         "media/radarr-6747969b69-nqwfk/fix-permissions",
-        "media/seerr-c78685b4d-vpvhd/fix-permissions",
+        "media/seerr-c78685b4d-pdzdb/fix-permissions",
         "media/sonarr-769c7db87b-fzxmv/fix-permissions",
         "nixagent/website-deploy-594d65557d-8nt4b/prepare-nginx-tmp",
         "obsidian/couchdb-67b85f9ddb-czccx/copy-config",
@@ -242,6 +242,7 @@
     {
       "consumers": [
         "automation/github-runner-apolline-df956c598-mwv2j/dind",
+        "automation/github-runner-bookshelf-799486f75-fv5bp/dind",
         "automation/github-runner-darkbit-859f5d79b8-zz4s2/dind",
         "automation/github-runner-distrojeff-5bfb7d689d-wwstw/dind",
         "automation/github-runner-ism-6bd89f758-gc4vn/dind",
@@ -288,7 +289,8 @@
     },
     {
       "consumers": [
-        "automation/renovate-approval-webhook-6c7ddfbbd5-6z7q9/webhook"
+        "automation/renovate-approval-webhook-6c7ddfbbd5-6z7q9/webhook",
+        "media/cronjob-spotify-sync/sync"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
     },
@@ -306,7 +308,7 @@
     },
     {
       "consumers": [
-        "media/download-699c796b5c-swmtn/gluetun"
+        "media/download-7c47b64558-r5sc7/gluetun"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/qmcgaw/gluetun@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4"
     },
@@ -333,13 +335,13 @@
     },
     {
       "consumers": [
-        "media/seerr-c78685b4d-vpvhd/seerr"
+        "media/seerr-c78685b4d-pdzdb/seerr"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/seerr/seerr@sha256:f4768de5f616248d723e05891f3345a1402123775d03bf0890dbfedc0831bda1"
     },
     {
       "consumers": [
-        "media/download-699c796b5c-swmtn/slskd"
+        "media/download-7c47b64558-r5sc7/slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/slskd/slskd@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6"
     },
@@ -352,6 +354,7 @@
     {
       "consumers": [
         "automation/github-runner-apolline-df956c598-mwv2j/runner",
+        "automation/github-runner-bookshelf-799486f75-fv5bp/runner",
         "automation/github-runner-darkbit-859f5d79b8-zz4s2/runner",
         "automation/github-runner-distrojeff-5bfb7d689d-wwstw/runner",
         "automation/github-runner-ism-6bd89f758-gc4vn/runner",
@@ -369,9 +372,9 @@
     },
     {
       "consumers": [
-        "voice/wyoming-chatterbox-5b698cf4d9-zx6gj/chatterbox",
-        "voice/wyoming-chatterbox-5b698cf4d9-zx6gj/prepare-permissions",
-        "voice/wyoming-chatterbox-5b698cf4d9-zx6gj/prepare-runtime"
+        "voice/wyoming-chatterbox-5b698cf4d9-zcst8/chatterbox",
+        "voice/wyoming-chatterbox-5b698cf4d9-zcst8/prepare-permissions",
+        "voice/wyoming-chatterbox-5b698cf4d9-zcst8/prepare-runtime"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
@@ -385,7 +388,7 @@
     },
     {
       "consumers": [
-        "media/flaresolverr-7d9fb85fc7-6kk89/flaresolverr"
+        "media/flaresolverr-7fc787cbcb-zssx6/flaresolverr"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47"
     },
@@ -421,13 +424,13 @@
     },
     {
       "consumers": [
-        "media/lidarr-cdfbdf6c8-mb6pw/lidarr"
+        "media/lidarr-5779bc7fbd-ft9sz/lidarr"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f"
     },
     {
       "consumers": [
-        "immich/immich-machine-learning-595c54b9f6-qjwgn/immich-machine-learning"
+        "immich/immich-machine-learning-595c54b9f6-c9hxh/immich-machine-learning"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
@@ -445,7 +448,7 @@
     },
     {
       "consumers": [
-        "music-assistant/ledfx-5cff695679-pd99d/ledfx"
+        "music-assistant/ledfx-5cff695679-7g2dv/ledfx"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
     },
@@ -457,13 +460,13 @@
     },
     {
       "consumers": [
-        "music-assistant/music-assistant-7c6bfb44c8-p99hr/server"
+        "music-assistant/music-assistant-7988f99765-5jhlm/server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
     },
     {
       "consumers": [
-        "voice/linux-voice-assistant-5847b79d6b-xb5v9/satellite"
+        "voice/linux-voice-assistant-5847b79d6b-4jkhp/satellite"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
     },
@@ -494,19 +497,19 @@
     },
     {
       "consumers": [
-        "media/jellyfin-6cf7b8975d-9jfdf/jellyfin"
+        "media/jellyfin-6cf7b8975d-j8spf/jellyfin"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f"
     },
     {
       "consumers": [
-        "media/prowlarr-ff5b8d4d4-j7k69/prowlarr"
+        "media/prowlarr-ff5b8d4d4-r7zj6/prowlarr"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr@sha256:ab91301778251f82a31bbfc87f0497376d59e84439d9a1ceff6a61d594d1e3d7"
     },
     {
       "consumers": [
-        "media/download-699c796b5c-swmtn/qbittorrent"
+        "media/download-7c47b64558-r5sc7/qbittorrent"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:304b19cf94bf4fda534e0b086cab9c5f1a9e139a8180c05c0ad7d2ba1526fa99"
     },
@@ -672,6 +675,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-24T18:14:15+00:00",
+  "observed_at": "2026-09-25T16:53:52+00:00",
   "schema_version": 1
 }
