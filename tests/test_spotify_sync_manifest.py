@@ -84,6 +84,7 @@ class TestSpotifySyncManifest(unittest.TestCase):
                 "SPOTIFY_CLIENT_ID",
                 "SPOTIFY_CLIENT_SECRET",
                 "SPOTIFY_REFRESH_TOKEN",
+                "LIDARR_API_KEY",
             }.issubset(keys)
         )
 
