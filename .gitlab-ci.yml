@@ -268,18 +268,18 @@ registry_promote_first_party:
     - >-
       nix develop ./flake -c bash -e -c '
         export GIT_TERMINAL_PROMPT=0
-        if git diff --quiet -- registry/images.lock.json registry/images.inventory.json registry/observed-images.json gitops/; then
+        if git diff --quiet -- registry/ gitops/; then
           echo "No first-party promotions; nothing to commit."
           exit 0
         fi
         if [ -z "${GITLAB_PUSH_TOKEN:-}" ]; then
           echo "WARNING: GITLAB_PUSH_TOKEN is not set; promotion changes will not be committed."
-          git diff --stat -- registry/images.lock.json registry/images.inventory.json registry/observed-images.json gitops/
+          git diff --stat -- registry/ gitops/
           exit 0
         fi
         git config user.email "registry-promote@homelab.local"
         git config user.name "Homelab Registry Promotion"
-        git add registry/images.lock.json registry/images.inventory.json registry/observed-images.json gitops/
+        git add registry/ gitops/
         git commit -m "registry: promote first-party images to newest producer tags"
         push_url="https://oauth2:${GITLAB_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
         for attempt in 1 2 3; do
