@@ -80,6 +80,20 @@ Zot authorization roles are intentionally separate:
 
 Verify these boundaries with attempted allowed and denied operations before cutover.
 
+### Rotating a publisher credential
+
+Publisher credentials are per project. Rotation changes one htpasswd entry and the matching producer repository secret. Never reuse another project's password and never print, log, or commit the plaintext.
+
+1. Confirm the generated access-control policy still grants that exact `publisher-<project>` identity write access to only its `apps/<project>` repository.
+2. Generate a new random password and a bcrypt verifier locally with `htpasswd -nbB publisher-<project> "$password"`. Keep the plaintext only in a shell variable or protected temporary file with `umask 077`.
+3. Replace only that user's line in `/persist/zot/htpasswd`, preserving every other entry. Install the replacement atomically as `root:zot` mode `0640`. Do not use `root:root` mode `0600`; the zot service reads the file as the `zot` group and will reject every identity if it cannot read it.
+4. Restart zot. The restart reloads the htpasswd file but rebuilds the in-memory index for every repository, which currently makes the endpoint return 502 for roughly two to three minutes.
+5. Wait until an anonymous `GET https://registry.rupan.dev/v2/` returns 401, then verify the new credential succeeds on a read and a write within the publisher's own repository.
+6. Store the same plaintext as the producer repository's protected `REGISTRY_PASSWORD` secret, then run one producer build and confirm a new `0.0.N` tag.
+7. Shred temporary material and confirm the job trace contains no credential. Keep a root-only backup of the previous htpasswd file outside Git for rollback; restoring it also requires a zot restart and the same readiness check.
+
+The common failure mode is updating the file with restrictive ownership or permissions and restarting before the replacement is readable. Treat a registry-wide authentication failure as a permissions and zot-restart problem before rotating any other identity.
+
 ## Non-destructive dataset preparation
 
 Do not run disko against the existing tank. On `nas-01`, first inspect `zpool status tank`, `zfs list tank/registry`, and `findmnt /tank/registry`. If the dataset is absent, the authorized operation is equivalent to:
