@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-25T06:00:29+00:00",
+  "generated_at": "2026-09-25T06:55:20+00:00",
   "images": [
     {
       "consumers": [
@@ -294,7 +294,7 @@
         "observed:rupan-dev/website-deploy-75478c64db-5p62v/web"
       ],
       "destination_repository": "apps/rupan-dev",
-      "id": "first-party-apps-rupan-dev-c6b2262cbcf7",
+      "id": "first-party-apps-rupan-dev-f23911ef4e18",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/rupan-dev",
@@ -303,8 +303,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
-        "reference": "registry.rupan.dev/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+        "digest": "sha256:161bf8d4be99776048e7f365e3bfa10db520c66644951fee628b09e5620874ed",
+        "reference": "registry.rupan.dev/apps/rupan-dev@sha256:161bf8d4be99776048e7f365e3bfa10db520c66644951fee628b09e5620874ed",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
         "tag": null
@@ -398,7 +398,7 @@
     {
       "consumers": [
         ".gitlab-ci.yml:1",
-        ".gitlab-ci.yml:832"
+        ".gitlab-ci.yml:847"
       ],
       "destination_repository": "upstream/docker.io/nixos/nix",
       "id": "upstream-nixos-nix-8a0dbd33be8c",
@@ -679,8 +679,8 @@
         "gitops/media/arr.yaml:119",
         "gitops/media/arr.yaml:219",
         "gitops/media/arr.yaml:27",
-        "gitops/media/arr.yaml:337",
-        "gitops/media/arr.yaml:430",
+        "gitops/media/arr.yaml:341",
+        "gitops/media/arr.yaml:434",
         "gitops/media/books.yaml:135",
         "gitops/media/books.yaml:26",
         "gitops/media/download.yaml:32",
@@ -1134,7 +1134,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:527",
+        "gitops/media/arr.yaml:531",
         "observed:media/flaresolverr-7d9fb85fc7-6kk89/flaresolverr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr",
@@ -1421,7 +1421,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:440",
+        "gitops/media/arr.yaml:444",
         "observed:media/bazarr-69b6cf7658-5lvpm/bazarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr",
@@ -1475,7 +1475,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:347",
+        "gitops/media/arr.yaml:351",
         "observed:media/prowlarr-ff5b8d4d4-j7k69/prowlarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr",
@@ -1883,7 +1883,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "763f25db3030cbc77dac7ca1217fefc9bafe8ada",
+  "source_revision": "b892655c19a45c59a79011788b4417dd3696bbab",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -1993,8 +1993,8 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/websites/rupan-dev/deployment.yaml:22,observed:rupan-dev/website-deploy-75478c64db-5p62v/web",
-      "id": "producer:first-party-apps-rupan-dev-c6b2262cbcf7",
-      "input": "registry.rupan.dev/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac",
+      "id": "producer:first-party-apps-rupan-dev-f23911ef4e18",
+      "input": "registry.rupan.dev/apps/rupan-dev@sha256:161bf8d4be99776048e7f365e3bfa10db520c66644951fee628b09e5620874ed",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

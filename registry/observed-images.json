@@ -107,7 +107,7 @@
       "consumers": [
         "rupan-dev/website-deploy-75478c64db-5p62v/web"
       ],
-      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:2696987cc982af459343da6cf258cd306fcb82c1138b18772a6c158e2f10c3ac"
+      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:161bf8d4be99776048e7f365e3bfa10db520c66644951fee628b09e5620874ed"
     },
     {
       "consumers": [
