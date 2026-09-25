@@ -189,10 +189,16 @@ tags and, when the producer has already published the candidate to
 digest updates together so `check-registry` stays green. Promotion is
 verification-only: it never mirrors content, because only `publisher-<project>`
 holds a write grant on its destination repository. Candidates the producer has
-not published are reported as skipped. Flux picks the commit up on its normal
-interval. End to end, a site push reaches the public site in roughly: site CI
-plus image build, then the promotion schedule interval, then Flux
-reconciliation (GitRepository `1m`, Kustomizations `10m`).
+not published are reported as skipped.
+
+The local registry is the source of truth for first-party images. Lock records
+point at `registry.rupan.dev/apps/<project>` and GHCR stays a backup push from
+the producer pipelines, not a promotion dependency. Promotion migrates
+remaining externally-pointed records to the local registry once the pinned
+digest is verified there. Flux picks the commit up on its normal interval. End
+to end, a site push reaches the public site in roughly: site CI plus image
+build, then the promotion schedule interval, then Flux reconciliation
+(GitRepository `1m`, Kustomizations `10m`).
 
 ```bash
 python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json

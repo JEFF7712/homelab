@@ -123,6 +123,19 @@ class RegistryCiContractTests(unittest.TestCase):
         )
         self.assertLess(script.index("just check-registry"), script.index("git commit"))
 
+    def test_resolve_reads_local_sources_with_node_credentials(
+        self,
+    ) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        job = pipeline["registry_resolve"]
+        script = "\n".join(job["script"])
+
+        self.assertEqual(job["environment"], {"name": "production"})
+        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
+        self.assertIn("registry-node-auth.json", script)
+        self.assertNotIn("REGISTRY_IMPORTER_AUTH_FILE", script)
+
 
 def lock_record(
     raw: bytes, *, tag: str = "1.0", repository: str = "library/demo"
@@ -936,11 +949,12 @@ class PromoteFirstPartyTests(unittest.TestCase):
         self.assertEqual(item["tag"], "0.0.12")
         self.assertEqual(item["digest"], new_digest)
         self.assertEqual(client.copies, [])
+        self.assertEqual(summary["migrated"], [])
         record = lock["images"][0]
         self.assertEqual(record["digest"], new_digest)
         self.assertEqual(
             record["source"]["reference"],
-            f"ghcr.io/jeff7712/rupan-dev:0.0.12@{new_digest}",
+            f"registry.rupan.dev/apps/rupan-dev:0.0.12@{new_digest}",
         )
         self.assertEqual(
             record["destination_tags"],
@@ -948,6 +962,100 @@ class PromoteFirstPartyTests(unittest.TestCase):
         )
         self.assertEqual(record["resolution"], {"status": "source-registry-verified"})
         self.assertEqual(validate_lock(lock), [])
+
+    def test_migrates_up_to_date_record_to_local_source(self) -> None:
+        raw = manifest()
+        lock = first_party_lock(raw)
+        client = PromoteFakeClient(
+            {
+                "ghcr.io/jeff7712/rupan-dev:0.0.11": raw,
+                "registry.rupan.dev/apps/rupan-dev:0.0.11": raw,
+            },
+            {
+                "ghcr.io/jeff7712/rupan-dev": ["0.0.11"],
+                "registry.rupan.dev/apps/rupan-dev": ["0.0.11"],
+            },
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(summary["promoted"], [])
+        self.assertEqual(summary["migrated"], ["apps/rupan-dev"])
+        record = lock["images"][0]
+        self.assertEqual(record["source"]["registry"], "registry.rupan.dev")
+        self.assertEqual(record["source"]["repository"], "apps/rupan-dev")
+        self.assertEqual(
+            record["source"]["reference"],
+            f"registry.rupan.dev/apps/rupan-dev:0.0.11@{digest(raw)}",
+        )
+        self.assertEqual(client.copies, [])
+        self.assertEqual(validate_lock(lock), [])
+
+    def test_mismatched_destination_tag_is_not_overwritten(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64")])
+        other = manifest([("linux", "arm64")])
+        lock = first_party_lock(old)
+        client = PromoteFakeClient(
+            {
+                "ghcr.io/jeff7712/rupan-dev:0.0.12": new,
+                "registry.rupan.dev/apps/rupan-dev:0.0.12": other,
+            },
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(summary["promoted"], [])
+        self.assertEqual(len(summary["skipped"]), 1)
+        self.assertIn("refusing to overwrite", summary["skipped"][0]["reason"])
+        self.assertEqual(client.copies, [])
+        self.assertEqual(lock["images"][0]["digest"], digest(old))
+
+    def test_resolve_inspects_local_sources_with_destination_creds(self) -> None:
+        raw = manifest()
+        expected = digest(raw)
+        inventory = {
+            "schema_version": 1,
+            "kind": "registry-inventory",
+            "source_revision": "a" * 40,
+            "unresolved_inputs": [],
+            "images": [
+                {
+                    "id": "first-party-apps-demo-abc123",
+                    "kind": "first-party",
+                    "retention_class": "deployed",
+                    "consumers": ["gitops/demo.yaml:10"],
+                    "destination_repository": "apps/demo",
+                    "producer": {
+                        "location": "external-image-repository:registry.rupan.dev/apps/demo",
+                        "owner": "jeff7712",
+                        "pipeline_status": "unverified",
+                    },
+                    "source": {
+                        "registry": "registry.rupan.dev",
+                        "repository": "apps/demo",
+                        "tag": "0.0.7",
+                        "digest": None,
+                        "reference": "registry.rupan.dev/apps/demo:0.0.7",
+                    },
+                }
+            ],
+        }
+        client = FakeClient({"registry.rupan.dev/apps/demo:0.0.7": raw})
+        calls: list[tuple[str, bool]] = []
+        original = client.raw_manifest
+
+        def recording(reference: str, *, destination: bool = False) -> bytes:
+            calls.append((reference, destination))
+            return original(reference, destination=destination)
+
+        with patch.object(client, "raw_manifest", side_effect=recording):
+            lock, unresolved = resolve_inventory(
+                inventory, client, destination_registry="registry.rupan.dev"
+            )
+        self.assertIn(("registry.rupan.dev/apps/demo:0.0.7", True), calls)
+        self.assertEqual(unresolved, [])
+        self.assertEqual(lock["images"][0]["digest"], expected)
+        self.assertEqual(
+            lock["images"][0]["resolution"], {"status": "source-registry-verified"}
+        )
 
     def test_skips_candidate_the_producer_has_not_published(self) -> None:
         old = manifest()

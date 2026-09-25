@@ -199,11 +199,24 @@ registry_resolve:
   stage: registry
   tags:
     - nas-ci
+  environment:
+    name: production
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
   script:
+    - export REGISTRY_SOURCE_AUTH_FILE
+    - >-
+      nix develop ./flake -c python -c 'import base64, json, os;
+      password = open(os.environ["REGISTRY_NODE_PASSWORD_FILE"]).read().strip();
+      assert password, "node registry password is empty";
+      auth = base64.b64encode(f"node:{password}".encode()).decode();
+      fd = os.open("/tmp/registry-node-auth.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600);
+      handle = os.fdopen(fd, "w");
+      json.dump({"auths": {"registry.rupan.dev": {"auth": auth}}}, handle);
+      handle.close()'
+    - export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json
     - mkdir -p artifacts/registry
     - >-
       nix develop ./flake -c python -m scripts.registry inventory
@@ -216,6 +229,8 @@ registry_resolve:
       nix develop ./flake -c python -m scripts.registry plan
       --lock artifacts/registry/images.lock.candidate.json
       > artifacts/registry/copy-plan.candidate.json
+  after_script:
+    - shred -u /tmp/registry-node-auth.json 2>/dev/null || rm -f /tmp/registry-node-auth.json
   artifacts:
     expire_in: 7 days
     paths:

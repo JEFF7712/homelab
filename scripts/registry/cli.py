@@ -174,7 +174,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 lock,
                 only=set(args.only) if args.only else None,
             )
-            if not args.dry_run and summary["promoted"]:
+            if not args.dry_run and (summary["promoted"] or summary["migrated"]):
                 atomic_write_json(args.lock, lock)
                 for item in summary["promoted"]:
                     rewrite_consumer_digests(
@@ -204,6 +204,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "lock": str(args.lock),
                     "promoted": summary["promoted"],
                     "skipped": summary["skipped"],
+                    "migrated": summary["migrated"],
                 }
             )
             return 0

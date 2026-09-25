@@ -897,8 +897,10 @@ class OciClient:
         raise AssertionError("unreachable")
 
 
-def manifest_details(client: OciClient, reference: str) -> tuple[str, str, list[str]]:
-    raw = client.raw_manifest(reference)
+def manifest_details(
+    client: OciClient, reference: str, *, destination: bool = False
+) -> tuple[str, str, list[str]]:
+    raw = client.raw_manifest(reference, destination=destination)
     digest = "sha256:" + hashlib.sha256(raw).hexdigest()
     try:
         manifest = json.loads(raw)
@@ -944,7 +946,9 @@ def resolve_inventory(
             }
         try:
             observed_digest, media_type, platforms = manifest_details(
-                client, reference.immutable if reference.digest else reference.canonical
+                client,
+                reference.immutable if reference.digest else reference.canonical,
+                destination=reference.registry == destination_registry,
             )
             if reference.digest and observed_digest != reference.digest:
                 raise RegistryError(
@@ -1056,6 +1060,38 @@ def select_promotion_candidate(
     return best
 
 
+def _migrate_record_source_to_local(
+    client: OciClient, record: dict[str, Any], destination_registry: str
+) -> bool:
+    """Repoint a first-party record at the local registry after verification.
+
+    Returns True when the record's pinned digest was observed under the
+    matching local tag, and rewrites the source in place. Returns False
+    without changing anything otherwise.
+    """
+    source = record["source"]
+    if source.get("registry") == destination_registry:
+        return False
+    tag = source.get("tag")
+    if not tag:
+        return False
+    destination_repository_name = str(record["destination_repository"])
+    local_tagged = f"{destination_registry}/{destination_repository_name}:{tag}"
+    try:
+        observed, _, _ = _inspect_digest(client, local_tagged, destination=True)
+    except RegistryError:
+        return False
+    if observed != record.get("digest"):
+        return False
+    record["source"] = {
+        **source,
+        "registry": destination_registry,
+        "repository": destination_repository_name,
+        "reference": f"{local_tagged}@{observed}",
+    }
+    return True
+
+
 def promote_first_party_lock(
     client: OciClient,
     lock: dict[str, Any],
@@ -1068,12 +1104,17 @@ def promote_first_party_lock(
     published the candidate tag to the destination registry (only
     publisher-<project> holds a write grant there). Candidates the producer
     has not published are reported as skipped, never mirrored.
+
+    Records still pointing at an external producer registry migrate to the
+    local registry once the pinned digest is verified there, so GHCR remains
+    a backup instead of a promotion dependency.
     """
     destination_registry = lock.get("destination_registry")
     if not isinstance(destination_registry, str) or not destination_registry:
         raise RegistryError("lock has no destination registry")
     promoted: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
+    migrated: list[str] = []
     records: list[dict[str, Any]] = []
     for record in lock["images"]:
         if record.get("kind") != "first-party" or (
@@ -1082,6 +1123,8 @@ def promote_first_party_lock(
             records.append(record)
             continue
         destination_repository_name = str(record["destination_repository"])
+        if _migrate_record_source_to_local(client, record, destination_registry):
+            migrated.append(destination_repository_name)
         source = record["source"]
         source_repository = f"{source['registry']}/{source['repository']}"
         source_is_local = source["registry"] == destination_registry
@@ -1129,7 +1172,7 @@ def promote_first_party_lock(
             )
         except RegistryError:
             observed_destination = None
-        if observed_destination != new_digest:
+        if observed_destination is None:
             skipped.append(
                 {
                     "destination_repository": destination_repository_name,
@@ -1141,13 +1184,26 @@ def promote_first_party_lock(
             )
             records.append(record)
             continue
+        if observed_destination != new_digest:
+            skipped.append(
+                {
+                    "destination_repository": destination_repository_name,
+                    "reason": (
+                        f"refusing to overwrite {destination_tagged}: "
+                        f"expected {new_digest}, observed {observed_destination}"
+                    ),
+                }
+            )
+            records.append(record)
+            continue
         retention_class = str(record.get("retention_class", "deployed"))
         updated = dict(record)
         updated["source"] = {
-            **source,
+            "registry": destination_registry,
+            "repository": destination_repository_name,
             "tag": candidate,
             "digest": new_digest,
-            "reference": f"{candidate_reference}@{new_digest}",
+            "reference": f"{destination_tagged}@{new_digest}",
         }
         updated["digest"] = new_digest
         updated["media_type"] = media_type
@@ -1171,12 +1227,12 @@ def promote_first_party_lock(
             }
         )
     lock["images"] = sorted(records, key=lambda item: item["id"])
-    if promoted:
+    if promoted or migrated:
         lock["generated_at"] = _timestamp()
     errors = validate_lock(lock)
     if errors:
         raise RegistryError("promoted lock is invalid: " + "; ".join(errors))
-    return {"promoted": promoted, "skipped": skipped}
+    return {"promoted": promoted, "skipped": skipped, "migrated": migrated}
 
 
 def rewrite_consumer_digests(
