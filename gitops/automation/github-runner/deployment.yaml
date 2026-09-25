@@ -2007,7 +2007,7 @@ spec:
               memory: 256Mi
             limits:
               cpu: 4000m
-              memory: 4Gi
+              memory: 8Gi
         - name: runner
           image: registry.rupan.dev/upstream/ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4
           securityContext:
@@ -2067,8 +2067,8 @@ spec:
               cpu: 100m
               memory: 256Mi
             limits:
-              cpu: 2000m
-              memory: 2Gi
+              cpu: 4000m
+              memory: 8Gi
       volumes:
         - name: docker-sock
           emptyDir: {}
