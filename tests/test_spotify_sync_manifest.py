@@ -38,6 +38,10 @@ class TestSpotifySyncManifest(unittest.TestCase):
             volumes["media"]["persistentVolumeClaim"]["claimName"],
             "media-library",
         )
+        self.assertEqual(
+            container["args"],
+            ["--music-dir", "/music/music", "--playlist-dir", "/music/music/playlists"],
+        )
         self.assertEqual(volumes["script"]["configMap"]["name"], "spotify-sync")
 
     def test_runtime_is_non_root_and_filesystem_read_only(self) -> None:

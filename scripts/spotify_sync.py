@@ -251,12 +251,32 @@ class LidarrClient:
             body=body,
         )
 
-    def artists(self) -> dict[str, dict[str, Any]]:
-        records = self.get("/api/v1/artist")
-        return {
-            normalize(record.get("artistName", "")): record
+    def artists(self) -> list[dict[str, Any]]:
+        return self.get("/api/v1/artist")
+
+    def artist_defaults(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        roots = self.get("/api/v1/rootfolder")
+        root = next((item for item in roots if item.get("accessible")), None)
+        if root is None:
+            raise RuntimeError("Lidarr has no accessible music root")
+        quality_counts = Counter(
+            record["qualityProfileId"]
             for record in records
-            if normalize(record.get("artistName", ""))
+            if record.get("qualityProfileId") is not None
+        )
+        metadata_counts = Counter(
+            record["metadataProfileId"]
+            for record in records
+            if record.get("metadataProfileId") is not None
+        )
+        return {
+            "rootFolderPath": root["path"],
+            "qualityProfileId": quality_counts.most_common(1)[0][0]
+            if quality_counts
+            else root["defaultQualityProfileId"],
+            "metadataProfileId": metadata_counts.most_common(1)[0][0]
+            if metadata_counts
+            else root["defaultMetadataProfileId"],
         }
 
     def lookup(self, name: str) -> list[dict[str, Any]]:
@@ -273,7 +293,7 @@ class SyncEngine:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.music_dir = Path(args.music_dir)
-        self.playlist_dir = self.music_dir / "playlists"
+        self.playlist_dir = Path(args.playlist_dir)
         self.state_path = self.playlist_dir / ".spotify_sync_state.json"
         self.playlist_dir.mkdir(parents=True, exist_ok=True)
         self.http = HTTPClient(timeout=args.http_timeout, retries=args.retries)
@@ -288,6 +308,13 @@ class SyncEngine:
             required_env("LIDARR_API_KEY"),
             self.http,
         )
+        self.artist_records = self.lidarr.artists()
+        self.artist_defaults = self.lidarr.artist_defaults(self.artist_records)
+        self.existing_artists = {
+            normalize(record.get("artistName", "")): record
+            for record in self.artist_records
+            if normalize(record.get("artistName", ""))
+        }
         self.library = LocalLibrary(self.music_dir)
         self.state = self.load_state()
 
@@ -375,9 +402,7 @@ class SyncEngine:
                     payload = dict(exact)
                     payload.update(
                         {
-                            "rootFolderPath": self.args.lidarr_root_folder,
-                            "qualityProfileId": 1,
-                            "metadataProfileId": 1,
+                            **self.artist_defaults,
                             "monitored": True,
                             "addOptions": {
                                 "monitor": "all",
@@ -412,7 +437,6 @@ class SyncEngine:
         playlists = self.spotify.playlists()
         if self.args.max_playlists is not None:
             playlists = playlists[: self.args.max_playlists]
-        existing_artists = self.lidarr.artists()
         playlist_tracks: dict[str, list[dict[str, Any]]] = {}
         accessible_playlists: list[dict[str, Any]] = []
         for playlist in playlists:
@@ -440,7 +464,7 @@ class SyncEngine:
             },
             key=str.casefold,
         )
-        added, monitored = self.ensure_artists(artist_names, existing_artists)
+        added, monitored = self.ensure_artists(artist_names, self.existing_artists)
         if added or monitored:
             logger.info("Lidarr artist changes: %d added, %d enabled", added, monitored)
             if not self.args.dry_run:
@@ -514,11 +538,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--music-dir", default=os.getenv("MUSIC_DIR", "/music"))
     parser.add_argument(
-        "--lidarr-url", default=os.getenv("LIDARR_URL", "http://lidarr")
+        "--playlist-dir", default=os.getenv("PLAYLIST_DIR", "/playlists")
     )
     parser.add_argument(
-        "--lidarr-root-folder",
-        default=os.getenv("LIDARR_ROOT_FOLDER", "/data"),
+        "--lidarr-url", default=os.getenv("LIDARR_URL", "http://lidarr")
     )
     parser.add_argument("--max-playlists", type=int)
     parser.add_argument("--artist-delay", type=float, default=0.35)

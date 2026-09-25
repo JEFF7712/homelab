@@ -4,7 +4,13 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import Mock
 
-from scripts.spotify_sync import LocalLibrary, SyncEngine, normalize, safe_filename
+from scripts.spotify_sync import (
+    LidarrClient,
+    LocalLibrary,
+    SyncEngine,
+    normalize,
+    safe_filename,
+)
 
 
 class TestSpotifySync(unittest.TestCase):
@@ -66,11 +72,12 @@ class TestSpotifySync(unittest.TestCase):
 
     def test_ensure_artists_enables_monitoring(self) -> None:
         engine = object.__new__(SyncEngine)
-        engine.args = Namespace(
-            dry_run=False,
-            artist_delay=0,
-            lidarr_root_folder="/data",
-        )
+        engine.args = Namespace(dry_run=False, artist_delay=0)
+        engine.artist_defaults = {
+            "rootFolderPath": "/data/music",
+            "qualityProfileId": 4,
+            "metadataProfileId": 1,
+        }
         engine.lidarr = Mock()
         engine.lidarr.lookup.return_value = [
             {"id": 42, "artistName": "Example", "monitored": False}
@@ -82,6 +89,36 @@ class TestSpotifySync(unittest.TestCase):
         self.assertEqual((added, monitored), (0, 1))
         engine.lidarr.put.assert_called_once()
         self.assertTrue(engine.lidarr.put.call_args.args[1]["monitored"])
+
+    def test_artist_defaults_use_lidarr_contract(self) -> None:
+        engine = object.__new__(SyncEngine)
+        engine.lidarr = object.__new__(LidarrClient)
+        engine.lidarr.get = Mock()
+        engine.lidarr.get.side_effect = [
+            [
+                {
+                    "id": 3,
+                    "path": "/data/music",
+                    "accessible": True,
+                    "defaultQualityProfileId": 1,
+                    "defaultMetadataProfileId": 3,
+                }
+            ]
+        ]
+        defaults = engine.lidarr.artist_defaults(
+            [
+                {"qualityProfileId": 4, "metadataProfileId": 1},
+                {"qualityProfileId": 4, "metadataProfileId": 1},
+            ]
+        )
+        self.assertEqual(
+            defaults,
+            {
+                "rootFolderPath": "/data/music",
+                "qualityProfileId": 4,
+                "metadataProfileId": 1,
+            },
+        )
 
     def test_state_version_migration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
