@@ -76,7 +76,7 @@
       "consumers": [
         "majorfinder/website-deploy-5878cdc676-zh29k/web"
       ],
-      "reference": "registry.rupan.dev/apps/majorfinder@sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85"
+      "reference": "registry.rupan.dev/apps/majorfinder@sha256:8f12de2c5bfb1094efee833c234c413519f38da2ffe2113a2bed3fe0e42ce3ad"
     },
     {
       "consumers": [
@@ -88,7 +88,7 @@
       "consumers": [
         "photography/website-deploy-7fd56fc86d-h6kxz/web"
       ],
-      "reference": "registry.rupan.dev/apps/photography@sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6"
+      "reference": "registry.rupan.dev/apps/photography@sha256:4afc074434868a8c351fed38b4fdd000c4e9a5017ce857a2833859c7e62038d9"
     },
     {
       "consumers": [

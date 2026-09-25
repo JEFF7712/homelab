@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-25T06:55:20+00:00",
+  "generated_at": "2026-09-25T08:09:11+00:00",
   "images": [
     {
       "authenticity": {
@@ -344,13 +344,17 @@
       ],
       "destination_repository": "apps/majorfinder",
       "destination_tags": [
-        "retention-deployed-73a66eaf824b53d1"
+        "0.0.3",
+        "retention-deployed-8f12de2c5bfb1094"
       ],
-      "digest": "sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85",
+      "digest": "sha256:8f12de2c5bfb1094efee833c234c413519f38da2ffe2113a2bed3fe0e42ce3ad",
       "id": "first-party-jeff7712-majorfinder-5e85d8d2824c",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/majorfinder",
         "owner": "jeff7712",
@@ -361,16 +365,15 @@
         "source_status": "not-enumerated"
       },
       "resolution": {
-        "reason": "manifest inspection failed with exit code 2: time=\"2026-09-22T13:18:32-05:00\" level=fatal msg=\"Error parsing image name \\\"docker://ghcr.io/jeff7712/majorfinder@sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85\\\": reading manifest sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85 in ghcr.io/jeff7712/majorfinder: manifest unknown\"",
-        "status": "runtime-cache-verified"
+        "status": "source-registry-verified"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85",
-        "reference": "ghcr.io/jeff7712/majorfinder@sha256:73a66eaf824b53d1f6a69d04514b07223f547f51d1e3cc7e784e1a2a8a59ed85",
-        "registry": "ghcr.io",
-        "repository": "jeff7712/majorfinder",
-        "tag": null
+        "digest": "sha256:8f12de2c5bfb1094efee833c234c413519f38da2ffe2113a2bed3fe0e42ce3ad",
+        "reference": "registry.rupan.dev/apps/majorfinder:0.0.3@sha256:8f12de2c5bfb1094efee833c234c413519f38da2ffe2113a2bed3fe0e42ce3ad",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/majorfinder",
+        "tag": "0.0.3"
       }
     },
     {
@@ -425,13 +428,17 @@
       ],
       "destination_repository": "apps/photography",
       "destination_tags": [
-        "retention-deployed-731128663e8bb128"
+        "0.0.3",
+        "retention-deployed-4afc074434868a8c"
       ],
-      "digest": "sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6",
+      "digest": "sha256:4afc074434868a8c351fed38b4fdd000c4e9a5017ce857a2833859c7e62038d9",
       "id": "first-party-jeff7712-photography-7f744af23df3",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/photography",
         "owner": "jeff7712",
@@ -442,16 +449,15 @@
         "source_status": "not-enumerated"
       },
       "resolution": {
-        "reason": "manifest inspection failed with exit code 2: time=\"2026-09-22T13:18:36-05:00\" level=fatal msg=\"Error parsing image name \\\"docker://ghcr.io/jeff7712/photography@sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6\\\": reading manifest sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6 in ghcr.io/jeff7712/photography: manifest unknown\"",
-        "status": "runtime-cache-verified"
+        "status": "source-registry-verified"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6",
-        "reference": "ghcr.io/jeff7712/photography@sha256:731128663e8bb12861fcf2b801bd0a671478607c44198bf5166812dfc88d57e6",
-        "registry": "ghcr.io",
-        "repository": "jeff7712/photography",
-        "tag": null
+        "digest": "sha256:4afc074434868a8c351fed38b4fdd000c4e9a5017ce857a2833859c7e62038d9",
+        "reference": "registry.rupan.dev/apps/photography:0.0.3@sha256:4afc074434868a8c351fed38b4fdd000c4e9a5017ce857a2833859c7e62038d9",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/photography",
+        "tag": "0.0.3"
       }
     },
     {
