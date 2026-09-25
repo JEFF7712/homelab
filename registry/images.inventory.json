@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-25T08:09:11+00:00",
+  "generated_at": "2026-09-25T10:10:44+00:00",
   "images": [
     {
       "consumers": [
@@ -29,7 +29,7 @@
         "observed:media/bookshelf-7f89767968-9hxxn/bookshelf"
       ],
       "destination_repository": "apps/bookshelf",
-      "id": "first-party-apps-bookshelf-8f4476ef7456",
+      "id": "first-party-apps-bookshelf-cadd0a8275f1",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/bookshelf",
@@ -38,8 +38,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
-        "reference": "registry.rupan.dev/apps/bookshelf@sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
+        "digest": "sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd",
+        "reference": "registry.rupan.dev/apps/bookshelf@sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd",
         "registry": "registry.rupan.dev",
         "repository": "apps/bookshelf",
         "tag": null
@@ -747,6 +747,7 @@
         "gitops/automation/github-runner/deployment.yaml:1682",
         "gitops/automation/github-runner/deployment.yaml:1831",
         "gitops/automation/github-runner/deployment.yaml:192",
+        "gitops/automation/github-runner/deployment.yaml:1983",
         "gitops/automation/github-runner/deployment.yaml:341",
         "gitops/automation/github-runner/deployment.yaml:43",
         "gitops/automation/github-runner/deployment.yaml:490",
@@ -1052,6 +1053,7 @@
         "gitops/automation/github-runner/deployment.yaml:1562",
         "gitops/automation/github-runner/deployment.yaml:1711",
         "gitops/automation/github-runner/deployment.yaml:1860",
+        "gitops/automation/github-runner/deployment.yaml:2012",
         "gitops/automation/github-runner/deployment.yaml:221",
         "gitops/automation/github-runner/deployment.yaml:370",
         "gitops/automation/github-runner/deployment.yaml:519",
@@ -1884,7 +1886,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "1407efd12a7d6b974ae7dfa3e9c2d33275b45ddc",
+  "source_revision": "b4d214401db658d81145fb3328ec54481a6f52f5",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -1898,8 +1900,8 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/media/books.yaml:145,observed:media/bookshelf-7f89767968-9hxxn/bookshelf",
-      "id": "producer:first-party-apps-bookshelf-8f4476ef7456",
-      "input": "registry.rupan.dev/apps/bookshelf@sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
+      "id": "producer:first-party-apps-bookshelf-cadd0a8275f1",
+      "input": "registry.rupan.dev/apps/bookshelf@sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

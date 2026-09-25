@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-25T08:09:11+00:00",
+  "generated_at": "2026-09-25T10:10:42+00:00",
   "images": [
     {
       "authenticity": {
@@ -54,15 +54,15 @@
       ],
       "destination_repository": "apps/bookshelf",
       "destination_tags": [
-        "retention-deployed-9a185c4195c92413"
+        "0.0.10",
+        "retention-deployed-9cc3f90aa0018b70"
       ],
-      "digest": "sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
+      "digest": "sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd",
       "id": "first-party-jeff7712-bookshelf-eae2399244a0",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
         "linux/amd64",
-        "linux/arm64",
         "unknown/unknown"
       ],
       "producer": {
@@ -79,11 +79,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
-        "reference": "ghcr.io/jeff7712/bookshelf@sha256:9a185c4195c92413993794d44ebe380b5dab0bcb158869a344ef3cd130b3c744",
-        "registry": "ghcr.io",
-        "repository": "jeff7712/bookshelf",
-        "tag": null
+        "digest": "sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd",
+        "reference": "registry.rupan.dev/apps/bookshelf:0.0.10@sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/bookshelf",
+        "tag": "0.0.10"
       }
     },
     {
