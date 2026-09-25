@@ -184,12 +184,15 @@ Git commit only after that job succeeds.
 
 First-party sites (`0.0.N` tags, plus `ism` on `latest`) roll out without a
 manual pin. The scheduled `registry_promote_first_party` CI job lists producer
-tags, mirrors the newest digest into `registry.rupan.dev`, and commits the lock,
-inventory, and consumer digest updates together so `check-registry` stays green.
-Flux picks the commit up on its normal interval. End to end, a site push reaches
-the public site in roughly: site CI plus image build, then the promotion
-schedule interval, then Flux reconciliation (GitRepository `1m`,
-Kustomizations `10m`).
+tags and, when the producer has already published the candidate to
+`registry.rupan.dev/apps/<project>`, commits the lock, inventory, and consumer
+digest updates together so `check-registry` stays green. Promotion is
+verification-only: it never mirrors content, because only `publisher-<project>`
+holds a write grant on its destination repository. Candidates the producer has
+not published are reported as skipped. Flux picks the commit up on its normal
+interval. End to end, a site push reaches the public site in roughly: site CI
+plus image build, then the promotion schedule interval, then Flux
+reconciliation (GitRepository `1m`, Kustomizations `10m`).
 
 ```bash
 python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json

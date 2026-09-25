@@ -1061,8 +1061,14 @@ def promote_first_party_lock(
     lock: dict[str, Any],
     *,
     only: set[str] | None = None,
-    dry_run: bool = False,
 ) -> dict[str, Any]:
+    """Promote first-party lock records to newest producer tags.
+
+    Promotion is verification-only: the producer pipeline must already have
+    published the candidate tag to the destination registry (only
+    publisher-<project> holds a write grant there). Candidates the producer
+    has not published are reported as skipped, never mirrored.
+    """
     destination_registry = lock.get("destination_registry")
     if not isinstance(destination_registry, str) or not destination_registry:
         raise RegistryError("lock has no destination registry")
@@ -1117,23 +1123,24 @@ def promote_first_party_lock(
         destination_tagged = (
             f"{destination_registry}/{destination_repository_name}:{candidate}"
         )
-        if not dry_run:
-            try:
-                observed_destination, _, _ = _inspect_digest(
-                    client, destination_tagged, destination=True
-                )
-            except RegistryError:
-                observed_destination = None
-            if observed_destination != new_digest:
-                client.copy(candidate_reference, destination_tagged)
+        try:
             observed_destination, _, _ = _inspect_digest(
                 client, destination_tagged, destination=True
             )
-            if observed_destination != new_digest:
-                raise RegistryError(
-                    f"promotion copy failed for {destination_tagged}: "
-                    f"expected {new_digest}, observed {observed_destination}"
-                )
+        except RegistryError:
+            observed_destination = None
+        if observed_destination != new_digest:
+            skipped.append(
+                {
+                    "destination_repository": destination_repository_name,
+                    "reason": (
+                        f"producer has not published {candidate_reference} "
+                        f"to {destination_tagged}"
+                    ),
+                }
+            )
+            records.append(record)
+            continue
         retention_class = str(record.get("retention_class", "deployed"))
         updated = dict(record)
         updated["source"] = {
@@ -1164,7 +1171,7 @@ def promote_first_party_lock(
             }
         )
     lock["images"] = sorted(records, key=lambda item: item["id"])
-    if promoted and not dry_run:
+    if promoted:
         lock["generated_at"] = _timestamp()
     errors = validate_lock(lock)
     if errors:

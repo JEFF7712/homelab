@@ -66,7 +66,7 @@ def _parser() -> argparse.ArgumentParser:
     promote.add_argument(
         "--dry-run",
         action="store_true",
-        help="inspect registries without copying or writing files",
+        help="inspect registries without writing files",
     )
     _network_options(promote)
 
@@ -173,7 +173,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 client,
                 lock,
                 only=set(args.only) if args.only else None,
-                dry_run=args.dry_run,
             )
             if not args.dry_run and summary["promoted"]:
                 atomic_write_json(args.lock, lock)

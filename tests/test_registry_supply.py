@@ -111,7 +111,11 @@ class RegistryCiContractTests(unittest.TestCase):
         self.assertIn('$CI_PIPELINE_SOURCE == "schedule"', rules)
         self.assertEqual(job["tags"], ["nas-ci"])
         self.assertEqual(job["resource_group"], "registry-content")
+        self.assertEqual(job["environment"], {"name": "production"})
         self.assertIn("scripts.registry promote", script)
+        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
+        self.assertIn("registry-node-auth.json", script)
+        self.assertNotIn("REGISTRY_IMPORTER_AUTH_FILE", script)
         self.assertIn("just check-registry", script)
         self.assertIn("GITLAB_PUSH_TOKEN", script)
         self.assertLess(
@@ -914,13 +918,16 @@ class PromoteFirstPartyTests(unittest.TestCase):
         self.assertEqual(client.copies, [])
         self.assertEqual(lock["images"][0]["source"]["tag"], "0.0.11")
 
-    def test_promotes_newest_tag_and_mirrors_it(self) -> None:
+    def test_promotes_newest_tag_already_published(self) -> None:
         old = manifest()
         new = manifest([("linux", "amd64"), ("linux", "arm64")])
         new_digest = digest(new)
         lock = first_party_lock(old)
         client = PromoteFakeClient(
-            {"ghcr.io/jeff7712/rupan-dev:0.0.12": new},
+            {
+                "ghcr.io/jeff7712/rupan-dev:0.0.12": new,
+                "registry.rupan.dev/apps/rupan-dev:0.0.12": new,
+            },
             {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
         )
         summary = promote_first_party_lock(client, lock)
@@ -928,15 +935,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
         item = summary["promoted"][0]
         self.assertEqual(item["tag"], "0.0.12")
         self.assertEqual(item["digest"], new_digest)
-        self.assertEqual(
-            client.copies,
-            [
-                (
-                    "ghcr.io/jeff7712/rupan-dev:0.0.12",
-                    "registry.rupan.dev/apps/rupan-dev:0.0.12",
-                )
-            ],
-        )
+        self.assertEqual(client.copies, [])
         record = lock["images"][0]
         self.assertEqual(record["digest"], new_digest)
         self.assertEqual(
@@ -950,31 +949,76 @@ class PromoteFirstPartyTests(unittest.TestCase):
         self.assertEqual(record["resolution"], {"status": "source-registry-verified"})
         self.assertEqual(validate_lock(lock), [])
 
+    def test_skips_candidate_the_producer_has_not_published(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64")])
+        lock = first_party_lock(old)
+        client = PromoteFakeClient(
+            {"ghcr.io/jeff7712/rupan-dev:0.0.12": new},
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(summary["promoted"], [])
+        self.assertEqual(len(summary["skipped"]), 1)
+        self.assertIn("has not published", summary["skipped"][0]["reason"])
+        self.assertEqual(client.copies, [])
+        self.assertEqual(lock["images"][0]["source"]["tag"], "0.0.11")
+
     def test_promotes_latest_on_digest_change(self) -> None:
         old = manifest()
         new = manifest([("linux", "amd64")])
         new_digest = digest(new)
         lock = first_party_lock(old, tag="latest")
         client = PromoteFakeClient(
-            {"ghcr.io/jeff7712/rupan-dev:latest": new},
+            {
+                "ghcr.io/jeff7712/rupan-dev:latest": new,
+                "registry.rupan.dev/apps/rupan-dev:latest": new,
+            },
             {"ghcr.io/jeff7712/rupan-dev": ["latest", "0.0.99"]},
         )
         summary = promote_first_party_lock(client, lock)
         self.assertEqual(len(summary["promoted"]), 1)
         self.assertEqual(summary["promoted"][0]["tag"], "latest")
         self.assertEqual(lock["images"][0]["digest"], new_digest)
+        self.assertEqual(client.copies, [])
 
-    def test_dry_run_inspects_without_copying(self) -> None:
+    def test_cli_dry_run_writes_no_files(self) -> None:
         old = manifest()
         new = manifest([("linux", "amd64")])
         lock = first_party_lock(old)
         client = PromoteFakeClient(
-            {"ghcr.io/jeff7712/rupan-dev:0.0.12": new},
-            {"ghcr.io/jeff7712/rupan-dev": ["0.0.12"]},
+            {
+                "ghcr.io/jeff7712/rupan-dev:0.0.12": new,
+                "registry.rupan.dev/apps/rupan-dev:0.0.12": new,
+            },
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
         )
-        summary = promote_first_party_lock(client, lock, dry_run=True)
-        self.assertEqual(len(summary["promoted"]), 1)
-        self.assertEqual(client.copies, [])
+        with tempfile.TemporaryDirectory() as directory:
+            lock_path = pathlib.Path(directory) / "lock.json"
+            inventory_path = pathlib.Path(directory) / "inventory.json"
+            lock_path.write_text(json.dumps(lock), encoding="utf-8")
+            inventory_path.write_text("{}", encoding="utf-8")
+            with patch("scripts.registry.cli.OciClient", return_value=client):
+                result = main(
+                    [
+                        "--root",
+                        directory,
+                        "promote",
+                        "--lock",
+                        str(lock_path),
+                        "--inventory",
+                        str(inventory_path),
+                        "--dry-run",
+                    ]
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(
+                json.loads(lock_path.read_text(encoding="utf-8"))["images"][0][
+                    "source"
+                ]["tag"],
+                "0.0.11",
+            )
+            self.assertEqual(inventory_path.read_text(encoding="utf-8"), "{}")
 
     def test_only_filter_limits_records(self) -> None:
         raw = manifest()
