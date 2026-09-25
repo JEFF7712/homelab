@@ -286,6 +286,8 @@ registry_promote_first_party:
           if git push "$push_url" HEAD:"$CI_COMMIT_BRANCH"; then
             exit 0
           fi
+          git fetch "$push_url" "$CI_COMMIT_BRANCH"
+          git rebase FETCH_HEAD
           sleep $((attempt * 15))
         done
         exit 1

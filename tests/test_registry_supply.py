@@ -120,6 +120,8 @@ class RegistryCiContractTests(unittest.TestCase):
         self.assertNotIn("REGISTRY_IMPORTER_AUTH_FILE", script)
         self.assertIn("just check-registry", script)
         self.assertIn("GITLAB_PUSH_TOKEN", script)
+        self.assertIn("git fetch", script)
+        self.assertIn("git rebase FETCH_HEAD", script)
         self.assertLess(
             script.index("scripts.registry promote"), script.index("git commit")
         )
