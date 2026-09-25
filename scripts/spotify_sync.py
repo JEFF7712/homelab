@@ -1,0 +1,544 @@
+#!/usr/bin/env python3
+"""Synchronize Spotify playlists with Lidarr and the local music library."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import logging
+import os
+import re
+import tempfile
+import time
+import unicodedata
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections import Counter
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger("spotify_sync")
+
+
+def normalize(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    return re.sub(r"[^a-zA-Z0-9]", "", decomposed).lower()
+
+
+def safe_filename(name: str) -> str:
+    sanitized = re.sub(r"[/\\\x00]", "_", name).strip().strip(".")
+    return sanitized or "Unnamed_Playlist"
+
+
+class HTTPClient:
+    def __init__(self, timeout: float = 30, retries: int = 4) -> None:
+        self.timeout = timeout
+        self.retries = retries
+
+    def request(
+        self,
+        url: str,
+        *,
+        method: str = "GET",
+        headers: dict[str, str] | None = None,
+        body: dict[str, Any] | None = None,
+    ) -> Any:
+        encoded = None if body is None else json.dumps(body).encode()
+        request_headers = dict(headers or {})
+        if encoded is not None:
+            request_headers["Content-Type"] = "application/json"
+        for attempt in range(self.retries):
+            try:
+                request = urllib.request.Request(
+                    url, data=encoded, headers=request_headers, method=method
+                )
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    body_bytes = response.read()
+                    return json.loads(body_bytes) if body_bytes else None
+            except urllib.error.HTTPError as error:
+                if (
+                    error.code not in {429, 502, 503, 504}
+                    or attempt + 1 == self.retries
+                ):
+                    raise
+            except (urllib.error.URLError, TimeoutError, OSError):
+                if attempt + 1 == self.retries:
+                    raise
+            time.sleep(min(2**attempt, 8))
+        raise RuntimeError(f"request failed: {method} {url}")
+
+
+class SpotifyClient:
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        refresh_token: str,
+        http: HTTPClient,
+    ) -> None:
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.refresh_token = refresh_token
+        self.http = http
+        self.access_token = ""
+        self.token_expiry = 0.0
+
+    def token(self) -> str:
+        if self.access_token and time.time() < self.token_expiry - 60:
+            return self.access_token
+        basic = base64.b64encode(
+            f"{self.client_id}:{self.client_secret}".encode()
+        ).decode()
+        payload = urllib.parse.urlencode(
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": self.refresh_token,
+            }
+        ).encode()
+        request = urllib.request.Request(
+            "https://accounts.spotify.com/api/token",
+            data=payload,
+            headers={
+                "Authorization": f"Basic {basic}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=self.http.timeout) as response:
+            data = json.loads(response.read())
+        self.access_token = data["access_token"]
+        self.token_expiry = time.time() + data.get("expires_in", 3600)
+        return self.access_token
+
+    def get(self, url: str) -> Any:
+        return self.http.request(
+            url, headers={"Authorization": f"Bearer {self.token()}"}
+        )
+
+    def playlists(self) -> list[dict[str, Any]]:
+        url: str | None = "https://api.spotify.com/v1/me/playlists?limit=50"
+        result: list[dict[str, Any]] = []
+        while url:
+            data = self.get(url)
+            result.extend(data.get("items", []))
+            url = data.get("next")
+        return result
+
+    def playlist_tracks(self, playlist_id: str) -> list[dict[str, Any]]:
+        url: str | None = (
+            "https://api.spotify.com/v1/playlists/"
+            f"{urllib.parse.quote(playlist_id)}/items?limit=100&additional_types=track"
+        )
+        result: list[dict[str, Any]] = []
+        while url:
+            data = self.get(url)
+            for item in data.get("items", []):
+                track = item.get("track") or item.get("item")
+                if not track or not track.get("id"):
+                    continue
+                artists = [artist["name"] for artist in track.get("artists", [])]
+                result.append(
+                    {
+                        "id": track["id"],
+                        "artist": artists[0] if artists else "",
+                        "all_artists": artists,
+                        "title": track.get("name", ""),
+                        "album": track.get("album", {}).get("name", ""),
+                        "duration_ms": track.get("duration_ms", 0),
+                    }
+                )
+            url = data.get("next")
+        return result
+
+
+@dataclass(frozen=True)
+class Match:
+    path: Path
+    relative: str
+
+
+class LocalLibrary:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.artists: dict[str, list[Match]] = {}
+
+    def index(self) -> None:
+        started = time.monotonic()
+        self.artists = {}
+        count = 0
+        for path in self.root.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in {
+                ".aac",
+                ".flac",
+                ".m4a",
+                ".mp3",
+                ".ogg",
+                ".opus",
+                ".wav",
+            }:
+                continue
+            try:
+                relative_path = path.relative_to(self.root)
+            except ValueError:
+                continue
+            if len(relative_path.parts) < 2:
+                continue
+            artist_key = normalize(relative_path.parts[0])
+            if not artist_key:
+                continue
+            self.artists.setdefault(artist_key, []).append(
+                Match(path=path, relative=relative_path.as_posix())
+            )
+            count += 1
+        logger.info(
+            "Indexed %d audio files across %d artists in %.1fs",
+            count,
+            len(self.artists),
+            time.monotonic() - started,
+        )
+
+    def candidates(self, artist: str) -> list[Match]:
+        key = normalize(artist)
+        direct = self.artists.get(key, [])
+        if direct:
+            return direct
+        return [
+            match
+            for artist_key, matches in self.artists.items()
+            if len(key) > 2
+            and len(artist_key) > 2
+            and (key in artist_key or artist_key in key)
+            for match in matches
+        ]
+
+    def match(self, artists: list[str], title: str) -> Match | None:
+        title_key = normalize(title)
+        if not title_key:
+            return None
+        candidates: list[Match] = []
+        for artist in artists:
+            candidates.extend(self.candidates(artist))
+        return next(
+            (match for match in candidates if title_key in normalize(match.path.stem)),
+            None,
+        )
+
+
+class LidarrClient:
+    def __init__(self, base_url: str, api_key: str, http: HTTPClient) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.http = http
+        self.headers = {"X-Api-Key": api_key}
+
+    def get(self, path: str) -> Any:
+        return self.http.request(f"{self.base_url}{path}", headers=self.headers)
+
+    def post(self, path: str, body: dict[str, Any]) -> Any:
+        return self.http.request(
+            f"{self.base_url}{path}",
+            method="POST",
+            headers=self.headers,
+            body=body,
+        )
+
+    def put(self, path: str, body: dict[str, Any]) -> Any:
+        return self.http.request(
+            f"{self.base_url}{path}",
+            method="PUT",
+            headers=self.headers,
+            body=body,
+        )
+
+    def artists(self) -> dict[str, dict[str, Any]]:
+        records = self.get("/api/v1/artist")
+        return {
+            normalize(record.get("artistName", "")): record
+            for record in records
+            if normalize(record.get("artistName", ""))
+        }
+
+    def lookup(self, name: str) -> list[dict[str, Any]]:
+        term = urllib.parse.quote(name)
+        return self.get(f"/api/v1/artist/lookup?term={term}")
+
+    def command(self, name: str, **arguments: Any) -> None:
+        self.post("/api/v1/command", {"name": name, **arguments})
+
+
+class SyncEngine:
+    STATE_VERSION = 2
+
+    def __init__(self, args: argparse.Namespace) -> None:
+        self.args = args
+        self.music_dir = Path(args.music_dir)
+        self.playlist_dir = self.music_dir / "playlists"
+        self.state_path = self.playlist_dir / ".spotify_sync_state.json"
+        self.playlist_dir.mkdir(parents=True, exist_ok=True)
+        self.http = HTTPClient(timeout=args.http_timeout, retries=args.retries)
+        self.spotify = SpotifyClient(
+            required_env("SPOTIFY_CLIENT_ID"),
+            required_env("SPOTIFY_CLIENT_SECRET"),
+            required_env("SPOTIFY_REFRESH_TOKEN"),
+            self.http,
+        )
+        self.lidarr = LidarrClient(
+            args.lidarr_url,
+            required_env("LIDARR_API_KEY"),
+            self.http,
+        )
+        self.library = LocalLibrary(self.music_dir)
+        self.state = self.load_state()
+
+    def load_state(self) -> dict[str, Any]:
+        try:
+            state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            state = {}
+        playlists = state.get("playlists", {})
+        return {
+            "version": self.STATE_VERSION,
+            "playlists": playlists if isinstance(playlists, dict) else {},
+        }
+
+    def save_state(self) -> None:
+        payload = json.dumps(self.state, indent=2, sort_keys=True) + "\n"
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=self.playlist_dir, delete=False
+        ) as handle:
+            handle.write(payload)
+            temporary = Path(handle.name)
+        os.replace(temporary, self.state_path)
+
+    def playlist_filenames(self, playlists: list[dict[str, Any]]) -> dict[str, str]:
+        base_names = [
+            safe_filename(playlist.get("name") or "Unnamed") for playlist in playlists
+        ]
+        counts = Counter(base_names)
+        filenames: dict[str, str] = {}
+        for playlist, base_name in zip(playlists, base_names, strict=True):
+            playlist_id = playlist["id"]
+            suffix = f" [{playlist_id}]" if counts[base_name] > 1 else ""
+            filenames[playlist_id] = f"{base_name}{suffix}.m3u8"
+        return filenames
+
+    def write_playlist(
+        self,
+        filename: str,
+        tracks: list[dict[str, Any]],
+        matches: list[Match | None],
+    ) -> None:
+        lines = ["#EXTM3U\n"]
+        for track, match in zip(tracks, matches, strict=True):
+            if match is None:
+                continue
+            seconds = max(0, int(track["duration_ms"] / 1000))
+            lines.append(f"#EXTINF:{seconds},{track['artist']} - {track['title']}\n")
+            lines.append(f"../{match.relative}\n")
+        destination = self.playlist_dir / filename
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=self.playlist_dir, delete=False
+        ) as handle:
+            handle.writelines(lines)
+            temporary = Path(handle.name)
+        os.replace(temporary, destination)
+
+    def ensure_artists(
+        self, artists: list[str], existing: dict[str, dict[str, Any]]
+    ) -> tuple[int, int]:
+        added = 0
+        monitored = 0
+        checked: set[str] = set()
+        for artist in artists:
+            key = normalize(artist)
+            if not key or key in checked:
+                continue
+            checked.add(key)
+            record = existing.get(key)
+            if record is None:
+                results = self.lidarr.lookup(artist)
+                if not results:
+                    logger.warning("Lidarr lookup returned no artist for %s", artist)
+                    continue
+                exact = next(
+                    (
+                        result
+                        for result in results
+                        if normalize(result.get("artistName", "")) == key
+                    ),
+                    results[0],
+                )
+                if exact.get("id"):
+                    record = exact
+                else:
+                    payload = dict(exact)
+                    payload.update(
+                        {
+                            "rootFolderPath": self.args.lidarr_root_folder,
+                            "qualityProfileId": 1,
+                            "metadataProfileId": 1,
+                            "monitored": True,
+                            "addOptions": {
+                                "monitor": "all",
+                                "searchForMissingAlbums": True,
+                            },
+                        }
+                    )
+                    if self.args.dry_run:
+                        logger.info("Would add %s to Lidarr", artist)
+                    else:
+                        self.lidarr.post("/api/v1/artist", payload)
+                    existing[key] = exact
+                    added += 1
+                    logger.info("Added %s to Lidarr", artist)
+            if record is not None and not record.get("monitored", True):
+                payload = dict(record)
+                payload["monitored"] = True
+                if self.args.dry_run:
+                    logger.info("Would monitor %s in Lidarr", artist)
+                else:
+                    self.lidarr.put(f"/api/v1/artist/{record['id']}", payload)
+                record["monitored"] = True
+                monitored += 1
+                logger.info("Enabled Lidarr monitoring for %s", artist)
+            if not self.args.dry_run:
+                time.sleep(self.args.artist_delay)
+        return added, monitored
+
+    def sync(self) -> None:
+        started = time.monotonic()
+        self.library.index()
+        playlists = self.spotify.playlists()
+        if self.args.max_playlists is not None:
+            playlists = playlists[: self.args.max_playlists]
+        existing_artists = self.lidarr.artists()
+        playlist_tracks: dict[str, list[dict[str, Any]]] = {}
+        accessible_playlists: list[dict[str, Any]] = []
+        for playlist in playlists:
+            playlist_id = playlist["id"]
+            try:
+                playlist_tracks[playlist_id] = self.spotify.playlist_tracks(playlist_id)
+            except urllib.error.HTTPError as error:
+                if error.code != 403:
+                    raise
+                logger.warning(
+                    "Spotify denied track access for playlist %s (%s)",
+                    playlist.get("name") or playlist_id,
+                    playlist_id,
+                )
+                continue
+            accessible_playlists.append(playlist)
+        playlists = accessible_playlists
+        filenames = self.playlist_filenames(playlists)
+        artist_names = sorted(
+            {
+                artist_name
+                for tracks in playlist_tracks.values()
+                for track in tracks
+                for artist_name in [track["artist"]]
+            },
+            key=str.casefold,
+        )
+        added, monitored = self.ensure_artists(artist_names, existing_artists)
+        if added or monitored:
+            logger.info("Lidarr artist changes: %d added, %d enabled", added, monitored)
+            if not self.args.dry_run:
+                self.lidarr.command("MissingAlbumSearch")
+
+        total_tracks = 0
+        matched_tracks = 0
+        current_ids = set(playlist_tracks)
+        for removed_id in set(self.state["playlists"]) - current_ids:
+            removed = self.state["playlists"].pop(removed_id)
+            removed_path = self.playlist_dir / removed.get("filename", "")
+            if removed_path.is_file() and removed_path.parent == self.playlist_dir:
+                removed_path.unlink()
+
+        for position, playlist in enumerate(playlists, 1):
+            playlist_id = playlist["id"]
+            name = playlist.get("name") or "Unnamed"
+            tracks = playlist_tracks[playlist_id]
+            matches = [
+                self.library.match(track["all_artists"], track["title"])
+                for track in tracks
+            ]
+            filename = filenames[playlist_id]
+            old = self.state["playlists"].get(playlist_id, {})
+            self.write_playlist(filename, tracks, matches)
+            if old.get("filename") and old["filename"] != filename:
+                old_path = self.playlist_dir / old["filename"]
+                if old_path.is_file() and old_path.parent == self.playlist_dir:
+                    old_path.unlink()
+            matched = sum(match is not None for match in matches)
+            self.state["playlists"][playlist_id] = {
+                "name": name,
+                "filename": filename,
+                "snapshot_id": playlist.get("snapshot_id"),
+                "track_count": len(tracks),
+                "matched_count": matched,
+                "missing_count": len(tracks) - matched,
+                "last_synced": int(time.time()),
+            }
+            self.save_state()
+            total_tracks += len(tracks)
+            matched_tracks += matched
+            logger.info(
+                "[%d/%d] %s: %d/%d tracks available",
+                position,
+                len(playlists),
+                name,
+                matched,
+                len(tracks),
+            )
+
+        logger.info(
+            "Sync complete: %d playlists, %d tracks, %d available, %d added, %d newly monitored in %.1fs",
+            len(playlists),
+            total_tracks,
+            matched_tracks,
+            added,
+            monitored,
+            time.monotonic() - started,
+        )
+
+
+def required_env(name: str) -> str:
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(f"required environment variable is missing: {name}")
+    return value
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--music-dir", default=os.getenv("MUSIC_DIR", "/music"))
+    parser.add_argument(
+        "--lidarr-url", default=os.getenv("LIDARR_URL", "http://lidarr")
+    )
+    parser.add_argument(
+        "--lidarr-root-folder",
+        default=os.getenv("LIDARR_ROOT_FOLDER", "/data"),
+    )
+    parser.add_argument("--max-playlists", type=int)
+    parser.add_argument("--artist-delay", type=float, default=0.35)
+    parser.add_argument("--http-timeout", type=float, default=30)
+    parser.add_argument("--retries", type=int, default=4)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    SyncEngine(args).sync()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
