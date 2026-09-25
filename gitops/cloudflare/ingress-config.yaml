@@ -69,4 +69,26 @@ data:
         service: http://seerr.media:80
       - hostname: requests.rupan.dev
         service: http://seerr.media:80
+      - hostname: lidarr.rupan.dev
+        service: http://lidarr.media:80
+      - hostname: radarr.rupan.dev
+        service: http://radarr.media:80
+      - hostname: sonarr.rupan.dev
+        service: http://sonarr.media:80
+      - hostname: prowlarr.rupan.dev
+        service: http://prowlarr.media:80
+      - hostname: bazarr.rupan.dev
+        service: http://bazarr.media:80
+      - hostname: slskd.rupan.dev
+        service: http://slskd.media:80
+      - hostname: torrent.rupan.dev
+        service: http://qbittorrent.media:80
+      - hostname: qbittorrent.rupan.dev
+        service: http://qbittorrent.media:80
+      - hostname: books.rupan.dev
+        service: http://calibre-web.media:80
+      - hostname: media.rupan.dev
+        service: http://filebrowser.media:80
+      - hostname: bookshelf.rupan.dev
+        service: http://bookshelf.media:80
       - service: http_status:404

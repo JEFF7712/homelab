@@ -22,7 +22,7 @@ Related manifests:
 - `gitops/cloudflare/tunnel.yaml`
 - `gitops/immich/server.yaml`
 
-## Ingress order (v80, 2026-09-24)
+## Ingress order (v81, 2026-09-24)
 
 Cloudflare evaluates top to bottom, first match wins. Keep specifics first, catch-all last.
 
@@ -62,7 +62,18 @@ Cloudflare Access public bypass configured.
 29. `music.rupan.dev -> http://navidrome.media:80`
 30. `seerr.rupan.dev -> http://seerr.media:80`
 31. `requests.rupan.dev -> http://seerr.media:80`
-32. `http_status:404`
+32. `lidarr.rupan.dev -> http://lidarr.media:80`
+33. `radarr.rupan.dev -> http://radarr.media:80`
+34. `sonarr.rupan.dev -> http://sonarr.media:80`
+35. `prowlarr.rupan.dev -> http://prowlarr.media:80`
+36. `bazarr.rupan.dev -> http://bazarr.media:80`
+37. `slskd.rupan.dev -> http://slskd.media:80`
+38. `torrent.rupan.dev -> http://qbittorrent.media:80`
+39. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
+40. `books.rupan.dev -> http://calibre-web.media:80`
+41. `media.rupan.dev -> http://filebrowser.media:80`
+42. `bookshelf.rupan.dev -> http://bookshelf.media:80`
+43. `http_status:404`
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)
