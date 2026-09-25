@@ -22,7 +22,7 @@ Related manifests:
 - `gitops/cloudflare/tunnel.yaml`
 - `gitops/immich/server.yaml`
 
-## Ingress order (v79, 2026-09-24)
+## Ingress order (v80, 2026-09-24)
 
 Cloudflare evaluates top to bottom, first match wins. Keep specifics first, catch-all last.
 
