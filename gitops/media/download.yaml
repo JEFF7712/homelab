@@ -46,8 +46,8 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              if [ -d /config-slskd/slskd.yml ]; then rm -rf /config-slskd/slskd.yml; fi
-              if [ ! -f /config-slskd/slskd.yml ]; then echo "$SLSKD_YML" > /config-slskd/slskd.yml; fi
+              rm -f /config-slskd/slskd.yml
+              echo "$SLSKD_YML" > /config-slskd/slskd.yml
               chown 1000:1000 /config-slskd/slskd.yml
           securityContext:
             allowPrivilegeEscalation: false
