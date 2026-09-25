@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-24T18:14:21+00:00",
+  "generated_at": "2026-09-25T06:00:29+00:00",
   "images": [
     {
       "consumers": [
@@ -379,7 +379,7 @@
     },
     {
       "consumers": [
-        "gitops/music-assistant/server.yaml:85",
+        "gitops/music-assistant/server.yaml:88",
         "observed:music-assistant/music-assistant-7c6bfb44c8-p99hr/pot-provider"
       ],
       "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
@@ -398,7 +398,7 @@
     {
       "consumers": [
         ".gitlab-ci.yml:1",
-        ".gitlab-ci.yml:819"
+        ".gitlab-ci.yml:832"
       ],
       "destination_repository": "upstream/docker.io/nixos/nix",
       "id": "upstream-nixos-nix-8a0dbd33be8c",
@@ -679,8 +679,8 @@
         "gitops/media/arr.yaml:119",
         "gitops/media/arr.yaml:219",
         "gitops/media/arr.yaml:27",
-        "gitops/media/arr.yaml:333",
-        "gitops/media/arr.yaml:426",
+        "gitops/media/arr.yaml:337",
+        "gitops/media/arr.yaml:430",
         "gitops/media/books.yaml:135",
         "gitops/media/books.yaml:26",
         "gitops/media/download.yaml:32",
@@ -1009,7 +1009,7 @@
     },
     {
       "consumers": [
-        "gitops/media/download.yaml:184",
+        "gitops/media/download.yaml:200",
         "observed:media/download-699c796b5c-swmtn/slskd"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/slskd/slskd",
@@ -1134,7 +1134,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:523",
+        "gitops/media/arr.yaml:527",
         "observed:media/flaresolverr-7d9fb85fc7-6kk89/flaresolverr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr",
@@ -1421,7 +1421,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:436",
+        "gitops/media/arr.yaml:440",
         "observed:media/bazarr-69b6cf7658-5lvpm/bazarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr",
@@ -1475,7 +1475,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:343",
+        "gitops/media/arr.yaml:347",
         "observed:media/prowlarr-ff5b8d4d4-j7k69/prowlarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr",
@@ -1493,7 +1493,7 @@
     },
     {
       "consumers": [
-        "gitops/media/download.yaml:144",
+        "gitops/media/download.yaml:160",
         "observed:media/download-699c796b5c-swmtn/qbittorrent"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent",
@@ -1883,7 +1883,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "8354647511d2e816b47bb334638fc5a94bb72fa6",
+  "source_revision": "763f25db3030cbc77dac7ca1217fefc9bafe8ada",
   "unresolved_inputs": [
     {
       "blocking": false,

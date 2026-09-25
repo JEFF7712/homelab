@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-23T00:11:46+00:00",
+  "generated_at": "2026-09-25T06:00:29+00:00",
   "images": [
     {
       "authenticity": {
@@ -507,8 +507,8 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.278",
-        "retention-deployed-0023aa4fff0cbe5d"
+        "0.0.311",
+        "retention-deployed-f0803af9bfb5085f"
       ],
       "digest": "sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
@@ -533,10 +533,10 @@
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
-        "reference": "ghcr.io/jeff7712/quartz:0.0.278@sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
+        "reference": "ghcr.io/jeff7712/quartz:0.0.311@sha256:f0803af9bfb5085fdf8bf31953be286205b4ad75b588f8b74c30630b3ea924a3",
         "registry": "ghcr.io",
         "repository": "jeff7712/quartz",
-        "tag": "0.0.278"
+        "tag": "0.0.311"
       }
     },
     {
@@ -1170,6 +1170,42 @@
         "registry": "ghcr.io",
         "repository": "fluxcd/source-controller",
         "tag": "v1.9.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/music-assistant/ledfx.yaml:40"
+      ],
+      "destination_repository": "upstream/ghcr.io/ledfx/ledfx",
+      "destination_tags": [
+        "retention-deployed-a5ff8549a847d1b2"
+      ],
+      "digest": "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
+      "id": "upstream-ghcr-io-ledfx-ledfx-a5ff8549a847",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
+        "reference": "ghcr.io/ledfx/ledfx:latest@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
+        "registry": "ghcr.io",
+        "repository": "ledfx/ledfx",
+        "tag": "latest"
       }
     },
     {
@@ -4168,42 +4204,6 @@
         "registry": "nvcr.io",
         "repository": "nvidia/k8s-device-plugin",
         "tag": "v0.17.0"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/music-assistant/ledfx.yaml:40"
-      ],
-      "destination_repository": "upstream/ghcr.io/ledfx/ledfx",
-      "destination_tags": [
-        "retention-deployed-a5ff8549a847d1b2"
-      ],
-      "digest": "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
-      "id": "upstream-ghcr-io-ledfx-ledfx-a5ff8549a847",
-      "kind": "upstream",
-      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
-        "reference": "ghcr.io/ledfx/ledfx:latest@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036",
-        "registry": "ghcr.io",
-        "repository": "ledfx/ledfx",
-        "tag": "latest"
       }
     }
   ],
