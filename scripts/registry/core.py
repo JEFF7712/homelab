@@ -1235,6 +1235,24 @@ def promote_first_party_lock(
     return {"promoted": promoted, "skipped": skipped, "migrated": migrated}
 
 
+def filter_transient_observed_errors(
+    errors: Sequence[Mapping[str, str]], previous_digests: set[str]
+) -> list[Mapping[str, str]]:
+    """Drop live-observation errors that a just-landed promotion explains.
+
+    The cluster keeps running the previous digest until Flux reconciles, so
+    observed: consumers may legitimately pin a promoted record's previous
+    digest. Anything else (file consumers, unknown digests) still fails.
+    """
+    remaining: list[Mapping[str, str]] = []
+    for item in errors:
+        _, _, digest = item["reference"].partition("@")
+        if item["consumer"].startswith("observed:") and digest in previous_digests:
+            continue
+        remaining.append(item)
+    return remaining
+
+
 def rewrite_consumer_digests(
     root: pathlib.Path,
     consumers: Sequence[str],

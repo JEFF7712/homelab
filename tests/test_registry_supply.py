@@ -25,6 +25,7 @@ from scripts.registry.core import (
     copy_plan,
     destination_repository,
     discover_inventory,
+    filter_transient_observed_errors,
     image_kind,
     load_lock,
     promote_first_party_lock,
@@ -1127,6 +1128,34 @@ class PromoteFirstPartyTests(unittest.TestCase):
                 "0.0.11",
             )
             self.assertEqual(inventory_path.read_text(encoding="utf-8"), "{}")
+
+    def test_transient_observed_errors_are_tolerated(self) -> None:
+        previous = "sha256:" + "a" * 64
+        errors = [
+            {
+                "consumer": "observed:rupan-dev/website-deploy-xxx/web",
+                "reference": f"registry.rupan.dev/apps/rupan-dev@{previous}",
+                "error": "stale",
+            },
+            {
+                "consumer": "observed:other/app/web",
+                "reference": "registry.rupan.dev/apps/other@sha256:" + "b" * 64,
+                "error": "stale",
+            },
+            {
+                "consumer": "gitops/websites/rupan-dev/deployment.yaml:22",
+                "reference": f"registry.rupan.dev/apps/rupan-dev@{previous}",
+                "error": "stale",
+            },
+        ]
+        remaining = filter_transient_observed_errors(errors, {previous})
+        self.assertEqual(len(remaining), 2)
+        self.assertTrue(
+            all(
+                item["consumer"] != "observed:rupan-dev/website-deploy-xxx/web"
+                for item in remaining
+            )
+        )
 
     def test_only_filter_limits_records(self) -> None:
         raw = manifest()

@@ -16,6 +16,7 @@ from .core import (
     copy_lock,
     copy_plan,
     discover_inventory,
+    filter_transient_observed_errors,
     load_inventory,
     load_lock,
     promote_first_party_lock,
@@ -187,12 +188,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 atomic_write_json(args.inventory, discover_inventory(args.root))
                 report = check_consumers(args.root, lock)
-                if report["status"] != "ok":
+                previous = {item["previous_digest"] for item in summary["promoted"]}
+                errors = filter_transient_observed_errors(report["errors"], previous)
+                if errors:
                     raise RegistryError(
                         "promoted consumers failed policy check: "
                         + "; ".join(
                             f"{item['consumer']} pins {item['reference']}"
-                            for item in report["errors"]
+                            for item in errors
                         )
                     )
             _print(
