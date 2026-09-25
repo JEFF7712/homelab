@@ -1271,7 +1271,10 @@ class PromoteFirstPartyTests(unittest.TestCase):
             )
             updated = rewrite_consumer_digests(
                 root,
-                ["observed:rupan-dev/website-deploy-xxx/web"],
+                [
+                    "gitops/websites/rupan-dev/deployment.yaml:1",
+                    "observed:rupan-dev/website-deploy-xxx/web",
+                ],
                 destination_registry="registry.rupan.dev",
                 destination_repository="apps/rupan-dev",
                 previous_digest=old_digest,

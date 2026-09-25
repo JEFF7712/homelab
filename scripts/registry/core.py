@@ -1299,15 +1299,19 @@ def rewrite_consumer_digests(
     for image in discover_inventory(root)["images"]:
         if image["source"]["reference"] == old:
             consumers.extend(image["consumers"])
+    handled: set[str] = set()
     for consumer in dict.fromkeys(consumers):
         if consumer.startswith("observed:"):
             continue
         relative, _, _ = consumer.partition(":")
+        if relative in handled:
+            continue
         path = root / relative
         text = path.read_text(encoding="utf-8")
         if old not in text:
             raise RegistryError(f"consumer {consumer} no longer pins {old}")
         path.write_text(text.replace(old, new), encoding="utf-8")
+        handled.add(relative)
         updated.append(relative)
     return updated
 
