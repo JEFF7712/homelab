@@ -93,7 +93,7 @@ class TestSpotifySync(unittest.TestCase):
         self.assertTrue(engine.lidarr.put.call_args.args[1]["monitored"])
 
     def test_rate_limit_is_reported_without_hour_long_sleep(self) -> None:
-        client = HTTPClient(retries=1)
+        client = HTTPClient(retries=2)
         error = urllib.error.HTTPError(
             "https://api.spotify.com/v1/me/playlists",
             429,
@@ -101,9 +101,11 @@ class TestSpotifySync(unittest.TestCase):
             {"Retry-After": "50748"},
             None,
         )
-        with patch("urllib.request.urlopen", side_effect=error):
-            with self.assertRaisesRegex(RuntimeError, "50748 seconds"):
-                client.request("https://api.spotify.com/v1/me/playlists")
+        with (
+            patch("urllib.request.urlopen", side_effect=error),
+            self.assertRaisesRegex(RuntimeError, "50748 seconds"),
+        ):
+            client.request("https://api.spotify.com/v1/me/playlists")
 
     def test_artist_defaults_use_lidarr_contract(self) -> None:
         engine = object.__new__(SyncEngine)
