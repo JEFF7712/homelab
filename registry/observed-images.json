@@ -28,13 +28,13 @@
       "consumers": [
         "apolline/website-deploy-56b94c784c-hh5kb/web"
       ],
-      "reference": "registry.rupan.dev/apps/apolline@sha256:152348bd0101967c37254474929c543a36e3a73d8e20ac52ae89aae953cdc3b3"
+      "reference": "registry.rupan.dev/apps/apolline@sha256:59db0440414f3aba5d6f75872a424c8d83f9d380949fc16f1b3b8a14d9134253"
     },
     {
       "consumers": [
         "media/bookshelf-67cd8c5578-nhncs/bookshelf"
       ],
-      "reference": "registry.rupan.dev/apps/bookshelf@sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd"
+      "reference": "registry.rupan.dev/apps/bookshelf@sha256:4702dab6bcb5583c99bb088137aab03343539d9f7086327f0d94ec691fa68c7e"
     },
     {
       "consumers": [
@@ -46,13 +46,13 @@
       "consumers": [
         "darkbit/website-deploy-6c676797b4-zw2tz/web"
       ],
-      "reference": "registry.rupan.dev/apps/darkbit@sha256:c36b41cc28baa185be1092d8fb84b54ce60ec9818708363378572107fbf2723d"
+      "reference": "registry.rupan.dev/apps/darkbit@sha256:20c4b80cfa552d4b88c9dc554a6433ab876d763df9d90284b35953c65675ada8"
     },
     {
       "consumers": [
         "distrojeff/website-deploy-79c945646b-xns62/web"
       ],
-      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:819cdf207d6e8a21d6b82fd62ff3bc99433b0fed8dc45eca77e60095207d8896"
+      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:dc316a4587dabb93024d060e0c3d5f55024b82d49ba70c4290264a3305631a7b"
     },
     {
       "consumers": [
@@ -70,31 +70,31 @@
       "consumers": [
         "ism/website-deploy-9758489dd-9mdls/web"
       ],
-      "reference": "registry.rupan.dev/apps/ism@sha256:5bccd9d79af91c9c3f4676f267bb0d141d4240a5259c7fb45ab955a40c9eb220"
+      "reference": "registry.rupan.dev/apps/ism@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227"
     },
     {
       "consumers": [
         "majorfinder/website-deploy-69bcfb8497-56gkb/web"
       ],
-      "reference": "registry.rupan.dev/apps/majorfinder@sha256:8f12de2c5bfb1094efee833c234c413519f38da2ffe2113a2bed3fe0e42ce3ad"
+      "reference": "registry.rupan.dev/apps/majorfinder@sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e"
     },
     {
       "consumers": [
         "nixagent/website-deploy-594d65557d-8nt4b/web"
       ],
-      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:f1f09ad3835377a87c9a028c7b4c3fa0470b371d0c8b47458b220b76585bb0a9"
+      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:4ee2db56de5f890be912583e1f8c895598ece1b2abba149072eb78dcf931d8e9"
     },
     {
       "consumers": [
         "photography/website-deploy-589c456b57-ctlqs/web"
       ],
-      "reference": "registry.rupan.dev/apps/photography@sha256:4afc074434868a8c351fed38b4fdd000c4e9a5017ce857a2833859c7e62038d9"
+      "reference": "registry.rupan.dev/apps/photography@sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593"
     },
     {
       "consumers": [
         "pulse/website-deploy-78f6f4c4cb-r8znp/web"
       ],
-      "reference": "registry.rupan.dev/apps/pulse-site@sha256:6afc41ec0a9dfcf745a31273f873b72e43de4db124e93ff07f6618f1ece4ca86"
+      "reference": "registry.rupan.dev/apps/pulse-site@sha256:18725e41865e0b0163569df7037479c57297e93477f00bf7c2df3dd059895a74"
     },
     {
       "consumers": [
@@ -107,26 +107,26 @@
       "consumers": [
         "rupan-dev/website-deploy-5655458577-jnmvg/web"
       ],
-      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:161bf8d4be99776048e7f365e3bfa10db520c66644951fee628b09e5620874ed"
+      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:193d62dd1def0b866ef7854621a6e3035aab386e3453190e3b032ebb739caa85"
     },
     {
       "consumers": [
         "rupanism/website-deploy-647547ffc7-nstdj/web"
       ],
-      "reference": "registry.rupan.dev/apps/rupanism@sha256:b8e10045e42067d39f458b938df34d4c5c87cb75d9d0a4a304cf974126230ada"
+      "reference": "registry.rupan.dev/apps/rupanism@sha256:fc693f6fe2453d28a5260ba1d16c071401d83adbf38f39f9264150d29ddda2dc"
     },
     {
       "consumers": [
         "soluble-rupan/website-deploy-9574bfdbc-b7tvx/web",
         "soluble-rupan/website-deploy-9574bfdbc-x2ss4/web"
       ],
-      "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:491524851443429d2b03f5fee5a28ad92a75e93ec10fa9a3fde519d0e2957629"
+      "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:4a5d6e9e4f018b93fb4a70f53fd11c15731c34b8032d92ed17b00c8de360af38"
     },
     {
       "consumers": [
         "spatia/website-deploy-6b9b7854d4-xnjfs/web"
       ],
-      "reference": "registry.rupan.dev/apps/spatia-site@sha256:5ca14f82a819a2361bdab9dc631cbb8ac5210ca144bad9fa74da4384ed42be57"
+      "reference": "registry.rupan.dev/apps/spatia-site@sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc"
     },
     {
       "consumers": [

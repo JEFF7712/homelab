@@ -142,7 +142,7 @@ spec:
               mountPath: /config
       containers:
         - name: bookshelf
-          image: registry.rupan.dev/apps/bookshelf@sha256:9cc3f90aa0018b70229cc256d00b3ea7cce1c6a43fb0091bacdaee057364dfbd  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/bookshelf@sha256:4702dab6bcb5583c99bb088137aab03343539d9f7086327f0d94ec691fa68c7e  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
