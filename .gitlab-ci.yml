@@ -235,12 +235,14 @@ registry_promote_first_party:
   script:
     - export REGISTRY_SOURCE_AUTH_FILE
     - >-
-      python3 -c 'import base64, json, os;
+      nix develop ./flake -c python -c 'import base64, json, os;
       password = open(os.environ["REGISTRY_NODE_PASSWORD_FILE"]).read().strip();
       assert password, "node registry password is empty";
       auth = base64.b64encode(f"node:{password}".encode()).decode();
       fd = os.open("/tmp/registry-node-auth.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600);
-      with os.fdopen(fd, "w") as handle: json.dump({"auths": {"registry.rupan.dev": {"auth": auth}}}, handle)'
+      handle = os.fdopen(fd, "w");
+      json.dump({"auths": {"registry.rupan.dev": {"auth": auth}}}, handle);
+      handle.close()'
     - export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json
     - >-
       nix develop ./flake -c python -m scripts.registry promote
