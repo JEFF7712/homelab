@@ -247,7 +247,7 @@ spec:
             httpGet:
               path: /
               port: 5030
-            failureThreshold: 180
+            failureThreshold: 720
             periodSeconds: 10
           readinessProbe:
             httpGet:
