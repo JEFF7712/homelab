@@ -23,6 +23,12 @@ from typing import Any
 logger = logging.getLogger("spotify_sync")
 
 
+class SpotifyRateLimitError(RuntimeError):
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(f"upstream rate limit requires waiting {retry_after} seconds")
+        self.retry_after = retry_after
+
+
 def normalize(value: str) -> str:
     decomposed = unicodedata.normalize("NFKD", value)
     return re.sub(r"[^a-zA-Z0-9]", "", decomposed).lower()
@@ -70,9 +76,7 @@ class HTTPClient:
                 except ValueError:
                     retry_delay = min(2**attempt, 8)
                 if retry_delay > 300:
-                    raise RuntimeError(
-                        f"upstream rate limit requires waiting {int(retry_delay)} seconds"
-                    ) from error
+                    raise SpotifyRateLimitError(int(retry_delay)) from error
                 time.sleep(max(retry_delay, 1.0))
             except (urllib.error.URLError, TimeoutError, OSError):
                 if attempt + 1 == self.retries:
@@ -313,6 +317,7 @@ class SyncEngine:
         self.music_dir = Path(args.music_dir)
         self.playlist_dir = Path(args.playlist_dir)
         self.state_path = self.playlist_dir / ".spotify_sync_state.json"
+        self.cooldown_path = self.playlist_dir / ".spotify_sync_cooldown"
         self.playlist_dir.mkdir(parents=True, exist_ok=True)
         self.http = HTTPClient(timeout=args.http_timeout, retries=args.retries)
         self.spotify = SpotifyClient(
@@ -335,6 +340,17 @@ class SyncEngine:
         }
         self.library = LocalLibrary(self.music_dir)
         self.state = self.load_state()
+
+    def cooldown_active(self) -> bool:
+        try:
+            return time.time() < float(self.cooldown_path.read_text())
+        except (FileNotFoundError, OSError, ValueError):
+            return False
+
+    def record_cooldown(self, retry_after: int) -> None:
+        self.cooldown_path.write_text(
+            str(int(time.time()) + retry_after), encoding="utf-8"
+        )
 
     def load_state(self) -> dict[str, Any]:
         try:
@@ -450,6 +466,9 @@ class SyncEngine:
         return added, monitored
 
     def sync(self) -> None:
+        if self.cooldown_active():
+            logger.info("Spotify cooldown active; skipping this run")
+            return
         started = time.monotonic()
         self.library.index()
         playlists = self.spotify.playlists()
@@ -577,7 +596,12 @@ def main() -> int:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    SyncEngine(args).sync()
+    engine = SyncEngine(args)
+    try:
+        engine.sync()
+    except SpotifyRateLimitError as error:
+        engine.record_cooldown(error.retry_after)
+        logger.warning("Spotify cooldown recorded for %d seconds", error.retry_after)
     return 0
 
 

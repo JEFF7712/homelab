@@ -9,6 +9,7 @@ from scripts.spotify_sync import (
     HTTPClient,
     LidarrClient,
     LocalLibrary,
+    SpotifyRateLimitError,
     SyncEngine,
     normalize,
     safe_filename,
@@ -103,7 +104,7 @@ class TestSpotifySync(unittest.TestCase):
         )
         with (
             patch("urllib.request.urlopen", side_effect=error),
-            self.assertRaisesRegex(RuntimeError, "50748 seconds"),
+            self.assertRaisesRegex(SpotifyRateLimitError, "50748 seconds"),
         ):
             client.request("https://api.spotify.com/v1/me/playlists")
 
