@@ -71,10 +71,16 @@ data:
                         or attempt + 1 == self.retries
                     ):
                         raise
+                    retry_after = error.headers.get("Retry-After", "")
+                    try:
+                        retry_delay = min(float(retry_after), 120.0)
+                    except ValueError:
+                        retry_delay = min(2**attempt, 8)
+                    time.sleep(max(retry_delay, 1.0))
                 except (urllib.error.URLError, TimeoutError, OSError):
                     if attempt + 1 == self.retries:
                         raise
-                time.sleep(min(2**attempt, 8))
+                    time.sleep(min(2**attempt, 8))
             raise RuntimeError(f"request failed: {method} {url}")
 
 
@@ -92,6 +98,8 @@ data:
             self.http = http
             self.access_token = ""
             self.token_expiry = 0.0
+            self.last_request = 0.0
+            self.request_interval = 1.25
 
         def token(self) -> str:
             if self.access_token and time.time() < self.token_expiry - 60:
@@ -120,9 +128,15 @@ data:
             return self.access_token
 
         def get(self, url: str) -> Any:
-            return self.http.request(
-                url, headers={"Authorization": f"Bearer {self.token()}"}
+            time.sleep(
+                max(0.0, self.request_interval - (time.monotonic() - self.last_request))
             )
+            try:
+                return self.http.request(
+                    url, headers={"Authorization": f"Bearer {self.token()}"}
+                )
+            finally:
+                self.last_request = time.monotonic()
 
         def playlists(self) -> list[dict[str, Any]]:
             url: str | None = "https://api.spotify.com/v1/me/playlists?limit=50"
