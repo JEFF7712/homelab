@@ -903,7 +903,7 @@ class PromoteFakeClient(FakeClient):
     def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
         del destination
         self.listed.append(repository)
-        return sorted(self.tags[repository])
+        return sorted(self.tags.get(repository, []))
 
 
 class PromoteFirstPartyTests(unittest.TestCase):
@@ -988,6 +988,27 @@ class PromoteFirstPartyTests(unittest.TestCase):
             record["source"]["reference"],
             f"registry.rupan.dev/apps/rupan-dev:0.0.11@{digest(raw)}",
         )
+        self.assertEqual(client.copies, [])
+        self.assertEqual(validate_lock(lock), [])
+
+    def test_migrates_untagged_record_and_promotes_local_candidate(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64")])
+        new_digest = digest(new)
+        lock = first_party_lock(old, tag=None)
+        client = PromoteFakeClient(
+            {"registry.rupan.dev/apps/rupan-dev:0.0.3": new},
+            {"registry.rupan.dev/apps/rupan-dev": ["0.0.3", "latest"]},
+        )
+        summary = promote_first_party_lock(client, lock)
+        self.assertEqual(summary["migrated"], ["apps/rupan-dev"])
+        self.assertEqual(len(summary["promoted"]), 1)
+        self.assertEqual(summary["promoted"][0]["tag"], "0.0.3")
+        self.assertEqual(summary["promoted"][0]["digest"], new_digest)
+        record = lock["images"][0]
+        self.assertEqual(record["source"]["registry"], "registry.rupan.dev")
+        self.assertEqual(record["source"]["tag"], "0.0.3")
+        self.assertEqual(record["digest"], new_digest)
         self.assertEqual(client.copies, [])
         self.assertEqual(validate_lock(lock), [])
 

@@ -230,15 +230,18 @@ Known producer checkouts are:
 - `/home/rupan/projects/pulse`
 - `/home/rupan/projects/sites/rupanism`
 - `/home/rupan/projects/sites/rupan.dev` (`apps/rupan-dev`, publisher `publisher-rupan-dev`)
+- `/home/rupan/projects/majorfinder` (`apps/majorfinder`)
 - `/home/rupan/projects/old/soluble`
+- `/home/rupan/projects/photography` (`apps/photography`)
 - `/home/rupan/projects/spatia`
 - `/home/rupan/obsidian`
+- `/tmp/opencode/bookshelf` is a temporary CI checkout for `apps/bookshelf`; the
+  producer lives at `JEFF7712/bookshelf` on `develop`
 
 The legacy `/home/rupan/homelab` GitLab pipeline owns
 `apps/homelab-renovate-agent` and `apps/homelab-renovate-dashboard`. No producer
-checkout was found for `apps/cr-demo`, `apps/ism`, `apps/majorfinder`, or
-`apps/photography`. Treat those four as owner-discovery blockers for future
-publishing, while retaining and importing their exact current releases.
+checkout was found for `apps/cr-demo` or `apps/ism`; retain and import their
+exact current releases until producer ownership is resolved.
 
 ## Backup and restore
 

@@ -1065,29 +1065,29 @@ def _migrate_record_source_to_local(
 ) -> bool:
     """Repoint a first-party record at the local registry after verification.
 
-    Returns True when the record's pinned digest was observed under the
-    matching local tag, and rewrites the source in place. Returns False
-    without changing anything otherwise.
+    The local registry is authoritative, so migration selects its newest release
+    tag and preserves the previous digest until the normal promotion path
+    verifies and applies the candidate. Returns False when the local registry
+    has no usable release tag.
     """
     source = record["source"]
     if source.get("registry") == destination_registry:
         return False
-    tag = source.get("tag")
-    if not tag:
-        return False
     destination_repository_name = str(record["destination_repository"])
-    local_tagged = f"{destination_registry}/{destination_repository_name}:{tag}"
+    local_repository = f"{destination_registry}/{destination_repository_name}"
     try:
-        observed, _, _ = _inspect_digest(client, local_tagged, destination=True)
+        tags = client.list_tags(local_repository, destination=True)
     except RegistryError:
         return False
-    if observed != record.get("digest"):
+    candidate = select_promotion_candidate(tags, source.get("tag"))
+    if candidate is None:
         return False
     record["source"] = {
         **source,
         "registry": destination_registry,
         "repository": destination_repository_name,
-        "reference": f"{local_tagged}@{observed}",
+        "tag": candidate,
+        "reference": f"{local_repository}:{candidate}@{source.get('digest')}",
     }
     return True
 
