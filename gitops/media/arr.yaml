@@ -227,12 +227,7 @@ spec:
       containers:
         - name: lidarr
           image: registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f  # yamllint disable-line rule:line-length
-          command: ["/bin/sh", "-c"]
-          args:
-            - >-
-              apk add --no-cache ffmpeg python3 py3-pip jq flac &&
-              command -v ffprobe >/dev/null 2>&1 &&
-              exec /init
+          command: ["bash", "/tmp/lidarr-extended/lidarr-boot.sh"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -260,12 +255,9 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: extended-tmpl
+            - name: extended-boot
               mountPath: /tmp/lidarr-extended
               readOnly: true
-            - name: extended-init
-              mountPath: /config/custom-cont-init.d/10-render-extended-conf
-              subPath: 10-render-extended-conf
             - name: media
               mountPath: /data
             - name: tmp
@@ -298,16 +290,10 @@ spec:
         - name: config
           persistentVolumeClaim:
             claimName: lidarr-config
-        - name: extended-tmpl
+        - name: extended-boot
           configMap:
             name: lidarr-extended-config
-        - name: extended-init
-          configMap:
-            name: lidarr-extended-config
-            items:
-              - key: 10-render-extended-conf
-                path: 10-render-extended-conf
-                mode: 493
+            defaultMode: 420
         - name: media
           persistentVolumeClaim:
             claimName: media-library

@@ -120,6 +120,16 @@ class TestRenderScript(unittest.TestCase):
         self.assertIn("/config/extended.conf", source)
 
 
+class TestBootWrapper(unittest.TestCase):
+    def test_boot_wrapper_renders_then_starts_services(self):
+        source = extended_configmap()["data"]["lidarr-boot.sh"]
+        self.assertIn("10-render-extended-conf", source)
+        self.assertIn("/config/custom-services.d/Audio", source)
+        self.assertIn("/config/custom-services.d/ARLChecker", source)
+        self.assertIn("exec /init", source)
+        self.assertIn("bash /config/setup.bash", source)
+
+
 class TestDeploymentWiring(unittest.TestCase):
     def setUp(self):
         self.container = lidarr_container()
@@ -133,19 +143,17 @@ class TestDeploymentWiring(unittest.TestCase):
         for mount in self.container["volumeMounts"]:
             self.assertNotEqual(mount.get("mountPath"), "/config/extended.conf")
 
-    def test_template_and_init_volumes(self):
+    def test_boot_volume_and_command(self):
         by_name = {v["name"]: v for v in self.pod_spec["volumes"]}
-        self.assertIn("extended-tmpl", by_name)
+        self.assertIn("extended-boot", by_name)
         self.assertEqual(
-            by_name["extended-tmpl"]["configMap"]["name"],
+            by_name["extended-boot"]["configMap"]["name"],
             "lidarr-extended-config",
         )
-        init_vol = by_name["extended-init"]["configMap"]
-        self.assertEqual(init_vol["name"], "lidarr-extended-config")
-        items = init_vol["items"]
-        self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["key"], "10-render-extended-conf")
-        self.assertEqual(items[0]["mode"], 0o755)
+        self.assertEqual(
+            self.container["command"],
+            ["bash", "/tmp/lidarr-extended/lidarr-boot.sh"],
+        )
 
     def test_secret_env_present(self):
         env = {e["name"]: e for e in self.container.get("env", []) if "name" in e}

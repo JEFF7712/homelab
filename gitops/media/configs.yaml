@@ -111,10 +111,12 @@ data:
     lidarrUrl="http://127.0.0.1:8686"
     lidarrAPI="__LIDARR_API_KEY__"
     autoUpdate="false"
-  # Rendered at container start into /config/extended.conf by hotio's
-  # cont-init (custom-cont-init.d). Fails the container start loudly when
-  # DEEZER_ARL or LIDARR_API_KEY is missing, instead of silently
-  # downloading nothing.
+  # Rendered at container start into /config/extended.conf by
+  # lidarr-boot.sh (this image's init does not process custom-cont-init.d,
+  # so the Deployment command runs the wrapper, which also installs the
+  # toolchain and starts the Audio/ARLChecker services). Fails the
+  # container start loudly when DEEZER_ARL or LIDARR_API_KEY is missing,
+  # instead of silently downloading nothing.
   10-render-extended-conf: |
     #!/usr/bin/env python3
     """Render /config/extended.conf from the template plus secret env."""
@@ -159,6 +161,26 @@ data:
 
     if __name__ == "__main__":
         raise SystemExit(main())
+  # Container entrypoint wrapper (Deployment command). The hotio init
+  # system starts only its own s6 services, so this wrapper installs the
+  # extended toolchain, renders secrets, launches the extended daemons in
+  # the background, then execs /init. Only the services enabled in
+  # extended.conf.template are started (Audio, ARLChecker).
+  lidarr-boot.sh: |
+    #!/usr/bin/env bash
+    set -u
+    echo "--- [lidarr-boot] installing runtime deps ---"
+    apk add --no-cache ffmpeg python3 py3-pip jq flac
+    command -v ffprobe >/dev/null 2>&1
+    echo "--- [lidarr-boot] extended toolchain (self-skipping when installed) ---"
+    bash /config/setup.bash
+    echo "--- [lidarr-boot] rendering extended.conf ---"
+    python3 /tmp/lidarr-extended/10-render-extended-conf
+    echo "--- [lidarr-boot] starting extended services ---"
+    nohup /config/custom-services.d/Audio >>/config/logs/Audio-supervisor.log 2>&1 &
+    nohup /config/custom-services.d/ARLChecker >>/config/logs/ARLChecker-supervisor.log 2>&1 &
+    echo "--- [lidarr-boot] exec /init ---"
+    exec /init
 ---
 apiVersion: v1
 kind: ConfigMap

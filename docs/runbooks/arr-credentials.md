@@ -59,10 +59,12 @@ ConfigMap must stay in shell `KEY="value"` format; ini section headers
 break every assignment and silently exit all extended services at boot
 (no downloads, empty queue, indexer searches find nothing).
 
-Secrets never live in that ConfigMap: `10-render-extended-conf`
-(cont-init) renders `/config/extended.conf` at container start from the
-`DEEZER_ARL` and `LIDARR_API_KEY` env vars (media-app Secret). A missing
-var fails container start loudly.
+Secrets never live in that ConfigMap: the `lidarr-boot.sh` wrapper
+(Deployment command) renders `/config/extended.conf` at container start
+from the `DEEZER_ARL` and `LIDARR_API_KEY` env vars (media-app Secret),
+installs the extended toolchain via `setup.bash`, then starts the Audio
+and ARLChecker daemons before execing `/init`. A missing var fails
+container start loudly.
 
 Rotate the Deezer ARL:
 
