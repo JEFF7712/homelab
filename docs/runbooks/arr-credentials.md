@@ -76,6 +76,29 @@ Rotate the Deezer ARL:
    valid ARL, an `Arr-Extended` download client appears in Lidarr, and
    the Audio log starts processing the missing list.
 
+## Soularr (Lidarr wanted -> Soulseek via slskd)
+
+Soularr (`soularr` CronJob, every 2h) grabs up to 10 wanted albums per
+run from Lidarr, downloads them through slskd, and tells Lidarr to
+import from `/data/downloads/soulseek`. Config renders at job start
+from `LIDARR_API_KEY` / `SLSKD_API_KEY` (media-app Secret); sources are
+pinned to upstream commit `0700090e`.
+
+`SLSKD_API_KEY` is also the slskd primary API key (plain string =
+Administrator role, required for search/download/delete). Adding it for
+the first time needs a `download` pod restart so slskd picks up the env:
+
+1. Create the `SLSKD_API_KEY` GitLab variable (48+ chars), wait for the
+   ExternalSecret sync, then delete the `download` pod (restarts
+   qBittorrent too, briefly).
+2. Verify: trigger a manual run
+   (`kubectl -n media create job --from=cronjob/soularr soularr-manual`)
+   and check its logs for `Soularr finished` plus slskd
+   `/api/v0/transfers/downloads` going non-empty.
+
+Tune grabs per run via `number_of_albums_to_grab` in the
+`config.ini.template` (`gitops/media/soularr.yaml`).
+
 ## Symptoms of drift (before the job existed, these were all silent)
 
 - Seerr requests stuck in Pending/Requested: check Seerr request status,

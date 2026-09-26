@@ -234,6 +234,14 @@ spec:
                 secretKeyRef:
                   name: media-app
                   key: SLSKD_PASSWORD
+            # Primary API key for Soularr. Plain string = Administrator
+            # role (Soularr needs search/download/delete). Restart the
+            # download pod after first adding this variable.
+            - name: SLSKD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-app
+                  key: SLSKD_API_KEY
           volumeMounts:
             - name: media
               mountPath: /data

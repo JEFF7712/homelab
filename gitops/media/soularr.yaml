@@ -1,0 +1,235 @@
+# Soularr: Lidarr wanted list -> Soulseek downloads via slskd.
+#
+# soularr.py runs once per invocation, so this is a CronJob (every 2h),
+# not a daemon. It needs: Lidarr API key, slskd API key (SLSKD_API_KEY
+# GitLab variable, also consumed by the download Deployment), the shared
+# media library at /data, and a small config PVC for config.ini plus the
+# failed-import denylist state.
+#
+# Secrets never live here: run.py renders config.ini at job start from
+# LIDARR_API_KEY / SLSKD_API_KEY env (media-app Secret). Soularr itself
+# is fetched from the pinned upstream commit at runtime (same precedent
+# as the Lidarr extended toolchain in setup.bash).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: soularr
+  namespace: media
+data:
+  config.ini.template: |
+    [Lidarr]
+    api_key = __LIDARR_API_KEY__
+    host_url = http://lidarr
+    download_dir = /data/downloads/soulseek
+    disable_sync = False
+    [Slskd]
+    api_key = __SLSKD_API_KEY__
+    host_url = http://slskd
+    url_base = /
+    download_dir = /data/downloads/soulseek
+    delete_searches = False
+    stalled_timeout = 3600
+    [Release Settings]
+    use_selected_lidarr_release = False
+    use_most_common_tracknum = True
+    allow_multi_disc = True
+    accepted_countries = Europe,Japan,United Kingdom,United States,[Worldwide],Australia,Canada
+    skip_region_check = False
+    accepted_formats = CD,Digital Media,Vinyl
+    [Search Settings]
+    search_timeout = 5000
+    maximum_peer_queue = 50
+    minimum_peer_upload_speed = 0
+    minimum_filename_match_ratio = 0.8
+    minimum_search_interval = 5
+    allowed_filetypes = flac 24/192,flac 16/44.1,flac,mp3 320,mp3
+    ignored_users =
+    album_prepend_artist = False
+    search_type = incrementing_page
+    number_of_albums_to_grab = 10
+    title_blacklist =
+    search_blacklist =
+    search_source = missing
+    failed_import_denylist = True
+    [Download Settings]
+    download_filtering = True
+    use_extension_whitelist = False
+    extensions_whitelist = lrc,nfo,txt
+    rename_download_folders = True
+    [Logging]
+    level = INFO
+    format = [%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s
+    datefmt = %Y-%m-%dT%H:%M:%S%z
+    log_to_file = True
+    log_file = soularr.log
+    max_bytes = 1048576
+    backup_count = 3
+  run.py: |
+    #!/usr/bin/env python3
+    """Boot a Soularr CronJob run: fetch pinned sources, install deps,
+    render config.ini from secret env, run soularr once."""
+    import os
+    import subprocess
+    import sys
+    import urllib.request
+    from pathlib import Path
+
+    SOULARR_SHA = "0700090ed1c539455b05af9e16ab1a5bf8b9baff"
+    BASE = f"https://raw.githubusercontent.com/mrusse/Soularr/{SOULARR_SHA}"
+    WORK = Path("/tmp/soularr")
+    LIBS = Path("/tmp/pylibs")
+    CONFIG_DIR = Path("/config")
+
+
+    def fetch(name: str) -> None:
+        dest = WORK / name
+        if dest.is_file():
+            return
+        with urllib.request.urlopen(f"{BASE}/{name}", timeout=60) as resp:
+            dest.write_bytes(resp.read())
+        print(f"soularr-boot: fetched {name}")
+
+
+    def main() -> int:
+        lidarr_key = os.environ.get("LIDARR_API_KEY", "").strip()
+        slskd_key = os.environ.get("SLSKD_API_KEY", "").strip()
+        missing = [
+            name
+            for name, value in (
+                ("LIDARR_API_KEY", lidarr_key),
+                ("SLSKD_API_KEY", slskd_key),
+            )
+            if not value
+        ]
+        if missing:
+            print(
+                "soularr-boot: missing required env: " + ", ".join(missing),
+                file=sys.stderr,
+            )
+            return 1
+        WORK.mkdir(parents=True, exist_ok=True)
+        LIBS.mkdir(parents=True, exist_ok=True)
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        fetch("requirements.txt")
+        fetch("soularr.py")
+        env = dict(os.environ)
+        env["PIP_TARGET"] = str(LIBS)
+        env["PYTHONPATH"] = str(LIBS)
+        env["HOME"] = "/tmp"
+        print("soularr-boot: installing dependencies")
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--quiet",
+                "--target",
+                str(LIBS),
+                "-r",
+                str(WORK / "requirements.txt"),
+            ],
+            env=env,
+        )
+        if proc.returncode != 0:
+            print("soularr-boot: pip install failed", file=sys.stderr)
+            return proc.returncode
+        template = Path("/app/config.ini.template").read_text(encoding="utf-8")
+        rendered = template.replace("__LIDARR_API_KEY__", lidarr_key).replace(
+            "__SLSKD_API_KEY__", slskd_key
+        )
+        if "__LIDARR_API_KEY__" in rendered or "__SLSKD_API_KEY__" in rendered:
+            print("soularr-boot: placeholder left unreplaced", file=sys.stderr)
+            return 1
+        (CONFIG_DIR / "config.ini").write_text(rendered, encoding="utf-8")
+        print("soularr-boot: running soularr")
+        proc = subprocess.run(
+            [sys.executable, str(WORK / "soularr.py"), "--config-dir", str(CONFIG_DIR)],
+            env=env,
+            cwd=str(WORK),
+        )
+        return proc.returncode
+
+
+    if __name__ == "__main__":
+        raise SystemExit(main())
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: soularr
+  namespace: media
+spec:
+  schedule: "17 */2 * * *"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 21600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: soularr
+        spec:
+          restartPolicy: Never
+          securityContext:
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: soularr
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command: ["python3", "/app/run.py"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: LIDARR_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: media-app
+                      key: LIDARR_API_KEY
+                - name: SLSKD_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: media-app
+                      key: SLSKD_API_KEY
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: config
+                  mountPath: /config
+                - name: media
+                  mountPath: /data
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 256Mi
+                limits:
+                  cpu: "2"
+                  memory: 1Gi
+          volumes:
+            - name: script
+              configMap:
+                name: soularr
+            - name: config
+              persistentVolumeClaim:
+                claimName: soularr-config
+            - name: media
+              persistentVolumeClaim:
+                claimName: media-library
+            - name: tmp
+              emptyDir: {}

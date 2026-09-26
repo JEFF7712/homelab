@@ -7,7 +7,9 @@ resources:
   - volumes.yaml
   - configs.yaml
   - arr.yaml
+  - arr-secret-sync.yaml
   - spotify-sync.yaml
+  - soularr.yaml
   - download.yaml
   - jellyfin.yaml
   - books.yaml
