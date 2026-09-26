@@ -22,7 +22,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: quartz
-          image: registry.rupan.dev/apps/quartz@sha256:cf23ea2a68579b9ec59697cf7b8faf85bfbf160fd4fb4e44ec139264f5621fe0
+          image: registry.rupan.dev/apps/quartz@sha256:f8ee2281c5069b1d7cc9e8b12a7d4de71217755653e6743f79b22b8fdbad8c22
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
