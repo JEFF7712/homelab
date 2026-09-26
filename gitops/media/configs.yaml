@@ -4,23 +4,161 @@ metadata:
   name: lidarr-extended-config
   namespace: media
 data:
-  extended.conf: |
-    [General]
-    enableAutoConfig = false
-    enableAudioConfig = false
-    enableVideoConfig = false
-    enableUnmappedFilesCleaner = false
-    enableQueueCleaner = false
-    enableChangeCategory = false
-    [DownloadClients]
-    dlClientSource = "deezer"
-    [Audio]
-    audioFormat = "native"
-    audioBitrate = "lossless"
-    enableBeetsTagging = false
-    [Connection]
-    lidarrUrl = "http://127.0.0.1:8686"
-    autoUpdate = false
+  # Shell format, NOT ini. The hotio extended scripts
+  # (`source /config/extended.conf`) execute this file as bash; ini
+  # section headers break every assignment and fail ConfValidationCheck,
+  # which exits all extended services (Audio/ARLChecker) at boot.
+  # Secrets are placeholders here and are rendered at container start by
+  # 10-render-extended-conf from the media-app Secret. Never put real
+  # arlToken/lidarrAPI values in this file.
+  extended.conf.template: |
+    ##### LIDARR EXTENDED SCRIPTS SETTINGS #####
+
+    ##### PATHS
+    downloadPath="/config/extended/downloads"
+    importPath="/config/extended/import"
+    videoPath=""
+
+    ##### SCRIPT ENABLEMENT
+    enableAutoConfig="false"
+    enableAudio="true"
+    enableVideo="false"
+    enableUnmappedFilesCleaner="false"
+    enableQueueCleaner="false"
+    enableChangeCategory="false"
+
+    ##### SCRIPT INTERVALS
+    audioScriptInterval=15m
+    videoScriptInterval=15m
+    autoArtistAdderInterval=12h
+    unmappedFolderCleanerScriptInterval=15m
+    queueCleanerScriptInterval=15m
+
+    ##### AUTOCONFIG SCRIPT SETTINGS
+    configureMediaManagement="false"
+    configureMetadataConsumerSettings="false"
+    configureMetadataProviderSettings="false"
+    configureCustomScripts="true"
+    configureLidarrUiSettings="false"
+    configureMetadataProfileSettings="false"
+    configureTrackNamingSettings="false"
+
+    ##### AUDIO SCRIPT
+    # SEARCH
+    searchSort="date"
+    matchDistance="3"
+    lidarrSearchForMissing="true"
+    retryNotFound="90"
+    ignoreInstrumentalRelease="false"
+    preferSpecialEditions="true"
+
+    # CLIENT (arlToken rendered at boot from DEEZER_ARL)
+    dlClientSource="deezer"
+    arlToken="__DEEZER_ARL__"
+    tidalCountryCode="US"
+    failedDownloadAttemptThreshold="6"
+    deezerClientTestDownloadId="197472472"
+    tidalClientTestDownloadId="166356219"
+    downloadClientTimeOut="10m"
+
+    # QUALITY
+    audioLyricType="both"
+    audioFormat="native"
+    audioBitrate="lossless"
+    requireQuality="false"
+
+    # POST PROCESSING
+    enableBeetsTagging="false"
+    beetsMatchPercentage="90"
+    enableReplaygainTags="true"
+
+    # ADD ARTIST AUTOMATION
+    addDeezerTopArtists="false"
+    addDeezerTopAlbumArtists="false"
+    addDeezerTopTrackArtists="false"
+    topLimit="3"
+    addRelatedArtists="false"
+    numberOfRelatedArtistsToAddPerArtist="1"
+    autoArtistAdderMonitored="true"
+    preventRelatedArtistsLoop="true"
+
+    ##### VIDEO SCRIPT
+    addFeaturedVideoArtists="false"
+    videoFormat="bv[width>=1920]+ba"
+    videoInfoJson="false"
+    youtubeSubtitleLanguage="en"
+    disableImvd="false"
+
+    ##### PLEX NOTIFY SCRIPT
+    plexUrl=""
+    plexToken=""
+
+    ##### DEEZER ARLCHECKER
+    arlUpdateInterval="24h"
+    telegramBotEnable="false"
+    telegramBotToken=""
+    telegramUserChatID=""
+    pushoverEnable="false"
+    pushoverUserKey=""
+    pushoverAppAPIKey=""
+    ntfyEnable="false"
+    ntfyServerTopic=""
+    ntfyUserToken=""
+    AppriseEnable="false"
+    AppriseString=""
+
+
+    lidarrUrl="http://127.0.0.1:8686"
+    lidarrAPI="__LIDARR_API_KEY__"
+    autoUpdate="false"
+  # Rendered at container start into /config/extended.conf by hotio's
+  # cont-init (custom-cont-init.d). Fails the container start loudly when
+  # DEEZER_ARL or LIDARR_API_KEY is missing, instead of silently
+  # downloading nothing.
+  10-render-extended-conf: |
+    #!/usr/bin/env python3
+    """Render /config/extended.conf from the template plus secret env."""
+    import os
+    import sys
+    from pathlib import Path
+
+    TEMPLATE = Path("/tmp/lidarr-extended/extended.conf.template")
+    DEST = Path("/config/extended.conf")
+
+
+    def main() -> int:
+        arl = os.environ.get("DEEZER_ARL", "").strip()
+        api_key = os.environ.get("LIDARR_API_KEY", "").strip()
+        missing = [
+            name
+            for name, value in (("DEEZER_ARL", arl), ("LIDARR_API_KEY", api_key))
+            if not value
+        ]
+        if missing:
+            print(
+                "render-extended-conf: missing required env: "
+                + ", ".join(missing),
+                file=sys.stderr,
+            )
+            return 1
+        text = TEMPLATE.read_text(encoding="utf-8")
+        text = text.replace("__DEEZER_ARL__", arl).replace(
+            "__LIDARR_API_KEY__", api_key
+        )
+        if "__DEEZER_ARL__" in text or "__LIDARR_API_KEY__" in text:
+            print(
+                "render-extended-conf: placeholder left unreplaced",
+                file=sys.stderr,
+            )
+            return 1
+        DEST.write_text(text, encoding="utf-8")
+        os.chmod(DEST, 0o644)
+        print("render-extended-conf: wrote /config/extended.conf")
+        return 0
+
+
+    if __name__ == "__main__":
+        raise SystemExit(main())
 ---
 apiVersion: v1
 kind: ConfigMap

@@ -250,15 +250,22 @@ spec:
                 secretKeyRef:
                   name: media-app
                   key: DEEZER_ARL
+            - name: LIDARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-app
+                  key: LIDARR_API_KEY
           ports:
             - containerPort: 8686
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: extended
-              mountPath: /config/extended.conf
-              subPath: extended.conf
+            - name: extended-tmpl
+              mountPath: /tmp/lidarr-extended
               readOnly: true
+            - name: extended-init
+              mountPath: /config/custom-cont-init.d/10-render-extended-conf
+              subPath: 10-render-extended-conf
             - name: media
               mountPath: /data
             - name: tmp
@@ -291,9 +298,16 @@ spec:
         - name: config
           persistentVolumeClaim:
             claimName: lidarr-config
-        - name: extended
+        - name: extended-tmpl
           configMap:
             name: lidarr-extended-config
+        - name: extended-init
+          configMap:
+            name: lidarr-extended-config
+            items:
+              - key: 10-render-extended-conf
+                path: 10-render-extended-conf
+                mode: 493
         - name: media
           persistentVolumeClaim:
             claimName: media-library
