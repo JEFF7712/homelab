@@ -129,6 +129,11 @@ class TestBootWrapper(unittest.TestCase):
         self.assertIn("exec /init", source)
         self.assertIn("bash /config/setup.bash", source)
 
+    def test_boot_wrapper_scopes_deemix_config_home(self):
+        source = extended_configmap()["data"]["lidarr-boot.sh"]
+        self.assertIn("XDG_CONFIG_HOME=/config/xdg nohup", source)
+        self.assertNotIn("export XDG_CONFIG_HOME", source)
+
 
 class TestDeploymentWiring(unittest.TestCase):
     def setUp(self):

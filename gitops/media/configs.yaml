@@ -177,8 +177,13 @@ data:
     echo "--- [lidarr-boot] rendering extended.conf ---"
     python3 /tmp/lidarr-extended/10-render-extended-conf
     echo "--- [lidarr-boot] starting extended services ---"
-    nohup /config/custom-services.d/Audio >>/config/logs/Audio-supervisor.log 2>&1 &
-    nohup /config/custom-services.d/ARLChecker >>/config/logs/ARLChecker-supervisor.log 2>&1 &
+    # deemix resolves its config via XDG_CONFIG_HOME, but the container
+    # sets it to /config/.config while the scripts stage credentials in
+    # /config/xdg. Without this override deemix prompts for the ARL
+    # interactively and every download aborts. Scoped to the daemons so
+    # /init and Lidarr keep the image default environment.
+    XDG_CONFIG_HOME=/config/xdg nohup /config/custom-services.d/Audio >>/config/logs/Audio-supervisor.log 2>&1 &
+    XDG_CONFIG_HOME=/config/xdg nohup /config/custom-services.d/ARLChecker >>/config/logs/ARLChecker-supervisor.log 2>&1 &
     echo "--- [lidarr-boot] exec /init ---"
     exec /init
 ---
