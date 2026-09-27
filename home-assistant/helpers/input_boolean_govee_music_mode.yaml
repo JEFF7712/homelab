@@ -1,3 +1,3 @@
 name: Govee Music Mode
-icon: mdi:music
+icon: null
 entity_id: input_boolean.govee_music_mode

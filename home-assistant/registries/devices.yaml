@@ -23,6 +23,9 @@
   name_by_user: Good Vibes Sign
 - id: 7e312943737102071dcfa3e9c891699d
   area_id: living_room
+- id: 8795d1e844dce2c2049491c4d48d0514
+  area_id: bedroom
+  name_by_user: Bose Speaker
 - id: a1ba1d50c624f629824c4e9b36cb0035
   area_id: kitchen
   name_by_user: Kitchen Mushroom Lamp

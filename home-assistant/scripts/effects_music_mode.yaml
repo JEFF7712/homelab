@@ -1,9 +1,8 @@
-alias: "Effects: Music Mode"
-description: >-
-  Toggle or activate the native Govee dynamic rhythm effect across all
-  Govee lights and manage Adaptive Lighting lock.
+alias: 'Effects: Music Mode'
+description: Toggle or activate real-time LedFx music mode across all Govee lights
+  and manage Adaptive Lighting lock.
+mode: single
 sequence:
   - action: input_boolean.toggle
     target:
       entity_id: input_boolean.govee_music_mode
-mode: single
