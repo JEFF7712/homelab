@@ -141,5 +141,40 @@ class IotAliasConsolidationTests(unittest.TestCase):
             self.assertLess(seq, block_seq, name)
 
 
+class RokuLanFreezeTests(unittest.TestCase):
+    def test_wan_block_precedes_internet_allow(self) -> None:
+        block = rule_block("clients-block-roku-bulbs-internet")
+        allow = rule_block("clients-allow-internet")
+
+        def seq(block_text: str) -> int:
+            match = re.search(r"sequence\s*=\s*(\d+)", block_text)
+            self.assertIsNotNone(match)
+            assert match is not None
+            return int(match.group(1))
+
+        self.assertLess(seq(block), seq(allow))
+        self.assertIn('"block"', block)
+        self.assertRegex(block, r"quick\s+= true")
+        self.assertIn('"roku_lan_bulbs"', block)
+
+    def test_wan_block_alias_pins_both_lamps(self) -> None:
+        alias = alias_block("roku_lan_bulbs")
+
+        self.assertIn('"host"', alias)
+        self.assertIn("10.0.20.116", alias)
+        self.assertIn("10.0.20.117", alias)
+
+    def test_lamp_reservations_pin_dhcp(self) -> None:
+        text = TFVARS.read_text()
+
+        for name, ip, mac in (
+            ("roku_desk_lamp", "10.0.20.117", "7c:67:ab:0a:83:ab"),
+            ("roku_floor_lamp", "10.0.20.116", "7c:67:ab:16:23:b7"),
+        ):
+            block = rule_block(name)
+            self.assertIn(ip, block)
+            self.assertIn(mac, block)
+
+
 if __name__ == "__main__":
     unittest.main()

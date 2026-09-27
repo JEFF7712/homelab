@@ -119,6 +119,20 @@ dhcpv4_reservations = {
     mac_address = "d4:13:68:4d:d9:d4"
     subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
   }
+  roku_desk_lamp = {
+    description = "Roku BC1000X desk lamp (LAN control, WAN blocked)"
+    hostname    = "roku-desk-lamp"
+    ip_address  = "10.0.20.117"
+    mac_address = "7c:67:ab:0a:83:ab"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
+  roku_floor_lamp = {
+    description = "Roku BC1000X floor lamp (LAN control, WAN blocked)"
+    hostname    = "roku-floor-lamp"
+    ip_address  = "10.0.20.116"
+    mac_address = "7c:67:ab:16:23:b7"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
 }
 
 firewall_aliases = {
@@ -155,6 +169,13 @@ firewall_aliases = {
     type        = "network"
     content     = ["10.0.20.112/29"]
     description = "Roku bulb local API segment"
+    enabled     = true
+  }
+  roku_lan_bulbs = {
+    name        = "roku_lan_bulbs"
+    type        = "host"
+    content     = ["10.0.20.116", "10.0.20.117"]
+    description = "Roku BC1000X lamps pinned to LAN-only control"
     enabled     = true
   }
   netbird_allowed_dests = {
@@ -329,6 +350,22 @@ firewall_filters = {
       quick       = true
       log         = false
       source      = { net = "10.0.20.0/24", port = "" }
+      destination = { net = "any", port = "" }
+    }
+  }
+  clients-block-roku-bulbs-internet = {
+    description = "Block LAN-only Roku lamps from the Internet (freeze firmware)"
+    enabled     = true
+    sequence    = 225
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "block"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "any"
+      quick       = true
+      log         = true
+      source      = { net = "roku_lan_bulbs", port = "" }
       destination = { net = "any", port = "" }
     }
   }
