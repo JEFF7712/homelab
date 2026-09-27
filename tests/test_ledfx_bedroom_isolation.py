@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -59,18 +60,30 @@ class BedroomLedFxModuleTests(unittest.TestCase):
                 f"{host.name} must not run the bedroom LedFx instance",
             )
 
-    def test_image_is_digest_pinned_and_matches_shared_image(self) -> None:
+    def test_image_is_pinned_and_tracks_the_shared_upstream_digest(self) -> None:
         module = MODULE.read_text()
-        pinned = re.search(r"@sha256:[0-9a-f]{64}", module)
-        self.assertIsNotNone(pinned, "bedroom LedFx image must be digest pinned")
 
-        shared = re.search(r"@sha256:[0-9a-f]{64}", SHARED_LEDFX.read_text())
-        self.assertIsNotNone(shared)
-        self.assertEqual(
-            pinned.group(0),
-            shared.group(0),
-            "bedroom and shared LedFx must run the same pinned image",
+        lock = json.loads(
+            (REPO_ROOT / "registry/images.lock.json").read_text(encoding="utf-8")
         )
+        locked = next(
+            record["digest"]
+            for record in lock["images"]
+            if record.get("destination_repository") == "upstream/ghcr.io/ledfx/ledfx"
+        )
+        self.assertIn(locked, module, "module must track the locked upstream digest")
+
+        # The local registry serves a converted manifest, so the reference is
+        # the retention tag that embeds the upstream digest, not @sha256.
+        tag = re.search(r"ledfx:retention-deployed-([0-9a-f]{12})", module)
+        self.assertIsNotNone(tag, "image must use the retention tag")
+        self.assertEqual(
+            tag.group(1),
+            locked.split(":")[1][:12],
+            "retention tag must match the locked upstream digest",
+        )
+        self.assertIn("@sha256:", SHARED_LEDFX.read_text())
+        self.assertNotIn("@sha256:", module)
 
     def test_listens_to_the_bluetooth_tap_not_the_shared_tap(self) -> None:
         module = MODULE.read_text()

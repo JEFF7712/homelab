@@ -6,7 +6,16 @@
 }:
 let
   cfg = config.homelab.ledfxBedroom;
-  image = "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036";
+
+  # Upstream digest, as recorded in registry/images.lock.json and used by the
+  # shared-spaces manifest. The local registry stores this image as a converted
+  # Docker v2 manifest whose own digest differs from the upstream OCI index, so
+  # the upstream digest is not addressable there ("manifest unknown"). The
+  # import pipeline republishes it under a retention tag that embeds the
+  # upstream digest, which is the stable local handle. tests assert the two
+  # stay tied together.
+  upstreamDigest = "sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036";
+  image = "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx:retention-deployed-a5ff8549a847d1b2";
 
   prepareState = pkgs.writeShellScript "prepare-ledfx-bedroom-state" ''
     set -eu
@@ -64,7 +73,18 @@ in
     image = lib.mkOption {
       type = lib.types.str;
       default = image;
-      description = "Digest-pinned container image. Keep in sync with the shared-spaces LedFx image pin.";
+      description = "Local-registry reference for the shared LedFx build.";
+    };
+
+    upstreamDigest = lib.mkOption {
+      type = lib.types.str;
+      default = upstreamDigest;
+      description = ''
+        Upstream digest this instance tracks, matching the shared-spaces pin in
+        registry/images.lock.json. The local image reference is the retention
+        tag that embeds this digest, because the registry stores a converted
+        manifest whose own digest differs.
+      '';
     };
 
     pulseSource = lib.mkOption {
