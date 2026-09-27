@@ -124,7 +124,7 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # socket refuses every client and LedFx cannot open its source.
         base = (REPO_ROOT / "flake/modules/nas-base.nix").read_text()
         self.assertIn("libpipewire-module-protocol-pulse", base)
-        self.assertIn("services.pipewire.extraConfig", base)
+        self.assertIn("services.pipewire.configPackages", base)
 
     def test_stale_containers_are_replaced(self) -> None:
         # Stopping the unit kills podman, not the container, so a stale
