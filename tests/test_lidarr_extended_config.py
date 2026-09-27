@@ -147,7 +147,7 @@ class TestTidalShim(unittest.TestCase):
         self.shim = extended_configmap()["data"]["tidal-dl-shim"]
 
     def test_shim_translates_legacy_flags(self):
-        for flag in ('-q)', '-o)', '-l)'):
+        for flag in ("-q)", "-o)", "-l)"):
             self.assertIn(flag, self.shim)
         self.assertIn("tidaler dl", self.shim)
         self.assertIn("exec -a tidal-dl", self.shim)
