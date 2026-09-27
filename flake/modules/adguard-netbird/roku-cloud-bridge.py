@@ -32,6 +32,7 @@ import concurrent.futures
 import json
 import os
 import sys
+import time
 import uuid
 
 LEAVES_URL = "https://my.roku.com/smarthome/api/v1/leaves"
@@ -40,6 +41,7 @@ ORIGIN = "https://my.roku.com"
 REST_TIMEOUT = 10
 WS_TIMEOUT = 10
 COMMAND_WAIT = 0.5
+VERIFY_DELAY_S = 12
 
 TEMP_MIN_K = 1800
 TEMP_MAX_K = 6500
@@ -135,6 +137,25 @@ def ha_to_cloud(cmd: dict) -> list[tuple[str, dict]]:
             ("brightness", {"level": clamp(round(int(cmd["brightness"]) * 100 / 255), 0, 100)})
         )
     return out
+
+
+def commanded_state(cmd: dict) -> dict:
+    """Optimistic HA state for immediate UI feedback (mirrors roku-bridge)."""
+    state = {"state": (cmd.get("state") or "ON").upper()}
+    if cmd.get("color_temp") is not None:
+        state["color_mode"] = "color_temp"
+    elif isinstance(cmd.get("color"), dict):
+        state["color_mode"] = "rgb"
+        state["color"] = {
+            k: cmd["color"][k] for k in ("r", "g", "b") if k in cmd["color"]
+        }
+    elif cmd.get("rgb_color"):
+        state["color_mode"] = "rgb"
+    if cmd.get("brightness") is not None:
+        state["brightness"] = cmd["brightness"]
+    if cmd.get("color_temp") is not None:
+        state["color_temp"] = cmd["color_temp"]
+    return state
 
 
 def cloud_state_to_ha(member: dict, cmd: dict) -> dict:
@@ -260,15 +281,22 @@ def _handle_set(
             for command, params in cloud_cmds:
                 asyncio.run(_ws_send(header, leaf_id, command, params))
             save_cookies(cookies_path, session)
+            print(f"{slug} <- {cloud_cmds}", flush=True)
+            time.sleep(VERIFY_DELAY_S)
             try:
                 leaves = fetch_leaves(session)
                 save_cookies(cookies_path, session)
                 member = find_member(leaves, slug) or member
-            except Exception:
-                pass
+            except Exception as e:
+                print(
+                    f"verify skipped for {topic}: {type(e).__name__}: {e}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                return
         state = cloud_state_to_ha(member, cmd)
         mqtt_client.publish(f"{prefix}/light/{slug}/state", json.dumps(state), retain=True)
-        print(f"{slug} <- {cloud_cmds}", flush=True)
+        print(f"{slug} == {state}", flush=True)
     except SessionExpired as e:
         print(f"session expired on {topic}: {e} (re-seed cookies)", file=sys.stderr, flush=True)
     except Exception as e:
@@ -331,9 +359,18 @@ def run(
         if slug not in bulbs:
             return
         try:
+            raw = bytes(msg.payload)
+            cmd = json.loads(raw.decode())
+            if not ha_to_cloud(cmd):
+                return
+            c.publish(
+                f"{prefix}/light/{slug}/state",
+                json.dumps(commanded_state(cmd)),
+                retain=True,
+            )
             executors[slug].submit(
                 _handle_set, c, cloud_lock, cloud, prefix, bulbs, slug,
-                bytes(msg.payload), msg.topic,
+                raw, msg.topic,
             )
         except Exception as e:
             print(

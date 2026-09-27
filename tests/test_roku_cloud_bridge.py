@@ -60,6 +60,13 @@ class CloudTranslationTests(unittest.TestCase):
     def test_empty_command_sends_nothing(self) -> None:
         self.assertEqual(CLOUD.ha_to_cloud({}), [])
 
+    def test_commanded_state_is_optimistic(self) -> None:
+        ha = CLOUD.commanded_state({"state": "ON", "brightness": 200})
+        self.assertEqual(ha, {"state": "ON", "brightness": 200})
+        ha = CLOUD.commanded_state({"state": "OFF"})
+        self.assertEqual(ha, {"state": "OFF"})
+        self.assertNotIn("color_mode", ha)
+
     def test_reported_temp_state_maps_back(self) -> None:
         member = {
             "id": "x",
