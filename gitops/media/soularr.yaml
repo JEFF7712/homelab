@@ -46,7 +46,7 @@ data:
     ignored_users =
     album_prepend_artist = False
     search_type = incrementing_page
-    number_of_albums_to_grab = 10
+    number_of_albums_to_grab = 30
     title_blacklist =
     search_blacklist =
     search_source = missing
