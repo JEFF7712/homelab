@@ -67,6 +67,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/opnsense-bgp-proof.md` — OPNsense BGP reachability proof.
 - `docs/runbooks/postgres-disaster-recovery.md` — Postgres backup and restore.
 - `docs/runbooks/agent-workspaces.md` — multiuser agent workspace operations.
+- `docs/runbooks/arr-credentials.md` — media download-chain credential sync (qBittorrent password, *arr/Seerr API keys) and rotation.
 - `docs/runbooks/home-assistant-automation-best-practices.md` — HA automation conventions.
 
 ### Gotchas (code-level pitfalls)
