@@ -11,8 +11,10 @@ NIX = REPO_ROOT / "flake/modules/adguard-netbird/ledfx-roku-bridge.nix"
 APPLIANCE = REPO_ROOT / "flake/modules/adguard-netbird-appliance.nix"
 
 # Bedroom slugs verified against live HA entity registry unique_ids
-# (roku_<slug>) on 2026-09-27. Order: desk, floor, strip.
-SLUGS = ["7C67AB0A83AB", "7C67AB1623B7", "7C67AB2A0505"]
+# (roku_<slug>) on 2026-09-27. Order: desk, floor. The light strip
+# (7C67AB2A0505) is excluded: local control is broken and a separate
+# cloud implementation is in progress.
+SLUGS = ["7C67AB0A83AB", "7C67AB1623B7"]
 
 
 def load_relay():
@@ -123,6 +125,8 @@ class NixContractTests(unittest.TestCase):
         self.assertIn("--osc-port 9000 --osc-path /bedroom", nix)
         for slug in SLUGS:
             self.assertIn(slug, nix)
+        # Light strip excluded: local control broken, cloud path in progress.
+        self.assertNotIn("7C67AB2A0505", nix)
 
     def test_relay_carries_no_bulb_secrets(self) -> None:
         source = MODULE.read_text()

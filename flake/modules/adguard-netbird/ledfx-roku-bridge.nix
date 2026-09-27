@@ -1,11 +1,17 @@
 { pkgs, ... }:
 let
   # LedFx OSC relay for the bedroom Roku bulbs. LedFx has no device type that
-  # speaks the bulbs' encrypted HTTP API, so one OSC device (pixel_count 3,
+  # speaks the bulbs' encrypted HTTP API, so one OSC device (pixel_count 2,
   # "All To One" to /bedroom on UDP 9000) streams frames here and this daemon
   # republishes them as HA MQTT JSON light commands on roku/light/<slug>/set,
   # where roku-bridge translates to encrypted bulb requests. Pixel order must
-  # match the LedFx group-virtual segment order: desk, floor, strip.
+  # match the LedFx group-virtual segment order: desk, floor.
+  #
+  # The bedroom light strip is intentionally excluded: a firmware update broke
+  # its local control and a separate cloud implementation is in progress.
+  # Driving it through this relay would only error-spam roku-bridge, and if
+  # that cloud path ever subscribes to these same set topics it must throttle
+  # there, per-frame relay output would become per-frame cloud API calls.
   #
   # Slugs are MAC-derived MQTT topic fragments, already visible on the LAN as
   # retained discovery topics, so they live in a plain store config. The relay
@@ -26,7 +32,6 @@ let
     pixels:
       - slug: 7C67AB0A83AB
       - slug: 7C67AB1623B7
-      - slug: 7C67AB2A0505
   '';
 in
 {
