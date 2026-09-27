@@ -29,14 +29,14 @@ actions:
                 - light.floor_lamp_floor_lamp
                 - light.light_strip_light_strip
               manual_control: true
-          - action: rest_command.ledfx_activate_scene
+          - action: rest_command.ledfx_bedroom_activate_scene
             data:
               scene_id: "bedroom-music-mode"
       - conditions:
           - condition: trigger
             id: "mode_off"
         sequence:
-          - action: rest_command.ledfx_deactivate_scene
+          - action: rest_command.ledfx_bedroom_deactivate_scene
             data:
               scene_id: "bedroom-music-mode"
           - action: adaptive_lighting.set_manual_control

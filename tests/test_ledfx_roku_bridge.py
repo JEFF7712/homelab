@@ -172,10 +172,13 @@ class NixContractTests(unittest.TestCase):
         self.assertNotIn("10.0.20.", source)
         self.assertNotIn("device_request", source)
 
-    def test_appliance_opens_osc_port_from_ledfx_host_only(self) -> None:
+    def test_appliance_opens_osc_port_only_to_ledfx_hosts(self) -> None:
         appliance = APPLIANCE.read_text()
-        self.assertIn("./adguard-netbird/ledfx-roku-bridge.nix", appliance)
-        self.assertIn("ip saddr 10.0.30.15 udp dport 9000 accept", appliance)
+        # homelab-05 runs the shared instance, nas-01 the bedroom one. No other
+        # host may reach the relay.
+        self.assertIn(
+            "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
+        )
 
     def test_ci_checks_new_service(self) -> None:
         pipeline = (REPO_ROOT / ".gitlab-ci.yml").read_text()

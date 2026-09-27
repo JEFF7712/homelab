@@ -54,21 +54,49 @@ HA's MQTT JSON light integration drifted from `rgb_color: [r, g, b]` (flat list)
 - `/home/rupan/projects/roku-bulb-local/docs/local-http-api.md` — full protocol reference (encryption, pids, OUI checks, crash warning about nested-object `characteristics`).
 - `/home/rupan/projects/roku-bulb-local/docs/bulb-inventory.md` — bulb MAC/IP/`enr` inventory (sensitive bits live in gitignored `captures/`).
 
-## Bedroom music mode (LedFx relay)
+## Bedroom music mode (isolated LedFx on nas-01)
 
-LedFx has no device type for these bulbs, so the bedroom path is
-LedFx OSC output → `ledfx-roku-bridge` → MQTT → `roku-bridge` → bulb:
+The bedroom runs its **own** LedFx instance, on `nas-01`, and is deliberately
+isolated from shared spaces. Nothing in the living room can reach bedroom
+state, and the bedroom cannot reach living-room state.
 
 ```
-LedFx scene bedroom-music-mode (effect: energy)
+Bedroom audio (Bluetooth Bose Flex 2 on nas-01)
+  ↓ PipeWire monitor bluez_output.E4_58_BC_10_CA_C9.1.monitor
+LedFx instance on nas-01 (scene bedroom-music-mode, effect energy)
   ↓ OSC "All To One" [[R,G,B] x2] floats 0.0-1.0 to /bedroom, UDP 10.0.30.10:9000 @10Hz
-ledfx-roku-bridge daemon (systemd on adguard-netbird-01, user ledfx-roku-bridge)
-  throttles per bulb (0.2s min interval, 12-step color delta; blackouts always
-  pass) and publishes {"state": "ON", "color": {...}, "brightness": <level>}
-  to roku/light/<slug>/set
-  ↓ (same translation as HA commands)
+ledfx-roku-bridge on adguard-netbird-01   (shared transport only)
+  ↓ throttles, then roku/light/<slug>/set
 roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
 ```
+
+Why a second instance rather than sharing the one on homelab-05: LedFx can
+only analyse audio that reaches the host it runs on. The bedroom speaker is
+Bluetooth attached to `nas-01`, so the audio physically exists there;
+homelab-05's local tap never sees it. Running the instance next to the audio
+is what makes the effect work at all.
+
+Isolation is enforced in three places, all covered by
+`tests/test_ledfx_bedroom_isolation.py`:
+
+- **Deployment**: `flake/modules/ledfx-bedroom.nix` is imported only by
+  `flake/hosts/nas-01`, never by a shared-spaces host.
+- **REST**: separate `ledfx_bedroom_*` rest commands in
+  `home-assistant/core/configuration.yaml` point at `10.0.30.20`, while the
+  shared `ledfx_*` commands stay on `10.0.30.15`. The NAS API port is opened
+  only to the k3s nodes.
+- **Content**: the bedroom automations reference only bedroom lights and only
+  the bedroom rest commands; the shared Govee automation references only shared
+  lights. Each LedFx instance holds its own devices, virtuals, and scenes, and
+  the relay is a dumb transport with no shared state between paths.
+
+Deployment: `deploy_nas_ledfx_bedroom` writes a podman authfile built from the
+existing read-only `node` registry credential (the same account the k3s nodes
+use, so no new secret exists), activates nas-01, and asserts the API answers.
+The image is digest-pinned to the same build as the shared instance, and the
+container graph lives under `/var/lib/ledfx-bedroom` inside `/persist`,
+because the root filesystem is tmpfs and an unpinned image would otherwise be
+re-pulled on every boot.
 
 Two LedFx quirks the relay has to absorb, both learned by watching a live
 frame stream rather than the docs:
@@ -97,11 +125,17 @@ secret was needed. The firewall allows UDP 9000 only from homelab-05
 The 3 bedroom light entities are excluded from the HA recorder because music
 mode streams per-frame optimistic state over MQTT.
 
-Live LedFx objects (created via REST, persisted on the `ledfx-data` PVC):
+Live LedFx objects. The bedroom trio lives on the **nas-01** instance
+(`http://10.0.30.20:8888`), persisted in `/var/lib/ledfx-bedroom/config`:
 
 - device `bedroom-osc` (type `osc`, `10.0.30.10:9000`, 2 pixels, All_To_One, `/bedroom`, 10Hz)
 - virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1)
-- scene `bedroom-music-mode` (energy, same tuning as `music-mode`)
+- scene `bedroom-music-mode` (energy)
+
+The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) holds only
+the Govee devices, the `music-mode-bulbs` virtual, and the `music-mode` scene.
+Bedroom objects were removed from it so the two instances cannot address each
+other's bulbs.
 
 Coordination note for the strip cloud implementation: keep it off the
 `roku/light/7C67AB2A0505/set` topic or throttle there. If that topic ever

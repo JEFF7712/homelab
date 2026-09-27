@@ -8,9 +8,15 @@
     ../../modules/nas-base.nix
     ../../modules/nas-data.nix
     ../../modules/zot-registry.nix
+    ../../modules/ledfx-bedroom.nix
   ];
 
   networking.hostName = "nas-01";
+
+  # Bedroom-only LedFx. It analyses the Bluetooth tap that carries bedroom
+  # playback and streams to the relay. Deliberately separate from the
+  # shared-spaces LedFx instance: no shared device, virtual, or scene.
+  homelab.ledfxBedroom.enable = true;
 
   services.homelab-zot-registry = {
     enable = true;

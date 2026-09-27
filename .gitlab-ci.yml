@@ -539,6 +539,45 @@ deploy_zigbee_gateway:
       'sudo k3s kubectl get --raw="/readyz?verbose" | grep -F "[+]etcd ok";
       sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'
 
+deploy_nas_ledfx_bedroom:
+  extends: .registry_ssh
+  stage: deploy
+  resource_group: nas-ledfx-bedroom
+  needs:
+    - repository_tests
+    - flake_check
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  script:
+    # Reuse the existing read-only `node` registry account rather than minting a
+    # second credential: it already has read on upstream/** and is what the k3s
+    # nodes authenticate with. The NAS never sees the password itself, only
+    # this podman authfile.
+    - >-
+      nix develop ./flake -c python3 -c 'import base64,json,os,pathlib;
+      password = pathlib.Path(os.environ["REGISTRY_NODE_PASSWORD_FILE"]).read_text().strip();
+      auth = base64.b64encode(f"node:{password}".encode()).decode();
+      pathlib.Path("/tmp/registry-auth.json").write_text(
+      json.dumps({"auths": {"registry.rupan.dev": {"auth": auth}}}, indent=2))'
+    - >-
+      ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20
+      'sudo install -d -m 0700 /persist/secrets;
+      sudo install -m 0600 -o root -g root /dev/stdin
+      /persist/secrets/registry-auth.json' < /tmp/registry-auth.json
+    - >-
+      rm -f /tmp/registry-auth.json
+    - >-
+      nixos-rebuild --flake ./flake#nas-01 --use-remote-sudo switch
+      --target-host rupan@10.0.30.20 --build-host rupan@10.0.30.20
+    - >-
+      ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20
+      'sudo systemctl is-active ledfx-bedroom;
+      curl --silent --fail --output /dev/null http://127.0.0.1:8888/api/info'
+    - >-
+      ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11
+      'sudo k3s kubectl get --raw="/readyz" >/dev/null'
+
 deploy_registry_node_01:
   extends: .deploy_registry_node
   needs:

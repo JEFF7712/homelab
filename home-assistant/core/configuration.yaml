@@ -12,6 +12,7 @@ homeassistant:
 frontend:
   themes: !include_dir_merge_named themes
 rest_command:
+  # Shared-spaces LedFx (homelab-05) drives the Govee music mode only.
   ledfx_activate_scene:
     url: "http://10.0.30.15:8888/api/scenes"
     method: put
@@ -19,6 +20,18 @@ rest_command:
     payload: '{"id": "{{ scene_id }}", "action": "activate"}'
   ledfx_deactivate_scene:
     url: "http://10.0.30.15:8888/api/scenes"
+    method: put
+    content_type: "application/json"
+    payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'
+  # Bedroom LedFx (nas-01) is a separate instance with its own audio tap. Kept
+  # deliberately separate so nothing in shared spaces can reach bedroom state.
+  ledfx_bedroom_activate_scene:
+    url: "http://10.0.30.20:8888/api/scenes"
+    method: put
+    content_type: "application/json"
+    payload: '{"id": "{{ scene_id }}", "action": "activate"}'
+  ledfx_bedroom_deactivate_scene:
+    url: "http://10.0.30.20:8888/api/scenes"
     method: put
     content_type: "application/json"
     payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'

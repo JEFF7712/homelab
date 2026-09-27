@@ -75,9 +75,9 @@ class TestBedroomMusicMode(unittest.TestCase):
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
 
-        # Separate LedFx scene so bedroom and shared spaces run independently.
-        self.assertIn("rest_command.ledfx_activate_scene", raw_text)
-        self.assertIn("rest_command.ledfx_deactivate_scene", raw_text)
+        # Separate LedFx instance so nothing in shared spaces can reach it.
+        self.assertIn("rest_command.ledfx_bedroom_activate_scene", raw_text)
+        self.assertIn("rest_command.ledfx_bedroom_deactivate_scene", raw_text)
         self.assertIn("bedroom-music-mode", raw_text)
         self.assertNotIn('"music-mode"', raw_text)
 
