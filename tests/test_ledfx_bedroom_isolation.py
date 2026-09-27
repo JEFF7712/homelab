@@ -111,7 +111,12 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         self.assertIsNotNone(match, "podmanGlobal must be a single-line string")
         flags = match.group(1)
         self.assertNotIn("\n", flags)
-        for expected in ("--root", "--runroot", "--cgroup-manager=cgroupfs", "--events-backend=file"):
+        for expected in (
+            "--root",
+            "--runroot",
+            "--cgroup-manager=cgroupfs",
+            "--events-backend=file",
+        ):
             self.assertIn(expected, flags)
 
     def test_podman_does_not_leak_transient_units(self) -> None:
