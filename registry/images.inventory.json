@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-25T17:11:40+00:00",
+  "generated_at": "2026-09-27T04:24:38+00:00",
   "images": [
     {
       "consumers": [
         "gitops/websites/apolline/deployment.yaml:23",
-        "observed:apolline/website-deploy-56b94c784c-hh5kb/web"
+        "observed:apolline/website-deploy-7dff56d488-qdk5b/web"
       ],
       "destination_repository": "apps/apolline",
       "id": "first-party-apps-apolline-eb2cca4ac72a",
@@ -26,7 +26,7 @@
     {
       "consumers": [
         "gitops/media/books.yaml:145",
-        "observed:media/bookshelf-67cd8c5578-nhncs/bookshelf"
+        "observed:media/bookshelf-7cdc8c98cf-24hmv/bookshelf"
       ],
       "destination_repository": "apps/bookshelf",
       "id": "first-party-apps-bookshelf-83e7b0115ace",
@@ -70,7 +70,7 @@
     {
       "consumers": [
         "gitops/websites/darkbit/deployment.yaml:23",
-        "observed:darkbit/website-deploy-6c676797b4-zw2tz/web"
+        "observed:darkbit/website-deploy-7568866c7d-6hv7v/web"
       ],
       "destination_repository": "apps/darkbit",
       "id": "first-party-apps-darkbit-a8cdc9e6119e",
@@ -92,7 +92,7 @@
     {
       "consumers": [
         "gitops/websites/distrojeff/deployment.yaml:23",
-        "observed:distrojeff/website-deploy-79c945646b-xns62/web"
+        "observed:distrojeff/website-deploy-6fb8646bfd-lnwhk/web"
       ],
       "destination_repository": "apps/distrojeff-site",
       "id": "first-party-apps-distrojeff-site-d58a9a2edc87",
@@ -158,7 +158,7 @@
     {
       "consumers": [
         "gitops/websites/ism/deployment.yaml:22",
-        "observed:ism/website-deploy-9758489dd-9mdls/web"
+        "observed:ism/website-deploy-6c95c9c658-5g5h5/web"
       ],
       "destination_repository": "apps/ism",
       "id": "first-party-apps-ism-5d717b905674",
@@ -180,7 +180,7 @@
     {
       "consumers": [
         "gitops/websites/majorfinder/deployment.yaml:24",
-        "observed:majorfinder/website-deploy-69bcfb8497-56gkb/web"
+        "observed:majorfinder/website-deploy-66f9f4d9d4-hggnb/web"
       ],
       "destination_repository": "apps/majorfinder",
       "id": "first-party-apps-majorfinder-cb638b42a2d1",
@@ -202,7 +202,7 @@
     {
       "consumers": [
         "gitops/websites/nixagent/deployment.yaml:38",
-        "observed:nixagent/website-deploy-594d65557d-8nt4b/web"
+        "observed:nixagent/website-deploy-65865b84b8-qdqb9/web"
       ],
       "destination_repository": "apps/nix-agent-site",
       "id": "first-party-apps-nix-agent-site-24187a61782c",
@@ -224,7 +224,7 @@
     {
       "consumers": [
         "gitops/websites/photography/deployment.yaml:24",
-        "observed:photography/website-deploy-589c456b57-ctlqs/web"
+        "observed:photography/website-deploy-75f96f6b64-jfn9c/web"
       ],
       "destination_repository": "apps/photography",
       "id": "first-party-apps-photography-eb384aeeb8ca",
@@ -246,7 +246,7 @@
     {
       "consumers": [
         "gitops/websites/pulse/deployment.yaml:22",
-        "observed:pulse/website-deploy-78f6f4c4cb-r8znp/web"
+        "observed:pulse/website-deploy-6f54bdfdd8-kjhdn/web"
       ],
       "destination_repository": "apps/pulse-site",
       "id": "first-party-apps-pulse-site-0543a6a165f7",
@@ -268,11 +268,11 @@
     {
       "consumers": [
         "gitops/obsidian/deployment.yaml:25",
-        "observed:obsidian/quartz-notes-5469546cf5-9h79g/quartz",
-        "observed:obsidian/quartz-notes-5469546cf5-gvndq/quartz"
+        "observed:obsidian/quartz-notes-796fdfcf5d-5lp9b/quartz",
+        "observed:obsidian/quartz-notes-796fdfcf5d-dh9v4/quartz"
       ],
       "destination_repository": "apps/quartz",
-      "id": "first-party-apps-quartz-ebdb1645f0a6",
+      "id": "first-party-apps-quartz-f5c0a915fbb4",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/quartz",
@@ -281,8 +281,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:cf23ea2a68579b9ec59697cf7b8faf85bfbf160fd4fb4e44ec139264f5621fe0",
-        "reference": "registry.rupan.dev/apps/quartz@sha256:cf23ea2a68579b9ec59697cf7b8faf85bfbf160fd4fb4e44ec139264f5621fe0",
+        "digest": "sha256:4a168380f615c9309bd7007f1bdaa8852f8501b0f89a6c92278b594b51ea692a",
+        "reference": "registry.rupan.dev/apps/quartz@sha256:4a168380f615c9309bd7007f1bdaa8852f8501b0f89a6c92278b594b51ea692a",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
         "tag": null
@@ -291,7 +291,7 @@
     {
       "consumers": [
         "gitops/websites/rupan-dev/deployment.yaml:22",
-        "observed:rupan-dev/website-deploy-5655458577-jnmvg/web"
+        "observed:rupan-dev/website-deploy-5c97b9d586-2zf96/web"
       ],
       "destination_repository": "apps/rupan-dev",
       "id": "first-party-apps-rupan-dev-de9257817551",
@@ -313,7 +313,7 @@
     {
       "consumers": [
         "gitops/websites/rupanism/deployment.yaml:22",
-        "observed:rupanism/website-deploy-647547ffc7-nstdj/web"
+        "observed:rupanism/website-deploy-7fdb9766b8-9rprj/web"
       ],
       "destination_repository": "apps/rupanism",
       "id": "first-party-apps-rupanism-8dd13e96ccfb",
@@ -335,8 +335,8 @@
     {
       "consumers": [
         "gitops/websites/soluble-rupan/deployment.yaml:22",
-        "observed:soluble-rupan/website-deploy-9574bfdbc-b7tvx/web",
-        "observed:soluble-rupan/website-deploy-9574bfdbc-x2ss4/web"
+        "observed:soluble-rupan/website-deploy-7c778cc4f4-bcmcf/web",
+        "observed:soluble-rupan/website-deploy-7c778cc4f4-j4x64/web"
       ],
       "destination_repository": "apps/solubility-gnn",
       "id": "first-party-apps-solubility-gnn-ca82548acc5f",
@@ -358,7 +358,7 @@
     {
       "consumers": [
         "gitops/websites/spatia/deployment.yaml:37",
-        "observed:spatia/website-deploy-6b9b7854d4-xnjfs/web"
+        "observed:spatia/website-deploy-ffc545d79-bxjfb/web"
       ],
       "destination_repository": "apps/spatia-site",
       "id": "first-party-apps-spatia-site-9dc57113a2bb",
@@ -398,7 +398,7 @@
     {
       "consumers": [
         ".gitlab-ci.yml:1",
-        ".gitlab-ci.yml:849"
+        ".gitlab-ci.yml:857"
       ],
       "destination_repository": "upstream/docker.io/nixos/nix",
       "id": "upstream-nixos-nix-8a0dbd33be8c",
@@ -657,7 +657,7 @@
     {
       "consumers": [
         "gitops/media/download.yaml:45",
-        "observed:media/download-7c47b64558-r5sc7/seed-slskd"
+        "observed:media/download-6c88d58dcd-ktghd/seed-slskd"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/alpine",
       "id": "upstream-upstream-docker-io-library-alpine-2bea039eba00",
@@ -679,8 +679,8 @@
         "gitops/media/arr.yaml:119",
         "gitops/media/arr.yaml:219",
         "gitops/media/arr.yaml:27",
-        "gitops/media/arr.yaml:341",
-        "gitops/media/arr.yaml:434",
+        "gitops/media/arr.yaml:344",
+        "gitops/media/arr.yaml:437",
         "gitops/media/books.yaml:135",
         "gitops/media/books.yaml:26",
         "gitops/media/download.yaml:32",
@@ -690,22 +690,22 @@
         "gitops/obsidian/couchdb.yaml:27",
         "gitops/websites/nixagent/deployment.yaml:22",
         "gitops/websites/spatia/deployment.yaml:22",
-        "observed:home-assistant/home-assistant-78d769bc5-pcgbs/initialize-config",
-        "observed:home-assistant/home-assistant-78d769bc5-pcgbs/install-hacs",
+        "observed:home-assistant/home-assistant-64d6cdb56c-74cvx/initialize-config",
+        "observed:home-assistant/home-assistant-64d6cdb56c-74cvx/install-hacs",
         "observed:media/bazarr-69b6cf7658-5lvpm/fix-permissions",
-        "observed:media/bookshelf-67cd8c5578-nhncs/fix-permissions",
+        "observed:media/bookshelf-7cdc8c98cf-24hmv/fix-permissions",
         "observed:media/calibre-web-6669989ff5-vjzrd/fix-permissions",
-        "observed:media/download-7c47b64558-r5sc7/configure-qbittorrent",
-        "observed:media/download-7c47b64558-r5sc7/fix-permissions",
+        "observed:media/download-6c88d58dcd-ktghd/configure-qbittorrent",
+        "observed:media/download-6c88d58dcd-ktghd/fix-permissions",
         "observed:media/jellyfin-6cf7b8975d-j8spf/fix-permissions",
-        "observed:media/lidarr-5779bc7fbd-ft9sz/fix-permissions",
+        "observed:media/lidarr-7c84cdbf56-dnm7j/fix-permissions",
         "observed:media/prowlarr-ff5b8d4d4-r7zj6/fix-permissions",
         "observed:media/radarr-6747969b69-nqwfk/fix-permissions",
         "observed:media/seerr-c78685b4d-pdzdb/fix-permissions",
         "observed:media/sonarr-769c7db87b-fzxmv/fix-permissions",
-        "observed:nixagent/website-deploy-594d65557d-8nt4b/prepare-nginx-tmp",
+        "observed:nixagent/website-deploy-65865b84b8-qdqb9/prepare-nginx-tmp",
         "observed:obsidian/couchdb-67b85f9ddb-czccx/copy-config",
-        "observed:spatia/website-deploy-6b9b7854d4-xnjfs/prepare-nginx-tmp"
+        "observed:spatia/website-deploy-ffc545d79-bxjfb/prepare-nginx-tmp"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/busybox",
       "id": "upstream-upstream-docker-io-library-busybox-96e13d465ebf",
@@ -840,9 +840,13 @@
     {
       "consumers": [
         "gitops/automation/renovate-agent.yaml:131",
+        "gitops/media/arr-secret-sync.yaml:260",
+        "gitops/media/soularr.yaml:184",
         "gitops/media/spotify-sync.yaml:645",
         "gitops/voice/stt-groq.yaml:264",
         "observed:automation/renovate-approval-webhook-6c7ddfbbd5-6z7q9/webhook",
+        "observed:media/cronjob-arr-credential-sync/sync",
+        "observed:media/cronjob-soularr/soularr",
         "observed:media/cronjob-spotify-sync/sync"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/library/python",
@@ -918,7 +922,7 @@
     {
       "consumers": [
         "gitops/media/download.yaml:85",
-        "observed:media/download-7c47b64558-r5sc7/gluetun"
+        "observed:media/download-6c88d58dcd-ktghd/gluetun"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/qmcgaw/gluetun",
       "id": "upstream-upstream-docker-io-qmcgaw-gluetun-0757864b2e1e",
@@ -1014,7 +1018,7 @@
     {
       "consumers": [
         "gitops/media/download.yaml:200",
-        "observed:media/download-7c47b64558-r5sc7/slskd"
+        "observed:media/download-6c88d58dcd-ktghd/slskd"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/slskd/slskd",
       "id": "upstream-upstream-docker-io-slskd-slskd-8111f8d92e72",
@@ -1140,7 +1144,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:531",
+        "gitops/media/arr.yaml:534",
         "observed:media/flaresolverr-7fc787cbcb-zssx6/flaresolverr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr",
@@ -1231,7 +1235,7 @@
     {
       "consumers": [
         "gitops/home-assistant/deployment.yaml:108",
-        "observed:home-assistant/home-assistant-78d769bc5-pcgbs/home-assistant"
+        "observed:home-assistant/home-assistant-64d6cdb56c-74cvx/home-assistant"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant",
       "id": "upstream-upstream-ghcr-io-home-assistant-home-assistant-f3bdcfe4f691",
@@ -1249,7 +1253,7 @@
     {
       "consumers": [
         "gitops/media/arr.yaml:229",
-        "observed:media/lidarr-5779bc7fbd-ft9sz/lidarr"
+        "observed:media/lidarr-7c84cdbf56-dnm7j/lidarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/hotio/lidarr",
       "id": "upstream-upstream-ghcr-io-hotio-lidarr-49f27c50a8b3",
@@ -1339,7 +1343,7 @@
     {
       "consumers": [
         "gitops/home-assistant/deployment.yaml:162",
-        "observed:home-assistant/home-assistant-78d769bc5-pcgbs/matter-server"
+        "observed:home-assistant/home-assistant-64d6cdb56c-74cvx/matter-server"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server",
       "id": "upstream-upstream-ghcr-io-matter-js-matterjs-server-30f848ad9922",
@@ -1374,8 +1378,8 @@
     },
     {
       "consumers": [
-        "gitops/voice/satellite.yaml:737",
-        "observed:voice/linux-voice-assistant-5847b79d6b-4jkhp/satellite"
+        "gitops/voice/satellite.yaml:2630",
+        "observed:voice/linux-voice-assistant-5847b79d6b-9ff55/satellite"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant",
       "id": "upstream-upstream-ghcr-io-ohf-voice-linux-voice-assistant-ca85a75e28d9",
@@ -1427,7 +1431,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:444",
+        "gitops/media/arr.yaml:447",
         "observed:media/bazarr-69b6cf7658-5lvpm/bazarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr",
@@ -1481,7 +1485,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:351",
+        "gitops/media/arr.yaml:354",
         "observed:media/prowlarr-ff5b8d4d4-r7zj6/prowlarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr",
@@ -1500,7 +1504,7 @@
     {
       "consumers": [
         "gitops/media/download.yaml:160",
-        "observed:media/download-7c47b64558-r5sc7/qbittorrent"
+        "observed:media/download-6c88d58dcd-ktghd/qbittorrent"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent",
       "id": "upstream-upstream-lscr-io-linuxserver-qbittorrent-b23a63abf9e4",
@@ -1889,12 +1893,12 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "97f1213e99a7a977c0b31223f3acf4f63810494a",
+  "source_revision": "fdbe64ce481cdf94fc4e528ab21d9a69f716dd5f",
   "unresolved_inputs": [
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/apolline/deployment.yaml:23,observed:apolline/website-deploy-56b94c784c-hh5kb/web",
+      "consumer": "gitops/websites/apolline/deployment.yaml:23,observed:apolline/website-deploy-7dff56d488-qdk5b/web",
       "id": "producer:first-party-apps-apolline-eb2cca4ac72a",
       "input": "registry.rupan.dev/apps/apolline@sha256:59db0440414f3aba5d6f75872a424c8d83f9d380949fc16f1b3b8a14d9134253",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1902,7 +1906,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/media/books.yaml:145,observed:media/bookshelf-67cd8c5578-nhncs/bookshelf",
+      "consumer": "gitops/media/books.yaml:145,observed:media/bookshelf-7cdc8c98cf-24hmv/bookshelf",
       "id": "producer:first-party-apps-bookshelf-83e7b0115ace",
       "input": "registry.rupan.dev/apps/bookshelf@sha256:4702dab6bcb5583c99bb088137aab03343539d9f7086327f0d94ec691fa68c7e",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1918,7 +1922,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/darkbit/deployment.yaml:23,observed:darkbit/website-deploy-6c676797b4-zw2tz/web",
+      "consumer": "gitops/websites/darkbit/deployment.yaml:23,observed:darkbit/website-deploy-7568866c7d-6hv7v/web",
       "id": "producer:first-party-apps-darkbit-a8cdc9e6119e",
       "input": "registry.rupan.dev/apps/darkbit@sha256:20c4b80cfa552d4b88c9dc554a6433ab876d763df9d90284b35953c65675ada8",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1926,7 +1930,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/distrojeff/deployment.yaml:23,observed:distrojeff/website-deploy-79c945646b-xns62/web",
+      "consumer": "gitops/websites/distrojeff/deployment.yaml:23,observed:distrojeff/website-deploy-6fb8646bfd-lnwhk/web",
       "id": "producer:first-party-apps-distrojeff-site-d58a9a2edc87",
       "input": "registry.rupan.dev/apps/distrojeff-site@sha256:dc316a4587dabb93024d060e0c3d5f55024b82d49ba70c4290264a3305631a7b",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1950,7 +1954,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/ism/deployment.yaml:22,observed:ism/website-deploy-9758489dd-9mdls/web",
+      "consumer": "gitops/websites/ism/deployment.yaml:22,observed:ism/website-deploy-6c95c9c658-5g5h5/web",
       "id": "producer:first-party-apps-ism-5d717b905674",
       "input": "registry.rupan.dev/apps/ism@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1958,7 +1962,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/majorfinder/deployment.yaml:24,observed:majorfinder/website-deploy-69bcfb8497-56gkb/web",
+      "consumer": "gitops/websites/majorfinder/deployment.yaml:24,observed:majorfinder/website-deploy-66f9f4d9d4-hggnb/web",
       "id": "producer:first-party-apps-majorfinder-cb638b42a2d1",
       "input": "registry.rupan.dev/apps/majorfinder@sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1966,7 +1970,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/nixagent/deployment.yaml:38,observed:nixagent/website-deploy-594d65557d-8nt4b/web",
+      "consumer": "gitops/websites/nixagent/deployment.yaml:38,observed:nixagent/website-deploy-65865b84b8-qdqb9/web",
       "id": "producer:first-party-apps-nix-agent-site-24187a61782c",
       "input": "registry.rupan.dev/apps/nix-agent-site@sha256:4ee2db56de5f890be912583e1f8c895598ece1b2abba149072eb78dcf931d8e9",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1974,7 +1978,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/photography/deployment.yaml:24,observed:photography/website-deploy-589c456b57-ctlqs/web",
+      "consumer": "gitops/websites/photography/deployment.yaml:24,observed:photography/website-deploy-75f96f6b64-jfn9c/web",
       "id": "producer:first-party-apps-photography-eb384aeeb8ca",
       "input": "registry.rupan.dev/apps/photography@sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1982,7 +1986,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/pulse/deployment.yaml:22,observed:pulse/website-deploy-78f6f4c4cb-r8znp/web",
+      "consumer": "gitops/websites/pulse/deployment.yaml:22,observed:pulse/website-deploy-6f54bdfdd8-kjhdn/web",
       "id": "producer:first-party-apps-pulse-site-0543a6a165f7",
       "input": "registry.rupan.dev/apps/pulse-site@sha256:18725e41865e0b0163569df7037479c57297e93477f00bf7c2df3dd059895a74",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -1990,15 +1994,15 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/obsidian/deployment.yaml:25,observed:obsidian/quartz-notes-5469546cf5-9h79g/quartz,observed:obsidian/quartz-notes-5469546cf5-gvndq/quartz",
-      "id": "producer:first-party-apps-quartz-ebdb1645f0a6",
-      "input": "registry.rupan.dev/apps/quartz@sha256:cf23ea2a68579b9ec59697cf7b8faf85bfbf160fd4fb4e44ec139264f5621fe0",
+      "consumer": "gitops/obsidian/deployment.yaml:25,observed:obsidian/quartz-notes-796fdfcf5d-5lp9b/quartz,observed:obsidian/quartz-notes-796fdfcf5d-dh9v4/quartz",
+      "id": "producer:first-party-apps-quartz-f5c0a915fbb4",
+      "input": "registry.rupan.dev/apps/quartz@sha256:4a168380f615c9309bd7007f1bdaa8852f8501b0f89a6c92278b594b51ea692a",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/rupan-dev/deployment.yaml:22,observed:rupan-dev/website-deploy-5655458577-jnmvg/web",
+      "consumer": "gitops/websites/rupan-dev/deployment.yaml:22,observed:rupan-dev/website-deploy-5c97b9d586-2zf96/web",
       "id": "producer:first-party-apps-rupan-dev-de9257817551",
       "input": "registry.rupan.dev/apps/rupan-dev@sha256:193d62dd1def0b866ef7854621a6e3035aab386e3453190e3b032ebb739caa85",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -2006,7 +2010,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/rupanism/deployment.yaml:22,observed:rupanism/website-deploy-647547ffc7-nstdj/web",
+      "consumer": "gitops/websites/rupanism/deployment.yaml:22,observed:rupanism/website-deploy-7fdb9766b8-9rprj/web",
       "id": "producer:first-party-apps-rupanism-8dd13e96ccfb",
       "input": "registry.rupan.dev/apps/rupanism@sha256:fc693f6fe2453d28a5260ba1d16c071401d83adbf38f39f9264150d29ddda2dc",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -2014,7 +2018,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/soluble-rupan/deployment.yaml:22,observed:soluble-rupan/website-deploy-9574bfdbc-b7tvx/web,observed:soluble-rupan/website-deploy-9574bfdbc-x2ss4/web",
+      "consumer": "gitops/websites/soluble-rupan/deployment.yaml:22,observed:soluble-rupan/website-deploy-7c778cc4f4-bcmcf/web,observed:soluble-rupan/website-deploy-7c778cc4f4-j4x64/web",
       "id": "producer:first-party-apps-solubility-gnn-ca82548acc5f",
       "input": "registry.rupan.dev/apps/solubility-gnn@sha256:4a5d6e9e4f018b93fb4a70f53fd11c15731c34b8032d92ed17b00c8de360af38",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -2022,7 +2026,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/spatia/deployment.yaml:37,observed:spatia/website-deploy-6b9b7854d4-xnjfs/web",
+      "consumer": "gitops/websites/spatia/deployment.yaml:37,observed:spatia/website-deploy-ffc545d79-bxjfb/web",
       "id": "producer:first-party-apps-spatia-site-9dc57113a2bb",
       "input": "registry.rupan.dev/apps/spatia-site@sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
