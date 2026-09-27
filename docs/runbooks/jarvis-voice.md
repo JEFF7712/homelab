@@ -28,6 +28,30 @@ T1000 GPU, and the cloud replacement is not wired yet.
 -> audio back to the `homelab-05` soundbar (USB SPDIF optical adapter,
 prioritized at 3000 in WirePlumber) -> face state via the HA websocket.
 
+## Native STT image ownership
+
+Nemotron uses the first-party `apps/jarvis-nemotron` image, pinned by its
+registry digest in `gitops/voice/stt-nemotron.yaml`. The image owns Python code
+and `/opt/nemo/lib64`; do not mount host libraries or a code ConfigMap over
+these paths. Model weights, speaker profiles, and the speaker-ID model remain
+external read-only inputs. Keep the image's entrypoint and library search path.
+
+The build source is `gitops/voice/nemotron-bridge/Dockerfile`, with NVIDIA's
+NeMo-Speech.cpp commit pinned in that file. Publish only with the
+`publisher-jarvis-nemotron` identity. The protected file variable
+`REGISTRY_JARVIS_PUBLISHER_AUTH_FILE` supplies that identity; the manual
+`provision_jarvis_publisher` CI job provisions its initial policy and credential.
+It compares existing policy before mutation and retains protected rollback
+files on the NAS. Keep `REGISTRY_HTPASSWD_FILE` synchronized after provisioning.
+
+Read back the destination manifest digest before changing the consumer and
+registry lock. A local Docker image ID is not the published manifest digest.
+Before replacing the primary, prove a recorded-WAV transcript through
+`wyoming-stt-local.voice:10300`. After Flux reconciliation, verify native GPU
+recognition on `homelab-04`, speaker-ID startup, gateway outcomes, and metrics.
+Rollback by reverting the complete integration commit through Git and Flux;
+retain the old host library directory until acceptance is complete.
+
 ## Canonical entity IDs
 
 Do not rename these without updating `home-assistant/www/jarvis/config.json`,

@@ -340,13 +340,13 @@
         "status": "unsupported"
       },
       "consumers": [
-        "producer:gitops/voice/nemotron-bridge/Dockerfile"
+        "gitops/voice/stt-nemotron.yaml:30"
       ],
       "destination_repository": "apps/jarvis-nemotron",
       "destination_tags": [
         "native-07003daa"
       ],
-      "digest": "sha256:e4a41ab3cc68e3080da8e6e32eeae501f283622cf473dcafefe46b403782d59b",
+      "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
       "id": "first-party-jarvis-nemotron",
       "kind": "first-party",
       "media_type": "application/vnd.docker.distribution.manifest.v2+json",
@@ -363,12 +363,12 @@
         "source_status": "not-enumerated"
       },
       "resolution": {
-        "status": "built-local-pending-publication"
+        "status": "destination-registry-verified"
       },
-      "retention_class": "candidate",
+      "retention_class": "deployed",
       "source": {
-        "digest": "sha256:e4a41ab3cc68e3080da8e6e32eeae501f283622cf473dcafefe46b403782d59b",
-        "reference": "registry.rupan.dev/apps/jarvis-nemotron:native-07003daa@sha256:e4a41ab3cc68e3080da8e6e32eeae501f283622cf473dcafefe46b403782d59b",
+        "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+        "reference": "registry.rupan.dev/apps/jarvis-nemotron:native-07003daa@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
         "registry": "registry.rupan.dev",
         "repository": "apps/jarvis-nemotron",
         "tag": "native-07003daa"

@@ -27,17 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bridge
-          # Same image as the production voice-ID proxy (python, wyoming,
-          # numpy, sherpa_onnx all present); native engine via hostPath.
-          # Pinned upstream tag: 3.8.1
-          image: registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80  # yamllint disable-line rule:line-length
-          # The native libs are built against NixOS glibc 2.42 while the
-          # image ships Debian glibc 2.36, so python itself runs under the
-          # staged Nix dynamic loader (glibc is backward compatible).
-          command:
-            - "/opt/nemo/lib64/ld-linux-x86-64.so.2"
-            - "/usr/src/.venv/bin/python3"
-            - "/app/bridge.py"
+          image: registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc
           args:
             - "--port"
             - "10300"
@@ -48,8 +38,6 @@ spec:
               value: all
             - name: NVIDIA_DRIVER_CAPABILITIES
               value: compute,utility
-            - name: LD_LIBRARY_PATH
-              value: /opt/nemo/lib64
             - name: NEMO_LIB
               value: /opt/nemo/lib64/libnemo_speech_asr_c.so
             - name: NEMO_MODEL
@@ -92,29 +80,19 @@ spec:
               memory: 4Gi
               nvidia.com/gpu: "1"
           volumeMounts:
-            - name: bridge-code
-              mountPath: /app
             - name: voice-id-profiles
               mountPath: /etc/voice-id
               readOnly: true
-            - name: nemo-lib
-              mountPath: /opt/nemo/lib64
             - name: nemo-model
               mountPath: /models
+              readOnly: true
             - name: whisper-cache
               mountPath: /data
               readOnly: true
       volumes:
-        - name: bridge-code
-          configMap:
-            name: nemotron-bridge-code
         - name: voice-id-profiles
           secret:
             secretName: voice-id-profiles
-        - name: nemo-lib
-          hostPath:
-            path: /persist/nemo-install/lib64
-            type: Directory
         - name: nemo-model
           hostPath:
             path: /persist/voice-models/nemotron
