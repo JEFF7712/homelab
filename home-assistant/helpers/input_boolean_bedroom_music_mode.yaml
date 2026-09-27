@@ -1,3 +1,3 @@
 name: Bedroom Music Mode
-icon: mdi:music
+icon: null
 entity_id: input_boolean.bedroom_music_mode
