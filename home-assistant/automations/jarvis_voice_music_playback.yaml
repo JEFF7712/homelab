@@ -110,6 +110,8 @@ actions:
         {% if trigger.slots.query is defined
               and trigger.slots.query.lower().startswith(('the song ', 'a song ', 'song ')) %}
           music
+        {% elif trigger.id == 'artist' and ' by ' in trigger.slots.query.lower() %}
+          music
         {% else %}
           {{ {'artist': 'artist', 'track': 'music', 'album': 'album',
               'playlist': 'playlist', 'favorites': 'playlist',

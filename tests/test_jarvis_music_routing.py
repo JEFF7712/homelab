@@ -29,6 +29,13 @@ class JarvisMusicRoutingTest(unittest.TestCase):
         media_content_id = action["data"]["media_content_id"]
         self.assertIn("on\\s+(the\\s+)?(speaker|soundbar)", media_content_id)
 
+    def test_song_by_artist_phrasing_routes_to_track_search(self) -> None:
+        automation = yaml.safe_load(AUTOMATION.read_text(encoding="utf-8"))
+        action = automation["actions"][0]
+        media_content_type = action["data"]["media_content_type"]
+        self.assertIn("trigger.id == 'artist'", media_content_type)
+        self.assertIn("' by ' in trigger.slots.query.lower()", media_content_type)
+
     def test_unknown_speaker_defaults_to_spotify_and_sam_to_youtube_music(self) -> None:
         automation = yaml.safe_load(AUTOMATION.read_text(encoding="utf-8"))
         action = automation["actions"][0]
@@ -56,6 +63,20 @@ class JarvisMusicRoutingTest(unittest.TestCase):
         self.assertIn("playback.status", speech)
         self.assertIn("jev_fallback", speech)
         self.assertIn("Could not start playback.", speech)
+
+    def test_provider_prefixes_match_instance_qualified_uris(self) -> None:
+        # MA returns spotify--<instance>://... URIs, so a '^spotify:'
+        # filter never matches and silently disables platform
+        # preference and radio continuation.
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertNotIn("'^spotify:'", text)
+        self.assertNotIn("'^ytmusic:'", text)
+
+    def test_song_by_artist_search_prefers_title_and_artist_match(self) -> None:
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("by_song", text)
+        self.assertIn("search_name", text)
+        self.assertIn("ns.pick", text)
 
     def test_numeric_ids_stay_strings_at_length_checks(self) -> None:
         # HA renders variables with native types, so an all-digit needle

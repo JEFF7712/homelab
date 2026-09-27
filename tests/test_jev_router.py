@@ -182,6 +182,14 @@ class JevRouterTest(unittest.TestCase):
             router.extract_music_request("put some To Pimp a Butterfly on"),
             ("artist", "To Pimp a Butterfly", ""),
         )
+        self.assertEqual(
+            router.extract_music_request("put on Stargazing by Travis Scott"),
+            ("music", "Stargazing by Travis Scott", ""),
+        )
+        self.assertEqual(
+            router.extract_music_request("play some Travis Scott"),
+            ("artist", "Travis Scott", ""),
+        )
         self.assertIsNone(router.extract_music_request("play"))
         self.assertIsNone(router.extract_music_request("play and sing"))
         self.assertIsNone(router.extract_music_request("turn off the speaker"))

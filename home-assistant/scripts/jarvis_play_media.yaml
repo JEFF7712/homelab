@@ -116,17 +116,17 @@ sequence:
           - variables:
               artist_uri: >-
                 {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
-                  {{ (artist_uris | select('search', '^ytmusic:') | list) | first | default('', true) }}
+                  {{ (artist_uris | select('search', '^ytmusic') | list) | first | default('', true) }}
                 {% else %}
-                  {{ (artist_uris | select('search', '^spotify:') | list + artist_uris + [media_content_id]) | first }}
+                  {{ (artist_uris | select('search', '^spotify') | list + artist_uris + [media_content_id]) | first }}
                 {% endif %}
           - variables:
               artist_name: >-
                 {% set hits = (mass_search | default({}, true)).artists | default([], true) %}
                 {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
-                  {% set pref = '^ytmusic:' %}
+                  {% set pref = '^ytmusic' %}
                 {% else %}
-                  {% set pref = '^spotify:' %}
+                  {% set pref = '^spotify' %}
                 {% endif %}
                 {% set plat = hits | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
                 {{ (((plat + hits) | first | default({}, true)).name | default(media_content_id, true) | string) }}
@@ -153,10 +153,20 @@ sequence:
           - variables:
               clean_track_query: >-
                 {{ media_content_id | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
+          - variables:
+              by_parts: >-
+                {{ clean_track_query | regex_findall('^(.+?)\s+by\s+(.+)$', ignorecase=True)
+                  | first | default([], true) }}
+              by_song: "{{ (by_parts[0] | trim) if by_parts | length == 2 else '' }}"
+              by_artist: "{{ (by_parts[1] | trim) if by_parts | length == 2 else '' }}"
+              use_by_search: >-
+                {{ (by_song | string | length > 2) and (by_artist | string | length > 2) }}
+              search_name: >-
+                {{ ((by_song | string) ~ ' ' ~ (by_artist | string)) if use_by_search | bool else clean_track_query }}
           - action: music_assistant.search
             data:
               config_entry_id: 01M2PW1ZWNQ31HTTG69TBVKSV3
-              name: "{{ clean_track_query }}"
+              name: "{{ search_name }}"
               media_type: track
               limit: 5
             response_variable: mass_search
@@ -164,19 +174,28 @@ sequence:
           - variables:
               track_uri: >-
                 {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
-                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
-                              else '^spotify:' %}
+                {% set pref = '^ytmusic' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
+                              else '^spotify' %}
                 {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
                 {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
                   {{ (plat | map(attribute='uri') | list) | first | default('', true) }}
                 {% else %}
-                  {% set matched = (plat + tracks) | first | default({}, true) %}
+                  {% set ns = namespace(pick=[]) %}
+                  {% for t in plat %}
+                    {% if use_by_search | bool
+                      and (by_song | string | lower) in (t.name | default('', true) | string | lower)
+                      and (by_artist | string | lower) in (t.artists | default([], true)
+                        | map(attribute='name') | join(' ') | string | lower) %}
+                      {% set ns.pick = ns.pick + [t] %}
+                    {% endif %}
+                  {% endfor %}
+                  {% set matched = (ns.pick + plat + tracks) | first | default({}, true) %}
                   {{ matched.uri | default(clean_track_query, true) }}
                 {% endif %}
               artist_uri: >-
                 {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
-                {% set pref = '^ytmusic:' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
-                              else '^spotify:' %}
+                {% set pref = '^ytmusic' if target_platform in ['youtube_music', 'youtube', 'ytmusic']
+                              else '^spotify' %}
                 {% set plat = tracks | selectattr('uri', 'defined') | selectattr('uri', 'search', pref) | list %}
                 {% if target_platform in ['youtube_music', 'youtube', 'ytmusic'] %}
                   {% set matched = plat | first | default({}, true) %}
@@ -184,8 +203,8 @@ sequence:
                   {% set matched = (plat + tracks) | first | default({}, true) %}
                 {% endif %}
                 {% set artists = matched.artists | default([], true) %}
-                {% set artist_pref = '^ytmusic:' if target_platform
-                  in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify:' %}
+                {% set artist_pref = '^ytmusic' if target_platform
+                  in ['youtube_music', 'youtube', 'ytmusic'] else '^spotify' %}
                 {{ (artists | selectattr('uri', 'search', artist_pref)
                   | map(attribute='uri') | list) | first | default('', true) }}
           - variables:
@@ -235,16 +254,16 @@ sequence:
               yt_uri: >-
                 {% set search = mass_search | default({}, true) %}
                 {% set t = search.tracks | default([], true)
-                  | selectattr('uri', 'search', '^ytmusic:')
+                  | selectattr('uri', 'search', '^ytmusic')
                   | map(attribute='uri') | list %}
                 {% set al = search.albums | default([], true)
-                  | selectattr('uri', 'search', '^ytmusic:')
+                  | selectattr('uri', 'search', '^ytmusic')
                   | map(attribute='uri') | list %}
                 {% set ar = search.artists | default([], true)
-                  | selectattr('uri', 'search', '^ytmusic:')
+                  | selectattr('uri', 'search', '^ytmusic')
                   | map(attribute='uri') | list %}
                 {% set pl = search.playlists | default([], true)
-                  | selectattr('uri', 'search', '^ytmusic:')
+                  | selectattr('uri', 'search', '^ytmusic')
                   | map(attribute='uri') | list %}
                 {{ (t + al + ar + pl) | first | default('', true) }}
           - variables:

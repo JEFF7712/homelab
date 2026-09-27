@@ -238,6 +238,7 @@ _MUSIC_LEAD_BARE = re.compile(
 _MUSIC_ACTION_WORD = re.compile(
     r"\b(?:play|put\s+(?:on|some)|listen\s+to|hear)\b", re.IGNORECASE
 )
+_MUSIC_SONG_BY_ARTIST = re.compile(r"\S\s+by\s+\S", re.IGNORECASE)
 
 
 def extract_music_request(text: str) -> tuple[str, str, str] | None:
@@ -266,6 +267,8 @@ def extract_music_request(text: str) -> tuple[str, str, str] | None:
         media_type = "artist"
         query = _MUSIC_LEAD_ARTIST.sub("", rest, count=1)
         query = _MUSIC_TRAILING_ON.sub("", query)
+        if _MUSIC_SONG_BY_ARTIST.search(query):
+            media_type = "music"
     elif _MUSIC_LEAD_BARE.match(rest):
         media_type = "music"
         query = _MUSIC_LEAD_BARE.sub("", rest, count=1)

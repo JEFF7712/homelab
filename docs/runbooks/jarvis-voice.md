@@ -195,6 +195,15 @@ automation referencing them.
      a second attempt instead of ending on a canned error. Agents never
      re-run sentence triggers, so this cannot loop. Only if Jev also has
      no reply does the turn fall back to "Could not start playback."
+   - "Song by artist" phrasings ("put on Stargazing by Travis Scott") route
+     to track search, not the artist mix: the automation maps artist-trigger
+     queries containing " by " to `music`, and the script searches "song
+     artist" (Spotify ranks the joined query far better than the "by" form),
+     preferring results whose title and artist names match both parts.
+     Song requests then continue with that artist's radio mix.
+   - Provider URI filters must match MA's instance-qualified form
+     (`spotify--<id>://...`, not `spotify:...`): a `^spotify:` filter never
+     matches, silently disabling platform preference and radio continuation.
    - Template variables in `jarvis_play_media.yaml` render with native types,
      so an all-digit confirm needle (e.g. `library://track/6206` -> `6206`)
      becomes int and `| length` explodes. Every `| length` and `in (...)`
