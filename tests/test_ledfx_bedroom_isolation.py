@@ -119,6 +119,13 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         ):
             self.assertIn(expected, flags)
 
+    def test_nas_loads_the_pulse_protocol_shim(self) -> None:
+        # PipeWire's compiled-in defaults omit the Pulse shim, so the pulse
+        # socket refuses every client and LedFx cannot open its source.
+        base = (REPO_ROOT / "flake/modules/nas-base.nix").read_text()
+        self.assertIn("libpipewire-module-protocol-pulse", base)
+        self.assertIn('environment.etc."pipewire/pipewire.conf"', base)
+
     def test_stale_containers_are_replaced(self) -> None:
         # Stopping the unit kills podman, not the container, so a stale
         # container can survive and hold the name. Without --replace the unit

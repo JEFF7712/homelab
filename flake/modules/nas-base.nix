@@ -45,6 +45,17 @@
     };
   };
 
+  # PipeWire runs here on its compiled-in defaults, which do not include the
+  # Pulse protocol shim. The pulse socket unit therefore accepts nothing and
+  # every Pulse client is refused. The Wyoming satellite uses pw-play (native
+  # PipeWire) so it never noticed, but the bedroom LedFx analyses audio through
+  # a Pulse source and needs the shim to read the Bluetooth monitor.
+  environment.etc."pipewire/pipewire.conf".text = ''
+    context.modules = {
+      libpipewire-module-protocol-pulse = { }
+    }
+  '';
+
   services.prometheus.exporters.smartctl = {
     enable = true;
     port = 9633;
