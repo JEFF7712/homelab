@@ -165,8 +165,6 @@ class RokuLanFreezeTests(unittest.TestCase):
         self.assertIn("10.0.20.117", alias)
 
     def test_lamp_reservations_pin_dhcp(self) -> None:
-        text = TFVARS.read_text()
-
         for name, ip, mac in (
             ("roku_desk_lamp", "10.0.20.117", "7c:67:ab:0a:83:ab"),
             ("roku_floor_lamp", "10.0.20.116", "7c:67:ab:16:23:b7"),
