@@ -78,7 +78,7 @@ Rotate the Deezer ARL:
 
 ## Soularr (Lidarr wanted -> Soulseek via slskd)
 
-Soularr (`soularr` CronJob, every 2h) grabs up to 10 wanted albums per
+Soularr (`soularr` CronJob, hourly) grabs up to 60 wanted albums per
 run from Lidarr, downloads them through slskd, and tells Lidarr to
 import from `/data/downloads/soulseek`. Config renders at job start
 from `LIDARR_API_KEY` / `SLSKD_API_KEY` (media-app Secret); sources are

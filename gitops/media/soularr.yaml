@@ -1,6 +1,6 @@
 # Soularr: Lidarr wanted list -> Soulseek downloads via slskd.
 #
-# soularr.py runs once per invocation, so this is a CronJob (every 2h),
+# soularr.py runs once per invocation, so this is a CronJob (hourly),
 # not a daemon. It needs: Lidarr API key, slskd API key (SLSKD_API_KEY
 # GitLab variable, also consumed by the download Deployment), the shared
 # media library at /data, and a small config PVC for config.ini plus the
@@ -46,7 +46,7 @@ data:
     ignored_users =
     album_prepend_artist = False
     search_type = incrementing_page
-    number_of_albums_to_grab = 30
+    number_of_albums_to_grab = 60
     title_blacklist =
     search_blacklist =
     search_source = missing
@@ -160,7 +160,7 @@ metadata:
   name: soularr
   namespace: media
 spec:
-  schedule: "17 */2 * * *"
+  schedule: "17 * * * *"
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
