@@ -1,0 +1,158 @@
+{
+  "diagonal_lower": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 19821.67705494037
+  },
+  "diagonal_upper": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 19767.67705190682
+  },
+  "lid_fit_coupon": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 16168.719041014401
+  },
+  "lower_front_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 92276.28954572929
+  },
+  "lower_front_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 92276.28952264761
+  },
+  "m4_pilot_coupon": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 15303.78420006807
+  },
+  "m4_test_spacer": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 1254.6136655255982
+  },
+  "mount_front_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 29707.423099705236
+  },
+  "mount_front_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 29707.424345491487
+  },
+  "mount_rear_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 35586.092315288915
+  },
+  "mount_rear_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 35586.09326032671
+  },
+  "rail_column_coupon": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 29923.608087816774
+  },
+  "rail_fit_coupon": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 5743.353486635195
+  },
+  "rail_lower_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 20384.585180966995
+  },
+  "rail_lower_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 20384.585168400994
+  },
+  "rail_upper_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 22346.93159784604
+  },
+  "rail_upper_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 22346.9315866995
+  },
+  "rear_lower_crossbar": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 49291.35689409552
+  },
+  "rear_upper_crossbar": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 49291.35684137993
+  },
+  "retainer_front_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 2549.6845042109953
+  },
+  "side_restraint_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 20209.227208601358
+  },
+  "top_post_coupon": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 25322.859918327766
+  },
+  "top_side_beam_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 98157.43778334039
+  },
+  "top_side_beam_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 98157.43776296708
+  },
+  "upper_front_left": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 113877.89331080363
+  },
+  "upper_front_right": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "volume_mm3": 113877.8932876169
+  }
+}

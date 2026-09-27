@@ -1,5 +1,9 @@
 # DeskPi RackMate T1 extension: 8U height, 7U mounting capacity
 
+Current work: [Revision 4 prototype and next fit test](../rev4/README.md).
+Use that matched export set. Revision 2/3 notes below are historical and do not
+authorize printing their old uprights with the new rails or upper beams.
+
 Parametric Build123d source per PRD `deskpi_rackmate_t1_8u_extension_prd_v0.6.4.md`.
 Preliminary only: solids exist for fit checks, but the audit gates below
 block any production claim.
@@ -7,8 +11,12 @@ block any production claim.
 ## Layout
 
 * `params.py`: source of truth (measured T1 values + Path A stack math)
-* `model.py`: Build123d solids plus `--export` and `--audit`
+* `column.py`: structural columns with rail rebate, captive M3 nut slots, and coupon
+* `rail.py`: decoupled printable equipment rails and test coupon
+* `bracing.py`: rear crossbars, side restraints, and 2-piece diagonal brace
+* `model.py`: Build123d solids plus `--export`, `--rev3`, and `--audit`
 * `test_model.py`: offline unit tests, no CAD kernel required
+* `test_cad.py`: 3D CAD kernel regressions in Build123d
 
 ## Audited prototype revision (2026-09-24)
 
@@ -83,6 +91,28 @@ After the single-boss coupon passes, print `m5_rack_pitch_coupon.stl` upright.
 It contains one complete production three-hole rack pattern with the actual
 column wall, M5 bosses, and tie-rod channel. Verify center spacing, three insert
 fits, equipment-screw access, and straightness before either full upright.
+
+## Revision 3: Decoupled Rails & Braced Frame (2026-09-25)
+
+Revision 3 decouples the equipment mounting rails from the vertical structural columns, resolves the six original audit findings and the four follow-up findings, and adds dedicated frame crossmembers and anti-racking bracing:
+
+* `column.py`:
+  - 4 distinct corner mounts (`rev3_corner_mount_front_left/right` and `rev3_corner_mount_rear_left/right`) matching exact DeskPi T1 top frame holes ($Y=25, 38\text{ mm}$ front and measured $Y=157, 170\text{ mm}$ rear) with supported bearing pads at all four screw locations, a 30.3 mm locating channel, continuous rail rebate, and front/rear transverse-member lip relief.
+  - Structural columns with captive horizontal M3 hex nut slots (Option A fastening, physically validated via `rev3_column_joint_coupon.stl`) and blind M4 heat-set insert pilots at brace attachment faces.
+  - Unobstructed 20.5 mm diameter top washer/nyloc bore down to the bearing seat.
+  - Rail rebate extended continuously through the male splice spigot on lower columns ($0.0\text{ mm}^3$ collision with upper rail).
+* `rail.py`: separate front equipment rail strips printing flat on the bed with
+  zero supports. Carries 11 holes on `equipment_rail_lower_left/right.stl` (157.85 mm) and 12
+  holes on `equipment_rail_upper_left/right.stl` (173.75 mm) using the physically accepted 6.2 mm
+  pilot for M5 inserts. Fastens to the post with M3 counterbored screws into captive M3 nuts.
+* `bracing.py`:
+  - `rear_lower_crossbar.stl` and `rear_upper_crossbar.stl` (251 mm span, mounting against the column rear face at $Y=200..210\text{ mm}$, with 10 mm-deep M4 insert bores at $X=23, 258\text{ mm}$ and at the diagonal anchors).
+  - `side_restraint_bar.stl` (170 mm) linking front and rear posts at $Z=145\text{ mm}$ clear of the middle splice, with M4 screw paths into column insert bores.
+  - 2-piece bolted diagonal strut (`rear_diagonal_brace_lower.stl` and `rear_diagonal_brace_upper.stl`, 212.5 mm each, 30 mm lap joint) derived parametrically for the exact 375 mm diagonal span and mounting flush to the crossbar rear face.
+  - `rev3_full_assembly.step` includes the four corner mounts, all columns, rails, bracing, tie rods, M4 insert envelopes, and positioned M4 screw hardware. The M4x16 screws are seated on their bearing planes with 1.0 mm modeled tip clearance; the schedule is in `params.M4_FRAME_HARDWARE_SCHEDULE`.
+* All parts fit inside the 256 mm A1 print bed envelope.
+* CAD regressions cover valid solids, right/left rail placement, attachment bearing probes, and hardware-to-printed-part intersections. Physical print, slice, and load validation remain separate gates.
+* Export outputs to [`../rev3/`](../rev3/) via `--rev3`.
 
 ## Iterate
 

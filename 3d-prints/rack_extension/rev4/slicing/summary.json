@@ -1,0 +1,761 @@
+{
+  "diagonal_lower": {
+    "grams": 17.54,
+    "minutes": 63.5,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 30
+  },
+  "diagonal_upper": {
+    "grams": 17.5,
+    "minutes": 63.0,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 30
+  },
+  "lid_fit_coupon": {
+    "grams": 13.58,
+    "minutes": 66.2,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 175
+  },
+  "lower_front_left": {
+    "grams": 75.33,
+    "minutes": 305.6,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 818
+  },
+  "lower_front_right": {
+    "grams": 74.34,
+    "minutes": 299.9,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 818
+  },
+  "m4_pilot_coupon": {
+    "grams": 14.63,
+    "minutes": 60.8,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 90
+  },
+  "m4_test_spacer": {
+    "grams": 1.58,
+    "minutes": 14.7,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal solid infill",
+      "Outer wall",
+      "Top surface"
+    ],
+    "layers": 30
+  },
+  "mount_front_left": {
+    "grams": 33.83,
+    "minutes": 142.6,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 383
+  },
+  "mount_front_right": {
+    "grams": 33.76,
+    "minutes": 142.5,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 383
+  },
+  "mount_rear_left": {
+    "grams": 35.43,
+    "minutes": 145.5,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 383
+  },
+  "mount_rear_right": {
+    "grams": 35.43,
+    "minutes": 146.0,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 383
+  },
+  "rail_column_coupon": {
+    "grams": 23.24,
+    "minutes": 97.3,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 222
+  },
+  "rail_fit_coupon": {
+    "grams": 6.11,
+    "minutes": 31.4,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 48
+  },
+  "rail_lower_left": {
+    "grams": 21.31,
+    "minutes": 86.4,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 48
+  },
+  "rail_lower_right": {
+    "grams": 21.26,
+    "minutes": 86.2,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 48
+  },
+  "rail_upper_left": {
+    "grams": 23.46,
+    "minutes": 94.8,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 48
+  },
+  "rail_upper_right": {
+    "grams": 23.4,
+    "minutes": 94.7,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 48
+  },
+  "rear_lower_crossbar": {
+    "grams": 36.63,
+    "minutes": 128.5,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 50
+  },
+  "rear_upper_crossbar": {
+    "grams": 36.62,
+    "minutes": 128.7,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 50
+  },
+  "retainer_front_left": {
+    "grams": 3.12,
+    "minutes": 19.9,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal solid infill",
+      "Outer wall",
+      "Top surface"
+    ],
+    "layers": 48
+  },
+  "side_restraint_left": {
+    "grams": 17.16,
+    "minutes": 61.5,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 30
+  },
+  "top_post_coupon": {
+    "grams": 24.04,
+    "minutes": 100.3,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 210
+  },
+  "top_side_beam_left": {
+    "grams": 72.59,
+    "minutes": 241.0,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 175
+  },
+  "top_side_beam_right": {
+    "grams": 72.02,
+    "minutes": 239.1,
+    "outside_bed": "false",
+    "support_used": "false",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      }
+    ],
+    "features": [
+      "Bottom surface",
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Top surface"
+    ],
+    "layers": 175
+  },
+  "upper_front_left": {
+    "grams": 100.91,
+    "minutes": 415.9,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 1545
+  },
+  "upper_front_right": {
+    "grams": 100.66,
+    "minutes": 411.2,
+    "outside_bed": "false",
+    "support_used": "true",
+    "warnings": [
+      {
+        "msg": "bed_temperature_too_high_than_filament",
+        "level": "3",
+        "error_code": "1000C001"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "2",
+        "error_code": "10018003"
+      },
+      {
+        "msg": "not_support_traditional_timelapse",
+        "level": "3",
+        "error_code": "1000C003"
+      }
+    ],
+    "features": [
+      "Bridge",
+      "Brim",
+      "Gap infill",
+      "Inner wall",
+      "Internal Bridge",
+      "Internal solid infill",
+      "Outer wall",
+      "Overhang wall",
+      "Sparse infill",
+      "Support",
+      "Support interface",
+      "Top surface"
+    ],
+    "layers": 1545
+  }
+}

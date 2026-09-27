@@ -229,7 +229,7 @@ LOWER_MOUNT_SOCKET_CLEARANCE_MM = 0.25
 ATTACH_ACCESS_DIA_MM = 8.0
 ATTACH_SEAT_Z_MM = 11.5
 M4_MOUNT_SCREW_LEN_MM = 16.0
-CORNER_LIP_START_MM = TOP_MEMBER_WIDTH_MM + LIP_CLEARANCE_MM
+CORNER_LIP_START_MM = TOP_MEMBER_WIDTH_MM + 2 * LIP_CLEARANCE_MM
 BOTTOM_RETAINER_CLEARANCE_MM = 0.2
 BOTTOM_RETAINER_KEY_LENGTH_MM = 4.0
 BOTTOM_RETAINER_KEY_WIDTH_MM = 4.0
@@ -244,6 +244,85 @@ def coupon_channel_mm() -> float:
 def mount_thread_engagement_mm() -> float:
     return M4_MOUNT_SCREW_LEN_MM - ATTACH_SEAT_Z_MM
 
+
+# --- Decoupled Equipment Rail (Option 1) ---------------------------------------
+RAIL_WIDTH_MM = 16.0
+RAIL_THICKNESS_MM = 9.5
+RAIL_REBATE_DEPTH_MM = 9.5
+RAIL_X_START_MM = 13.0
+RAIL_X_END_MM = 29.0
+RAIL_SPLICE_Z_MM = 169.85
+RAIL_LOWER_Z_START_MM = PATH_A_BOTTOM_FRAME_MM  # 12.0
+RAIL_LOWER_Z_END_MM = RAIL_SPLICE_Z_MM  # 169.85
+RAIL_UPPER_Z_START_MM = RAIL_SPLICE_Z_MM  # 169.85
+RAIL_UPPER_Z_END_MM = ADDED_HEIGHT_MM - PATH_A_TOP_FRAME_MM  # 343.6
+RAIL_FASTENER_DIA_MM = 3.5  # M3 clearance
+RAIL_FASTENER_HEAD_DIA_MM = 6.5  # M3 socket head counterbore
+RAIL_FASTENER_HEAD_DEPTH_MM = 3.5
+RAIL_FASTENER_X_MM = 22.5  # aligned with rack hole line, clearing M5 tie rod by 1.85 mm
+RAIL_FASTENER_Z_LOWER_MM = (52.25, 96.75, 141.25)
+RAIL_FASTENER_Z_UPPER_MM = (214.35, 258.85, 303.35, 319.25)
+
+# --- Captive M3 Nut Slots in Column (Option A) ---------------------------------
+M3_NUT_SLOT_WIDTH_MM = 5.8  # across flats + clearance
+M3_NUT_SLOT_THICK_MM = 2.7  # nut thickness + clearance
+M3_NUT_SLOT_Y_MM = 12.5  # centered behind 3.0 mm column face wall
+
+# --- Frame Bracing and Restraint (Option 1) ------------------------------------
+REAR_CROSSBAR_HEIGHT_MM = 20.0
+REAR_CROSSBAR_THICK_MM = 10.0
+REAR_CROSSBAR_SPAN_MM = BODY_WIDTH_MM - 2 * COLUMN_INWARD_MM  # 223.0 mm
+REAR_CROSSBAR_FASTENER_X_LEFT_MM = 23.0  # 5.25 mm clear of M5 tie rod
+REAR_CROSSBAR_FASTENER_X_RIGHT_MM = BODY_WIDTH_MM - 23.0  # 258.0 mm
+REAR_LOWER_CROSSBAR_Z_MM = 50.0
+REAR_UPPER_CROSSBAR_Z_MM = 325.0
+
+REAR_BRACE_WIDTH_MM = 18.0
+REAR_BRACE_THICK_MM = 6.0
+REAR_BRACE_FASTENER_DIA_MM = 4.5  # M4 clearance
+BRACE_FASTENER_HEAD_DIA_MM = 8.5
+M4_BRACE_SCREW_THREAD = "M4x0.7"
+M4_BRACE_SCREW_DIA_MM = 4.0
+M4_BRACE_SCREW_LENGTH_MM = 16.0
+M4_BRACE_SCREW_HEAD_HEIGHT_MM = 4.0
+M4_FRAME_CLEARANCE_DIA_MM = 4.5
+M4_HEAT_SET_PILOT_DIA_MM = 5.8
+M4_HEAT_SET_DEPTH_MM = 6.0
+M4_HEAT_SET_OD_MM = 6.0
+M4_HEAT_SET_BORE_DEPTH_MM = 11.0
+M4_TIP_CLEARANCE_MM = 1.0
+M4_FRAME_HARDWARE_SCHEDULE = {
+    "column_to_side_restraint": "M4x16, 4.5 mm bar clearance, 6x6 mm insert in 5.8 mm column pilot",
+    "column_to_rear_crossbar": "M4x16, recessed head, 4.5 mm crossbar clearance, 6x6 mm insert in column",
+    "crossbar_to_diagonal": "M4x16, unrecessed head, 4.5 mm diagonal clearance, 6x6 mm insert in crossbar",
+    "column_to_upper_side_beam": "M4x16, 4.5 mm beam clearance, 6x6 mm insert in 5.8 mm column pilot",
+    "lid_to_side_beam": "M4x20 same head style as stock, approximately 7 mm protrusion, confirm physically",
+}
+
+# Parametric diagonal brace anchors on the crossbars
+DIAGONAL_ANCHOR_LOWER_X_MM = 35.0
+DIAGONAL_ANCHOR_LOWER_Z_MM = 55.0
+DIAGONAL_ANCHOR_UPPER_X_MM = 246.0
+DIAGONAL_ANCHOR_UPPER_Z_MM = 335.0
+DIAGONAL_SPAN_MM = (
+    (DIAGONAL_ANCHOR_UPPER_X_MM - DIAGONAL_ANCHOR_LOWER_X_MM) ** 2
+    + (DIAGONAL_ANCHOR_UPPER_Z_MM - DIAGONAL_ANCHOR_LOWER_Z_MM) ** 2
+) ** 0.5  # 374.995 mm (~375.0 mm)
+DIAGONAL_LAP_LEN_MM = 30.0
+DIAGONAL_HALF_LEN_MM = DIAGONAL_SPAN_MM / 2 + DIAGONAL_LAP_LEN_MM / 2 + 10.0  # 212.5 mm
+
+SIDE_RESTRAINT_HEIGHT_MM = 20.0
+SIDE_RESTRAINT_THICK_MM = 6.0
+SIDE_RESTRAINT_SPAN_MM = BODY_DEPTH_MM - 2 * COLUMN_DEPTH_MM  # 140.0 mm
+SIDE_RESTRAINT_Z_MM = 145.0  # positioned in lower column body, clear of splice
+
+TOP_SIDE_PLATE_THICK_MM = 6.0
+TOP_SIDE_BEAM_HEIGHT_MM = 42.0
+TOP_SIDE_FASTENER_Z_MM = (319.6, 336.6)
+TOP_SIDE_FASTENER_Y_MM = (22.5, 177.5)
+LID_INSERT_BORE_DEPTH_MM = 11.0
+LID_SCREW_LENGTH_MM = 20.0
+LID_SCREW_PROTRUSION_APPROX_MM = 7.0
 
 # --- Joint overlap -----------------------------------------------------------------
 # Boolean unions need volumetric overlap, not face touching: every
@@ -301,6 +380,42 @@ def column_module_envelope() -> CradleEnvelope:
     )
 
 
+def rail_lower_envelope() -> CradleEnvelope:
+    """Bounding envelope for the lower equipment rail."""
+    return CradleEnvelope(
+        x_mm=RAIL_WIDTH_MM,
+        y_mm=RAIL_THICKNESS_MM,
+        z_mm=RAIL_LOWER_Z_END_MM - RAIL_LOWER_Z_START_MM,
+    )
+
+
+def rail_upper_envelope() -> CradleEnvelope:
+    """Bounding envelope for the upper equipment rail."""
+    return CradleEnvelope(
+        x_mm=RAIL_WIDTH_MM,
+        y_mm=RAIL_THICKNESS_MM,
+        z_mm=RAIL_UPPER_Z_END_MM - RAIL_UPPER_Z_START_MM,
+    )
+
+
+def rear_crossbar_envelope() -> CradleEnvelope:
+    """Bounding envelope for the rear horizontal crossbars."""
+    return CradleEnvelope(
+        x_mm=REAR_CROSSBAR_SPAN_MM + 2 * (COLUMN_INWARD_MM - 14.0),
+        y_mm=REAR_CROSSBAR_THICK_MM,
+        z_mm=REAR_CROSSBAR_HEIGHT_MM,
+    )
+
+
+def side_restraint_envelope() -> CradleEnvelope:
+    """Bounding envelope for the mid-height side restraint bars."""
+    return CradleEnvelope(
+        x_mm=SIDE_RESTRAINT_THICK_MM,
+        y_mm=SIDE_RESTRAINT_SPAN_MM + 2 * (COLUMN_DEPTH_MM - 10.0),
+        z_mm=SIDE_RESTRAINT_HEIGHT_MM,
+    )
+
+
 def validate() -> list[str]:
     """Return a list of failed invariant descriptions (empty = pass)."""
     errors: list[str] = []
@@ -322,6 +437,34 @@ def validate() -> list[str]:
         column_module_envelope().z_mm,
     ):
         errors.append("column module exceeds the A1 bed")
+    if not fits_bed(
+        rail_lower_envelope().x_mm,
+        rail_lower_envelope().y_mm,
+        rail_lower_envelope().z_mm,
+    ):
+        errors.append("lower equipment rail exceeds the A1 bed")
+    if not fits_bed(
+        rail_upper_envelope().x_mm,
+        rail_upper_envelope().y_mm,
+        rail_upper_envelope().z_mm,
+    ):
+        errors.append("upper equipment rail exceeds the A1 bed")
+    if not fits_bed(
+        rear_crossbar_envelope().x_mm,
+        rear_crossbar_envelope().y_mm,
+        rear_crossbar_envelope().z_mm,
+    ):
+        errors.append("rear crossbar exceeds the A1 bed")
+    if not fits_bed(
+        side_restraint_envelope().x_mm,
+        side_restraint_envelope().y_mm,
+        side_restraint_envelope().z_mm,
+    ):
+        errors.append("side restraint exceeds the A1 bed")
+    if not (RAIL_X_START_MM <= RACK_HOLE_CENTER_X_MM <= RAIL_X_END_MM):
+        errors.append("rack hole center must fall inside the equipment rail")
+    if not (RAIL_X_START_MM <= RAIL_FASTENER_X_MM <= RAIL_X_END_MM):
+        errors.append("rail fastener must fall inside the equipment rail")
     if abs(STRUCTURAL_HOLE_X_RIGHT_MM - (BODY_WIDTH_MM - 22.8)) > 1e-9:
         errors.append("right structural column must mirror the left at 258.2 mm")
     if abs(HANDLE_HOLE_X_RIGHT_MM - (BODY_WIDTH_MM - 13.0)) > 1e-9:

@@ -169,6 +169,36 @@ class ExtensionParamsTests(unittest.TestCase):
             params.COUPON_Y_END_MM - params.COUPON_Y_START_MM, params.BED_Y_MM
         )
 
+    def test_m4_frame_hardware_schedule_has_tip_clearance(self) -> None:
+        self.assertEqual(params.M4_BRACE_SCREW_THREAD, "M4x0.7")
+        self.assertAlmostEqual(params.M4_FRAME_CLEARANCE_DIA_MM, 4.5)
+        self.assertAlmostEqual(params.M4_HEAT_SET_PILOT_DIA_MM, 5.8)
+        self.assertAlmostEqual(params.M4_HEAT_SET_DEPTH_MM, 6.0)
+        self.assertAlmostEqual(params.M4_HEAT_SET_OD_MM, 6.0)
+        self.assertLessEqual(
+            params.M4_BRACE_SCREW_LENGTH_MM,
+            params.SIDE_RESTRAINT_THICK_MM
+            + params.M4_HEAT_SET_BORE_DEPTH_MM
+            - params.M4_TIP_CLEARANCE_MM,
+        )
+        self.assertLessEqual(
+            params.M4_BRACE_SCREW_LENGTH_MM,
+            params.REAR_CROSSBAR_THICK_MM
+            - params.M4_BRACE_SCREW_HEAD_HEIGHT_MM
+            + params.M4_HEAT_SET_BORE_DEPTH_MM
+            - params.M4_TIP_CLEARANCE_MM,
+        )
+        self.assertEqual(
+            set(params.M4_FRAME_HARDWARE_SCHEDULE),
+            {
+                "column_to_side_restraint",
+                "column_to_rear_crossbar",
+                "crossbar_to_diagonal",
+                "column_to_upper_side_beam",
+                "lid_to_side_beam",
+            },
+        )
+
     def test_phase2_mount_keeps_attachment_access(self) -> None:
         self.assertGreater(params.ATTACH_ACCESS_DIA_MM, params.COUPON_HOLE_DIA_MM)
         self.assertGreater(params.LOWER_MOUNT_SOCKET_CLEARANCE_MM, 0.0)
@@ -211,6 +241,58 @@ class ExtensionParamsTests(unittest.TestCase):
             (len(bottom), len(lower), len(splice), len(upper), len(top)),
             (2, 9, 0, 11, 1),
         )
+
+    def test_decoupled_rail_fits_bed_and_envelope(self) -> None:
+        lower_env = params.rail_lower_envelope()
+        upper_env = params.rail_upper_envelope()
+        self.assertTrue(params.fits_bed(lower_env.x_mm, lower_env.y_mm, lower_env.z_mm))
+        self.assertTrue(params.fits_bed(upper_env.x_mm, upper_env.y_mm, upper_env.z_mm))
+        self.assertAlmostEqual(
+            lower_env.z_mm + upper_env.z_mm,
+            params.ADDED_HEIGHT_MM
+            - params.PATH_A_BOTTOM_FRAME_MM
+            - params.PATH_A_TOP_FRAME_MM,
+        )
+
+    def test_all_extension_holes_covered_by_decoupled_rails(self) -> None:
+        from . import seam
+
+        holes = seam.extension_hole_centers()
+        lower_holes = [
+            z
+            for z in holes
+            if params.RAIL_LOWER_Z_START_MM <= z <= params.RAIL_LOWER_Z_END_MM
+        ]
+        upper_holes = [
+            z
+            for z in holes
+            if params.RAIL_UPPER_Z_START_MM <= z <= params.RAIL_UPPER_Z_END_MM
+        ]
+        self.assertEqual(len(lower_holes) + len(upper_holes), len(holes))
+        self.assertEqual(len(lower_holes), 11)
+        self.assertEqual(len(upper_holes), 12)
+
+    def test_rail_fasteners_clear_rack_inserts(self) -> None:
+        from . import seam
+
+        holes = seam.extension_hole_centers()
+        for fz in params.RAIL_FASTENER_Z_LOWER_MM + params.RAIL_FASTENER_Z_UPPER_MM:
+            # Check Z distance to every rack hole center
+            min_dist = min(abs(fz - hz) for hz in holes)
+            self.assertGreater(
+                min_dist,
+                (params.RAIL_FASTENER_HEAD_DIA_MM + params.M5_INSERT_OD_MEASURED_MM) / 2
+                + 1.0,
+                f"Fastener at z={fz} too close to rack hole (dist={min_dist})",
+            )
+
+    def test_rear_crossbar_and_side_restraint_fit_bed(self) -> None:
+        cb_env = params.rear_crossbar_envelope()
+        sr_env = params.side_restraint_envelope()
+        self.assertTrue(params.fits_bed(cb_env.x_mm, cb_env.y_mm, cb_env.z_mm))
+        self.assertTrue(params.fits_bed(sr_env.x_mm, sr_env.y_mm, sr_env.z_mm))
+        self.assertAlmostEqual(params.REAR_CROSSBAR_SPAN_MM, 223.0)
+        self.assertAlmostEqual(params.SIDE_RESTRAINT_SPAN_MM, 140.0)
 
 
 if __name__ == "__main__":

@@ -93,6 +93,28 @@ reported: "they fit good, very slightly loose" and "the M5 rod passes through."
 Retain the current joint clearance. This confirms the coupon fit and rod
 passage; it does not establish full-column stiffness or retained clamp load.
 
+## Physical middle-splice result
+
+The user reported "yep its good" after the requested middle-splice coupon
+checks (seating, sideways play, and M5 rod passage). Treat the splice coupon
+fit as accepted and retain the current clearance. Full-column load and creep
+validation remain open.
+
+## Physical Revision 3 decoupled rail and column coupon result (2026-09-24)
+
+1. The separate flat-printed equipment rail coupon (`equipment_rail_coupon.stl`)
+   was physically printed and verified:
+   - 6.2 mm pilot accepted the M5 heat-set insert flush, with no wall bulging or cracking.
+   - Tested M5 rack screw held torque.
+   - 1U rack hole spacing aligned with actual equipment mounting ears.
+2. The matching column joint coupon (`rev3_column_joint_coupon.stl`) was
+   physically printed and verified:
+   - M3 hex nut dropped cleanly into the side-entry captive slot.
+   - M3 screw threaded through the rail coupon into the nut and clamped the joint flush.
+   - M5 threaded rod passed freely through the central tie-rod bore with zero interference.
+3. Decision: Option A (M3 screws + captive M3 nuts with decoupled rails) is accepted
+   for production parts in [`../rev3/`](../rev3/).
+
 ## Print sequence and acceptance
 
 1. The direct 236 mm measurement supersedes the gauge step. Print

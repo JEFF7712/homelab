@@ -1024,11 +1024,291 @@ def export_assembly(out_dir: Path) -> dict[str, Path]:
     }
 
 
+def _m4_screw_x(start: float, direction: float, y: float, z: float) -> Part:
+    shank = Cylinder(
+        radius=params.M4_BRACE_SCREW_DIA_MM / 2,
+        height=params.M4_BRACE_SCREW_LENGTH_MM,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((start, y, z), (0.0, 90.0 * direction, 0.0)))
+    head = Cylinder(
+        radius=params.BRACE_FASTENER_HEAD_DIA_MM / 2,
+        height=params.M4_BRACE_SCREW_HEAD_HEIGHT_MM,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(
+        Location(
+            (start - direction * params.M4_BRACE_SCREW_HEAD_HEIGHT_MM, y, z),
+            (0.0, 90.0 * direction, 0.0),
+        )
+    )
+    return cast(Part, shank + head)
+
+
+def _m4_screw_y(start: float, direction: float, x: float, z: float) -> Part:
+    shank = Cylinder(
+        radius=params.M4_BRACE_SCREW_DIA_MM / 2,
+        height=params.M4_BRACE_SCREW_LENGTH_MM,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((x, start, z), (90.0 * -direction, 0.0, 0.0)))
+    head = Cylinder(
+        radius=params.BRACE_FASTENER_HEAD_DIA_MM / 2,
+        height=params.M4_BRACE_SCREW_HEAD_HEIGHT_MM,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(
+        Location(
+            (x, start - direction * params.M4_BRACE_SCREW_HEAD_HEIGHT_MM, z),
+            (90.0 * -direction, 0.0, 0.0),
+        )
+    )
+    return cast(Part, shank + head)
+
+
+def _m4_insert_x(start: float, direction: float, y: float, z: float) -> Part:
+    outer = Cylinder(
+        radius=params.M4_HEAT_SET_PILOT_DIA_MM / 2,
+        height=params.M4_HEAT_SET_DEPTH_MM,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((start, y, z), (0.0, 90.0 * direction, 0.0)))
+    bore = Cylinder(
+        radius=params.M4_BRACE_SCREW_DIA_MM / 2,
+        height=params.M4_HEAT_SET_DEPTH_MM + 1.0,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((start, y, z), (0.0, 90.0 * direction, 0.0)))
+    return cast(Part, outer - bore)
+
+
+def _m4_insert_y(start: float, direction: float, x: float, z: float) -> Part:
+    outer = Cylinder(
+        radius=params.M4_HEAT_SET_PILOT_DIA_MM / 2,
+        height=params.M4_HEAT_SET_DEPTH_MM,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((x, start, z), (90.0 * -direction, 0.0, 0.0)))
+    bore = Cylinder(
+        radius=params.M4_BRACE_SCREW_DIA_MM / 2,
+        height=params.M4_HEAT_SET_DEPTH_MM + 1.0,
+        align=(Align.CENTER, Align.CENTER, Align.MIN),
+    ).locate(Location((x, start, z), (90.0 * -direction, 0.0, 0.0)))
+    return cast(Part, outer - bore)
+
+
+def rev3_hardware() -> list[Part]:
+    hardware: list[Part] = []
+    for x in (
+        params.BORE_CENTER_X_MM,
+        params.BODY_WIDTH_MM - params.BORE_CENTER_X_MM,
+    ):
+        for y in (
+            params.BORE_CENTER_Y_MM,
+            params.BODY_DEPTH_MM - params.BORE_CENTER_Y_MM,
+        ):
+            hardware.append(
+                Cylinder(
+                    radius=2.5,
+                    height=params.ADDED_HEIGHT_MM + 20.0,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN),
+                ).locate(Location((x, y, -10.0)))
+            )
+
+    for y in (22.5, 177.5):
+        hardware.append(_m4_insert_x(0.0, 1.0, y, params.SIDE_RESTRAINT_Z_MM))
+        hardware.append(
+            _m4_insert_x(
+                params.BODY_WIDTH_MM,
+                -1.0,
+                y,
+                params.SIDE_RESTRAINT_Z_MM,
+            )
+        )
+        hardware.append(_m4_screw_x(-6.0, 1.0, y, params.SIDE_RESTRAINT_Z_MM))
+        hardware.append(
+            _m4_screw_x(
+                params.BODY_WIDTH_MM + 6.0,
+                -1.0,
+                y,
+                params.SIDE_RESTRAINT_Z_MM,
+            )
+        )
+
+    for x in (
+        params.REAR_CROSSBAR_FASTENER_X_LEFT_MM,
+        params.REAR_CROSSBAR_FASTENER_X_RIGHT_MM,
+    ):
+        for z in (55.0, 335.0):
+            hardware.append(_m4_insert_y(params.BODY_DEPTH_MM, -1.0, x, z))
+
+    for x, z in (
+        (params.DIAGONAL_ANCHOR_LOWER_X_MM, 55.0),
+        (params.DIAGONAL_ANCHOR_UPPER_X_MM, 335.0),
+    ):
+        hardware.append(
+            _m4_insert_y(
+                params.BODY_DEPTH_MM + params.REAR_CROSSBAR_THICK_MM,
+                -1.0,
+                x,
+                z,
+            )
+        )
+
+    for x, z, diagonal in (
+        (params.REAR_CROSSBAR_FASTENER_X_LEFT_MM, 55.0, False),
+        (params.REAR_CROSSBAR_FASTENER_X_RIGHT_MM, 55.0, False),
+        (params.DIAGONAL_ANCHOR_LOWER_X_MM, 55.0, True),
+        (params.DIAGONAL_ANCHOR_UPPER_X_MM, 335.0, True),
+        (params.REAR_CROSSBAR_FASTENER_X_LEFT_MM, 335.0, False),
+        (params.REAR_CROSSBAR_FASTENER_X_RIGHT_MM, 335.0, False),
+    ):
+        if diagonal:
+            start_y = (
+                params.BODY_DEPTH_MM
+                + params.REAR_CROSSBAR_THICK_MM
+                + params.REAR_BRACE_THICK_MM
+            )
+        else:
+            start_y = (
+                params.BODY_DEPTH_MM
+                + params.REAR_CROSSBAR_THICK_MM
+                - params.M4_BRACE_SCREW_HEAD_HEIGHT_MM
+            )
+        hardware.append(_m4_screw_y(start_y, -1.0, x, z))
+    return hardware
+
+
+def export_rev3(out_dir: Path) -> dict[str, Path]:
+    from build123d import export_step, export_stl
+
+    from . import bracing, column, rail
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    parts = {
+        "rev3_corner_mount_front_left": column.rev3_corner_mount_front_left(),
+        "rev3_corner_mount_front_right": column.rev3_corner_mount_front_right(),
+        "rev3_corner_mount_rear_left": column.rev3_corner_mount_rear_left(),
+        "rev3_corner_mount_rear_right": column.rev3_corner_mount_rear_right(),
+        "equipment_rail_lower_left": rail.lower_equipment_rail_left(),
+        "equipment_rail_lower_right": rail.lower_equipment_rail_right(),
+        "equipment_rail_upper_left": rail.upper_equipment_rail_left(),
+        "equipment_rail_upper_right": rail.upper_equipment_rail_right(),
+        "equipment_rail_coupon": rail.rail_coupon(),
+        "rev3_column_joint_coupon": column.rev3_column_joint_coupon(),
+        "rev3_lower_column_left": column.rev3_lower_column_left(),
+        "rev3_lower_column_right": column.rev3_lower_column_right(),
+        "rev3_upper_column_left": column.rev3_upper_column_left(),
+        "rev3_upper_column_right": column.rev3_upper_column_right(),
+        "rear_lower_crossbar": bracing.rear_lower_crossbar(),
+        "rear_upper_crossbar": bracing.rear_upper_crossbar(),
+        "side_restraint_bar": bracing.side_restraint_bar(),
+        "rear_diagonal_brace_lower": bracing.rear_diagonal_brace_half(upper=False),
+        "rear_diagonal_brace_upper": bracing.rear_diagonal_brace_half(upper=True),
+    }
+    paths: dict[str, Path] = {}
+    for name, part in parts.items():
+        if not part.is_valid or len(part.solids()) != 1:
+            raise ValueError(f"invalid or disconnected export: {name}")
+        size = part.bounding_box().size
+        if not params.fits_bed(size.X, size.Y, size.Z):
+            raise ValueError(f"export exceeds print envelope: {name}")
+        paths[name] = out_dir / f"{name}.stl"
+        export_stl(part, str(paths[name]))
+
+    assembly = Compound(
+        children=[
+            parts["rev3_corner_mount_front_left"],
+            parts["rev3_corner_mount_front_right"].moved(
+                Location((params.BODY_WIDTH_MM - params.COLUMN_INWARD_MM, 0, 0))
+            ),
+            parts["rev3_corner_mount_rear_left"].moved(
+                Location((0, params.BODY_DEPTH_MM - params.COLUMN_DEPTH_MM, 0))
+            ),
+            parts["rev3_corner_mount_rear_right"].moved(
+                Location(
+                    (
+                        params.BODY_WIDTH_MM - params.COLUMN_INWARD_MM,
+                        params.BODY_DEPTH_MM - params.COLUMN_DEPTH_MM,
+                        0,
+                    )
+                )
+            ),
+            column.rev3_lower_column_left().moved(
+                Location((0, 0, params.BOTTOM_BLOCK_TOP_Z_MM))
+            ),
+            column.rev3_lower_column_right().moved(
+                Location(
+                    (
+                        params.BODY_WIDTH_MM - params.COLUMN_INWARD_MM,
+                        0,
+                        params.BOTTOM_BLOCK_TOP_Z_MM,
+                    )
+                )
+            ),
+            column.rev3_lower_column_left().moved(
+                Location(
+                    (
+                        0,
+                        params.BODY_DEPTH_MM - params.COLUMN_DEPTH_MM,
+                        params.BOTTOM_BLOCK_TOP_Z_MM,
+                    )
+                )
+            ),
+            column.rev3_lower_column_right().moved(
+                Location(
+                    (
+                        params.BODY_WIDTH_MM - params.COLUMN_INWARD_MM,
+                        params.BODY_DEPTH_MM - params.COLUMN_DEPTH_MM,
+                        params.BOTTOM_BLOCK_TOP_Z_MM,
+                    )
+                )
+            ),
+            column.rev3_upper_column_left().moved(Location((0, 0, corner.SPLICE_Z))),
+            column.rev3_upper_column_right().moved(
+                Location(
+                    (
+                        params.BODY_WIDTH_MM - params.COLUMN_INWARD_MM,
+                        0,
+                        corner.SPLICE_Z,
+                    )
+                )
+            ),
+            column.rev3_upper_column_left().moved(
+                Location(
+                    (
+                        0,
+                        params.BODY_DEPTH_MM - params.COLUMN_DEPTH_MM,
+                        corner.SPLICE_Z,
+                    )
+                )
+            ),
+            column.rev3_upper_column_right().moved(
+                Location(
+                    (
+                        params.BODY_WIDTH_MM - params.COLUMN_INWARD_MM,
+                        params.BODY_DEPTH_MM - params.COLUMN_DEPTH_MM,
+                        corner.SPLICE_Z,
+                    )
+                )
+            ),
+            parts["equipment_rail_lower_left"],
+            parts["equipment_rail_lower_right"],
+            parts["equipment_rail_upper_left"],
+            parts["equipment_rail_upper_right"],
+            parts["rear_lower_crossbar"],
+            parts["rear_upper_crossbar"],
+            parts["side_restraint_bar"],
+            bracing.side_restraint_bar(right=True),
+            bracing.rear_diagonal_assembly(),
+            *rev3_hardware(),
+        ]
+    )
+    step_path = out_dir / "rev3_full_assembly.step"
+    export_step(assembly, str(step_path))
+    paths["assembly_step"] = step_path
+    return paths
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Export preliminary rack CAD")
     ap.add_argument("--export-dir", default="/tmp/opencode/rack_extension")
     ap.add_argument("--audit", action="store_true")
     ap.add_argument("--prototype-only", action="store_true")
+    ap.add_argument("--rev3", action="store_true")
     args = ap.parse_args(argv)
     errors = validate()
     if errors:
@@ -1036,9 +1316,13 @@ def main(argv: list[str] | None = None) -> int:
         for err in errors:
             print(f"  - {err}")
         return 1
-    paths = (export_prototypes if args.prototype_only else export_assembly)(
-        Path(args.export_dir)
-    )
+    if args.rev3:
+        exporter = export_rev3
+    elif args.prototype_only:
+        exporter = export_prototypes
+    else:
+        exporter = export_assembly
+    paths = exporter(Path(args.export_dir))
     for name, path in paths.items():
         print(f"{name}: {path}")
     if args.audit:

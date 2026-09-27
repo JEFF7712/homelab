@@ -1,0 +1,392 @@
+{
+  "mount_front_left": {
+    "quantity": 1,
+    "size_mm": [
+      34.3,
+      46.0,
+      51.35000000000001
+    ],
+    "cad_volume_mm3": 29705.02953121038,
+    "rotation_degrees": [
+      0,
+      180,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "retainer_front_left": {
+    "quantity": 4,
+    "size_mm": [
+      22.05,
+      20.1,
+      9.600000000000001
+    ],
+    "cad_volume_mm3": 2550.865544310782,
+    "rotation_degrees": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "lower_front_left": {
+    "quantity": 2,
+    "size_mm": [
+      29.0,
+      30.0,
+      155.5
+    ],
+    "cad_volume_mm3": 92273.79201318217,
+    "rotation_degrees": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "upper_front_left": {
+    "quantity": 2,
+    "size_mm": [
+      29.0,
+      30.0,
+      185.75000000000003
+    ],
+    "cad_volume_mm3": 113873.43012363439,
+    "rotation_degrees": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "mount_rear_left": {
+    "quantity": 1,
+    "size_mm": [
+      34.3,
+      48.0,
+      51.35
+    ],
+    "cad_volume_mm3": 35583.94946028788,
+    "rotation_degrees": [
+      0,
+      180,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rail_lower_left": {
+    "quantity": 1,
+    "size_mm": [
+      16.0,
+      157.85,
+      9.500000000000036
+    ],
+    "cad_volume_mm3": 20383.088282211607,
+    "rotation_degrees": [
+      -90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rail_upper_left": {
+    "quantity": 1,
+    "size_mm": [
+      16.0,
+      173.75000000000003,
+      9.500000000000039
+    ],
+    "cad_volume_mm3": 22345.247203560197,
+    "rotation_degrees": [
+      -90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "side_restraint_left": {
+    "quantity": 2,
+    "size_mm": [
+      20.0,
+      170.0,
+      6.000000000000004
+    ],
+    "cad_volume_mm3": 20209.14824629442,
+    "rotation_degrees": [
+      0,
+      -90,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "top_side_beam_left": {
+    "quantity": 1,
+    "size_mm": [
+      42.0,
+      200.0,
+      35.000000000000014
+    ],
+    "cad_volume_mm3": 98157.03901982165,
+    "rotation_degrees": [
+      0,
+      -90,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "mount_front_right": {
+    "quantity": 1,
+    "size_mm": [
+      34.3,
+      46.0,
+      51.35000000000001
+    ],
+    "cad_volume_mm3": 29705.029531210388,
+    "rotation_degrees": [
+      0,
+      180,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "lower_front_right": {
+    "quantity": 2,
+    "size_mm": [
+      29.0,
+      30.0,
+      155.5
+    ],
+    "cad_volume_mm3": 92273.79201318219,
+    "rotation_degrees": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "upper_front_right": {
+    "quantity": 2,
+    "size_mm": [
+      29.0,
+      30.0,
+      185.75000000000003
+    ],
+    "cad_volume_mm3": 113873.4301236344,
+    "rotation_degrees": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "mount_rear_right": {
+    "quantity": 1,
+    "size_mm": [
+      34.3,
+      48.0,
+      51.35000000000001
+    ],
+    "cad_volume_mm3": 35583.949460287884,
+    "rotation_degrees": [
+      0,
+      180,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rail_lower_right": {
+    "quantity": 1,
+    "size_mm": [
+      16.0,
+      157.85,
+      9.500000000000036
+    ],
+    "cad_volume_mm3": 20383.088282211607,
+    "rotation_degrees": [
+      -90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rail_upper_right": {
+    "quantity": 1,
+    "size_mm": [
+      16.0,
+      173.75000000000003,
+      9.500000000000039
+    ],
+    "cad_volume_mm3": 22345.247203560197,
+    "rotation_degrees": [
+      -90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "top_side_beam_right": {
+    "quantity": 1,
+    "size_mm": [
+      42.0,
+      200.0,
+      35.00000000000001
+    ],
+    "cad_volume_mm3": 98157.03901982165,
+    "rotation_degrees": [
+      0,
+      90,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rear_lower_crossbar": {
+    "quantity": 1,
+    "size_mm": [
+      251.0,
+      20.000000000000004,
+      10.000000000000005
+    ],
+    "cad_volume_mm3": 49290.98016568381,
+    "rotation_degrees": [
+      90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rear_upper_crossbar": {
+    "quantity": 1,
+    "size_mm": [
+      251.0,
+      20.000000000000004,
+      10.000000000000005
+    ],
+    "cad_volume_mm3": 49290.9801656838,
+    "rotation_degrees": [
+      90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "diagonal_lower": {
+    "quantity": 1,
+    "size_mm": [
+      200.3004563599308,
+      18.0,
+      6.0
+    ],
+    "cad_volume_mm3": 19821.597533166943,
+    "rotation_degrees": [
+      0,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "diagonal_upper": {
+    "quantity": 1,
+    "size_mm": [
+      200.3004563599308,
+      18.0,
+      6.000000000000003
+    ],
+    "cad_volume_mm3": 19767.59753316695,
+    "rotation_degrees": [
+      180,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "m4_pilot_coupon": {
+    "quantity": 1,
+    "size_mm": [
+      15.0,
+      60.0,
+      18.0
+    ],
+    "cad_volume_mm3": 15303.422640465446,
+    "rotation_degrees": [
+      0,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "m4_test_spacer": {
+    "quantity": 1,
+    "size_mm": [
+      15.0,
+      15.0,
+      6.0
+    ],
+    "cad_volume_mm3": 1254.57412314721,
+    "rotation_degrees": [
+      0,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "lid_fit_coupon": {
+    "quantity": 1,
+    "size_mm": [
+      42.0,
+      35.0,
+      35.000000000000014
+    ],
+    "cad_volume_mm3": 16168.519509910828,
+    "rotation_degrees": [
+      0,
+      -90,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "top_post_coupon": {
+    "quantity": 1,
+    "size_mm": [
+      29.0,
+      30.0,
+      42.0
+    ],
+    "cad_volume_mm3": 25320.28097085105,
+    "rotation_degrees": [
+      0,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rail_fit_coupon": {
+    "quantity": 1,
+    "size_mm": [
+      16.0,
+      44.45000000000017,
+      9.50000000000001
+    ],
+    "cad_volume_mm3": 5742.94653083395,
+    "rotation_degrees": [
+      -90,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  },
+  "rail_column_coupon": {
+    "quantity": 1,
+    "size_mm": [
+      29.0,
+      30.0,
+      44.45
+    ],
+    "cad_volume_mm3": 29922.92583763406,
+    "rotation_degrees": [
+      0,
+      0,
+      0
+    ],
+    "status": "prototype; physical acceptance pending"
+  }
+}
