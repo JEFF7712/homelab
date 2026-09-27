@@ -67,6 +67,22 @@ class CloudTranslationTests(unittest.TestCase):
         self.assertEqual(ha, {"state": "OFF"})
         self.assertNotIn("color_mode", ha)
 
+    def test_settled_detects_lagging_cloud(self) -> None:
+        on = {"id": "x", "state": {"power": {"power": "on"}}}
+        off = {"id": "x", "state": {"power": {"power": "off"}}}
+        self.assertTrue(CLOUD._state_settled({"state": "OFF"}, off))
+        self.assertFalse(CLOUD._state_settled({"state": "OFF"}, on))
+        bright = {
+            "id": "x",
+            "state": {"power": {"power": "on"}, "brightness": {"level": 50}},
+        }
+        self.assertTrue(
+            CLOUD._state_settled({"state": "ON", "brightness": 128}, bright)
+        )
+        self.assertFalse(
+            CLOUD._state_settled({"state": "ON", "brightness": 255}, bright)
+        )
+
     def test_reported_temp_state_maps_back(self) -> None:
         member = {
             "id": "x",

@@ -41,7 +41,8 @@ ORIGIN = "https://my.roku.com"
 REST_TIMEOUT = 10
 WS_TIMEOUT = 10
 COMMAND_WAIT = 0.5
-VERIFY_DELAY_S = 12
+VERIFY_DELAY_S = 10
+VERIFY_ATTEMPTS = 3
 
 TEMP_MIN_K = 1800
 TEMP_MAX_K = 6500
@@ -254,6 +255,27 @@ async def _ws_send(cookie_header: str, leaf_id: str, command: str, params: dict)
         raise
 
 
+def _state_settled(cmd: dict, member: dict) -> bool:
+    """True when the cloud-reported state reflects the commanded change.
+
+    Roku applies websocket commands asynchronously and `leaves` lags behind,
+    so a single read-back can predate the apply and revert the UI. Only
+    compare fields the command actually changed.
+    """
+    state = member.get("state", {}) or {}
+    if (cmd.get("state") or "").upper() in ("ON", "OFF"):
+        reported = state.get("power", {}).get("power", "")
+        if str(reported).upper() != (cmd.get("state") or "").upper():
+            return False
+    if cmd.get("brightness") is not None:
+        level = state.get("brightness", {}).get("level")
+        if level is None:
+            return False
+        if abs(clamp(round(int(cmd["brightness"]) * 100 / 255), 0, 100) - int(level)) > 1:
+            return False
+    return True
+
+
 def cookie_header(session) -> str:
     import requests
 
@@ -290,18 +312,23 @@ def _handle_set(
                 asyncio.run(_ws_send(header, leaf_id, command, params))
             save_cookies(cookies_path, session)
             print(f"{slug} <- {cloud_cmds}", flush=True)
-            time.sleep(VERIFY_DELAY_S)
-            try:
-                leaves = fetch_leaves(session)
-                save_cookies(cookies_path, session)
-                member = find_member(leaves, slug) or member
-            except Exception as e:
-                print(
-                    f"verify skipped for {topic}: {type(e).__name__}: {e}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                return
+            for _ in range(VERIFY_ATTEMPTS):
+                time.sleep(VERIFY_DELAY_S)
+                try:
+                    leaves = fetch_leaves(session)
+                    save_cookies(cookies_path, session)
+                    found = find_member(leaves, slug)
+                    if found is not None:
+                        member = found
+                    if _state_settled(cmd, member):
+                        break
+                except Exception as e:
+                    print(
+                        f"verify skipped for {topic}: {type(e).__name__}: {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    break
         state = cloud_state_to_ha(member, cmd)
         mqtt_client.publish(f"{prefix}/light/{slug}/state", json.dumps(state), retain=True)
         print(f"{slug} == {state}", flush=True)
