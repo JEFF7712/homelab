@@ -235,10 +235,18 @@ async def _ws_send(cookie_header: str, leaf_id: str, command: str, params: dict)
             open_timeout=WS_TIMEOUT,
         ) as ws:
             await ws.send(msg)
-            try:
-                await asyncio.wait_for(ws.recv(), timeout=COMMAND_WAIT)
-            except asyncio.TimeoutError:
-                pass
+            # Hold the socket open for the full flush window. The server
+            # chats on connect; returning on the first message can hang up
+            # before it processes the command, which silently drops it.
+            deadline = asyncio.get_running_loop().time() + COMMAND_WAIT
+            while True:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    break
+                try:
+                    await asyncio.wait_for(ws.recv(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    break
     except Exception as e:
         status = getattr(getattr(e, "response", None), "status_code", None)
         if status in (401, 403):
