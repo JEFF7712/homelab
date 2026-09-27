@@ -18,6 +18,7 @@ Ref: docs/local-http-api.md
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import sys
 import time
@@ -29,6 +30,8 @@ TEMP_MIN_K = 1800
 TEMP_MAX_K = 6500
 MIRED_MIN = round(1_000_000 / TEMP_MAX_K)
 MIRED_MAX = round(1_000_000 / TEMP_MIN_K)
+
+SEND_TIMEOUT = 3
 
 
 def clamp(v: int, lo: int, hi: int) -> int:
@@ -93,7 +96,7 @@ def send_local(ip: str, mac: str, enr: str, plist: list[dict[str, str]]) -> None
         data=body,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=5) as resp:
+    with urllib.request.urlopen(req, timeout=SEND_TIMEOUT) as resp:
         resp.read()
 
 
@@ -141,6 +144,32 @@ def commanded_state(cmd: dict) -> dict:
     return state
 
 
+def route_slug(topic: str, bulbs: dict) -> str | None:
+    """Map a set-topic to a known bulb slug, or None for unknown topics."""
+    slug = topic.split("/")[-2].upper()
+    return slug if slug in bulbs else None
+
+
+def _handle_set(client, prefix: str, bulbs: dict, slug: str, payload: bytes, topic: str) -> None:
+    """Execute one light command for a single bulb (runs off the MQTT loop thread)."""
+    try:
+        bulb = bulbs[slug]
+        cmd = json.loads(payload.decode())
+        plist = ha_to_plist(cmd)
+        if not plist:
+            return
+        send_local(bulb["ip"], slug, bulb["enr"], plist)
+        state = commanded_state(cmd)
+        client.publish(f"{prefix}/light/{slug}/state", json.dumps(state), retain=True)
+        print(f"{slug} <- {plist}", flush=True)
+    except Exception as e:
+        print(
+            f"error on {topic}: {type(e).__name__}: {e}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
 def run(
     config_path: str,
     prefix: str,
@@ -162,6 +191,13 @@ def run(
     if user:
         client.username_pw_set(user, password or None)
 
+    executors = {
+        slug: concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix=f"roku-{slug}"
+        )
+        for slug in bulbs
+    }
+
     def on_connect(c, _u, _f, rc, _p=None):
         for slug in bulbs:
             c.subscribe(f"{prefix}/light/{slug}/set")
@@ -173,16 +209,12 @@ def run(
 
     def on_message(c, _u, msg):
         try:
-            slug = msg.topic.split("/")[-2].upper()
-            bulb = bulbs[slug]
-            cmd = json.loads(msg.payload.decode())
-            plist = ha_to_plist(cmd)
-            if not plist:
+            slug = route_slug(msg.topic, bulbs)
+            if slug is None:
                 return
-            send_local(bulb["ip"], slug, bulb["enr"], plist)
-            state = commanded_state(cmd)
-            c.publish(f"{prefix}/light/{slug}/state", json.dumps(state), retain=True)
-            print(f"{slug} <- {plist}", flush=True)
+            executors[slug].submit(
+                _handle_set, c, prefix, bulbs, slug, bytes(msg.payload), msg.topic
+            )
         except Exception as e:
             print(
                 f"error on {msg.topic}: {type(e).__name__}: {e}",

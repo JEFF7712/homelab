@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MOSQUITTO = ROOT / "flake/modules/adguard-netbird/mosquitto.nix"
 BRIDGE = ROOT / "flake/modules/adguard-netbird/roku-bridge.nix"
 BRIDGE_PY = ROOT / "flake/modules/adguard-netbird/roku-bridge.py"
-BRIDGE_REV = "53fc6d2717f6c6fbf6b0b6f68607af8d79e5b8cb"
-BRIDGE_SHA256 = "a838eed9b7379b9609e367799c6aae6125a2d65ea06a0cac6df268a24843eaa8"
+BRIDGE_REV = "7b717417f7b2dda0c5d112163b402b0b8fcd6f03"
+BRIDGE_SHA256 = "eff5614a9a31ecd0aaf113e45acfaa9cbd251184b4d3e559a3f4dddd57d03f9d"
 
 
 class RokuBridgeContractTests(unittest.TestCase):

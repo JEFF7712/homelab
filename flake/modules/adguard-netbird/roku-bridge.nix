@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  # Pinned from github.com/JEFF7712/roku-bulb-local@53fc6d2717f6c6fbf6b0b6f68607af8d79e5b8cb
+  # Pinned from github.com/JEFF7712/roku-bulb-local@7b717417f7b2dda0c5d112163b402b0b8fcd6f03
   # (scripts/bridge.py), vendored as ./roku-bridge.py. Verified functionally
   # identical to the previous inline mirror; upstream drift since was only
   # typing, docstrings, and formatting. Re-pin by copying the file and
