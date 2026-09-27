@@ -17,6 +17,24 @@ let
     destination = "/bin/roku-cloud-bridge";
     text = builtins.readFile ./roku-cloud-bridge.py;
   };
+  cloudBridgeStage = pkgs.writeShellScriptBin "roku-cloud-bridge-stage" ''
+    ${pkgs.coreutils}/bin/install -d -m 0700 -o roku-cloud-bridge -g roku-cloud-bridge /var/lib/roku-cloud-bridge
+    ${pkgs.coreutils}/bin/install -m 0600 -o roku-cloud-bridge -g roku-cloud-bridge \
+      /persist/secrets/roku-cloud-bulbs.yaml /var/lib/roku-cloud-bridge/bulbs.yaml
+    if ! ${pkgs.coreutils}/bin/test -s /var/lib/roku-cloud-bridge/cookies.json; then
+      ${pkgs.coreutils}/bin/install -m 0600 -o roku-cloud-bridge -g roku-cloud-bridge \
+        /persist/secrets/roku-cloud-cookies.json /var/lib/roku-cloud-bridge/cookies.json
+    fi
+    {
+      echo "MQTT_HOST=10.0.30.10"
+      echo "MQTT_PORT=1883"
+      echo "MQTT_USER=roku-bridge"
+      ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
+      ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-roku-bridge-password
+    } > /var/lib/roku-cloud-bridge/mqtt.env
+    ${pkgs.coreutils}/bin/chown roku-cloud-bridge:roku-cloud-bridge /var/lib/roku-cloud-bridge/mqtt.env
+    ${pkgs.coreutils}/bin/chmod 0600 /var/lib/roku-cloud-bridge/mqtt.env
+  '';
 in
 {
   users.users.roku-cloud-bridge = {
@@ -39,25 +57,12 @@ in
       RemainAfterExit = true;
     };
     script = ''
-      ${pkgs.coreutils}/bin/install -d -m 0700 -o roku-cloud-bridge -g roku-cloud-bridge /var/lib/roku-cloud-bridge
-      ${pkgs.coreutils}/bin/install -m 0600 -o roku-cloud-bridge -g roku-cloud-bridge \
-        /persist/secrets/roku-cloud-bulbs.yaml /var/lib/roku-cloud-bridge/bulbs.yaml
-      if ! ${pkgs.coreutils}/bin/test -s /var/lib/roku-cloud-bridge/cookies.json; then
-        ${pkgs.coreutils}/bin/install -m 0600 -o roku-cloud-bridge -g roku-cloud-bridge \
-          /persist/secrets/roku-cloud-cookies.json /var/lib/roku-cloud-bridge/cookies.json
-      fi
-      {
-        echo "MQTT_HOST=10.0.30.10"
-        echo "MQTT_PORT=1883"
-        echo "MQTT_USER=roku-bridge"
-        ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
-        ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-roku-bridge-password
-      } > /var/lib/roku-cloud-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chown roku-cloud-bridge:roku-cloud-bridge /var/lib/roku-cloud-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chmod 0600 /var/lib/roku-cloud-bridge/mqtt.env
+      ${cloudBridgeStage}/bin/roku-cloud-bridge-stage
     '';
   };
 
+  # See roku-bridge.nix: the bulb list arrives out of band, so the deploy job
+  # restarts these daemons after writing new secrets.
   systemd.services.roku-cloud-bridge = {
     after = [
       "network-online.target"
@@ -68,6 +73,7 @@ in
     serviceConfig = {
       User = "roku-cloud-bridge";
       EnvironmentFile = "/var/lib/roku-cloud-bridge/mqtt.env";
+      ExecStartPre = "+${cloudBridgeStage}/bin/roku-cloud-bridge-stage";
       ExecStart = "${cloudBridgePython}/bin/python3 -u ${cloudBridgeDaemon}/bin/roku-cloud-bridge --config /var/lib/roku-cloud-bridge/bulbs.yaml --cookies /var/lib/roku-cloud-bridge/cookies.json --cookie-seed /persist/secrets/roku-cloud-cookies.json";
       Restart = "always";
       RestartSec = "5s";

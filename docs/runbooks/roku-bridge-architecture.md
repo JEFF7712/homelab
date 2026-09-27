@@ -110,6 +110,35 @@ from `name`); set virtual segments with `POST /api/virtuals/<id>`
 `DELETE /api/devices/bedroom-osc`, `DELETE /api/virtuals/bedroom-music-mode-bulbs`,
 `DELETE /api/scenes/bedroom-music-mode`.
 
+## Bulb ownership must stay disjoint
+
+A MAC belongs to exactly one bridge. The local bridge serves
+`ROKU_BRIDGE_BULBS_JSON`, the cloud bridge serves `ROKU_CLOUD_BULBS_JSON`, and
+they must not overlap: both subscribe to `roku/light/<slug>/set` and publish
+`roku/light/<slug>/state`, so an overlap means two writers on one bulb and
+flapping optimistic state. Current split: desk and floor on the local bridge,
+the LS1016X strip on the cloud bridge.
+
+The list is delivered out of band, so a redeploy does not by itself reload it.
+Both daemons therefore re-stage their config in `ExecStartPre` (the `+` prefix
+runs it as root, since the source secret is root-owned), and
+`deploy_zigbee_gateway` restarts both after writing new secrets. Without that,
+a `RemainAfterExit` staging oneshot leaves the daemon serving the previous list
+from memory: this happened once, the strip stayed double-answered after being
+moved to the cloud bridge, and the local bridge logged a 3s timeout per command
+for every strip command the cloud bridge handled correctly.
+
+To confirm the split on a live box:
+
+```bash
+ssh adguard "sudo cat /persist/secrets/roku-bridge-bulbs.yaml \
+  /persist/secrets/roku-cloud-bulbs.yaml"
+ssh adguard "sudo journalctl -u roku-bridge -n 20 --no-pager | grep <mac>"
+```
+
+A MAC appearing in both files, or a bridge logging a MAC that is not in its
+own file, is the failure signature.
+
 ## Debug commands
 
 ```bash

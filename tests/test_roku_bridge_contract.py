@@ -9,6 +9,7 @@ from scripts.roku_bridge import render_bulbs
 ROOT = Path(__file__).resolve().parents[1]
 MOSQUITTO = ROOT / "flake/modules/adguard-netbird/mosquitto.nix"
 BRIDGE = ROOT / "flake/modules/adguard-netbird/roku-bridge.nix"
+CLOUD_BRIDGE = ROOT / "flake/modules/adguard-netbird/roku-cloud-bridge.nix"
 BRIDGE_PY = ROOT / "flake/modules/adguard-netbird/roku-bridge.py"
 BRIDGE_REV = "7b717417f7b2dda0c5d112163b402b0b8fcd6f03"
 BRIDGE_SHA256 = "eff5614a9a31ecd0aaf113e45acfaa9cbd251184b4d3e559a3f4dddd57d03f9d"
@@ -66,6 +67,29 @@ class RokuBridgeContractTests(unittest.TestCase):
         self.assertIn("mosquitto-roku-bridge-password", pipeline)
         self.assertIn("printf '%s' \"$ROKU_BRIDGE_MQTT_PASSWORD\"", pipeline)
         self.assertIn("systemctl is-active mosquitto zigbee2mqtt roku-bridge", pipeline)
+
+    def test_daemons_restage_bulbs_on_every_start(self) -> None:
+        # The bulb list is written out of band and the staging oneshot is
+        # RemainAfterExit, so without re-staging on start a daemon keeps
+        # serving the previous list and a bulb moved to the cloud bridge stays
+        # double-answered on both topics.
+        for module, stage in (
+            (BRIDGE, "roku-bridge-stage"),
+            (CLOUD_BRIDGE, "roku-cloud-bridge-stage"),
+        ):
+            text = module.read_text()
+            self.assertIn(stage, text)
+            # The "+" prefix runs ExecStartPre with full privileges, so it can
+            # read the root-owned secret before dropping to the service user.
+            self.assertIn('ExecStartPre = "+${', text)
+
+    def test_ci_restarts_bridges_after_writing_secrets(self) -> None:
+        pipeline = (ROOT / ".gitlab-ci.yml").read_text()
+        self.assertIn(
+            "sudo systemctl restart roku-bridge-secrets roku-cloud-bridge-secrets",
+            pipeline,
+        )
+        self.assertIn("roku-bridge roku-cloud-bridge", pipeline)
 
     def test_secret_renderer_emits_validated_bulbs_yaml(self) -> None:
         rendered = render_bulbs(

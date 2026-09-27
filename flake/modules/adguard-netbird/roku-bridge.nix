@@ -16,6 +16,20 @@ let
     destination = "/bin/roku-bridge";
     text = builtins.readFile ./roku-bridge.py;
   };
+  rokuBridgeStage = pkgs.writeShellScriptBin "roku-bridge-stage" ''
+    ${pkgs.coreutils}/bin/install -d -m 0700 -o roku-bridge -g roku-bridge /var/lib/roku-bridge
+    ${pkgs.coreutils}/bin/install -m 0600 -o roku-bridge -g roku-bridge \
+      /persist/secrets/roku-bridge-bulbs.yaml /var/lib/roku-bridge/bulbs.yaml
+    {
+      echo "MQTT_HOST=10.0.30.10"
+      echo "MQTT_PORT=1883"
+      echo "MQTT_USER=roku-bridge"
+      ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
+      ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-roku-bridge-password
+    } > /var/lib/roku-bridge/mqtt.env
+    ${pkgs.coreutils}/bin/chown roku-bridge:roku-bridge /var/lib/roku-bridge/mqtt.env
+    ${pkgs.coreutils}/bin/chmod 0600 /var/lib/roku-bridge/mqtt.env
+  '';
 in
 {
   users.users.roku-bridge = {
@@ -37,21 +51,16 @@ in
       RemainAfterExit = true;
     };
     script = ''
-      ${pkgs.coreutils}/bin/install -d -m 0700 -o roku-bridge -g roku-bridge /var/lib/roku-bridge
-      ${pkgs.coreutils}/bin/install -m 0600 -o roku-bridge -g roku-bridge \
-        /persist/secrets/roku-bridge-bulbs.yaml /var/lib/roku-bridge/bulbs.yaml
-      {
-        echo "MQTT_HOST=10.0.30.10"
-        echo "MQTT_PORT=1883"
-        echo "MQTT_USER=roku-bridge"
-        ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
-        ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-roku-bridge-password
-      } > /var/lib/roku-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chown roku-bridge:roku-bridge /var/lib/roku-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chmod 0600 /var/lib/roku-bridge/mqtt.env
+      ${rokuBridgeStage}/bin/roku-bridge-stage
     '';
   };
 
+  # The bulb list is delivered out of band (CI writes /persist/secrets) and the
+  # staging oneshot is RemainAfterExit, so a rebuild that does not change the
+  # unit would leave the daemon serving the previous bulb list from memory. A
+  # bulb moved to the cloud bridge would then stay double-answered on both
+  # topics. ExecStartPre re-stages on every start; the deploy job restarts the
+  # daemons after writing new secrets.
   systemd.services.roku-bridge = {
     after = [
       "network-online.target"
@@ -62,6 +71,9 @@ in
     serviceConfig = {
       User = "roku-bridge";
       EnvironmentFile = "/var/lib/roku-bridge/mqtt.env";
+      # Re-stage as root on every start so a redeployed bulb list is always the
+      # one the daemon reads.
+      ExecStartPre = "+${rokuBridgeStage}/bin/roku-bridge-stage";
       ExecStart = "${rokuBridgePython}/bin/python3 -u ${rokuBridgeDaemon}/bin/roku-bridge --config /var/lib/roku-bridge/bulbs.yaml";
       Restart = "always";
       RestartSec = "5s";
