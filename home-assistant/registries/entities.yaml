@@ -1,8 +1,8 @@
 - disabled_by: integration
-  entity_id: binary_sensor.jayanth_phone_camera_motion
+  entity_id: binary_sensor.bedroom_bedroom_satellite_assist_in_progress
   labels: []
 - disabled_by: integration
-  entity_id: binary_sensor.rupan_phone_camera_motion
+  entity_id: binary_sensor.jayanth_phone_camera_motion
   labels: []
 - disabled_by: integration
   entity_id: binary_sensor.sm_s948u1_android_auto
@@ -73,13 +73,13 @@
 - disabled_by: integration
   entity_id: binary_sensor.zigbee2mqtt_bridge_restart_required
   labels: []
-- name: Bedroom Music Mode
-  icon: mdi:music
-  entity_id: input_boolean.bedroom_music_mode
-  labels: []
 - name: Bedroom Lights Auto On
   icon: mdi:lightbulb-auto
   entity_id: input_boolean.bedroom_lights_auto_on
+  labels: []
+- name: Bedroom Music Mode
+  icon: mdi:music
+  entity_id: input_boolean.bedroom_music_mode
   labels: []
 - name: Govee Music Mode
   icon: mdi:music
@@ -291,33 +291,6 @@
   labels: []
 - disabled_by: user
   entity_id: sensor.remotes
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_audio_output
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_camera_stream
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_connection_type
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_kiosk_brightness
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_kiosk_volume
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_last_update_trigger
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_sim_1
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_sim_2
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.rupan_phone_storage
   labels: []
 - disabled_by: user
   entity_id: sensor.scenes
