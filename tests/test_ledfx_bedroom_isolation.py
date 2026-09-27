@@ -102,6 +102,15 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # The registry password must never reach argv or a world-readable path.
         self.assertNotIn("PASSWORD", module)
 
+    def test_podman_does_not_leak_transient_units(self) -> None:
+        # podman creates a transient systemd unit per container and per
+        # healthcheck run. Those linger as failed after a stop and make
+        # switch-to-configuration exit non-zero on a successful activation.
+        module = MODULE.read_text()
+        self.assertIn("--cgroup-manager=cgroupfs", module)
+        self.assertIn("--events-backend=file", module)
+        self.assertIn("--no-healthcheck", module)
+
     def test_config_dir_is_owned_by_the_container_user(self) -> None:
         # The image runs as uid/gid 1000; a root-owned mount makes it die on
         # startup with PermissionError writing ledfx.log.

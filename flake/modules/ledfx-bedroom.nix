@@ -30,29 +30,35 @@ let
     test -s ${lib.escapeShellArg cfg.authFile}
   '';
 
+  # Podman flags shared by every invocation. Under systemd, podman creates a
+  # transient unit per container and another per healthcheck run; those
+  # transient units linger as "failed" when a container is stopped, which makes
+  # switch-to-configuration exit non-zero even though the activation succeeded.
+  # Managing the container from our own unit keeps podman out of systemd's unit
+  # accounting entirely. Readiness is asserted by the deploy job instead.
+  podmanGlobal = ''
+    --root ${lib.escapeShellArg cfg.storageDir}
+    --runroot ${lib.escapeShellArg cfg.storageDir}/run
+    --cgroup-manager=cgroupfs
+    --events-backend=file
+  '';
+
   runContainer = pkgs.writeShellScript "run-ledfx-bedroom" ''
     set -eu
     umask 0077
 
-    # Pin by digest and pull only when the local store lacks it. The registry
-    # credential is the same read-only `node` account the k3s nodes use; it is
-    # only ever passed via --authfile and never appears in argv.
-    if ! ${pkgs.podman}/bin/podman \
-      --root ${lib.escapeShellArg cfg.storageDir} \
-      --runroot ${lib.escapeShellArg cfg.storageDir}/run \
-      image exists ${image}; then
-      ${pkgs.podman}/bin/podman \
-        --root ${lib.escapeShellArg cfg.storageDir} \
-        --runroot ${lib.escapeShellArg cfg.storageDir}/run \
-        pull --authfile ${lib.escapeShellArg cfg.authFile} ${image}
+    # Pull only when the local store lacks it. The registry credential is the
+    # same read-only `node` account the k3s nodes use; it is only ever passed
+    # via --authfile and never appears in argv.
+    if ! ${pkgs.podman}/bin/podman ${podmanGlobal} image exists ${image}; then
+      ${pkgs.podman}/bin/podman ${podmanGlobal} pull --authfile ${lib.escapeShellArg cfg.authFile} ${image}
     fi
 
-    exec ${pkgs.podman}/bin/podman \
-      --root ${lib.escapeShellArg cfg.storageDir} \
-      --runroot ${lib.escapeShellArg cfg.storageDir}/run \
+    exec ${pkgs.podman}/bin/podman ${podmanGlobal} \
       run --rm --name ledfx-bedroom \
       --network host \
       --pull never \
+      --no-healthcheck \
       --security-opt no-new-privileges \
       --cap-drop ALL \
       --read-only \
