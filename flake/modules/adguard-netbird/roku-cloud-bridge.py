@@ -215,27 +215,29 @@ def discovery_payload(mac: str, name: str, prefix: str) -> dict:
     }
 
 
-async def _ws_send(cookie_header: str, leaf_id: str, command: str, params: dict) -> None:
+async def _ws_send(cookie_header: str, leaf_id: str, cmds: list[tuple[str, dict]]) -> None:
     import websockets
 
-    msg = json.dumps(
-        {
-            "id": str(uuid.uuid4()),
-            "type": "send_command",
-            "payload": {
-                "leafId": leaf_id,
-                "leafType": "device",
-                "command": {"command": command, "parameters": params},
-            },
-        }
-    )
     try:
         async with websockets.connect(
             SOCKET_URL,
             additional_headers={"Cookie": cookie_header, "Origin": ORIGIN},
             open_timeout=WS_TIMEOUT,
         ) as ws:
-            await ws.send(msg)
+            for command, params in cmds:
+                await ws.send(
+                    json.dumps(
+                        {
+                            "id": str(uuid.uuid4()),
+                            "type": "send_command",
+                            "payload": {
+                                "leafId": leaf_id,
+                                "leafType": "device",
+                                "command": {"command": command, "parameters": params},
+                            },
+                        }
+                    )
+                )
             # Hold the socket open for the full flush window. The server
             # chats on connect; returning on the first message can hang up
             # before it processes the command, which silently drops it.
@@ -308,8 +310,7 @@ def _handle_set(
                 raise ValueError(f"{bulb['name']} ({slug}) not in cloud device list")
             header = cookie_header(session)
             leaf_id = member["id"]
-            for command, params in cloud_cmds:
-                asyncio.run(_ws_send(header, leaf_id, command, params))
+            asyncio.run(_ws_send(header, leaf_id, cloud_cmds))
             save_cookies(cookies_path, session)
             print(f"{slug} <- {cloud_cmds}", flush=True)
             for _ in range(VERIFY_ATTEMPTS):
