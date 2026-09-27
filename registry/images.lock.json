@@ -336,6 +336,46 @@
     },
     {
       "authenticity": {
+        "reason": "Pinned source and local GPU verification; no registry signature policy declared",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "producer:gitops/voice/nemotron-bridge/Dockerfile"
+      ],
+      "destination_repository": "apps/jarvis-nemotron",
+      "destination_tags": [
+        "native-07003daa"
+      ],
+      "digest": "sha256:e4a41ab3cc68e3080da8e6e32eeae501f283622cf473dcafefe46b403782d59b",
+      "id": "first-party-jarvis-nemotron",
+      "kind": "first-party",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "gitops/voice/nemotron-bridge/Dockerfile",
+        "owner": "JEFF7712/homelab-new",
+        "pipeline_status": "verified-local-gpu-build"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "built-local-pending-publication"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:e4a41ab3cc68e3080da8e6e32eeae501f283622cf473dcafefe46b403782d59b",
+        "reference": "registry.rupan.dev/apps/jarvis-nemotron:native-07003daa@sha256:e4a41ab3cc68e3080da8e6e32eeae501f283622cf473dcafefe46b403782d59b",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/jarvis-nemotron",
+        "tag": "native-07003daa"
+      }
+    },
+    {
+      "authenticity": {
         "reason": "no source verification policy is declared for this inventory record",
         "status": "unsupported"
       },

@@ -377,6 +377,19 @@ registry_lock_import:
   after_script:
     - shred -u ~/.ssh/id_ed25519 ~/.ssh/known_hosts 2>/dev/null || rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
+provision_jarvis_publisher:
+  extends: .registry_ssh
+  stage: registry
+  resource_group: registry-platform
+  needs: []
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  script:
+    - nix develop ./flake -c python -m unittest tests.test_registry_jarvis_publisher
+    - nix develop ./flake -c just check-registry
+    - nix develop ./flake -c python -m scripts.registry.provision_jarvis
+
 deploy_registry_platform:
   extends: .registry_ssh
   stage: registry
