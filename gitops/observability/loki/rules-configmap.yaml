@@ -61,3 +61,17 @@ data:
             annotations:
               summary: "Critical application panic detected in container logs"
               description: "A fatal runtime panic was logged in namespace {{ $labels.namespace }}."
+
+          - alert: MusicAssistantHaLinkDown
+            expr: |
+              count_over_time(
+                {namespace="music-assistant"}
+                |~ "(?i)(Please call connect first|HomeAssistantProvider._hass_listener)"
+                [5m]
+              ) > 0
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Music Assistant lost its Home Assistant link"
+              description: "MA lost its HA link; restart the music-assistant Deployment."

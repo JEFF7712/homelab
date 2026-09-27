@@ -36,12 +36,31 @@ spec:
           }
 
           loki.source.kubernetes "pods" {
-            targets    = discovery.kubernetes.pods.targets
+            targets    = discovery.relabel.pod_logs.output
             forward_to = [loki.write.local.receiver]
           }
 
           discovery.kubernetes "pods" {
             role = "pod"
+          }
+
+          discovery.relabel "pod_logs" {
+            targets = discovery.kubernetes.pods.targets
+
+            rule {
+              source_labels = ["__meta_kubernetes_namespace"]
+              target_label  = "namespace"
+            }
+
+            rule {
+              source_labels = ["__meta_kubernetes_pod_name"]
+              target_label  = "pod"
+            }
+
+            rule {
+              source_labels = ["__meta_kubernetes_pod_container_name"]
+              target_label  = "container"
+            }
           }
 
           loki.source.journal "journal" {
