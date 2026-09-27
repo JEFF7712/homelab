@@ -22,7 +22,8 @@ ARR_MANIFEST = ROOT / "gitops" / "media" / "arr.yaml"
 REQUIRED_ASSIGNMENTS = {
     "enableAutoConfig": "false",
     "enableAudio": "true",
-    "dlClientSource": "deezer",
+    "dlClientSource": "both",
+    "tidalClientTestDownloadId": "77610756",
     "audioFormat": "native",
     "audioBitrate": "lossless",
     "lidarrUrl": "http://127.0.0.1:8686",
@@ -93,7 +94,7 @@ class TestTemplateFormat(unittest.TestCase):
             "source /dev/stdin"
             ' && [ -n "$enableAutoConfig" ]'
             ' && [ "$enableAudio" = true ]'
-            ' && [ "$dlClientSource" = deezer ]'
+            ' && [ "$dlClientSource" = both ]'
             ' && echo OK-"$arlToken"-"$lidarrAPI"'
         )
         proc = subprocess.run(
@@ -133,6 +134,50 @@ class TestBootWrapper(unittest.TestCase):
         source = extended_configmap()["data"]["lidarr-boot.sh"]
         self.assertIn("XDG_CONFIG_HOME=/config/xdg nohup bash", source)
         self.assertNotIn("export XDG_CONFIG_HOME", source)
+
+    def test_boot_wrapper_installs_tidal_backend(self):
+        source = extended_configmap()["data"]["lidarr-boot.sh"]
+        self.assertIn("tidaler==0.1.8", source)
+        self.assertIn("/tmp/lidarr-extended/tidal-dl-shim", source)
+        self.assertIn("/usr/local/bin/tidal-dl", source)
+
+
+class TestTidalShim(unittest.TestCase):
+    def setUp(self):
+        self.shim = extended_configmap()["data"]["tidal-dl-shim"]
+
+    def test_shim_translates_legacy_flags(self):
+        for flag in ('-q)', '-o)', '-l)'):
+            self.assertIn(flag, self.shim)
+        self.assertIn("tidaler dl", self.shim)
+        self.assertIn("exec -a tidal-dl", self.shim)
+
+    def test_shim_maps_quality_tiers(self):
+        for tier, expected in (
+            ("Master", "HI_RES_LOSSLESS"),
+            ("HiFi", "LOSSLESS"),
+            ("128", "LOW"),
+        ):
+            self.assertIn(tier, self.shim)
+            self.assertIn(expected, self.shim)
+
+    def test_shim_never_blocks_on_auth(self):
+        self.assertIn("</dev/null", self.shim)
+        self.assertIn("exit 1", self.shim)
+
+    def test_shim_expands_bare_album_ids(self):
+        self.assertIn("tidal.com/browse/album/", self.shim)
+
+    @unittest.skipUnless(shutil.which("bash"), "bash required")
+    def test_shim_parses_as_bash(self):
+        proc = subprocess.run(
+            ["bash", "-n"],
+            input=self.shim,
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
 
 
 class TestDeploymentWiring(unittest.TestCase):

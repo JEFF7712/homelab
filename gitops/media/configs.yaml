@@ -53,12 +53,22 @@ data:
     preferSpecialEditions="true"
 
     # CLIENT (arlToken rendered at boot from DEEZER_ARL)
-    dlClientSource="deezer"
+    # "both" routes missing albums through Deezer (deemix) and Tidal
+    # (tidaler via the tidal-dl compat shim installed by lidarr-boot.sh).
+    # Tidal auth is a pre-provisioned token on the config PVC, not a
+    # secret in this file; see docs/runbooks/arr-credentials.md.
+    dlClientSource="both"
     arlToken="__DEEZER_ARL__"
     tidalCountryCode="US"
+    # Upstream default canary (166356219) no longer returns audio streams
+    # from the Tidal API, which would fail the client self-test and exit
+    # the Audio daemon. This album is verified downloadable via tidaler.
     failedDownloadAttemptThreshold="6"
     deezerClientTestDownloadId="197472472"
-    tidalClientTestDownloadId="166356219"
+    # Upstream default canary (166356219) no longer returns audio streams
+    # from the Tidal API, which would fail the client self-test and exit
+    # the Audio daemon. This album is verified downloadable via tidaler.
+    tidalClientTestDownloadId="77610756"
     downloadClientTimeOut="10m"
 
     # QUALITY
@@ -174,6 +184,16 @@ data:
     command -v ffprobe >/dev/null 2>&1
     echo "--- [lidarr-boot] extended toolchain (self-skipping when installed) ---"
     bash /config/setup.bash
+    echo "--- [lidarr-boot] tidal backend (tidaler + tidal-dl compat shim) ---"
+    # The pinned tidal-dl (2022) can no longer download: Tidal moved audio
+    # delivery and its auth endpoints are dead. tidaler (maintained
+    # tidal-dl-ng fork) replaces it behind a tidal-dl-compatible shim in
+    # /usr/local/bin, which sorts before /usr/bin in PATH. The Audio
+    # script is untouched; revert by setting dlClientSource back to deezer.
+    uv pip install --system --no-cache-dir --break-system-packages "tidaler==0.1.8"
+    cp /tmp/lidarr-extended/tidal-dl-shim /usr/local/bin/tidal-dl
+    chmod 755 /usr/local/bin/tidal-dl
+    command -v tidal-dl
     echo "--- [lidarr-boot] rendering extended.conf ---"
     python3 /tmp/lidarr-extended/10-render-extended-conf
     echo "--- [lidarr-boot] starting extended services ---"
@@ -189,6 +209,56 @@ data:
       >>/config/logs/ARLChecker-supervisor.log 2>&1 &
     echo "--- [lidarr-boot] exec /init ---"
     exec /init
+  # tidal-dl compatibility shim: translates the legacy tidal-dl CLI used by
+  # the upstream Audio script to tidaler (maintained tidal-dl-ng fork).
+  # Installed to /usr/local/bin/tidal-dl by lidarr-boot.sh. Handles the
+  # three invocation shapes the Audio script uses: bare (session check),
+  # -o DIR (output path), and -q QUALITY -o DIR -l LINK (download).
+  # Never prompts: a dead session exits 1 so the script fails fast into
+  # its normal retry path instead of hanging a headless daemon.
+  tidal-dl-shim: |
+    #!/usr/bin/env bash
+    set -u
+    export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-/config/xdg}"
+    quality=""
+    outdir=""
+    link=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -q) quality="${2:-}"; shift 2 ;;
+        -o) outdir="${2:-}"; shift 2 ;;
+        -l) link="${2:-}"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    case "$quality" in
+      Master) tidal_quality="HI_RES_LOSSLESS" ;;
+      HiFi) tidal_quality="LOSSLESS" ;;
+      High | Normal) tidal_quality="HIGH" ;;
+      128) tidal_quality="LOW" ;;
+      "") tidal_quality="" ;;
+      *) tidal_quality="LOSSLESS" ;;
+    esac
+    if [ -n "$outdir" ]; then
+      tidaler cfg download_base_path "$outdir" >/dev/null 2>&1
+    fi
+    if [ -n "$tidal_quality" ]; then
+      tidaler cfg quality_audio "$tidal_quality" >/dev/null 2>&1
+    fi
+    if [ -z "$link" ]; then
+      if tidaler login </dev/null 2>&1 | grep -q "logged in"; then
+        exit 0
+      fi
+      echo "tidal-dl-shim: TIDAL session invalid, re-authentication required" >&2
+      exit 1
+    fi
+    # The Audio script passes bare Tidal album IDs (like the Deezer side
+    # passes bare Deezer IDs); tidaler needs full URLs.
+    case "$link" in
+      *[!0-9]*) ;;
+      *) link="https://tidal.com/browse/album/$link" ;;
+    esac
+    exec -a tidal-dl tidaler dl "$link"
 ---
 apiVersion: v1
 kind: ConfigMap

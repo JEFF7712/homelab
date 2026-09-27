@@ -76,6 +76,36 @@ Rotate the Deezer ARL:
    valid ARL, an `Arr-Extended` download client appears in Lidarr, and
    the Audio log starts processing the missing list.
 
+## Lidarr Tidal source (tidaler shim)
+
+Tidal downloads run through `tidaler` (a maintained tidal-dl-ng fork),
+not the dead tidal-dl 2022 client the upstream scripts expect.
+`lidarr-boot.sh` installs pinned `tidaler==0.1.8` at every boot and
+shadows `tidal-dl` with `/usr/local/bin/tidal-dl`, which translates the
+legacy flags (`-q/-o/-l`) and quality tiers. The upstream Audio script
+is untouched. Trust note: tidaler is a small community fork that holds
+a Tidal OAuth token, so treat releases with care and keep the pin.
+
+Auth lives outside Git at `/config/xdg/tidaler/token.json` on the
+lidarr-config PVC (survives restarts). It was provisioned from a
+browser-session access token with no refresh token, so it expires
+roughly weekly. Symptoms of expiry: the Audio log shows
+`tidal-dl-shim: TIDAL session invalid` and the Tidal client test fails,
+which exits the Audio daemon until the next pod restart.
+
+Re-authenticate:
+
+1. Log into `listen.tidal.com`, copy the `Authorization: Bearer`
+   token from any `api.tidal.com` request in devtools.
+2. Write `/config/xdg/tidaler/token.json` on the PVC as
+   `{"token_type":"Bearer","access_token":"...","refresh_token":null,
+   "expiry_time":<epoch>}` (see `tidaler/model/cfg.py` Token).
+3. `kubectl -n media rollout restart deploy/lidarr` and confirm the
+   Tidal client test succeeds in the Audio log.
+
+Revert to Deezer-only: set `dlClientSource` back to `deezer` in the
+`lidarr-extended-config` ConfigMap; the shim stays installed but idle.
+
 ## Soularr (Lidarr wanted -> Soulseek via slskd)
 
 Soularr (`soularr` CronJob, hourly) grabs up to 60 wanted albums per
