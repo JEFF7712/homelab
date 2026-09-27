@@ -19,9 +19,11 @@
 #   notes: free-form expectation or layering note
 #
 # Layering notes: the corpus scores the Jev decision layer in isolation.
-# Music play/stop, shopping, and state queries are caught earlier by
-# automations or local intents live; here they are labeled by what the
-# schema alone permits (usually unsupported -> clarify).
+# Music stop, shopping, and state queries are caught earlier by automations
+# or local intents live; here they are labeled by what the schema alone
+# permits (usually unsupported -> clarify). Music play is the exception:
+# utterances the sentence triggers miss fall back to Jev, which plays on
+# the default speaker via play_music.
 #
 # Growth: append new cases with fresh ids; never renumber. Recorded model
 # outputs live in tests/fixtures/jev_decisions/<model>.json, produced by
@@ -843,10 +845,17 @@
     request_kind: unsupported
 - id: unsup-play-jazz
   say: Play some jazz.
-  expected_route: clarify
+  expected_route: execute
   expected:
-    request_kind: unsupported
-  notes: Music play is caught by automations live; unrepresentable here.
+    request_kind: home_command
+    target: satellite_media_player
+    action: play_music
+    color: none_or_unknown
+    reference: missing_or_ambiguous
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  service: script.jarvis_play_media
+  notes: Music falls back to Jev live; the default speaker is the implicit
+    target, so no device is named.
 - id: unsup-temp-query
   say: What is the temperature downstairs?
   expected_route: clarify

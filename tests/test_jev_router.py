@@ -151,6 +151,74 @@ class JevRouterTest(unittest.TestCase):
             with self.subTest(say=say):
                 self.assertEqual(router.decide(say, payload).route, "clarify")
 
+    def test_play_music_executes_without_explicit_device(self) -> None:
+        artist = router.decide(
+            "play some kanye west",
+            response(
+                target="satellite_media_player",
+                action="play_music",
+                reference="missing_or_ambiguous",
+            ),
+        )
+        self.assertEqual(artist.route, "execute")
+        self.assertEqual(artist.command.target, "satellite_media_player")
+        self.assertEqual(artist.command.action, "play_music")
+        track = router.decide(
+            "play kanye west on the speaker",
+            response(target="satellite_media_player", action="play_music"),
+        )
+        self.assertEqual(track.route, "execute")
+
+    def test_play_music_strips_device_suffix_and_detects_type(self) -> None:
+        self.assertEqual(
+            router.extract_music_request("play some kanye west on the speaker"),
+            ("artist", "kanye west", ""),
+        )
+        self.assertEqual(
+            router.extract_music_request("speaker Sam play Abbey Road"),
+            ("music", "Abbey Road", "Sam"),
+        )
+        self.assertEqual(
+            router.extract_music_request("put some To Pimp a Butterfly on"),
+            ("artist", "To Pimp a Butterfly", ""),
+        )
+        self.assertIsNone(router.extract_music_request("play"))
+        self.assertIsNone(router.extract_music_request("play and sing"))
+        self.assertIsNone(router.extract_music_request("turn off the speaker"))
+
+    def test_play_music_wrong_target_or_empty_query_clarifies(self) -> None:
+        wrong_target = router.decide(
+            "play some jazz",
+            response(target="kitchen_lights", action="play_music"),
+        )
+        self.assertEqual(wrong_target.route, "clarify")
+        empty = router.decide(
+            "play",
+            response(target="satellite_media_player", action="play_music"),
+        )
+        self.assertEqual(empty.route, "clarify")
+        self.assertEqual(empty.speech, "Please say what to play.")
+
+    def test_play_music_low_confidence_clarifies(self) -> None:
+        decision = router.decide(
+            "maybe play something",
+            response(
+                target="satellite_media_player",
+                action="play_music",
+                confidence=0.80,
+            ),
+        )
+        self.assertEqual(decision.route, "clarify")
+        self.assertIsNone(decision.command)
+
+    def test_build_request_offers_play_music(self) -> None:
+        payload = router.build_request("play some kanye west")
+        self.assertIn("play_music", payload["questions"]["action"]["criteria"])
+        self.assertIn(
+            "play_music",
+            router.TARGETS["satellite_media_player"].actions,
+        )
+
     def test_malformed_or_wrong_model_response_fails_closed(self) -> None:
         self.assertEqual(router.decide("turn it off", {}).route, "reject")
         payload = response()

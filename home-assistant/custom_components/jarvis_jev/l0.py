@@ -14,7 +14,14 @@ from __future__ import annotations
 import re
 
 from .const import RESTRICTED_ACTIONS
-from .router import _NUMBER, COLORS, TARGETS, Command, normalized_text
+from .router import (
+    _NUMBER,
+    COLORS,
+    TARGETS,
+    Command,
+    extract_music_request,
+    normalized_text,
+)
 
 _POLITE = re.compile(r"^(?:(?:please|hey jarvis)[,\s]+|(?:could|can|would) you\s+)+")
 _WS = re.compile(r"\s+")
@@ -142,6 +149,10 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         "scene",
     ),
     (re.compile(rf"({_MOVIE})\s+on"), "scene"),
+    (
+        re.compile(r"(?:play|put\s+on|listen\s+to|i\s+want\s+to\s+hear|hear)\s+(.+)"),
+        "play",
+    ),
 ]
 
 _TARGET_KEY: list[tuple[re.Pattern[str], str]] = [
@@ -182,6 +193,15 @@ _COLOR_KEY = {c.replace("_", " "): c for c in COLORS}
 
 _BRIGHTNESS_RANGE = (0.0, 100.0)
 _TEMPERATURE_RANGE = (50.0, 90.0)
+
+# Queries naming other home targets stay on their own paths: L0 must not
+# claim "put on the lights" or "put on movie mode" (already matched above)
+# as a music search.
+_HOME_WORDS = re.compile(
+    r"lights?|lamp|thermostat|temperature|movie|film|satellite|speaker"
+    r"|soundbar|scene|shade|lock|garage|alarm|plug|switch",
+    re.IGNORECASE,
+)
 
 
 def _clean(text: str) -> str:
@@ -301,6 +321,13 @@ def _build(kind: str, match: re.Match[str], cleaned: str) -> Command | None:
         return Command(target, "pause_media", 1.0)
     if kind == "scene":
         return Command("movie_mode", "activate_scene", 1.0)
+    if kind == "play":
+        music = extract_music_request(cleaned)
+        if music is None:
+            return None
+        if _HOME_WORDS.search(music[1]):
+            return None
+        return Command("satellite_media_player", "play_music", 1.0)
     return None
 
 

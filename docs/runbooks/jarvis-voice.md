@@ -184,6 +184,22 @@ automation referencing them.
    - Track queries are deterministic and local: `JarvisWhatsPlaying` in
      `home-assistant/custom_sentences/en/jarvis_home.yaml` answers "what's playing",
      "what song is this", "what track is this", and "who sings this" directly from speaker state.
+   - Play phrasings the sentence triggers miss (no play verb, unusual word
+     order) fall through to the Jev Router, which gained a `play_music`
+     action on the satellite speaker (`router.py`/`l0.py`/`_execute` call
+     `script.jarvis_play_media`). Music is the one Jev action that never
+     asks for a device or room: it always targets the default speaker.
+   - When the playback automation itself fails, it hands the full utterance
+     (`trigger.sentence`) to the Jev Router via `conversation.process`
+     (agent `01M3123N8QF2RJ5Z95X7M7K87K`, the Jarvis pipeline engine) for
+     a second attempt instead of ending on a canned error. Agents never
+     re-run sentence triggers, so this cannot loop. Only if Jev also has
+     no reply does the turn fall back to "Could not start playback."
+   - Template variables in `jarvis_play_media.yaml` render with native types,
+     so an all-digit confirm needle (e.g. `library://track/6206` -> `6206`)
+     becomes int and `| length` explodes. Every `| length` and `in (...)`
+     use on `confirm_needle`/`track_uri`/`artist_uri`/`yt_uri` must pass
+     through `| string` first (regression-tested).
    - Platform parameter supports `spotify` (default) and `youtube_music` (`ytmusic`).
    - Music Assistant runs on `homelab-05` host network
      (`gitops/music-assistant/server.yaml`) and routes audio to the satellite speaker.
@@ -247,8 +263,11 @@ service call. The release gate replays this same L0 then L1 path, excludes L0
 cases from hosted latency, and calculates calibration only for commands the
 stack would execute. It does not lower confidence thresholds to improve recall. Only the pinned hosted production model gates release (`--gate-model`, default `jev-1-13-0`); local and research fixtures are scored as advisory and cannot fail the run.
 
-Fail-closed behavior is deliberate:
+Fail-closed behavior is deliberate, with one exception:
 
+- `play_music` never asks for a device or room; it always targets the
+  default satellite speaker, and only an empty query or low confidence
+  still clarifies ("Please say what to play.");
 - medium or low-confidence home commands ask for a complete restatement;
 - unknown targets, pronouns without an explicit target, incompatible
   target/action pairs, and malformed numeric arguments perform no action;

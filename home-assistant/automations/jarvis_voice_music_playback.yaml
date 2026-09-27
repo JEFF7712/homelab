@@ -11,8 +11,10 @@ description: >-
   script.jarvis_play_media. The reply is "Done." when the script reports the
   request was accepted ('accepted') or playback was observed ('playing');
   "Done." therefore means the request was accepted, not independently
-  verified playback. Service errors surface "Could not start playback."
-  instead of a false success.
+  verified playback. When the script fails, the full utterance
+  (trigger.sentence) is handed to the Jev Router conversation agent for a
+  second attempt instead of ending on a canned error; only if Jev also has
+  no reply does the turn fall back to "Could not start playback."
 mode: restart
 triggers:
   - trigger: conversation
@@ -129,6 +131,19 @@ actions:
         {% endif %}
     response_variable: playback
     continue_on_error: true
+  # Jev Router conversation agent (also the Jarvis pipeline engine) gets a
+  # second attempt on failure. Agents never re-run sentence triggers, so
+  # this cannot loop.
+  - if:
+      - condition: template
+        value_template: "{{ not (playback is defined and playback.status in ['playing', 'accepted']) }}"
+    then:
+      - action: conversation.process
+        data:
+          agent_id: 01M3123N8QF2RJ5Z95X7M7K87K
+          text: "{{ trigger.sentence }}"
+        response_variable: jev_fallback
+        continue_on_error: true
   - set_conversation_response: >-
       {% if playback is defined and playback.status in ['playing', 'accepted'] %}
         {% if trigger.slots.speaker is defined and trigger.slots.speaker %}
@@ -137,5 +152,6 @@ actions:
           Done.
         {% endif %}
       {% else %}
-        Could not start playback.
+        {{ (jev_fallback.response.speech.plain.speech | default('', true) | trim)
+          or 'Could not start playback.' }}
       {% endif %}

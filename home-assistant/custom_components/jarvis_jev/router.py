@@ -129,7 +129,8 @@ TARGETS = {
         ),
     ),
     "satellite_media_player": Target(
-        "media_player.homelab_05_satellite_media_player_2", frozenset({"pause_media"})
+        "media_player.homelab_05_satellite_media_player_2",
+        frozenset({"pause_media", "play_music"}),
     ),
     "movie_mode": Target("scene.movie_low_living_room", frozenset({"activate_scene"})),
 }
@@ -216,6 +217,66 @@ def normalized_text(text: str) -> str:
     return _SPEAKER.sub("", text.strip(), count=1)
 
 
+_MUSIC_SPEAKER_PREFIX = re.compile(r"^\s*speaker\s+([^\s]+)\s+", re.IGNORECASE)
+_MUSIC_DEVICE_SUFFIX = re.compile(
+    r"\s+on\s+(the\s+)?(speaker|soundbar|satellite(\s+speaker)?)\s*$",
+    re.IGNORECASE,
+)
+_MUSIC_TRAILING_ON = re.compile(r"\s+on\s*$", re.IGNORECASE)
+_MUSIC_LEAD_SONG = re.compile(
+    r"^(?:play|put\s+on|listen\s+to)\s+(?:the\s+song|a\s+song|song)\s+",
+    re.IGNORECASE,
+)
+_MUSIC_LEAD_ARTIST = re.compile(
+    r"^(?:play\s+some|play\s+the\s+artist|play\s+music\s+by"
+    r"|put\s+on\s+some|put\s+some|listen\s+to)\s+",
+    re.IGNORECASE,
+)
+_MUSIC_LEAD_BARE = re.compile(
+    r"^(?:play|put\s+on|i\s+want\s+to\s+hear|hear)\s+", re.IGNORECASE
+)
+_MUSIC_ACTION_WORD = re.compile(
+    r"\b(?:play|put\s+(?:on|some)|listen\s+to|hear)\b", re.IGNORECASE
+)
+
+
+def extract_music_request(text: str) -> tuple[str, str, str] | None:
+    """Split a music utterance into (media_type, query, speaker).
+
+    Mirrors the voice music automation: a trailing device reference is
+    stripped, "play some X" style requests resolve as artists and bare
+    "play X" as free-text track search. Returns None when the text is not
+    a playable music request.
+    """
+    rest = text or ""
+    speaker = ""
+    prefix = _MUSIC_SPEAKER_PREFIX.match(rest)
+    if prefix:
+        speaker = prefix.group(1)
+        rest = rest[prefix.end() :]
+    rest = rest.strip()
+    if not rest or _COMPOUND_COMMAND.search(rest):
+        return None
+    if not _MUSIC_ACTION_WORD.search(rest):
+        return None
+    if _MUSIC_LEAD_SONG.match(rest):
+        media_type = "music"
+        query = _MUSIC_LEAD_SONG.sub("", rest, count=1)
+    elif _MUSIC_LEAD_ARTIST.match(rest):
+        media_type = "artist"
+        query = _MUSIC_LEAD_ARTIST.sub("", rest, count=1)
+        query = _MUSIC_TRAILING_ON.sub("", query)
+    elif _MUSIC_LEAD_BARE.match(rest):
+        media_type = "music"
+        query = _MUSIC_LEAD_BARE.sub("", rest, count=1)
+    else:
+        return None
+    query = _MUSIC_DEVICE_SUFFIX.sub("", query).strip()
+    if not query:
+        return None
+    return (media_type, query, speaker)
+
+
 def _has_command_evidence(text: str, target: str, action: str, color: str) -> bool:
     normalized = normalized_text(text).lower()
     if _COMPOUND_COMMAND.search(normalized):
@@ -282,6 +343,7 @@ def build_request(text: str) -> dict[str, Any]:
                     "adjust_temperature_down": "Make the thermostat cooler",
                     "activate_scene": "Activate a scene",
                     "pause_media": "Pause or stop media",
+                    "play_music": "Play music, a song, an artist, or a playlist",
                     "none_or_unsupported": "No supported action",
                 },
             },
@@ -324,6 +386,31 @@ def _one_number(text: str) -> float | None:
     return values[0] if len(values) == 1 else None
 
 
+def _decide_music(text: str, target_name: str, confidence: float) -> Decision:
+    """Route a play-music classification without an explicit device target.
+
+    Music always plays on the default satellite speaker, so unlike device
+    commands it never asks the user to repeat with a device or room. Only
+    an empty query or low confidence still clarifies.
+    """
+    if target_name != "satellite_media_player":
+        return Decision(
+            "clarify", speech="Please repeat with one supported device and action."
+        )
+    if confidence < LIGHT_THRESHOLD:
+        if confidence >= CLARIFY_THRESHOLD:
+            return Decision(
+                "clarify", speech="Please repeat with the device or room and action."
+            )
+        return Decision("clarify", speech="I could not identify a safe home command.")
+    if extract_music_request(text) is None:
+        return Decision("clarify", speech="Please say what to play.")
+    return Decision(
+        "execute",
+        command=Command("satellite_media_player", "play_music", confidence),
+    )
+
+
 def decide(text: str, payload: Any) -> Decision:
     if not isinstance(payload, dict) or payload.get("model") != MODEL:
         return Decision("reject", speech="Jev is unavailable.")
@@ -356,6 +443,9 @@ def decide(text: str, payload: Any) -> Decision:
     confidence = min(
         kind_confidence, target_confidence, action_confidence, reference_confidence
     )
+
+    if action == "play_music":
+        return _decide_music(text, target_name, confidence)
 
     if target is None or action not in target.actions or reference != "explicit_target":
         return Decision(

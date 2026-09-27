@@ -126,6 +126,38 @@ class CanonicalParseTest(unittest.TestCase):
         ):
             self.assertIsNone(l0.parse_canonical(say), say)
 
+    def test_canonical_play_parses_to_music(self) -> None:
+        for say in (
+            "Play some Kanye West.",
+            "Put on Abbey Road.",
+            "Listen to MF DOOM.",
+            "I want to hear Miles Davis.",
+            "speaker Rupan play some jazz.",
+        ):
+            command = l0.parse_canonical(say)
+            assert command is not None, say
+            self.assertEqual(
+                (command.target, command.action),
+                ("satellite_media_player", "play_music"),
+            )
+
+    def test_play_with_home_words_or_no_query_is_none(self) -> None:
+        for say in (
+            "Play.",
+            "Put on the kitchen lights.",
+            "Play the thermostat.",
+            "Play some jazz and blues.",
+        ):
+            self.assertIsNone(l0.parse_canonical(say), say)
+
+    def test_scene_still_wins_over_play(self) -> None:
+        command = l0.parse_canonical("Put on movie mode.")
+        assert command is not None
+        self.assertEqual(
+            (command.target, command.action),
+            ("movie_mode", "activate_scene"),
+        )
+
     def test_domain_action_mismatch_is_none(self) -> None:
         for say in (
             "Set the stairs light to 50 percent.",

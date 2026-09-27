@@ -36,6 +36,46 @@ class JarvisMusicRoutingTest(unittest.TestCase):
         self.assertIn("speaker | lower == 'sam'", platform)
         self.assertIn("else 'spotify'", platform)
 
+    def test_failure_hands_full_utterance_to_jev(self) -> None:
+        automation = yaml.safe_load(AUTOMATION.read_text(encoding="utf-8"))
+        branch = next(step for step in automation["actions"] if "if" in step)
+        fallback = next(
+            step
+            for step in branch["then"]
+            if step.get("action") == "conversation.process"
+        )
+        self.assertEqual(fallback["data"]["agent_id"], "01M3123N8QF2RJ5Z95X7M7K87K")
+        self.assertIn("trigger.sentence", fallback["data"]["text"])
+        reply = next(
+            step
+            for step in automation["actions"]
+            if "set_conversation_response" in step
+        )
+        speech = reply["set_conversation_response"]
+        self.assertIn("playback.status", speech)
+        self.assertIn("jev_fallback", speech)
+        self.assertIn("Could not start playback.", speech)
+
+    def test_numeric_ids_stay_strings_at_length_checks(self) -> None:
+        # HA renders variables with native types, so an all-digit needle
+        # such as library://track/6206 becomes int 6206 and `| length`
+        # explodes. Every length/membership use must stringify first.
+        text = SCRIPT.read_text(encoding="utf-8")
+        for match in re.finditer(
+            r"(confirm_needle|artist_uri|track_uri|yt_uri) \| length", text
+        ):
+            start = match.start()
+            self.assertTrue(
+                text[:start].rstrip().endswith("| string"),
+                f"unguarded length check: {match.group(0)}",
+            )
+        for match in re.finditer(r"confirm_needle(\s*\n\s*)in \(", text):
+            start = match.start()
+            self.assertTrue(
+                text[:start].rstrip().endswith("| string"),
+                "unguarded needle membership check",
+            )
+
     def test_youtube_track_search_stops_without_cross_provider_fallback(self) -> None:
         script = yaml.safe_load(SCRIPT.read_text(encoding="utf-8"))
         branches = next(

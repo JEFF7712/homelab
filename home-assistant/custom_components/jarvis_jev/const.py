@@ -38,6 +38,7 @@ STANDARD_ACTIONS = frozenset(
         "adjust_temperature_down",
         "activate_scene",
         "pause_media",
+        "play_music",
         "none_or_unsupported",
     }
 )

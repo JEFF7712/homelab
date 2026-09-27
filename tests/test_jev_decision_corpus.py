@@ -102,7 +102,11 @@ class JevDecisionCorpusTest(unittest.TestCase):
                 self.assertIn(field, expected, f"{case}: execute without {field}")
             self.assertNotEqual(expected["target"], "none_or_unknown", case)
             self.assertNotEqual(expected["action"], "none_or_unsupported", case)
-            self.assertEqual(expected["reference"], "explicit_target", case)
+            if expected["action"] == "play_music":
+                # Music plays on the default speaker without naming a device.
+                self.assertEqual(expected["reference"], "missing_or_ambiguous", case)
+            else:
+                self.assertEqual(expected["reference"], "explicit_target", case)
             if expected["action"] in VALUE_ACTIONS:
                 self.assertIn("value", entry, f"{case}: value action without value")
                 self.assertIsInstance(entry["value"], (int, float), case)

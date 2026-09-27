@@ -33,7 +33,13 @@ from .fallback import (
     own_conversation_entity_ids,
 )
 from .l0 import parse_canonical
-from .router import TARGETS, Command, build_request, decide
+from .router import (
+    TARGETS,
+    Command,
+    build_request,
+    decide,
+    extract_music_request,
+)
 from .shadow import ShadowResult, compare_answers, request_shadow
 
 JEV_REQUESTS = Counter(
@@ -299,6 +305,9 @@ async def _execute(
         domain, service = "scene", "turn_on"
     elif command.action == "pause_media":
         domain, service = "media_player", "media_pause"
+    elif command.action == "play_music":
+        await _play_music(hass, user_input)
+        return
     elif command.action == "set_temperature":
         domain, service = "climate", "set_temperature"
         _validate_temperature(hass, target.entity_id, command.value)
@@ -327,6 +336,31 @@ async def _execute(
             blocking=True,
             context=user_input.context,
         )
+
+
+async def _play_music(
+    hass: HomeAssistant, user_input: conversation.ConversationInput
+) -> None:
+    music = extract_music_request(user_input.text)
+    if music is None:
+        raise ValueError("music request is empty")
+    media_type, query, speaker = music
+    with SERVICE_LATENCY.labels("script", "jarvis_play_media").time():
+        result = await hass.services.async_call(
+            "script",
+            "jarvis_play_media",
+            {
+                "media_content_type": media_type,
+                "media_content_id": query,
+                "speaker": speaker,
+            },
+            blocking=True,
+            context=user_input.context,
+            return_response=True,
+        )
+    status = result.get("status") if isinstance(result, dict) else None
+    if status not in ("playing", "accepted"):
+        raise ValueError("music playback was not accepted")
 
 
 def _validate_temperature(
