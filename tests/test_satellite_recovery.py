@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import os
 import sys
@@ -397,6 +398,53 @@ class ProductionOwnershipTests(unittest.TestCase):
         self.assertIs(state.media_player_entity.server, owner)
         self.assertIs(state.satellite, owner)
         self.assertFalse(probe.is_established_ha)
+
+
+SATELLITE_MAIN_PATH = (
+    Path(__file__).resolve().parents[1] / "gitops/voice/satellite/__main__.py"
+)
+
+
+class SatelliteAudioLoopTests(unittest.TestCase):
+    def test_wake_detection_runs_inside_capture_loop(self) -> None:
+        """Wake-word detection must execute once per captured block.
+
+        Regression: the digital-silence refactor once dedented the whole
+        detection block out of the capture loop, leaving it unreachable
+        while heartbeats stayed fresh and no error was logged.
+        """
+        tree = ast.parse(SATELLITE_MAIN_PATH.read_text(encoding="utf-8"))
+        fn = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "process_audio"
+        )
+        capture_loops = [
+            node
+            for node in ast.walk(fn)
+            if isinstance(node, ast.While)
+            and any(
+                isinstance(sub, ast.Call)
+                and isinstance(sub.func, ast.Attribute)
+                and sub.func.attr == "record"
+                for sub in ast.walk(node)
+            )
+        ]
+        self.assertTrue(capture_loops, "no capture loop found in process_audio")
+        for loop in capture_loops:
+            calls = set()
+            for sub in ast.walk(loop):
+                if not isinstance(sub, ast.Call):
+                    continue
+                func = sub.func
+                if isinstance(func, ast.Attribute):
+                    calls.add(func.attr)
+                elif isinstance(func, ast.Name):
+                    calls.add(func.id)
+            self.assertTrue(
+                {"wakeup", "process_streaming", "process_streaming_prob"} & calls,
+                "wake-word detection is unreachable from the capture loop",
+            )
 
 
 if __name__ == "__main__":

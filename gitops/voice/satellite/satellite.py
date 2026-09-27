@@ -435,6 +435,30 @@ class VoiceSatelliteProtocol(APIServer):
             self._tail_timer.cancel()
             self._tail_timer = None
 
+    def _start_tts_safety_timer(self, duration: float = 15.0) -> None:
+        self._cancel_tts_safety_timer()
+
+        def _safety_timeout() -> None:
+            if self.state.satellite is not self:
+                return
+            if getattr(self.state, "playback_inhibited", False) or self._pipeline_active:
+                _LOGGER.warning(
+                    "TTS safety timer (%.1fs) expired; resetting stuck playback_inhibited and pipeline_active",
+                    duration,
+                )
+                self.state.playback_inhibited = False
+                self._pipeline_active = False
+                self.state.active_wake_words.discard(self.state.stop_word.id)
+
+        self._tts_safety_timer = threading.Timer(duration, _safety_timeout)
+        self._tts_safety_timer.daemon = True
+        self._tts_safety_timer.start()
+
+    def _cancel_tts_safety_timer(self) -> None:
+        if hasattr(self, "_tts_safety_timer") and self._tts_safety_timer is not None:
+            self._tts_safety_timer.cancel()
+            self._tts_safety_timer = None
+
     def _emit(
         self,
         event: LVAEvent,
@@ -973,7 +997,7 @@ class VoiceSatelliteProtocol(APIServer):
             return
 
         wake_word_phrase = wake_word.wake_word  # type: ignore[union-attr]
-        _LOGGER.debug("Detected wake word: %s", wake_word_phrase)
+        _LOGGER.info("🚀 Detected wake word, starting voice pipeline: %s", wake_word_phrase)
 
         self._timer_finished = False
         self._timer_ring_start = None
@@ -1080,6 +1104,7 @@ class VoiceSatelliteProtocol(APIServer):
 
         self._tts_played = True
         self._cancel_tail_timer()
+        self._start_tts_safety_timer(duration=15.0)
         self.state.playback_inhibited = True
         _LOGGER.debug(
             "Playing TTS response (playback_inhibited=True): %s", self._tts_url
@@ -1090,6 +1115,7 @@ class VoiceSatelliteProtocol(APIServer):
         self.state.tts_player.play(self._tts_url, done_callback=self._tts_finished)
 
     def _tts_finished(self) -> None:
+        self._cancel_tts_safety_timer()
         if self.state.satellite is not self:
             return
         self._pipeline_active = False
