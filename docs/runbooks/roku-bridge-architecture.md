@@ -48,10 +48,50 @@ HA's MQTT JSON light integration drifted from `rgb_color: [r, g, b]` (flat list)
 
 - `flake/modules/adguard-netbird/roku-bridge.nix` — systemd unit, secrets staging, and bridge user; loads the pinned script below. `mosquitto.nix` in the same directory sets up the broker user/ACL.
 - `flake/modules/adguard-netbird/roku-bridge.py` — bridge Python vendored from `github.com/JEFF7712/roku-bulb-local@53fc6d2` (`scripts/bridge.py`); canonical source for the deployed closure. Re-pin by copying the file and updating the rev in `roku-bridge.nix` (`tests/test_roku_bridge_contract.py` enforces the hash).
+- `flake/modules/adguard-netbird/ledfx-roku-bridge.nix` + `ledfx-roku-bridge.py` — bedroom music-mode relay (see below). Authored in-repo, not vendored.
 - `/home/rupan/projects/roku-bulb-local/scripts/local_set.py` — single-PID tester, useful for bypassing HA and the bridge entirely.
 - `/home/rupan/projects/roku-bulb-local/tests/test_bridge.py` — unit tests for `ha_to_plist` and `commanded_state`.
 - `/home/rupan/projects/roku-bulb-local/docs/local-http-api.md` — full protocol reference (encryption, pids, OUI checks, crash warning about nested-object `characteristics`).
 - `/home/rupan/projects/roku-bulb-local/docs/bulb-inventory.md` — bulb MAC/IP/`enr` inventory (sensitive bits live in gitignored `captures/`).
+
+## Bedroom music mode (LedFx relay)
+
+LedFx has no device type for these bulbs, so the bedroom path is
+LedFx OSC output → `ledfx-roku-bridge` → MQTT → `roku-bridge` → bulb:
+
+```
+LedFx scene bedroom-music-mode (effect: energy)
+  ↓ OSC "All To One" [[R,G,B] x3] to /bedroom, UDP 10.0.30.10:9000 @10Hz
+ledfx-roku-bridge daemon (systemd on adguard-netbird-01, user ledfx-roku-bridge)
+  throttles per bulb (0.2s min interval, 12-step color delta) and publishes
+  {"state": "ON", "color": {"r","g","b"}} to roku/light/<slug>/set
+  ↓ (same translation as HA commands)
+roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
+```
+
+Pixel order is desk, floor, strip and must match the LedFx group-virtual
+segment order. Slugs (`7C67AB0A83AB`, `7C67AB1623B7`, `7C67AB2A0505`) are
+MAC-derived topic fragments, already visible as retained discovery topics,
+so they live in the plain store config in `ledfx-roku-bridge.nix`. The relay
+reuses the `roku-bridge` broker credential, so no new mosquitto user or
+secret was needed. The firewall allows UDP 9000 only from homelab-05
+(`10.0.30.15`, the LedFx host); see `adguard-netbird-appliance.nix`.
+The 3 bedroom light entities are excluded from the HA recorder because music
+mode streams per-frame optimistic state over MQTT.
+
+Live LedFx objects (created via REST, persisted on the `ledfx-data` PVC):
+
+- device `bedroom-osc` (type `osc`, `10.0.30.10:9000`, 3 pixels, All_To_One, `/bedroom`, 10Hz)
+- virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1/2)
+- scene `bedroom-music-mode` (energy, same tuning as `music-mode`)
+
+API gotchas, learned live: create devices with `POST /api/devices` **with**
+`id`; create virtuals/scenes with `POST` **without** `id` (the id slugifies
+from `name`); set virtual segments with `POST /api/virtuals/<id>`
+`{"segments": [...]}` (`PUT` on that path only toggles `active`, and
+`POST /api/virtuals` with an `id` only updates `config`). Recovery is
+`DELETE /api/devices/bedroom-osc`, `DELETE /api/virtuals/bedroom-music-mode-bulbs`,
+`DELETE /api/scenes/bedroom-music-mode`.
 
 ## Debug commands
 

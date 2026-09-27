@@ -254,6 +254,11 @@ recorder:
       - sensor.ha_latest_version
     entities:
       - sensor.ha_latest_version
+      # Bedroom Roku bulbs: excluded while Bedroom Music Mode streams
+      # per-frame optimistic state over MQTT (see ledfx-roku-bridge).
+      - light.desk_lamp_desk_lamp
+      - light.floor_lamp_floor_lamp
+      - light.light_strip_light_strip
     event_types:
       - call_service
 history:

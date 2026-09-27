@@ -1,7 +1,9 @@
 id: jarvis_voice_music_mode
 alias: "Jarvis: Voice Music Mode"
 description: >-
-  Deterministically enables or disables Govee Music Mode via voice.
+  Deterministically enables or disables Govee and Bedroom Music Mode via voice.
+  Bare "music mode" phrases target the shared-spaces Govee toggle; bedroom
+  phrases target the bedroom Roku toggle.
 mode: restart
 triggers:
   - trigger: conversation
@@ -25,6 +27,31 @@ triggers:
       - "turn off [the] govee music mode"
       - "stop [the] govee music mode"
       - "turn off music mode [on|for] [all] [the] govee lights"
+  - trigger: conversation
+    id: "bedroom_on"
+    command:
+      - "turn on bedroom music mode"
+      - "start bedroom music mode"
+      - "enable bedroom music mode"
+      - "bedroom music mode on"
+      - "turn on music mode in [the] bedroom"
+      - "start music mode in [the] bedroom"
+      - "turn on [the] roku music mode"
+      - "turn on music mode [on|for] [all] [the] bedroom lights"
+      - "turn on music mode [on|for] [all] [the] roku lights"
+  - trigger: conversation
+    id: "bedroom_off"
+    command:
+      - "turn off bedroom music mode"
+      - "stop bedroom music mode"
+      - "disable bedroom music mode"
+      - "bedroom music mode off"
+      - "turn off music mode in [the] bedroom"
+      - "stop music mode in [the] bedroom"
+      - "turn off [the] roku music mode"
+      - "stop [the] roku music mode"
+      - "turn off music mode [on|for] [all] [the] bedroom lights"
+      - "turn off music mode [on|for] [all] [the] roku lights"
 conditions: []
 actions:
   - choose:
@@ -43,4 +70,20 @@ actions:
           - action: input_boolean.turn_off
             target:
               entity_id: input_boolean.govee_music_mode
+          - set_conversation_response: "Done."
+      - conditions:
+          - condition: trigger
+            id: "bedroom_on"
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.bedroom_music_mode
+          - set_conversation_response: "Done."
+      - conditions:
+          - condition: trigger
+            id: "bedroom_off"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.bedroom_music_mode
           - set_conversation_response: "Done."

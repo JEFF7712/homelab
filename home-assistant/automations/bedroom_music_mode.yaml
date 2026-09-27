@@ -1,0 +1,57 @@
+id: bedroom_music_mode
+alias: "Lighting: Bedroom Music Mode"
+description: >-
+  Activates real-time LedFx audio-reactive lighting across the bedroom Roku
+  bulbs when Bedroom Music Mode is turned on, locking Adaptive Lighting. When
+  turned off, restores Adaptive Lighting control and circadian state without API spam.
+mode: restart
+triggers:
+  - trigger: state
+    entity_id: input_boolean.bedroom_music_mode
+    to: "on"
+    id: "mode_on"
+  - trigger: state
+    entity_id: input_boolean.bedroom_music_mode
+    to: "off"
+    id: "mode_off"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "mode_on"
+        sequence:
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_all_dimmable_lights
+              lights:
+                - light.desk_lamp_desk_lamp
+                - light.floor_lamp_floor_lamp
+                - light.light_strip_light_strip
+              manual_control: true
+          - action: rest_command.ledfx_activate_scene
+            data:
+              scene_id: "bedroom-music-mode"
+      - conditions:
+          - condition: trigger
+            id: "mode_off"
+        sequence:
+          - action: rest_command.ledfx_deactivate_scene
+            data:
+              scene_id: "bedroom-music-mode"
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_all_dimmable_lights
+              lights:
+                - light.desk_lamp_desk_lamp
+                - light.floor_lamp_floor_lamp
+                - light.light_strip_light_strip
+              manual_control: false
+          - action: adaptive_lighting.apply
+            data:
+              entity_id: switch.adaptive_lighting_all_dimmable_lights
+              lights:
+                - light.desk_lamp_desk_lamp
+                - light.floor_lamp_floor_lamp
+                - light.light_strip_light_strip
+              turn_on_lights: false

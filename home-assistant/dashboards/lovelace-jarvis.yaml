@@ -93,6 +93,10 @@ views:
             name: Govee Music Mode
             icon: mdi:music
           - type: tile
+            entity: input_boolean.bedroom_music_mode
+            name: Bedroom Music Mode
+            icon: mdi:music
+          - type: tile
             entity: light.living_room_lights
             name: Living Room
             features:

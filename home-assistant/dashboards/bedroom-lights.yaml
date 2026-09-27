@@ -254,3 +254,20 @@ views:
                   perform_action: scene.turn_on
                   target:
                     entity_id: scene.bedroom_pink
+              - type: action
+                name: Music
+                icon: mdi:music
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.effects_bedroom_music_mode
+      - cards:
+          - type: heading
+            heading: Music Mode
+          - type: tile
+            entity: input_boolean.bedroom_music_mode
+            name: Bedroom Music Mode
+            icon: mdi:music
+            features:
+              - type: toggle
