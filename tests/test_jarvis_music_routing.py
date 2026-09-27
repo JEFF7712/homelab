@@ -22,6 +22,12 @@ class JarvisMusicRoutingTest(unittest.TestCase):
         self.assertIn("play {query}", track["command"])
         self.assertIn("[speaker {speaker}] play {query}", track["command"])
 
+    def test_trailing_device_reference_is_stripped_from_query(self) -> None:
+        automation = yaml.safe_load(AUTOMATION.read_text(encoding="utf-8"))
+        action = automation["actions"][0]
+        media_content_id = action["data"]["media_content_id"]
+        self.assertIn("on\\s+(the\\s+)?(speaker|soundbar)", media_content_id)
+
     def test_unknown_speaker_defaults_to_spotify_and_sam_to_youtube_music(self) -> None:
         automation = yaml.safe_load(AUTOMATION.read_text(encoding="utf-8"))
         action = automation["actions"][0]

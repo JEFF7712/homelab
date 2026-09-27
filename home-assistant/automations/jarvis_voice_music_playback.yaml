@@ -2,7 +2,9 @@ id: jarvis_voice_music_playback
 alias: "Jarvis: Voice Music Playback"
 description: >-
   Deterministically plays music on the Jarvis satellite speaker via Music
-  Assistant. Bare artist requests ("play some MF DOOM") start an endless
+  Assistant. A trailing device reference ("on the speaker", "on speaker",
+  "on the soundbar") is stripped from the query before lookup. Bare artist
+  requests ("play some MF DOOM") start an endless
   artist mix (radio_mode) so playback continues past the first track;
   song, album, playlist, and favorites ("play my liked songs") requests keep
   their narrower lookup. The media type and platform ride the trigger id into
@@ -121,7 +123,9 @@ actions:
         {% if trigger.id == 'favorites' %}
           Liked Songs
         {% else %}
-          {{ trigger.slots.query | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
+          {{ trigger.slots.query
+              | regex_replace('\s+on\s+(the\s+)?(speaker|soundbar)\s*$', '', ignorecase=True)
+              | regex_replace('^(the\s+song|a\s+song|song)\s+', '', ignorecase=True) }}
         {% endif %}
     response_variable: playback
     continue_on_error: true
