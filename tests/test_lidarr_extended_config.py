@@ -160,6 +160,12 @@ class TestDeploymentWiring(unittest.TestCase):
             ["bash", "/tmp/lidarr-extended/lidarr-boot.sh"],
         )
 
+    def test_liveness_covers_toolchain_boot(self):
+        probe = self.container["livenessProbe"]
+        # apk + setup.bash routinely take 4-6 minutes on fresh rootfs;
+        # shorter delays SIGKILL slow boots and loop them.
+        self.assertGreaterEqual(probe["initialDelaySeconds"], 300)
+
     def test_secret_env_present(self):
         env = {e["name"]: e for e in self.container.get("env", []) if "name" in e}
         for name in ("DEEZER_ARL", "LIDARR_API_KEY"):

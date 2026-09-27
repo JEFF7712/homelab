@@ -272,11 +272,14 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 5
+          # Boot runs apk + the deemix/freyr toolchain setup before /init,
+          # routinely 4-6 minutes on fresh rootfs. The 120s delay let
+          # liveness SIGKILL slow boots at ~220s and loop them.
           livenessProbe:
             httpGet:
               path: /ping
               port: 8686
-            initialDelaySeconds: 120
+            initialDelaySeconds: 300
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 5
