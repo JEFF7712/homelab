@@ -73,8 +73,29 @@ def parse_pixels(args: tuple) -> list[tuple[int, int, int]] | None:
 
 
 def frame_payload(color: tuple[int, int, int]) -> dict:
+    """Build an HA MQTT light command from one LedFx RGB frame.
+
+    LedFx sends color only, but the bulbs take color (P1507) and brightness
+    (P1501) as separate properties, so a color-only command leaves brightness
+    wherever it was and a dark frame renders as "on but invisible". Split the
+    frame into a level and a hue: brightness carries the frame intensity, and
+    the color is normalized so its brightest channel is full. The result
+    reproduces the intended RGB instead of squaring it with the level.
+    """
     r, g, b = color
-    return {"state": "ON", "color": {"r": r, "g": g, "b": b}}
+    level = max(r, g, b)
+    if level == 0:
+        return {"state": "ON", "color": {"r": 0, "g": 0, "b": 0}, "brightness": 0}
+    scale = 255 / level
+    return {
+        "state": "ON",
+        "color": {
+            "r": min(255, round(r * scale)),
+            "g": min(255, round(g * scale)),
+            "b": min(255, round(b * scale)),
+        },
+        "brightness": round(level * 255 / 255),
+    }
 
 
 def color_delta(a: tuple[int, int, int], b: tuple[int, int, int]) -> int:
@@ -90,6 +111,9 @@ def should_send(
     delta: int,
 ) -> bool:
     if last_at is None or last_color is None:
+        return True
+    if color == (0, 0, 0):
+        # Always forward a blackout so the bulb actually goes dark.
         return True
     if now - last_at < min_interval:
         return False

@@ -63,11 +63,20 @@ LedFx OSC output → `ledfx-roku-bridge` → MQTT → `roku-bridge` → bulb:
 LedFx scene bedroom-music-mode (effect: energy)
   ↓ OSC "All To One" [[R,G,B] x3] to /bedroom, UDP 10.0.30.10:9000 @10Hz
 ledfx-roku-bridge daemon (systemd on adguard-netbird-01, user ledfx-roku-bridge)
-  throttles per bulb (0.2s min interval, 12-step color delta) and publishes
-  {"state": "ON", "color": {"r","g","b"}} to roku/light/<slug>/set
+  throttles per bulb (0.2s min interval, 12-step color delta; blackouts always
+  pass) and publishes {"state": "ON", "color": {...}, "brightness": <level>}
+  to roku/light/<slug>/set
   ↓ (same translation as HA commands)
 roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
 ```
+
+LedFx frames carry color only, but the bulbs take color (P1507) and
+brightness (P1501) as separate properties, so a color-only command leaves
+brightness untouched and a dark frame renders as "on but invisible". The
+relay splits each frame into a level and a hue: `brightness` carries the
+frame intensity, and the color is normalized so its brightest channel is
+full. The result reproduces the intended RGB instead of squaring it with
+the level.
 
 Pixel order is desk, floor and must match the LedFx group-virtual
 segment order. The bedroom light strip (`7C67AB2A0505`) is excluded from

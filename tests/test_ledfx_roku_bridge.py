@@ -53,9 +53,21 @@ class FrameParsingTests(unittest.TestCase):
 
     def test_payload_shape_matches_bridge_schema(self) -> None:
         payload = relay.frame_payload((255, 16, 240))
-        self.assertEqual(
-            payload, {"state": "ON", "color": {"r": 255, "g": 16, "b": 240}}
-        )
+        self.assertEqual(payload["state"], "ON")
+        self.assertEqual(payload["color"], {"r": 255, "g": 16, "b": 240})
+        self.assertEqual(payload["brightness"], 255)
+
+    def test_dim_frame_carries_level_as_brightness(self) -> None:
+        # A dark frame must not render as "on but invisible": brightness
+        # carries the level and the color keeps its hue at full scale.
+        payload = relay.frame_payload((51, 0, 0))
+        self.assertEqual(payload["brightness"], 51)
+        self.assertEqual(payload["color"], {"r": 255, "g": 0, "b": 0})
+
+    def test_blackout_frame(self) -> None:
+        payload = relay.frame_payload((0, 0, 0))
+        self.assertEqual(payload["brightness"], 0)
+        self.assertEqual(payload["color"], {"r": 0, "g": 0, "b": 0})
 
 
 class ThrottleTests(unittest.TestCase):
@@ -76,6 +88,11 @@ class ThrottleTests(unittest.TestCase):
         )
         self.assertTrue(
             relay.should_send(1.0, 0.0, (100, 100, 100), (120, 100, 100), 0.2, 12)
+        )
+
+    def test_blackout_bypasses_throttle(self) -> None:
+        self.assertTrue(
+            relay.should_send(1.0, 1.0, (100, 100, 100), (0, 0, 0), 0.2, 12)
         )
 
 
