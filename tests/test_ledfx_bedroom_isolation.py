@@ -119,6 +119,13 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         ):
             self.assertIn(expected, flags)
 
+    def test_stale_containers_are_replaced(self) -> None:
+        # Stopping the unit kills podman, not the container, so a stale
+        # container can survive and hold the name. Without --replace the unit
+        # crash-loops with "name already in use".
+        module = MODULE.read_text()
+        self.assertIn("--rm --replace --name ledfx-bedroom", module)
+
     def test_podman_does_not_leak_transient_units(self) -> None:
         # podman creates a transient systemd unit per container and per
         # healthcheck run. Those linger as failed after a stop and make

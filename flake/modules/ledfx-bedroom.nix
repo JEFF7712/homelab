@@ -38,7 +38,9 @@ let
   # accounting entirely. Readiness is asserted by the deploy job instead.
   #
   # This must stay a single line: an embedded newline ends the command, and the
-  # remaining flags are then parsed as separate commands.
+  # remaining flags are then parsed as separate commands. --replace is required
+  # because a stop kills podman rather than the container, so a stale container
+  # can survive and hold the name.
   podmanGlobal = "--root ${lib.escapeShellArg cfg.storageDir} --runroot ${lib.escapeShellArg cfg.storageDir}/run --cgroup-manager=cgroupfs --events-backend=file";
 
   runContainer = pkgs.writeShellScript "run-ledfx-bedroom" ''
@@ -53,7 +55,7 @@ let
     fi
 
     exec ${pkgs.podman}/bin/podman ${podmanGlobal} \
-      run --rm --name ledfx-bedroom \
+      run --rm --replace --name ledfx-bedroom \
       --network host \
       --pull never \
       --no-healthcheck \
