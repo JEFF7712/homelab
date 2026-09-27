@@ -102,6 +102,18 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # The registry password must never reach argv or a world-readable path.
         self.assertNotIn("PASSWORD", module)
 
+    def test_shared_podman_flags_stay_on_one_line(self) -> None:
+        # A newline inside the shared flag string ends the podman command, and
+        # the remaining flags are then parsed as separate commands, which
+        # surfaces as "missing command 'podman COMMAND'" and exit 125.
+        module = MODULE.read_text()
+        match = re.search(r"podmanGlobal = \"([^\"]*)\"", module)
+        self.assertIsNotNone(match, "podmanGlobal must be a single-line string")
+        flags = match.group(1)
+        self.assertNotIn("\n", flags)
+        for expected in ("--root", "--runroot", "--cgroup-manager=cgroupfs", "--events-backend=file"):
+            self.assertIn(expected, flags)
+
     def test_podman_does_not_leak_transient_units(self) -> None:
         # podman creates a transient systemd unit per container and per
         # healthcheck run. Those linger as failed after a stop and make

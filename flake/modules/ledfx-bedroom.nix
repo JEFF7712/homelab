@@ -36,12 +36,10 @@ let
   # switch-to-configuration exit non-zero even though the activation succeeded.
   # Managing the container from our own unit keeps podman out of systemd's unit
   # accounting entirely. Readiness is asserted by the deploy job instead.
-  podmanGlobal = ''
-    --root ${lib.escapeShellArg cfg.storageDir}
-    --runroot ${lib.escapeShellArg cfg.storageDir}/run
-    --cgroup-manager=cgroupfs
-    --events-backend=file
-  '';
+  #
+  # This must stay a single line: an embedded newline ends the command, and the
+  # remaining flags are then parsed as separate commands.
+  podmanGlobal = "--root ${lib.escapeShellArg cfg.storageDir} --runroot ${lib.escapeShellArg cfg.storageDir}/run --cgroup-manager=cgroupfs --events-backend=file";
 
   runContainer = pkgs.writeShellScript "run-ledfx-bedroom" ''
     set -eu
