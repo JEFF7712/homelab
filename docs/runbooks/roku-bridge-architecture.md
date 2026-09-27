@@ -47,8 +47,8 @@ HA's MQTT JSON light integration drifted from `rgb_color: [r, g, b]` (flat list)
 ## Files
 
 - `flake/modules/adguard-netbird/roku-bridge.nix` — systemd unit, secrets staging, and bridge user; loads the pinned script below. `mosquitto.nix` in the same directory sets up the broker user/ACL.
-- `flake/modules/adguard-netbird/roku-bridge.py` — bridge Python vendored from `github.com/JEFF7712/roku-bulb-local@53fc6d2` (`scripts/bridge.py`); canonical source for the deployed closure. Re-pin by copying the file and updating the rev in `roku-bridge.nix` (`tests/test_roku_bridge_contract.py` enforces the hash).
-- `flake/modules/adguard-netbird/ledfx-roku-bridge.nix` + `ledfx-roku-bridge.py` — bedroom music-mode relay (see below). Authored in-repo, not vendored.
+- `flake/modules/adguard-netbird/roku-bridge.py` — bridge Python vendored from `github.com/JEFF7712/roku-bulb-local@7b71741` (`scripts/bridge.py`); canonical source for the deployed closure. Re-pin by copying the file and updating the rev in `roku-bridge.nix` (`tests/test_roku_bridge_contract.py` enforces the hash).
+- `flake/modules/adguard-netbird/roku-cloud-bridge.nix` + `roku-cloud-bridge.py` — cloud fallback for bulbs whose firmware closed the LAN port-88 server (LS1016X strip on 1.2.1.13, zero LAN ports on a full 1-1024 sweep). Speaks the same MQTT topics and discovery identity as the LAN bridge, so HA needs no changes. Only list a bulb here after REMOVING it from the LAN bridge config. Reuses the roku-bridge broker credential. Session cookies self-renew into `/var/lib/roku-cloud-bridge/cookies.json`; the seed in `/persist/secrets/roku-cloud-cookies.json` is only copied when state is missing. `scripts/roku_cloud_bridge.py` renders both secret files from `ROKU_CLOUD_BULBS_JSON` / `ROKU_CLOUD_COOKIES_JSON`.
 - `/home/rupan/projects/roku-bulb-local/scripts/local_set.py` — single-PID tester, useful for bypassing HA and the bridge entirely.
 - `/home/rupan/projects/roku-bulb-local/tests/test_bridge.py` — unit tests for `ha_to_plist` and `commanded_state`.
 - `/home/rupan/projects/roku-bulb-local/docs/local-http-api.md` — full protocol reference (encryption, pids, OUI checks, crash warning about nested-object `characteristics`).
@@ -69,8 +69,10 @@ ledfx-roku-bridge daemon (systemd on adguard-netbird-01, user ledfx-roku-bridge)
 roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
 ```
 
-Pixel order is desk, floor, strip and must match the LedFx group-virtual
-segment order. Slugs (`7C67AB0A83AB`, `7C67AB1623B7`, `7C67AB2A0505`) are
+Pixel order is desk, floor and must match the LedFx group-virtual
+segment order. The bedroom light strip (`7C67AB2A0505`) is excluded from
+both: a firmware update broke its local control and a separate cloud
+implementation is in progress. Slugs (`7C67AB0A83AB`, `7C67AB1623B7`) are
 MAC-derived topic fragments, already visible as retained discovery topics,
 so they live in the plain store config in `ledfx-roku-bridge.nix`. The relay
 reuses the `roku-bridge` broker credential, so no new mosquitto user or
@@ -81,9 +83,15 @@ mode streams per-frame optimistic state over MQTT.
 
 Live LedFx objects (created via REST, persisted on the `ledfx-data` PVC):
 
-- device `bedroom-osc` (type `osc`, `10.0.30.10:9000`, 3 pixels, All_To_One, `/bedroom`, 10Hz)
-- virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1/2)
+- device `bedroom-osc` (type `osc`, `10.0.30.10:9000`, 2 pixels, All_To_One, `/bedroom`, 10Hz)
+- virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1)
 - scene `bedroom-music-mode` (energy, same tuning as `music-mode`)
+
+Coordination note for the strip cloud implementation: keep it off the
+`roku/light/7C67AB2A0505/set` topic or throttle there. If that topic ever
+drives cloud calls, this relay's per-frame output would become per-frame
+cloud API calls and hit rate limits. The relay only publishes for its
+configured pixels, so today that topic is silent from music mode.
 
 API gotchas, learned live: create devices with `POST /api/devices` **with**
 `id`; create virtuals/scenes with `POST` **without** `id` (the id slugifies

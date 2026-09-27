@@ -6,6 +6,7 @@
     ./adguard-netbird/mosquitto.nix
     ./adguard-netbird/zigbee2mqtt.nix
     ./adguard-netbird/roku-bridge.nix
+    ./adguard-netbird/roku-cloud-bridge.nix
     ./adguard-netbird/ledfx-roku-bridge.nix
   ];
 
