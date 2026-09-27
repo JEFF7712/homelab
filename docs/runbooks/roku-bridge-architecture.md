@@ -61,7 +61,7 @@ LedFx OSC output → `ledfx-roku-bridge` → MQTT → `roku-bridge` → bulb:
 
 ```
 LedFx scene bedroom-music-mode (effect: energy)
-  ↓ OSC "All To One" [[R,G,B] x3] to /bedroom, UDP 10.0.30.10:9000 @10Hz
+  ↓ OSC "All To One" [[R,G,B] x2] floats 0.0-1.0 to /bedroom, UDP 10.0.30.10:9000 @10Hz
 ledfx-roku-bridge daemon (systemd on adguard-netbird-01, user ledfx-roku-bridge)
   throttles per bulb (0.2s min interval, 12-step color delta; blackouts always
   pass) and publishes {"state": "ON", "color": {...}, "brightness": <level>}
@@ -70,13 +70,20 @@ ledfx-roku-bridge daemon (systemd on adguard-netbird-01, user ledfx-roku-bridge)
 roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
 ```
 
-LedFx frames carry color only, but the bulbs take color (P1507) and
-brightness (P1501) as separate properties, so a color-only command leaves
-brightness untouched and a dark frame renders as "on but invisible". The
-relay splits each frame into a level and a hue: `brightness` carries the
-frame intensity, and the color is normalized so its brightest channel is
-full. The result reproduces the intended RGB instead of squaring it with
-the level.
+Two LedFx quirks the relay has to absorb, both learned by watching a live
+frame stream rather than the docs:
+
+- **Frames are normalized floats, not 0-255.** The docs describe `All_To_One` as
+  `[[R, G, B], ...]`, but the device emits values in `0.0-1.0`. Casting them to
+  int truncates every channel below 1.0 to zero, so the effect renders as a
+  solid black frame and the bulbs never light. The relay rescales a frame only
+  when it is float-typed and entirely within `0.0-1.0`.
+- **Color and brightness are separate bulb properties.** LedFx sends color
+  only, so a color-only command leaves brightness wherever it was and a dark
+  frame renders as "on but invisible". The relay splits each frame into a
+  level and a hue: `brightness` carries the frame intensity, and the color is
+  normalized so its brightest channel is full. The result reproduces the
+  intended RGB instead of squaring it with the level.
 
 Pixel order is desk, floor and must match the LedFx group-virtual
 segment order. The bedroom light strip (`7C67AB2A0505`) is excluded from

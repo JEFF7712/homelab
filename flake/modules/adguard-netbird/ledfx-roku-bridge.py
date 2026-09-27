@@ -33,11 +33,25 @@ import yaml
 STATS_INTERVAL = 60.0
 
 
-def clamp(v: object) -> int:
+def clamp(v: object, scale: float = 1.0) -> int:
     try:
-        return max(0, min(255, int(v)))  # type: ignore[arg-type]
+        return max(0, min(255, round(float(v) * scale)))  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return 0
+
+
+def channel_scale(groups: list) -> float:
+    """Return the multiplier that maps a frame's channels onto 0-255.
+
+    LedFx's OSC device emits normalized floats in 0.0-1.0, not the 0-255 the
+    docs imply, so truncating them to int would collapse every frame to black.
+    Scale only when the frame is float-typed and entirely within 0.0-1.0, so a
+    genuine 0-255 frame is left alone.
+    """
+    values = [v for g in groups for v in g if isinstance(v, (int, float))]
+    if values and any(isinstance(v, float) for v in values) and max(values) <= 1.0:
+        return 255.0
+    return 1.0
 
 
 def parse_pixels(args: tuple) -> list[tuple[int, int, int]] | None:
@@ -64,11 +78,12 @@ def parse_pixels(args: tuple) -> list[tuple[int, int, int]] | None:
         groups = [flat[i : i + 3] for i in range(0, len(flat), 3)]
     else:
         return None
+    scale = channel_scale(groups)
     pixels = []
     for g in groups:
         if len(g) != 3:
             return None
-        pixels.append((clamp(g[0]), clamp(g[1]), clamp(g[2])))
+        pixels.append((clamp(g[0], scale), clamp(g[1], scale), clamp(g[2], scale)))
     return pixels or None
 
 

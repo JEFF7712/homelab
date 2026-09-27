@@ -45,6 +45,27 @@ class FrameParsingTests(unittest.TestCase):
         pixels = relay.parse_pixels(([-5, 300, 128],))
         self.assertEqual(pixels, [(0, 255, 128)])
 
+    def test_normalized_floats_are_scaled_to_255(self) -> None:
+        # LedFx's OSC device emits 0.0-1.0 floats. Truncating them to int made
+        # every frame black, which is the failure this guards against.
+        pixels = relay.parse_pixels(
+            (
+                (
+                    [0.10980392247438431, 0.1411764770746231, 0.14901961386203766],
+                    [0.0470588244497776, 0.05882352963089943, 0.33725491166114807],
+                ),
+            )
+        )
+        self.assertEqual(pixels, [(28, 36, 38), (12, 15, 86)])
+
+    def test_integer_frames_are_not_rescaled(self) -> None:
+        pixels = relay.parse_pixels(([[255, 0, 0], [0, 255, 0]],))
+        self.assertEqual(pixels, [(255, 0, 0), (0, 255, 0)])
+
+    def test_full_scale_float_frame(self) -> None:
+        pixels = relay.parse_pixels(([1.0, 0.5, 0.0],))
+        self.assertEqual(pixels, [(255, 128, 0)])
+
     def test_malformed_returns_none(self) -> None:
         self.assertIsNone(relay.parse_pixels(()))
         self.assertIsNone(relay.parse_pixels(("nope",)))
