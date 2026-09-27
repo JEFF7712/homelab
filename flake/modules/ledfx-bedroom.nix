@@ -21,7 +21,10 @@ let
     set -eu
     umask 0077
     ${pkgs.coreutils}/bin/install -d -m 0700 ${lib.escapeShellArg cfg.stateDir}
-    ${pkgs.coreutils}/bin/install -d -m 0700 ${lib.escapeShellArg cfg.configDir}
+    # The image runs as its own ledfx user (uid/gid 1000) and owns the mounted
+    # config directory, so it must not stay root-owned or it cannot write
+    # ledfx.log and dies on startup.
+    ${pkgs.coreutils}/bin/install -d -m 0700 -o 1000 -g 1000 ${lib.escapeShellArg cfg.configDir}
     ${pkgs.coreutils}/bin/install -d -m 0700 ${lib.escapeShellArg cfg.storageDir}
     ${pkgs.coreutils}/bin/install -d -m 0755 ${lib.escapeShellArg cfg.storageDir}/run
     test -s ${lib.escapeShellArg cfg.authFile}

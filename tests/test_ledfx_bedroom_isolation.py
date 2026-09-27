@@ -102,6 +102,12 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # The registry password must never reach argv or a world-readable path.
         self.assertNotIn("PASSWORD", module)
 
+    def test_config_dir_is_owned_by_the_container_user(self) -> None:
+        # The image runs as uid/gid 1000; a root-owned mount makes it die on
+        # startup with PermissionError writing ledfx.log.
+        module = MODULE.read_text()
+        self.assertIn("install -d -m 0700 -o 1000 -g 1000", module)
+
     def test_rest_api_is_limited_to_cluster_nodes(self) -> None:
         module = MODULE.read_text()
         rule = re.search(r"tcp dport \$\{toString cfg\.port\} accept", module)

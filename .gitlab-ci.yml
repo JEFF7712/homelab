@@ -573,7 +573,15 @@ deploy_nas_ledfx_bedroom:
     - >-
       ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20
       'sudo systemctl is-active ledfx-bedroom;
-      curl --silent --fail --output /dev/null http://127.0.0.1:8888/api/info'
+      for attempt in $(seq 1 60); do
+        if curl --silent --fail --output /dev/null http://127.0.0.1:8888/api/info; then
+          echo "LedFx API ready"; exit 0
+        fi;
+        sleep 2;
+      done;
+      echo "LedFx API did not become ready" >&2;
+      sudo journalctl -u ledfx-bedroom -n 40 --no-pager >&2;
+      exit 1'
     - >-
       ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11
       'sudo k3s kubectl get --raw="/readyz" >/dev/null'
