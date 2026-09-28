@@ -70,6 +70,40 @@ ledfx-roku-bridge on adguard-netbird-01   (shared transport only)
 roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
 ```
 
+### Audio tap requirements on nas-01
+
+The effect only produces colour if LedFx can actually capture the Bluetooth
+monitor. Four things had to be true, and each one failed silently:
+
+- **Pulse protocol module loaded.** `services.pipewire.pulse.enable` only starts
+  the socket unit; it ships no configuration, so the daemon ran on compiled-in
+  defaults and refused every Pulse client. The module is requested through
+  `services.pipewire.extraConfig.pipewire-pulse` in `flake/modules/nas-base.nix`.
+- **`/run/pulse` owned by `pipewire`.** The socket unit creates it `root:root`,
+  but `pipewire-pulse` runs as the `pipewire` user and could not write its pid
+  file, so the server never listened. A tmpfiles rule in `flake/modules/nas-base.nix`
+  hands the directory to `pipewire`.
+- **Socket reachable from the container.** The socket is mode `0660
+  pipewire:pipewire` and the image runs as uid 1000, so the container needs
+  `--group-add ${users.groups.pipewire.gid}` or it sees "Connection refused".
+- **ALSA pulse PCM defined.** The image ships
+  `libasound_module_pcm_pulse.so` but not pulseaudio's ALSA snippet, so
+  `/usr/share/alsa/alsa.conf.d` is empty and ALSA defines no pulse PCM.
+  PortAudio then enumerates only a silent `default`, LedFx opens it, receives
+  nothing, and the effect deactivates within ~300ms. `flake/modules/ledfx-bedroom.nix`
+  mounts an `asound.conf` that defines `pcm.pulse`; PortAudio then lists
+  `pulse` and `default`, both of which carry the monitor.
+
+`audio.min_volume` is `0.02` on this instance, not the `0.2` default. On this
+source the computed level stays under `0.2`, so the effect renders pure black
+(`P1507 000000` at the bridge) while still streaming. Lowering it produces the
+expected cycling palette. The shared instance keeps the default because its USB
+tap reports a higher level.
+
+Diagnose with `parecord`/`pactl` inside the container before suspecting LedFx:
+if the monitor captures real audio but nothing reaches the relay, the gap is in
+the virtual, not the audio path.
+
 Why a second instance rather than sharing the one on homelab-05: LedFx can
 only analyse audio that reaches the host it runs on. The bedroom speaker is
 Bluetooth attached to `nas-01`, so the audio physically exists there;
@@ -150,6 +184,22 @@ from `name`); set virtual segments with `POST /api/virtuals/<id>`
 `POST /api/virtuals` with an `id` only updates `config`). Recovery is
 `DELETE /api/devices/bedroom-osc`, `DELETE /api/virtuals/bedroom-music-mode-bulbs`,
 `DELETE /api/scenes/bedroom-music-mode`.
+
+Two traps cost the most time here:
+
+- **A music virtual with no segments renders nothing.** It still reports
+  `active: true`, and the effect still activates, but the frames go nowhere and
+  the effect deactivates within a few hundred milliseconds. Re-assert the
+  segments after any virtual rebuild and confirm
+  `GET /api/virtuals` shows a non-empty `segments` list.
+- **`streaming` is reported on the device virtual, not the music virtual.**
+  A healthy music-mode run looks like `music-mode-bulbs` `active: true,
+  streaming: false` while each device virtual shows `streaming: true`. Reading
+  `streaming` off the music virtual makes a working setup look broken.
+
+The `virtuals` list on a device is derived: one entry per segment referencing
+it. A music virtual with two segments on one device therefore lists that device
+twice, which is expected and not a duplicate-registration bug.
 
 ## Bulb ownership must stay disjoint
 
