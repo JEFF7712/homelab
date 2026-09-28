@@ -42,9 +42,11 @@ spec:
                     fi
                     cat << 'EOF' > /usr/local/bin/go-librespot
                     #!/bin/sh
+                    # Zeroconf range must stay clear of MA's per-daemon API range
+                    # 38800-38900 (see API_PORT_RANGE in the spotify_connect provider).
                     PORT=$(python3 -c "
                     import socket
-                    for p in range(38801, 38820):
+                    for p in range(38901, 38920):
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                             try:
                                 s.bind(('0.0.0.0', p))
@@ -54,7 +56,7 @@ spec:
                                 continue
                     ")
                     exec /usr/local/bin/go-librespot.orig \
-                      -c "zeroconf_port=${PORT:-38801}" \
+                      -c "zeroconf_port=${PORT:-38901}" \
                       -c "zeroconf_interfaces_to_advertise=enp0s31f6" \
                       "$@"
                     EOF

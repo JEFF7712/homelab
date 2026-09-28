@@ -202,7 +202,7 @@ firewall_aliases = {
   spotify_connect_ports = {
     name        = "spotify_connect_ports"
     type        = "port"
-    content     = ["38801", "38802", "38803", "38804", "38805", "38806", "38807", "38808", "38809", "38810"]
+    content     = ["38801", "38802", "38803", "38804", "38805", "38806", "38807", "38808", "38809", "38810", "38901", "38902", "38903", "38904", "38905", "38906", "38907", "38908", "38909", "38910"]
     description = "Spotify Connect zeroconf ports for Music Assistant players"
     enabled     = true
   }
