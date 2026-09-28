@@ -88,15 +88,29 @@ ever operated.
 
 ### 2. Registry import
 
-1. Merge the `Dockerfile` + workflow in the pod-agent repo and push to `main`
-   so Actions publishes `ghcr.io/jeff7712/pod-agent`. First green build
-   2026-09-28: `ghcr.io/jeff7712/pod-agent:sha-f6e3bb2`
-   (`sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9`).
-2. From the NAS runner, import it to `apps/pod-agent` per
-   `docs/runbooks/local-registry.md`, add the lock entry, and create the
-   `publisher-pod-agent` htpasswd + CI credential.
-3. Nothing to pin by hand: manifests already carry the pinned digest and
-   the promote job verifies it once the producer has published.
+Done 2026-09-28, with one detour worth knowing. `provision_pod_agent_publisher`
+ran green and installed the htpasswd grant plus policy, and
+`REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE` (GitLab, protected, production) and
+the producer's `REGISTRY_PASSWORD` (GitHub repo secret) both hold the same
+generated password. But the GitHub workflow's zot push never lands:
+`registry.rupan.dev` is behind Cloudflare Access from the public internet, so
+`ubuntu-latest` login succeeds yet blob/manifest writes die at a 302. The
+existing producers avoid this by building on the self-hosted `homelab`
+runner; until pod-agent has one, its workflow publishes ghcr-only.
+
+Seed procedure used (all over the LAN, no Access in the path): on `nas-01`
+with podman, pull the ghcr tag, retag to
+`registry.rupan.dev/apps/pod-agent:<sha-tag>`, push with the publisher
+credential. Note podman normalizes the ghcr index to a single-arch manifest,
+so the stored digest (`sha256:836efb...` for `sha-f6e3bb2`) differs from the
+ghcr index digest (`sha256:d9aa44...`) while config+layers are identical.
+`registry_promote_first_party` then verifies and adopts it. NAS rootfs is
+only 4 GB, so point `TMPDIR` at a `/persist` scratch dir for the push and
+`podman rmi` plus remove the scratch afterwards.
+
+Follow-up: register a self-hosted `homelab` runner for `JEFF7712/pod-agent`
+(like `homelab-apolline` serves apolline-site) and restore the zot push in
+its workflow; delete nothing until then.
 
 ### 3. Seed the volume (before Flux enables the namespace)
 
@@ -113,7 +127,11 @@ snapshot and restore it as `/persist/pod-agent/state.db`. Then copy
 to `/persist/pod-agent/telegram_bot_state.json`. Everything under
 `/persist/pod-agent` must be owned by uid 101 (`chown -R 101:101`).
 Memory strategies seed themselves from the image on first deploy; learnings
-accumulate on the volume afterwards.
+accumulate on the volume afterwards. Seeded 2026-09-28 (15.8 MB snapshot
+with 330 proposals, CLI auth for all three providers, logos, strategies).
+Note: hostPath volumes skip the fsGroup chown, so pre-create
+`/persist/pod-agent` with 101:101 ownership *before* Flux first reconciles,
+or the seed init CrashLoops until you do.
 
 ### 4. Smoke gate (before cutover)
 
