@@ -72,3 +72,29 @@ variable "firewall_filters" {
   }))
   default = {}
 }
+
+variable "firewall_nat_port_forwards" {
+  type = map(object({
+    description    = string
+    enabled        = bool
+    sequence       = number
+    interface      = list(string)
+    ip_protocol    = string
+    protocol       = string
+    log            = bool
+    nat_reflection = string
+    source = object({
+      net  = string
+      port = string
+    })
+    destination = object({
+      net  = string
+      port = string
+    })
+    target = object({
+      ip   = string
+      port = string
+    })
+  }))
+  default = {}
+}

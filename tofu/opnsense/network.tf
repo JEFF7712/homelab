@@ -52,3 +52,19 @@ resource "opnsense_firewall_filter" "managed" {
 
   depends_on = [opnsense_firewall_alias.managed]
 }
+
+resource "opnsense_firewall_nat_port_forward" "managed" {
+  for_each = var.firewall_nat_port_forwards
+
+  description    = each.value.description
+  enabled        = each.value.enabled
+  sequence       = each.value.sequence
+  interface      = each.value.interface
+  ip_protocol    = each.value.ip_protocol
+  protocol       = each.value.protocol
+  log            = each.value.log
+  nat_reflection = each.value.nat_reflection
+  source         = each.value.source
+  destination    = each.value.destination
+  target         = each.value.target
+}

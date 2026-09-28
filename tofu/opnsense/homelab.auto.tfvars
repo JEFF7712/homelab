@@ -722,3 +722,19 @@ firewall_filters = {
     }
   }
 }
+
+firewall_nat_port_forwards = {
+  wan-monero-p2p = {
+    description    = "WAN Monero P2P to homelab 04"
+    enabled        = true
+    sequence       = 100
+    interface      = ["wan"]
+    ip_protocol    = "inet"
+    protocol       = "tcp"
+    log            = false
+    nat_reflection = "default"
+    source         = { net = "any", port = "" }
+    destination    = { net = "wanip", port = "18080" }
+    target         = { ip = "10.0.30.14", port = "18080" }
+  }
+}
