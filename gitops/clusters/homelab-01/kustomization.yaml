@@ -17,6 +17,7 @@ resources:
   - observability.yaml
   - obsidian.yaml
   - platform.yaml
+  - pod-agent.yaml
   - secrets.yaml
   - storage.yaml
   - voice.yaml

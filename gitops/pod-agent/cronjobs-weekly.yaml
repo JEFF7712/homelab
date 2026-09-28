@@ -1,0 +1,339 @@
+# Weekly pod-agent jobs plus the daily privacy purge.
+# Mirrors deploy/*.service + *.timer on the laptop.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-privacy-purge
+  namespace: pod-agent
+spec:
+  schedule: "30 6 * * *"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      template:
+        spec:
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: privacy-purge
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              args:
+                - privacy
+                - purge
+                - --apply
+              workingDir: /data
+              envFrom:
+                - secretRef:
+                    name: pod-agent-env
+                - configMapRef:
+                    name: pod-agent-config
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: home
+                  mountPath: /home/podagent
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-learn
+  namespace: pod-agent
+spec:
+  schedule: "0 8 * * 0"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1200
+      template:
+        spec:
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: wait-for-network
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              command: [python, /app/wait-for-network.py]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          containers:
+            - name: learn
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              args:
+                - learn
+                - --shop
+                - distrojeff
+              workingDir: /data
+              envFrom:
+                - secretRef:
+                    name: pod-agent-env
+                - configMapRef:
+                    name: pod-agent-config
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: home
+                  mountPath: /home/podagent
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-discover
+  namespace: pod-agent
+spec:
+  schedule: "30 9 * * 1"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: wait-for-network
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              command: [python, /app/wait-for-network.py]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          containers:
+            - name: discover
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              args:
+                - catalog
+                - discover
+                - --shop
+                - distrojeff
+                - --max
+                - "3"
+              workingDir: /data
+              envFrom:
+                - secretRef:
+                    name: pod-agent-env
+                - configMapRef:
+                    name: pod-agent-config
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: home
+                  mountPath: /home/podagent
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-shipping
+  namespace: pod-agent
+spec:
+  schedule: "30 8 * * 3"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1200
+      template:
+        spec:
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: wait-for-network
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              command: [python, /app/wait-for-network.py]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          containers:
+            - name: shipping
+              image: registry.rupan.dev/apps/pod-agent@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              args:
+                - shipping
+                - check
+                - --shop
+                - distrojeff
+                - --notify
+              workingDir: /data
+              envFrom:
+                - secretRef:
+                    name: pod-agent-env
+                - configMapRef:
+                    name: pod-agent-config
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: home
+                  mountPath: /home/podagent
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}

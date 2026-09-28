@@ -461,6 +461,20 @@ provision_jarvis_publisher:
     - nix develop ./flake -c just check-registry
     - nix develop ./flake -c python -m scripts.registry.provision_jarvis
 
+provision_pod_agent_publisher:
+  timeout: 45m
+  extends: .registry_ssh
+  stage: registry
+  resource_group: registry-platform
+  needs: []
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  script:
+    - nix develop ./flake -c python -m unittest tests.test_registry_pod_agent_publisher
+    - nix develop ./flake -c just check-registry
+    - nix develop ./flake -c python -m scripts.registry.provision_pod_agent
+
 deploy_registry_platform:
   timeout: 45m
   extends: .registry_ssh

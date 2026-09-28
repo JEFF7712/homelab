@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pod-agent-config
+  namespace: pod-agent
+  labels:
+    app.kubernetes.io/name: pod-agent
+data:
+  DB_PATH: /data/state.db
+  ASSETS_ROOT: /data/assets/distro-logos
+  TELEGRAM_STATE_PATH: /data/telegram_bot_state.json
+  POD_AGENT_AGE_BIN: /usr/bin/age
+  POD_AGENT_BACKUP_DIR: /data/backups
+  POD_AGENT_BACKUP_IDENTITY: /age-identity/backup-age.key
+  CODEX_HOME: /data/cliauth/codex
+  CLAUDE_CONFIG_DIR: /data/cliauth/claude
+  CURSOR_CONFIG_DIR: /data/cliauth/cursor
+  OWNER_NOTIFY_CHANNELS: discord
+  GOVERNOR_SUBSCRIPTION_PROVIDERS: codex,claude,cursor
+  GOVERNOR_PROVIDER_ROTATION_ORDER: codex,claude,cursor

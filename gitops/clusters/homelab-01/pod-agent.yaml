@@ -1,0 +1,26 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: pod-agent
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./gitops/pod-agent
+  prune: true
+  # Suspended until the first image lands in the local registry (see
+  # docs/runbooks/pod-agent.md). Unsuspend after registry promotion pins it.
+  suspend: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: eso
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: pod-agent-dashboard
+      namespace: pod-agent
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: pod-agent-discord-bot
+      namespace: pod-agent

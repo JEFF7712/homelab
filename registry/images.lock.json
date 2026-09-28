@@ -506,6 +506,73 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/pod-agent/discord-bot.yaml:29",
+        "gitops/pod-agent/dashboard.yaml:28",
+        "gitops/pod-agent/dashboard.yaml:50",
+        "gitops/pod-agent/cronjobs-daily.yaml:30",
+        "gitops/pod-agent/cronjobs-daily.yaml:111",
+        "gitops/pod-agent/cronjobs-daily.yaml:130",
+        "gitops/pod-agent/cronjobs-daily.yaml:202",
+        "gitops/pod-agent/cronjobs-daily.yaml:221",
+        "gitops/pod-agent/cronjobs-daily.yaml:291",
+        "gitops/pod-agent/cronjobs-daily.yaml:310",
+        "gitops/pod-agent/cronjobs-daily.yaml:382",
+        "gitops/pod-agent/cronjobs-daily.yaml:401",
+        "gitops/pod-agent/cronjobs-frequent.yaml:29",
+        "gitops/pod-agent/cronjobs-frequent.yaml:48",
+        "gitops/pod-agent/cronjobs-frequent.yaml:117",
+        "gitops/pod-agent/cronjobs-frequent.yaml:136",
+        "gitops/pod-agent/cronjobs-frequent.yaml:206",
+        "gitops/pod-agent/cronjobs-frequent.yaml:225",
+        "gitops/pod-agent/cronjobs-frequent.yaml:294",
+        "gitops/pod-agent/cronjobs-weekly.yaml:30",
+        "gitops/pod-agent/cronjobs-weekly.yaml:99",
+        "gitops/pod-agent/cronjobs-weekly.yaml:118",
+        "gitops/pod-agent/cronjobs-weekly.yaml:187",
+        "gitops/pod-agent/cronjobs-weekly.yaml:206",
+        "gitops/pod-agent/cronjobs-weekly.yaml:278",
+        "gitops/pod-agent/cronjobs-weekly.yaml:297"
+      ],
+      "destination_repository": "apps/pod-agent",
+      "destination_tags": [
+        "sha-f6e3bb2",
+        "retention-deployed-d9aa44056f87"
+      ],
+      "digest": "sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9",
+      "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": {
+        "location": "external-image-repository:ghcr.io/jeff7712/pod-agent",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9",
+        "reference": "ghcr.io/jeff7712/pod-agent:sha-f6e3bb2@sha256:d9aa44056f87c2c961d6f2a3ef09b75939f9123ab3ad9f3213d848bd60d7efe9",
+        "registry": "ghcr.io",
+        "repository": "jeff7712/pod-agent",
+        "tag": "sha-f6e3bb2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:pulse/website-deploy-7bc958f8c5-xpb59/web"
       ],
       "destination_repository": "apps/pulse-site",

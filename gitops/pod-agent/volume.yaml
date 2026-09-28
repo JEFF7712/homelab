@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pod-agent-data-nvme
+  labels:
+    app.kubernetes.io/name: pod-agent
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nvme-homelab-01
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-01
+  hostPath:
+    path: /persist/pod-agent
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pod-agent-data
+  namespace: pod-agent
+  labels:
+    app.kubernetes.io/name: pod-agent
+spec:
+  volumeName: pod-agent-data-nvme
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nvme-homelab-01
+  resources:
+    requests:
+      storage: 5Gi
