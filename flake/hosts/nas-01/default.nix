@@ -126,7 +126,11 @@
       general = {
         name = "Bedroom Speaker";
         port = 5002;
-        output_backend = "pipewire";
+        # The native PipeWire backend cannot open a stream to the Bluetooth sink:
+        # the sink node has no target node, so playback fails with "no target node
+        # available" and AirPlay sessions connect but never start. The PulseAudio
+        # backend negotiates through pipewire-pulse, which does reach the speaker.
+        output_backend = "pulseaudio";
       };
       metadata = {
         enabled = "yes";
