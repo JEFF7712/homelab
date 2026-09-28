@@ -321,6 +321,22 @@ firewall_filters = {
       destination = { net = "10.0.30.15", port = "8888" }
     }
   }
+  clients-allow-mdns = {
+    description = "Allow client mDNS queries to the relay"
+    enabled     = true
+    sequence    = 219
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "UDP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.20.0/24", port = "5353" }
+      destination = { net = "224.0.0.251/32", port = "5353" }
+    }
+  }
   clients-block-private = {
     description = "Block clients from other private VLANs"
     enabled     = true
@@ -447,6 +463,22 @@ firewall_filters = {
       log         = true
       source      = { net = "10.0.30.10/32", port = "" }
       destination = { net = "roku_bulbs_lo", port = "88" }
+    }
+  }
+  infrastructure-allow-mdns-relay = {
+    description = "Allow relayed client mDNS queries into infrastructure VLAN"
+    enabled     = true
+    sequence    = 309
+    interface   = { interface = ["opt3"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "UDP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.20.0/24", port = "5353" }
+      destination = { net = "224.0.0.251/32", port = "5353" }
     }
   }
   infrastructure-allow-govee-queries = {
