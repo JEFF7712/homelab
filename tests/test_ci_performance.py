@@ -86,6 +86,38 @@ class SecretScanTest(unittest.TestCase):
 
 
 class CancellationTest(unittest.TestCase):
+    def test_consolidated_checks_remain_required_by_consumers(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        for name, job in pipeline.items():
+            if isinstance(job, dict) and "repository_tests" in job.get("needs", []):
+                with self.subTest(job=name):
+                    for gate in ("nix_format", "yaml_schema", "registry_lock"):
+                        self.assertIn(gate, job["needs"])
+
+    def test_optional_cache_population_preserves_fleet_build_gate(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        self.assertIn("nix_cache", pipeline[".deploy_fleet_base"]["needs"])
+        cache = pipeline["nix_cache"]
+        self.assertEqual(cache["rules"][-1]["when"], "manual")
+        self.assertFalse(cache["rules"][-1]["allow_failure"])
+        self.assertIn("flake/**/*", cache["rules"][1]["changes"])
+        self.assertEqual(
+            pipeline[".nix_cache"]["resource_group"],
+            pipeline[".flake_check"]["resource_group"],
+        )
+
+    def test_mirror_is_serialized_and_mutation_jobs_do_not_retry(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        self.assertEqual(pipeline["sync_to_github"]["resource_group"], "github-mirror")
+        for name, job in pipeline.items():
+            if isinstance(job, dict) and job.get("stage") == "deploy":
+                with self.subTest(job=name):
+                    self.assertEqual(job["retry"], 0)
+        self.assertEqual(
+            pipeline["default"]["retry"]["when"],
+            ["runner_system_failure", "runner_external_dependency_failure"],
+        )
+
     def test_main_and_feature_flake_checks_share_resource_group(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
         self.assertEqual(

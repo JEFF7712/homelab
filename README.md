@@ -50,9 +50,23 @@ The dedicated secret scan checks the pushed commit range or the MR diff base
 through HEAD. Scheduled, manual, tag, and new-branch pipelines scan all history.
 Missing history is fetched before scanning; an invalid range fails the job.
 Repository tests omit their duplicate secret scan; local `just check` retains it.
-Main and feature flake checks share the `nix-flake-evaluation` resource group,
+Flake checks and cache population share the `nix-flake-evaluation` resource group,
 so only one runs at a time across pipelines. Their logs include elapsed time
-and Nix evaluation statistics for performance comparisons.
+and Nix evaluation statistics for performance comparisons. Cache population runs
+automatically for build inputs and scheduled or explicitly triggered main pipelines.
+Other main pushes expose a blocking manual cache job. Fleet deployment always
+requires its successful build, including when upload credentials are unavailable.
+
+CI assigns formatting, YAML linting, registry policy, and secret scanning to
+dedicated jobs. Repository tests retain type checks, unit tests, rendered Kubernetes
+validation, and provider validation. Local `just check` retains the full gate.
+Validation jobs publish timing artifacts; repository tests also publish JUnit results.
+Jobs have explicit time limits and retry once for runner infrastructure failures.
+Deployment and registry mutations do not retry automatically.
+
+GitHub mirroring uses a separate resource group, checks the current source tip
+before each push, and uses an exact remote lease. Its temporary authentication
+helper and cache credentials are isolated to their respective jobs.
 
 ## Local workflow
 

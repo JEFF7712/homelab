@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 for tool in nix nixfmt; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
 mapfile -d '' files < <(git ls-files -co --exclude-standard -z '*.nix')
-nixfmt --check "${files[@]}"
+if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then nixfmt --check "${files[@]}"; fi
 target=${1:-all}
 hosts=(
   adguard-netbird-01

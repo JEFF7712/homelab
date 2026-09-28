@@ -6,7 +6,7 @@ export SKIP_NIX_EVAL=1
 export CHECK_FROM_ALL=1
 bash scripts/checks/agent-workflows.sh
 bash scripts/checks/python.sh
-bash scripts/checks/registry.sh
+if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then bash scripts/checks/registry.sh; fi
 bash scripts/checks/nix.sh all
 bash scripts/checks/gitops.sh
 bash scripts/checks/tofu.sh

@@ -18,4 +18,4 @@ if [[ "${SKIP_TESTS:-0}" != "1" ]]; then
   python -m unittest discover -s tests -p 'test_home_assistant_*.py' -v
 fi
 python -m scripts.home_assistant validate
-yamllint home-assistant
+if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then yamllint home-assistant; fi

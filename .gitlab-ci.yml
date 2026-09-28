@@ -1,5 +1,12 @@
 image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
 
+default:
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - runner_external_dependency_failure
+
 workflow:
   auto_cancel:
     on_new_commit: interruptible
@@ -39,6 +46,7 @@ variables:
   TF_HTTP_RETRY_WAIT_MIN: "5"
 
 .nas_ci:
+  timeout: 15m
   tags:
     - nas-ci
   rules:
@@ -46,6 +54,7 @@ variables:
     - if: '$CI_COMMIT_TAG'
 
 .shared_feature:
+  timeout: 15m
   tags:
     - nas-ci
   rules:
@@ -53,11 +62,17 @@ variables:
     - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
 
 .nix_format:
+  timeout: 15m
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
   interruptible: true
   stage: lint
   needs: []
   script:
-    - nix develop ./flake -c just fmt-check
+    - nix develop ./flake -c python -m scripts.ci.run formatting -- just fmt-check
 
 nix_format:
   extends:
@@ -70,11 +85,25 @@ nix_format_feature:
     - .nix_format
 
 .repository_tests:
+  timeout: 15m
   interruptible: true
   stage: test
   needs: []
+  variables:
+    SKIP_FLAKE_CHECK: "1"
+    SKIP_SECRET_SCAN: "1"
+    CI_LINT_EXTERNAL: "1"
+    CI_TEST_REPORT: artifacts/ci/tests.xml
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
+    reports:
+      junit: artifacts/ci/tests.xml
   script:
-    - nix develop ./flake -c bash -c 'just provision-check-deps && SKIP_FLAKE_CHECK=1 SKIP_SECRET_SCAN=1 just check'
+    - nix develop ./flake -c python -m scripts.ci.run providers -- just provision-check-deps
+    - nix develop ./flake -c python -m scripts.ci.run repository -- just check
 
 repository_tests:
   extends:
@@ -87,6 +116,12 @@ repository_tests_feature:
     - .repository_tests
 
 jev_decision_gate:
+  timeout: 15m
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
   interruptible: true
   extends:
     - .shared_feature
@@ -94,16 +129,22 @@ jev_decision_gate:
   stage: test
   needs: []
   script:
-    - nix develop ./flake -c python scripts/jev_decision_gate.py
+    - nix develop ./flake -c python -m scripts.ci.run decisions -- python scripts/jev_decision_gate.py
 
 .flake_check:
+  timeout: 15m
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
   interruptible: true
   resource_group: nix-flake-evaluation
   stage: test
   needs: []
   script:
     - >-
-      nix develop ./flake -c bash -c
+      nix develop ./flake -c python -m scripts.ci.run flake -- bash -c
       'export NIX_SHOW_STATS=1; time nix flake check "path:.?dir=flake" --no-write-lock-file'
 
 flake_check:
@@ -117,11 +158,17 @@ flake_check_feature:
     - .flake_check
 
 .yaml_schema:
+  timeout: 15m
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
   interruptible: true
   stage: test
   needs: []
   script:
-    - nix develop ./flake -c yamllint .
+    - nix develop ./flake -c python -m scripts.ci.run yaml -- yamllint .
 
 yaml_schema:
   extends:
@@ -135,31 +182,15 @@ yaml_schema_feature:
 
 .nix_cache:
   stage: test
+  timeout: 45m
+  resource_group: nix-flake-evaluation
   script:
-    - |
-      if [ -z "${ATTIC_TOKEN:-}" ]; then
-        echo "ATTIC_TOKEN is not set; skipping binary cache upload."
-        exit 0
-      fi
-      export HOME="${TMPDIR:-/tmp}/attic-ci-home-$$"
-      mkdir -p "$HOME"
-      trap 'rm -rf "$HOME"' EXIT
-      nix develop ./flake -c attic login local http://10.0.30.20:8080/ "$ATTIC_TOKEN"
-      nix build --no-link --print-out-paths \
-        ./flake#nixosConfigurations.nas-01.config.system.build.toplevel \
-        ./flake#nixosConfigurations.adguard-netbird-01.config.system.build.toplevel \
-        ./flake#nixosConfigurations.homelab-01.config.system.build.toplevel \
-        ./flake#nixosConfigurations.homelab-02.config.system.build.toplevel \
-        ./flake#nixosConfigurations.homelab-03.config.system.build.toplevel \
-        ./flake#nixosConfigurations.homelab-04.config.system.build.toplevel \
-        ./flake#nixosConfigurations.homelab-05.config.system.build.toplevel \
-        ./flake#checks.x86_64-linux.repository-contract \
-        ./flake#checks.x86_64-linux.agent-workspace-network \
-        ./flake#checks.x86_64-linux.agent-workspace-packet-flow \
-        ./flake#checks.x86_64-linux.agent-workspace-host-reservations \
-        ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
-        ./flake#checks.x86_64-linux.zot-registry \
-        | nix develop ./flake -c attic push local:homelab --stdin
+    - nix develop ./flake -c python -m scripts.ci.run cache -- bash scripts/ci/cache.sh
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
 
 nix_cache:
   extends:
@@ -169,13 +200,38 @@ nix_cache:
     - repository_tests
     - flake_check
     - secret_scan
+    - nix_format
+    - yaml_schema
+    - registry_lock
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE =~ /^(schedule|web|api)$/'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - flake/**/*
+        - config/**/*
+        - scripts/**/*
+        - tests/**/*
+        - gitops/**/*
+        - registry/**/*
+        - home-assistant/**/*
+        - .gitlab-ci.yml
+        - justfile
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
+      when: manual
+      allow_failure: false
 
 .secret_scan:
+  timeout: 15m
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
   interruptible: true
   stage: test
   needs: []
   script:
-    - nix develop ./flake -c bash scripts/checks/secrets.sh
+    - nix develop ./flake -c python -m scripts.ci.run secrets -- bash scripts/checks/secrets.sh
 
 secret_scan:
   extends:
@@ -188,15 +244,20 @@ secret_scan_feature:
     - .secret_scan
 
 .registry_lock:
+  timeout: 15m
   interruptible: true
-  stage: registry
+  stage: test
   needs: []
   script:
-    - nix develop ./flake -c bash -c 'just check-registry && just registry-plan > registry-copy-plan.json'
+    - >-
+      nix develop ./flake -c python -m scripts.ci.run registry -- bash -euo pipefail -c
+      'just registry-check && just registry-plan > registry-copy-plan.json'
   artifacts:
+    when: always
     expire_in: 7 days
     paths:
       - registry-copy-plan.json
+      - artifacts/ci/
 
 registry_lock:
   extends:
@@ -209,6 +270,7 @@ registry_lock_feature:
     - .registry_lock
 
 registry_resolve:
+  timeout: 15m
   stage: registry
   tags:
     - nas-ci
@@ -250,6 +312,8 @@ registry_resolve:
       - artifacts/registry/
 
 registry_promote_first_party:
+  retry: 0
+  timeout: 15m
   stage: registry
   tags:
     - nas-ci
@@ -314,6 +378,8 @@ registry_promote_first_party:
     - shred -u /tmp/registry-node-auth.json 2>/dev/null || rm -f /tmp/registry-node-auth.json
 
 registry_update_import:
+  retry: 0
+  timeout: 15m
   stage: registry
   tags:
     - nas-privileged
@@ -345,6 +411,8 @@ registry_update_import:
       - artifacts/registry/
 
 registry_lock_import:
+  retry: 0
+  timeout: 15m
   stage: registry
   tags:
     - nas-privileged
@@ -373,6 +441,8 @@ registry_lock_import:
       - artifacts/registry/
 
 .registry_ssh:
+  retry: 0
+  timeout: 45m
   tags:
     - nas-privileged
   environment:
@@ -391,6 +461,7 @@ registry_lock_import:
     - shred -u ~/.ssh/id_ed25519 ~/.ssh/known_hosts 2>/dev/null || rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
 provision_jarvis_publisher:
+  timeout: 45m
   extends: .registry_ssh
   stage: registry
   resource_group: registry-platform
@@ -404,6 +475,7 @@ provision_jarvis_publisher:
     - nix develop ./flake -c python -m scripts.registry.provision_jarvis
 
 deploy_registry_platform:
+  timeout: 45m
   extends: .registry_ssh
   stage: registry
   resource_group: registry-platform
@@ -412,6 +484,8 @@ deploy_registry_platform:
     - flake_check
     - secret_scan
     - registry_lock
+    - nix_format
+    - yaml_schema
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
@@ -451,6 +525,7 @@ deploy_registry_platform:
       'mountpoint -q /tank/registry && sudo systemctl is-active zot nginx'
 
 deploy_registry_dns:
+  timeout: 45m
   extends: .registry_ssh
   stage: registry
   resource_group: registry-dns
@@ -471,6 +546,8 @@ deploy_registry_dns:
       --write-out '%{http_code}' https://registry.rupan.dev/v2/)" = 401
 
 deploy_zigbee_gateway:
+  retry: 0
+  timeout: 45m
   extends: .registry_ssh
   stage: deploy
   resource_group: zigbee-gateway
@@ -478,6 +555,9 @@ deploy_zigbee_gateway:
     - repository_tests
     - flake_check
     - secret_scan
+    - nix_format
+    - yaml_schema
+    - registry_lock
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
@@ -523,6 +603,8 @@ deploy_zigbee_gateway:
       sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge'
 
 .deploy_registry_node:
+  retry: 0
+  timeout: 45m
   extends: .registry_ssh
   stage: deploy
   resource_group: registry-node-rollout
@@ -568,6 +650,8 @@ deploy_zigbee_gateway:
       sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'
 
 deploy_nas_ledfx_bedroom:
+  retry: 0
+  timeout: 45m
   extends: .registry_ssh
   stage: deploy
   resource_group: nas-ledfx-bedroom
@@ -575,6 +659,9 @@ deploy_nas_ledfx_bedroom:
     - repository_tests
     - flake_check
     - secret_scan
+    - nix_format
+    - yaml_schema
+    - registry_lock
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
@@ -656,6 +743,7 @@ deploy_registry_node_05:
     DEPLOY_ADDR: 10.0.30.15
 
 opnsense_inventory:
+  timeout: 15m
   stage: opnsense
   tags:
     - nas-privileged
@@ -666,6 +754,9 @@ opnsense_inventory:
     - repository_tests
     - flake_check
     - secret_scan
+    - nix_format
+    - yaml_schema
+    - registry_lock
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   script:
@@ -676,6 +767,7 @@ opnsense_inventory:
       - artifacts/opnsense/
 
 opnsense_plan:
+  timeout: 15m
   stage: opnsense
   tags:
     - nas-privileged
@@ -726,6 +818,7 @@ opnsense_plan:
       - tofu/opnsense/desired.tfplan
 
 opnsense_dataplane:
+  timeout: 15m
   stage: opnsense
   tags:
     - nas-privileged
@@ -738,6 +831,8 @@ opnsense_dataplane:
       --targets opnsense_reconciler/lb-data-plane-targets.json
 
 opnsense_apply:
+  retry: 0
+  timeout: 45m
   stage: opnsense
   tags:
     - nas-privileged
@@ -795,6 +890,7 @@ opnsense_apply:
       --targets opnsense_reconciler/lb-data-plane-targets.json
 
 nas_proof:
+  timeout: 15m
   extends: .nas_ci
   stage: test
   needs: []
@@ -807,6 +903,8 @@ nas_proof:
     - ping -c 2 -W 2 10.0.30.11
 
 .deploy_fleet_base:
+  retry: 0
+  timeout: 45m
   stage: deploy
   resource_group: homelab-fleet-deploy
   tags:
@@ -838,6 +936,7 @@ nas_proof:
     - shred -u ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.kube/config 2>/dev/null || rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.kube/config  # yamllint disable-line rule:line-length
 
 deploy_fleet_dry_run:
+  timeout: 45m
   extends: .deploy_fleet_base
   script:
     - export PATH="/run/current-system/sw/bin:$PATH"
@@ -848,6 +947,7 @@ deploy_fleet_dry_run:
     - nix develop ./flake -c just deploy-fleet --dry-run ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}
 
 deploy_fleet:
+  timeout: 45m
   extends: .deploy_fleet_base
   script:
     - export PATH="/run/current-system/sw/bin:$PATH"
@@ -858,16 +958,20 @@ deploy_fleet:
     - nix develop ./flake -c just deploy-fleet ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}
 
 deploy_agent_workspace_host_dry_run:
+  timeout: 45m
   extends: .deploy_fleet_base
   script:
     - nix develop ./flake -c just deploy-fleet --dry-run --target homelab-01
 
 deploy_agent_workspace_host:
+  timeout: 45m
   extends: .deploy_fleet_base
   script:
     - nix develop ./flake -c just deploy-fleet --target homelab-01
 
 .deploy_home_assistant_base:
+  retry: 0
+  timeout: 45m
   stage: deploy
   resource_group: home-assistant-homelab-01
   tags:
@@ -878,6 +982,9 @@ deploy_agent_workspace_host:
     - repository_tests
     - flake_check
     - secret_scan
+    - nix_format
+    - yaml_schema
+    - registry_lock
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
@@ -916,11 +1023,13 @@ deploy_agent_workspace_host:
     - shred -u ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.kube/config 2>/dev/null || rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts ~/.kube/config  # yamllint disable-line rule:line-length
 
 deploy_home_assistant_dry_run:
+  timeout: 45m
   extends: .deploy_home_assistant_base
   script:
     - nix develop ./flake -c python -m scripts.home_assistant diff --instance homelab-01
 
 deploy_home_assistant:
+  timeout: 45m
   extends: .deploy_home_assistant_base
   script:
     - >-
@@ -936,52 +1045,21 @@ sync_to_github:
   stage: sync
   tags:
     - nas-ci
-  image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
+  resource_group: github-mirror
+  timeout: 10m
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   needs:
     - repository_tests
     - flake_check
     - secret_scan
     - nix_format
     - yaml_schema
+    - registry_lock
   script:
-    - >-
-      nix develop ./flake -c bash -e -c '
-        export GIT_TERMINAL_PROMPT=0
-        if [ -z "${GITHUB_TOKEN:-}" ]; then
-          echo "WARNING: GITHUB_TOKEN is not set; skipping GitHub mirror sync."
-          exit 0
-        fi
-        cred_config=$(mktemp /tmp/gh-credential-config-XXXXXX)
-        printf "%s\n" "[credential \"https://github.com\"]" "helper =" > "$cred_config"
-        printf 'helper = "!f() { echo username=x-access-token; echo password=%s; }; f"\n' \
-          "$GITHUB_TOKEN" >> "$cred_config"
-        git config --local --unset-all include.path 2>/dev/null || true
-        git config --local --add include.path "$cred_config"
-        git remote set-url github https://github.com/JEFF7712/homelab-new.git 2>/dev/null ||
-          git remote add github https://github.com/JEFF7712/homelab-new.git
-        git fetch --unshallow origin 2>/dev/null || git fetch origin
-
-        mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
-        mirror_warning+="on [GitLab](https://gitlab.com/JEFF7712/homelab-new)."
-        printf "%s\n\n%s" "$mirror_warning" "$(cat README.md)" > README.md
-
-        git config user.email "runner@gitlab.com"
-        git config user.name "GitLab Runner"
-        git commit -am "Automated: Add GitHub Mirror Warning" || echo "No changes to commit"
-
-        for attempt in 1 2 3; do
-          if git -c http.version=HTTP/1.1 push github HEAD:main --force; then
-            rm -f "$cred_config"
-            exit 0
-          fi
-          sleep $((attempt * 15))
-        done
-        rm -f "$cred_config"
-        exit 1
-      '
-  after_script:
-    - git remote remove github 2>/dev/null || true
-    - git config --local --unset-all include.path 2>/dev/null || true
-    - rm -f /tmp/gh-credential-config*
+    - nix develop ./flake -c python -m scripts.ci.run mirror -- bash scripts/ci/mirror.sh
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/ci/
