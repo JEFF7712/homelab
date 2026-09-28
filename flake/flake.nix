@@ -120,6 +120,7 @@
                 pkgs.bash
                 pkgs.coreutils
                 pkgs.git
+                pkgs.gitleaks
                 pkgs.jq
                 pkgs.just
                 pkgs.kubectl
@@ -131,8 +132,7 @@
             }
             ''
               cd ${../.}
-              python -m unittest discover -s tests
-              touch $out
+              python -m scripts.ci.tests --output "$out/tests.xml" --log-report --exclude-module test_zot_registry_module
             '';
 
         checks.agent-workspace-network =

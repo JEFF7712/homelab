@@ -8,12 +8,55 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from scripts.ci.contract import recover_report
 from scripts.ci.tests import ReportResult, write_report
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReportsTest(unittest.TestCase):
+    def test_partition_excludes_integration_module_and_preserves_module_fixtures(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "test_unit.py").write_text(
+                "import unittest\n"
+                "def setUpModule():\n    raise ValueError('unit fixture')\n"
+                "class Example(unittest.TestCase):\n    def test_unused(self):\n        pass\n"
+            )
+            (directory / "test_integration.py").write_text(
+                "import unittest\n"
+                "class Integration(unittest.TestCase):\n"
+                "    def test_integration(self):\n        self.fail('integration failure')\n"
+            )
+            for flags, expected_error, expected_failure in (
+                (["--exclude-module", "test_integration"], "1", "0"),
+                (["--pattern", "test_integration.py"], "0", "1"),
+            ):
+                output = directory / "report.xml"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "scripts.ci.tests",
+                        "--start",
+                        temporary,
+                        "--output",
+                        str(output),
+                        *flags,
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 1)
+                report = ET.parse(output).getroot()
+                self.assertEqual(report.get("tests"), "1")
+                self.assertEqual(report.get("errors"), expected_error)
+                self.assertEqual(report.get("failures"), expected_failure)
+
     def test_outcomes_and_fixture_errors_have_distinct_cases(self) -> None:
         class Outcomes(unittest.TestCase):
             def test_pass(self):
@@ -91,6 +134,7 @@ class ReportsTest(unittest.TestCase):
                     temporary,
                     "--output",
                     str(output),
+                    "--log-report",
                 ],
                 cwd=ROOT,
                 capture_output=True,
@@ -99,6 +143,7 @@ class ReportsTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 1)
             self.assertEqual(ET.parse(output).getroot().attrib["failures"], "1")
+            self.assertEqual(recover_report(result.stdout), output.read_bytes())
 
     def test_timing_preserves_exit_code_without_logging_command_arguments(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

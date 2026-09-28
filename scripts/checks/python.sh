@@ -9,7 +9,9 @@ ruff check --select E,F,I,UP --ignore E501 scripts opnsense_reconciler tests
 pyright scripts/agent scripts/ci scripts/registry scripts/deploy_fleet.py scripts/home_assistant opnsense_reconciler &
 pyright_pid=$!
 
-if [[ -n "${CI_TEST_REPORT:-}" ]]; then
+if [[ "${CI_UNIT_TESTS_EXTERNAL:-0}" == "1" ]]; then
+  python -m scripts.ci.tests --start tests --pattern test_zot_registry_module.py --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}" &
+elif [[ -n "${CI_TEST_REPORT:-}" ]]; then
   python -m scripts.ci.tests --output "$CI_TEST_REPORT" &
 else
   python -m unittest discover -s tests -v &

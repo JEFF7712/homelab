@@ -1,10 +1,13 @@
 import argparse
+import base64
 import re
 import time
 import traceback
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from scripts.ci.contract import REPORT_BEGIN, REPORT_END
 
 
 class ReportResult(unittest.TextTestResult):
@@ -81,15 +84,34 @@ def write_report(result: ReportResult, output: Path) -> None:
     ET.ElementTree(suite).write(output, encoding="utf-8", xml_declaration=True)
 
 
+def exclude_module(suite: unittest.TestSuite, module: str) -> unittest.TestSuite:
+    selected = unittest.TestSuite()
+    for test in suite:
+        if isinstance(test, unittest.TestSuite):
+            selected.addTest(exclude_module(test, module))
+        elif type(test).__module__ != module:
+            selected.addTest(test)
+    return selected
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--start", default="tests")
+    parser.add_argument("--pattern", default="test*.py")
+    parser.add_argument("--log-report", action="store_true")
+    parser.add_argument("--exclude-module")
     args = parser.parse_args(argv)
-    suite = unittest.defaultTestLoader.discover(args.start)
+    suite = unittest.defaultTestLoader.discover(args.start, pattern=args.pattern)
+    if args.exclude_module:
+        suite = exclude_module(suite, args.exclude_module)
     result = unittest.TextTestRunner(verbosity=2, resultclass=ReportResult).run(suite)
     assert isinstance(result, ReportResult)
     write_report(result, args.output)
+    if args.log_report and not result.wasSuccessful():
+        print(REPORT_BEGIN)
+        print(base64.encodebytes(args.output.read_bytes()).decode().rstrip())
+        print(REPORT_END, flush=True)
     return 0 if result.wasSuccessful() else 1
 
 
