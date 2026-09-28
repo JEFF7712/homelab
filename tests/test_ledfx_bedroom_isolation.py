@@ -163,6 +163,12 @@ class BedroomLedFxModuleTests(unittest.TestCase):
             "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
         )
 
+    def test_alsa_pulse_pcm_is_defined_for_the_container(self):
+        module = (REPO_ROOT / "flake/modules/ledfx-bedroom.nix").read_text()
+        self.assertIn("pcm.pulse", module)
+        self.assertIn("type pulse", module)
+        self.assertIn("/etc/asound.conf:ro", module)
+
     def test_pulse_socket_group_is_granted_to_the_container(self):
         module = (REPO_ROOT / "flake/modules/ledfx-bedroom.nix").read_text()
         self.assertIn(

@@ -41,6 +41,28 @@ let
   # remaining flags are then parsed as separate commands. --replace is required
   # because a stop kills podman rather than the container, so a stale container
   # can survive and hold the name.
+  # The image ships the ALSA Pulse plugin (libasound_module_pcm_pulse.so) but
+  # not the pulseaudio package's ALSA snippet, so /usr/share/alsa/alsa.conf.d is
+  # empty and ALSA never defines a pulse PCM. PortAudio then enumerates only a
+  # silent "default" device, LedFx opens it, receives no frames, and its
+  # audio-reactive effect deactivates within a few hundred milliseconds. This
+  # defines the pulse PCM explicitly so PortAudio enumerates "pulse" (and
+  # "default" resolves to Pulse too), which makes the Bluetooth monitor usable.
+  asoundConf = pkgs.writeText "ledfx-bedroom-asound.conf" ''
+    pcm.pulse {
+        type pulse
+    }
+    ctl.pulse {
+        type pulse
+    }
+    pcm.!default {
+        type pulse
+    }
+    ctl.!default {
+        type pulse
+    }
+  '';
+
   podmanGlobal = "--root ${lib.escapeShellArg cfg.storageDir} --runroot ${lib.escapeShellArg cfg.storageDir}/run --cgroup-manager=cgroupfs --events-backend=file";
 
   runContainer = pkgs.writeShellScript "run-ledfx-bedroom" ''
@@ -68,6 +90,7 @@ let
       -v ${lib.escapeShellArg cfg.configDir}:/home/ledfx/ledfx-config \
       -v /run/pipewire:/run/pipewire:ro \
       -v /run/pulse:/run/pulse:ro \
+      -v ${asoundConf}:/etc/asound.conf:ro \
       -e TZ=${cfg.timeZone} \
       -e LEDFX_PORT=${toString cfg.port} \
       -e PULSECLIENTMODE=true \
