@@ -7,9 +7,6 @@ spec:
   interval: 10m0s
   path: ./gitops/pod-agent
   prune: true
-  # Suspended until the first image lands in the local registry (see
-  # docs/runbooks/pod-agent.md). Unsuspend after registry promotion pins it.
-  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system
