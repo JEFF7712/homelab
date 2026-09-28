@@ -13,7 +13,9 @@ bash scripts/checks/tofu.sh
 bash scripts/checks/home-assistant.sh
 python scripts/checks/docs.py
 python scripts/checks/whitespace.py
-gitleaks detect --source . --redact
+if [[ "${SKIP_SECRET_SCAN:-0}" != "1" ]]; then
+  gitleaks detect --source . --redact
+fi
 if [[ "${SKIP_FLAKE_CHECK:-0}" != "1" ]]; then
   nix flake check 'path:.?dir=flake' --no-write-lock-file
 fi

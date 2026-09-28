@@ -1,6 +1,8 @@
 image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
 
 workflow:
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
@@ -51,6 +53,7 @@ variables:
     - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
 
 .nix_format:
+  interruptible: true
   stage: lint
   needs: []
   script:
@@ -67,10 +70,11 @@ nix_format_feature:
     - .nix_format
 
 .repository_tests:
+  interruptible: true
   stage: test
   needs: []
   script:
-    - nix develop ./flake -c bash -c 'just provision-check-deps && SKIP_FLAKE_CHECK=1 just check'
+    - nix develop ./flake -c bash -c 'just provision-check-deps && SKIP_FLAKE_CHECK=1 SKIP_SECRET_SCAN=1 just check'
 
 repository_tests:
   extends:
@@ -83,6 +87,7 @@ repository_tests_feature:
     - .repository_tests
 
 jev_decision_gate:
+  interruptible: true
   extends:
     - .shared_feature
     - .nas_ci
@@ -92,10 +97,14 @@ jev_decision_gate:
     - nix develop ./flake -c python scripts/jev_decision_gate.py
 
 .flake_check:
+  interruptible: true
+  resource_group: nix-flake-evaluation
   stage: test
   needs: []
   script:
-    - nix develop ./flake -c nix flake check 'path:.?dir=flake' --no-write-lock-file
+    - >-
+      nix develop ./flake -c bash -c
+      'export NIX_SHOW_STATS=1; time nix flake check "path:.?dir=flake" --no-write-lock-file'
 
 flake_check:
   extends:
@@ -108,6 +117,7 @@ flake_check_feature:
     - .flake_check
 
 .yaml_schema:
+  interruptible: true
   stage: test
   needs: []
   script:
@@ -158,12 +168,14 @@ nix_cache:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
 
 .secret_scan:
-  stage: security
+  interruptible: true
+  stage: test
   needs: []
   script:
-    - nix develop ./flake -c gitleaks detect --source . --redact
+    - nix develop ./flake -c bash scripts/checks/secrets.sh
 
 secret_scan:
   extends:
@@ -176,6 +188,7 @@ secret_scan_feature:
     - .secret_scan
 
 .registry_lock:
+  interruptible: true
   stage: registry
   needs: []
   script:
@@ -397,6 +410,7 @@ deploy_registry_platform:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
     - registry_lock
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
@@ -463,6 +477,7 @@ deploy_zigbee_gateway:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
@@ -559,6 +574,7 @@ deploy_nas_ledfx_bedroom:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
@@ -649,6 +665,7 @@ opnsense_inventory:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   script:
@@ -860,6 +877,7 @@ deploy_agent_workspace_host:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
@@ -924,9 +942,9 @@ sync_to_github:
   needs:
     - repository_tests
     - flake_check
+    - secret_scan
     - nix_format
     - yaml_schema
-    - secret_scan
   script:
     - >-
       nix develop ./flake -c bash -e -c '

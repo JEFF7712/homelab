@@ -44,6 +44,16 @@ access level so it can run both protected and feature pipeline jobs. Its
 authentication-token file is `/persist/gitlab-runner/ci-authentication-token`;
 do not give it deployment, OPNsense, or registry credentials.
 
+Validation jobs are interruptible so new commits cancel superseded checks.
+Deployment, mirror sync, and registry mutations retain their cancellation defaults.
+The dedicated secret scan checks the pushed commit range or the MR diff base
+through HEAD. Scheduled, manual, tag, and new-branch pipelines scan all history.
+Missing history is fetched before scanning; an invalid range fails the job.
+Repository tests omit their duplicate secret scan; local `just check` retains it.
+Main and feature flake checks share the `nix-flake-evaluation` resource group,
+so only one runs at a time across pipelines. Their logs include elapsed time
+and Nix evaluation statistics for performance comparisons.
+
 ## Local workflow
 
 Use the repository's pinned development environment and inspect the current
