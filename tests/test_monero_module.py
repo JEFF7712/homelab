@@ -84,6 +84,23 @@ class MoneroModuleTests(unittest.TestCase):
         self.assertTrue(any("/persist/monero" in rule for rule in result["tmpfiles"]))
         self.assertIn("p2p-bind-port=18080", result["extraConfig"])
 
+    def test_restricted_rpc_serves_lan_wallets_only(self) -> None:
+        result = evaluate("")
+        # Wallets get the safe restricted listener; daemon control stays
+        # on the localhost-only unrestricted listener.
+        self.assertEqual(result["rpcAddress"], "127.0.0.1")
+        self.assertIn("rpc-restricted-bind-port=18089", result["extraConfig"])
+        self.assertIn("disable-rpc-ban=1", result["extraConfig"])
+        rule = next(line for line in result["firewall"].splitlines() if "18089" in line)
+        self.assertIn("tcp dport 18089 accept", rule)
+        for cidr in ("10.0.10.0/24", "10.0.20.0/24", "100.64.0.0/10"):
+            self.assertIn(cidr, rule)
+        # No bare accept: every 18089 rule carries a source allowlist, so
+        # guest IoT and the internet cannot reach wallet RPC.
+        for line in result["firewall"].splitlines():
+            if "18089" in line:
+                self.assertIn("saddr", line)
+
     def test_preflight_gates_on_available_space(self) -> None:
         result = evaluate("")
         # A failed preflight must block daemon startup, not just warn.

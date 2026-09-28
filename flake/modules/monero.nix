@@ -99,6 +99,30 @@ in
       default = 9101;
       description = "Host node exporter port for Monero host metrics. 9100 is taken by the k3s node-exporter DaemonSet on shared hosts.";
     };
+
+    restrictedRpc = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Expose the wallet-safe restricted RPC listener to LAN clients. The unrestricted listener stays on localhost.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 18089;
+        description = "Restricted RPC port for wallet clients.";
+      };
+
+      allowedCidrs = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [
+          "10.0.10.0/24"
+          "10.0.20.0/24"
+          "100.64.0.0/10"
+        ];
+        description = "Client subnets allowed to reach restricted RPC: management, clients, and NetBird VPN. Guest IoT is deliberately excluded.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -129,6 +153,11 @@ in
         enable-dns-blocklist=1
         out-peers=12
         in-peers=48
+        ${lib.optionalString cfg.restrictedRpc.enable ''
+          rpc-restricted-bind-ip=0.0.0.0
+          rpc-restricted-bind-port=${toString cfg.restrictedRpc.port}
+          disable-rpc-ban=1
+        ''}
       '';
     };
 
@@ -149,6 +178,7 @@ in
       ${lib.optionalString cfg.openP2P "tcp dport ${toString cfg.p2pPort} accept"}
       ip saddr 10.0.30.0/24 tcp dport ${toString cfg.exporterPort} accept
       ip saddr 10.42.0.0/16 tcp dport ${toString cfg.exporterPort} accept
+      ${lib.optionalString cfg.restrictedRpc.enable "ip saddr { ${lib.concatStringsSep ", " cfg.restrictedRpc.allowedCidrs} } tcp dport ${toString cfg.restrictedRpc.port} accept"}
     '';
 
     systemd.tmpfiles.rules = [
