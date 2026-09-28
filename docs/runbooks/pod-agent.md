@@ -30,9 +30,10 @@ token rotation races.
 The container image is built by
 [jeff7712/pod-agent](https://github.com/JEFF7712/pod-agent) GitHub Actions
 (`Dockerfile` + `.github/workflows/image.yml` in that repo) and imported to
-`registry.rupan.dev/apps/pod-agent`. Manifests pin `registry.rupan.dev/apps/pod-agent@sha256:d9aa44...`
-(the digest is content-stable, so the ghcr digest carries over once the
-producer publishes the identical bytes to zot). Tags roll forward via the
+`registry.rupan.dev/apps/pod-agent`. Manifests pin `registry.rupan.dev/apps/pod-agent@sha256:836efb...`
+(the single-arch manifest the seed push stored; the ghcr index digest
+`sha256:d9aa44...` covers identical config+layers but a different envelope,
+because podman normalized the index on push). Tags roll forward via the
 `registry_promote_first_party` job like every other first-party workload.
 
 ## One-time setup (owner / privileged CI only)
