@@ -102,6 +102,7 @@
             opentofu
             oras
             patchelf
+            prometheus.cli
             pyright
             qemu_kvm
             python

@@ -74,6 +74,12 @@ spec:
                   - 10.0.30.10:9100
                 labels:
                   host: adguard-netbird-01
+          - job_name: homelab-04-node
+            static_configs:
+              - targets:
+                  - 10.0.30.14:9101
+                labels:
+                  host: homelab-04
           - job_name: nvidia-gpu
             static_configs:
               - targets:
@@ -175,6 +181,13 @@ spec:
               - alertname = "NodeRootFilesystemLowSpace"
             equal:
               - instance
+          - source_matchers:
+              - alertname = "MoneroPersistSpaceCritical"
+            target_matchers:
+              - alertname = "MoneroPersistSpaceWarning"
+            equal:
+              - instance
+              - mountpoint
           - source_matchers:
               - alertname = "ZfsPoolCapacityCritical"
             target_matchers:

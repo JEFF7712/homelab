@@ -4,12 +4,18 @@
     ../../modules/common-base.nix
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
+    ../../modules/monero.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/gitlab-runner.nix
   ];
 
   networking.hostName = "homelab-04";
+
+  homelab.monero.enable = true;
+
+  # System partition (ESP is part1) holding the btrfs /persist subvolume.
+  homelab.monero.ioDevice = "/dev/disk/by-id/nvme-PC_SN810_NVMe_WDC_1024GB_230907801780-part2";
 
   homelab.disk.device = "/dev/disk/by-id/nvme-PC_SN810_NVMe_WDC_1024GB_230907801780";
 

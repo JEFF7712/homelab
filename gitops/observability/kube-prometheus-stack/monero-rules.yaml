@@ -1,0 +1,83 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monero
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: monero.rules
+      rules:
+        - alert: MoneroPersistSpaceWarning
+          expr: |
+            (
+              1
+              -
+              node_filesystem_avail_bytes{
+                job="homelab-04-node",
+                mountpoint="/persist"
+              }
+              /
+              node_filesystem_size_bytes{
+                job="homelab-04-node",
+                mountpoint="/persist"
+              }
+            ) > 0.80
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: /persist on homelab-04 is above 80% used
+            description: >-
+              The filesystem holding the Monero chain has exceeded 80% usage.
+              First sync needs 625 GiB available; plan growth before the 50 GiB
+              floor blocks startup.
+
+        - alert: MoneroPersistSpaceCritical
+          expr: |
+            (
+              1
+              -
+              node_filesystem_avail_bytes{
+                job="homelab-04-node",
+                mountpoint="/persist"
+              }
+              /
+              node_filesystem_size_bytes{
+                job="homelab-04-node",
+                mountpoint="/persist"
+              }
+            ) > 0.90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: /persist on homelab-04 is above 90% used
+            description: >-
+              The filesystem holding the Monero chain is critically full.
+              Daemon restarts will be blocked below 50 GiB free.
+
+        - alert: MoneroServiceFailed
+          expr: |
+            node_systemd_unit_state{
+              job="homelab-04-node",
+              name="monero.service",
+              state="active"
+            } != 1
+            or
+            absent(
+              node_systemd_unit_state{
+                job="homelab-04-node",
+                name="monero.service",
+                state="active"
+              }
+            )
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: monerod is not active on homelab-04
+            description: >-
+              The monero systemd unit is failed, inactive, or absent from node
+              exporter metrics. A failed storage preflight blocks startup.
