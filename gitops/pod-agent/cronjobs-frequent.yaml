@@ -8,6 +8,7 @@ spec:
   schedule: "0 * * * *"
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
+  suspend: true
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
@@ -96,6 +97,7 @@ spec:
   schedule: "*/15 * * * *"
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
+  suspend: true
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   jobTemplate:
@@ -185,6 +187,7 @@ spec:
   schedule: "15 * * * *"
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
+  suspend: true
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
@@ -273,6 +276,7 @@ spec:
   schedule: "30 * * * *"
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
+  suspend: true
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
