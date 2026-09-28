@@ -7,6 +7,7 @@ if [[ -z "${GITHUB_TOKEN:-}" ]]; then
   echo "GITHUB_TOKEN is not set; skipping GitHub mirror sync."
   exit 0
 fi
+export GITHUB_TOKEN
 
 source_sha=${CI_COMMIT_SHA:?CI_COMMIT_SHA is required}
 source_branch=${CI_DEFAULT_BRANCH:?CI_DEFAULT_BRANCH is required}
@@ -33,16 +34,16 @@ if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
 fi
 mirror_work=$(mktemp -d "${TMPDIR:-/tmp}/github-mirror-XXXXXX")
 trap 'rm -rf "$mirror_work"' EXIT
-printf '#!%s\n' "$(command -v bash)" > "$mirror_work/askpass"
-cat >> "$mirror_work/askpass" <<'ASKPASS'
-case "$1" in
-  *Username*) printf '%s\n' x-access-token ;;
-  *Password*) printf '%s\n' "$GITHUB_TOKEN" ;;
-  *) exit 1 ;;
-esac
-ASKPASS
-chmod 0700 "$mirror_work/askpass"
-export GIT_ASKPASS="$mirror_work/askpass"
+printf '#!%s\n' "$(command -v bash)" > "$mirror_work/credential"
+cat >> "$mirror_work/credential" <<'CREDENTIAL'
+if [[ $1 == get ]]; then
+  printf '%s\n' username=x-access-token "password=$GITHUB_TOKEN"
+fi
+CREDENTIAL
+chmod 0700 "$mirror_work/credential"
+mirror_git() {
+  git -c credential.helper= -c "credential.https://github.com.helper=$mirror_work/credential" "$@"
+}
 
 mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
 mirror_warning+="on [GitLab](https://gitlab.com/JEFF7712/homelab-new)."
@@ -54,9 +55,9 @@ git -c user.email=runner@gitlab.com -c user.name='GitLab Runner' \
 
 for attempt in 1 2 3; do
   check_source
-  remote_tip=$(git -c credential.helper= ls-remote "$mirror_url" refs/heads/main)
+  remote_tip=$(mirror_git ls-remote "$mirror_url" refs/heads/main)
   remote_sha=${remote_tip%%[[:space:]]*}
-  if git -c credential.helper= -c http.version=HTTP/1.1 push "$mirror_url" \
+  if mirror_git -c http.version=HTTP/1.1 push "$mirror_url" \
     "--force-with-lease=refs/heads/main:$remote_sha" HEAD:refs/heads/main; then
     exit 0
   fi

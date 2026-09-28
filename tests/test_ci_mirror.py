@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -44,7 +45,7 @@ class MirrorTest(unittest.TestCase):
             ["git", *args], cwd=self.repo, check=True, text=True, capture_output=True
         )
 
-    def run_mirror(self) -> subprocess.CompletedProcess[str]:
+    def run_mirror(self, **overrides: str) -> subprocess.CompletedProcess[str]:
         env = dict(
             os.environ,
             GITHUB_TOKEN="test-credential",
@@ -53,6 +54,7 @@ class MirrorTest(unittest.TestCase):
             GIT_CONFIG_GLOBAL=str(self.config),
             TMPDIR=str(self.directory),
         )
+        env.update(overrides)
         return subprocess.run(
             ["bash", "scripts/ci/mirror.sh"],
             cwd=self.repo,
@@ -64,8 +66,30 @@ class MirrorTest(unittest.TestCase):
 
     def test_current_source_is_mirrored_with_scoped_cleanup(self) -> None:
         config = self.git("config", "--local", "--list").stdout
-        result = self.run_mirror()
+        binaries = self.directory / "bin"
+        binaries.mkdir()
+        wrapper = binaries / "git"
+        wrapper.write_text(
+            f"#!{sys.executable}\n"
+            "import os, subprocess, sys\nfrom pathlib import Path\n"
+            f"real_git = {shutil.which('git')!r}\n"
+            "args = sys.argv[1:]\n"
+            "if 'push' in args:\n"
+            "    result = subprocess.run([real_git, *args[:args.index('push')], 'credential', 'fill'],\n"
+            "        input='protocol=https\\nhost=github.com\\n\\n', text=True, capture_output=True, check=True)\n"
+            "    values = dict(line.split('=', 1) for line in result.stdout.splitlines())\n"
+            "    if values.get('username') != 'x-access-token' or values.get('password') != os.environ['GITHUB_TOKEN']:\n"
+            "        raise SystemExit('credential protocol mismatch')\n"
+            "    Path(os.environ['CREDENTIAL_PROBE']).write_text('verified')\n"
+            "os.execv(real_git, [real_git, *args])\n"
+        )
+        wrapper.chmod(0o755)
+        probe = self.directory / "credential-probe"
+        result = self.run_mirror(
+            PATH=f"{binaries}:{os.environ['PATH']}", CREDENTIAL_PROBE=str(probe)
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(probe.read_text(), "verified")
         tip = subprocess.run(
             ["git", "--git-dir", str(self.mirror), "rev-parse", "main"],
             text=True,
