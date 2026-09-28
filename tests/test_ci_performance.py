@@ -86,6 +86,47 @@ class SecretScanTest(unittest.TestCase):
 
 
 class CancellationTest(unittest.TestCase):
+    def test_dataplane_depends_on_validated_plan_without_manual_registry_jobs(
+        self,
+    ) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        dataplane = pipeline["opnsense_dataplane"]
+        self.assertEqual(
+            dataplane["needs"], [{"job": "opnsense_plan", "artifacts": False}]
+        )
+        ancestors: set[str] = set()
+        pending = ["opnsense_dataplane"]
+        while pending:
+            for dependency in pipeline[pending.pop()].get("needs", []):
+                name = dependency if isinstance(dependency, str) else dependency["job"]
+                if name not in ancestors:
+                    ancestors.add(name)
+                    pending.append(name)
+        self.assertTrue(
+            {
+                "repository_tests",
+                "flake_check",
+                "secret_scan",
+                "nix_format",
+                "yaml_schema",
+                "registry_lock",
+                "opnsense_inventory",
+            }
+            <= ancestors
+        )
+        for name in ancestors:
+            self.assertFalse(
+                any(
+                    rule.get("when") == "manual"
+                    for rule in pipeline[name].get("rules", [])
+                ),
+                name,
+            )
+        self.assertEqual(
+            dataplane["resource_group"], pipeline["opnsense_plan"]["resource_group"]
+        )
+        self.assertEqual(pipeline["opnsense_apply"]["rules"][0]["when"], "manual")
+
     def test_consolidated_checks_remain_required_by_consumers(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
         for name, job in pipeline.items():

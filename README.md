@@ -69,6 +69,9 @@ GitHub mirroring uses a separate resource group, checks the current source tip
 before each push, and uses an exact remote lease. Its temporary authentication
 helper and cache credentials are isolated to their respective jobs.
 
+The read-only OPNsense dataplane check depends on the validated plan, so optional
+manual registry jobs do not block it. Infrastructure mutations retain manual gates.
+
 ## Local workflow
 
 Use the repository's pinned development environment and inspect the current
