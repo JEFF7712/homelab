@@ -53,6 +53,7 @@ Repository tests omit their duplicate secret scan; local `just check` retains it
 Flake checks and cache population share the `nix-flake-evaluation` resource group,
 so only one runs at a time across pipelines. Their logs include elapsed time
 and Nix evaluation statistics for performance comparisons. Cache population runs
+against the same tracked flake source to reuse validated check outputs. It runs
 automatically for build inputs and scheduled or explicitly triggered main pipelines.
 Other main pushes expose a blocking manual cache job. Fleet deployment always
 requires its successful build, including when upload credentials are unavailable.

@@ -145,7 +145,7 @@ jev_decision_gate:
   script:
     - >-
       nix develop ./flake -c python -m scripts.ci.run flake -- bash -c
-      'export NIX_SHOW_STATS=1; time nix flake check "path:.?dir=flake" --no-write-lock-file'
+      'export NIX_SHOW_STATS=1; time nix flake check ./flake --no-write-lock-file'
 
 flake_check:
   extends:
