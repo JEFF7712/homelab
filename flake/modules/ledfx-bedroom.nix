@@ -57,6 +57,7 @@ let
     exec ${pkgs.podman}/bin/podman ${podmanGlobal} \
       run --rm --replace --name ledfx-bedroom \
       --network host \
+      --group-add ${toString config.users.groups.pipewire.gid} \
       --pull never \
       --no-healthcheck \
       --security-opt no-new-privileges \

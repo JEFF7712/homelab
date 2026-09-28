@@ -125,6 +125,7 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         base = (REPO_ROOT / "flake/modules/nas-base.nix").read_text()
         self.assertIn("libpipewire-module-protocol-pulse", base)
         self.assertIn("services.pipewire.extraConfig.pipewire-pulse", base)
+        self.assertIn("d /run/pulse 0755 pipewire pipewire -", base)
 
     def test_stale_containers_are_replaced(self) -> None:
         # Stopping the unit kills podman, not the container, so a stale
@@ -160,6 +161,12 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         appliance = APPLIANCE.read_text()
         self.assertIn(
             "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
+        )
+
+    def test_pulse_socket_group_is_granted_to_the_container(self):
+        module = (REPO_ROOT / "flake/modules/ledfx-bedroom.nix").read_text()
+        self.assertIn(
+            "--group-add ${toString config.users.groups.pipewire.gid}", module
         )
 
 

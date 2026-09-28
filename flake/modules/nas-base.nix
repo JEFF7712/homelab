@@ -56,6 +56,21 @@
     context.modules.libpipewire-module-protocol-pulse = { };
   };
 
+  # pipewire-pulse runs as the pipewire user, but /run/pulse is created by the
+  # socket unit as root:root. The Pulse server then cannot write its pid file
+  # and every client gets "Connection refused". Let systemd own the directory.
+  # /run/pulse is created root:root by the pipewire-pulse socket unit, but the
+  # Pulse server runs as the pipewire user and cannot write its pid file there.
+  # Every client then fails with "Connection refused". tmpfiles runs early
+  # enough to hand the directory to pipewire before the socket unit needs it.
+  systemd.tmpfiles.rules = [
+    "d /persist/etc/ssh 0700 root root -"
+    "d /persist/var/lib/smartmontools 0755 root root -"
+    # /run/pulse must be owned by pipewire: the Pulse server runs as that user
+    # and cannot write its pid file into a root-owned directory.
+    "d /run/pulse 0755 pipewire pipewire -"
+  ];
+
   services.prometheus.exporters.smartctl = {
     enable = true;
     port = 9633;
@@ -88,11 +103,6 @@
     enable = true;
     interval = "weekly";
   };
-
-  systemd.tmpfiles.rules = [
-    "d /persist/etc/ssh 0700 root root -"
-    "d /persist/var/lib/smartmontools 0755 root root -"
-  ];
 
   environment.persistence."/persist" = {
     hideMounts = true;
