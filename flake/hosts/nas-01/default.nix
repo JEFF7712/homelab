@@ -1,4 +1,8 @@
-{ pkgs, ... }:
+{
+  config,
+  pkgs,
+  ...
+}:
 {
   imports = [
     ./disk-config.nix
@@ -131,6 +135,10 @@
         # available" and AirPlay sessions connect but never start. The PulseAudio
         # backend negotiates through pipewire-pulse, which does reach the speaker.
         output_backend = "pulseaudio";
+        # Left unset this resolves to a null mDNS backend, which advertises only
+        # _raop._tcp. iOS discovers the speaker through _airplay._tcp, so the
+        # phone sees a cached device and then hangs on "connecting".
+        mdns_backend = "avahi";
       };
       metadata = {
         enabled = "yes";
@@ -146,9 +154,14 @@
     "audio"
   ];
 
-  systemd.services.shairport-sync.environment = {
-    PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
-    PULSE_SERVER = "unix:/run/pulse/native";
+  systemd.services.shairport-sync = {
+    environment = {
+      PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+      PULSE_SERVER = "unix:/run/pulse/native";
+    };
+    # Settings live in a generated file, so a settings-only change does not
+    # otherwise restart the unit and the new config is ignored until reboot.
+    restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
   };
 
   environment.systemPackages = with pkgs; [
