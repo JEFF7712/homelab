@@ -16,5 +16,5 @@ data:
   CLAUDE_CONFIG_DIR: /data/cliauth/claude
   CURSOR_CONFIG_DIR: /data/cliauth/cursor
   OWNER_NOTIFY_CHANNELS: discord
-  GOVERNOR_SUBSCRIPTION_PROVIDERS: codex,claude,cursor
-  GOVERNOR_PROVIDER_ROTATION_ORDER: codex,claude,cursor
+  GOVERNOR_SUBSCRIPTION_PROVIDERS: codex
+  GOVERNOR_PROVIDER_ROTATION_ORDER: codex
