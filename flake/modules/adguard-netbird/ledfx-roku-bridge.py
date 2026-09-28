@@ -31,6 +31,9 @@ import time
 import yaml
 
 STATS_INTERVAL = 60.0
+# A bulb that stops answering must not freeze the relay, so a held frame is
+# released after this long even without an ack.
+STALE_AFTER = 2.0
 
 
 def clamp(v: object, scale: float = 1.0) -> int:
@@ -168,15 +171,45 @@ class Relay:
         self._last_color: dict[str, tuple[int, int, int] | None] = {
             s: None for s in slugs
         }
+        # The bulb bridge drains its queue serially and a Roku bulb needs
+        # roughly a quarter second to answer, so publishing every frame builds a
+        # backlog the bulb then plays back seconds late. Keep at most one
+        # command outstanding per bulb and hold only the newest pending colour,
+        # so the bulb always renders the freshest frame instead of a stale one.
+        self._in_flight: dict[str, bool] = {s: False for s in slugs}
+        self._pending: dict[str, tuple[int, int, int] | None] = {s: None for s in slugs}
+        self._pending_at: dict[str, float | None] = {s: None for s in slugs}
+        self.stale_after = STALE_AFTER
         self.frames = 0
         self.published = 0
         self._stats_at = time.monotonic()
+
+    def _publish(self, slug: str, color: tuple[int, int, int]) -> None:
+        self._client.publish(
+            f"{self._prefix}/light/{slug}/set",
+            json.dumps(frame_payload(color)),
+            qos=0,
+            retain=False,
+        )
+        self._in_flight[slug] = True
+        self._pending_at[slug] = time.monotonic()
+        self.published += 1
+
+    def handle_ack(self, slug: str) -> None:
+        """The bridge finished one command for this bulb."""
+        if slug not in self._in_flight:
+            return
+        self._in_flight[slug] = False
+        pending = self._pending[slug]
+        if pending is not None:
+            self._pending[slug] = None
+            self._publish(slug, pending)
 
     def handle_frame(self, pixels: list[tuple[int, int, int]]) -> None:
         now = time.monotonic()
         self.frames += 1
         for slug, color in zip(self._slugs, pixels):
-            if should_send(
+            if not should_send(
                 now,
                 self._last_at[slug],
                 self._last_color[slug],
@@ -184,15 +217,19 @@ class Relay:
                 self._min_interval,
                 self._delta,
             ):
-                self._client.publish(
-                    f"{self._prefix}/light/{slug}/set",
-                    json.dumps(frame_payload(color)),
-                    qos=0,
-                    retain=False,
-                )
-                self._last_at[slug] = now
-                self._last_color[slug] = color
-                self.published += 1
+                continue
+            self._last_at[slug] = now
+            self._last_color[slug] = color
+            if self._in_flight[slug] and color != (0, 0, 0):
+                held_at = self._pending_at[slug]
+                if held_at is not None and now - held_at <= self.stale_after:
+                    self._pending[slug] = color
+                continue
+            # Blackouts bypass the gate: should_send always forwards them so the
+            # bulb really goes dark, and holding one back would strand the
+            # lights on when playback stops.
+            self._pending[slug] = None
+            self._publish(slug, color)
         if now - self._stats_at >= STATS_INTERVAL:
             print(
                 f"frames={self.frames} published={self.published}",
@@ -226,9 +263,22 @@ def run(
     if user:
         client.username_pw_set(user, password or None)
     client.connect(mqtt_host, mqtt_port, keepalive=30)
-    client.loop_start()
 
     relay = Relay(client, prefix, slugs, min_interval, delta)
+
+    def on_state(_c, _u, msg) -> None:
+        topic = msg.topic.split("/")
+        if len(topic) < 2 or topic[-1] != "state":
+            return
+        slug = topic[-2].upper()
+        if slug in relay._in_flight:
+            relay.handle_ack(slug)
+
+    client.on_message = on_state
+    client.loop_start()
+
+    for slug in slugs:
+        client.subscribe(f"{prefix}/light/{slug}/state")
     warned_paths: set[str] = set()
 
     def on_frame(address: str, *args) -> None:

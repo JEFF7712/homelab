@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -26,6 +27,68 @@ def load_relay():
 
 
 relay = load_relay()
+
+
+class AckGatedCoalescingTests(unittest.TestCase):
+    """One outstanding command per bulb, newest frame wins.
+
+    A Roku bulb needs roughly a quarter second to answer. The vendored bridge
+    drains its per-bulb queue serially, so publishing faster than that grows an
+    unbounded backlog and the bulb renders seconds-old frames.
+    """
+
+    def setUp(self) -> None:
+        self.client = MagicMock()
+        self.relay = relay.Relay(self.client, "roku", SLUGS, 0.0, 0)
+        self.published: list[tuple[str, str]] = []
+        self.client.publish.side_effect = lambda topic, payload, **_kw: (
+            self.published.append((topic, payload))
+        )
+
+    def test_first_frame_publishes_immediately(self) -> None:
+        self.relay.handle_frame([(255, 0, 0), (0, 255, 0)])
+        self.assertEqual(len(self.published), 2)
+        self.assertTrue(all(t.endswith("/set") for t, _ in self.published))
+
+    def test_second_frame_is_withheld_until_ack(self) -> None:
+        self.relay.handle_frame([(255, 0, 0), (0, 255, 0)])
+        self.relay.handle_frame([(0, 0, 255), (0, 0, 255)])
+        self.assertEqual(
+            len(self.published), 2, "no frame may be sent while one is in flight"
+        )
+
+    def test_ack_releases_the_newest_pending_frame(self) -> None:
+        self.relay.handle_frame([(255, 0, 0), (0, 255, 0)])
+        self.relay.handle_frame([(0, 0, 255), (0, 0, 255)])
+        self.relay.handle_ack(SLUGS[0])
+        self.assertEqual(len(self.published), 3)
+        topic, payload = self.published[-1]
+        self.assertIn(SLUGS[0], topic)
+        self.assertEqual(json.loads(payload)["color"], {"r": 0, "g": 0, "b": 255})
+
+    def test_intermediate_frames_are_dropped_not_queued(self) -> None:
+        self.relay.handle_frame([(255, 0, 0), (0, 255, 0)])
+        for level in (10, 20, 30, 40):
+            self.relay.handle_frame([(level, 0, 0), (0, 0, 0)])
+        self.relay.handle_ack(SLUGS[0])
+        topic, payload = self.published[-1]
+        self.assertIn(SLUGS[0], topic)
+        self.assertEqual(
+            json.loads(payload)["brightness"],
+            40,
+            "only the newest frame should survive",
+        )
+
+    def test_blackout_is_never_withheld(self) -> None:
+        self.relay.handle_frame([(255, 0, 0), (0, 255, 0)])
+        self.relay.handle_frame([(0, 0, 0), (0, 0, 0)])
+        self.assertEqual(
+            len(self.published), 4, "blackouts must bypass the in-flight gate"
+        )
+        for _topic, payload in self.published[-2:]:
+            frame = json.loads(payload)
+            self.assertEqual(frame["brightness"], 0)
+            self.assertEqual(frame["color"], {"r": 0, "g": 0, "b": 0})
 
 
 class FrameParsingTests(unittest.TestCase):
