@@ -2,12 +2,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 for tool in ruff pyright python; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
-ruff format --check scripts opnsense_reconciler tests
+if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
+  ruff format --check scripts opnsense_reconciler tests
+fi
 ruff check --select E,F,I,UP --ignore E501 scripts opnsense_reconciler tests
-pyright scripts/agent scripts/registry scripts/deploy_fleet.py scripts/home_assistant opnsense_reconciler &
+pyright scripts/agent scripts/ci scripts/registry scripts/deploy_fleet.py scripts/home_assistant opnsense_reconciler &
 pyright_pid=$!
 
-python -m unittest discover -s tests -v &
+if [[ -n "${CI_TEST_REPORT:-}" ]]; then
+  python -m scripts.ci.tests --output "$CI_TEST_REPORT" &
+else
+  python -m unittest discover -s tests -v &
+fi
 unittest_pid=$!
 
 pyright_rc=0
