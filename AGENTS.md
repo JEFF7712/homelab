@@ -22,7 +22,7 @@ Read narrowly: start with `README.md`, then affected modules, tests, and runbook
 - `registry/` and `scripts/registry/`: local container registry supply contract.
 - `config/agent-workspaces/`, `scripts/agent_workspaces/`, and `flake/modules/agent-workspace*.nix`: multiuser agent workspaces.
 - `scripts/agent/`, `hooks/`, `.opencode/plugins/`, and client adapters (`.claude/`, `.codex/`, `.cursor/`, `opencode.json`): agent workflow tooling.
-- `3d-prints/`: CAD sources and generated mounts.
+- `3d-prints/`: local-only CAD sources and generated mounts (git-ignored, excluded from checks).
 - `tests/`: checks; `docs/`: architecture and runbooks.
 - `secrets/`: encrypted material; `HARDWARE.md`: hardware inventory only.
 

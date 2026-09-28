@@ -59,7 +59,12 @@ def _without_output_terminator(output: bytes) -> bytes:
 
 
 def _excluded(path: bytes) -> bool:
-    return path == b".agent-state" or path.startswith(b".agent-state/")
+    return (
+        path == b".agent-state"
+        or path.startswith(b".agent-state/")
+        or path == b"3d-prints"
+        or path.startswith(b"3d-prints/")
+    )
 
 
 def _kind(status: bytes) -> ChangeKind:

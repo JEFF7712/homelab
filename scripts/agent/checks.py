@@ -43,7 +43,6 @@ COMMANDS = {
     "home-assistant": ("bash", "scripts/checks/home-assistant.sh"),
     "docs": ("python", "scripts/checks/docs.py"),
     "registry": ("bash", "scripts/checks/registry.sh"),
-    "3d-prints": ("python", "-m", "unittest", "tests.test_wyse5070_mount", "-v"),
     "workspace-validate": (
         "python",
         "-m",
@@ -87,8 +86,6 @@ def _route(path: str) -> list[tuple[str, str]]:
             ("workspace-validate", f"{path} changes agent workspace behavior"),
             ("workspace-tests", f"{path} changes agent workspace behavior"),
         ]
-    if path.startswith(("3d-prints/", "tests/test_wyse5070")):
-        return [("3d-prints", f"{path} changes 3D-print sources")]
     if path.startswith("flake/hosts/") and path.endswith(".nix"):
         parts = path.split("/")
         host = parts[2] if len(parts) > 2 else "all"

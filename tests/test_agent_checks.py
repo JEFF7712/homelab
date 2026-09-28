@@ -34,8 +34,6 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "tofu/opnsense/network.tf": "tofu",
             "scripts/agent/context.py": "agent-workflows",
             ".opencode/plugins/agent-harness.js": "agent-workflows",
-            "3d-prints/wyse5070_extended_t1/params.py": "3d-prints",
-            "tests/test_wyse5070_mount.py": "3d-prints",
             "scripts/agent_workspaces/core.py": "workspace-validate",
             "config/agent-workspaces/workspaces.json": "workspace-validate",
             "flake/tests/agent-workspace-packet-flow.nix": "full",
@@ -69,6 +67,18 @@ class AgentCheckSelectionTest(unittest.TestCase):
             with self.subTest(path=path):
                 selection = self.select(path)
                 self.assertEqual([item.name for item in selection.checks], list(checks))
+
+    def test_ignored_3d_print_changes_select_no_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = make_repository(Path(directory))
+            target = repository / "3d-prints" / "wyse5070_extended_t1" / "params.py"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("x\n")
+            commit(repository, "initial")
+            target.write_text("y\n")
+            selection = select_checks(collect_git_state(repository))
+        self.assertEqual(selection.paths, ())
+        self.assertEqual(selection.checks, ())
 
     def test_deduplicates_checks(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
