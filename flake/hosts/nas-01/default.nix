@@ -93,8 +93,12 @@
     uri = "tcp://0.0.0.0:10700";
     # In output-only mode, sleep infinity provides an idle mic channel until a physical mic is added
     microphone.command = "sleep infinity";
-    # pw-play routes audio to PipeWire default sink (Bluetooth Bose speaker)
-    sound.command = "pw-play -a --rate 22050 --channels 1 --format s16 -";
+    # Play through Pulse, not native PipeWire. Native pw-play cannot obtain a
+    # target for the Bluetooth sink ("no target node available"), which left
+    # Music Assistant streaming into nothing; the PulseAudio backend negotiates
+    # through pipewire-pulse and does reach the speaker. pacat reads the same
+    # raw s16le mono stream from stdin that pw-play did.
+    sound.command = "pacat --playback --rate 22050 --channels 1 --format s16le";
     vad.enable = false;
   };
 
@@ -102,6 +106,8 @@
     path = [
       pkgs.pipewire
       pkgs.alsa-utils
+      # pacat lives in pulseaudio, not alsa-utils.
+      pkgs.pulseaudio
     ];
     environment = {
       PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
