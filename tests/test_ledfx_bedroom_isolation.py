@@ -102,7 +102,7 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         self.assertIn("--capture=bedroom_music_pre_delay", host)
         self.assertIn('"stream.capture.sink":true', host)
         self.assertIn("--playback=bluez_output.E4_58_BC_10_CA_C9.1", host)
-        self.assertIn("--delay=0.55", host)
+        self.assertIn("--delay=0.45", host)
 
     def test_state_and_credentials_are_persistent(self) -> None:
         module = MODULE.read_text()

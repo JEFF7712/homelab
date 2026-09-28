@@ -207,7 +207,7 @@
         --capture=bedroom_music_pre_delay \
         --capture-props='{"stream.capture.sink":true}' \
         --playback=bluez_output.E4_58_BC_10_CA_C9.1 \
-        --delay=0.55
+        --delay=0.45
     '';
     serviceConfig = {
       User = "pipewire";

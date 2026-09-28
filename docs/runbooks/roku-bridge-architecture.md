@@ -64,7 +64,7 @@ state, and the bedroom cannot reach living-room state.
 Shairport Sync on nas-01 (Music Assistant bedroom output)
   ↓ Pulse virtual sink bedroom_music_pre_delay
   ├─ monitor bedroom_music_pre_delay.monitor → LedFx instance (no added delay)
-  └─ PipeWire loopback, 550 ms → Bluetooth Bose Flex 2
+  └─ PipeWire loopback, 450 ms → Bluetooth Bose Flex 2
 LedFx instance on nas-01 (scene bedroom-music-mode, effect energy)
   ↓ OSC "All To One" [[R,G,B] x2] floats 0.0-1.0 to /bedroom, UDP 10.0.30.10:9000 @10Hz
 ledfx-roku-bridge on adguard-netbird-01   (shared transport only)
@@ -104,7 +104,7 @@ tap reports a higher level.
 
 Shairport Sync alone is routed to `bedroom_music_pre_delay`. LedFx listens to
 that sink's monitor, and `bedroom-audio-delay.service` copies it to the Bose
-sink with `pw-loopback --delay=0.55`. Other Pulse clients, including the Wyoming
+sink with `pw-loopback --delay=0.45`. Other Pulse clients, including the Wyoming
 satellite, keep their normal default route. Adjust the loopback delay in
 `flake/hosts/nas-01/default.nix` in small increments after listening to the
 physical speaker and watching the bulbs together.
