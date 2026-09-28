@@ -85,7 +85,7 @@ variable "firewall_nat_port_forwards" {
     nat_reflection = string
     source = object({
       net  = string
-      port = string
+      port = optional(string)
     })
     destination = object({
       net  = string

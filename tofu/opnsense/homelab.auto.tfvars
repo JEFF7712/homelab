@@ -733,7 +733,7 @@ firewall_nat_port_forwards = {
     protocol       = "tcp"
     log            = false
     nat_reflection = "default"
-    source         = { net = "any", port = "" }
+    source         = { net = "any" }
     destination    = { net = "wanip", port = "18080" }
     target         = { ip = "10.0.30.14", port = "18080" }
   }
