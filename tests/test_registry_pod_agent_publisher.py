@@ -2,7 +2,11 @@ import base64
 import unittest
 
 from scripts.registry.core import render_access_control
-from scripts.registry.provision_pod_agent import IDENTITY, check_policy, publisher_password
+from scripts.registry.provision_pod_agent import (
+    IDENTITY,
+    check_policy,
+    publisher_password,
+)
 
 
 class PodAgentPublisherTest(unittest.TestCase):

@@ -60,7 +60,9 @@ def main() -> None:
     )
     check_policy(json.loads(old_policy), desired)
     password = publisher_password(
-        json.loads(Path(os.environ["REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE"]).read_text())
+        json.loads(
+            Path(os.environ["REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE"]).read_text()
+        )
     )
     users = old_users.decode().splitlines()
     existing = [line for line in users if line.startswith(IDENTITY + ":")]
