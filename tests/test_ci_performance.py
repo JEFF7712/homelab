@@ -141,11 +141,32 @@ class CancellationTest(unittest.TestCase):
         cache = pipeline["nix_cache"]
         self.assertEqual(cache["rules"][-1]["when"], "manual")
         self.assertFalse(cache["rules"][-1]["allow_failure"])
-        self.assertIn("flake/**/*", cache["rules"][1]["changes"])
+        self.assertEqual(
+            cache["rules"][0]["if"], "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+        )
+        self.assertIn(
+            "scripts.ci.validate fleet",
+            pipeline[".deploy_fleet_base"]["before_script"][0],
+        )
         self.assertEqual(
             pipeline[".nix_cache"]["resource_group"],
             pipeline[".flake_check"]["resource_group"],
         )
+
+    def test_sandbox_job_owns_unit_reports_and_consumers_require_it(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        self.assertEqual(
+            pipeline[".flake_check"]["artifacts"]["reports"]["junit"],
+            "artifacts/ci/tests.xml",
+        )
+        self.assertEqual(
+            pipeline[".repository_tests"]["artifacts"]["reports"]["junit"],
+            "artifacts/ci/nix-integration.xml",
+        )
+        self.assertNotIn("CI_TEST_REPORT", pipeline[".repository_tests"]["variables"])
+        for name, job in pipeline.items():
+            if isinstance(job, dict) and "repository_tests" in job.get("needs", []):
+                self.assertIn("flake_check", job["needs"], name)
 
     def test_mirror_is_serialized_and_mutation_jobs_do_not_retry(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())

@@ -93,17 +93,15 @@ nix_format_feature:
     SKIP_FLAKE_CHECK: "1"
     SKIP_SECRET_SCAN: "1"
     CI_LINT_EXTERNAL: "1"
-    CI_TEST_REPORT: artifacts/ci/tests.xml
   artifacts:
     when: always
     expire_in: 7 days
     paths:
       - artifacts/ci/
     reports:
-      junit: artifacts/ci/tests.xml
+      junit: artifacts/ci/nix-integration.xml
   script:
-    - nix develop ./flake -c python -m scripts.ci.run providers -- just provision-check-deps
-    - nix develop ./flake -c python -m scripts.ci.run repository -- just check
+    - nix develop ./flake -c python -m scripts.ci.run repository -- python -m scripts.ci.validate repository
 
 repository_tests:
   extends:
@@ -138,14 +136,14 @@ jev_decision_gate:
     expire_in: 7 days
     paths:
       - artifacts/ci/
+    reports:
+      junit: artifacts/ci/tests.xml
   interruptible: true
   resource_group: nix-flake-evaluation
   stage: test
   needs: []
   script:
-    - >-
-      nix develop ./flake -c python -m scripts.ci.run flake -- bash -c
-      'export NIX_SHOW_STATS=1; time nix flake check ./flake --no-write-lock-file'
+    - nix develop ./flake -c python -m scripts.ci.run flake -- python -m scripts.ci.validate flake
 
 flake_check:
   extends:
@@ -185,7 +183,7 @@ yaml_schema_feature:
   timeout: 45m
   resource_group: nix-flake-evaluation
   script:
-    - nix develop ./flake -c python -m scripts.ci.run cache -- bash scripts/ci/cache.sh
+    - nix develop ./flake -c python -m scripts.ci.run cache -- python -m scripts.ci.validate cache
   artifacts:
     when: always
     expire_in: 7 days
@@ -204,19 +202,8 @@ nix_cache:
     - yaml_schema
     - registry_lock
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE =~ /^(schedule|web|api)$/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - flake/**/*
-        - config/**/*
-        - scripts/**/*
-        - tests/**/*
-        - gitops/**/*
-        - registry/**/*
-        - home-assistant/**/*
-        - .gitlab-ci.yml
-        - justfile
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_TAG'
       when: manual
       allow_failure: false
 
@@ -920,6 +907,7 @@ nas_proof:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
   before_script:
+    - nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet
     - export PATH="/run/current-system/sw/bin:$PATH"
     - mkdir -p ~/.ssh ~/.kube
     - cp "$SSH_DEPLOY_KEY" ~/.ssh/id_ed25519

@@ -53,17 +53,36 @@ Repository tests omit their duplicate secret scan; local `just check` retains it
 Flake checks and cache population share the `nix-flake-evaluation` resource group,
 so only one runs at a time across pipelines. Their logs include elapsed time
 and Nix evaluation statistics for performance comparisons. Cache population runs
-against the same tracked flake source to reuse validated check outputs. It runs
-automatically for build inputs and scheduled or explicitly triggered main pipelines.
-Other main pushes expose a blocking manual cache job. Fleet deployment always
-requires its successful build, including when upload credentials are unavailable.
+against the same tracked flake source to reuse validated check outputs. The cache
+job runs automatically on main and remains blocking and manual on release tags.
+Fleet deployment retains that dependency and always checks the full flake and
+builds all fleet outputs in its preflight, before loading SSH credentials,
+including when upload credentials are unavailable.
 
 CI assigns formatting, YAML linting, registry policy, and secret scanning to
-dedicated jobs. Repository tests retain type checks, unit tests, rendered Kubernetes
-validation, and provider validation. Local `just check` retains the full gate.
-Validation jobs publish timing artifacts; repository tests also publish JUnit results.
+dedicated jobs. Repository tests retain type checks, rendered Kubernetes validation,
+and provider validation. The flake job owns the sandboxed unit suite and
+publishes its JUnit report, including failures recovered from the Nix build log.
+The subsequent flake and cache checks reuse its successful derivation instead of
+running the suite again. The sandbox includes `gitleaks` so secret-scan regression
+tests still execute. Nix-dependent registry integration tests run once outside
+the sandbox in the repository job and publish `nix-integration.xml`; they are
+excluded from the sandbox suite. Local `just check` retains the full gate.
+Validation jobs publish timing artifacts.
 Jobs have explicit time limits and retry once for runner infrastructure failures.
 Deployment and registry mutations do not retry automatically.
+
+Push and merge-request jobs classify the complete changed-path set. Changes only
+to root documentation (`README.md`, `HARDWARE.md`, `AGENT_MAP.md`, `AGENTS.md`,
+`CLAUDE.md`) and Markdown under `docs/` run documentation checks without unit
+tests or fleet checks. Changes confined to `gitops/voice/`, `home-assistant/www/`,
+and documentation retain all repository checks and sandboxed unit tests but skip
+fleet evaluation and cache builds. Formatting, YAML, registry policy, and secret
+scanning remain required in both lanes. Every other path, including Nix files
+inside those application directories, selects full validation. Missing history,
+new branches, unrelated bases, tags, schedules, web/API pipelines, and
+`CI_FULL_VALIDATION=1` also select full validation. Each routed job publishes its
+decision and changed paths under `artifacts/ci/`; no required dependency is omitted.
 
 GitHub mirroring uses a separate resource group, checks the current source tip
 before each push, and uses an exact remote lease. Its temporary authentication
