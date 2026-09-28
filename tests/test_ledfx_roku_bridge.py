@@ -79,16 +79,26 @@ class AckGatedCoalescingTests(unittest.TestCase):
             "only the newest frame should survive",
         )
 
-    def test_blackout_is_never_withheld(self) -> None:
+    def test_blackout_is_coalesced_and_released_after_ack(self) -> None:
         self.relay.handle_frame([(255, 0, 0), (0, 255, 0)])
-        self.relay.handle_frame([(0, 0, 0), (0, 0, 0)])
+        for _ in range(10):
+            self.relay.handle_frame([(0, 0, 0), (0, 0, 0)])
         self.assertEqual(
-            len(self.published), 4, "blackouts must bypass the in-flight gate"
+            len(self.published), 2, "black frames must not bypass the in-flight gate"
         )
+
+        self.relay.handle_ack(SLUGS[0])
+        self.relay.handle_ack(SLUGS[1])
+        self.assertEqual(len(self.published), 4)
         for _topic, payload in self.published[-2:]:
             frame = json.loads(payload)
             self.assertEqual(frame["brightness"], 0)
             self.assertEqual(frame["color"], {"r": 0, "g": 0, "b": 0})
+
+    def test_repeated_black_frames_do_not_republish(self) -> None:
+        self.relay.handle_frame([(0, 0, 0), (0, 0, 0)])
+        self.relay.handle_frame([(0, 0, 0), (0, 0, 0)])
+        self.assertEqual(len(self.published), 2)
 
 
 class FrameParsingTests(unittest.TestCase):
@@ -174,10 +184,11 @@ class ThrottleTests(unittest.TestCase):
             relay.should_send(1.0, 0.0, (100, 100, 100), (120, 100, 100), 0.2, 12)
         )
 
-    def test_blackout_bypasses_throttle(self) -> None:
+    def test_blackout_bypasses_throttle_once(self) -> None:
         self.assertTrue(
             relay.should_send(1.0, 1.0, (100, 100, 100), (0, 0, 0), 0.2, 12)
         )
+        self.assertFalse(relay.should_send(1.1, 1.0, (0, 0, 0), (0, 0, 0), 0.2, 12))
 
 
 class RelayTests(unittest.TestCase):
@@ -224,6 +235,7 @@ class NixContractTests(unittest.TestCase):
         self.assertIn('User = "ledfx-roku-bridge"', nix)
         self.assertIn("builtins.readFile ./ledfx-roku-bridge.py", nix)
         self.assertIn("--osc-port 9000 --osc-path /bedroom", nix)
+        self.assertIn("--min-interval 0.1 --delta 6", nix)
         for slug in SLUGS:
             self.assertIn(slug, nix)
         # Light strip excluded: local control broken, cloud path in progress.

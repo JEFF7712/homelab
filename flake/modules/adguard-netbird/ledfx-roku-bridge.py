@@ -131,8 +131,8 @@ def should_send(
     if last_at is None or last_color is None:
         return True
     if color == (0, 0, 0):
-        # Always forward a blackout so the bulb actually goes dark.
-        return True
+        # Forward a blackout once, but do not publish it on every dark frame.
+        return last_color != color
     if now - last_at < min_interval:
         return False
     return color_delta(last_color, color) >= delta
@@ -220,14 +220,15 @@ class Relay:
                 continue
             self._last_at[slug] = now
             self._last_color[slug] = color
-            if self._in_flight[slug] and color != (0, 0, 0):
+            if self._in_flight[slug]:
                 held_at = self._pending_at[slug]
-                if held_at is not None and now - held_at <= self.stale_after:
+                if color == (0, 0, 0) or (
+                    held_at is not None and now - held_at <= self.stale_after
+                ):
                     self._pending[slug] = color
+                else:
+                    self._pending[slug] = None
                 continue
-            # Blackouts bypass the gate: should_send always forwards them so the
-            # bulb really goes dark, and holding one back would strand the
-            # lights on when playback stops.
             self._pending[slug] = None
             self._publish(slug, color)
         if now - self._stats_at >= STATS_INTERVAL:

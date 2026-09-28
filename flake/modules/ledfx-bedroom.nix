@@ -122,12 +122,11 @@ in
 
     pulseSource = lib.mkOption {
       type = lib.types.str;
-      default = "bluez_output.E4_58_BC_10_CA_C9.1.monitor";
+      default = "bedroom_music_pre_delay.monitor";
       description = ''
-        PulseAudio source LedFx analyses. This is the monitor of the Bluetooth
-        sink that carries all bedroom playback on this host, so the bedroom
-        effects follow the bedroom speaker. It is deliberately NOT the shared
-        audio tap used by the living-room LedFx instance.
+        PulseAudio source LedFx analyses. This virtual sink receives the
+        Shairport stream before it is delayed for the bedroom Bluetooth
+        speaker, so the effects stay aligned with the original audio.
       '';
     };
 

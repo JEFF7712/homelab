@@ -21,8 +21,8 @@ SHARED_AUTOMATION = REPO_ROOT / "home-assistant/automations/govee_music_mode.yam
 SHARED_HOST = "10.0.30.15"
 BEDROOM_HOST = "10.0.30.20"
 
-# Bluetooth sink that carries all bedroom playback on the NAS.
-BEDROOM_PULSE_SOURCE = "bluez_output.E4_58_BC_10_CA_C9.1.monitor"
+# Virtual sink monitor before the delayed bedroom Bluetooth output.
+BEDROOM_PULSE_SOURCE = "bedroom_music_pre_delay.monitor"
 
 BEDROOM_LIGHTS = (
     "light.desk_lamp_desk_lamp",
@@ -93,6 +93,16 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # The shared instance taps the SPDIF monitor on a different host; the
         # bedroom instance must not reference it.
         self.assertNotIn("SPDIF", module)
+
+    def test_shairport_audio_is_split_before_the_delayed_bluetooth_output(self) -> None:
+        host = NAS_HOST.read_text()
+        self.assertIn("module-null-sink sink_name=bedroom_music_pre_delay", host)
+        self.assertIn('PULSE_SINK = "bedroom_music_pre_delay"', host)
+        self.assertIn("pw-loopback", host)
+        self.assertIn("--capture=bedroom_music_pre_delay", host)
+        self.assertIn('"stream.capture.sink":true', host)
+        self.assertIn("--playback=bluez_output.E4_58_BC_10_CA_C9.1", host)
+        self.assertIn("--delay=0.55", host)
 
     def test_state_and_credentials_are_persistent(self) -> None:
         module = MODULE.read_text()

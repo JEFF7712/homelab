@@ -54,6 +54,14 @@
     systemWide = true;
     alsa.enable = true;
     pulse.enable = true;
+    extraConfig.pipewire-pulse."20-bedroom-music-pre-delay" = {
+      "pulse.cmd" = [
+        {
+          cmd = "load-module";
+          args = "module-null-sink sink_name=bedroom_music_pre_delay sink_properties=device.description=Bedroom_Music_Pre_Delay";
+        }
+      ];
+    };
     wireplumber = {
       enable = true;
       extraConfig = {
@@ -75,6 +83,10 @@
       };
     };
   };
+
+  # pipewire-pulse must reload the null-sink module when its generated config
+  # changes; otherwise Shairport can start before the virtual sink exists.
+  systemd.services.pipewire-pulse.restartTriggers = [ config.environment.etc.pipewire.source ];
 
   # Wyoming satellite for bedroom audio playback (Jarvis + media)
   users.users.wyoming = {
@@ -164,10 +176,45 @@
     environment = {
       PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
       PULSE_SERVER = "unix:/run/pulse/native";
+      PULSE_SINK = "bedroom_music_pre_delay";
     };
     # Settings live in a generated file, so a settings-only change does not
     # otherwise restart the unit and the new config is ignored until reboot.
     restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
+  };
+
+  systemd.services.bedroom-audio-delay = {
+    description = "Delay bedroom music playback to match LedFx lights";
+    after = [
+      "pipewire.service"
+      "pipewire-pulse.service"
+      "bluetooth.target"
+    ];
+    requires = [
+      "pipewire.service"
+      "pipewire-pulse.service"
+    ];
+    partOf = [ "pipewire-pulse.service" ];
+    wantedBy = [
+      "multi-user.target"
+      "pipewire-pulse.service"
+    ];
+    restartTriggers = [ config.environment.etc.pipewire.source ];
+    environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+    script = ''
+      exec ${pkgs.pipewire}/bin/pw-loopback \
+        --name=bedroom-music-delay \
+        --capture=bedroom_music_pre_delay \
+        --capture-props='{"stream.capture.sink":true}' \
+        --playback=bluez_output.E4_58_BC_10_CA_C9.1 \
+        --delay=0.55
+    '';
+    serviceConfig = {
+      User = "pipewire";
+      Group = "pipewire";
+      Restart = "on-failure";
+      RestartSec = "2s";
+    };
   };
 
   environment.systemPackages = with pkgs; [

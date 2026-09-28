@@ -76,7 +76,7 @@ in
     serviceConfig = {
       User = "ledfx-roku-bridge";
       EnvironmentFile = "/var/lib/ledfx-roku-bridge/mqtt.env";
-      ExecStart = "${relayPython}/bin/python3 -u ${relayDaemon}/bin/ledfx-roku-bridge --config ${relayConfig} --osc-port 9000 --osc-path /bedroom";
+      ExecStart = "${relayPython}/bin/python3 -u ${relayDaemon}/bin/ledfx-roku-bridge --config ${relayConfig} --osc-port 9000 --osc-path /bedroom --min-interval 0.1 --delta 6";
       Restart = "always";
       RestartSec = "5s";
       NoNewPrivileges = true;
