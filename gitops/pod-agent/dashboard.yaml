@@ -74,8 +74,7 @@ spec:
             limits:
               memory: 512Mi
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: http
             periodSeconds: 30
           volumeMounts:
