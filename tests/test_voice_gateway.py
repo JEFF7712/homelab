@@ -674,11 +674,12 @@ class GatewayProtocolTest(unittest.TestCase):
 
     def test_stt_fallback_on_response_timeout(self) -> None:
         async def run() -> tuple[dict, str]:
+            release_primary = asyncio.Event()
+
             async def hanging_primary(reader, writer):
                 while (ev := await GATEWAY.read_event(reader)) is not None:
                     if ev["type"] == "audio-stop":
-                        # Hang without responding
-                        await asyncio.sleep(5)
+                        await release_primary.wait()
                         break
                 writer.close()
                 await writer.wait_closed()
@@ -714,7 +715,7 @@ class GatewayProtocolTest(unittest.TestCase):
                     ),
                 ],
                 metrics,
-                response_timeout=0.1,  # Fast timeout for test
+                response_timeout=0.1,
             )
             gw_srv = await asyncio.start_server(gw.handle, "127.0.0.1", 0)
 
@@ -727,7 +728,10 @@ class GatewayProtocolTest(unittest.TestCase):
             w.write(GATEWAY.encode_event({"type": "audio-stop", "data": {}}))
             await w.drain()
 
-            resp = await GATEWAY.read_event(r)
+            try:
+                resp = await asyncio.wait_for(GATEWAY.read_event(r), timeout=5)
+            finally:
+                release_primary.set()
             w.close()
             await w.wait_closed()
             gw_srv.close()

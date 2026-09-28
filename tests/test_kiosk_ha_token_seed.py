@@ -12,6 +12,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SEED_PATH = REPO_ROOT / "flake" / "modules" / "kiosk-ha-token-seed.py"
@@ -31,23 +32,26 @@ SEED = load_seed_module()
 
 
 def read_frame(sock: socket.socket, buf: bytearray) -> tuple[int, bytes, bytearray]:
-    while len(buf) < 2:
-        buf += sock.recv(4096)
+    def receive_until(size: int) -> None:
+        while len(buf) < size:
+            chunk = sock.recv(4096)
+            if not chunk:
+                raise EOFError("peer closed before completing a WebSocket frame")
+            buf.extend(chunk)
+
+    receive_until(2)
     opcode = buf[0] & 0x0F
     masked = bool(buf[1] & 0x80)
     length = buf[1] & 0x7F
     offset = 2
     if length == 126:
-        while len(buf) < 4:
-            buf += sock.recv(4096)
+        receive_until(4)
         length = struct.unpack("!H", bytes(buf[2:4]))[0]
         offset = 4
-    while len(buf) < offset + (4 if masked else 0):
-        buf += sock.recv(4096)
+    receive_until(offset + (4 if masked else 0))
     mask = bytes(buf[offset : offset + 4]) if masked else b""
     offset += 4 if masked else 0
-    while len(buf) < offset + length:
-        buf += sock.recv(offset + length - len(buf))
+    receive_until(offset + length)
     data = bytes(buf[offset : offset + length])
     del buf[: offset + length]
     if mask:
@@ -111,9 +115,12 @@ class FakeDevToolsPage(threading.Thread):
             )
             buf = bytearray()
             while self.values:
-                opcode, data, buf = read_frame(conn, buf)
+                try:
+                    opcode, data, buf = read_frame(conn, buf)
+                except EOFError:
+                    break
                 if opcode == 0x8:
-                    return
+                    break
                 message = json.loads(data.decode("utf-8"))
                 self.received.append(message)
                 value = self.values.pop(0)
@@ -146,6 +153,15 @@ class TargetListingHandler(BaseHTTPRequestHandler):
 
 
 class SeedLogicTest(unittest.TestCase):
+    def test_fixture_stops_reading_after_eof(self) -> None:
+        for partial in (b"", b"\x81", b"\x81\x7e\x00", b"\x81\x81\x00", b"\x81\x02x"):
+            with self.subTest(partial=partial):
+                sock = Mock(spec=socket.socket)
+                sock.recv.side_effect = [b"", AssertionError("read again after EOF")]
+                with self.assertRaises(EOFError):
+                    read_frame(sock, bytearray(partial))
+                self.assertEqual(sock.recv.call_count, 1)
+
     def test_find_jarvis_target(self) -> None:
         targets = [
             {
@@ -175,6 +191,7 @@ class SeedLogicTest(unittest.TestCase):
             f"ws://127.0.0.1:{page.port}/devtools/page/ABC", token, 10.0
         )
         page.join(timeout=10)
+        self.assertFalse(page.is_alive())
         self.assertEqual(stored, len(token))
         self.assertEqual(len(page.received), 2)
         self.assertEqual(page.received[0]["method"], "Runtime.evaluate")
@@ -185,13 +202,16 @@ class SeedLogicTest(unittest.TestCase):
         page = FakeDevToolsPage([3, None])
         page.start()
         self.assertTrue(page.ready.wait(timeout=10))
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(RuntimeError, "token round-trip check failed"):
             SEED.seed_token(
                 f"ws://127.0.0.1:{page.port}/devtools/page/ABC",
                 "a-much-longer-token",
                 10.0,
             )
         page.join(timeout=10)
+        self.assertFalse(page.is_alive())
+        self.assertEqual(len(page.received), 1)
+        self.assertEqual(page.values, [None])
 
 
 class SeedMainTest(unittest.TestCase):

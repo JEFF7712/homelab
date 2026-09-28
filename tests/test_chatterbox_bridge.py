@@ -84,7 +84,6 @@ async def drive(script: list[tuple], engine: FakeEngine, config=None) -> bytes:
     """Serve handle_client on loopback, play script, return raw replies."""
     config = config or make_config()
     tts = SERVER.TtsServer(config, engine)
-    got = bytearray()
     done = asyncio.Event()
 
     async def on_connect(reader, writer) -> None:
@@ -94,33 +93,22 @@ async def drive(script: list[tuple], engine: FakeEngine, config=None) -> bytes:
             done.set()
 
     server = await asyncio.start_server(on_connect, "127.0.0.1", 0)
-    port = server.sockets[0].getsockname()[1]
-    reader, writer = await asyncio.open_connection("127.0.0.1", port)
-    for kind, data, payload in script:
-        writer.write(SERVER.encode_event(kind, data, payload or b""))
-    await writer.drain()
-    for _ in range(400):
+    try:
+        port = server.sockets[0].getsockname()[1]
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
         try:
-            chunk = await asyncio.wait_for(reader.read(65536), timeout=0.05)
-            if chunk:
-                got += chunk
-        except asyncio.TimeoutError:
-            pass
-        if b'"audio-stop"' in got or b'"error"' in got:
-            await asyncio.sleep(0.2)
-            try:
-                while True:
-                    chunk = await asyncio.wait_for(reader.read(65536), timeout=0.2)
-                    if not chunk:
-                        break
-                    got += chunk
-            except asyncio.TimeoutError:
-                pass
-            break
-    writer.close()
-    await asyncio.wait_for(done.wait(), timeout=10)
-    server.close()
-    return bytes(got)
+            for kind, data, payload in script:
+                writer.write(SERVER.encode_event(kind, data, payload or b""))
+            await writer.drain()
+            writer.write_eof()
+            return await asyncio.wait_for(reader.read(), timeout=10)
+        finally:
+            writer.close()
+            await writer.wait_closed()
+            await asyncio.wait_for(done.wait(), timeout=10)
+    finally:
+        server.close()
+        await server.wait_closed()
 
 
 def synth_script(text: str, voice: str = "jarvis") -> list[tuple]:
@@ -128,6 +116,18 @@ def synth_script(text: str, voice: str = "jarvis") -> list[tuple]:
 
 
 class TtsTurnTest(unittest.TestCase):
+    def test_multiple_requests_return_all_replies(self) -> None:
+        engine = FakeEngine()
+        script = [
+            ("describe", {}, b""),
+            *synth_script("First."),
+            *synth_script("Second."),
+        ]
+        events = decode_frames(asyncio.run(drive(script, engine)))
+        self.assertEqual(events[0]["type"], "info")
+        self.assertEqual(sum(event["type"] == "audio-stop" for event in events), 2)
+        self.assertEqual(engine.texts, ["First.", "Second."])
+
     def test_describe_advertises_jarvis_voice(self) -> None:
         engine = FakeEngine()
         raw = asyncio.run(drive([("describe", {}, b"")], engine))
