@@ -88,6 +88,41 @@ html, body {
   height: 100%;
 }
 
+/* Music overlay: album art with a cava-style bar spectrum under it.
+   Hidden unless the face is in the music state. */
+#music-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4vmin;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#app.state-music #music-overlay {
+  display: flex;
+}
+
+#album-art {
+  width: 58vmin;
+  height: 58vmin;
+  object-fit: cover;
+  background: #05070d;
+}
+
+#music-overlay.no-art #album-art {
+  display: none;
+}
+
+#cava-canvas {
+  width: 62vmin;
+  height: 12vmin;
+  display: block;
+}
+
 /* ==========================================================================
    STATE EXPRESSIONS (colors only; geometry is animated on canvas by app.js)
    ========================================================================== */

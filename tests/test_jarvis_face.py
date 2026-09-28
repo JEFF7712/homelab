@@ -48,12 +48,30 @@ class JarvisFaceSelfUpdateTest(unittest.TestCase):
         html_css = read_face("style.css")
         self.assertIn("#app.state-music", html_css)
 
-    def test_music_visualizer_replaces_face(self) -> None:
+    def test_music_shows_album_art_with_cava_underneath(self) -> None:
+        html = read_face("index.html")
+        self.assertIn('id="music-overlay"', html)
+        self.assertIn('id="album-art"', html)
+        self.assertIn('id="cava-canvas"', html)
+        self.assertLess(
+            html.index('id="album-art"'),
+            html.index('id="cava-canvas"'),
+            "album art sits above the cava bars",
+        )
         js = read_face("app.js")
-        self.assertIn("drawMusicVisualizer", js)
+        self.assertIn("entity_picture", js)
+        self.assertIn("cava-canvas", js)
+        self.assertIn("album-art", js)
         self.assertIn("if (exprName === 'music')", js)
-        self.assertNotIn("equalizer strip under the eyes", js)
-        self.assertNotIn("nBars = 11", js)
+        self.assertIn("urlParams.get('art')", js)
+        self.assertIn("nBars = 28", js)
+        self.assertIn("crossOrigin", js)
+        self.assertIn("getImageData", js)
+        self.assertIn("artFill || fill", js)
+        self.assertNotIn("drawMusicVisualizer", js)
+        css = read_face("style.css")
+        self.assertIn("#music-overlay", css)
+        self.assertIn("#app.state-music #music-overlay", css)
 
     def test_music_label_shows_track(self) -> None:
         js = read_face("app.js")

@@ -559,15 +559,17 @@ retired PVCs can be reclaimed by hand.
   variables (`--eye-bg`, `--primary-glow`), overridable per state via
   `face_color_<state>` in `home-assistant/www/jarvis/config.json`.
   Keys 1-6 / click cycle states for visual testing without the pipeline.
-  The `music` state replaces the face with a full-screen procedural
-  visualizer (56-bar spectrum plus a mirrored waveform ribbon, standard
-  blue via `--eye-bg`, flat fills only; no audio tap on the kiosk, so it is
-  layered sines rather than real FFT) and shows `Title - Artist` from the
-  media player attributes in the status label (`JARVIS // PLAYING //
-  <track>`). It shows when the satellite media player is `playing` while
-  the satellite itself is idle; mute and the voice states (`listening`,
-  `processing`, `responding`) keep priority over it, so music never
-  masquerades as speaking.
+  The `music` state blanks the face canvas and shows a DOM overlay
+  instead: the media player `entity_picture` (album art, resolved against
+  the HA host) on top with a cava-style 28-bar spectrum under it
+  (tinted with the dominant album-art color sampled off the loaded image,
+  falling back to `--eye-bg`; flat fills only; no audio tap on the kiosk,
+  so the bars are layered sines rather than real FFT) and
+  `Title - Artist` from the media player attributes in the status label
+  (`JARVIS // PLAYING // <track>`). It shows when the satellite media
+  player is `playing` while the satellite itself is idle; mute and the
+  voice states (`listening`, `processing`, `responding`) keep priority
+  over it, so music never masquerades as speaking.
 - The face does no canvas shadows or blur, so face rendering should not
   jank the T600; if it does, suspect the pipeline first.
 - Face deploys are self-updating. `home-assistant/www/jarvis/` lives on the

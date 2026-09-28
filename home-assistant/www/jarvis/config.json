@@ -1,5 +1,5 @@
 {
-  "face_version": 13,
+  "face_version": 18,
   "face_color_music": "#00f0ff",
   "satellite_entity": "assist_satellite.homelab_05_satellite_assist_satellite",
   "mute_entity": "switch.homelab_05_satellite_mute",

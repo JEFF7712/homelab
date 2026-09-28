@@ -143,7 +143,11 @@ check('satellite idle plus playing media shows music with track label', () => {
       [MEDIA]: {
         '+': {
           s: 'playing',
-          a: { media_title: 'Out of Time', media_artist: 'The Weeknd' },
+          a: {
+            media_title: 'Out of Time',
+            media_artist: 'The Weeknd',
+            entity_picture: '/api/media_player_proxy/x?token=abc&cache=1',
+          },
         },
       },
     },
@@ -152,6 +156,10 @@ check('satellite idle plus playing media shows music with track label', () => {
   assert.ok(
     statusEl.textContent.includes('OUT OF TIME - THE WEEKND'),
     'track label shown, got: ' + statusEl.textContent,
+  );
+  assert.ok(
+    T.musicArt().includes('/api/media_player_proxy/x?token=abc&cache=1'),
+    'album art picked up, got: ' + T.musicArt(),
   );
 });
 

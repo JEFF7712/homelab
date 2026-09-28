@@ -36,6 +36,9 @@
   const promptModal = document.getElementById('token-prompt');
   const tokenInput = document.getElementById('token-input');
   const tokenSubmit = document.getElementById('token-submit');
+  const musicOverlay = document.getElementById('music-overlay');
+  const albumArt = document.getElementById('album-art');
+  const cavaCanvas = document.getElementById('cava-canvas');
 
   // --- Parse URL Parameters ---
   const urlParams = new URLSearchParams(window.location.search);
@@ -363,53 +366,12 @@
       drawLids(x, y, w, h, sign, lids);
     }
 
-    // Full-screen music visualizer, drawn instead of the eyes while media
-    // plays. Procedural layered sines (the kiosk has no audio tap to
-    // analyze), flat fills only, same cost class as the eyes.
-    const reduceMotion = window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    function drawMusicVisualizer(t, u) {
-      const vt = reduceMotion ? 0 : t;
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, W, H);
-      const nBars = 56;
-      const margin = u * 6;
-      const span = Math.max(1, W - margin * 2);
-      const step = span / nBars;
-      const barW = step * 0.62;
-      const baseY = H * 0.88;
-      const maxBarH = H * 0.55;
-      ctx.fillStyle = fillColor;
-      for (let i = 0; i < nBars; i++) {
-        const d = i / (nBars - 1);
-        const env = Math.pow(Math.sin(Math.PI * d), 0.7);
-        const w1 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.1 * vt + d * 9.0);
-        const w2 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 2.3 * vt - d * 14.0 + 1.7);
-        const bh = Math.max(u * 1.5, maxBarH * env * (0.12 + 0.88 * (0.6 * w1 + 0.4 * w2)));
-        ctx.fillRect(margin + i * step + (step - barW) / 2, baseY - bh, barW, bh);
-      }
-      const midY = H * 0.3;
-      const amp = u * 6;
-      ctx.strokeStyle = fillColor;
-      ctx.lineWidth = Math.max(2, u * 0.7);
-      ctx.beginPath();
-      const steps = 120;
-      for (let s = 0; s <= steps; s++) {
-        const d = s / steps;
-        const x = margin + d * span;
-        const y = midY + amp * Math.sin(2 * Math.PI * 2.0 * vt + d * 10.0) *
-          (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.7 * vt - d * 5.0));
-        if (s === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    }
-
     function render(t) {
       if (!ctx || W <= 0 || H <= 0) return;
       const u = Math.min(W, H) / 100;
       if (exprName === 'music') {
-        drawMusicVisualizer(t, u);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
       } else {
         const squash = 1 - 0.96 * blinkClose(t);
         const wob = bounce ? 1 + 0.015 * Math.sin(2 * Math.PI * 2.6 * t) : 1;
@@ -478,8 +440,177 @@
     };
   })();
 
+  // --- Music overlay: album art plus a cava-style bar spectrum ---
+  // The overlay is a DOM layer (shown by CSS only in state-music) with the
+  // media player entity_picture on top and a small bar canvas under it.
+  // The bars are procedural layered sines: the kiosk has no audio tap to
+  // analyze, so this is movement rather than a real FFT. Flat fills only.
+  const Cava = (function () {
+    const canvas = cavaCanvas;
+    const ctx = canvas ? canvas.getContext('2d') : null;
+    const reduceMotion = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let fill = '#00f0ff';
+    let artUrl = '';
+    let artFill = '';
+    let running = false;
+    let W = 0, H = 0;
+
+    function resolveArtUrl(raw) {
+      if (!raw) return '';
+      if (/^https?:\/\//.test(raw)) return raw;
+      if (raw.charAt(0) === '/') return location.protocol + '//' + location.host + raw;
+      return raw;
+    }
+
+    function setArt(raw) {
+      const url = resolveArtUrl(raw);
+      if (url === artUrl) return;
+      artUrl = url;
+      artFill = '';
+      if (albumArt) {
+        if (url) {
+          try { albumArt.crossOrigin = 'anonymous'; } catch (e) {}
+          albumArt.src = url;
+        } else {
+          albumArt.removeAttribute('src');
+        }
+      }
+      if (musicOverlay) musicOverlay.classList.toggle('no-art', !url);
+    }
+
+    // Recolor the bars from the album art: downscale to 32x32, take the
+    // most common saturated 4-bit bin (ignoring black/white/gray), fall
+    // back to the plain average, then to the face color when the pixels
+    // are unreadable (tainted canvas).
+    function applyArtColor() {
+      if (!albumArt || !albumArt.naturalWidth) return;
+      if (typeof document.createElement !== 'function') return;
+      try {
+        const s = 32;
+        const cv = document.createElement('canvas');
+        cv.width = s;
+        cv.height = s;
+        const cx = cv.getContext('2d');
+        if (!cx) return;
+        cx.drawImage(albumArt, 0, 0, s, s);
+        const px = cx.getImageData(0, 0, s, s).data;
+        const votes = {};
+        let totalR = 0, totalG = 0, totalB = 0, totalN = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i + 3] < 128) continue;
+          const r = px[i], g = px[i + 1], b = px[i + 2];
+          totalR += r;
+          totalG += g;
+          totalB += b;
+          totalN++;
+          const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          if (mx < 24 || mn > 232 || mx - mn < 24) continue;
+          const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+          votes[key] = (votes[key] || 0) + 1;
+        }
+        let best = -1, bestN = 0;
+        for (const key of Object.keys(votes)) {
+          if (votes[key] > bestN) {
+            bestN = votes[key];
+            best = +key;
+          }
+        }
+        if (best >= 0) {
+          artFill = 'rgb(' + (((best >> 8) & 15) * 16 + 8) + ',' +
+            (((best >> 4) & 15) * 16 + 8) + ',' + ((best & 15) * 16 + 8) + ')';
+        } else if (totalN > 0) {
+          artFill = 'rgb(' + Math.round(totalR / totalN) + ',' +
+            Math.round(totalG / totalN) + ',' + Math.round(totalB / totalN) + ')';
+        }
+      } catch (e) {
+        artFill = '';
+      }
+    }
+
+    if (albumArt && albumArt.addEventListener) {
+      albumArt.addEventListener('load', applyArtColor);
+    }
+
+    function readColors() {
+      if (!window.getComputedStyle || !appEl) return;
+      const cs = getComputedStyle(appEl);
+      const eye = (cs.getPropertyValue('--eye-bg') || '').trim();
+      if (eye) fill = eye;
+    }
+
+    function resize() {
+      if (!canvas || !ctx) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = canvas.clientWidth;
+      H = canvas.clientHeight;
+      if (!W || !H) return;
+      canvas.width = Math.max(1, Math.round(W * dpr));
+      canvas.height = Math.max(1, Math.round(H * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (reduceMotion) drawFrame(0);
+    }
+
+    function drawFrame(t) {
+      if (!ctx || W <= 0 || H <= 0) return;
+      const vt = reduceMotion ? 0 : t;
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+      const nBars = 28;
+      const step = W / nBars;
+      const barW = Math.max(1, step * 0.72);
+      ctx.fillStyle = artFill || fill;
+      for (let i = 0; i < nBars; i++) {
+        const d = i / (nBars - 1);
+        const env = Math.pow(Math.sin(Math.PI * d), 0.7);
+        const w1 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.1 * vt + d * 9.0);
+        const w2 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 2.3 * vt - d * 14.0 + 1.7);
+        const bh = Math.max(2, H * env * (0.12 + 0.88 * (0.6 * w1 + 0.4 * w2)));
+        ctx.fillRect(i * step + (step - barW) / 2, H - bh, barW, bh);
+      }
+    }
+
+    function loop(tms) {
+      if (!running) return;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(loop);
+      } else {
+        running = false;
+        return;
+      }
+      drawFrame(tms / 1000);
+    }
+
+    function start() {
+      readColors();
+      resize();
+      if (reduceMotion || typeof requestAnimationFrame !== 'function') {
+        running = false;
+        drawFrame(0);
+        return;
+      }
+      if (!running) {
+        running = true;
+        requestAnimationFrame(loop);
+      }
+    }
+
+    function stop() {
+      running = false;
+    }
+
+    return {
+      setArt: setArt,
+      readColors: readColors,
+      resize: resize,
+      start: start,
+      stop: stop,
+      getArt: function () { return artUrl; }
+    };
+  })();
+
   if (window.addEventListener) {
-    window.addEventListener('resize', function () { Eyes.resize(); });
+    window.addEventListener('resize', function () { Eyes.resize(); Cava.resize(); });
   }
 
   // --- State & Expressions ---
@@ -502,6 +633,11 @@
     // Drive the procedural eyes (reads --eye-bg / --primary-glow for fill)
     Eyes.setExpression(newState);
     Eyes.readColors();
+
+    // The music overlay (album art plus cava bars) is shown by CSS in
+    // state-music; run its bar loop only while the state is active.
+    if (newState === 'music') Cava.start();
+    else Cava.stop();
 
     // Update status text
     const label = customLabel || (
@@ -736,6 +872,7 @@
     if (mediaState && mediaState.state === 'playing') {
       const attrs = mediaState.attributes || {};
       const track = [attrs.media_title, attrs.media_artist].filter(Boolean).join(' - ').slice(0, 80);
+      Cava.setArt(attrs.entity_picture);
       setState('music', track ? 'JARVIS // PLAYING // ' + track.toUpperCase() : 'JARVIS // PLAYING');
       return;
     }
@@ -814,7 +951,8 @@
     _faceTest: {
       handleEntityEvent: handleEntityEvent,
       evaluateEntities: evaluateEntities,
-      isTracked: isTracked
+      isTracked: isTracked,
+      musicArt: function () { return Cava.getArt(); }
     }
   };
 
@@ -822,5 +960,16 @@
   setState('idle');
   Eyes.start();
   connectWebSocket();
+
+  // Local visual testing: ?art=<url>&track=<t>&artist=<a> jumps straight
+  // to the music overlay without waiting for HA entity traffic.
+  const testArt = urlParams.get('art');
+  if (testArt) {
+    const testTrack = [urlParams.get('track'), urlParams.get('artist')]
+      .filter(Boolean).join(' - ').slice(0, 80);
+    Cava.setArt(testArt);
+    setState('music', testTrack ?
+      'JARVIS // PLAYING // ' + testTrack.toUpperCase() : 'JARVIS // PLAYING');
+  }
 
 })();
