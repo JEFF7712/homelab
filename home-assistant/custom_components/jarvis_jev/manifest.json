@@ -3,7 +3,7 @@
   "name": "Jarvis Jev Router",
   "codeowners": ["@JEFF7712"],
   "config_flow": true,
-  "documentation": "https://gitlab.com/JEFF7712/homelab-new",
+  "documentation": "https://gitlab.com/JEFF7712/homelab",
   "integration_type": "service",
   "iot_class": "local_polling",
   "requirements": ["prometheus_client"],

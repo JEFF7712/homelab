@@ -1,4 +1,4 @@
-# homelab-new
+# homelab
 
 NixOS homelab desired state.
 

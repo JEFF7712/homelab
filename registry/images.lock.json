@@ -355,7 +355,7 @@
       ],
       "producer": {
         "location": "gitops/voice/nemotron-bridge/Dockerfile",
-        "owner": "JEFF7712/homelab-new",
+        "owner": "JEFF7712/homelab",
         "pipeline_status": "verified-local-gpu-build"
       },
       "referrers": {

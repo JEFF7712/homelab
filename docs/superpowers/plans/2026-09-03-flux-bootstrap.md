@@ -75,7 +75,7 @@ git commit -m "test: define Flux bootstrap contract"
 ```bash
 export GITLAB_TOKEN="$(glab api --method POST projects/85910419/access_tokens --header 'Content-Type: application/json' --input token-request.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
 nix run nixpkgs#fluxcd -- bootstrap gitlab \
-  --owner=JEFF7712 --repository=homelab-new --branch=main \
+  --owner=JEFF7712 --repository=homelab --branch=main \
   --path=gitops/clusters/homelab-01 --deploy-token-auth
 ```
 

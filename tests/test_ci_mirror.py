@@ -34,7 +34,7 @@ class MirrorTest(unittest.TestCase):
         self.config = self.directory / "gitconfig"
         self.config.write_text(
             f'[url "{self.mirror}"]\n'
-            "    insteadOf = https://github.com/JEFF7712/homelab-new.git\n"
+            "    insteadOf = https://github.com/JEFF7712/homelab.git\n"
         )
         self.sentinel = self.directory / "github-mirror-other-job"
         self.sentinel.mkdir()

@@ -48,5 +48,5 @@ data:
     JEFF7712|solubility-predictor
     JEFF7712|obsidian-vault
   renovate-agent-gitlab-infra-repositories.txt: |
-    JEFF7712|homelab-new
+    JEFF7712|homelab
 

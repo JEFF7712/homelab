@@ -30,7 +30,7 @@ Out of scope:
 
 ## Repository and ownership
 
-`homelab-new` is an independent Git repository. It has three non-overlapping control planes:
+`homelab` is an independent Git repository. It has three non-overlapping control planes:
 
 ```text
 flake/                 NixOS hosts, disko, impermanence, deploy-rs, sops-nix

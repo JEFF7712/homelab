@@ -252,7 +252,7 @@ Known producer checkouts are:
 - `/tmp/opencode/bookshelf` is a temporary CI checkout for `apps/bookshelf`; the
   producer lives at `JEFF7712/bookshelf` on `develop`
 
-The legacy `/home/rupan/homelab` GitLab pipeline owns
+The legacy `/home/rupan/homelab-old2` GitLab pipeline owns
 `apps/homelab-renovate-agent` and `apps/homelab-renovate-dashboard`. No producer
 checkout was found for `apps/cr-demo` or `apps/ism`; retain and import their
 exact current releases until producer ownership is resolved.

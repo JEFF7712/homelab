@@ -1,8 +1,8 @@
 # Unified local container registry implementation handoff
 
 Date: 2026-09-06
-Repository inspected: `/home/rupan/homelab/homelab-new`, revision `465512037c8f6e0ef890f3781ec8e6d1c1757650`.
-Legacy repository: `/home/rupan/homelab`, still being migrated.
+Repository inspected: `/home/rupan/homelab`, revision `465512037c8f6e0ef890f3781ec8e6d1c1757650`.
+Legacy repository: `/home/rupan/homelab-old2`, still being migrated.
 Status: implementation plan, no registry deployed by this task.
 
 ## Objective and accepted decisions

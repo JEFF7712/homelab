@@ -11,7 +11,7 @@ export GITHUB_TOKEN
 
 source_sha=${CI_COMMIT_SHA:?CI_COMMIT_SHA is required}
 source_branch=${CI_DEFAULT_BRANCH:?CI_DEFAULT_BRANCH is required}
-mirror_url=https://github.com/JEFF7712/homelab-new.git
+mirror_url=https://github.com/JEFF7712/homelab.git
 source_is_current() {
   local tip
   tip=$(git ls-remote origin "refs/heads/$source_branch") || return 2
@@ -46,7 +46,7 @@ mirror_git() {
 }
 
 mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
-mirror_warning+="on [GitLab](https://gitlab.com/JEFF7712/homelab-new)."
+mirror_warning+="on [GitLab](https://gitlab.com/JEFF7712/homelab)."
 readme=$(cat README.md)
 printf '%s\n\n%s' "$mirror_warning" "$readme" > README.md
 git add README.md

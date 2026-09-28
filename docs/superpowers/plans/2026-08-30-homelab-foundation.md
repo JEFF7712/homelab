@@ -95,7 +95,7 @@ __pycache__/
 Create README.md:
 
 ~~~markdown
-# homelab-new
+# homelab
 
 NixOS homelab desired state.
 

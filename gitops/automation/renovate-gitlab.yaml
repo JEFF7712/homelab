@@ -39,8 +39,8 @@ spec:
           "endpoint": "https://gitlab.com/api/v4",
           "autodiscover": true,
           "autodiscoverFilter": [
-            "jeff7712/homelab-new",
-            "JEFF7712/homelab-new"
+            "jeff7712/homelab",
+            "JEFF7712/homelab"
           ],
           "onboarding": false,
           "requireConfig": "optional"

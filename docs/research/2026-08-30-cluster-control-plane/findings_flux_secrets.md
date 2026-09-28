@@ -9,7 +9,7 @@ Research date: 2026-08-30. Sources below are current official Flux and External 
   ```sh
   flux bootstrap gitlab \\
     --owner=<gitlab-group-or-user> \\
-    --repository=homelab-new \\
+    --repository=homelab \\
     --branch=main \\
     --path=gitops/clusters/cluster-01 \\
     --deploy-token-auth

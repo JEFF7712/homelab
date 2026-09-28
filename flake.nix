@@ -1,5 +1,5 @@
 {
-  description = "homelab-new devShells";
+  description = "homelab devShells";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -47,7 +47,7 @@
 
         devShells.default = pkgs.mkShell {
           packages = ciPackages ++ laptopExtras;
-          shellHook = ''echo "Welcome to the homelab-new dev shell."'';
+          shellHook = ''echo "Welcome to the homelab dev shell."'';
         };
       }
     );
