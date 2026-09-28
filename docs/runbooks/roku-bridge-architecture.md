@@ -100,6 +100,13 @@ source the computed level stays under `0.2`, so the effect renders pure black
 expected cycling palette. The shared instance keeps the default because its USB
 tap reports a higher level.
 
+Two things that look like faults but are not. A Bluetooth sink with no
+`PipeWire:Interface:Card` and `device.profile: None` is normal here: the A2DP
+profile is not negotiated until a client streams, and audio plays regardless, so
+do not read those as a dead Bluetooth path. And the Bose syncs its own volume
+back over AVRCP, so the sink volume tracks the speaker's hardware buttons
+rather than anything configured in the flake.
+
 Diagnose with `parecord`/`pactl` inside the container before suspecting LedFx:
 if the monitor captures real audio but nothing reaches the relay, the gap is in
 the virtual, not the audio path.
