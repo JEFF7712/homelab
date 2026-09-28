@@ -50,16 +50,11 @@
   # every Pulse client is refused. The Wyoming satellite uses pw-play (native
   # PipeWire) so it never noticed, but the bedroom LedFx analyses audio through
   # a Pulse source and needs the shim to read the Bluetooth monitor.
-  services.pipewire.configPackages = [
-    (pkgs.runCommand "pipewire-pulse-shim" { } ''
-      mkdir -p "$out/share/pipewire/pipewire-pulse-shim"
-      cat > "$out/share/pipewire/pipewire-pulse-shim/pulse-shim.conf" <<'CONF'
-      context.modules = {
-        libpipewire-module-protocol-pulse = { }
-      }
-      CONF
-    '')
-  ];
+  # services.pipewire.pulse.enable only starts the socket unit and ships no
+  # configuration, so the module has to be requested explicitly.
+  services.pipewire.extraConfig.pipewire-pulse.protocol-pulse = {
+    context.modules.libpipewire-module-protocol-pulse = { };
+  };
 
   services.prometheus.exporters.smartctl = {
     enable = true;
