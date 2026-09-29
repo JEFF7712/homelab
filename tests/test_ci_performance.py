@@ -211,6 +211,7 @@ class CancellationTest(unittest.TestCase):
             ".secret_scan",
             ".registry_lock",
             ".registry_auth_consistency",
+            ".registry_drift_check",
         }
         self.assertEqual(
             {

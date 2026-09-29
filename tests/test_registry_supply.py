@@ -106,6 +106,34 @@ class RegistryCiContractTests(unittest.TestCase):
         )
         self.assertNotIn("REGISTRY_MIGRATION_AUTH_FILE", template_script)
 
+    def test_drift_check_uses_node_credentials_and_preserves_the_report(
+        self,
+    ) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        job = pipeline["registry_drift_check"]
+        template = pipeline[".registry_drift_check"]
+        template_script = "\n".join(template["script"])
+
+        # The importer only reads upstream/**, so apps/** needs node.
+        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", template_script)
+        self.assertIn("registry-node-auth.json", template_script)
+        self.assertIn("REGISTRY_DEST_AUTH_FILE", template_script)
+        self.assertIn("scripts.registry verify", template_script)
+        self.assertIn("ci.notify", template_script)
+        self.assertEqual(template["environment"], {"name": "production"})
+        self.assertEqual(template["artifacts"]["when"], "always")
+        self.assertIn("artifacts/registry/", template["artifacts"]["paths"])
+        self.assertIn(
+            "shred -u /tmp/registry-node-auth.json",
+            "\n".join(template["after_script"]),
+        )
+        self.assertEqual(job["extends"], [".nas_ci", ".registry_drift_check"])
+        self.assertEqual(pipeline[".nas_ci"]["tags"], ["nas-ci"])
+        rules = [rule.get("if", "") for rule in job["rules"]]
+        self.assertIn("$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", rules)
+        self.assertIn('$CI_PIPELINE_SOURCE == "schedule"', rules)
+
     def test_first_party_promotion_runs_on_schedule_and_commits_atomically(
         self,
     ) -> None:
@@ -886,6 +914,54 @@ class CopyVerifyTest(unittest.TestCase):
         error = image["errors"][0]
         self.assertIn(digest(raw), error)
         self.assertIn(digest(conflicting), error)
+
+    def test_verify_accepts_tags_pointing_at_the_locked_digest(self) -> None:
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        client = FakeClient(
+            {
+                f"{base}@{record['digest']}": raw,
+                **{f"{base}:{tag}": raw for tag in record["destination_tags"]},
+            }
+        )
+        report = verify_lock(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "ok")
+        self.assertTrue(report["images"][0]["tags"])
+        self.assertTrue(all(item["matched"] for item in report["images"][0]["tags"]))
+
+    def test_verify_detects_retention_tag_repointed_at_another_manifest(self) -> None:
+        # The ledfx shape: the digest is present and correct, but the retention
+        # tag resolves to a different manifest, which is what left the correct
+        # manifest untagged and collectable.
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        child = manifest([("linux", "amd64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        tags = {
+            f"{base}:{tag}": child if tag.startswith("retention-") else raw
+            for tag in record["destination_tags"]
+        }
+        client = FakeClient({f"{base}@{record['digest']}": raw, **tags})
+        report = verify_lock(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "failed")
+        outcome = report["images"][0]
+        bad = [item for item in outcome["tags"] if not item["matched"]]
+        self.assertEqual(len(bad), 1)
+        self.assertEqual(bad[0]["observed_digest"], digest(child))
+        self.assertIn("points at", outcome["errors"][0])
+
+    def test_verify_detects_a_missing_destination_tag(self) -> None:
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        client = FakeClient({f"{base}@{record['digest']}": raw})
+        report = verify_lock(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("missing", report["images"][0]["errors"][0])
 
     def test_verify_detects_platform_mismatch(self) -> None:
         raw = manifest([("linux", "amd64"), ("linux", "arm64")])

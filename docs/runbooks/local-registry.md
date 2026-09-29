@@ -275,25 +275,27 @@ Before accepting backup:
 
 Do not disrupt the production router to simulate an outage. Do not enable age-based deletion or untagged cleanup until a tested retention fixture proves deployed digests, rollback digests, indexes, and referrers survive.
 
-### Observed garbage-collection behaviour
+### Garbage-collection and retention behaviour
 
-Verified against the running zot 2.1.20 on 2026-09-29, so the retention fixture is written against facts rather than assumptions.
+Verified against zot 2.1.20 on 2026-09-29. This section previously claimed the opposite of the first two points; the correction matters because it changes what can delete a deployed image.
 
-- `storage.gc` is `true` with `GCInterval` 24h and `GCDelay` 1h. A pass starts shortly after the service comes up and then follows the interval.
-- zot's GC removes unreferenced **blobs**. It does not remove untagged manifests: the ledfx amd64 child manifest `sha256:dfc60db1...` resolves with 200 while carrying no tag at all.
-- `storage.retention.policies` is `null`, so zot itself keeps no generations. The `retention-*` tags in `registry/images.lock.json` are the only thing marking a deployed digest, and they are the whole of the protection.
-- The `mgmt` extension is always compiled in and cannot be turned off: zot 2.1.20 logs `mgmt extensions configuration option has been made redundant and will be ignored`, and `GET /v2/_zot/ext/mgmt?resource=config` already returns 200. It exposes no collection trigger, so it does not help here.
-- There is still no on-demand GC. A fixture has to provoke a pass by restarting the service, which is the only mechanism available until zot offers one.
+- **Untagged manifests are deleted by default.** `pkg/retention/retention.go` `HasDeleteUntagged` returns true when `storage.retention.policies` is unset and `gc` is enabled. The current config has `policies: null`, so that default applies. An absent retention policy is not the safe state; it is the permissive one.
+- `storage.gc` is true with `GCInterval` 24h and `GCDelay` 1h, so an image that loses its tag is collectable after about an hour. A pass starts shortly after the service comes up and then follows the interval.
+- Blob GC and untagged-manifest deletion are separate. An untagged manifest reachable from an index is retained, so seeing one untagged manifest survive does not show that untagged deletion is off. Only a `keepUntagged` rule or `deleteUntagged: false` in a repository policy prevents it.
+- The `mgmt` extension is compiled in unconditionally and cannot be enabled or disabled: zot logs `mgmt extensions configuration option has been made redundant and will be ignored`, and `GET /v2/_zot/ext/mgmt?resource=config` already answers 200. It exposes no collection trigger, so it offers no way to provoke a pass on demand.
+- The `retention-*` tags in `registry/images.lock.json` are the only thing keeping a deployed digest reachable once its promotion tag moves on. A tag repointed at the wrong manifest therefore makes the correct manifest collectable.
 
-Consequence for the ledfx incident of 2026-09-29: the deployed index `sha256:a5ff8549...` was **never** stored in zot, rather than being collected. The tag
-`upstream/ghcr.io/ledfx/ledfx:retention-deployed-a5ff8549a847d1b2` pointed at the amd64 child manifest instead of the index, and the
-running pod survived only on the node's containerd cache. A copy that never verified its tag target against the locked digest would not
-have noticed, and the next reschedule would have failed with `ImagePullBackOff`.
+This is the most likely explanation for the ledfx incident of 2026-09-29: the index `sha256:a5ff8549...` was served at first, the tag
+`upstream/ghcr.io/ledfx/ledfx:retention-deployed-a5ff8549a847d1b2` was repointed at the amd64 child manifest, and the index then became
+untagged and was collected once `GCDelay` elapsed. The running pod survived on the node's containerd cache, so nothing reported the loss
+until the next reschedule would have failed with `ImagePullBackOff`. Earlier notes here claimed the index had never been stored; that
+inference rested on an untagged manifest surviving, which proves nothing for the reason above.
 
-Two guards now cover this. `scripts.registry verify` fails when a locked digest is absent from the destination, and the copy step refuses to
-overwrite a tag whose digest differs from the lock. A retention fixture still needs to prove index, referrer, and blob survival across a
-real GC pass. `REGISTRY_MIGRATION_AUTH_FILE` was deleted once nothing referenced the retired `migration-importer` account, which the
-`registry check-auth` job now reports as an orphan rather than treating as an outage.
+Two guards cover this, and a third is still missing. `scripts.registry verify` fails when a locked digest is absent from the destination,
+and the copy step refuses to overwrite a tag whose digest differs from the lock. Neither checks that a tag still resolves to the digest the
+lock recorded, which is how the repoint went unnoticed, so tag-target verification and a scheduled read-only `verify` on `nas-ci` with node
+credentials are the outstanding work. A fixture that provokes a real pass belongs in a disposable registry built from the same binary and
+configuration, not on the production service.
 
 ## Rollback
 

@@ -1418,6 +1418,36 @@ def verify_record(
         )
         if not matched:
             errors.append(f"required referrer missing or mismatched: {digest}")
+
+    tag_outcomes: list[dict[str, Any]] = []
+    for tag in record["destination_tags"]:
+        reference = (
+            f"{lock['destination_registry']}/{record['destination_repository']}:{tag}"
+        )
+        try:
+            observed_tag, _, _ = _inspect_digest(
+                client, reference, destination=True, timeout=timeout
+            )
+        except RegistryError:
+            observed_tag = None
+        matched = observed_tag == record["digest"]
+        tag_outcomes.append(
+            {
+                "tag": tag,
+                "expected_digest": record["digest"],
+                "observed_digest": observed_tag,
+                "matched": matched,
+            }
+        )
+        if not matched:
+            # A retention tag pointing at the wrong manifest is how the ledfx
+            # index became untagged and collectable, and the digest check above
+            # cannot see it, so the tag target is compared directly.
+            detail = "missing" if observed_tag is None else f"points at {observed_tag}"
+            errors.append(
+                f"destination tag {tag} {detail}, expected {record['digest']}"
+            )
+
     return {
         "id": record["id"],
         "status": "verified" if not errors else "failed",
@@ -1426,6 +1456,7 @@ def verify_record(
         "observed_digest": observed,
         "platforms": {"expected": record["platforms"], "observed": platforms},
         "referrers": referrer_outcomes,
+        "tags": tag_outcomes,
         "errors": errors,
     }
 
@@ -1448,6 +1479,7 @@ def verify_lock(
                 "observed_digest": None,
                 "platforms": {"expected": record["platforms"], "observed": []},
                 "referrers": [],
+                "tags": [],
                 "errors": [str(error)],
             }
         outcomes.append(outcome)

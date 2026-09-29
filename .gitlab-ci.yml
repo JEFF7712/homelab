@@ -278,6 +278,52 @@ registry_auth_consistency:
     - .nas_ci
     - .registry_auth_consistency
 
+# Read-only presence and tag-target check against the live registry. The
+# importer can only read upstream/**, so this needs node credentials to see the
+# first-party images under apps/**. It writes nothing, which is why it is safe
+# to run nightly as well as on main.
+.registry_drift_check:
+  timeout: 20m
+  interruptible: true
+  stage: test
+  needs: []
+  environment:
+    name: production
+  script:
+    - >-
+      nix develop ./flake -c python -c 'import base64, json, os;
+      password = open(os.environ["REGISTRY_NODE_PASSWORD_FILE"]).read().strip();
+      assert password, "node registry password is empty";
+      auth = base64.b64encode(f"node:{password}".encode()).decode();
+      fd = os.open("/tmp/registry-node-auth.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600);
+      handle = os.fdopen(fd, "w");
+      json.dump({"auths": {"registry.rupan.dev": {"auth": auth}}}, handle);
+      handle.close()'
+    - export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json
+    - >-
+      nix develop ./flake -c python -m scripts.ci.run registry-drift --
+      bash -euo pipefail -c
+      'python -m scripts.registry verify
+      --lock registry/images.lock.json
+      --report artifacts/registry/drift-report.json
+      || python -m scripts.ci.notify registry-drift
+      artifacts/registry/drift-report.json'
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - artifacts/registry/
+  after_script:
+    - shred -u /tmp/registry-node-auth.json 2>/dev/null || rm -f /tmp/registry-node-auth.json
+
+registry_drift_check:
+  extends:
+    - .nas_ci
+    - .registry_drift_check
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
 registry_lock_feature:
   extends:
     - .shared_feature
