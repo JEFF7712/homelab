@@ -201,22 +201,22 @@ light:
   - platform: group
     name: Kitchen Lights
     entities:
-      - light.kitchen_light_lan
-      - light.kitchen_light_2_lan
+      - light.kitchen_ceiling_light_1
+      - light.kitchen_ceiling_light_2
       - light.kitchen_mushroom_lamp
       - light.kitchen_fuck_off_sign
   - platform: group
     name: Living Room Lights
     entities:
-      - light.living_room_mushroom_lamp_lan
-      - light.living_room_tulip_lamp_lan
+      - light.living_room_floor_lamp
+      - light.living_room_tulip_lamp
   - platform: group
     name: All Govee Lights
     entities:
-      - light.kitchen_light_lan
-      - light.kitchen_light_2_lan
-      - light.living_room_mushroom_lamp_lan
-      - light.living_room_tulip_lamp_lan
+      - light.kitchen_ceiling_light_1
+      - light.kitchen_ceiling_light_2
+      - light.living_room_floor_lamp
+      - light.living_room_tulip_lamp
   - platform: group
     name: Bedroom Roku Lights
     entities:
@@ -224,32 +224,32 @@ light:
       - light.floor_lamp_floor_lamp
       - light.light_strip_light_strip
   # Local Govee H6004 control over the UDP LAN API (see
-  # docs/gotchas/govee-lan-control.md). Provisional side-by-side entities
-  # ending in _lan; the .167/.168 to kitchen_light mapping is unverified,
-  # toggle each live to confirm before migrating automations off cloud.
+  # docs/gotchas/govee-lan-control.md). MAC-verified mapping: .167 is
+  # Kitchen Ceiling 1, .168 is Kitchen Ceiling 2, .166 is the floor lamp,
+  # .169 is the tulip lamp.
   - platform: govee_lan
     lights:
-      kitchen_light_lan:
-        name: Kitchen Light LAN
+      kitchen_ceiling_light_1:
+        name: Kitchen Ceiling Light 1
         host: 10.0.20.167
-      kitchen_light_2_lan:
-        name: Kitchen Light 2 LAN
+      kitchen_ceiling_light_2:
+        name: Kitchen Ceiling Light 2
         host: 10.0.20.168
-      living_room_mushroom_lamp_lan:
-        name: Living Room Mushroom Lamp LAN
+      living_room_floor_lamp:
+        name: Living Room Floor Lamp
         host: 10.0.20.166
-      living_room_tulip_lamp_lan:
-        name: Living Room Tulip Lamp LAN
+      living_room_tulip_lamp:
+        name: Living Room Tulip Lamp
         host: 10.0.20.169
   - platform: group
     name: Downstairs Lights
     entities:
-      - light.kitchen_light_lan
-      - light.kitchen_light_2_lan
+      - light.kitchen_ceiling_light_1
+      - light.kitchen_ceiling_light_2
       - light.kitchen_mushroom_lamp
       - light.kitchen_fuck_off_sign
-      - light.living_room_mushroom_lamp_lan
-      - light.living_room_tulip_lamp_lan
+      - light.living_room_floor_lamp
+      - light.living_room_tulip_lamp
   - platform: switch
     name: Bedroom Window Plug
     entity_id: switch.bedroom_window_plug
@@ -274,10 +274,10 @@ homekit:
         - light.kitchen_lights
         - light.living_room_lights
         - light.bedroom_roku_lights
-        - light.kitchen_light_lan
-        - light.kitchen_light_2_lan
-        - light.living_room_mushroom_lamp_lan
-        - light.living_room_tulip_lamp_lan
+        - light.kitchen_ceiling_light_1
+        - light.kitchen_ceiling_light_2
+        - light.living_room_floor_lamp
+        - light.living_room_tulip_lamp
         - light.desk_lamp_desk_lamp
         - light.floor_lamp_floor_lamp
         - light.light_strip_light_strip

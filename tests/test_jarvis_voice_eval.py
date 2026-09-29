@@ -625,8 +625,8 @@ class EvalCorpusTest(unittest.TestCase):
         self.assertEqual(
             set(kitchen_group["entities"]),
             {
-                "light.kitchen_light_lan",
-                "light.kitchen_light_2_lan",
+                "light.kitchen_ceiling_light_1",
+                "light.kitchen_ceiling_light_2",
                 "light.kitchen_mushroom_lamp",
                 "light.kitchen_fuck_off_sign",
             },

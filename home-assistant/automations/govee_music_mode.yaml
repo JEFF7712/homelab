@@ -28,18 +28,18 @@ actions:
             data:
               scene_id: pre_music_mode_govee
               snapshot_entities:
-                - light.kitchen_light_lan
-                - light.kitchen_light_2_lan
-                - light.living_room_mushroom_lamp_lan
-                - light.living_room_tulip_lamp_lan
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
               lights:
-                - light.kitchen_light_lan
-                - light.kitchen_light_2_lan
-                - light.living_room_mushroom_lamp_lan
-                - light.living_room_tulip_lamp_lan
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
               manual_control: true
           - action: rest_command.ledfx_activate_scene
             data:
@@ -63,17 +63,17 @@ actions:
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
               lights:
-                - light.kitchen_light_lan
-                - light.kitchen_light_2_lan
-                - light.living_room_mushroom_lamp_lan
-                - light.living_room_tulip_lamp_lan
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
               manual_control: false
           - action: adaptive_lighting.apply
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
               lights:
-                - light.kitchen_light_lan
-                - light.kitchen_light_2_lan
-                - light.living_room_mushroom_lamp_lan
-                - light.living_room_tulip_lamp_lan
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
               turn_on_lights: false

@@ -22,10 +22,10 @@ sequence:
         data:
           entity_id: switch.adaptive_lighting_all_dimmable_lights
           lights:
-            - light.kitchen_light_lan
-            - light.kitchen_light_2_lan
-            - light.living_room_mushroom_lamp_lan
-            - light.living_room_tulip_lamp_lan
+            - light.kitchen_ceiling_light_1
+            - light.kitchen_ceiling_light_2
+            - light.living_room_floor_lamp
+            - light.living_room_tulip_lamp
           manual_control: true
       - action: scene.turn_on
         target:

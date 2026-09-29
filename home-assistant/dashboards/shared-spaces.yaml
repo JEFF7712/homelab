@@ -269,8 +269,8 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light_lan
-            name: Ceiling Light 1
+          - entity: light.kitchen_ceiling_light_1
+            name: Kitchen Ceiling Light 1
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -278,8 +278,8 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light_2_lan
-            name: Ceiling Light 2
+          - entity: light.kitchen_ceiling_light_2
+            name: Kitchen Ceiling Light 2
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -287,7 +287,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_mushroom_lamp_lan
+          - entity: light.living_room_floor_lamp
             name: Floor Lamp
             fill_container: true
             type: custom:mushroom-light-card
@@ -296,7 +296,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_tulip_lamp_lan
+          - entity: light.living_room_tulip_lamp
             name: Tulip Lamp
             fill_container: true
             type: custom:mushroom-light-card
@@ -382,8 +382,8 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light_lan
-            name: Ceiling Light 1
+          - entity: light.kitchen_ceiling_light_1
+            name: Kitchen Ceiling Light 1
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -394,8 +394,8 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light_2_lan
-            name: Ceiling Light 2
+          - entity: light.kitchen_ceiling_light_2
+            name: Kitchen Ceiling Light 2
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -450,7 +450,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_mushroom_lamp_lan
+          - entity: light.living_room_floor_lamp
             name: Floor Lamp
             fill_container: true
             type: custom:mushroom-light-card
@@ -462,7 +462,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_tulip_lamp_lan
+          - entity: light.living_room_tulip_lamp
             name: Tulip Lamp
             fill_container: true
             type: custom:mushroom-light-card

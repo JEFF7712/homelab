@@ -14,10 +14,10 @@ BEDROOM_LIGHTS = {
 }
 
 SHARED_GOVEE_LIGHTS = {
-    "light.kitchen_light_lan",
-    "light.kitchen_light_2_lan",
-    "light.living_room_mushroom_lamp_lan",
-    "light.living_room_tulip_lamp_lan",
+    "light.kitchen_ceiling_light_1",
+    "light.kitchen_ceiling_light_2",
+    "light.living_room_floor_lamp",
+    "light.living_room_tulip_lamp",
 }
 
 

@@ -246,6 +246,15 @@ class LightTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payloads(hub.sent)[1]["msg"]["data"]["colorTemInKelvin"], 4000)
         self.assertEqual(light._attr_color_mode, "color_temp")
 
+    async def test_plain_turn_on_needs_no_prior_poll(self) -> None:
+        hub = FakeHub()
+        light = light_mod.GoveeLanLight("kitchen", "Kitchen", "10.0.20.167", hub)
+        await light.async_turn_on()
+        cmds = [m["msg"]["cmd"] for m in payloads(hub.sent)]
+        self.assertEqual(cmds, ["turn"])
+        self.assertTrue(light.is_on)
+        self.assertEqual(light._attr_color_mode, "rgb")
+
     async def test_turn_on_while_on_skips_turn(self) -> None:
         hub = FakeHub()
         light = light_mod.GoveeLanLight("kitchen", "Kitchen", "10.0.20.167", hub)

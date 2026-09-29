@@ -81,6 +81,9 @@ class GoveeLanLight(LightEntity):
         self._failures = 0
         self._attr_unique_id = f"{DOMAIN}_{slug}"
         self._attr_available = True
+        self._attr_color_mode = ColorMode.RGB
+        self._attr_brightness = 255
+        self._attr_rgb_color = (255, 255, 255)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         if not self.is_on:
