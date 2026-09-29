@@ -2,9 +2,9 @@ id: living_room_movie
 name: "Movie (Low Living Room)"
 icon: mdi:movie
 entities:
-  light.living_room_mushroom_lamp:
+  light.living_room_mushroom_lamp_lan:
     state: "off"
-  light.living_room_tulip_lamp:
+  light.living_room_tulip_lamp_lan:
     state: "on"
     brightness: 40
     color_temp_kelvin: 2700

@@ -208,22 +208,22 @@ data:
       - platform: group
         name: Kitchen Lights
         entities:
-          - light.kitchen_light
-          - light.kitchen_light_2
+          - light.kitchen_light_lan
+          - light.kitchen_light_2_lan
           - light.kitchen_mushroom_lamp
           - light.kitchen_fuck_off_sign
       - platform: group
         name: Living Room Lights
         entities:
-          - light.living_room_mushroom_lamp
-          - light.living_room_tulip_lamp
+          - light.living_room_mushroom_lamp_lan
+          - light.living_room_tulip_lamp_lan
       - platform: group
         name: All Govee Lights
         entities:
-          - light.kitchen_light
-          - light.kitchen_light_2
-          - light.living_room_mushroom_lamp
-          - light.living_room_tulip_lamp
+          - light.kitchen_light_lan
+          - light.kitchen_light_2_lan
+          - light.living_room_mushroom_lamp_lan
+          - light.living_room_tulip_lamp_lan
       - platform: group
         name: Bedroom Roku Lights
         entities:
@@ -251,12 +251,12 @@ data:
       - platform: group
         name: Downstairs Lights
         entities:
-          - light.kitchen_light
-          - light.kitchen_light_2
+          - light.kitchen_light_lan
+          - light.kitchen_light_2_lan
           - light.kitchen_mushroom_lamp
           - light.kitchen_fuck_off_sign
-          - light.living_room_mushroom_lamp
-          - light.living_room_tulip_lamp
+          - light.living_room_mushroom_lamp_lan
+          - light.living_room_tulip_lamp_lan
       - platform: switch
         name: Bedroom Window Plug
         entity_id: switch.bedroom_window_plug
@@ -281,10 +281,10 @@ data:
             - light.kitchen_lights
             - light.living_room_lights
             - light.bedroom_roku_lights
-            - light.kitchen_light
-            - light.kitchen_light_2
-            - light.living_room_mushroom_lamp
-            - light.living_room_tulip_lamp
+            - light.kitchen_light_lan
+            - light.kitchen_light_2_lan
+            - light.living_room_mushroom_lamp_lan
+            - light.living_room_tulip_lamp_lan
             - light.desk_lamp_desk_lamp
             - light.floor_lamp_floor_lamp
             - light.light_strip_light_strip

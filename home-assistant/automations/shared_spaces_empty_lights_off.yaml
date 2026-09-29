@@ -26,10 +26,10 @@ triggers:
       - switch.fuck_off_sign
       - switch.living_room_good_vibes_sign
       - switch.stairs_light
-      - light.kitchen_light
-      - light.kitchen_light_2
-      - light.living_room_mushroom_lamp
-      - light.living_room_tulip_lamp
+      - light.kitchen_light_lan
+      - light.kitchen_light_2_lan
+      - light.living_room_mushroom_lamp_lan
+      - light.living_room_tulip_lamp_lan
     from: "off"
     to: "on"
     id: "enforced"
@@ -56,10 +56,10 @@ actions:
                 - switch.living_room_good_vibes_sign
                 - switch.stairs_light
                 - switch.kitchen_mushroom_lamp
-                - light.kitchen_light
-                - light.kitchen_light_2
-                - light.living_room_mushroom_lamp
-                - light.living_room_tulip_lamp
+                - light.kitchen_light_lan
+                - light.kitchen_light_2_lan
+                - light.living_room_mushroom_lamp_lan
+                - light.living_room_tulip_lamp_lan
           - action: homeassistant.turn_off
             target:
               label_id: shared_space
@@ -73,10 +73,10 @@ actions:
           - action: light.turn_off
             target:
               entity_id:
-                - light.kitchen_light
-                - light.kitchen_light_2
-                - light.living_room_mushroom_lamp
-                - light.living_room_tulip_lamp
+                - light.kitchen_light_lan
+                - light.kitchen_light_2_lan
+                - light.living_room_mushroom_lamp_lan
+                - light.living_room_tulip_lamp_lan
       - conditions:
           - condition: trigger
             id: "enforced"
@@ -111,10 +111,10 @@ actions:
           - action: light.turn_off
             target:
               entity_id:
-                - light.kitchen_light
-                - light.kitchen_light_2
-                - light.living_room_mushroom_lamp
-                - light.living_room_tulip_lamp
+                - light.kitchen_light_lan
+                - light.kitchen_light_2_lan
+                - light.living_room_mushroom_lamp_lan
+                - light.living_room_tulip_lamp_lan
       - conditions:
           - condition: trigger
             id: "return"

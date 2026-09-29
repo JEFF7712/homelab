@@ -105,7 +105,7 @@
   say: Set the kitchen lights to blue.
   path: local
   intent: HassLightSet
-  targets: [light.kitchen_light, light.kitchen_light_2, light.kitchen_lights]
+  targets: [light.kitchen_light_lan, light.kitchen_light_2_lan, light.kitchen_lights]
   response: Done.
 - id: lights-downstairs-warm
   say: Set the downstairs lights to warm white.

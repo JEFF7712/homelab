@@ -18,10 +18,10 @@ sequence:
         data:
           scene_id: shared_last_state
           snapshot_entities:
-            - light.kitchen_light
-            - light.kitchen_light_2
-            - light.living_room_mushroom_lamp
-            - light.living_room_tulip_lamp
+            - light.kitchen_light_lan
+            - light.kitchen_light_2_lan
+            - light.living_room_mushroom_lamp_lan
+            - light.living_room_tulip_lamp_lan
             - switch.fuck_off_sign
             - switch.kitchen_mushroom_lamp
             - switch.living_room_good_vibes_sign
@@ -33,9 +33,9 @@ sequence:
     data:
       entity_id: switch.adaptive_lighting_all_dimmable_lights
       lights:
-        - light.kitchen_light
-        - light.kitchen_light_2
-        - light.living_room_mushroom_lamp
-        - light.living_room_tulip_lamp
+        - light.kitchen_light_lan
+        - light.kitchen_light_2_lan
+        - light.living_room_mushroom_lamp_lan
+        - light.living_room_tulip_lamp_lan
       manual_control: false
 mode: single

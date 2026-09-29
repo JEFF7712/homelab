@@ -75,8 +75,10 @@ derivative work of a copy already in use here; it changes no licensing
 posture. Re-check it against upstream on every LedFx bump, since a future
 release may add real `colorwc` support and make the patch redundant.
 
-- Matter remains an alternative: the floor lamp (`.166`) advertises
-  `_matter._tcp` on IPv6, but no bulb is commissioned to Home Assistant's
-  Matter fabric and none advertises `_matterc._udp` while idle.
-  Commissioning needs a setup code from the Govee app and was not required
-  once Govee LAN was verified.
+- Matter was evaluated and rejected: the floor lamp (`.166`) advertises
+  `_matter._tcp` on IPv6, but commissioning from HA fails because Matter
+  discovery is link-local mDNS and the bulbs sit on the clients VLAN while
+  HA sits on infrastructure, with no mDNS relay between them. Instead,
+  normal control runs through the `govee_lan` custom integration
+  (`home-assistant/custom_components/govee_lan/`), which speaks this same
+  LAN API as YAML-configured light entities.

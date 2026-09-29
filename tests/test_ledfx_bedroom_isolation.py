@@ -29,10 +29,10 @@ BEDROOM_LIGHTS = (
     "light.floor_lamp_floor_lamp",
 )
 SHARED_LIGHTS = (
-    "light.kitchen_light",
-    "light.kitchen_light_2",
-    "light.living_room_mushroom_lamp",
-    "light.living_room_tulip_lamp",
+    "light.kitchen_light_lan",
+    "light.kitchen_light_2_lan",
+    "light.living_room_mushroom_lamp_lan",
+    "light.living_room_tulip_lamp_lan",
 )
 
 

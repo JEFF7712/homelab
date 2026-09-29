@@ -269,7 +269,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light
+          - entity: light.kitchen_light_lan
             name: Ceiling Light 1
             fill_container: true
             type: custom:mushroom-light-card
@@ -278,7 +278,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light_2
+          - entity: light.kitchen_light_2_lan
             name: Ceiling Light 2
             fill_container: true
             type: custom:mushroom-light-card
@@ -287,7 +287,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_mushroom_lamp
+          - entity: light.living_room_mushroom_lamp_lan
             name: Floor Lamp
             fill_container: true
             type: custom:mushroom-light-card
@@ -296,7 +296,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_tulip_lamp
+          - entity: light.living_room_tulip_lamp_lan
             name: Tulip Lamp
             fill_container: true
             type: custom:mushroom-light-card
@@ -382,7 +382,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light
+          - entity: light.kitchen_light_lan
             name: Ceiling Light 1
             fill_container: true
             type: custom:mushroom-light-card
@@ -394,7 +394,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_light_2
+          - entity: light.kitchen_light_2_lan
             name: Ceiling Light 2
             fill_container: true
             type: custom:mushroom-light-card
@@ -450,7 +450,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_mushroom_lamp
+          - entity: light.living_room_mushroom_lamp_lan
             name: Floor Lamp
             fill_container: true
             type: custom:mushroom-light-card
@@ -462,7 +462,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_tulip_lamp
+          - entity: light.living_room_tulip_lamp_lan
             name: Tulip Lamp
             fill_container: true
             type: custom:mushroom-light-card
