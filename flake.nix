@@ -19,7 +19,7 @@
 
         ciPackages = with pkgs; [
           age
-          apache2-utils
+          apacheHttpd
           git
           gitleaks
           kubeconform
