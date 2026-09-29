@@ -18,8 +18,11 @@ spec:
         images:
           - name: ghcr.io/renovatebot/renovate
             newName: registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate  # yamllint disable-line rule:line-length
-            digest: sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130
+            digest: sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c  # yamllint disable-line rule:line-length
   values:
+    image:
+      tag: 42.70.2
+      useFull: true
     securityContext:
       runAsNonRoot: true
       runAsUser: 1000
@@ -37,6 +40,7 @@ spec:
         {
           "platform": "github",
           "endpoint": "https://api.github.com/",
+          "binarySource": "global",
           "autodiscover": true,
           "autodiscoverFilter": [
             "jeff7712/apolline-site",

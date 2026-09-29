@@ -3002,6 +3002,46 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/automation/renovate-github.yaml:21",
+        "gitops/automation/renovate-gitlab.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
+      "destination_tags": [
+        "42.70.2-full",
+        "retention-deployed-43c7b64c9f617f35"
+      ],
+      "digest": "sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c",
+      "id": "upstream-renovatebot-renovate-577dccd8d229",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c",
+        "reference": "ghcr.io/renovatebot/renovate:42.70.2-full@sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c",
+        "registry": "ghcr.io",
+        "repository": "renovatebot/renovate",
+        "tag": "42.70.2-full"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:automation/renovate-gitlab-29812680-2p7bs/renovate"
       ],
       "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
