@@ -91,6 +91,29 @@ data:
                   brightness_step_pct: 30
         speech:
           text: "Done."
+      JarvisDefaultLightsOn:
+        action:
+          - service: light.turn_on
+            target:
+              entity_id: light.downstairs_lights
+        speech:
+          text: "Done."
+      JarvisDefaultLightsOff:
+        action:
+          - service: light.turn_off
+            target:
+              entity_id: light.downstairs_lights
+        speech:
+          text: "Done."
+      JarvisDefaultLightsColor:
+        action:
+          - service: light.turn_on
+            target:
+              entity_id: light.downstairs_lights
+            data:
+              color_name: "{{ jarvis_general_color }}"
+        speech:
+          text: "Done."
       JarvisMovieMode:
         action:
           - service: scene.turn_on
@@ -207,6 +230,24 @@ data:
           - light.desk_lamp_desk_lamp
           - light.floor_lamp_floor_lamp
           - light.light_strip_light_strip
+      # Local Govee H6004 control over the UDP LAN API (see
+      # docs/gotchas/govee-lan-control.md). Provisional side-by-side entities
+      # ending in _lan; the .167/.168 to kitchen_light mapping is unverified,
+      # toggle each live to confirm before migrating automations off cloud.
+      - platform: govee_lan
+        lights:
+          kitchen_light_lan:
+            name: Kitchen Light LAN
+            host: 10.0.20.167
+          kitchen_light_2_lan:
+            name: Kitchen Light 2 LAN
+            host: 10.0.20.168
+          living_room_mushroom_lamp_lan:
+            name: Living Room Mushroom Lamp LAN
+            host: 10.0.20.166
+          living_room_tulip_lamp_lan:
+            name: Living Room Tulip Lamp LAN
+            host: 10.0.20.169
       - platform: group
         name: Downstairs Lights
         entities:
@@ -318,6 +359,11 @@ data:
           - sentences:
               - "(turn on|switch on|change|set|make) [all] [the] {jarvis_alias} [lights] to {jarvis_general_color}"
               - "(turn|set|make) [all] [the] {jarvis_alias} [lights] {jarvis_general_color}"
+      JarvisDefaultLightsColor:
+        data:
+          - sentences:
+              - "(turn on|set|change|make) [the] lights to {jarvis_general_color}"
+              - "(turn|set|make) [the] lights [to] {jarvis_general_color}"
     lists:
       jarvis_alias:
         values:
@@ -352,6 +398,22 @@ data:
           - in: "olga v"
             out: "light.all_govee_lights"
           - in: "olga v lights"
+            out: "light.all_govee_lights"
+          - in: "gobi"
+            out: "light.all_govee_lights"
+          - in: "gobi lights"
+            out: "light.all_govee_lights"
+          - in: "all gobi lights"
+            out: "light.all_govee_lights"
+          - in: "all the gobi lights"
+            out: "light.all_govee_lights"
+          - in: "gopi"
+            out: "light.all_govee_lights"
+          - in: "gopi lights"
+            out: "light.all_govee_lights"
+          - in: "all gopi lights"
+            out: "light.all_govee_lights"
+          - in: "all the gopi lights"
             out: "light.all_govee_lights"
       jarvis_general_color:
         values:
@@ -418,6 +480,22 @@ data:
           - in: "olga v"
             out: "light.all_govee_lights"
           - in: "olga v lights"
+            out: "light.all_govee_lights"
+          - in: "gobi"
+            out: "light.all_govee_lights"
+          - in: "gobi lights"
+            out: "light.all_govee_lights"
+          - in: "all gobi lights"
+            out: "light.all_govee_lights"
+          - in: "all the gobi lights"
+            out: "light.all_govee_lights"
+          - in: "gopi"
+            out: "light.all_govee_lights"
+          - in: "gopi lights"
+            out: "light.all_govee_lights"
+          - in: "all gopi lights"
+            out: "light.all_govee_lights"
+          - in: "all the gopi lights"
             out: "light.all_govee_lights"
           - in: "kitchen mushroom lamp"
             out: "light.kitchen_mushroom_lamp"
@@ -521,6 +599,18 @@ data:
   en.jarvis_light_control.yaml: |
     language: en
     intents:
+      JarvisDefaultLightsOn:
+        data:
+          - sentences:
+              - "(turn on|switch on) [the] lights"
+              - "turn [the] lights on"
+              - "[the] lights on"
+      JarvisDefaultLightsOff:
+        data:
+          - sentences:
+              - "(turn off|switch off) [the] lights"
+              - "turn [the] lights off"
+              - "[the] lights off"
       JarvisToggle:
         data:
           - sentences:
@@ -573,6 +663,296 @@ data:
           brightness: Done.
           color: Done.
           temperature: Done.
+  component.govee_lan.__init__.py: |
+    """Govee LAN hub: shared UDP endpoint and protocol helpers for H6004 bulbs.
+
+    All commands must originate from source port 4002 or the bulbs silently
+    ignore them. HA is pinned to homelab-03 while LedFx is pinned to
+    homelab-05, so the exclusive bind here never contends with music mode.
+    """
+
+    from __future__ import annotations
+
+    import asyncio
+    import json
+    import logging
+    from typing import Any
+
+    DOMAIN = "govee_lan"
+
+    UDP_CONTROL_PORT = 4003
+    UDP_SOURCE_PORT = 4002
+    QUERY_TIMEOUT = 1.5
+    MAX_CONSECUTIVE_FAILURES = 3
+
+    MIN_COLOR_TEMP_KELVIN = 2700
+    MAX_COLOR_TEMP_KELVIN = 6500
+
+    _LOGGER = logging.getLogger(__name__)
+
+
+    def turn_message(on: bool) -> dict[str, Any]:
+        return {"msg": {"cmd": "turn", "data": {"value": 1 if on else 0}}}
+
+
+    def brightness_message(pct: int) -> dict[str, Any]:
+        return {"msg": {"cmd": "brightness", "data": {"value": max(1, min(100, pct))}}}
+
+
+    def color_rgb_message(red: int, green: int, blue: int) -> dict[str, Any]:
+        return {
+            "msg": {
+                "cmd": "colorwc",
+                "data": {
+                    "color": {"r": red, "g": green, "b": blue},
+                    "colorTemInKelvin": 0,
+                },
+            }
+        }
+
+
+    def color_temp_message(kelvin: int) -> dict[str, Any]:
+        clamped = max(MIN_COLOR_TEMP_KELVIN, min(MAX_COLOR_TEMP_KELVIN, kelvin))
+        return {
+            "msg": {
+                "cmd": "colorwc",
+                "data": {"color": {"r": 0, "g": 0, "b": 0}, "colorTemInKelvin": clamped},
+            }
+        }
+
+
+    def devstatus_message() -> dict[str, Any]:
+        return {"msg": {"cmd": "devStatus", "data": {}}}
+
+
+    def parse_devstatus_message(payload: Any) -> dict[str, Any] | None:
+        try:
+            data = payload["msg"]["data"]
+            color = data["color"]
+            return {
+                "on": bool(data["onOff"]),
+                "brightness": int(data["brightness"]),
+                "rgb": (int(color["r"]), int(color["g"]), int(color["b"])),
+                "kelvin": int(data["colorTemInKelvin"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            return None
+
+
+    def ha_brightness_to_pct(value: int) -> int:
+        return max(1, min(100, round(value * 100 / 255)))
+
+
+    def pct_to_ha_brightness(pct: int) -> int:
+        return max(1, min(255, round(pct * 255 / 100)))
+
+
+    class _ReplyProtocol(asyncio.DatagramProtocol):
+        def __init__(self, hub: GoveeLanHub) -> None:
+            self._hub = hub
+
+        def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
+            self._hub.handle_reply(addr[0], data)
+
+
+    class GoveeLanHub:
+        def __init__(self) -> None:
+            self._transport: asyncio.DatagramTransport | None = None
+            self._pending: dict[str, list[asyncio.Future[dict[str, Any] | None]]] = {}
+
+        async def async_bind(self) -> None:
+            loop = asyncio.get_running_loop()
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: _ReplyProtocol(self),
+                local_addr=("0.0.0.0", UDP_SOURCE_PORT),
+            )
+            self._transport = transport
+
+        def close(self) -> None:
+            if self._transport is not None:
+                self._transport.close()
+                self._transport = None
+
+        def send(self, host: str, message: dict[str, Any]) -> None:
+            if self._transport is None:
+                raise RuntimeError("Govee LAN hub is not bound")
+            self._transport.sendto(
+                json.dumps(message).encode("utf-8"), (host, UDP_CONTROL_PORT)
+            )
+
+        def handle_reply(self, host: str, data: bytes) -> None:
+            waiters = self._pending.pop(host, [])
+            if not waiters:
+                return
+            try:
+                state = parse_devstatus_message(json.loads(data.decode("utf-8")))
+            except (ValueError, UnicodeDecodeError):
+                state = None
+            for waiter in waiters:
+                if not waiter.done():
+                    waiter.set_result(state)
+
+        async def query(self, host: str) -> dict[str, Any] | None:
+            loop = asyncio.get_running_loop()
+            waiter: asyncio.Future[dict[str, Any] | None] = loop.create_future()
+            self._pending.setdefault(host, []).append(waiter)
+            try:
+                self.send(host, devstatus_message())
+                return await asyncio.wait_for(waiter, QUERY_TIMEOUT)
+            except (TimeoutError, asyncio.TimeoutError, OSError) as err:
+                _LOGGER.debug("Govee LAN query to %s failed: %s", host, err)
+                return None
+            finally:
+                pending = self._pending.get(host)
+                if pending is not None and waiter in pending:
+                    pending.remove(waiter)
+
+
+    def get_hub(hass: Any) -> GoveeLanHub | None:
+        return hass.data.get(DOMAIN)
+  component.govee_lan.light.py: |
+    """Govee LAN light platform for H6004 bulbs over the documented UDP API."""
+
+    from __future__ import annotations
+
+    from datetime import timedelta
+    from typing import Any
+
+    import voluptuous as vol
+
+    from homeassistant.components.light import (
+        ATTR_BRIGHTNESS,
+        ATTR_COLOR_TEMP_KELVIN,
+        ATTR_RGB_COLOR,
+        COLOR_MODE_COLOR_TEMP,
+        COLOR_MODE_RGB,
+        PLATFORM_SCHEMA,
+        LightEntity,
+    )
+    from homeassistant.exceptions import PlatformNotReady
+    from homeassistant.helpers import config_validation as cv
+
+    from . import (
+        DOMAIN,
+        MAX_CONSECUTIVE_FAILURES,
+        MAX_COLOR_TEMP_KELVIN,
+        MIN_COLOR_TEMP_KELVIN,
+        GoveeLanHub,
+        brightness_message,
+        color_rgb_message,
+        color_temp_message,
+        get_hub,
+        ha_brightness_to_pct,
+        pct_to_ha_brightness,
+        turn_message,
+    )
+
+    CONF_LIGHTS = "lights"
+    CONF_HOST = "host"
+
+    SCAN_INTERVAL = timedelta(seconds=60)
+
+    _LIGHT_SCHEMA = vol.Schema(
+        {
+            vol.Required(CONF_HOST): cv.string,
+            vol.Optional("name"): cv.string,
+        }
+    )
+
+    PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+        {vol.Required(CONF_LIGHTS): vol.Schema({cv.string: _LIGHT_SCHEMA})}
+    )
+
+
+    async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+        hub = get_hub(hass)
+        if hub is None:
+            hub = GoveeLanHub()
+            try:
+                await hub.async_bind()
+            except OSError as err:
+                raise PlatformNotReady(
+                    f"Govee LAN cannot bind UDP {4002}; retrying: {err}"
+                ) from err
+            hass.data[DOMAIN] = hub
+        entities = [
+            GoveeLanLight(slug, entry.get("name", slug), entry[CONF_HOST], hub)
+            for slug, entry in config[CONF_LIGHTS].items()
+        ]
+        async_add_entities(entities)
+
+
+    class GoveeLanLight(LightEntity):
+        _attr_supported_color_modes = {COLOR_MODE_RGB, COLOR_MODE_COLOR_TEMP}
+        _attr_min_color_temp_kelvin = MIN_COLOR_TEMP_KELVIN
+        _attr_max_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN
+
+        def __init__(self, slug: str, name: str, host: str, hub: GoveeLanHub) -> None:
+            self._slug = slug
+            self._attr_name = name
+            self._host = host
+            self._hub = hub
+            self._failures = 0
+            self._attr_unique_id = f"{DOMAIN}_{slug}"
+            self._attr_available = True
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            if not self.is_on:
+                self._hub.send(self._host, turn_message(True))
+            if ATTR_BRIGHTNESS in kwargs:
+                self._hub.send(
+                    self._host,
+                    brightness_message(ha_brightness_to_pct(kwargs[ATTR_BRIGHTNESS])),
+                )
+                self._attr_brightness = kwargs[ATTR_BRIGHTNESS]
+            if ATTR_RGB_COLOR in kwargs:
+                red, green, blue = kwargs[ATTR_RGB_COLOR]
+                self._hub.send(self._host, color_rgb_message(red, green, blue))
+                self._attr_rgb_color = (red, green, blue)
+                self._attr_color_mode = COLOR_MODE_RGB
+            elif ATTR_COLOR_TEMP_KELVIN in kwargs:
+                kelvin = kwargs[ATTR_COLOR_TEMP_KELVIN]
+                self._hub.send(self._host, color_temp_message(kelvin))
+                self._attr_color_temp_kelvin = kelvin
+                self._attr_color_mode = COLOR_MODE_COLOR_TEMP
+            self._attr_is_on = True
+            self.async_write_ha_state()
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._hub.send(self._host, turn_message(False))
+            self._attr_is_on = False
+            self.async_write_ha_state()
+
+        async def async_update(self) -> None:
+            try:
+                state = await self._hub.query(self._host)
+            except RuntimeError:
+                state = None
+            if state is None:
+                self._failures += 1
+                self._attr_available = self._failures < MAX_CONSECUTIVE_FAILURES
+                return
+            self._failures = 0
+            self._attr_available = True
+            self._attr_is_on = state["on"]
+            self._attr_brightness = pct_to_ha_brightness(state["brightness"])
+            if state["kelvin"]:
+                self._attr_color_mode = COLOR_MODE_COLOR_TEMP
+                self._attr_color_temp_kelvin = state["kelvin"]
+            else:
+                self._attr_color_mode = COLOR_MODE_RGB
+                self._attr_rgb_color = state["rgb"]
+  component.govee_lan.manifest.json: |
+    {
+      "domain": "govee_lan",
+      "name": "Govee LAN",
+      "codeowners": ["@JEFF7712"],
+      "config_flow": false,
+      "documentation": "https://gitlab.com/JEFF7712/homelab",
+      "integration_type": "device",
+      "iot_class": "local_polling",
+      "version": "0.1.0"
+    }
   component.jarvis_jev.__init__.py: |
     from __future__ import annotations
 
@@ -1066,6 +1446,10 @@ data:
     LIGHT_THRESHOLD = 0.95
     CLIMATE_THRESHOLD = 0.98
     CLARIFY_THRESHOLD = 0.75
+
+    # Comfort default applied when set_temperature names no number and no
+    # warmer/cooler direction (e.g. a bare "set the thermostat").
+    DEFAULT_TEMPERATURE_F = 72.0
 
     # Risk tiers for execution. Every action the router can emit must appear in
     # exactly one set (enforced by test). STANDARD actions execute when they
@@ -1573,6 +1957,7 @@ data:
     from .const import (
         CLARIFY_THRESHOLD,
         CLIMATE_THRESHOLD,
+        DEFAULT_TEMPERATURE_F,
         LIGHT_THRESHOLD,
         MODEL,
         RESTRICTED_ACTIONS,
@@ -1720,6 +2105,14 @@ data:
         r"(?<![\w.])(-?\d+(?:\.\d+)?)(?:\s*(?:degrees?|percent)|\s*%|\s*°[fc]?)?(?![\w.])",
         re.IGNORECASE,
     )
+    _NUMBER_WORDS = re.compile(
+        r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+        r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+        r"nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+        r"hundred|thousand)\b",
+        re.IGNORECASE,
+    )
+    _DIGIT = re.compile(r"\d")
     _SPEAKER = re.compile(r"^speaker\s+[^\s]+\s+", re.IGNORECASE)
     _COMPOUND_COMMAND = re.compile(r";|\band\b|\bthen\b|\bwhile\b")
 
@@ -1775,7 +2168,7 @@ data:
             r"\bcooler\b|\bbump\b.*\bdown\b|\bturn down the heat\b"
         ),
         "activate_scene": re.compile(r"\bactivate\b|\b(?:movie|film) mode on\b"),
-        "pause_media": re.compile(r"\b(?:pause|stop|halt|silence)\b"),
+        "pause_media": re.compile(r"\b(?:pause|stop|halt|silence|turn off|shut off)\b"),
     }
 
 
@@ -1950,9 +2343,33 @@ data:
         return choice, float(confidence)
 
 
-    def _one_number(text: str) -> float | None:
-        values = [float(match.group(1)) for match in _NUMBER.finditer(text)]
-        return values[0] if len(values) == 1 else None
+    def _default_set_command(
+        text: str, target_name: str, action: str
+    ) -> tuple[str, float | None] | None:
+        """Default (action, value) when set_brightness/set_temperature names no number.
+
+        A bare dim/brighten/warmer/cooler becomes the corresponding one-step
+        nudge, a bare light set becomes turn-on at the light's own default,
+        and a bare thermostat set uses the comfort default. Returns None when
+        the text names no usable direction or default basis.
+        """
+        normalized = normalized_text(text).lower()
+        target_pattern = _TARGET_EVIDENCE.get(target_name)
+        if target_pattern is None or target_pattern.search(normalized) is None:
+            return None
+        if action == "set_brightness":
+            if _ACTION_EVIDENCE["adjust_brightness_down"].search(normalized):
+                return ("adjust_brightness_down", None)
+            if _ACTION_EVIDENCE["adjust_brightness_up"].search(normalized):
+                return ("adjust_brightness_up", None)
+            return ("turn_on", None)
+        if action == "set_temperature":
+            if _ACTION_EVIDENCE["adjust_temperature_down"].search(normalized):
+                return ("adjust_temperature_down", None)
+            if _ACTION_EVIDENCE["adjust_temperature_up"].search(normalized):
+                return ("adjust_temperature_up", None)
+            return ("set_temperature", DEFAULT_TEMPERATURE_F)
+        return None
 
 
     def _decide_music(text: str, target_name: str, confidence: float) -> Decision:
@@ -1963,15 +2380,11 @@ data:
         an empty query or low confidence still clarifies.
         """
         if target_name != "satellite_media_player":
-            return Decision(
-                "clarify", speech="Please repeat with one supported device and action."
-            )
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
         if confidence < LIGHT_THRESHOLD:
             if confidence >= CLARIFY_THRESHOLD:
-                return Decision(
-                    "clarify", speech="Please repeat with the device or room and action."
-                )
-            return Decision("clarify", speech="I could not identify a safe home command.")
+                return Decision("clarify", speech="Sorry, I didn't catch that.")
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
         if extract_music_request(text) is None:
             return Decision("clarify", speech="Please say what to play.")
         return Decision(
@@ -1996,9 +2409,7 @@ data:
         if kind_name == "compound":
             return Decision("clarify", speech="Please ask for one action at a time.")
         if kind_name != "home_command":
-            return Decision(
-                "clarify", speech="Please repeat with one supported device and action."
-            )
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
 
         target_answer = _choice(answers, "target")
         action_answer = _choice(answers, "action")
@@ -2017,19 +2428,31 @@ data:
             return _decide_music(text, target_name, confidence)
 
         if target is None or action not in target.actions or reference != "explicit_target":
-            return Decision(
-                "clarify", speech="Please repeat with the device or room and one action."
-            )
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
         if action in RESTRICTED_ACTIONS:
             return Decision("clarify", speech="That action needs confirmation.")
 
         value: float | None = None
         color = "none_or_unknown"
+        defaulted = False
         if action in {"set_brightness", "set_temperature"}:
-            value = _one_number(normalized_text(text))
-            if value is None:
-                return Decision("clarify", speech="Please repeat with one exact value.")
-            if action == "set_brightness" and not 0 <= value <= 100:
+            normalized = normalized_text(text)
+            numbers = [float(match.group(1)) for match in _NUMBER.finditer(normalized)]
+            if len(numbers) == 1:
+                value = numbers[0]
+            elif (
+                not numbers
+                and not _DIGIT.search(normalized)
+                and not _NUMBER_WORDS.search(normalized)
+            ):
+                resolved = _default_set_command(normalized, target_name, action)
+                if resolved is None:
+                    return Decision("clarify", speech="Sorry, I didn't catch that.")
+                action, value = resolved
+                defaulted = True
+            else:
+                return Decision("clarify", speech="Sorry, I didn't catch that.")
+            if action == "set_brightness" and value is not None and not 0 <= value <= 100:
                 return Decision(
                     "clarify",
                     speech="Brightness must be between zero and one hundred percent.",
@@ -2050,15 +2473,13 @@ data:
         )
         if confidence < threshold:
             if confidence >= CLARIFY_THRESHOLD:
-                return Decision(
-                    "clarify", speech="Please repeat with the device or room and action."
-                )
-            return Decision("clarify", speech="I could not identify a safe home command.")
+                return Decision("clarify", speech="Sorry, I didn't catch that.")
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
 
-        if not _has_command_evidence(normalized_text(text), target_name, action, color):
-            return Decision(
-                "clarify", speech="Please repeat with the exact device and action."
-            )
+        if not defaulted and not _has_command_evidence(
+            normalized_text(text), target_name, action, color
+        ):
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
 
         return Decision(
             "execute",

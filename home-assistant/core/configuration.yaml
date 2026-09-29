@@ -223,6 +223,24 @@ light:
       - light.desk_lamp_desk_lamp
       - light.floor_lamp_floor_lamp
       - light.light_strip_light_strip
+  # Local Govee H6004 control over the UDP LAN API (see
+  # docs/gotchas/govee-lan-control.md). Provisional side-by-side entities
+  # ending in _lan; the .167/.168 to kitchen_light mapping is unverified,
+  # toggle each live to confirm before migrating automations off cloud.
+  - platform: govee_lan
+    lights:
+      kitchen_light_lan:
+        name: Kitchen Light LAN
+        host: 10.0.20.167
+      kitchen_light_2_lan:
+        name: Kitchen Light 2 LAN
+        host: 10.0.20.168
+      living_room_mushroom_lamp_lan:
+        name: Living Room Mushroom Lamp LAN
+        host: 10.0.20.166
+      living_room_tulip_lamp_lan:
+        name: Living Room Tulip Lamp LAN
+        host: 10.0.20.169
   - platform: group
     name: Downstairs Lights
     entities:
