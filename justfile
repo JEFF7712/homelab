@@ -80,6 +80,7 @@ registry-promote *args="":
     python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json {{args}}
 
 registry-check:
+    bash scripts/checks/registry-refresh.sh
     python -m scripts.registry check --lock registry/images.lock.json
 
 registry-access-control output="artifacts/registry/access-control.json":

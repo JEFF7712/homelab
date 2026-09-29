@@ -156,9 +156,13 @@ can authenticate to the private registry. Keep it digest-pinned and scope the
 lock exception to `.gitlab-ci.yml`; Kubernetes workloads must use locked local
 registry references.
 
-Refresh the sanitized live workload snapshot before evaluating drift. This reads
-Pod, Job, and CronJob image specifications/status from the current Kubernetes
-context and writes only `registry/observed-images.json`:
+The policy check refreshes the sanitized live workload snapshot itself before
+evaluating drift, both in CI and in `just check`, so image rollouts cannot
+fail the gate on a stale committed snapshot. The refresh reads Pod, Job, and
+CronJob image specifications/status from the current Kubernetes context and
+writes only `registry/observed-images.json`; when no cluster is reachable it
+warns and validates against the committed copy. Refresh manually when you need
+an up-to-date committed snapshot without running the full check:
 
 ```sh
 just registry-snapshot-live
