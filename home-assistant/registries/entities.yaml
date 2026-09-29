@@ -109,16 +109,16 @@
   icon: mdi:cellphone-charging
   entity_id: input_number.phone_bedtime_battery_threshold
   labels: []
-- entity_id: light.kitchen_light
+- entity_id: light.kitchen_ceiling_light_1
   labels:
     - shared_space
-- entity_id: light.kitchen_light_2
+- entity_id: light.kitchen_ceiling_light_2
   labels:
     - shared_space
 - area_id: kitchen
   entity_id: light.kitchen_mushroom_lamp
   labels: []
-- entity_id: light.living_room_mushroom_lamp
+- entity_id: light.living_room_floor_lamp
   labels:
     - shared_space
 - entity_id: light.living_room_tulip_lamp
@@ -208,12 +208,6 @@
 - disabled_by: user
   entity_id: sensor.fans
   labels: []
-- disabled_by: integration
-  entity_id: sensor.govee_integration_api_rate_limit_remaining
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.govee_integration_last_mqtt_received
-  labels: []
 - disabled_by: user
   entity_id: sensor.groups
   labels: []
@@ -252,24 +246,6 @@
   labels: []
 - disabled_by: integration
   entity_id: sensor.jayanth_phone_camera_stream
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.kitchen_light_2_last_command_sent
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.kitchen_light_2_last_mqtt_received
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.kitchen_light_2_last_update_received
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.kitchen_light_last_command_sent
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.kitchen_light_last_mqtt_received
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.kitchen_light_last_update_received
   labels: []
 - disabled_by: user
   entity_id: sensor.lights
@@ -609,24 +585,6 @@
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_wi_fi_signal_strength
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.smart_led_bulb_last_command_sent
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.smart_led_bulb_last_command_sent_2
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.smart_led_bulb_last_mqtt_received
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.smart_led_bulb_last_mqtt_received_2
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.smart_led_bulb_last_update_received
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.smart_led_bulb_last_update_received_2
   labels: []
 - disabled_by: user
   entity_id: sensor.stt
