@@ -13,6 +13,11 @@ intents:
       - sentences:
           - "(turn on|switch on|change|set|make) [all] [the] {jarvis_alias} [lights] to {jarvis_general_color}"
           - "(turn|set|make) [all] [the] {jarvis_alias} [lights] {jarvis_general_color}"
+  JarvisDefaultLightsColor:
+    data:
+      - sentences:
+          - "(turn on|set|change|make) [the] lights to {jarvis_general_color}"
+          - "(turn|set|make) [the] lights [to] {jarvis_general_color}"
 lists:
   jarvis_alias:
     values:
@@ -47,6 +52,22 @@ lists:
       - in: "olga v"
         out: "light.all_govee_lights"
       - in: "olga v lights"
+        out: "light.all_govee_lights"
+      - in: "gobi"
+        out: "light.all_govee_lights"
+      - in: "gobi lights"
+        out: "light.all_govee_lights"
+      - in: "all gobi lights"
+        out: "light.all_govee_lights"
+      - in: "all the gobi lights"
+        out: "light.all_govee_lights"
+      - in: "gopi"
+        out: "light.all_govee_lights"
+      - in: "gopi lights"
+        out: "light.all_govee_lights"
+      - in: "all gopi lights"
+        out: "light.all_govee_lights"
+      - in: "all the gopi lights"
         out: "light.all_govee_lights"
   jarvis_general_color:
     values:

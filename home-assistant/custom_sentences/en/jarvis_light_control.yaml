@@ -1,5 +1,17 @@
 language: en
 intents:
+  JarvisDefaultLightsOn:
+    data:
+      - sentences:
+          - "(turn on|switch on) [the] lights"
+          - "turn [the] lights on"
+          - "[the] lights on"
+  JarvisDefaultLightsOff:
+    data:
+      - sentences:
+          - "(turn off|switch off) [the] lights"
+          - "turn [the] lights off"
+          - "[the] lights off"
   JarvisToggle:
     data:
       - sentences:

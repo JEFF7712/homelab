@@ -22,6 +22,10 @@ triggers:
       - "be quiet"
       - "silence"
       - "silence [the] music"
+      - "stop playing [the] music"
+      - "please turn off [the] music"
+      - "turn off [the] music please"
+      - "please stop [the] music"
       - "speaker {speaker} turn off [the] music"
       - "speaker {speaker} turn [the] music off"
       - "speaker {speaker} turn it off"
@@ -35,6 +39,10 @@ triggers:
       - "speaker {speaker} be quiet"
       - "speaker {speaker} silence"
       - "speaker {speaker} silence [the] music"
+      - "speaker {speaker} stop playing [the] music"
+      - "speaker {speaker} please turn off [the] music"
+      - "speaker {speaker} turn off [the] music please"
+      - "speaker {speaker} please stop [the] music"
 conditions: []
 actions:
   - action: media_player.media_pause

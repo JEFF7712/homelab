@@ -95,6 +95,12 @@ ALIAS_INTENTS = {
     "JarvisAliasOff": "light.turn_off",
     "JarvisAliasColor": "light.turn_on",
 }
+DEFAULT_LIGHTS_INTENTS = {
+    "JarvisDefaultLightsOn": "light.turn_on",
+    "JarvisDefaultLightsOff": "light.turn_off",
+    "JarvisDefaultLightsColor": "light.turn_on",
+}
+DEFAULT_LIGHTS_TARGET = "light.downstairs_lights"
 ALIAS_COLOR_INTENT = "JarvisAliasColor"
 ALIAS_FILE = (
     REPO_ROOT / "home-assistant" / "custom_sentences" / "en" / "jarvis_alias.yaml"
@@ -286,7 +292,8 @@ class EvalCorpusTest(unittest.TestCase):
                     | DONE_SCRIPTS
                     | set(TEMPLATE_QUERIES)
                     | BUILTIN_DYNAMIC
-                    | set(ALIAS_INTENTS),
+                    | set(ALIAS_INTENTS)
+                    | set(DEFAULT_LIGHTS_INTENTS),
                     case["id"],
                 )
                 if case.get("dynamic"):
@@ -657,6 +664,54 @@ class EvalCorpusTest(unittest.TestCase):
             self.assertEqual(case["response"], "Done.", case["id"])
             say = case["say"].strip().rstrip(".?!").lower()
             self.assertIn(say.rsplit(" ", 1)[-1], colors, case["id"])
+
+    def test_default_lights_cases_match_sentences(self) -> None:
+        control = yaml.safe_load(CONTROL_FILE.read_text(encoding="utf-8"))
+        sentences: dict[str, list[str]] = {}
+        for intent in DEFAULT_LIGHTS_INTENTS:
+            source = self.alias if intent == "JarvisDefaultLightsColor" else control
+            for block in source["intents"][intent]["data"]:
+                sentences.setdefault(intent, []).extend(block["sentences"])
+        scripts = self.core["intent_script"]
+        for intent, service in DEFAULT_LIGHTS_INTENTS.items():
+            entry = scripts[intent]
+            self.assertEqual(entry["speech"]["text"], "Done.", intent)
+            self.assertEqual(entry["action"][0]["service"], service, intent)
+            self.assertEqual(
+                entry["action"][0]["target"]["entity_id"],
+                DEFAULT_LIGHTS_TARGET,
+                intent,
+            )
+        for case in self.cases:
+            if case.get("intent") not in DEFAULT_LIGHTS_INTENTS:
+                continue
+            say = case["say"].strip().rstrip(".?!")
+            matched = any(
+                sentence_matches(template, say)
+                for template in sentences[case["intent"]]
+            )
+            self.assertTrue(matched, f"{case['id']}: {say!r} matches no sentence")
+            self.assertEqual(case["response"], "Done.", case["id"])
+            self.assertEqual(case["targets"], [DEFAULT_LIGHTS_TARGET], case["id"])
+        govee_mishearings = {
+            "gobi",
+            "gobi lights",
+            "all gobi lights",
+            "all the gobi lights",
+            "gopi",
+            "gopi lights",
+            "all gopi lights",
+            "all the gopi lights",
+        }
+        alias_values = {
+            v["in"]: v["out"] for v in self.alias["lists"]["jarvis_alias"]["values"]
+        }
+        light_values = {
+            v["in"]: v["out"] for v in self.colors["lists"]["jarvis_light"]["values"]
+        }
+        for heard in govee_mishearings:
+            self.assertEqual(alias_values.get(heard), "light.all_govee_lights", heard)
+            self.assertEqual(light_values.get(heard), "light.all_govee_lights", heard)
 
     def test_home_sentences_match_cases(self) -> None:
         sentences: dict[str, list[str]] = {}

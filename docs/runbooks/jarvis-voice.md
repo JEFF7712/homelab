@@ -82,8 +82,8 @@ automation referencing them.
    and the `Jarvis Jev Router` custom
    conversation agent as the brain. There is no local LLM since Phase 0
    (`gitops/voice/ollama.yaml` deleted, Qwen removed to free the T1000).
-   General conversation replies `General conversation is unavailable`
-   until a cloud fallback agent is configured. Set it as the preferred
+   General conversation delegates to the Google Generative AI fallback
+   (wired 2026-09-29, verified live). Set it as the preferred
    pipeline and select it on the
    satellite device.
    The Jarvis conversation prompt file carries the room semantics
@@ -92,7 +92,14 @@ automation referencing them.
    downstairs means Living Room plus Kitchen, light commands with no room
    default to all downstairs lights, light color changes default to
    Govee light bulbs, and music/artist/playlist requests explicitly call
-   `script.jarvis_play_media` (`media_content_type` varies: `artist`/`track`/`album`/`playlist`). The canonical
+   `script.jarvis_play_media` (`media_content_type` varies: `artist`/`track`/`album`/`playlist`). Bare
+   on/off/color light commands (`turn on the lights`, `turn the lights
+   to blue`) resolve deterministically to `light.downstairs_lights`
+   (Living Room plus Kitchen) through the `JarvisDefaultLights*`
+   intents in `home-assistant/custom_sentences/en/jarvis_light_control.yaml`
+   and `jarvis_alias.yaml` with `intent_script` handlers in
+   `home-assistant/core/configuration.yaml`, so they never reach the
+   conversation agent. The canonical
    prompt source is `home-assistant/conversation/jarvis_prompt.md`
    ("Conversation prompt" below); the live copy is UI-managed config-entry
    state, so keep the two in sync on any edit.
@@ -156,6 +163,13 @@ automation referencing them.
    pairing). Kept AC ambient-temperature, power, and mode sensors for
    "how warm / is it on" queries. When adding devices, expose only the
    control entity, never diagnostic sensors.
+   Exposure drift 2026-09-29: effective exposure is 49 entities, well past
+   the 19 above, including raw singles, bedroom scenes, AC RSSI/energy
+   sensors, and the temperature-units selector this section excludes.
+   `script.jarvis_play_media` was re-exposed the same night so the cloud
+   fallback can use the designed music path. The rest is left as-is pending
+   a re-audit with the bedroom-satellite owner: pruning now could break
+   bedroom flows, and every exposed entity widens the cloud tool schema.
 5. The kiosk bypass in `configuration.yaml` `trusted_networks` must keep
    `10.0.30.15/32` so an interactive HA login from the kiosk stays
    passwordless. The face websocket itself always needs a long-lived
@@ -262,12 +276,15 @@ lane (`just jarvis-eval-live`) rather than a state diff.
 ## Jev semantic command layer
 
 The `jarvis_jev` custom conversation agent is the constrained fallback between
-Home Assistant's local intents and the (currently unset) cloud conversation
+Home Assistant's local intents and the cloud conversation
 agent. The preferred Assist pipeline must
 keep `Prefer handling commands locally` enabled and select `Jarvis Jev Router`
 as its conversation agent. The router delegates only high-confidence general
-conversation to the fallback agent once one is configured; until then it
-replies `General conversation is unavailable.`
+conversation to the fallback agent, which is the `Google Generative AI`
+entry (`conversation.google_ai_conversation`, set in the Jev entry options
+as `fallback_agent`, prompt synced verbatim from
+`home-assistant/conversation/jarvis_prompt.md`, `llm_hass_api: [assist]`,
+verified live 2026-09-29 with "What is the capital of France?" -> "Paris.").
 
 The router sends the unmatched transcript to TypeSafe's hosted API using the
 pinned `jev-1.13.0` model. This is a cloud disclosure and is not zero-retention
@@ -301,15 +318,27 @@ Fail-closed behavior is deliberate, with one exception:
 - `play_music` never asks for a device or room; it always targets the
   default satellite speaker, and only an empty query or low confidence
   still clarifies ("Please say what to play.");
-- medium or low-confidence home commands ask for a complete restatement;
-- unknown targets, pronouns without an explicit target, incompatible
-  target/action pairs, and malformed numeric arguments perform no action;
+- `set_brightness` / `set_temperature` with no usable number use defaults
+  instead of clarifying: a dim/brighten/warmer/cooler cue becomes the
+  corresponding one-step nudge, a bare light set becomes turn-on at the
+  light's own default, and a bare thermostat set uses 72 F
+  (`DEFAULT_TEMPERATURE_F`). Digits that fail to parse, number words
+  ("seventy"), and two-or-more numbers still clarify, since a value was
+  specified but is unreliable;
+- medium or low-confidence home commands, unknown targets, pronouns
+  without an explicit target, incompatible target/action pairs, and
+  malformed numeric arguments perform no action and reply
+  `Sorry, I didn't catch that.` (specific guidance is kept only where
+  the user can act on it: `Please say what to play.`,
+  `Please ask for one action at a time.`, exact-value, color, and
+  confirmation prompts);
 - compound requests perform no partial action and ask for one action at a time;
 - TypeSafe timeout, authentication failure, overload, or malformed output does
   not restore any local-LLM HA control path (there is none since Phase 0);
 - only a high-confidence `general_or_conversation` classification delegates to
-  the fallback agent with the original conversation context, and replies
-  `General conversation is unavailable` while no fallback is configured.
+  the fallback agent with the original conversation context (Google AI;
+  replies `General conversation is unavailable` only when delegation is
+  rejected or fails).
 
 ### Local decision shadow
 
@@ -510,9 +539,9 @@ Service, and the `ollama-qwen2-5-3b-ready` pull plus warmup Job for
 `qwen2.5:3b`, 1.9 GB) was deleted to free the 4 GB T1000. The HA Ollama
 config entry (`home-assistant/integrations/ollama_01M2PAGP.yaml`) was
 removed from Git and must also be deleted in the HA UI, and the
-`jarvis_prompt_warmup` KV-cache warmup automation was deleted with it.
-General conversation stays unavailable until a cloud fallback agent is
-configured on the `Jarvis Jev Router` entry.
+   `jarvis_prompt_warmup` KV-cache warmup automation was deleted with it.
+   General conversation now delegates to the Google Generative AI fallback
+   wired on the `Jarvis Jev Router` entry.
 
 ## Model storage
 
@@ -688,8 +717,7 @@ with text input (real pipeline routing, bypassing only wake word and STT;
 local-path device actions still execute, so run it when someone is home).
 Local cases must route locally with the expected reply and no action outside
 `targets`; llm cases must fall through (`processed_locally: false`) and,
-until a cloud fallback lands, reply `General conversation is unavailable`
-(asserted by the live eval runner).
+with the Google fallback wired, return the cloud reply.
 Full cloud-LLM behavior (tool choice, phrasing) stays manual once configured. Keep a smaller acoustic
 suite (10 to 20 representative commands) for microphone to Whisper
 regressions; intent routing and STT are separate concerns. The manifest file

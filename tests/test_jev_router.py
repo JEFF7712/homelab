@@ -219,6 +219,120 @@ class JevRouterTest(unittest.TestCase):
         self.assertEqual(decision.route, "clarify")
         self.assertIsNone(decision.command)
 
+    def test_pause_media_absorbs_noisy_stop_phrasings(self) -> None:
+        for say in (
+            "Turn off the music.",
+            "Turn off the music yeah, but that's like proprietary.",
+            "Can you turn off the fucking music?",
+            "Please turn off the music.",
+            "Shut off the music.",
+        ):
+            with self.subTest(say=say):
+                decision = router.decide(
+                    say,
+                    response(target="satellite_media_player", action="pause_media"),
+                )
+                self.assertEqual(decision.route, "execute")
+                assert decision.command is not None
+                self.assertEqual(
+                    (decision.command.target, decision.command.action),
+                    ("satellite_media_player", "pause_media"),
+                )
+
+    def test_pause_media_evidence_still_discriminates_target(self) -> None:
+        decision = router.decide(
+            "Turn off the kitchen lights.",
+            response(target="satellite_media_player", action="pause_media"),
+        )
+        self.assertEqual(decision.route, "clarify")
+        self.assertIsNone(decision.command)
+
+    def test_missing_brightness_value_uses_directional_default(self) -> None:
+        down = router.decide(
+            "Dim the kitchen lights.",
+            response(target="kitchen_lights", action="set_brightness"),
+        )
+        self.assertEqual(down.route, "execute")
+        assert down.command is not None
+        self.assertEqual(
+            (down.command.target, down.command.action),
+            ("kitchen_lights", "adjust_brightness_down"),
+        )
+        up = router.decide(
+            "Brighten the living room lights.",
+            response(target="living_room_lights", action="set_brightness"),
+        )
+        self.assertEqual(up.route, "execute")
+        assert up.command is not None
+        self.assertEqual(
+            (up.command.target, up.command.action),
+            ("living_room_lights", "adjust_brightness_up"),
+        )
+
+    def test_missing_brightness_value_without_direction_turns_on(self) -> None:
+        decision = router.decide(
+            "Set the kitchen lights.",
+            response(target="kitchen_lights", action="set_brightness"),
+        )
+        self.assertEqual(decision.route, "execute")
+        assert decision.command is not None
+        self.assertEqual(
+            (decision.command.target, decision.command.action),
+            ("kitchen_lights", "turn_on"),
+        )
+
+    def test_missing_temperature_value_uses_comfort_default(self) -> None:
+        decision = router.decide(
+            "Set the thermostat.",
+            response(target="living_room_thermostat", action="set_temperature"),
+        )
+        self.assertEqual(decision.route, "execute")
+        assert decision.command is not None
+        self.assertEqual(
+            (decision.command.target, decision.command.action),
+            ("living_room_thermostat", "set_temperature"),
+        )
+        self.assertEqual(decision.command.value, 72.0)
+        warmer = router.decide(
+            "Make the thermostat warmer.",
+            response(target="living_room_thermostat", action="set_temperature"),
+        )
+        self.assertEqual(warmer.route, "execute")
+        assert warmer.command is not None
+        self.assertEqual(warmer.command.action, "adjust_temperature_up")
+
+    def test_missing_value_without_target_basis_clarifies(self) -> None:
+        decision = router.decide(
+            "Set brightness.",
+            response(target="kitchen_lights", action="set_brightness"),
+        )
+        self.assertEqual(decision.route, "clarify")
+        self.assertIsNone(decision.command)
+
+    def test_multiple_numbers_clarify(self) -> None:
+        decision = router.decide(
+            "Set the kitchen lights to 20 or 30 percent.",
+            response(target="kitchen_lights", action="set_brightness"),
+        )
+        self.assertEqual(decision.route, "clarify")
+        self.assertIsNone(decision.command)
+
+    def test_word_numbers_count_as_specified(self) -> None:
+        decision = router.decide(
+            "Set the thermostat to seventy.",
+            response(target="living_room_thermostat", action="set_temperature"),
+        )
+        self.assertEqual(decision.route, "clarify")
+        self.assertIsNone(decision.command)
+
+    def test_malformed_digits_count_as_specified(self) -> None:
+        decision = router.decide(
+            "Set the kitchen lights to percent 50.",
+            response(target="kitchen_lights", action="set_brightness"),
+        )
+        self.assertEqual(decision.route, "clarify")
+        self.assertIsNone(decision.command)
+
     def test_build_request_offers_play_music(self) -> None:
         payload = router.build_request("play some kanye west")
         self.assertIn("play_music", payload["questions"]["action"]["criteria"])

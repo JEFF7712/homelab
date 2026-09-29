@@ -7,6 +7,7 @@ from typing import Any
 from .const import (
     CLARIFY_THRESHOLD,
     CLIMATE_THRESHOLD,
+    DEFAULT_TEMPERATURE_F,
     LIGHT_THRESHOLD,
     MODEL,
     RESTRICTED_ACTIONS,
@@ -154,6 +155,14 @@ _NUMBER = re.compile(
     r"(?<![\w.])(-?\d+(?:\.\d+)?)(?:\s*(?:degrees?|percent)|\s*%|\s*°[fc]?)?(?![\w.])",
     re.IGNORECASE,
 )
+_NUMBER_WORDS = re.compile(
+    r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+    r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+    r"nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+    r"hundred|thousand)\b",
+    re.IGNORECASE,
+)
+_DIGIT = re.compile(r"\d")
 _SPEAKER = re.compile(r"^speaker\s+[^\s]+\s+", re.IGNORECASE)
 _COMPOUND_COMMAND = re.compile(r";|\band\b|\bthen\b|\bwhile\b")
 
@@ -209,7 +218,7 @@ _ACTION_EVIDENCE = {
         r"\bcooler\b|\bbump\b.*\bdown\b|\bturn down the heat\b"
     ),
     "activate_scene": re.compile(r"\bactivate\b|\b(?:movie|film) mode on\b"),
-    "pause_media": re.compile(r"\b(?:pause|stop|halt|silence)\b"),
+    "pause_media": re.compile(r"\b(?:pause|stop|halt|silence|turn off|shut off)\b"),
 }
 
 
@@ -384,9 +393,33 @@ def _choice(answers: dict[str, Any], name: str) -> tuple[str, float] | None:
     return choice, float(confidence)
 
 
-def _one_number(text: str) -> float | None:
-    values = [float(match.group(1)) for match in _NUMBER.finditer(text)]
-    return values[0] if len(values) == 1 else None
+def _default_set_command(
+    text: str, target_name: str, action: str
+) -> tuple[str, float | None] | None:
+    """Default (action, value) when set_brightness/set_temperature names no number.
+
+    A bare dim/brighten/warmer/cooler becomes the corresponding one-step
+    nudge, a bare light set becomes turn-on at the light's own default,
+    and a bare thermostat set uses the comfort default. Returns None when
+    the text names no usable direction or default basis.
+    """
+    normalized = normalized_text(text).lower()
+    target_pattern = _TARGET_EVIDENCE.get(target_name)
+    if target_pattern is None or target_pattern.search(normalized) is None:
+        return None
+    if action == "set_brightness":
+        if _ACTION_EVIDENCE["adjust_brightness_down"].search(normalized):
+            return ("adjust_brightness_down", None)
+        if _ACTION_EVIDENCE["adjust_brightness_up"].search(normalized):
+            return ("adjust_brightness_up", None)
+        return ("turn_on", None)
+    if action == "set_temperature":
+        if _ACTION_EVIDENCE["adjust_temperature_down"].search(normalized):
+            return ("adjust_temperature_down", None)
+        if _ACTION_EVIDENCE["adjust_temperature_up"].search(normalized):
+            return ("adjust_temperature_up", None)
+        return ("set_temperature", DEFAULT_TEMPERATURE_F)
+    return None
 
 
 def _decide_music(text: str, target_name: str, confidence: float) -> Decision:
@@ -397,15 +430,11 @@ def _decide_music(text: str, target_name: str, confidence: float) -> Decision:
     an empty query or low confidence still clarifies.
     """
     if target_name != "satellite_media_player":
-        return Decision(
-            "clarify", speech="Please repeat with one supported device and action."
-        )
+        return Decision("clarify", speech="Sorry, I didn't catch that.")
     if confidence < LIGHT_THRESHOLD:
         if confidence >= CLARIFY_THRESHOLD:
-            return Decision(
-                "clarify", speech="Please repeat with the device or room and action."
-            )
-        return Decision("clarify", speech="I could not identify a safe home command.")
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
+        return Decision("clarify", speech="Sorry, I didn't catch that.")
     if extract_music_request(text) is None:
         return Decision("clarify", speech="Please say what to play.")
     return Decision(
@@ -430,9 +459,7 @@ def decide(text: str, payload: Any) -> Decision:
     if kind_name == "compound":
         return Decision("clarify", speech="Please ask for one action at a time.")
     if kind_name != "home_command":
-        return Decision(
-            "clarify", speech="Please repeat with one supported device and action."
-        )
+        return Decision("clarify", speech="Sorry, I didn't catch that.")
 
     target_answer = _choice(answers, "target")
     action_answer = _choice(answers, "action")
@@ -451,19 +478,31 @@ def decide(text: str, payload: Any) -> Decision:
         return _decide_music(text, target_name, confidence)
 
     if target is None or action not in target.actions or reference != "explicit_target":
-        return Decision(
-            "clarify", speech="Please repeat with the device or room and one action."
-        )
+        return Decision("clarify", speech="Sorry, I didn't catch that.")
     if action in RESTRICTED_ACTIONS:
         return Decision("clarify", speech="That action needs confirmation.")
 
     value: float | None = None
     color = "none_or_unknown"
+    defaulted = False
     if action in {"set_brightness", "set_temperature"}:
-        value = _one_number(normalized_text(text))
-        if value is None:
-            return Decision("clarify", speech="Please repeat with one exact value.")
-        if action == "set_brightness" and not 0 <= value <= 100:
+        normalized = normalized_text(text)
+        numbers = [float(match.group(1)) for match in _NUMBER.finditer(normalized)]
+        if len(numbers) == 1:
+            value = numbers[0]
+        elif (
+            not numbers
+            and not _DIGIT.search(normalized)
+            and not _NUMBER_WORDS.search(normalized)
+        ):
+            resolved = _default_set_command(normalized, target_name, action)
+            if resolved is None:
+                return Decision("clarify", speech="Sorry, I didn't catch that.")
+            action, value = resolved
+            defaulted = True
+        else:
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
+        if action == "set_brightness" and value is not None and not 0 <= value <= 100:
             return Decision(
                 "clarify",
                 speech="Brightness must be between zero and one hundred percent.",
@@ -484,15 +523,13 @@ def decide(text: str, payload: Any) -> Decision:
     )
     if confidence < threshold:
         if confidence >= CLARIFY_THRESHOLD:
-            return Decision(
-                "clarify", speech="Please repeat with the device or room and action."
-            )
-        return Decision("clarify", speech="I could not identify a safe home command.")
+            return Decision("clarify", speech="Sorry, I didn't catch that.")
+        return Decision("clarify", speech="Sorry, I didn't catch that.")
 
-    if not _has_command_evidence(normalized_text(text), target_name, action, color):
-        return Decision(
-            "clarify", speech="Please repeat with the exact device and action."
-        )
+    if not defaulted and not _has_command_evidence(
+        normalized_text(text), target_name, action, color
+    ):
+        return Decision("clarify", speech="Sorry, I didn't catch that.")
 
     return Decision(
         "execute",

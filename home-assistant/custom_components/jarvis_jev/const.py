@@ -17,6 +17,10 @@ LIGHT_THRESHOLD = 0.95
 CLIMATE_THRESHOLD = 0.98
 CLARIFY_THRESHOLD = 0.75
 
+# Comfort default applied when set_temperature names no number and no
+# warmer/cooler direction (e.g. a bare "set the thermostat").
+DEFAULT_TEMPERATURE_F = 72.0
+
 # Risk tiers for execution. Every action the router can emit must appear in
 # exactly one set (enforced by test). STANDARD actions execute when they
 # pass the structural and confidence gates. RESTRICTED actions always route

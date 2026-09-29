@@ -84,6 +84,29 @@ intent_script:
               brightness_step_pct: 30
     speech:
       text: "Done."
+  JarvisDefaultLightsOn:
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.downstairs_lights
+    speech:
+      text: "Done."
+  JarvisDefaultLightsOff:
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: light.downstairs_lights
+    speech:
+      text: "Done."
+  JarvisDefaultLightsColor:
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.downstairs_lights
+        data:
+          color_name: "{{ jarvis_general_color }}"
+    speech:
+      text: "Done."
   JarvisMovieMode:
     action:
       - service: scene.turn_on

@@ -440,3 +440,33 @@
   intent: JarvisAliasColor
   targets: [light.all_govee_lights]
   response: Done.
+- id: lights-default-on
+  say: Turn on the lights.
+  path: local
+  intent: JarvisDefaultLightsOn
+  targets: [light.downstairs_lights]
+  response: Done.
+- id: lights-default-off
+  say: Turn off the lights.
+  path: local
+  intent: JarvisDefaultLightsOff
+  targets: [light.downstairs_lights]
+  response: Done.
+- id: lights-default-color
+  say: Turn on the lights to blue.
+  path: local
+  intent: JarvisDefaultLightsColor
+  targets: [light.downstairs_lights]
+  response: Done.
+- id: lights-govee-gobi-on
+  say: Turn on all the Gobi lights.
+  path: local
+  intent: JarvisAliasOn
+  targets: [light.all_govee_lights]
+  response: Done.
+- id: music-stop-playing
+  say: Stop playing music.
+  path: local
+  intent: MusicStop
+  targets: [media_player.homelab_05_satellite_media_player_2]
+  response: Paused.
