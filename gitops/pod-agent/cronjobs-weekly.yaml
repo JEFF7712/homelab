@@ -234,10 +234,11 @@ spec:
                   mountPath: /home/podagent
                 - name: tmp
                   mountPath: /tmp
-              # Privileged: see pod-agent-cycle in cronjobs-daily.yaml. The
-              # discover job is the other LLM consumer.
               securityContext:
-                privileged: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
                 readOnlyRootFilesystem: true
                 runAsNonRoot: true
                 runAsUser: 101

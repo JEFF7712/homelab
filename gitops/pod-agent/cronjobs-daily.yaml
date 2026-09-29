@@ -247,12 +247,11 @@ spec:
                   mountPath: /home/podagent
                 - name: tmp
                   mountPath: /tmp
-              # Privileged: the governor's provider subprocesses require
-              # writable cgroupfs for process containment, which unprivileged
-              # pods cannot provide. Scoped to the LLM jobs only; the CLI
-              # sandbox flags and argv allowlisting still apply.
               securityContext:
-                privileged: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
                 readOnlyRootFilesystem: true
                 runAsNonRoot: true
                 runAsUser: 101
