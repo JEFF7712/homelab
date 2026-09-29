@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-29T06:10:07+00:00",
+  "generated_at": "2026-09-29T18:12:31+00:00",
   "images": [
     {
       "consumers": [
@@ -73,7 +73,7 @@
         "observed:darkbit/website-deploy-7568866c7d-gmp7m/web"
       ],
       "destination_repository": "apps/darkbit",
-      "id": "first-party-apps-darkbit-7b47bdc6c08a",
+      "id": "first-party-apps-darkbit-06a48d3af297",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/darkbit",
@@ -82,8 +82,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:36467182e8dfa737a8b8d74c513eed74b05a9f58701ae55afdc1810a34fa37eb",
-        "reference": "registry.rupan.dev/apps/darkbit@sha256:36467182e8dfa737a8b8d74c513eed74b05a9f58701ae55afdc1810a34fa37eb",
+        "digest": "sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
+        "reference": "registry.rupan.dev/apps/darkbit@sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
         "registry": "registry.rupan.dev",
         "repository": "apps/darkbit",
         "tag": null
@@ -95,7 +95,7 @@
         "observed:distrojeff/website-deploy-6fb8646bfd-hnn4l/web"
       ],
       "destination_repository": "apps/distrojeff-site",
-      "id": "first-party-apps-distrojeff-site-13c879ee5b2a",
+      "id": "first-party-apps-distrojeff-site-59d2621d72cb",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/distrojeff-site",
@@ -104,8 +104,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:bb362184634beab97b7a3ffdf1ba57afa4f6a2636331ddf2e778e0127593edb0",
-        "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:bb362184634beab97b7a3ffdf1ba57afa4f6a2636331ddf2e778e0127593edb0",
+        "digest": "sha256:2fa9326b3416cb3468beac626853c7324c6a5ff97a06fa40526a475547ae53d5",
+        "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:2fa9326b3416cb3468beac626853c7324c6a5ff97a06fa40526a475547ae53d5",
         "registry": "registry.rupan.dev",
         "repository": "apps/distrojeff-site",
         "tag": null
@@ -343,7 +343,7 @@
         "observed:pulse/website-deploy-6f54bdfdd8-bjwmr/web"
       ],
       "destination_repository": "apps/pulse-site",
-      "id": "first-party-apps-pulse-site-5bcb09293faa",
+      "id": "first-party-apps-pulse-site-d6897fa09b1a",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/pulse-site",
@@ -352,8 +352,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:c7e94ec8885759d5f7648c80ccfac56c7f727e30e6dde3796bef79b61139cf17",
-        "reference": "registry.rupan.dev/apps/pulse-site@sha256:c7e94ec8885759d5f7648c80ccfac56c7f727e30e6dde3796bef79b61139cf17",
+        "digest": "sha256:8dacbcb2ae5b7ea8e6509e8e48270af1e9fb5d7226b249dac55df6f2e69adcb8",
+        "reference": "registry.rupan.dev/apps/pulse-site@sha256:8dacbcb2ae5b7ea8e6509e8e48270af1e9fb5d7226b249dac55df6f2e69adcb8",
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
         "tag": null
@@ -433,7 +433,7 @@
         "observed:soluble-rupan/website-deploy-7c778cc4f4-rs42v/web"
       ],
       "destination_repository": "apps/solubility-gnn",
-      "id": "first-party-apps-solubility-gnn-4260bcf5e6b2",
+      "id": "first-party-apps-solubility-gnn-82f91661a241",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/solubility-gnn",
@@ -442,8 +442,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:515471d66c72f59bfb9110c22de9b544e1b8f7c92e6d0cf04998558f1a0ce427",
-        "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:515471d66c72f59bfb9110c22de9b544e1b8f7c92e6d0cf04998558f1a0ce427",
+        "digest": "sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
+        "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
         "registry": "registry.rupan.dev",
         "repository": "apps/solubility-gnn",
         "tag": null
@@ -1986,7 +1986,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "d643e2cb61643385d67377505df20add6daa9a9f",
+  "source_revision": "bd532171706ad644f191be3cc90c7bb84979e5c6",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2016,16 +2016,16 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/websites/darkbit/deployment.yaml:23,observed:darkbit/website-deploy-7568866c7d-gmp7m/web",
-      "id": "producer:first-party-apps-darkbit-7b47bdc6c08a",
-      "input": "registry.rupan.dev/apps/darkbit@sha256:36467182e8dfa737a8b8d74c513eed74b05a9f58701ae55afdc1810a34fa37eb",
+      "id": "producer:first-party-apps-darkbit-06a48d3af297",
+      "input": "registry.rupan.dev/apps/darkbit@sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/websites/distrojeff/deployment.yaml:23,observed:distrojeff/website-deploy-6fb8646bfd-hnn4l/web",
-      "id": "producer:first-party-apps-distrojeff-site-13c879ee5b2a",
-      "input": "registry.rupan.dev/apps/distrojeff-site@sha256:bb362184634beab97b7a3ffdf1ba57afa4f6a2636331ddf2e778e0127593edb0",
+      "id": "producer:first-party-apps-distrojeff-site-59d2621d72cb",
+      "input": "registry.rupan.dev/apps/distrojeff-site@sha256:2fa9326b3416cb3468beac626853c7324c6a5ff97a06fa40526a475547ae53d5",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
@@ -2096,8 +2096,8 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/websites/pulse/deployment.yaml:22,observed:pulse/website-deploy-6f54bdfdd8-bjwmr/web",
-      "id": "producer:first-party-apps-pulse-site-5bcb09293faa",
-      "input": "registry.rupan.dev/apps/pulse-site@sha256:c7e94ec8885759d5f7648c80ccfac56c7f727e30e6dde3796bef79b61139cf17",
+      "id": "producer:first-party-apps-pulse-site-d6897fa09b1a",
+      "input": "registry.rupan.dev/apps/pulse-site@sha256:8dacbcb2ae5b7ea8e6509e8e48270af1e9fb5d7226b249dac55df6f2e69adcb8",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
@@ -2128,8 +2128,8 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/websites/soluble-rupan/deployment.yaml:22,observed:soluble-rupan/website-deploy-7c778cc4f4-b859q/web,observed:soluble-rupan/website-deploy-7c778cc4f4-rs42v/web",
-      "id": "producer:first-party-apps-solubility-gnn-4260bcf5e6b2",
-      "input": "registry.rupan.dev/apps/solubility-gnn@sha256:515471d66c72f59bfb9110c22de9b544e1b8f7c92e6d0cf04998558f1a0ce427",
+      "id": "producer:first-party-apps-solubility-gnn-82f91661a241",
+      "input": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
