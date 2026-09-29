@@ -303,11 +303,15 @@ registry_auth_consistency:
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry-drift --
       bash -euo pipefail -c
-      'python -m scripts.registry verify
+      'rc=0;
+      python -m scripts.registry verify
       --lock registry/images.lock.json
-      --report artifacts/registry/drift-report.json
-      || python -m scripts.ci.notify registry-drift
-      artifacts/registry/drift-report.json'
+      --report artifacts/registry/drift-report.json || rc=$?;
+      if [ "$rc" -ne 0 ]; then
+      python -m scripts.ci.notify registry-drift
+      artifacts/registry/drift-report.json || true;
+      fi;
+      exit $rc'
   artifacts:
     when: always
     expire_in: 30 days

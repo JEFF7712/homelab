@@ -7,6 +7,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import stat
 import subprocess
 import tempfile
@@ -133,6 +134,47 @@ class RegistryCiContractTests(unittest.TestCase):
         rules = [rule.get("if", "") for rule in job["rules"]]
         self.assertIn("$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", rules)
         self.assertIn('$CI_PIPELINE_SOURCE == "schedule"', rules)
+
+    def test_drift_check_propagates_a_failed_verification(self) -> None:
+        # `verify || notify` turns a failed verification into a green job,
+        # because the notifier succeeds. Run the real CI payload with a stub
+        # `python` that fails on verify and succeeds on notify, and require the
+        # job to fail anyway.
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        script = "\n".join(pipeline[".registry_drift_check"]["script"])
+        match = re.search(
+            r"bash -euo pipefail -c\s*'(?P<body>.*?)'\s*$", script, flags=re.DOTALL
+        )
+        assert match is not None, "could not extract the drift check payload"
+        payload = " ".join(match.group("body").split())
+
+        with tempfile.TemporaryDirectory() as directory:
+            stub = pathlib.Path(directory) / "python"
+            stub.write_text(
+                "#!/bin/sh\n"
+                # verify's argv is "-m scripts.registry verify ..."; notify's
+                # never contains "verify", so this fails only the verifier.
+                'case "$*" in\n'
+                "  *verify*) exit 1 ;;\n"
+                "esac\n"
+                "exit 0\n"
+            )
+            stub.chmod(0o755)
+            env = dict(os.environ, PATH=f"{directory}:{os.environ['PATH']}")
+            result = subprocess.run(
+                ["bash", "-euo", "pipefail", "-c", payload],
+                capture_output=True,
+                text=True,
+                cwd=directory,
+                env=env,
+                check=False,
+            )
+        self.assertNotEqual(
+            result.returncode,
+            0,
+            "a failed verification must not be masked by the notifier succeeding",
+        )
 
     def test_first_party_promotion_runs_on_schedule_and_commits_atomically(
         self,

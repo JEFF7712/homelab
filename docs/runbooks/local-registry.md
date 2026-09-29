@@ -285,17 +285,26 @@ Verified against zot 2.1.20 on 2026-09-29. This section previously claimed the o
 - The `mgmt` extension is compiled in unconditionally and cannot be enabled or disabled: zot logs `mgmt extensions configuration option has been made redundant and will be ignored`, and `GET /v2/_zot/ext/mgmt?resource=config` already answers 200. It exposes no collection trigger, so it offers no way to provoke a pass on demand.
 - The `retention-*` tags in `registry/images.lock.json` are the only thing keeping a deployed digest reachable once its promotion tag moves on. A tag repointed at the wrong manifest therefore makes the correct manifest collectable.
 
-This is the most likely explanation for the ledfx incident of 2026-09-29: the index `sha256:a5ff8549...` was served at first, the tag
-`upstream/ghcr.io/ledfx/ledfx:retention-deployed-a5ff8549a847d1b2` was repointed at the amd64 child manifest, and the index then became
-untagged and was collected once `GCDelay` elapsed. The running pod survived on the node's containerd cache, so nothing reported the loss
-until the next reschedule would have failed with `ImagePullBackOff`. Earlier notes here claimed the index had never been stored; that
-inference rested on an untagged manifest surviving, which proves nothing for the reason above.
+**Hypothesis for the ledfx incident of 2026-09-29, not an established cause.** The default cleanup above makes this sequence possible: the
+index `sha256:a5ff8549...` was served at some point, the tag
+`upstream/ghcr.io/ledfx/ledfx:retention-deployed-a5ff8549a847d1b2` was repointed at the amd64 child manifest, the index became untagged, and
+a pass collected it once `GCDelay` elapsed. None of those steps is established by evidence held today. What is established is the end state:
+the locked index returned 404, the retention tag resolved to the child, and the pod ran on the node's containerd cache so nothing reported
+the loss until a reschedule would have failed with `ImagePullBackOff`. Earlier notes here claimed the index had never been stored; that
+inference rested on an untagged manifest surviving, which proves nothing, since manifests reachable from an index are retained.
 
-Two guards cover this, and a third is still missing. `scripts.registry verify` fails when a locked digest is absent from the destination,
-and the copy step refuses to overwrite a tag whose digest differs from the lock. Neither checks that a tag still resolves to the digest the
-lock recorded, which is how the repoint went unnoticed, so tag-target verification and a scheduled read-only `verify` on `nas-ci` with node
-credentials are the outstanding work. A fixture that provokes a real pass belongs in a disposable registry built from the same binary and
-configuration, not on the production service.
+Settling it needs the `registry_lock_import` reports from 2026-09-23 to 2026-09-29, which would show whether the copy reported
+`copied` or `reused` for that tag and when the destination first diverged, or `journalctl -u zot` retention-module lines for the repository.
+Until one of those is checked, treat the sequence as a hypothesis and do not build on it.
+
+Three guards now cover this. The copy step refuses to overwrite a tag whose digest differs from the lock. `scripts.registry verify` fails
+when a locked digest is absent from the destination, and since `812739a` it also resolves every `destination_tags` entry and compares it to
+the locked digest, so a repointed tag is caught even when the manifest itself is intact. `registry_drift_check` runs that verification over
+the whole lock on `nas-ci` for main and nightly, using node credentials because the importer only reads `upstream/**`, keeps the report for
+30 days, and summarises failures to ntfy while still failing the job.
+
+Still outstanding: a fixture that provokes a real collection pass to confirm index, referrer, and blob survival. It belongs in a disposable
+registry built from the same binary and configuration, not on the production service, which has no on-demand trigger.
 
 ## Rollback
 
