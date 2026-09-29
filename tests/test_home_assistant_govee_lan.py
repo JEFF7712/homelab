@@ -57,14 +57,18 @@ def _install_stubs() -> None:
 
     _stub("homeassistant")
     _stub("homeassistant.components")
+
+    class ColorMode:
+        RGB = "rgb"
+        COLOR_TEMP = "color_temp"
+
     _stub(
         "homeassistant.components.light",
         ATTR_BRIGHTNESS="brightness",
         ATTR_COLOR_TEMP_KELVIN="color_temp_kelvin",
         ATTR_RGB_COLOR="rgb_color",
-        COLOR_MODE_RGB="rgb",
-        COLOR_MODE_COLOR_TEMP="color_temp",
         PLATFORM_SCHEMA=_PlatformSchema(),
+        ColorMode=ColorMode,
         LightEntity=LightEntity,
     )
     _stub("homeassistant.exceptions", PlatformNotReady=PlatformNotReady)

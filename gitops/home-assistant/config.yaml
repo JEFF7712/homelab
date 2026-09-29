@@ -824,9 +824,8 @@ data:
         ATTR_BRIGHTNESS,
         ATTR_COLOR_TEMP_KELVIN,
         ATTR_RGB_COLOR,
-        COLOR_MODE_COLOR_TEMP,
-        COLOR_MODE_RGB,
         PLATFORM_SCHEMA,
+        ColorMode,
         LightEntity,
     )
     from homeassistant.exceptions import PlatformNotReady
@@ -883,7 +882,7 @@ data:
 
 
     class GoveeLanLight(LightEntity):
-        _attr_supported_color_modes = {COLOR_MODE_RGB, COLOR_MODE_COLOR_TEMP}
+        _attr_supported_color_modes = {ColorMode.RGB, ColorMode.COLOR_TEMP}
         _attr_min_color_temp_kelvin = MIN_COLOR_TEMP_KELVIN
         _attr_max_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN
 
@@ -909,12 +908,12 @@ data:
                 red, green, blue = kwargs[ATTR_RGB_COLOR]
                 self._hub.send(self._host, color_rgb_message(red, green, blue))
                 self._attr_rgb_color = (red, green, blue)
-                self._attr_color_mode = COLOR_MODE_RGB
+                self._attr_color_mode = ColorMode.RGB
             elif ATTR_COLOR_TEMP_KELVIN in kwargs:
                 kelvin = kwargs[ATTR_COLOR_TEMP_KELVIN]
                 self._hub.send(self._host, color_temp_message(kelvin))
                 self._attr_color_temp_kelvin = kelvin
-                self._attr_color_mode = COLOR_MODE_COLOR_TEMP
+                self._attr_color_mode = ColorMode.COLOR_TEMP
             self._attr_is_on = True
             self.async_write_ha_state()
 
@@ -937,10 +936,10 @@ data:
             self._attr_is_on = state["on"]
             self._attr_brightness = pct_to_ha_brightness(state["brightness"])
             if state["kelvin"]:
-                self._attr_color_mode = COLOR_MODE_COLOR_TEMP
+                self._attr_color_mode = ColorMode.COLOR_TEMP
                 self._attr_color_temp_kelvin = state["kelvin"]
             else:
-                self._attr_color_mode = COLOR_MODE_RGB
+                self._attr_color_mode = ColorMode.RGB
                 self._attr_rgb_color = state["rgb"]
   component.govee_lan.manifest.json: |
     {
