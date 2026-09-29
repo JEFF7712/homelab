@@ -163,6 +163,19 @@ check('satellite idle plus playing media shows music with track label', () => {
   );
 });
 
+check('live spectrum frames mark the feed active, garbage is ignored', () => {
+  assert.strictEqual(T.spectrumActive(1000), false);
+  assert.strictEqual(
+    T.spectrumIngest(JSON.stringify({ bars: new Array(28).fill(50), max: 100 }), 1000),
+    true,
+  );
+  assert.strictEqual(T.spectrumActive(1000), true);
+  assert.strictEqual(T.spectrumActive(1000 + 750 + 1), false);
+  assert.strictEqual(T.spectrumIngest('not json', 2000), false);
+  assert.strictEqual(T.spectrumActive(2000), false);
+  assert.strictEqual(T.spectrumIngest(JSON.stringify({ bars: [] }), 3000), false);
+});
+
 check('mute switch takes priority and release returns to idle', () => {
   T.handleEntityEvent({ c: { [MUTE]: { '+': { s: 'on' } } } });
   assert.strictEqual(global.Jarvis.getState(), 'muted');

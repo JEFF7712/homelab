@@ -7,7 +7,8 @@
     muteEntity: 'switch.homelab_05_satellite_mute',
     mediaPlayerEntity: 'media_player.homelab_05_satellite_media_player_2',
     host: location.host,
-    token: null
+    token: null,
+    spectrumUrl: null
   };
 
   // State
@@ -46,6 +47,7 @@
   if (urlParams.get('mute')) config.muteEntity = urlParams.get('mute');
   if (urlParams.get('media')) config.mediaPlayerEntity = urlParams.get('media');
   if (urlParams.get('token')) config.token = urlParams.get('token');
+  if (urlParams.get('spectrum')) config.spectrumUrl = urlParams.get('spectrum');
 
   // Per-state face colors, overridden by config.json when present
   const faceColors = {};
@@ -85,6 +87,8 @@
       if (data.satellite_entity && !urlParams.get('entity')) config.satelliteEntity = data.satellite_entity;
       if (data.mute_entity && !urlParams.get('mute')) config.muteEntity = data.mute_entity;
       if (data.media_player_entity && !urlParams.get('media')) config.mediaPlayerEntity = data.media_player_entity;
+      if (data.spectrum_url && !urlParams.get('spectrum')) config.spectrumUrl = data.spectrum_url;
+      Cava.setUrl(config.spectrumUrl);
       for (const state of ['idle', 'listening', 'processing', 'responding', 'music', 'muted']) {
         if (data['face_color_' + state]) faceColors[state] = data['face_color_' + state];
       }
@@ -443,8 +447,10 @@
   // --- Music overlay: album art plus a cava-style bar spectrum ---
   // The overlay is a DOM layer (shown by CSS only in state-music) with the
   // media player entity_picture on top and a small bar canvas under it.
-  // The bars are procedural layered sines: the kiosk has no audio tap to
-  // analyze, so this is movement rather than a real FFT. Flat fills only.
+  // Bars render the live soundbar FFT relayed by the jarvis-spectrum
+  // daemon over localhost SSE; when the feed is stale or unreachable the
+  // renderer falls back to procedural layered sines. Flat fills only.
+  const LIVE_STALE_MS = 750;
   const Cava = (function () {
     const canvas = cavaCanvas;
     const ctx = canvas ? canvas.getContext('2d') : null;
@@ -455,6 +461,72 @@
     let artFill = '';
     let running = false;
     let W = 0, H = 0;
+    let specUrl = '';
+    let specSource = null;
+    let liveBars = null;
+    let liveAt = 0;
+    let smooth = [];
+
+    // Parse one spectrum SSE payload ({"bars":[...], "max":N} or a bare
+    // array) into 0..1 levels. Returns null on any malformed payload.
+    function parseSpectrumFrame(data) {
+      let arr = null;
+      try {
+        const obj = JSON.parse(data);
+        arr = Array.isArray(obj) ? obj : obj.bars;
+      } catch (e) {
+        return null;
+      }
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      const out = [];
+      for (let i = 0; i < arr.length; i++) {
+        const v = +arr[i];
+        if (!isFinite(v)) return null;
+        out.push(Math.min(1, Math.max(0, v / 100)));
+      }
+      return out;
+    }
+
+    function ingestSpectrumFrame(data, now) {
+      const parsed = parseSpectrumFrame(data);
+      if (!parsed) return false;
+      liveBars = parsed;
+      liveAt = (typeof now === 'number') ? now : Date.now();
+      return true;
+    }
+
+    function getLiveBars(now) {
+      if (!liveBars) return null;
+      const t = (typeof now === 'number') ? now : Date.now();
+      if (t - liveAt > LIVE_STALE_MS) return null;
+      return liveBars;
+    }
+
+    function disconnectSpectrum() {
+      if (specSource && typeof specSource.close === 'function') {
+        try { specSource.close(); } catch (e) {}
+      }
+      specSource = null;
+      liveBars = null;
+    }
+
+    function setUrl(url) {
+      const next = url || '';
+      if (next === specUrl && specSource) return;
+      specUrl = next;
+      disconnectSpectrum();
+      if (!specUrl) return;
+      if (typeof EventSource === 'undefined') return;
+      if (!running) return;
+      try {
+        const src = new EventSource(specUrl);
+        specSource = src;
+        src.onmessage = function (ev) { ingestSpectrumFrame(ev.data); };
+        src.onerror = function () { liveBars = null; };
+      } catch (e) {
+        specSource = null;
+      }
+    }
 
     function resolveArtUrl(raw) {
       if (!raw) return '';
@@ -551,6 +623,14 @@
       if (reduceMotion) drawFrame(0);
     }
 
+    function barHeight(i, nBars, vt) {
+      const d = i / (nBars - 1);
+      const env = Math.pow(Math.sin(Math.PI * d), 0.7);
+      const w1 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.1 * vt + d * 9.0);
+      const w2 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 2.3 * vt - d * 14.0 + 1.7);
+      return Math.max(2, H * env * (0.12 + 0.88 * (0.6 * w1 + 0.4 * w2)));
+    }
+
     function drawFrame(t) {
       if (!ctx || W <= 0 || H <= 0) return;
       const vt = reduceMotion ? 0 : t;
@@ -560,12 +640,20 @@
       const step = W / nBars;
       const barW = Math.max(1, step * 0.72);
       ctx.fillStyle = artFill || fill;
+      const live = getLiveBars();
+      if (live && !reduceMotion) {
+        if (smooth.length !== nBars) smooth = live.slice(0, nBars);
+        for (let i = 0; i < nBars; i++) {
+          const src = live[Math.min(live.length - 1, Math.floor(i * live.length / nBars))];
+          const prev = (typeof smooth[i] === 'number') ? smooth[i] : src;
+          smooth[i] = prev + (src - prev) * (src > prev ? 0.6 : 0.25);
+          const bh = Math.max(2, H * smooth[i]);
+          ctx.fillRect(i * step + (step - barW) / 2, H - bh, barW, bh);
+        }
+        return;
+      }
       for (let i = 0; i < nBars; i++) {
-        const d = i / (nBars - 1);
-        const env = Math.pow(Math.sin(Math.PI * d), 0.7);
-        const w1 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.1 * vt + d * 9.0);
-        const w2 = 0.5 + 0.5 * Math.sin(2 * Math.PI * 2.3 * vt - d * 14.0 + 1.7);
-        const bh = Math.max(2, H * env * (0.12 + 0.88 * (0.6 * w1 + 0.4 * w2)));
+        const bh = barHeight(i, nBars, vt);
         ctx.fillRect(i * step + (step - barW) / 2, H - bh, barW, bh);
       }
     }
@@ -584,23 +672,30 @@
     function start() {
       readColors();
       resize();
+      const wasRunning = running;
+      running = true;
+      setUrl(config.spectrumUrl);
       if (reduceMotion || typeof requestAnimationFrame !== 'function') {
         running = false;
+        disconnectSpectrum();
         drawFrame(0);
         return;
       }
-      if (!running) {
-        running = true;
+      if (!wasRunning) {
         requestAnimationFrame(loop);
       }
     }
 
     function stop() {
       running = false;
+      disconnectSpectrum();
     }
 
     return {
       setArt: setArt,
+      setUrl: setUrl,
+      ingestFrame: ingestSpectrumFrame,
+      hasLive: getLiveBars,
       readColors: readColors,
       resize: resize,
       start: start,
@@ -952,11 +1047,14 @@
       handleEntityEvent: handleEntityEvent,
       evaluateEntities: evaluateEntities,
       isTracked: isTracked,
-      musicArt: function () { return Cava.getArt(); }
+      musicArt: function () { return Cava.getArt(); },
+      spectrumIngest: function (data, now) { return Cava.ingestFrame(data, now); },
+      spectrumActive: function (now) { return !!Cava.hasLive(now); }
     }
   };
 
   // --- Initialize ---
+  Cava.setUrl(config.spectrumUrl);
   setState('idle');
   Eyes.start();
   connectWebSocket();

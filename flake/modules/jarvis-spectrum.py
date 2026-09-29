@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -182,12 +183,15 @@ def run_cava_forever(
             state.cava_alive = False
             try:
                 proc.terminate()
-                proc.wait(timeout=5.0)
+                rc: object = proc.wait(timeout=5.0)
             except (OSError, subprocess.SubprocessError):
+                rc = "killed"
                 try:
                     proc.kill()
                 except OSError:
                     pass
+            if not stop.is_set():
+                _LOGGER.warning("cava exited rc=%s; restarting", rc)
         if not stop.is_set():
             stop.wait(backoff)
             backoff = min(30.0, backoff * 2.0)
@@ -270,6 +274,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     state = SpectrumState(args.bars)
+    _LOGGER.info("XDG_RUNTIME_DIR=%s", os.environ.get("XDG_RUNTIME_DIR"))
     state.source = resolve_source(args.pw_dump_bin, args.sink_match)
     _LOGGER.info("capturing PipeWire source %s", state.source)
 

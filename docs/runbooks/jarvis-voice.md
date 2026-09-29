@@ -253,6 +253,21 @@ automation referencing them.
    - YouTube Music streaming requires a Proof-of-Origin (PO) token server; the
      `pot-provider` companion container (`brainicism/bgutil-ytdlp-pot-provider:1.2.1`)
      runs on `homelab-05` at `http://127.0.0.1:4416`.
+   - The face visualizer reacts to the real soundbar output: `jarvis-spectrum`
+     (`flake/modules/jarvis-spectrum.nix`, enabled on `homelab-05`) captures the
+     SPDIF sink monitor through the kiosk user's PipeWire graph, runs the cava
+     FFT, and relays 28 bars at 20 fps over localhost SSE
+     (`http://127.0.0.1:2975/spectrum`, health at `/healthz`). The face
+     (`home-assistant/www/jarvis/app.js`, `spectrum_url` in `config.json`)
+     renders live frames with fast-attack/slow-release smoothing; silence
+     renders flat, and a stale or unreachable feed falls back to the
+     procedural sines so the kiosk still animates offline.
+   - Face deploy order: sync `home-assistant/www/jarvis/` to HA before any
+     kiosk restart or `face_version` bump. A fresh `?v=` URL fetched before
+     the new bundle lands caches the previous bundle under the new version
+     and the kiosk shows stale code until the next bump; recover with a
+     cache-bypass reload over the kiosk DevTools port (`127.0.0.1:9222` on
+     `homelab-05`).
 8. Fast local scenes, climate, weather, printer, and routines:
    - Scenes: `JarvisCookingMode` and `JarvisDinnerMode` in `home-assistant/custom_sentences/en/jarvis_home.yaml`
      activate `scene.cooking_bright_kitchen` and `scene.dinner_warm_dim` deterministically.

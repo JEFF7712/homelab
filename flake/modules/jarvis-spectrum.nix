@@ -49,6 +49,9 @@ in
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         User = cfg.user;
+        # PipeWire/pulse sockets live under the owning user's runtime dir;
+        # without this both pw-dump and cava fail to connect (exit 255/1).
+        Environment = "XDG_RUNTIME_DIR=/run/user/${toString config.users.users.${cfg.user}.uid}";
         ExecStart = ''
           ${pkgs.python3}/bin/python3 ${./jarvis-spectrum.py} \
             --port ${toString cfg.port} \

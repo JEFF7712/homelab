@@ -73,6 +73,23 @@ class JarvisFaceSelfUpdateTest(unittest.TestCase):
         self.assertIn("#music-overlay", css)
         self.assertIn("#app.state-music #music-overlay", css)
 
+    def test_music_bars_use_live_spectrum_with_procedural_fallback(self) -> None:
+        config = json.loads(read_face("config.json"))
+        self.assertIn("spectrum_url", config)
+        self.assertTrue(
+            config["spectrum_url"].startswith("http://127.0.0.1:"),
+            "spectrum feed stays on the kiosk loopback interface",
+        )
+        js = read_face("app.js")
+        self.assertIn("spectrum_url", js)
+        self.assertIn("EventSource", js)
+        self.assertIn("ingestSpectrumFrame", js)
+        self.assertIn("LIVE_STALE_MS", js)
+        self.assertIn("spectrumIngest", js)
+        self.assertIn("spectrumActive", js)
+        self.assertIn("nBars = 28", js)
+        self.assertIn("artFill || fill", js)
+
     def test_music_label_shows_track(self) -> None:
         js = read_face("app.js")
         self.assertIn("media_title", js)
