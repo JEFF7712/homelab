@@ -19,7 +19,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/solubility-gnn@sha256:4a5d6e9e4f018b93fb4a70f53fd11c15731c34b8032d92ed17b00c8de360af38  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/solubility-gnn@sha256:515471d66c72f59bfb9110c22de9b544e1b8f7c92e6d0cf04998558f1a0ce427  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

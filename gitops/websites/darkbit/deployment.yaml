@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/darkbit@sha256:20c4b80cfa552d4b88c9dc554a6433ab876d763df9d90284b35953c65675ada8
+          image: registry.rupan.dev/apps/darkbit@sha256:36467182e8dfa737a8b8d74c513eed74b05a9f58701ae55afdc1810a34fa37eb
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
