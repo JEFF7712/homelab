@@ -118,6 +118,7 @@
           pkgs.runCommand "repository-contract"
             {
               nativeBuildInputs = [
+                pkgs.apacheHttpd
                 pkgs.bash
                 pkgs.coreutils
                 pkgs.git
