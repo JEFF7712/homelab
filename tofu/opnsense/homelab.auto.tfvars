@@ -385,6 +385,22 @@ firewall_filters = {
       destination = { net = "any", port = "" }
     }
   }
+  clients-block-govee-bulbs-internet = {
+    description = "Block LAN-only Govee bulbs from the Internet (local control via govee_lan)"
+    enabled     = true
+    sequence    = 226
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "block"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "any"
+      quick       = true
+      log         = true
+      source      = { net = "govee_bulbs", port = "" }
+      destination = { net = "any", port = "" }
+    }
+  }
   infrastructure-allow-dns = {
     description = "Allow infrastructure to OPNsense DNS"
     enabled     = true
