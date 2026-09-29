@@ -684,6 +684,24 @@ class CopyVerifyTest(unittest.TestCase):
         self.assertIn("refusing to overwrite", report["images"][0]["errors"][0])
         self.assertEqual(client.copies, [])
 
+    def test_copy_conflict_reports_observed_digest(self) -> None:
+        raw = manifest()
+        conflicting = manifest([("linux", "amd64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        source = f"docker.io/library/demo@{record['digest']}"
+        tag = f"registry.rupan.dev/{record['destination_repository']}:1.0"
+        client = FakeClient({source: raw, tag: conflicting})
+        report = copy_lock(client, value)  # type: ignore[arg-type]
+        image = report["images"][0]
+        # The tag conflict is only actionable with the digest already in the
+        # registry, so the report must carry it rather than nulling the field.
+        self.assertEqual(image["observed_digest"], digest(conflicting))
+        self.assertEqual(image["expected_digest"], digest(raw))
+        error = image["errors"][0]
+        self.assertIn(digest(raw), error)
+        self.assertIn(digest(conflicting), error)
+
     def test_verify_detects_platform_mismatch(self) -> None:
         raw = manifest([("linux", "amd64"), ("linux", "arm64")])
         value = valid_lock(raw)

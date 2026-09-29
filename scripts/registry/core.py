@@ -1476,6 +1476,7 @@ def _copy_one(
     source = f"{record['source']['registry']}/{record['source']['repository']}@{record['digest']}"
     status = "reused"
     errors: list[str] = []
+    observed_digest: str | None = None
 
     def remaining() -> float:
         value = image_timeout - (time.monotonic() - started)
@@ -1500,8 +1501,11 @@ def _copy_one(
                 progress(f"copied {record['id']} tag={tag}")
             else:
                 if observed != record["digest"]:
+                    observed_digest = observed
                     raise RegistryError(
-                        f"refusing to overwrite conflicting destination tag {record['destination_repository']}:{tag}"
+                        f"refusing to overwrite conflicting destination tag "
+                        f"{record['destination_repository']}:{tag}: expected "
+                        f"{record['digest']}, observed {observed}"
                     )
         for descriptor in record["referrers"]["required"]:
             digest = descriptor["digest"]
@@ -1525,8 +1529,11 @@ def _copy_one(
                 progress(f"copied {record['id']} referrer={digest}")
             else:
                 if observed != digest:
+                    observed_digest = observed
                     raise RegistryError(
-                        f"refusing to overwrite conflicting referrer {record['destination_repository']}:{referrer_tag}"
+                        f"refusing to overwrite conflicting referrer "
+                        f"{record['destination_repository']}:{referrer_tag}: expected "
+                        f"{digest}, observed {observed}"
                     )
         verification = verify_record(client, lock, record, timeout=remaining())
         if verification["status"] != "verified":
@@ -1539,7 +1546,11 @@ def _copy_one(
         "source": source,
         "destination": f"{destination_base}@{record['digest']}",
         "expected_digest": record["digest"],
-        "observed_digest": record["digest"] if not errors else None,
+        "observed_digest": (
+            observed_digest
+            if observed_digest is not None
+            else (record["digest"] if not errors else None)
+        ),
         "platforms": {
             "expected": record["platforms"],
             "observed": record["platforms"] if not errors else [],
