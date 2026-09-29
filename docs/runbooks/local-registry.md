@@ -275,6 +275,26 @@ Before accepting backup:
 
 Do not disrupt the production router to simulate an outage. Do not enable age-based deletion or untagged cleanup until a tested retention fixture proves deployed digests, rollback digests, indexes, and referrers survive.
 
+### Observed garbage-collection behaviour
+
+Verified against the running zot 2.1.20 on 2026-09-29, so the retention fixture is written against facts rather than assumptions.
+
+- `storage.gc` is `true` with `GCInterval` 24h and `GCDelay` 1h. A pass starts shortly after the service comes up and then follows the interval.
+- zot's GC removes unreferenced **blobs**. It does not remove untagged manifests: the ledfx amd64 child manifest `sha256:dfc60db1...` resolves with 200 while carrying no tag at all.
+- `storage.retention.policies` is `null`, so zot itself keeps no generations. The `retention-*` tags in `registry/images.lock.json` are the only thing marking a deployed digest, and they are the whole of the protection.
+- The `mgmt` extension is always compiled in and cannot be turned off: zot 2.1.20 logs `mgmt extensions configuration option has been made redundant and will be ignored`, and `GET /v2/_zot/ext/mgmt?resource=config` already returns 200. It exposes no collection trigger, so it does not help here.
+- There is still no on-demand GC. A fixture has to provoke a pass by restarting the service, which is the only mechanism available until zot offers one.
+
+Consequence for the ledfx incident of 2026-09-29: the deployed index `sha256:a5ff8549...` was **never** stored in zot, rather than being collected. The tag
+`upstream/ghcr.io/ledfx/ledfx:retention-deployed-a5ff8549a847d1b2` pointed at the amd64 child manifest instead of the index, and the
+running pod survived only on the node's containerd cache. A copy that never verified its tag target against the locked digest would not
+have noticed, and the next reschedule would have failed with `ImagePullBackOff`.
+
+Two guards now cover this. `scripts.registry verify` fails when a locked digest is absent from the destination, and the copy step refuses to
+overwrite a tag whose digest differs from the lock. A retention fixture still needs to prove index, referrer, and blob survival across a
+real GC pass. `REGISTRY_MIGRATION_AUTH_FILE` was deleted once nothing referenced the retired `migration-importer` account, which the
+`registry check-auth` job now reports as an orphan rather than treating as an outage.
+
 ## Rollback
 
 Keep the pre-registry NixOS generations and previous external image references until recovery acceptance is complete.
