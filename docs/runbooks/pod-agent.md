@@ -161,6 +161,22 @@ the smoke before touching anything else.
 Hard cutover (no parallel running): Etsy refresh tokens rotate on use, so
 the laptop and the cluster must never both hold the refresher.
 
+Done 2026-09-29: provider smoke green for codex (`healthy:true`), laptop
+timers/services disabled (none remain), cluster CronJobs unsuspended,
+manual oauth-refresh and observe runs verified (run_id 139, 77 listings).
+Laptop DB is now stale by design; do not re-enable its timers without
+stopping the cluster jobs first.
+
+Follow-ups at cutover: Mercury returns `401 ipNotWhitelisted` from homelab
+egress, so the finance scan degrades to notify-only until the homelab IP is
+allowlisted in Mercury. Claude and Cursor subscription auth did not transfer
+(file copy is not honored / machine-bound), so the cluster runs codex-only
+rotation until those are re-established; `GOVERNOR_SUBSCRIPTION_PROVIDERS`
+in `configmap.yaml` is the switch. The provider path also depends on
+`POD_AGENT_PROVIDER_CONTAINMENT=best-effort` (see `docs/DEVELOPMENT.md` in
+the pod-agent repo): without it every provider call fails in a pod, and no
+pod spec can substitute for it.
+
 1. Confirm the smoke gate passed and the dashboard Deployment is healthy.
 2. On the laptop: `systemctl --user disable --now` every `pod-agent-*`
    timer (observe, cycle, price, sweep, veto-sweep, oauth-refresh, learn,
