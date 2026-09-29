@@ -3,7 +3,8 @@ alias: "Maintenance: Watchman Missing Entities Report"
 description: >-
   Run Watchman each morning and notify only about genuinely new breakage.
   Known-benign items are filtered: the pre_away_* snapshot scenes that
-  only exist while away, and anything merely unavailable or never
+  only exist while away, the pre_music_mode_govee snapshot that only
+  exists after music mode has run, and anything merely unavailable or never
   activated (idle-printer buttons, unactivated scenes, backup sensors
   awaiting Sunday's run).
 triggers:
@@ -24,6 +25,7 @@ actions:
         - scene.pre_away_shared
         - scene.pre_away_climate
         - scene.shared_last_state
+        - scene.pre_music_mode_govee
   - variables:
       wm_bad_count: >-
         {% set r = wm_report.service_response

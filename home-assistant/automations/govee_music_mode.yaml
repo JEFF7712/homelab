@@ -2,8 +2,11 @@ id: govee_music_mode
 alias: "Lighting: Govee Music Mode"
 description: >-
   Activates real-time LedFx audio-reactive lighting across all shared Govee
-  bulbs when Govee Music Mode is turned on, locking Adaptive Lighting. When
-  turned off, restores Adaptive Lighting control and circadian state without API spam.
+  bulbs when Govee Music Mode is turned on, locking Adaptive Lighting. The
+  pre-music state is snapshotted first; when turned off, the snapshot is
+  restored so bulbs never keep LedFx's last frame (black when the audio tap
+  is silent), then Adaptive Lighting control and circadian state resume
+  without API spam.
 mode: restart
 triggers:
   - trigger: state
@@ -21,6 +24,14 @@ actions:
           - condition: trigger
             id: "mode_on"
         sequence:
+          - action: scene.create
+            data:
+              scene_id: pre_music_mode_govee
+              snapshot_entities:
+                - light.kitchen_light
+                - light.kitchen_light_2
+                - light.living_room_mushroom_lamp
+                - light.living_room_tulip_lamp
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
@@ -40,6 +51,14 @@ actions:
           - action: rest_command.ledfx_deactivate_scene
             data:
               scene_id: "music-mode"
+            continue_on_error: true
+          - if:
+              - condition: template
+                value_template: "{{ state_attr('scene.pre_music_mode_govee', 'entity_id') is not none }}"
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: scene.pre_music_mode_govee
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights

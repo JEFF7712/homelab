@@ -72,6 +72,22 @@ class TestGoveeMusicMode(unittest.TestCase):
         self.assertIn("adaptive_lighting.apply", raw_text)
         self.assertIn("turn_on_lights: false", raw_text)
 
+        # Must snapshot pre-music state on entry and restore it on exit, so
+        # bulbs never keep LedFx's last frame (black when the tap is silent).
+        self.assertIn("scene.create", raw_text)
+        self.assertIn("pre_music_mode_govee", raw_text)
+        self.assertIn("scene.turn_on", raw_text)
+
+    def test_music_snapshot_is_watchman_exempt(self) -> None:
+        watchman_file = (
+            REPO_ROOT
+            / "home-assistant"
+            / "automations"
+            / "watchman_missing_report.yaml"
+        )
+        raw_text = watchman_file.read_text(encoding="utf-8")
+        self.assertIn("scene.pre_music_mode_govee", raw_text)
+
     def test_voice_automation(self) -> None:
         voice_file = (
             REPO_ROOT
