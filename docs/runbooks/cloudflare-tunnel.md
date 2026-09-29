@@ -22,7 +22,7 @@ Related manifests:
 - `gitops/cloudflare/tunnel.yaml`
 - `gitops/immich/server.yaml`
 
-## Ingress order (v81, 2026-09-24)
+## Ingress order (v82, 2026-09-29)
 
 Cloudflare evaluates top to bottom, first match wins. Keep specifics first, catch-all last.
 
@@ -73,7 +73,8 @@ Cloudflare Access public bypass configured.
 40. `books.rupan.dev -> http://calibre-web.media:80`
 41. `media.rupan.dev -> http://filebrowser.media:80`
 42. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-43. `http_status:404`
+43. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+44. `http_status:404`
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)
@@ -93,11 +94,42 @@ Removed 2026-09-22 (dead origins; no such Services in-cluster, verified via `kub
 4. Confirm the tunnel's remote config matches the GitOps list. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` must already exist (created once per hostname in the dashboard).
 5. Verify the public hostname serves the expected origin.
 
+## `pod.rupan.dev` (owner desk)
+
+The pod-agent dashboard is the only host here that is not a public site, and it
+is not a public one either: it can approve proposals, which publishes products
+to a live storefront. It sits behind **two** independent gates, and both must
+be in place before the hostname serves anything useful.
+
+1. Cloudflare Access application `pod-agent-dashboard`, hostname
+   `pod.rupan.dev`, with an **Allow** policy on the owner email. Do not give it
+   a Bypass policy the way `rupan.dev` and `flux-webhook-bypass` have one:
+   Bypass on this hostname would put the storefront on the public internet.
+2. `DASHBOARD_TOKEN` (GitLab `POD_AGENT_DASHBOARD_TOKEN`, hex 32) is already
+   set on the Deployment, and `serve_forever` refuses a non-loopback bind
+   without it. Every request still needs it, so the Access login is followed
+   by a token prompt. First visit with
+   `https://pod.rupan.dev/?token=$POD_AGENT_DASHBOARD_TOKEN`; the page sets the
+   `dashboard_token` cookie for the browser session.
+
+Access is the outer gate and the token is the inner one, deliberately. A
+wildcard `*` Access app or a mis-scoped policy change cannot publish a
+product on its own, and a token leaked from the GitLab project still only works
+from behind an authenticated Access session.
+
+Origin reachability is restricted in-cluster by
+`gitops/pod-agent/network-policy.yaml`: only pods in the `cloudflare`
+namespace may open a connection to the dashboard container port. A
+compromised workload elsewhere in the cluster has no path to the origin at
+all, so the hostname is the only way in.
+
 ## Tunnel configuration source
 
 The Cloudflare API reports `config_src=cloudflare` and `remote_config=true`. On 2026-09-23, the remote ingress was updated from version 75 to version 76 to match the GitOps mirror. Supplying `--credentials-file` and a local `--config` file does not change the tunnel's configured source; the Cloudflare remote config remains active.
 
 Before that update, the active remote config had 25 rules while the GitOps mirror had 26. Every remote rule matched the mirror, but the Jellyfin hostname and origin were missing remotely, so the catch-all returned 404. Version 76 now has all 26 rules in the GitOps order, and the public Jellyfin health endpoints return HTTP 200.
+
+v82 (2026-09-29) appended `pod.rupan.dev` ahead of the catch-all, 43 rules to 44. The prior 43 were diffed byte-identical after the write, so the first-match behaviour of every other hostname is unchanged. The Access login for that hostname predates the tunnel rule: `pod.rupan.dev` was already intercepted by an Access app, so before v82 it 302'd to the login and would have 404'd at the catch-all once past it.
 
 The Deployment opts into Stakater Reloader. This restarts connectors when the ConfigMap changes, but a restart alone does not make the local file authoritative. Keep the Cloudflare remote rule list and GitOps mirror in exact parity when changing hostnames.
 

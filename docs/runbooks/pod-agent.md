@@ -18,7 +18,9 @@ token rotation races.
   CLI-auth homes, provider rotation.
 - `gitops/pod-agent/externalsecret.yaml` — `pod-agent-env` (30 keys from
   GitLab) + `pod-agent-age` (age identity key file for backup verify).
-- `gitops/pod-agent/dashboard.yaml` — owner desk, ClusterIP only.
+- `gitops/pod-agent/dashboard.yaml` — owner desk, ClusterIP service.
+- `gitops/pod-agent/network-policy.yaml` — dashboard ingress from the
+  `cloudflare` namespace only, so the public hostname is the sole path in.
 - `gitops/pod-agent/discord-bot.yaml` — approvals gateway bot.
 - `gitops/pod-agent/cronjobs-daily.yaml` — backup, observe, cycle, price,
   sweep. `cronjobs-frequent.yaml` — veto-sweep, oauth-refresh, email-watch,
@@ -205,8 +207,11 @@ pod spec can substitute for it.
 - The image is ~3.6 GB (Python + Node + three CLIs). Keep registry
   retention tight for `apps/pod-agent` until it is slimmed (multi-stage
   build is the obvious follow-up).
-- Dashboard has no Ingress: ClusterIP only, reach it with
+- Dashboard is published at `pod.rupan.dev` through the homelab tunnel, behind
+  Cloudflare Access and `DASHBOARD_TOKEN`; both gates are required, see
+  `docs/runbooks/cloudflare-tunnel.md`. On the LAN the shortcut is
   `kubectl -n pod-agent port-forward svc/pod-agent-dashboard 3010:80` plus
-  `?token=$POD_AGENT_DASHBOARD_TOKEN`. Do not expose it without the token.
+  `?token=$POD_AGENT_DASHBOARD_TOKEN` (the network policy allows node traffic
+  to the pod, so the port-forward keeps working).
 - `pod-agent-canary` and `pod-agent-design` timers stay disabled, matching
   the laptop.

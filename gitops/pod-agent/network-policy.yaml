@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dashboard-ingress-from-tunnel
+  namespace: pod-agent
+  labels:
+    app.kubernetes.io/name: pod-agent
+spec:
+  podSelector:
+    matchLabels:
+      app: pod-agent-dashboard
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+      ports:
+        - protocol: TCP
+          port: 3010

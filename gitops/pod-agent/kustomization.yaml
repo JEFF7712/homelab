@@ -6,6 +6,7 @@ resources:
   - configmap.yaml
   - externalsecret.yaml
   - dashboard.yaml
+  - network-policy.yaml
   - discord-bot.yaml
   - cronjobs-daily.yaml
   - cronjobs-frequent.yaml

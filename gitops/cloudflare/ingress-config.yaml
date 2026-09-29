@@ -91,4 +91,6 @@ data:
         service: http://filebrowser.media:80
       - hostname: bookshelf.rupan.dev
         service: http://bookshelf.media:80
+      - hostname: pod.rupan.dev
+        service: http://pod-agent-dashboard.pod-agent:80
       - service: http_status:404
