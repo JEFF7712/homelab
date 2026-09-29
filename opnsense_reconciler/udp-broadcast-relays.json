@@ -18,15 +18,5 @@
     "listenport": "4001",
     "multicastaddress": "239.255.255.250",
     "sourceaddress": ""
-  },
-  {
-    "InstanceID": "3",
-    "RevertTTL": "0",
-    "description": "mDNS discovery for Spotify Connect and AirPlay",
-    "enabled": "1",
-    "interfaces": "opt1,opt3",
-    "listenport": "5353",
-    "multicastaddress": "224.0.0.251",
-    "sourceaddress": ""
   }
 ]

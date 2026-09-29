@@ -136,6 +136,7 @@ def reconcile_udp_broadcast_relays(
     desired_by_description = {
         _required_string(relay, "description"): relay for relay in desired_relays
     }
+    changed: list[str] = []
     unexpected = sorted(set(live) - set(desired_by_description))
     if unexpected:
         raise RuntimeError(
@@ -162,6 +163,7 @@ def reconcile_udp_broadcast_relays(
                 {"udpbroadcastrelay": payload},
             )
         _require_stored(result)
+        changed.append(description)
     verified = client.get("/api/udpbroadcastrelay/settings/search_relay")
     verified_rows = verified.get("rows") if isinstance(verified, dict) else None
     verified_by_description = {
@@ -182,6 +184,14 @@ def reconcile_udp_broadcast_relays(
         raise RuntimeError(
             "UDP broadcast relay verification failed for " + ", ".join(mismatches)
         )
+    # Settings writes do not start the daemon: restart each changed instance
+    # so adds and edits take effect without waiting for a reboot.
+    for description in changed:
+        row = verified_by_description.get(description)
+        uuid = row.get("uuid") if isinstance(row, dict) else None
+        if not isinstance(uuid, str) or not uuid:
+            raise RuntimeError(f"UDP broadcast relay {description} has no UUID")
+        client.get(f"/api/udpbroadcastrelay/service/restart/{uuid}")
     for description, row in verified_by_description.items():
         uuid = row.get("uuid")
         if not isinstance(uuid, str) or not uuid:
@@ -189,7 +199,9 @@ def reconcile_udp_broadcast_relays(
         status = client.get(f"/api/udpbroadcastrelay/service/status/{uuid}")
         if not isinstance(status, dict) or status.get("result") != "OK":
             raise RuntimeError(
-                f"UDP broadcast relay {description} is not running: {status}"
+                f"UDP broadcast relay {description} is not running: {status}. "
+                "Check for a conflicting listener on the same port "
+                "(e.g. mdns-repeater also binds UDP 5353)."
             )
 
 
