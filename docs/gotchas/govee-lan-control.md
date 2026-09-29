@@ -64,9 +64,11 @@ The fix is a local driver patch at
 `gitops/music-assistant/ledfx-patches/govee.py`, mounted over the installed
 module by `gitops/music-assistant/ledfx.yaml` via ConfigMap `subPath`. It
 replaces `flush()` with a `colorwc` write and drops the tunnel handshake and
-packet helpers. The mount is deliberate: the upstream image digest stays
-immutable, and the patch is reviewable as one file. Covered by
-`tests/test_ledfx_govee_patch.py`.
+packet helpers. `flush()` caps sends at 10 Hz and skips near-duplicate
+colors: the H6004 drops off the LAN when flooded at full render rate, and
+Govee flags that flood as abnormal. The mount is deliberate: the upstream
+image digest stays immutable, and the patch is reviewable as one file.
+Covered by `tests/test_ledfx_govee_patch.py`.
 
 Upstream file is `ledfx/devices/govee.py` at v2.1.9, GPL-3.0. The patch is
 derivative work of a copy already in use here; it changes no licensing

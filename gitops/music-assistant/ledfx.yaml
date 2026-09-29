@@ -119,6 +119,10 @@ data:
 
     _LOGGER = logging.getLogger(__name__)
 
+    _MAX_SEND_HZ = 10.0
+    _MIN_INTERVAL_S = 1.0 / _MAX_SEND_HZ
+    _COLOR_THRESHOLD = 12
+
     # LOCAL PATCH (homelab): upstream drives Govee bulbs through a reverse
     # engineered Razer Chroma tunnel ("razer" commands carrying a base64 packet
     # with header BB 00 FA B0 00). The H6004 does not implement that tunnel: it
@@ -183,6 +187,8 @@ data:
             self.send_response_port = 4001  # Send Scanning
             self.recv_port = 4002  # Responses
             self.udp_server = None
+            self._last_send_ts = 0.0
+            self._last_rgb = None
 
         def send_udp(self, message, port=4003):
             data = json.dumps(message).encode("utf-8")
@@ -251,14 +257,36 @@ data:
             colorwc addresses the whole device rather than a pixel range, so a
             multi-zone bulb renders as a single flat color. Single-pixel devices
             are exact.
+
+            Sends are capped at _MAX_SEND_HZ and near-duplicate colors below
+            _COLOR_THRESHOLD are skipped. The H6004 drops off the LAN when
+            flooded at full render rate, and Govee flags that flood as abnormal.
             """
             rgb = data.reshape(-1, 3).mean(axis=0).round().astype(int)
+            red, green, blue = int(rgb[0]), int(rgb[1]), int(rgb[2])
+            now = time.monotonic()
+            last_ts = getattr(self, "_last_send_ts", 0.0)
+            last_rgb = getattr(self, "_last_rgb", None)
+            if last_rgb is not None:
+                if (
+                    max(
+                        abs(red - last_rgb[0]),
+                        abs(green - last_rgb[1]),
+                        abs(blue - last_rgb[2]),
+                    )
+                    < _COLOR_THRESHOLD
+                ):
+                    return
+                if now - last_ts < _MIN_INTERVAL_S:
+                    return
+            self._last_send_ts = now
+            self._last_rgb = (red, green, blue)
             self.send_udp(
                 {
                     "msg": {
                         "cmd": "colorwc",
                         "data": {
-                            "color": {"r": int(rgb[0]), "g": int(rgb[1]), "b": int(rgb[2])},
+                            "color": {"r": red, "g": green, "b": blue},
                             "colorTemInKelvin": 0,
                         },
                     }

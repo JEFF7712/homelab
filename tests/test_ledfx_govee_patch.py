@@ -7,6 +7,7 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -200,6 +201,55 @@ class FlushEmitsColorwcTests(unittest.TestCase):
         device = make_device(sent)
         device.flush(FakeArray([0, 255, 0]))
         self.assertEqual(sent[0][0]["msg"]["data"]["color"], {"r": 0, "g": 255, "b": 0})
+
+
+class FlushThrottleTests(unittest.TestCase):
+    """Music mode renders faster than the H6004 tolerates; flush() caps it."""
+
+    def test_rapid_large_change_is_dropped(self) -> None:
+        sent: list = []
+        device = make_device(sent)
+        with mock.patch.object(govee.time, "monotonic", return_value=1000.0):
+            device.flush(FakeArray([255, 0, 0]))
+        self.assertEqual(len(sent), 1)
+        with mock.patch.object(govee.time, "monotonic", return_value=1000.01):
+            device.flush(FakeArray([0, 0, 255]))
+        self.assertEqual(len(sent), 1)
+
+    def test_large_change_after_interval_sends(self) -> None:
+        sent: list = []
+        device = make_device(sent)
+        with mock.patch.object(govee.time, "monotonic", return_value=1000.0):
+            device.flush(FakeArray([255, 0, 0]))
+        with mock.patch.object(
+            govee.time,
+            "monotonic",
+            return_value=1000.0 + govee._MIN_INTERVAL_S + 0.01,
+        ):
+            device.flush(FakeArray([0, 0, 255]))
+        self.assertEqual(len(sent), 2)
+
+    def test_near_duplicate_suppressed_after_interval(self) -> None:
+        sent: list = []
+        device = make_device(sent)
+        with mock.patch.object(govee.time, "monotonic", return_value=1000.0):
+            device.flush(FakeArray([100, 100, 100]))
+        with mock.patch.object(govee.time, "monotonic", return_value=1010.0):
+            device.flush(FakeArray([105, 103, 108]))
+        self.assertEqual(len(sent), 1)
+
+    def test_burst_caps_to_first_send(self) -> None:
+        sent: list = []
+        device = make_device(sent)
+        with mock.patch.object(govee.time, "monotonic", return_value=1000.0):
+            for i in range(30):
+                device.flush(FakeArray([255, 0, 0] if i % 2 == 0 else [0, 0, 255]))
+        self.assertEqual(len(sent), 1)
+
+    def test_throttle_bounds_are_sane(self) -> None:
+        self.assertLessEqual(govee._MAX_SEND_HZ, 10.0)
+        self.assertGreaterEqual(govee._MIN_INTERVAL_S, 0.1)
+        self.assertGreaterEqual(govee._COLOR_THRESHOLD, 1)
 
 
 class ActivationTests(unittest.TestCase):
