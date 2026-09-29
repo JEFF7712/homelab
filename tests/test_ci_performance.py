@@ -210,6 +210,7 @@ class CancellationTest(unittest.TestCase):
             ".yaml_schema",
             ".secret_scan",
             ".registry_lock",
+            ".registry_auth_consistency",
         }
         self.assertEqual(
             {

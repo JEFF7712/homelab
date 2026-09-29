@@ -83,6 +83,9 @@ registry-check:
     bash scripts/checks/registry-refresh.sh
     python -m scripts.registry check --lock registry/images.lock.json
 
+registry-check-auth report="artifacts/registry/auth-report.json":
+    python -m scripts.registry check-auth --lock registry/images.lock.json --report {{report}}
+
 registry-access-control output="artifacts/registry/access-control.json":
     python -m scripts.registry access-control --lock registry/images.lock.json --output {{output}}
 

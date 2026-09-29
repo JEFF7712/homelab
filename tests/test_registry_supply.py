@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import contextlib
 import hashlib
 import io
@@ -7,6 +8,7 @@ import json
 import os
 import pathlib
 import stat
+import subprocess
 import tempfile
 import unittest
 from typing import Any
@@ -19,7 +21,9 @@ from scripts.registry.core import (
     ImageReference,
     OciClient,
     RegistryError,
+    access_control_users,
     build_live_snapshot,
+    check_auth_consistency,
     check_consumers,
     copy_lock,
     copy_plan,
@@ -28,6 +32,7 @@ from scripts.registry.core import (
     filter_transient_observed_errors,
     image_kind,
     load_lock,
+    parse_htpasswd,
     promote_first_party_lock,
     render_access_control,
     render_node_config,
@@ -180,6 +185,186 @@ def valid_lock(raw: bytes) -> dict[str, Any]:
         "mirror_exceptions": [],
         "unresolved_inputs": [],
     }
+
+
+class AuthConsistencyTest(unittest.TestCase):
+    """The htpasswd and the CI auth files must be rotated together."""
+
+    @staticmethod
+    def _hash(password: str) -> str:
+        result = subprocess.run(
+            ["htpasswd", "-nbB", "tester", password],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # `htpasswd -n` prints "user:hash"; only the hash is wanted.
+        return result.stdout.strip().partition(":")[2]
+
+    @staticmethod
+    def _auth_file(user: str, password: str) -> str:
+        auth = base64.b64encode(f"{user}:{password}".encode()).decode()
+        return json.dumps({"auths": {"registry.rupan.dev": {"auth": auth}}}, indent=2)
+
+    def test_matching_credentials_report_ok(self) -> None:
+        report = check_auth_consistency(
+            f"maintenance:{self._hash('pw-maintenance')}\n",
+            {
+                "REGISTRY_MAINTENANCE_AUTH_FILE": self._auth_file(
+                    "maintenance", "pw-maintenance"
+                )
+            },
+        )
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(report["errors"], [])
+        self.assertEqual(
+            report["checked_accounts"],
+            [
+                {
+                    "variable": "REGISTRY_MAINTENANCE_AUTH_FILE",
+                    "registry": "registry.rupan.dev",
+                    "user": "maintenance",
+                }
+            ],
+        )
+
+    def test_rotated_password_without_updated_auth_file_fails(self) -> None:
+        # The real drift: the htpasswd was rotated, the auth file was not, and
+        # the only symptom in CI was a bare 401.
+        report = check_auth_consistency(
+            f"maintenance:{self._hash('new-password')}\n",
+            {
+                "REGISTRY_MAINTENANCE_AUTH_FILE": self._auth_file(
+                    "maintenance", "old-password"
+                )
+            },
+        )
+        self.assertEqual(report["status"], "failed")
+        error = report["errors"][0]
+        self.assertEqual(error["variable"], "REGISTRY_MAINTENANCE_AUTH_FILE")
+        self.assertEqual(error["user"], "maintenance")
+        self.assertIn("does not match", error["error"])
+
+    def test_auth_file_user_absent_from_htpasswd_fails(self) -> None:
+        report = check_auth_consistency(
+            f"node:{self._hash('pw')}\n",
+            {"REGISTRY_GHOST_AUTH_FILE": self._auth_file("ghost", "pw")},
+        )
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("no htpasswd entry", report["errors"][0]["error"])
+
+    def test_missing_entry_for_a_privileged_account_is_fatal(self) -> None:
+        # An account the policy grants a role to must exist, or whichever job
+        # authenticates as it fails.
+        report = check_auth_consistency(
+            f"node:{self._hash('pw')}\n",
+            {"REGISTRY_MAINTENANCE_AUTH_FILE": self._auth_file("maintenance", "pw")},
+            {"maintenance"},
+        )
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("no htpasswd entry", report["errors"][0]["error"])
+
+    def test_missing_entry_for_a_retired_account_is_an_orphan(self) -> None:
+        # migration-importer is not granted a role anywhere, so its leftover
+        # variable is cleanup rather than an outage and must not redden CI.
+        report = check_auth_consistency(
+            f"node:{self._hash('pw')}\n",
+            {
+                "REGISTRY_MIGRATION_AUTH_FILE": self._auth_file(
+                    "migration-importer", "pw"
+                )
+            },
+            {"maintenance", "node", "importer"},
+        )
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(report["errors"], [])
+        self.assertEqual(report["orphaned_accounts"][0]["user"], "migration-importer")
+        self.assertIn("delete the variable", report["orphaned_accounts"][0]["reason"])
+
+    def test_access_control_users_covers_admin_and_publishers(self) -> None:
+        lock = valid_lock(manifest())
+        record = lock["images"][0]
+        record["kind"] = "first-party"
+        record["destination_repository"] = "apps/demo"
+        users = access_control_users(lock)
+        self.assertIn("maintenance", users)
+        self.assertIn("importer", users)
+        self.assertIn("node", users)
+        self.assertIn("publisher-demo", users)
+
+    def test_htpasswd_user_without_auth_file_is_not_an_error(self) -> None:
+        report = check_auth_consistency(
+            f"maintenance:{self._hash('pw')}\nnode:{self._hash('pw')}\n",
+            {"REGISTRY_MAINTENANCE_AUTH_FILE": self._auth_file("maintenance", "pw")},
+        )
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(report["htpasswd_users"], ["maintenance", "node"])
+
+    def test_upstream_entries_are_skipped_not_failed(self) -> None:
+        # Source credentials are somebody else's accounts; the htpasswd is
+        # zot's, so only the destination registry is comparable.
+        auth = base64.b64encode(b"importer:pw").decode()
+        document = json.dumps(
+            {
+                "auths": {
+                    "registry.rupan.dev": {"auth": auth},
+                    "ghcr.io": {"auth": base64.b64encode(b"jeff7712:pw").decode()},
+                }
+            }
+        )
+        report = check_auth_consistency(
+            f"importer:{self._hash('pw')}\n",
+            {"REGISTRY_SOURCE_AUTH_FILE": document},
+        )
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(len(report["checked_accounts"]), 1)
+        self.assertEqual(
+            report["skipped_entries"],
+            [
+                {
+                    "variable": "REGISTRY_SOURCE_AUTH_FILE",
+                    "registry": "ghcr.io",
+                    "reason": "not the destination registry",
+                }
+            ],
+        )
+
+    def test_auth_file_without_auths_is_reported_not_raised(self) -> None:
+        report = check_auth_consistency(
+            f"importer:{self._hash('pw')}\n",
+            {"REGISTRY_EMPTY_AUTH_FILE": "{}"},
+        )
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("unreadable auth file", report["errors"][0]["error"])
+
+    def test_malformed_auth_file_is_reported_not_raised(self) -> None:
+        report = check_auth_consistency(
+            f"maintenance:{self._hash('pw')}\n",
+            {"REGISTRY_BROKEN_AUTH_FILE": "not json at all"},
+        )
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("unreadable auth file", report["errors"][0]["error"])
+
+    def test_unusable_hash_is_reported_not_raised(self) -> None:
+        report = check_auth_consistency(
+            "maintenance:not-a-bcrypt-hash\n",
+            {"REGISTRY_MAINTENANCE_AUTH_FILE": self._auth_file("maintenance", "pw")},
+        )
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("not a usable hash", report["errors"][0]["error"])
+
+    def test_parse_htpasswd_skips_blanks_and_comments(self) -> None:
+        entries = parse_htpasswd("# a comment\n\nnode:abc\n  spaced:def  \n")
+        self.assertEqual(entries, {"node": "abc", "spaced": "def"})
+
+    def test_report_never_contains_the_password(self) -> None:
+        secret = "do-not-leak-this-value"
+        report = check_auth_consistency(
+            f"maintenance:{self._hash(secret)}\n",
+            {"REGISTRY_MAINTENANCE_AUTH_FILE": self._auth_file("maintenance", secret)},
+        )
+        self.assertEqual(report["status"], "ok")
+        self.assertNotIn(secret, json.dumps(report))
 
 
 class FakeClient:

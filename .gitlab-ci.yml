@@ -251,6 +251,33 @@ registry_lock:
     - .nas_ci
     - .registry_lock
 
+# The htpasswd and the REGISTRY_*_AUTH_FILE variables are rotated together by
+# hand, and nothing noticed when they drifted: the only symptom was a job
+# failing with a bare 401. This compares them offline, so the drift fails here
+# instead. The job reads secrets but makes no network calls and writes nothing
+# outside artifacts, which is why it can run on every pipeline.
+.registry_auth_consistency:
+  timeout: 10m
+  interruptible: true
+  stage: test
+  needs: []
+  environment:
+    name: production
+  script:
+    - >-
+      nix develop ./flake -c python -m scripts.ci.run registry-auth -- bash -euo pipefail -c
+      'just registry-check-auth'
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - artifacts/registry/
+
+registry_auth_consistency:
+  extends:
+    - .nas_ci
+    - .registry_auth_consistency
+
 registry_lock_feature:
   extends:
     - .shared_feature

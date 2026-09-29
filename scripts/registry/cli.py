@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 from collections.abc import Sequence
@@ -10,8 +11,10 @@ from .core import (
     DEFAULT_REGISTRY,
     OciClient,
     RegistryError,
+    access_control_users,
     atomic_write_json,
     atomic_write_private,
+    check_auth_consistency,
     check_consumers,
     copy_lock,
     copy_plan,
@@ -89,6 +92,35 @@ def _parser() -> argparse.ArgumentParser:
     check = subparsers.add_parser("check", help="check consumer image policy offline")
     check.add_argument("--lock", type=pathlib.Path, required=True)
 
+    check_auth = subparsers.add_parser(
+        "check-auth",
+        help="verify registry auth files still match the htpasswd",
+    )
+    check_auth.add_argument(
+        "--htpasswd-file",
+        type=pathlib.Path,
+        default=pathlib.Path(os.environ.get("REGISTRY_HTPASSWD_FILE", "/dev/stdin")),
+    )
+    check_auth.add_argument(
+        "auth_files",
+        nargs="*",
+        metavar="NAME=PATH",
+        help="auth file variables to verify, defaulting to REGISTRY_*_AUTH_FILE",
+    )
+    check_auth.add_argument(
+        "--lock",
+        type=pathlib.Path,
+        help=(
+            "lock whose access-control policy decides which accounts a missing "
+            "htpasswd entry is fatal for"
+        ),
+    )
+    check_auth.add_argument(
+        "--report",
+        type=pathlib.Path,
+        default=pathlib.Path("artifacts/registry/auth-report.json"),
+    )
+
     node_config = subparsers.add_parser(
         "node-config", help="write a protected k3s registries.yaml"
     )
@@ -112,6 +144,40 @@ def _network_options(parser: argparse.ArgumentParser) -> None:
 
 def _print(value: object) -> None:
     print(json.dumps(value, indent=2, sort_keys=True))
+
+
+def _check_auth(args: argparse.Namespace) -> dict:
+    """Resolve auth files from `NAME=PATH` arguments or the environment.
+
+    CI file-type variables arrive as paths, so the variable name is paired with
+    the file GitLab wrote rather than the secret's contents.
+    """
+    documents: dict[str, str] = {}
+    if args.auth_files:
+        for item in args.auth_files:
+            name, separator, path = item.partition("=")
+            if not separator:
+                raise RegistryError(f"expected NAME=PATH, got {item!r}")
+            documents[name] = pathlib.Path(path).read_text(encoding="utf-8")
+    else:
+        for name, path in sorted(os.environ.items()):
+            if not name.startswith("REGISTRY_") or not name.endswith("_AUTH_FILE"):
+                continue
+            candidate = pathlib.Path(path)
+            if candidate.is_file():
+                documents[name] = candidate.read_text(encoding="utf-8")
+    if not documents:
+        raise RegistryError("no REGISTRY_*_AUTH_FILE variables to verify")
+    try:
+        htpasswd = args.htpasswd_file.read_text(encoding="utf-8")
+    except OSError as error:
+        raise RegistryError(
+            f"cannot read htpasswd from {args.htpasswd_file}"
+        ) from error
+    expected = None
+    if args.lock is not None:
+        expected = access_control_users(load_lock(args.lock))
+    return check_auth_consistency(htpasswd, documents, expected)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -242,6 +308,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "check":
             lock = load_lock(args.lock)
             report = check_consumers(args.root, lock)
+            _print(report)
+            return 0 if report["status"] == "ok" else 1
+        if args.command == "check-auth":
+            report = _check_auth(args)
+            atomic_write_json(args.report, report)
             _print(report)
             return 0 if report["status"] == "ok" else 1
         if args.command == "node-config":

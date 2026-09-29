@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import dataclasses
 import datetime as dt
 import fnmatch
@@ -27,6 +28,7 @@ _IMAGE_FIELD_RE = re.compile(
     r"^\s*(?:-\s*)?image:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE
 )
 _KIND_RE = re.compile(r"^kind:\s*HelmRelease\s*$", re.MULTILINE)
+_HASH_RE = re.compile(r"\$(?:2[abxy]\$\d{2}\$|argon2(?:id|i)?\$)\S{8,}\Z")
 _CHART_RE = re.compile(r"^\s+chart:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE)
 
 
@@ -1772,4 +1774,233 @@ def render_access_control(lock: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "repositories": repositories,
         "adminPolicy": {"users": ["maintenance"], "actions": administer},
+    }
+
+
+def parse_htpasswd(content: str) -> dict[str, str]:
+    """Map user to hash from an htpasswd file, ignoring blanks and comments."""
+    entries: dict[str, str] = {}
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        user, separator, value = stripped.partition(":")
+        if not separator or not user:
+            continue
+        entries[user] = value
+    return entries
+
+
+def _auth_file_user(auth: str) -> str:
+    decoded = base64.b64decode(auth).decode()
+    user, separator, _ = decoded.partition(":")
+    if not separator:
+        raise RegistryError("registry auth entry is not base64 of user:password")
+    return user
+
+
+def _verify_htpasswd(path: pathlib.Path, user: str, password: str) -> bool:
+    """Ask `htpasswd` whether the password matches, keeping it off argv.
+
+    Exit 0 matches, 3 is a mismatch and 6 an unknown user; anything else means
+    the file or the hash is not usable and the caller reports it rather than
+    treating it as a pass.
+    """
+    result = subprocess.run(
+        ["htpasswd", "-v", str(path), user],
+        input=password + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode in (3, 6):
+        return False
+    raise RegistryError(
+        f"htpasswd could not verify {user}: {result.stderr.strip() or result.returncode}"
+    )
+
+
+def _verify_one(
+    errors: list[dict[str, str]],
+    checked: list[dict[str, str]],
+    orphans: list[dict[str, str]],
+    path: pathlib.Path,
+    entries: Mapping[str, str],
+    variable: str,
+    name: str,
+    registry: str,
+    user: str,
+    password: str,
+    expected_users: set[str] | None,
+) -> None:
+    """Record one auth entry's outcome against the htpasswd."""
+    field = {"variable": variable, "registry": registry, "user": user}
+    if user not in entries:
+        # A variable naming an account the lock never grants a role to is
+        # leftover from a retired identity, which is cleanup rather than an
+        # outage. One the policy does grant a role to would break whichever job
+        # needs it, so that stays fatal.
+        if expected_users is not None and user not in expected_users:
+            orphans.append(
+                {
+                    **field,
+                    "reason": (
+                        f"{name} auth file names {user}, which the access-control "
+                        f"policy never grants a role to; delete the variable"
+                    ),
+                }
+            )
+            return
+        errors.append(
+            {
+                **field,
+                "error": f"{name} auth file has no htpasswd entry for {user}",
+            }
+        )
+        return
+    if not _HASH_RE.match(entries[user]):
+        errors.append(
+            {
+                **field,
+                "error": (
+                    f"htpasswd entry for {user} is not a usable hash; repair it "
+                    f"before trusting the comparison"
+                ),
+            }
+        )
+        return
+    try:
+        matches = _verify_htpasswd(path, user, password)
+    except RegistryError as error:
+        errors.append({**field, "error": str(error)})
+        return
+    if not matches:
+        errors.append(
+            {
+                **field,
+                "error": (
+                    f"{name} auth file password does not match the htpasswd entry "
+                    f"for {user}; the two are rotated together or not at all"
+                ),
+            }
+        )
+        return
+    checked.append(field)
+
+
+def access_control_users(lock: Mapping[str, Any]) -> set[str]:
+    """Every account the rendered policy grants a role to."""
+    policy = render_access_control(lock)
+    users: set[str] = set(policy.get("adminPolicy", {}).get("users", []))
+    for repository in policy.get("repositories", {}).values():
+        for rule in repository.get("policies", []):
+            users.update(rule.get("users", []))
+    return users
+
+
+def check_auth_consistency(
+    htpasswd_content: str,
+    auth_files: Mapping[str, str],
+    expected_users: set[str] | None = None,
+) -> dict[str, Any]:
+    """Verify each registry auth file's password still matches the htpasswd.
+
+    zot authenticates against the htpasswd, but CI authenticates with the
+    separate `REGISTRY_*_AUTH_FILE` variables that a password rotation has to
+    update in lockstep. When they drift the only symptom is a job failing with
+    a bare 401, which is indistinguishable from a network fault, so verify the
+    pairs offline instead.
+
+    Auth files whose user has no htpasswd entry are errors. The reverse, an
+    htpasswd user with no auth file, is not: some accounts are only ever used
+    by hand.
+    """
+    entries = parse_htpasswd(htpasswd_content)
+    errors: list[dict[str, str]] = []
+    checked: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+    orphans: list[dict[str, str]] = []
+    with tempfile.TemporaryDirectory() as directory:
+        path = pathlib.Path(directory) / "htpasswd"
+        path.write_text(htpasswd_content, encoding="utf-8")
+        path.chmod(0o600)
+        for variable in sorted(auth_files):
+            name = variable.removeprefix("REGISTRY_").removesuffix("_AUTH_FILE").lower()
+            try:
+                payload = json.loads(auth_files[variable])
+                auths = payload["auths"]
+                if not isinstance(auths, dict) or not auths:
+                    raise RegistryError("auth file has no auths entries")
+            except (
+                KeyError,
+                TypeError,
+                ValueError,
+                RegistryError,
+                json.JSONDecodeError,
+            ) as error:
+                errors.append(
+                    {"variable": variable, "error": f"unreadable auth file: {error}"}
+                )
+                continue
+            for registry, config in sorted(auths.items()):
+                # The htpasswd authenticates zot, so only destination-registry
+                # entries can be compared against it. A source auth file's
+                # upstream credentials are somebody else's accounts and are
+                # deliberately not here to be checked.
+                if registry != DEFAULT_REGISTRY:
+                    skipped.append(
+                        {
+                            "variable": variable,
+                            "registry": registry,
+                            "reason": "not the destination registry",
+                        }
+                    )
+                    continue
+                try:
+                    user = _auth_file_user(config["auth"])
+                    password = (
+                        base64.b64decode(config["auth"]).decode().partition(":")[2]
+                    )
+                except (
+                    KeyError,
+                    TypeError,
+                    ValueError,
+                    RegistryError,
+                    base64.binascii.Error,
+                ) as error:
+                    errors.append(
+                        {
+                            "variable": variable,
+                            "registry": registry,
+                            "error": f"unreadable auth entry: {error}",
+                        }
+                    )
+                    continue
+                _verify_one(
+                    errors,
+                    checked,
+                    orphans,
+                    path,
+                    entries,
+                    variable,
+                    name,
+                    registry,
+                    user,
+                    password,
+                    expected_users,
+                )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "registry-auth-consistency-report",
+        "generated_at": _timestamp(),
+        "status": "ok" if not errors else "failed",
+        "checked_accounts": checked,
+        "skipped_entries": sorted(
+            skipped, key=lambda item: (item["variable"], item["registry"])
+        ),
+        "orphaned_accounts": orphans,
+        "htpasswd_users": sorted(entries),
+        "errors": errors,
     }
