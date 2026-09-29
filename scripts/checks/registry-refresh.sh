@@ -5,7 +5,7 @@
 # reachable (offline laptop, shared CI runners). Always exits 0; the check
 # itself remains the enforcing step.
 set -uo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../.." || exit 1
 
 refresh() {
   python -m scripts.registry snapshot-live >/dev/null
