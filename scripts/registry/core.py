@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import dataclasses
 import datetime as dt
 import fnmatch
@@ -2000,7 +2001,7 @@ def check_auth_consistency(
                     TypeError,
                     ValueError,
                     RegistryError,
-                    base64.binascii.Error,
+                    binascii.Error,
                 ) as error:
                     errors.append(
                         {
