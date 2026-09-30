@@ -620,7 +620,7 @@
       "destination_repository": "apps/quartz",
       "destination_tags": [
         "0.0.324",
-        "retention-deployed-fed41f7edba2df37"
+        "retention-deployed-0d365e7b10fa57bd"
       ],
       "digest": "sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
