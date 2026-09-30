@@ -254,6 +254,33 @@ planner-attempt table is additive, and current operation may have newer
 orders or rotated OAuth credentials than a prior backup. Do not switch back
 to the stale laptop database as part of an application rollback.
 
+## Customer-case release, September 30
+
+Application revision `5ae2fdd` adds persistent customer cases, obligations,
+follow-up deadlines, and material-transition history. GitHub Actions run
+`36750409346` passed 2,863 tests (three skipped), Pyright, and image publication.
+The imported amd64 manifest is
+`sha256:ace7f80d9f3128b4bfb16b84abd688575d530fdbaf604932b266c43d0ce22f36`;
+its raw bytes match the CI image's amd64 child. Promotion tag:
+`0.0.1790788596`. Existing schedules and write authority are unchanged.
+
+Before rollout, backup job `pod-agent-pre-cases-5ae2fdd` verified encrypted
+snapshot `/data/backups/state-20260930T172034410713Z.db.age`, including
+decryption, integrity, and plaintext content hash. Retain the production
+database and OAuth authority when reverting image pins.
+
+After Flux applies the release, verify both Deployments, all scheduled image
+consumers, `customer_cases`, `customer_case_obligations`, and
+`customer_case_events`, and the authenticated Orders dashboard. Run an issue
+scan with notifications disabled and compare
+proposal, write-log, and spending-reservation counts before and after. Record
+real case observations separately from offline tests. Supplier fulfillment
+alone does not establish carrier delivery, a customer response, or a refund.
+
+Customer cases do not yet ingest conversations or execute new refunds,
+replacements, claims, or cancellation authority. Rollback the application pin
+while retaining the additive tables and their audit records.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.
