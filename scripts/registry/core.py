@@ -29,6 +29,12 @@ _IMAGE_FIELD_RE = re.compile(
     r"^\s*(?:-\s*)?image:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE
 )
 _KIND_RE = re.compile(r"^kind:\s*HelmRelease\s*$", re.MULTILINE)
+_INDEX_MEDIA_TYPES = frozenset(
+    {
+        "application/vnd.oci.image.index.v1+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+    }
+)
 _HASH_RE = re.compile(r"\$(?:2[abxy]\$\d{2}\$|argon2(?:id|i)?\$)\S{8,}\Z")
 _CHART_RE = re.compile(r"^\s+chart:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE)
 
@@ -1391,7 +1397,10 @@ def verify_record(
         errors.append(
             f"media type mismatch: expected {record['media_type']}, observed {media_type}"
         )
-    if platforms != record["platforms"]:
+    # Platforms are only derivable from an index. A single-arch manifest
+    # carries no `manifests` list, so its observed platforms are always empty
+    # while the lock may still record the platform it was built for.
+    if media_type in _INDEX_MEDIA_TYPES and platforms != record["platforms"]:
         errors.append(
             f"platform mismatch: expected {record['platforms']}, observed {platforms}"
         )

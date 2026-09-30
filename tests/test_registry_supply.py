@@ -995,6 +995,25 @@ class CopyVerifyTest(unittest.TestCase):
         self.assertEqual(bad[0]["observed_digest"], digest(child))
         self.assertIn("points at", outcome["errors"][0])
 
+    def test_verify_skips_platforms_for_a_single_arch_manifest(self) -> None:
+        # A plain manifest has no `manifests` list, so observed platforms are
+        # always empty while the lock records the platform it was built for.
+        # Comparing them flagged first-party-jarvis-nemotron on every run.
+        raw = manifest()  # single-arch docker manifest, not an index
+        value = valid_lock(raw)
+        record = value["images"][0]
+        record["media_type"] = "application/vnd.docker.distribution.manifest.v2+json"
+        record["platforms"] = ["linux/amd64"]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        client = FakeClient(
+            {
+                f"{base}@{record['digest']}": raw,
+                **{f"{base}:{tag}": raw for tag in record["destination_tags"]},
+            }
+        )
+        report = verify_lock(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "ok")
+
     def test_verify_detects_a_missing_destination_tag(self) -> None:
         raw = manifest([("linux", "amd64"), ("linux", "arm64")])
         value = valid_lock(raw)
