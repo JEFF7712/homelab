@@ -31,6 +31,18 @@ rules:
   - pods/log
   verbs:
   - get
+# registry check builds its live image inventory from `kubectl get
+# pods,jobs,cronjobs -A -o json`, so the reader also needs batch. Without these
+# two the refresh could not read the cluster, and the check silently fell back
+# to the committed snapshot instead of reporting live drift.
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  - cronjobs
+  verbs:
+  - get
+  - list
 - apiGroups:
   - kustomize.toolkit.fluxcd.io
   resources:

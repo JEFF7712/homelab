@@ -236,10 +236,31 @@ secret_scan_feature:
   interruptible: true
   stage: test
   needs: []
+  before_script:
+    # The runner is a k3s agent, so it holds no kubeconfig and `sudo k3s
+    # kubectl` resolves to localhost:8080. Without this the refresh could not
+    # read the cluster and registry-refresh.sh fell back to the committed
+    # snapshot, which made the gate report on the last commit instead of on
+    # live drift. The identity is automation-runner, granted get and list on
+    # pods, jobs, and cronjobs cluster-wide by automation-deployment-reader.
+    - >-
+      test -n "${REGISTRY_KUBECONFIG_FILE:-}" ||
+      { echo 'ERROR: REGISTRY_KUBECONFIG_FILE is unset; registry check cannot
+      verify the live cluster and would silently validate the committed
+      snapshot. Add it as a masked file-type CI variable.' >&2; exit 1; }
+    - cp "$REGISTRY_KUBECONFIG_FILE" ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - export KUBECONFIG="$HOME/.kube/config"
+    - >-
+      kubectl cluster-info --request-timeout=10s >/dev/null ||
+      { echo 'ERROR: the registry kubeconfig cannot reach the API server.' >&2;
+      exit 1; }
   script:
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry -- bash -euo pipefail -c
       'just registry-check && just registry-plan > registry-copy-plan.json'
+  after_script:
+    - shred -u ~/.kube/config 2>/dev/null || rm -f ~/.kube/config
   artifacts:
     when: always
     expire_in: 7 days
