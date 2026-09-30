@@ -137,20 +137,20 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-55cfc4fdd7-8rclv/quartz",
-        "obsidian/quartz-notes-55cfc4fdd7-z22rg/quartz"
+        "obsidian/quartz-notes-695bf94767-jhgwr/quartz",
+        "obsidian/quartz-notes-695bf94767-r6b94/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:fed41f7edba2df3777f0cf64a0d0d631b1c20c64fc16d8abfdb019c1369d8ab9"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc"
     },
     {
       "consumers": [
-        "rupan-dev/website-deploy-74c8474bbd-l2kpx/web"
+        "rupan-dev/website-deploy-77f796c96b-bk2dp/web"
       ],
       "reference": "registry.rupan.dev/apps/rupan-dev@sha256:3f35e70d3e999e10e79d0f8e447871860d5898b32123f08b7fe7bd0ac156cb68"
     },
     {
       "consumers": [
-        "rupanism/website-deploy-6cd59f5bf5-8lztq/web"
+        "rupanism/website-deploy-67685cc566-kmrhq/web"
       ],
       "reference": "registry.rupan.dev/apps/rupanism@sha256:1d825e169b0bc438c3b82ec10133feac5b5244c59ad05090fe9c15bffb6a34f9"
     },
@@ -332,8 +332,8 @@
         "media/cronjob-arr-credential-sync/sync",
         "media/cronjob-soularr/soularr",
         "media/cronjob-spotify-sync/sync",
-        "media/job-soularr-29846357/soularr",
-        "media/soularr-29846357-r9xbg/soularr"
+        "media/job-soularr-29846537/soularr",
+        "media/soularr-29846537-lrw6s/soularr"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
     },
@@ -717,6 +717,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-30T17:55:25+00:00",
+  "observed_at": "2026-09-30T20:08:43+00:00",
   "schema_version": 1
 }

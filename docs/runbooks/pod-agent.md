@@ -32,10 +32,9 @@ token rotation races.
 The container image is built by
 [jeff7712/pod-agent](https://github.com/JEFF7712/pod-agent) GitHub Actions
 (`Dockerfile` + `.github/workflows/image.yml` in that repo) and imported to
-`registry.rupan.dev/apps/pod-agent`. Manifests pin `registry.rupan.dev/apps/pod-agent@sha256:836efb...`
-(the single-arch manifest the seed push stored; the ghcr index digest
-`sha256:d9aa44...` covers identical config+layers but a different envelope,
-because podman normalized the index on push). Tags roll forward via the
+`registry.rupan.dev/apps/pod-agent`. Manifests pin an immutable local amd64
+manifest. The release records below identify its tested source and verified
+registry digest. Tags roll forward via the
 `registry_promote_first_party` job like every other first-party workload.
 
 ## One-time setup (owner / privileged CI only)
@@ -296,6 +295,46 @@ rollout pipeline's offline registry gate used a stale committed observation
 snapshot; the follow-up refresh records actual running images. Its drift job
 also reported a separate Quartz tag/lock mismatch introduced before this
 release. No Quartz desired state or registry tags were changed by this rollout.
+
+## Customer-case action release, September 30
+
+Application revision `36b7971` links durable cases to resolution proposals,
+supplier write intents, and matching owner packets. GitHub Actions run
+`36768672143` passed 2,892 tests (three skipped), Pyright, and image publication.
+The CI index is
+`sha256:ca43759e52381f5934df1833a779874b4cbe5df0b59f9129753ecd04a839028f`.
+The imported amd64 manifest is
+`sha256:0cd9075379682a0a826b2f285bb2dcc7d07af0b7a18f00b6a76cfe78cfe6dd32`;
+its raw bytes match the CI child. Numeric tag `0.0.1790797816` and
+`retention-deployed-0cd9075379682a0a` both resolve to this digest.
+
+Backup job `pod-agent-pre-actions-36b7971` accepted encrypted snapshot
+`/data/backups/state-20260930T195404379785Z.db.age`, including decryption,
+integrity, and plaintext hash verification. It contains 401 proposals and one
+OAuth token row. Keep production state and token authority during rollback.
+
+The additive `customer_case_proposals` table preserves case/proposal links.
+Executing a check, receiving a successful POST, or completing an owner packet
+does not close a customer case. Retry and cancellation outcomes require later
+matching supplier observations. Retry verifies production progress;
+fulfillment remains separate. Supplier cancellation does not complete an Etsy
+refund. Pending or failed intents remain unknown until reconciled. Atomic
+per-shop/order intent reservations prevent a new proposal from repeating a
+production submission or cancellation. Customer actions remain GATED, and
+production retry remains disabled by default.
+
+After Flux applies this release, verify both service image IDs, all 28 image
+pins across 16 scheduled and service resources, the four case tables, and all
+225 installed Python/JSON package files. Verify the authenticated Orders page
+and read-only case views. A notification-free production scan must report
+actual cases and preserve business-write and reservation counts. Exercise lost
+responses and readback in an isolated temporary database with fake providers
+and networking disabled; never insert synthetic cases into production.
+
+Rollback restores the previous `ace7f80d...` image pin while retaining the
+database, additive tables, current OAuth authority, and scheduled operation.
+Do not re-enable the stale laptop authority. Executable customer messages and
+refunds remain separate capability and authority work.
 
 ## Rollback
 
