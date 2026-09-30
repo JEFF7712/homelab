@@ -72,6 +72,12 @@ in
         default = false;
         description = "Disable fallback to configured upstream registry endpoints after local content is populated.";
       };
+
+      embeddedRegistry = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable k3s embedded distributed registry (Spegel) peer-to-peer image caching on servers.";
+      };
     };
   };
 
@@ -127,7 +133,7 @@ in
         extraInputRules = ''
           ip saddr 10.0.10.0/24 tcp dport 22 accept
           ip saddr 10.0.10.0/24 tcp dport 6443 accept
-          ip saddr 10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 6443, 6444, 9100, 10250, 4240 } accept
+          ip saddr 10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001, 6443, 6444, 9100, 10250, 4240 } accept
           ip saddr 10.0.30.0/24 udp dport 8472 accept
           ip saddr 10.42.0.0/16 tcp dport { 6443, 9100, 10250 } accept
           ip saddr { 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.42.0.0/16 } tcp dport { 8123, 21063 } accept
@@ -191,7 +197,10 @@ in
           "--etcd-snapshot-retention=14"
           "--etcd-snapshot-schedule-cron=0 3 * * *"
         ]
-        ++ lib.optional cfg.registry.enforceLocalImages "--disable-default-registry-endpoint";
+        ++ lib.optional cfg.registry.enforceLocalImages "--disable-default-registry-endpoint"
+        ++ lib.optional (
+          cfg.role == "server" && cfg.registry.enable && cfg.registry.embeddedRegistry
+        ) "--embedded-registry";
     };
 
     systemd.services.k3s = {
