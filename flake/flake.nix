@@ -92,6 +92,10 @@
             git
             gitleaks
             glab
+            # hooks/common.sh treats a missing jq as "cannot read hook input"
+            # and answers every hook with a bare {}, so without this the agent
+            # harness tests pass vacuously in CI instead of testing the hooks.
+            jq
             just
             kubeconform
             kubectl
