@@ -2131,19 +2131,26 @@ def render_node_config(lock: Mapping[str, Any], username: str, password: str) ->
                 f"source repository {registry}/{repository} has conflicting rewrite destinations"
             )
 
+    # The destination registry is listed as a mirror in its own right, not only
+    # when something upstream rewrites onto it, so containerd and Spegel resolve
+    # it through the same block. It gets no rewrite section of its own.
+    mirrored_registries = sorted(set(mappings.keys()) | {destination_registry})
     lines = ["mirrors:"]
-    for registry in sorted(mappings):
+    for registry in mirrored_registries:
         lines.extend(
             [
                 f"  {json.dumps(registry)}:",
                 "    endpoint:",
                 f"      - {json.dumps('https://' + destination_registry)}",
-                "    rewrite:",
             ]
         )
-        for repository, destination in sorted(mappings[registry].items()):
-            pattern = "^" + re.escape(repository) + "$"
-            lines.append(f"      {json.dumps(pattern)}: {json.dumps(destination)}")
+        if mappings.get(registry):
+            lines.append("    rewrite:")
+            for repository, destination in sorted(mappings[registry].items()):
+                pattern = "^" + re.escape(repository) + "$"
+                lines.append(
+                    f"      {json.dumps(pattern)}: {json.dumps(destination)}"
+                )
     lines.extend(
         [
             "configs:",
