@@ -1732,6 +1732,61 @@ def reconcile_retention(
     )
 
 
+def _is_read_failure(outcome: Mapping[str, Any]) -> bool:
+    """True when a record failed because its content could not be read.
+
+    A digest or media-type mismatch means the manifest was read and found
+    wrong, which is a verdict about the registry's contents. A record that only
+    reports a failed inspection, or a tag that came back unreadable, carries no
+    such verdict.
+    """
+    errors = outcome.get("errors") or []
+    if not errors:
+        return False
+    decisive = ("digest mismatch", "media type mismatch", "platform mismatch")
+    if any(any(marker in error for marker in decisive) for error in errors):
+        return False
+    return not any("points at" in error for error in errors)
+
+
+def _demote_coordinated_read_failures(
+    outcomes: list[dict[str, Any]], *, share: float = 0.2, minimum: int = 8
+) -> None:
+    """Downgrade a mass read failure to inconclusive rather than drift.
+
+    Cloudflare Access does not always answer with a redirect; sometimes it
+    returns an auth-shaped status, which is indistinguishable from zot rejecting
+    the content. Probing cannot separate the two. The shape of the run can: real
+    drift is isolated to particular images, whereas an edge answering for the
+    registry fails a scattered set of independent repositories within seconds of
+    each other, and each run so far picked a different subset.
+
+    So when a large share of the run could not be read at all, the honest
+    conclusion is that the run could not see the registry, not that the registry
+    lost content.
+    """
+    total = len(outcomes)
+    if total == 0:
+        return
+    unreadable = [
+        item
+        for item in outcomes
+        if item.get("status") == "failed" and _is_read_failure(item)
+    ]
+    # Both a share and a floor. On a small lock a single failure is the whole
+    # run, and one genuinely missing image must still be reported as drift.
+    if len(unreadable) < minimum or len(unreadable) / total < share:
+        return
+    reason = (
+        f"{len(unreadable)} of {total} images could not be read at all in this run, "
+        "which is the signature of an intercepted or unreachable registry rather "
+        "than content loss; rerun before treating it as drift"
+    )
+    for item in unreadable:
+        item["status"] = "indeterminate"
+        item["errors"] = [reason]
+
+
 def verify_lock(
     client: OciClient, lock: Mapping[str, Any], *, kind: str | None = None
 ) -> dict[str, Any]:
@@ -1766,6 +1821,7 @@ def verify_lock(
                 "errors": [str(error)],
             }
         outcomes.append(outcome)
+    _demote_coordinated_read_failures(outcomes)
     return operation_report("verify", lock, outcomes)
 
 

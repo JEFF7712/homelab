@@ -370,6 +370,95 @@ class TransientInterstitialTests(unittest.TestCase):
                 f"docker://{core.DEFAULT_REGISTRY}/apps/demo:tag", destination=True
             )
 
+    def test_mass_read_failure_is_inconclusive_not_drift(self) -> None:
+        # Cloudflare does not always redirect; it sometimes answers with an
+        # auth-shaped status, which no probe can separate from zot rejecting the
+        # content. Each observed run failed a different scattered subset, so the
+        # run's shape is the only remaining signal.
+        outcomes = [
+            {
+                "id": f"upstream-{index}",
+                "status": "failed" if index < 30 else "verified",
+                "errors": (
+                    [
+                        "manifest inspection failed with exit code 1: authentication required"
+                    ]
+                    if index < 30
+                    else []
+                ),
+            }
+            for index in range(100)
+        ]
+        core._demote_coordinated_read_failures(outcomes)
+
+        self.assertEqual(sum(o["status"] == "indeterminate" for o in outcomes), 30)
+        self.assertEqual(sum(o["status"] == "failed" for o in outcomes), 0)
+        self.assertIn("could not be read", outcomes[0]["errors"][0])
+
+    def test_isolated_missing_digest_still_counts_as_drift(self) -> None:
+        # Genuine drift is a specific image losing its content, not the whole run
+        # losing visibility, so a small number of unreadable records must still
+        # be reported.
+        outcomes = [
+            {
+                "id": f"upstream-{index}",
+                "status": "failed" if index == 0 else "verified",
+                "errors": (
+                    ["manifest inspection failed: authentication required"]
+                    if index == 0
+                    else []
+                ),
+            }
+            for index in range(20)
+        ]
+        core._demote_coordinated_read_failures(outcomes)
+
+        self.assertEqual(outcomes[0]["status"], "failed")
+
+    def test_small_lock_never_softens_a_single_failure(self) -> None:
+        # A one-image lock where the read fails is 100% of the run, which says
+        # nothing about the registry, so the share must not demote it.
+        outcomes = [
+            {
+                "id": "upstream-only",
+                "status": "failed",
+                "errors": ["manifest inspection failed: authentication required"],
+            }
+        ]
+        core._demote_coordinated_read_failures(outcomes)
+
+        self.assertEqual(outcomes[0]["status"], "failed")
+
+    def test_read_manifest_and_disagree_is_still_drift(self) -> None:
+        # If the content was read and found wrong, that is a verdict, and a run
+        # full of them must not be softened.
+        outcomes = [
+            {
+                "id": f"upstream-{index}",
+                "status": "failed",
+                "errors": ["digest mismatch: expected sha256:a, observed sha256:b"],
+            }
+            for index in range(50)
+        ]
+        core._demote_coordinated_read_failures(outcomes)
+
+        self.assertTrue(all(o["status"] == "failed" for o in outcomes))
+
+    def test_tag_pointing_elsewhere_is_still_drift(self) -> None:
+        # A retention tag aimed at the wrong digest is the ledfx failure mode and
+        # must never be softened into "inconclusive".
+        outcomes = [
+            {
+                "id": f"upstream-{index}",
+                "status": "failed",
+                "errors": ["destination tag retention-deployed-abc points at sha256:b"],
+            }
+            for index in range(50)
+        ]
+        core._demote_coordinated_read_failures(outcomes)
+
+        self.assertTrue(all(o["status"] == "failed" for o in outcomes))
+
     def test_verify_lock_marks_unreachable_records_indeterminate(self) -> None:
         record = {
             "id": "first-party-demo",
