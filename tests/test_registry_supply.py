@@ -181,7 +181,7 @@ class RegistryCiContractTests(unittest.TestCase):
         root = pathlib.Path(__file__).resolve().parents[1]
         pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
         template = pipeline[".registry_retention_reconcile"]
-        job = pipeline["registry_retention_reconcile"]
+        self.assertIn("registry_retention_reconcile", pipeline)
         script = "\n".join(template["script"])
 
         # node is read-only on apps/** and the importer is 403 there, so only
