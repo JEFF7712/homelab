@@ -221,6 +221,50 @@ class CancellationTest(unittest.TestCase):
                     break
         self.assertEqual(shadowed, set())
 
+    def test_one_registry_client_at_a_time(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+
+        # The drift check ran in the test stage with needs: [] while the registry
+        # jobs ran in the registry stage, so all three hit the registry from the
+        # runner's one address at once. skopeo issues an unauthenticated /v2/
+        # challenge before every read and zot counts those against failDelay, so
+        # ~1100 failed auth attempts in a couple of minutes tripped the
+        # brute-force protection and zot started answering 401 to valid
+        # credentials partway through a run, which read as missing images.
+        def effective(name: str, key: str):
+            """A job's own value, or the one it inherits from a template."""
+            job = pipeline[name]
+            if key in job:
+                return job[key]
+            for template in job.get("extends") or []:
+                if key in pipeline.get(template, {}):
+                    return pipeline[template][key]
+            return None
+
+        # Every job that authenticates against the registry must share the group,
+        # so they queue instead of competing.
+        for name in (
+            "registry_drift_check",
+            "registry_lock_import",
+            "registry_promote_first_party",
+            "registry_retention_reconcile",
+        ):
+            with self.subTest(job=name):
+                self.assertEqual(effective(name, "resource_group"), "registry-content")
+        # All four must also sit in the same stage, or the earlier stage would
+        # still overlap the later one regardless of the group.
+        for name in (
+            "registry_drift_check",
+            "registry_lock_import",
+            "registry_promote_first_party",
+            "registry_retention_reconcile",
+        ):
+            with self.subTest(stage=name):
+                self.assertEqual(effective(name, "stage"), "registry")
+        # Moving drift_check into the registry stage must not create a wait for a
+        # job that itself needs drift_check, which would deadlock the stage.
+        self.assertEqual(effective("registry_drift_check", "needs"), [])
+
     def test_registry_writes_depend_on_specific_gates_not_the_whole_stage(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
 

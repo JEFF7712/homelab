@@ -87,7 +87,7 @@ Publisher credentials are per project. Rotation changes one htpasswd entry and t
 1. Confirm the generated access-control policy still grants that exact `publisher-<project>` identity write access to only its `apps/<project>` repository.
 2. Generate a new random password and a bcrypt verifier locally with `htpasswd -nbB publisher-<project> "$password"`. Keep the plaintext only in a shell variable or protected temporary file with `umask 077`.
 3. Replace only that user's line in `/persist/zot/htpasswd`, preserving every other entry. Install the replacement atomically as `root:zot` mode `0640`. Do not use `root:root` mode `0600`; the zot service reads the file as the `zot` group and will reject every identity if it cannot read it.
-4. Restart zot. The restart reloads the htpasswd file but rebuilds the in-memory index for every repository, which currently makes the endpoint return 502 for roughly two to three minutes.
+4. Restart zot. The restart reloads the htpasswd file. With `storage.fastRestart = true` enabled in NixOS, Zot checks the persistent BoltDB stamp (`meta.db`) and skips the full storage filesystem walk on startup when the binary version and storage configuration fingerprint match. Note: Out-of-band filesystem modifications or restores bypass metadata reconciliation unless forced by temporarily setting `services.homelab-zot-registry.fastRestart = false` or clearing the stamp.
 5. Wait until an anonymous `GET https://registry.rupan.dev/v2/` returns 401, then verify the new credential succeeds on a read and a write within the publisher's own repository.
 6. Store the same plaintext as the producer repository's protected `REGISTRY_PASSWORD` secret, then run one producer build and confirm a new `0.0.N` tag.
 7. Shred temporary material and confirm the job trace contains no credential. Keep a root-only backup of the previous htpasswd file outside Git for rollback; restoring it also requires a zot restart and the same readiness check.
@@ -231,6 +231,35 @@ journal is the place to start, with
 `journalctl -u zot --since "<window>"` on `nas-01`, which logs every request
 with its path, status and identity. Until that is understood, treat a burst as
 a client-credential or rate problem, not as content loss.
+
+### Why the bursts happened
+
+They were self-inflicted, and the answer was in the journal the whole time.
+`skopeo` sends an unauthenticated `GET /v2/` to negotiate before every manifest
+read, and zot counts those against `failDelay`, which is set to 5. The drift
+check ran in the `test` stage with `needs: []` while `registry_lock_import` and
+`registry_retention_reconcile` ran in the `registry` stage, so one scheduled
+pipeline had three identities authenticating from the runner's single address
+at the same time. In one run that was 1067 manifest reads and 1091 unauthenticated
+challenges in about two and a half minutes, and past roughly a thousand failures
+zot's protection began answering 401 to credentials that had just worked. The
+journal shows those rejections arriving with no authenticated identity.
+
+Two changes follow from that, and both are about being a better client rather
+than about reading failures differently:
+
+- All four jobs that authenticate against the registry now sit in the `registry`
+  stage and share `resource_group: registry-content`, so the registry sees one
+  client at a time. The drift check has `needs: []` so it does not wait on a job
+  that would in turn wait on it.
+- A probe that cannot obtain a credential says so, instead of asking anonymously
+  and returning a 401 that reads like the registry refusing content. That fault
+  was invisible for a while for exactly that reason.
+
+If this ever needs revisiting, the real reduction is to stop using `skopeo` for
+read-only verification: one in-process HTTP client would make a single
+authenticated request per lookup, with no challenge probe and no per-process
+overhead, which removes the whole class rather than lowering its rate.
 
 There is a run-level backstop for the case where a whole run cannot see the
 registry: when a large share of records could not be read at all, the report

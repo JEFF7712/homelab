@@ -286,7 +286,16 @@ registry_auth_consistency:
 .registry_drift_check:
   timeout: 20m
   interruptible: true
-  stage: test
+  # In the registry stage, and serialized with the other registry jobs, because
+  # it used to run in test while they ran here, so all three hit the registry
+  # from the runner's single address at once. skopeo issues an unauthenticated
+  # /v2/ challenge before every manifest read, and zot counts those against
+  # `failDelay`, so the combined ~1100 failed auth attempts in a couple of
+  # minutes tripped the brute-force protection and zot began answering 401 to
+  # valid credentials partway through a run. That is what made drift report
+  # missing images. One client at a time is the fix.
+  stage: registry
+  resource_group: registry-content
   needs: []
   environment:
     name: production

@@ -919,6 +919,7 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
         f"https://{registry}/v2/{repository}/manifests/{reference}", method="GET"
     )
     header = _dest_auth_header()
+    anonymous = header is None
     if header:
         request.add_header("Authorization", header)
     for media_type in _INDEX_MEDIA_TYPES:
@@ -941,12 +942,24 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
             # content is absent, so a 401 is never a statement about what the
             # registry holds. The journal shows these arriving in a contiguous
             # run partway through a check, which is why they looked like drift.
+            #
+            # Say so plainly when the probe went out unauthenticated. That is a
+            # configuration fault and was otherwise invisible: the probe looked
+            # like it had consulted the registry and been refused, when in fact
+            # it had never identified itself.
+            cause = (
+                "the probe carried no credential, so it asked as an anonymous "
+                "reader and a 401 is the expected answer"
+                if anonymous
+                else "zot rejected the credential"
+            )
             return (
-                f"zot rejected the credential for {repository}:{reference} with 401, "
-                "which says nothing about whether the content is present"
+                f"cannot tell whether {repository}:{reference} is present: "
+                f"{cause} (401)"
             )
         # A 404, and a 403 from the access policy, are the registry's own
-        # verdicts about content or about who may read it.
+        # verdicts about content or about who may read it. An anonymous 404 is
+        # still a real answer about absence.
         return None
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         return f"registry unreachable while reading {repository}:{reference}: {error}"
@@ -2216,7 +2229,7 @@ def _verify_htpasswd(path: pathlib.Path, user: str, password: str) -> bool:
     treating it as a pass.
     """
     result = subprocess.run(
-        ["htpasswd", "-v", str(path), user],
+        ["htpasswd", "-v", "-i", str(path), user],
         input=password + "\n",
         capture_output=True,
         text=True,

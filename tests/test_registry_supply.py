@@ -374,6 +374,35 @@ class TransientInterstitialTests(unittest.TestCase):
         self.assertIsNotNone(reason)
         self.assertIn("401", reason)
 
+    def test_anonymous_probe_says_so(self) -> None:
+        # A probe that never identified itself looks identical to one the
+        # registry refused, unless the reason says which happened.
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=401,
+            msg="Unauthorized",
+            hdrs=email.message.Message(),
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+        environ = {
+            k: v for k, v in os.environ.items() if k != "REGISTRY_DEST_AUTH_FILE"
+        }
+
+        with (
+            patch.dict(os.environ, environ, clear=True),
+            patch.object(core.urllib.request, "build_opener", return_value=opener),
+        ):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNotNone(reason)
+        self.assertIn("no credential", reason)
+        self.assertIn("anonymous", reason)
+
     def test_zot_404_on_probe_is_a_real_verdict(self) -> None:
         # 404 is zot saying the content is gone. That is the positive signal, and
         # it must stay reportable or genuine mass loss would be hidden.
