@@ -547,10 +547,32 @@ registry_promote_first_party:
       --inventory registry/images.inventory.json
       | tee promote-report.json
     - nix develop ./flake -c bash -c 'just check-registry'
+    # This step is a folded YAML scalar, so every newline becomes a space and a
+    # shell `#` comment would swallow the rest of the line. That is not
+    # hypothetical: an explanatory comment here silently commented out the
+    # registry-reconcile-retention call below it, so promoted digests never got
+    # their retention tags from this job at all. Keep this block free of `#`.
+    #
+    # The reconcile runs before the commit is attempted because a promoted
+    # digest is protected only by its sha-* tag until its retention tag exists,
+    # and nothing else creates it: the importer is 403 on apps/**. The
+    # standalone reconciler cannot cover the window because it runs in a
+    # separate job against this pipeline's pre-push commit, which does not
+    # contain the promotion yet. Running it first means the tags exist whether
+    # or not the commit lands.
+    #
+    # The fetch and rebase must both stay non-fatal. They are separate
+    # statements, so under `set -e` a conflicting rebase aborted the whole
+    # script on the first attempt and the remaining two never ran. The loop only
+    # ever survived a plain non-fast-forward, because the push sits inside an
+    # `if` and is therefore not fatal.
     - >-
       nix develop ./flake -c bash -e -c '
         export GIT_TERMINAL_PROMPT=0
         commit_rc=0
+        export REGISTRY_DEST_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
+        export REGISTRY_SOURCE_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
+        just registry-reconcile-retention || commit_rc=1
         if git diff --quiet -- registry/ gitops/; then
           echo "No first-party promotions; nothing to commit."
         else
@@ -567,8 +589,12 @@ registry_promote_first_party:
               if git push "$push_url" HEAD:"$CI_COMMIT_BRANCH"; then
                 break
               fi
-              git fetch "$push_url" "$CI_COMMIT_BRANCH"
-              git rebase FETCH_HEAD
+              git fetch "$push_url" "$CI_COMMIT_BRANCH" || true
+              if ! git rebase FETCH_HEAD; then
+                echo "Rebase onto the current main conflicted; retrying from a clean tree."
+                git rebase --abort || true
+                git reset --hard "$CI_COMMIT_SHA" || true
+              fi
               sleep $((attempt * 15))
               if [ "$attempt" = 3 ]; then
                 commit_rc=1
@@ -576,15 +602,6 @@ registry_promote_first_party:
             done
           fi
         fi
-        # Pin the digests this promotion just locked in, before returning. A
-        # promoted digest is protected only by its sha-* tag until its retention
-        # tag exists, and nothing else creates it: the importer is 403 on
-        # apps/**. The standalone reconciler cannot cover this window because it
-        # runs in a separate job against the pre-push commit of this pipeline,
-        # which does not contain the promotion yet.
-        export REGISTRY_DEST_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
-        export REGISTRY_SOURCE_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
-        just registry-reconcile-retention || commit_rc=1
         exit $commit_rc
       '
   artifacts:

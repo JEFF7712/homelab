@@ -1182,12 +1182,19 @@ class RegistryCiContractTests(unittest.TestCase):
         # against the pre-push commit, so its ordering here is arbitrary.
         self.assertEqual(job["resource_group"], "registry-content")
 
-        # The reconcile has to happen after the lock is written, and no earlier
+        # The reconcile has to happen after the lock is written and no earlier
         # exit may skip it: a failed push used to exit 1 with the digests
-        # promoted but unpinned.
+        # promoted but unpinned. `promote` is what writes the lock, so that is
+        # the ordering that matters, not `git commit`, which only records what
+        # is already on disk.
+        self.assertLess(
+            block.index("scripts.registry promote"),
+            block.index("registry-reconcile-retention"),
+        )
+        # And it must precede the push, so a lost race cannot skip the pinning.
         inner = _ci_bash_block(block)
         self.assertLess(
-            inner.index("git commit"), inner.index("registry-reconcile-retention")
+            inner.index("registry-reconcile-retention"), inner.index("for attempt in")
         )
         self.assertNotIn("exit 0", inner)
         self.assertEqual(inner.count("exit $commit_rc"), 1)
