@@ -89,6 +89,9 @@ registry-check-auth report="artifacts/registry/auth-report.json":
 registry-access-control output="artifacts/registry/access-control.json":
     python -m scripts.registry access-control --lock registry/images.lock.json --output {{output}}
 
+registry-reconcile-retention report="artifacts/registry/retention-report.json":
+    python -m scripts.registry reconcile-retention --lock registry/images.lock.json --report {{report}}
+
 registry-copy report="artifacts/registry/import-report.json":
     python -m scripts.registry copy --lock registry/images.lock.json --report {{report}}
 

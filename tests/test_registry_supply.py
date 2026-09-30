@@ -35,6 +35,7 @@ from scripts.registry.core import (
     load_lock,
     parse_htpasswd,
     promote_first_party_lock,
+    reconcile_retention,
     render_access_control,
     render_node_config,
     resolve_inventory,
@@ -174,6 +175,27 @@ class RegistryCiContractTests(unittest.TestCase):
             result.returncode,
             0,
             "a failed verification must not be masked by the notifier succeeding",
+        )
+
+    def test_retention_reconcile_uses_maintenance_and_is_additive(self) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        template = pipeline[".registry_retention_reconcile"]
+        job = pipeline["registry_retention_reconcile"]
+        script = "\n".join(template["script"])
+
+        # node is read-only on apps/** and the importer is 403 there, so only
+        # maintenance can create the first-party retention tags.
+        self.assertIn("REGISTRY_MAINTENANCE_AUTH_FILE", script)
+        self.assertIn("reconcile-retention", script)
+        self.assertEqual(template["environment"], {"name": "production"})
+        self.assertEqual(template["resource_group"], "registry-content")
+        self.assertEqual(
+            template["rules"],
+            [
+                {"if": '$CI_COMMIT_BRANCH == "main"', "when": "manual"},
+                {"if": '$CI_PIPELINE_SOURCE == "schedule"'},
+            ],
         )
 
     def test_first_party_promotion_runs_on_schedule_and_commits_atomically(
@@ -956,6 +978,81 @@ class CopyVerifyTest(unittest.TestCase):
         error = image["errors"][0]
         self.assertIn(digest(raw), error)
         self.assertIn(digest(conflicting), error)
+
+    def test_reconcile_creates_a_missing_retention_tag(self) -> None:
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        retention = [
+            t for t in record["destination_tags"] if t.startswith("retention-")
+        ]
+        self.assertTrue(retention)
+        # Only the promotion tag exists; the retention tag was never created,
+        # which is the first-party case where the importer cannot write apps/**.
+        client = FakeClient({f"{base}@{record['digest']}": raw, f"{base}:1.0": raw})
+        report = reconcile_retention(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "ok")
+        created = [i for i in report["images"] if i["status"] == "created"]
+        self.assertEqual(len(created), len(retention))
+        self.assertEqual(len(client.copies), len(retention))
+        self.assertIn(
+            f"registry.rupan.dev/{record['destination_repository']}@{record['digest']}",
+            client.copies[0][0],
+        )
+
+    def test_reconcile_leaves_a_correct_tag_alone(self) -> None:
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        client = FakeClient(
+            {
+                f"{base}@{record['digest']}": raw,
+                **{f"{base}:{tag}": raw for tag in record["destination_tags"]},
+            }
+        )
+        report = reconcile_retention(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "ok")
+        self.assertTrue(all(i["status"] == "present" for i in report["images"]))
+        self.assertEqual(client.copies, [])
+
+    def test_reconcile_reports_a_conflict_without_overwriting(self) -> None:
+        # The ledfx shape: the retention tag resolves elsewhere. Clobbering it
+        # would destroy the evidence, so it must be reported and left alone.
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        child = manifest([("linux", "amd64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        tags = {
+            f"{base}:{tag}": child if tag.startswith("retention-") else raw
+            for tag in record["destination_tags"]
+        }
+        client = FakeClient({f"{base}@{record['digest']}": raw, **tags})
+        report = reconcile_retention(client, value)  # type: ignore[arg-type]
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(client.copies, [])
+        conflict = next(i for i in report["images"] if i["status"] == "conflict")
+        self.assertEqual(conflict["observed_digest"], digest(child))
+        self.assertIn("left untouched", report["summary"]["errors"][0])
+
+    def test_reconcile_dry_run_makes_no_changes(self) -> None:
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        value = valid_lock(raw)
+        record = value["images"][0]
+        base = f"registry.rupan.dev/{record['destination_repository']}"
+        client = FakeClient({f"{base}@{record['digest']}": raw, f"{base}:1.0": raw})
+        report = reconcile_retention(client, value, dry_run=True)  # type: ignore[arg-type]
+        self.assertEqual(client.copies, [])
+        self.assertTrue(any(i["status"] == "would-create" for i in report["images"]))
+
+    def test_reconcile_ignores_promotion_tags_and_kind_filter(self) -> None:
+        raw = manifest([("linux", "amd64"), ("linux", "arm64")])
+        value = valid_lock(raw)
+        value["images"][0]["kind"] = "first-party"
+        report = reconcile_retention(FakeClient({}), value, kind="upstream")  # type: ignore[arg-type]
+        self.assertEqual(report["images"], [])
 
     def test_verify_accepts_tags_pointing_at_the_locked_digest(self) -> None:
         raw = manifest([("linux", "amd64"), ("linux", "arm64")])

@@ -23,6 +23,7 @@ from .core import (
     load_inventory,
     load_lock,
     promote_first_party_lock,
+    reconcile_retention,
     refresh_live_snapshot,
     render_access_control,
     render_node_config,
@@ -120,6 +121,16 @@ def _parser() -> argparse.ArgumentParser:
         type=pathlib.Path,
         default=pathlib.Path("artifacts/registry/auth-report.json"),
     )
+
+    reconcile = subparsers.add_parser(
+        "reconcile-retention",
+        help="create lock-listed retention tags that are missing",
+    )
+    reconcile.add_argument("--lock", type=pathlib.Path, required=True)
+    reconcile.add_argument("--report", type=pathlib.Path, required=True)
+    reconcile.add_argument("--kind", choices=("first-party", "upstream"))
+    reconcile.add_argument("--dry-run", action="store_true")
+    _network_options(reconcile)
 
     node_config = subparsers.add_parser(
         "node-config", help="write a protected k3s registries.yaml"
@@ -312,6 +323,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if report["status"] == "ok" else 1
         if args.command == "check-auth":
             report = _check_auth(args)
+            atomic_write_json(args.report, report)
+            _print(report)
+            return 0 if report["status"] == "ok" else 1
+        if args.command == "reconcile-retention":
+            lock = load_lock(args.lock)
+            client = OciClient(timeout=args.timeout, retries=args.retries)
+            report = reconcile_retention(
+                client,
+                lock,
+                kind=args.kind,
+                dry_run=args.dry_run,
+                progress=lambda message: print(
+                    f"[registry-retention] {message}", file=sys.stderr
+                ),
+            )
             atomic_write_json(args.report, report)
             _print(report)
             return 0 if report["status"] == "ok" else 1

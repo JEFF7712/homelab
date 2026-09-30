@@ -1471,6 +1471,92 @@ def verify_record(
     }
 
 
+def reconcile_retention(
+    client: OciClient,
+    lock: Mapping[str, Any],
+    *,
+    kind: str | None = None,
+    image_timeout: float = 900,
+    dry_run: bool = False,
+    progress: Any = None,
+) -> dict[str, Any]:
+    """Ensure every lock-listed retention tag resolves to the locked digest.
+
+    The lock declares the tags a deployed digest must stay reachable by. For
+    upstream images the copy step creates them, but `apps/**` is writable only
+    by the per-project publishers, so the importer cannot and the first-party
+    tags were never created. This creates the missing ones from the manifest
+    already present in the destination, so no blob is re-uploaded.
+
+    It is deliberately additive. A tag that already matches is left alone, and
+    a tag that exists but resolves to a different manifest is reported as a
+    conflict and never overwritten: that is the ledfx failure, and clobbering
+    it would destroy the only evidence of what the tag used to point at.
+    """
+    if progress is None:
+        progress = _ignore_progress
+    registry = lock["destination_registry"]
+    outcomes: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for record in sorted(lock["images"], key=lambda item: item["id"]):
+        if kind is not None and record["kind"] != kind:
+            continue
+        tags = [
+            tag for tag in record["destination_tags"] if tag.startswith("retention-")
+        ]
+        if not tags:
+            continue
+        base = f"{registry}/{record['destination_repository']}"
+        for tag in tags:
+            tagged = f"{base}:{tag}"
+            started = time.monotonic()
+            try:
+                observed, _, _ = _inspect_digest(client, tagged, destination=True)
+            except RegistryError:
+                observed = None
+            if observed == record["digest"]:
+                status = "present"
+            elif observed is None:
+                status = "would-create" if dry_run else "created"
+                if not dry_run:
+                    remaining = max(1.0, image_timeout - (time.monotonic() - started))
+                    try:
+                        _copy_with_timeout(
+                            client, f"{base}@{record['digest']}", tagged, remaining
+                        )
+                    except RegistryError as error:
+                        status = "failed"
+                        errors.append(f"{record['id']} {tag}: {error}")
+                progress(f"{status} {record['id']} tag={tag}")
+            else:
+                status = "conflict"
+                errors.append(
+                    f"{record['id']} {tag} resolves to {observed}, expected "
+                    f"{record['digest']}; left untouched"
+                )
+                progress(f"conflict {record['id']} tag={tag}")
+            outcomes.append(
+                {
+                    "id": record["id"],
+                    "kind": record["kind"],
+                    "tag": tag,
+                    "status": status,
+                    "expected_digest": record["digest"],
+                    "observed_digest": observed,
+                }
+            )
+    counts: dict[str, int] = {}
+    for outcome in outcomes:
+        counts[outcome["status"]] = counts.get(outcome["status"], 0) + 1
+    return operation_report(
+        "reconcile-retention",
+        lock,
+        outcomes,
+        status_override="failed" if errors else "ok",
+        summary={"counts": counts, "errors": sorted(errors)},
+    )
+
+
 def verify_lock(
     client: OciClient, lock: Mapping[str, Any], *, kind: str | None = None
 ) -> dict[str, Any]:
@@ -1649,17 +1735,28 @@ def copy_lock(
 
 
 def operation_report(
-    command: str, lock: Mapping[str, Any], outcomes: list[dict[str, Any]]
+    command: str,
+    lock: Mapping[str, Any],
+    outcomes: list[dict[str, Any]],
+    *,
+    status_override: str | None = None,
+    summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     failures = sum(item["status"] == "failed" for item in outcomes)
+    base = {
+        "total": len(outcomes),
+        "failed": failures,
+    }
+    if summary:
+        base.update(summary)
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "registry-operation-report",
         "command": command,
         "generated_at": _timestamp(),
         "source_revision": lock.get("source_revision", "unavailable"),
-        "status": "ok" if failures == 0 else "failed",
-        "summary": {"total": len(outcomes), "failed": failures},
+        "status": status_override or ("ok" if failures == 0 else "failed"),
+        "summary": base,
         "images": outcomes,
     }
 

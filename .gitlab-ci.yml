@@ -329,6 +329,39 @@ registry_drift_check:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
+# Creates the lock-listed retention tags that nothing else creates. `apps/**` is
+# writable only by the per-project publishers, so the importer cannot create
+# them and the first-party tags were never written. Maintenance already holds
+# adminPolicy, so this needs no new grant. It is additive: a tag that already
+# matches is untouched, and one that resolves elsewhere is reported, never
+# overwritten. Manual plus nightly, matching the other registry write jobs.
+.registry_retention_reconcile:
+  timeout: 20m
+  interruptible: false
+  stage: registry
+  needs: []
+  environment:
+    name: production
+  resource_group: registry-content
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - export REGISTRY_DEST_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
+    - >-
+      nix develop ./flake -c python -m scripts.ci.run registry-retention --
+      bash -euo pipefail -c
+      'just registry-reconcile-retention'
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - artifacts/registry/
+
+registry_retention_reconcile:
+  extends:
+    - .registry_retention_reconcile
+
 registry_lock_feature:
   extends:
     - .shared_feature
