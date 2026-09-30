@@ -251,11 +251,14 @@ secret_scan_feature:
     - cp "$REGISTRY_KUBECONFIG_FILE" ~/.kube/config
     - chmod 600 ~/.kube/config
     - export KUBECONFIG="$HOME/.kube/config"
+    # Probe the exact read refresh_live_snapshot performs rather than
+    # `kubectl cluster-info`, which also lists services and so would fail on a
+    # kubeconfig that is otherwise sufficient for this check.
     - >-
-      nix develop ./flake -c kubectl cluster-info --request-timeout=10s
-      >/dev/null ||
-      { echo 'ERROR: the registry kubeconfig cannot reach the API server.' >&2;
-      exit 1; }
+      nix develop ./flake -c kubectl get pods,jobs,cronjobs -A -o json
+      --request-timeout=10s >/dev/null ||
+      { echo 'ERROR: the registry kubeconfig cannot read pods, jobs, and
+      cronjobs, which is what the live image inventory needs.' >&2; exit 1; }
   script:
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry -- bash -euo pipefail -c
