@@ -24,14 +24,32 @@ if [[ -n ${AGENT_TASK_ID:-} ]]; then
   stop_needs "$AGENT_TASK_ID" || hook_ok
   stop_remind "Task $AGENT_TASK_ID has checkout drift or unresolved validation. Run just task-checkpoint $AGENT_TASK_ID before handoff."
 fi
-needy=()
+task_ids=()
 for record in "$REPO_ROOT"/.agent-state/tasks/*/task.json; do
   [[ -f $record ]] || continue
   id=$(jq -r 'select(.status == "active" or .status == "blocked") | .task_id // empty' "$record" 2>/dev/null) || continue
   [[ -n $id ]] || continue
-  stop_needs "$id" || continue
+  task_ids+=("$id")
+done
+[[ ${#task_ids[@]} -gt 0 ]] || hook_ok
+results=$(mktemp -d "${TMPDIR:-/tmp}/agent-stop.XXXXXX") || hook_ok
+trap 'rm -rf -- "$results"' EXIT
+filter='.checkpoint.head_drift or .checkpoint.fingerprint_drift or ([.verifications[]? | select(.stale or .exit_code != 0)] | length > 0)'
+printf '%s\0' "${task_ids[@]}" | xargs -0 -P 8 -n 1 bash -c "
+  filter=\$1
+  id=\$2
+  resume=\$(AGENT_HOOK_ACTIVE=1 timeout 5 python -m scripts.agent task-resume \"\$id\" --json 2>/dev/null) || exit 0
+  needs=\$(jq -r \"\$filter\" <<<\"\$resume\") || exit 0
+  if [[ \$needs == true ]]; then
+    printf '%s\\n' \"\$id\"
+  fi
+  exit 0
+" _ "$filter" >"$results/needy" || hook_ok
+needy=()
+while IFS= read -r id; do
+  [[ -n $id ]] || continue
   needy+=("$id")
   [[ ${#needy[@]} -lt 5 ]] || break
-done
+done <"$results/needy"
 [[ ${#needy[@]} -gt 0 ]] || hook_ok
 stop_remind "Tasks with checkout drift or unresolved validation: ${needy[*]}. Run just task-checkpoint <id> before handoff."

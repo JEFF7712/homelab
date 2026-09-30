@@ -202,6 +202,7 @@ class AgentStopHookTest(unittest.TestCase):
             capture_output=True,
             text=True,
             check=False,
+            timeout=10,
         )
 
     def test_scoped_task_with_drift_reminds(self) -> None:
@@ -223,6 +224,16 @@ class AgentStopHookTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertIn("stop-scan", payload["followup_message"])
+
+    def test_unscoped_scan_stays_within_hook_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = self.make_repo(directory)
+            for index in range(6):
+                self.create_task(repository, f"stop-budget-{index}")
+            (repository / "untracked.txt").write_text("drift\n", encoding="utf-8")
+            result = self.run_stop(repository, None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("stop-budget-", result.stdout)
 
     def test_codex_stop_reminds_without_blocking(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
