@@ -841,7 +841,7 @@ def _interstitial_reason(registry: str) -> str | None:
             del response
             return None
     except urllib.error.HTTPError as error:
-        intercepted = _interception(error.code, error.headers)
+        intercepted = _interception(error.code, _header_map(error.headers))
         if intercepted is not None:
             return intercepted
         return None
@@ -863,6 +863,13 @@ def _reference_from_args(args: Sequence[str]) -> tuple[str, str, str] | None:
         if found and repository and reference:
             return registry, repository, reference
     return registry, path, ""
+
+
+def _header_map(headers: Any) -> dict[str, str]:
+    """HTTPError carries an email.message.Message, which is not a Mapping."""
+    if not headers:
+        return {}
+    return {str(key): str(value) for key, value in headers.items()}
 
 
 def _interception(status: int, headers: Mapping[str, str] | None) -> str | None:
@@ -920,7 +927,7 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
                 )
             return None
     except urllib.error.HTTPError as error:
-        intercepted = _interception(error.code, error.headers)
+        intercepted = _interception(error.code, _header_map(error.headers))
         if intercepted is not None:
             return f"{intercepted} while reading {repository}:{reference}"
         # A 401 or 404 from the registry itself is a real answer about content.
