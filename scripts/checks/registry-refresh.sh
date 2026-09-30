@@ -17,8 +17,12 @@ refresh() {
   python -m scripts.registry snapshot-live >/dev/null
 }
 
+# Probed with the same read refresh performs, not `kubectl cluster-info`, which
+# additionally lists services and so reports failure for an identity that is
+# otherwise able to take the snapshot.
 if command -v kubectl >/dev/null 2>&1 \
-  && kubectl cluster-info --request-timeout=5s >/dev/null 2>&1; then
+  && kubectl get pods,jobs,cronjobs -A -o json --request-timeout=5s \
+    >/dev/null 2>&1; then
   refresh
   exit 0
 fi
@@ -31,7 +35,8 @@ if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
   shim_dir="$(mktemp -d)"
   printf '#!/bin/sh\nexec sudo -n k3s kubectl "$@"\n' >"$shim_dir/kubectl"
   chmod +x "$shim_dir/kubectl"
-  if PATH="$shim_dir:$PATH" kubectl cluster-info --request-timeout=5s >/dev/null 2>&1; then
+  if PATH="$shim_dir:$PATH" kubectl get pods,jobs,cronjobs -A -o json \
+    --request-timeout=5s >/dev/null 2>&1; then
     export PATH="$shim_dir:$PATH"
     refresh
     exit 0
