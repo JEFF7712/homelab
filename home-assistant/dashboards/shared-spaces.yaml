@@ -229,32 +229,6 @@ views:
                   target:
                     entity_id: script.effects_night_light
       - cards:
-          - heading: Rooms
-            type: heading
-          - type: horizontal-stack
-            cards:
-              - name: Stairs
-                icon: mdi:stairs
-                entity: switch.stairs_light
-                hold_action:
-                  action: toggle
-                show_state: true
-                tap_action:
-                  action: navigate
-                  navigation_path: /shared-spaces/stairs
-                type: button
-              - name: Kitchen
-                icon: mdi:stove
-                tap_action:
-                  action: navigate
-                  navigation_path: /shared-spaces/kitchen
-                type: button
-              - name: Living Room
-                icon: mdi:sofa
-                tap_action:
-                  action: navigate
-                  navigation_path: /shared-spaces/living-room
-                type: button
           - heading: All Lights
             type: heading
           - entity: light.all_govee_lights
@@ -305,6 +279,39 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.kitchen_mushroom_lamp
+            name: Mushroom Lamp
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_fuck_off_sign
+            name: Fuck Off Sign
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.living_room_good_vibes_sign
+            name: Good Vibes Sign
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - name: Stairs Light
+            entity: switch.stairs_light
+            features:
+              - type: toggle
+            type: tile
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
           - type: horizontal-stack
             cards:
               - type: button
@@ -347,133 +354,6 @@ views:
             features:
               - type: toggle
             type: tile
-  - title: Stairs
-    path: stairs
-    sections:
-      - cards:
-          - heading: Stairs
-            type: heading
-          - name: Stairs Light
-            entity: switch.stairs_light
-            features:
-              - type: toggle
-            type: tile
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-    subview: true
-    type: sections
-  - title: Kitchen
-    path: kitchen
-    sections:
-      - cards:
-          - heading: Lights
-            type: heading
-          - entity: light.kitchen_lights
-            name: All Kitchen Lights
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_ceiling_light_1
-            name: Kitchen Ceiling Light 1
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_ceiling_light_2
-            name: Kitchen Ceiling Light 2
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_mushroom_lamp
-            name: Mushroom Lamp
-            fill_container: true
-            type: custom:mushroom-light-card
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_fuck_off_sign
-            name: Fuck Off Sign
-            fill_container: true
-            type: custom:mushroom-light-card
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-    subview: true
-    type: sections
-  - title: Living Room
-    path: living-room
-    sections:
-      - cards:
-          - heading: Lights
-            type: heading
-          - name: Good Vibes Sign
-            fill_container: true
-            type: custom:mushroom-light-card
-            entity: light.living_room_good_vibes_sign
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.living_room_lights
-            name: All Living Room Lights
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.living_room_floor_lamp
-            name: Floor Lamp
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.living_room_tulip_lamp
-            name: Tulip Lamp
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
       - cards:
           - heading: Climate
             type: heading
@@ -490,7 +370,6 @@ views:
               action: toggle
             hold_action:
               action: more-info
-      - cards:
           - heading: History
             type: heading
           - type: custom:apexcharts-card
@@ -505,5 +384,3 @@ views:
               - entity: climate.living_room_ac_living_room_ac_thermostat
                 attribute: temperature
                 name: Target
-    subview: true
-    type: sections
