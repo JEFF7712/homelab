@@ -190,6 +190,7 @@ class RegistryCiContractTests(unittest.TestCase):
         self.assertIn("reconcile-retention", script)
         self.assertEqual(template["environment"], {"name": "production"})
         self.assertEqual(template["resource_group"], "registry-content")
+        self.assertEqual(template["tags"], ["nas-ci"])
         self.assertEqual(
             template["rules"],
             [

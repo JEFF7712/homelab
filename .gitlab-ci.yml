@@ -339,6 +339,11 @@ registry_drift_check:
   timeout: 20m
   interruptible: false
   stage: registry
+  tags:
+    # nas-ci already reaches registry.rupan.dev; the reconciler needs the
+    # Cloudflare Access bypass, not privilege. Without a tag the job never
+    # matches a runner and sits pending forever.
+    - nas-ci
   needs: []
   environment:
     name: production
