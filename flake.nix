@@ -35,7 +35,10 @@
           # The registry serves this exact build, and the GC fixture asserts
           # the version it runs so a bump cannot quietly change what the
           # fixture proves.
-          (import ./nix/zot-release.nix { inherit pkgs; lib = pkgs.lib; }).zotPackage
+          (import ./nix/zot-release.nix {
+            inherit pkgs;
+            lib = pkgs.lib;
+          }).zotPackage
         ];
 
         laptopExtras = with pkgs; [

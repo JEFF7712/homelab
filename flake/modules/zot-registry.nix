@@ -10,7 +10,8 @@ let
   # Shared with the GC fixture in CI so both run one zot build.
   inherit ((import ../../nix/zot-release.nix { inherit pkgs lib; }))
     zotPackage
-    supported;
+    supported
+    ;
 
   baseConfig = pkgs.writeText "zot-base-config.json" (
     builtins.toJSON {
