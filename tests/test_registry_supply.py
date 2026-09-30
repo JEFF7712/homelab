@@ -436,6 +436,21 @@ class RegistryCiContractTests(unittest.TestCase):
 
         self.assertIn(f'version = "{EXPECTED_ZOT_VERSION}"', release)
 
+    def test_gc_fixture_job_uses_a_shell_that_has_zot(self) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        script = "\n".join(pipeline[".registry_gc_fixture"]["script"])
+        # CI enters the NixOS flake's devShell via `nix develop ./flake`, which
+        # is a different shell from the repository root flake. Adding zot to
+        # only the root flake leaves the job failing with "zot is not on PATH",
+        # so both are checked here.
+        self.assertIn("nix develop ./flake", script)
+        for flake in (root / "flake.nix", root / "flake" / "flake.nix"):
+            with self.subTest(flake=flake.name):
+                self.assertIn(
+                    "zot-release.nix", flake.read_text(), f"{flake} lacks zot"
+                )
+
     def test_retention_reconcile_uses_maintenance_and_is_additive(self) -> None:
         root = pathlib.Path(__file__).resolve().parents[1]
         pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
