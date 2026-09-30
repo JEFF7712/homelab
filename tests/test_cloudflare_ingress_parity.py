@@ -41,7 +41,9 @@ def evaluated_ingress() -> list[dict]:
         cwd=ROOT,
         check=True,
     )
-    return json.loads(result.stdout.strip().splitlines()[-1])
+    # `tofu console` renders the jsonencode result as a quoted HCL string, so
+    # the value arrives double-encoded.
+    return json.loads(json.loads(result.stdout.strip().splitlines()[-1]))
 
 
 def mirrored_ingress() -> list[dict]:
