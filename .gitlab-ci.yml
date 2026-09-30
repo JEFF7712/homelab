@@ -456,6 +456,12 @@ registry_resolve:
     - nas-ci
   environment:
     name: production
+  # Read-only (inventory, candidate lock, copy plan) and writes nothing, so it
+  # waits only on the secret gate, not the whole test stage. Without explicit
+  # needs it inherits the stage, and a red drift check — which fails on any
+  # not-yet-imported image by design — deadlocks every new image import.
+  needs:
+    - secret_scan
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == "main"'
