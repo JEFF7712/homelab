@@ -175,6 +175,150 @@ class OciClientTests(unittest.TestCase):
                 self.assertEqual(list(cache_dir.iterdir()), [])
 
 
+class BearerAndPaginationTests(unittest.TestCase):
+    """Public upstreams answer 401 with a bearer challenge, not just a refusal."""
+
+    def test_challenge_is_parsed(self) -> None:
+        raw = (
+            'Bearer realm="https://ghcr.io/token",service="ghcr.io",'
+            'scope="repository:external-secrets/external-secrets:pull"'
+        )
+        self.assertEqual(
+            core._bearer_challenge({"www-authenticate": raw}),
+            {
+                "realm": "https://ghcr.io/token",
+                "service": "ghcr.io",
+                "scope": "repository:external-secrets/external-secrets:pull",
+            },
+        )
+
+    def test_basic_challenge_is_not_a_bearer_challenge(self) -> None:
+        self.assertIsNone(
+            core._bearer_challenge({"www-authenticate": 'Basic realm="x"'})
+        )
+
+    def test_next_page_is_parsed(self) -> None:
+        headers = {
+            "link": '</v2/a/b/tags/list?n=100&last=z>; rel="next", </v2/a/b/tags/list>; rel="prev"'
+        }
+        self.assertEqual(core._next_page(headers), "a/b/tags/list?n=100&last=z")
+
+    def test_absent_link_header_means_no_next_page(self) -> None:
+        self.assertEqual(core._next_page({}), "")
+
+    def _opener_returning(self, responses: list) -> mock.MagicMock:
+        opener = mock.MagicMock()
+        opener.open.side_effect = responses
+        return opener
+
+    @staticmethod
+    def _ok(body: bytes, headers: dict[str, str] | None = None) -> mock.MagicMock:
+        response = mock.MagicMock()
+        response.status = 200
+        response.headers = email.message.Message()
+        for key, value in (headers or {}).items():
+            response.headers[key] = value
+        response.read.return_value = body
+        response.__enter__.return_value = response
+        return response
+
+    def _challenge(self, scope: str = "repository:a/b:pull") -> urllib.error.HTTPError:
+        headers = email.message.Message()
+        headers["www-authenticate"] = (
+            f'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="{scope}"'
+        )
+        return urllib.error.HTTPError(
+            url="https://ghcr.io/v2/a/b/manifests/latest",
+            code=401,
+            msg="Unauthorized",
+            hdrs=headers,
+            fp=None,
+        )
+
+    def test_read_retries_with_a_bearer_token(self) -> None:
+        challenge = self._challenge()
+        self.addCleanup(challenge.close)
+        body = b'{"schemaVersion":2}'
+        opener = self._opener_returning([challenge, self._ok(body)])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with (
+            patch.object(core.urllib.request, "build_opener", return_value=opener),
+            patch.object(
+                client,
+                "_fetch_bearer_token",
+                return_value="tok",
+            ) as fetch,
+        ):
+            raw = client.raw_manifest("docker.io/library/a/b:latest")
+
+        self.assertEqual(raw, body)
+        fetch.assert_called_once()
+        # The retry must present the token, not the original credential.
+        retry_request = opener.open.call_args_list[1].args[0]
+        self.assertEqual(retry_request.get_header("Authorization"), "Bearer tok")
+
+    def test_token_is_requested_with_the_challenge_scope(self) -> None:
+        client = OciClient(retries=0, cache_dir=False)
+        token_response = self._ok(b'{"token":"abc"}')
+        opener = self._opener_returning([token_response])
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            token = client._fetch_bearer_token(
+                {
+                    "realm": "https://ghcr.io/token",
+                    "service": "ghcr.io",
+                    "scope": "repository:a/b:pull",
+                },
+                destination=False,
+            )
+
+        self.assertEqual(token, "abc")
+        url = opener.open.call_args.args[0].full_url
+        self.assertIn("service=ghcr.io", url)
+        self.assertIn("scope=repository", url)
+
+    def test_challenged_read_with_no_token_stays_inconclusive(self) -> None:
+        # A registry that challenges and then refuses is not a statement about
+        # content, so it must not be reported as drift.
+        challenge = self._challenge()
+        self.addCleanup(challenge.close)
+        opener = self._opener_returning([challenge])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with (
+            patch.object(core.urllib.request, "build_opener", return_value=opener),
+            patch.object(client, "_fetch_bearer_token", return_value=None),
+            self.assertRaises(core.TransientRegistryError),
+        ):
+            client.raw_manifest("docker.io/library/a/b:latest")
+
+    def test_tag_listing_follows_pagination(self) -> None:
+        first = self._ok(
+            b'{"tags":["a","b"]}',
+            {"link": '</v2/a/b/tags/list?n=2&last=b>; rel="next"'},
+        )
+        second = self._ok(b'{"tags":["c"]}')
+        opener = self._opener_returning([first, second])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(client.list_tags("ghcr.io/a/b"), ["a", "b", "c"])
+
+        self.assertEqual(opener.open.call_count, 2)
+
+    def test_tag_listing_terminates_on_a_repeating_page(self) -> None:
+        # A registry that points at itself must not loop forever.
+        page = self._ok(b'{"tags":["a"]}', {"link": '</v2/a/b/tags/list>; rel="next"'})
+        opener = self._opener_returning([page, page, page])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(client.list_tags("ghcr.io/a/b"), ["a"])
+
+        self.assertEqual(opener.open.call_count, 1)
+
+
 class ManifestUrlTests(unittest.TestCase):
     def test_digest_reference_becomes_a_manifests_path(self) -> None:
         digest = "c" * 64

@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -997,6 +998,33 @@ def _manifest_url(reference: str) -> tuple[str, str]:
     return registry, f"{repository}/manifests/{tail}"
 
 
+def _next_page(headers: Mapping[str, str] | None) -> str:
+    """The path of the next page from a `Link: <...>; rel="next"` header."""
+    raw = (headers or {}).get("link") or (headers or {}).get("Link") or ""
+    for value in raw.split(","):
+        match = re.match(r'\s*<([^>]+)>\s*;\s*rel="?next"?', value)
+        if match:
+            url = match.group(1)
+            _, _, tail = url.partition("/v2/")
+            return tail if tail else ""
+    return ""
+
+
+def _bearer_challenge(headers: Mapping[str, str] | None) -> dict[str, str] | None:
+    """Parse a `WWW-Authenticate: Bearer` challenge into its parameters."""
+    raw = (headers or {}).get("www-authenticate") or (headers or {}).get(
+        "WWW-Authenticate"
+    )
+    if not raw or not raw.lower().startswith("bearer"):
+        return None
+    challenge = {"realm": "", "service": "", "scope": ""}
+    for key, value in re.findall(r'(\w+)="([^"]*)"', raw):
+        name = key.lower()
+        if name in challenge:
+            challenge[name] = value
+    return challenge if challenge["realm"] else None
+
+
 class OciClient:
     def __init__(
         self,
@@ -1116,6 +1144,36 @@ class OciClient:
                 return f"Basic {auth}"
         return None
 
+    def _fetch_bearer_token(
+        self, challenge: Mapping[str, str], destination: bool
+    ) -> str | None:
+        """Exchange the credential for a bearer token at the challenge's realm."""
+        query = {
+            key: value
+            for key, value in (
+                ("service", challenge.get("service")),
+                ("scope", challenge.get("scope")),
+            )
+            if value
+        }
+        url = challenge["realm"] + "?" + urllib.parse.urlencode(query)
+        request = urllib.request.Request(url, method="GET")
+        header = self._auth_header(destination)
+        if header:
+            request.add_header("Authorization", header)
+        opener = urllib.request.build_opener(_NoRedirect)
+        try:
+            with opener.open(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read())
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+            return None
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        token = payload.get("token") or payload.get("access_token")
+        return token if isinstance(token, str) and token else None
+
     def _get(
         self,
         registry: str,
@@ -1146,6 +1204,7 @@ class OciClient:
         if header:
             request.add_header("Authorization", header)
         attempts = self.retries
+        retried_with_token = False
         last: tuple[int, dict[str, str], bytes] | None = None
         for attempt in range(attempts + 1):
             opener = urllib.request.build_opener(_NoRedirect)
@@ -1163,6 +1222,45 @@ class OciClient:
                 intercepted = _interception(error.code, headers)
                 if intercepted is not None:
                     raise TransientRegistryError(f"{operation}: {intercepted}")
+                challenge = _bearer_challenge(headers)
+                if challenge is not None and not retried_with_token:
+                    retried_with_token = True
+                    token = self._fetch_bearer_token(challenge, destination)
+                    if token is not None:
+                        # Public upstreams such as ghcr.io and Docker Hub answer
+                        # 401 with a bearer challenge even for public images, so
+                        # a client that only speaks Basic cannot read them at
+                        # all. Retry once with the token the registry asked for.
+                        retried = urllib.request.Request(
+                            f"https://{registry}/v2/{path.lstrip('/')}", method="GET"
+                        )
+                        retried.add_header("Accept", accept)
+                        retried.add_header("Authorization", f"Bearer {token}")
+                        retry_opener = urllib.request.build_opener(_NoRedirect)
+                        try:
+                            with retry_opener.open(retried, timeout=timeout) as ok:
+                                return (
+                                    ok.status,
+                                    _header_map(ok.headers),
+                                    ok.read(),
+                                )
+                        except urllib.error.HTTPError as retry_error:
+                            if retry_error.code not in {401, 403}:
+                                raise RegistryError(
+                                    f"{operation} failed with HTTP "
+                                    f"{retry_error.code} for {registry}/{path}"
+                                ) from retry_error
+                            error = retry_error
+                            headers = _header_map(retry_error.headers)
+                        except (
+                            urllib.error.URLError,
+                            TimeoutError,
+                            OSError,
+                        ) as retry_error:
+                            raise TransientRegistryError(
+                                f"{operation}: registry unreachable at {registry}: "
+                                f"{retry_error}"
+                            ) from retry_error
                 if error.code in {401, 403}:
                     # 401 is zot rejecting the credential and 403 is the access
                     # policy denying the read. Neither says whether the content
@@ -1207,29 +1305,44 @@ class OciClient:
         )
 
     def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
+        """Every tag in a repository, following the registry's pagination.
+
+        A tag list is paged: ghcr.io returns 100 tags and a `Link` header
+        pointing at the rest, so reading only the first page silently hides
+        every tag past it. `skopeo list-tags` followed that for us.
+        """
         registry, _, name = repository.partition("/")
         if not registry or not name:
             raise RegistryError(f"cannot parse a repository from {repository!r}")
-        _, _, raw = self._get(
-            registry,
-            f"{name.rstrip('/')}/tags/list",
-            destination=destination,
-            accept="application/json",
-            timeout=float(self.timeout),
-            operation="tag listing",
-        )
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise RegistryError(
-                f"registry returned invalid tag list JSON for {repository}"
-            ) from error
-        tags = payload.get("tags") if isinstance(payload, dict) else None
-        if tags is None and isinstance(payload, dict):
-            tags = payload.get("Tags")
-        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
-            raise RegistryError(f"registry returned invalid tags for {repository}")
-        return sorted(tags)
+        path = f"{name.rstrip('/')}/tags/list"
+        collected: set[str] = set()
+        seen_paths: set[str] = set()
+        while path and path not in seen_paths:
+            seen_paths.add(path)
+            _, headers, raw = self._get(
+                registry,
+                path,
+                destination=destination,
+                accept="application/json",
+                timeout=float(self.timeout),
+                operation="tag listing",
+            )
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as error:
+                raise RegistryError(
+                    f"registry returned invalid tag list JSON for {repository}"
+                ) from error
+            tags = payload.get("tags") if isinstance(payload, dict) else None
+            if tags is None and isinstance(payload, dict):
+                tags = payload.get("Tags")
+            if not isinstance(tags, list) or not all(
+                isinstance(tag, str) for tag in tags
+            ):
+                raise RegistryError(f"registry returned invalid tags for {repository}")
+            collected.update(tags)
+            path = _next_page(headers)
+        return sorted(collected)
 
     def copy(
         self, source: str, destination: str, *, timeout: float | None = None
