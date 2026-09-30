@@ -26,7 +26,7 @@
     },
     {
       "consumers": [
-        "apolline/website-deploy-7dff56d488-4tq8t/web"
+        "apolline/website-deploy-5c7d68cdb4-hfzp7/web"
       ],
       "reference": "registry.rupan.dev/apps/apolline@sha256:ebd8990814186b9425f0bfa4c2f0860efae30baaea7abc6a7f9cf6353d62fe59"
     },
@@ -44,13 +44,13 @@
     },
     {
       "consumers": [
-        "darkbit/website-deploy-7568866c7d-gmp7m/web"
+        "darkbit/website-deploy-f8b9d8f49-mzrjh/web"
       ],
       "reference": "registry.rupan.dev/apps/darkbit@sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4"
     },
     {
       "consumers": [
-        "distrojeff/website-deploy-6fb8646bfd-hnn4l/web"
+        "distrojeff/website-deploy-546fd584d5-88wmm/web"
       ],
       "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:2fa9326b3416cb3468beac626853c7324c6a5ff97a06fa40526a475547ae53d5"
     },
@@ -111,6 +111,8 @@
         "pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network",
         "pod-agent/cronjob-pod-agent-observe/observe",
         "pod-agent/cronjob-pod-agent-observe/wait-for-network",
+        "pod-agent/cronjob-pod-agent-planner-recovery/planner-recovery",
+        "pod-agent/cronjob-pod-agent-planner-recovery/wait-for-network",
         "pod-agent/cronjob-pod-agent-price/price",
         "pod-agent/cronjob-pod-agent-price/wait-for-network",
         "pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge",
@@ -121,41 +123,41 @@
         "pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/dashboard",
-        "pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/seed-memory",
-        "pod-agent/pod-agent-discord-bot-7d56ffb7ff-4bqj6/bot"
+        "pod-agent/pod-agent-dashboard-d4d6fd6bd-45khc/dashboard",
+        "pod-agent/pod-agent-dashboard-d4d6fd6bd-45khc/seed-memory",
+        "pod-agent/pod-agent-discord-bot-5584cf55cd-zr7rd/bot"
       ],
       "reference": "registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31"
     },
     {
       "consumers": [
-        "pulse/website-deploy-6f54bdfdd8-bjwmr/web"
+        "pulse/website-deploy-776b56dd55-t9r42/web"
       ],
       "reference": "registry.rupan.dev/apps/pulse-site@sha256:8dacbcb2ae5b7ea8e6509e8e48270af1e9fb5d7226b249dac55df6f2e69adcb8"
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-787b5b9b9f-8j979/quartz",
-        "obsidian/quartz-notes-787b5b9b9f-v76x4/quartz"
+        "obsidian/quartz-notes-86b57bdbf9-szrvl/quartz",
+        "obsidian/quartz-notes-86b57bdbf9-v6q7d/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:fc87d8d26b9fa602fd2694ed60cc7ebfacdf5ddf6198f3f54c415c562194c657"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:e69bc0cbe57968b201fdcd1deb79beb8eff654567fc10879f03de7c6268c5ff6"
     },
     {
       "consumers": [
-        "rupan-dev/website-deploy-5c97b9d586-sg62v/web"
+        "rupan-dev/website-deploy-74c8474bbd-l2kpx/web"
       ],
       "reference": "registry.rupan.dev/apps/rupan-dev@sha256:b0e55f46dd930d4b3d7ec2cc02b0d13fe5e2d8ae18927ebb8e1ccd2c10cd2dcb"
     },
     {
       "consumers": [
-        "rupanism/website-deploy-7fdb9766b8-ktm9b/web"
+        "rupanism/website-deploy-6cd59f5bf5-8lztq/web"
       ],
       "reference": "registry.rupan.dev/apps/rupanism@sha256:3404e0f8143e8c5ec48df12f33d73d83a8179cd5b75e45219a245f934bfd2f9c"
     },
     {
       "consumers": [
-        "soluble-rupan/website-deploy-7c778cc4f4-b859q/web",
-        "soluble-rupan/website-deploy-7c778cc4f4-rs42v/web"
+        "soluble-rupan/website-deploy-dc45fcc4f-qqvtd/web",
+        "soluble-rupan/website-deploy-dc45fcc4f-rd56j/web"
       ],
       "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea"
     },
@@ -182,8 +184,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-84bd69c579-j5n2n/cloudflared",
-        "cloudflare/cloudflared-84bd69c579-r5t6s/cloudflared"
+        "cloudflare/cloudflared-597657f697-2qkv9/cloudflared",
+        "cloudflare/cloudflared-597657f697-rln4s/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -330,8 +332,8 @@
         "media/cronjob-arr-credential-sync/sync",
         "media/cronjob-soularr/soularr",
         "media/cronjob-spotify-sync/sync",
-        "media/job-soularr-29844317/soularr",
-        "media/soularr-29844317-tllqz/soularr"
+        "media/job-soularr-29846357/soularr",
+        "media/soularr-29846357-r9xbg/soularr"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
     },
@@ -488,7 +490,7 @@
     },
     {
       "consumers": [
-        "music-assistant/ledfx-5c4d95ff5f-xhqnm/ledfx"
+        "music-assistant/ledfx-5c4d95ff5f-bfhbw/ledfx"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
     },
@@ -515,7 +517,7 @@
         "automation/cronjob-renovate-github/renovate",
         "automation/cronjob-renovate-gitlab/renovate"
       ],
-      "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130"
+      "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c"
     },
     {
       "consumers": [
@@ -715,6 +717,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-29T05:51:25+00:00",
+  "observed_at": "2026-09-30T17:14:57+00:00",
   "schema_version": 1
 }
