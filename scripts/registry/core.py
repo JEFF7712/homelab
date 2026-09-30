@@ -2747,3 +2747,839 @@ def check_auth_consistency(
         "htpasswd_users": sorted(entries),
         "errors": errors,
     }
+
+
+_SEMVER_RE = re.compile(
+    r"^(?P<prefix>v)?(?P<major>\d+)(?:\.(?P<minor>\d+))?(?:\.(?P<patch>\d+))?(?:-(?P<suffix>[\w\.\-]+))?$",
+    re.ASCII,
+)
+_PRERELEASE_KEYWORD_RE = re.compile(
+    r"^(?:alpha|beta|rc|preview|dev|pre|ea|snapshot)", re.IGNORECASE
+)
+_REVISION_RE = re.compile(
+    r"(?:^|-)(build|security|sec|patch|r)-?(\d+)(?:$|-)", re.IGNORECASE
+)
+
+
+def _compare_prerelease_identifiers(id1: str, id2: str) -> int:
+    """Compare two dot-separated pre-release identifiers according to SemVer 2.0 spec item 11."""
+    if id1 == id2:
+        return 0
+    is_num1 = id1.isdigit()
+    is_num2 = id2.isdigit()
+    if is_num1 and is_num2:
+        v1, v2 = int(id1), int(id2)
+        return -1 if v1 < v2 else 1
+    if is_num1:
+        # Numeric identifiers always have lower precedence than non-numeric identifiers
+        return -1
+    if is_num2:
+        return 1
+    # Both are non-numeric: compared lexical in ASCII sort order
+    return -1 if id1 < id2 else 1
+
+
+def _compare_prereleases(p1: str, p2: str) -> int:
+    """Compare two pre-release strings according to SemVer 2.0 (spec item 11)."""
+    parts1 = p1.split(".")
+    parts2 = p2.split(".")
+    for sub1, sub2 in zip(parts1, parts2):
+        cmp = _compare_prerelease_identifiers(sub1, sub2)
+        if cmp != 0:
+            return cmp
+    if len(parts1) != len(parts2):
+        return -1 if len(parts1) < len(parts2) else 1
+    return 0
+
+
+@dataclasses.dataclass(frozen=True)
+class SemVer:
+    major: int
+    minor: int = 0
+    patch: int = 0
+    prefix: str = ""
+    flavor: str | None = None
+    revision_type: str | None = None
+    revision_value: int | None = None
+    prerelease: str | None = None
+    raw: str = ""
+
+    @property
+    def version_tuple(self) -> tuple[int, int, int]:
+        return (self.major, self.minor, self.patch)
+
+    def is_compatible_flavor(self, other: SemVer) -> bool:
+        return (self.flavor or "").lower() == (
+            other.flavor or ""
+        ).lower() and self.revision_type == other.revision_type
+
+    def __lt__(self, other: SemVer) -> bool:
+        if self.version_tuple != other.version_tuple:
+            return self.version_tuple < other.version_tuple
+        if self.prerelease is not None and other.prerelease is None:
+            return True
+        if self.prerelease is None and other.prerelease is not None:
+            return False
+        if self.prerelease is not None and other.prerelease is not None:
+            cmp = _compare_prereleases(self.prerelease, other.prerelease)
+            if cmp != 0:
+                return cmp < 0
+        if self.revision_value is not None and other.revision_value is not None:
+            return self.revision_value < other.revision_value
+        return False
+
+    def __le__(self, other: SemVer) -> bool:
+        return self < other or self == other
+
+    def __gt__(self, other: SemVer) -> bool:
+        return other < self
+
+    def __ge__(self, other: SemVer) -> bool:
+        return other <= self
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SemVer):
+            return NotImplemented
+        return (
+            self.version_tuple == other.version_tuple
+            and self.prerelease == other.prerelease
+            and (self.flavor or "").lower() == (other.flavor or "").lower()
+            and self.revision_type == other.revision_type
+            and self.revision_value == other.revision_value
+        )
+
+
+def parse_semver(tag: str | None) -> SemVer | None:
+    if not tag:
+        return None
+    match = _SEMVER_RE.fullmatch(tag.strip())
+    if not match:
+        return None
+    prefix = match.group("prefix") or ""
+    major = int(match.group("major"))
+    minor = int(match.group("minor")) if match.group("minor") is not None else 0
+    patch = int(match.group("patch")) if match.group("patch") is not None else 0
+    raw_suffix = match.group("suffix")
+    flavor: str | None = None
+    revision_type: str | None = None
+    revision_value: int | None = None
+    prerelease: str | None = None
+
+    if raw_suffix:
+        s = raw_suffix
+        m_rev = _REVISION_RE.search(s)
+        if m_rev:
+            rt = m_rev.group(1).lower()
+            if rt == "sec":
+                rt = "security"
+            revision_type = rt
+            revision_value = int(m_rev.group(2))
+            s = _REVISION_RE.sub("", s).strip("-")
+
+        parts = [p for p in s.split("-") if p]
+        pre_parts = [p for p in parts if _PRERELEASE_KEYWORD_RE.match(p)]
+        flavor_parts = [p for p in parts if not _PRERELEASE_KEYWORD_RE.match(p)]
+        prerelease = "-".join(pre_parts) or None
+        flavor = "-".join(flavor_parts) or None
+
+    return SemVer(
+        major=major,
+        minor=minor,
+        patch=patch,
+        prefix=prefix,
+        flavor=flavor,
+        revision_type=revision_type,
+        revision_value=revision_value,
+        prerelease=prerelease,
+        raw=tag.strip(),
+    )
+
+
+def find_upstream_update_candidates(
+    tags: Sequence[str],
+    current_tag: str,
+    constraint: str = "minor",
+) -> dict[str, Any]:
+    if constraint not in {"patch", "minor", "major", "all"}:
+        raise RegistryError(f"unsupported update constraint: {constraint!r}")
+
+    parsed_current = parse_semver(current_tag)
+    if parsed_current is None:
+        return {
+            "current_tag": current_tag,
+            "parseable": False,
+            "reason": "unsupported tag format or mutable tag",
+            "flavor": None,
+            "latest_patch": None,
+            "latest_minor": None,
+            "latest_major": None,
+            "selected_candidate": None,
+        }
+
+    parsed_tags: list[SemVer] = []
+    for tag in tags:
+        v = parse_semver(tag)
+        if v is None:
+            continue
+        if not v.is_compatible_flavor(parsed_current):
+            continue
+        if v.prefix != parsed_current.prefix:
+            continue
+        if parsed_current.prerelease is None and v.prerelease is not None:
+            continue
+        parsed_tags.append(v)
+
+    patch_updates = [
+        v
+        for v in parsed_tags
+        if v.major == parsed_current.major
+        and v.minor == parsed_current.minor
+        and v > parsed_current
+    ]
+    minor_updates = [
+        v
+        for v in parsed_tags
+        if v.major == parsed_current.major and v.minor > parsed_current.minor
+    ]
+    major_updates = [v for v in parsed_tags if v.major > parsed_current.major]
+
+    best_patch = max(patch_updates).raw if patch_updates else None
+    best_minor = max(minor_updates).raw if minor_updates else None
+    best_major = max(major_updates).raw if major_updates else None
+
+    selected: str | None = None
+    if constraint == "patch":
+        selected = best_patch
+    elif constraint == "minor":
+        selected = best_minor or best_patch
+    elif constraint == "major":
+        selected = best_major or best_minor or best_patch
+    elif constraint == "all":
+        selected = best_major or best_minor or best_patch
+
+    return {
+        "current_tag": current_tag,
+        "parseable": True,
+        "flavor": parsed_current.flavor,
+        "latest_patch": best_patch,
+        "latest_minor": best_minor,
+        "latest_major": best_major,
+        "selected_candidate": selected,
+    }
+
+
+def discover_upstream_updates(
+    client: OciClient,
+    lock: Mapping[str, Any],
+    *,
+    constraint: str = "minor",
+    only: set[str] | None = None,
+) -> dict[str, Any]:
+    if constraint not in {"patch", "minor", "major", "all"}:
+        raise RegistryError(f"unsupported update constraint: {constraint!r}")
+
+    destination_registry = lock.get("destination_registry", DEFAULT_REGISTRY)
+    entries: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
+
+    for record in lock.get("images", []):
+        if record.get("kind") != "upstream":
+            continue
+        dest_repo = str(record.get("destination_repository", ""))
+        if only is not None and dest_repo not in only:
+            continue
+
+        source = record.get("source", {})
+        source_registry = source.get("registry")
+        source_repository = source.get("repository")
+        current_tag = source.get("tag")
+
+        if not source_registry or not source_repository or not current_tag:
+            entries.append(
+                {
+                    "destination_repository": dest_repo,
+                    "current_tag": current_tag,
+                    "current_digest": record.get("digest"),
+                    "error": "missing source registry, repository, or tag in lock record",
+                    "update_available": False,
+                    "automerge_permitted": False,
+                    "requires_manual_review": True,
+                }
+            )
+            continue
+
+        source_full_repo = f"{source_registry}/{source_repository}"
+        source_is_local = source_registry == destination_registry
+
+        try:
+            tags = client.list_tags(source_full_repo, destination=source_is_local)
+        except RegistryError as error:
+            errors.append(
+                {
+                    "destination_repository": dest_repo,
+                    "source_repository": source_full_repo,
+                    "error": f"tag listing failed: {error}",
+                }
+            )
+            continue
+
+        candidates = find_upstream_update_candidates(
+            tags, current_tag, constraint=constraint
+        )
+        update_available = candidates.get("selected_candidate") is not None
+
+        entries.append(
+            {
+                "destination_repository": dest_repo,
+                "source_repository": source_full_repo,
+                "current_tag": current_tag,
+                "current_digest": record.get("digest"),
+                "flavor": candidates.get("flavor"),
+                "parseable": candidates.get("parseable", False),
+                "latest_patch": candidates.get("latest_patch"),
+                "latest_minor": candidates.get("latest_minor"),
+                "latest_major": candidates.get("latest_major"),
+                "selected_candidate": candidates.get("selected_candidate"),
+                "update_available": update_available,
+                "automerge_permitted": False,
+                "requires_manual_review": True,
+            }
+        )
+
+    updates = [e for e in entries if e.get("update_available")]
+    up_to_date = [
+        e for e in entries if not e.get("update_available") and e.get("parseable")
+    ]
+    unparseable = [e for e in entries if not e.get("parseable")]
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "registry-upstream-discovery-report",
+        "generated_at": _timestamp(),
+        "status": "ok" if not errors else "partial",
+        "constraint": constraint,
+        "automerge_policy": "manual-review-required",
+        "policy_note": (
+            "Container image updates must be verified and mirrored to "
+            f"{destination_registry} before GitOps consumption. "
+            "Automerge is strictly prohibited."
+        ),
+        "summary": {
+            "total_upstream_images": len(entries),
+            "updates_available": len(updates),
+            "up_to_date": len(up_to_date),
+            "unparseable_or_mutable": len(unparseable),
+            "errors": len(errors),
+        },
+        "updates": updates,
+        "all_images": entries,
+        "errors": errors,
+    }
+
+
+def _normalize_cve_entry(item: Any) -> tuple[dict[str, Any] | None, str | None]:
+    if not isinstance(item, dict):
+        return None, f"invalid CVE entry: expected object, got {type(item).__name__}"
+    cve_id = item.get("id") or item.get("VulnerabilityID") or item.get("cve")
+    if not cve_id or not isinstance(cve_id, str) or not cve_id.strip():
+        return None, "invalid CVE entry: missing or empty vulnerability ID"
+    severity = str(item.get("severity") or item.get("Severity") or "UNKNOWN").upper()
+    package = str(item.get("package") or item.get("PkgName") or item.get("name") or "")
+    installed = str(
+        item.get("installed_version")
+        or item.get("InstalledVersion")
+        or item.get("version")
+        or ""
+    )
+    fixed = str(
+        item.get("fixed_version") or item.get("FixedVersion") or item.get("fixed") or ""
+    )
+    title = str(item.get("title") or item.get("Title") or item.get("description") or "")
+    return {
+        "id": cve_id.strip(),
+        "severity": severity,
+        "package": package,
+        "installed_version": installed,
+        "fixed_version": fixed,
+        "title": title,
+    }, None
+
+
+def _normalize_cve_list(raw_vulnerabilities: Sequence[Any]) -> list[dict[str, Any]]:
+    cves: list[dict[str, Any]] = []
+    for item in raw_vulnerabilities:
+        entry, err = _normalize_cve_entry(item)
+        if entry is not None:
+            cves.append(entry)
+    return sorted(cves, key=lambda c: (c["severity"], c["id"], c["package"]))
+
+
+def _extract_trivy_metadata(item: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    repo: str | None = None
+    digest: str | None = None
+    metadata = item.get("Metadata")
+    repo_digests = metadata.get("RepoDigests", []) if isinstance(metadata, dict) else []
+    if isinstance(repo_digests, list) and repo_digests:
+        first = str(repo_digests[0])
+        if "@" in first:
+            r_part, _, d_part = first.partition("@")
+            digest = d_part.strip()
+            repo = r_part.strip()
+    if not digest and item.get("ArtifactName"):
+        art = str(item["ArtifactName"])
+        if "@" in art:
+            r_part, _, d_part = art.partition("@")
+            digest = d_part.strip()
+            repo = r_part.strip()
+    if not digest and item.get("digest"):
+        digest = str(item["digest"])
+    if not repo and item.get("destination_repository"):
+        repo = str(item["destination_repository"])
+    if repo and "/" in repo:
+        parts = repo.split("/")
+        if "." in parts[0] or ":" in parts[0] or parts[0] == "localhost":
+            repo = "/".join(parts[1:])
+    return repo, digest
+
+
+def _normalize_scan_item(item: Any, fallback_key: str | None = None) -> dict[str, Any]:
+    if item is None:
+        return {
+            "status": "indeterminate",
+            "scanner_status": "missing",
+            "scanner_error": "no scan results provided",
+            "cves": [],
+            "digest": None,
+            "repository": fallback_key,
+        }
+    if not isinstance(item, dict):
+        return {
+            "status": "indeterminate",
+            "scanner_status": "error",
+            "scanner_error": (
+                f"invalid scan payload: expected object, got {type(item).__name__}"
+            ),
+            "cves": [],
+            "digest": None,
+            "repository": fallback_key,
+        }
+
+    trivy_repo, trivy_digest = _extract_trivy_metadata(item)
+    repo = trivy_repo or (
+        str(item.get("destination_repository"))
+        if item.get("destination_repository")
+        else fallback_key
+    )
+    digest = trivy_digest or (
+        str(item.get("digest"))
+        if item.get("digest")
+        else (
+            fallback_key
+            if fallback_key and fallback_key.startswith("sha256:")
+            else None
+        )
+    )
+
+    # Validate explicit scanner failure or non-ok statuses
+    scanner_status_field = item.get("scanner_status")
+    if scanner_status_field is not None and scanner_status_field != "ok":
+        return {
+            "status": "indeterminate",
+            "scanner_status": (
+                "indeterminate" if scanner_status_field == "indeterminate" else "error"
+            ),
+            "scanner_error": str(
+                item.get("scanner_error")
+                or item.get("error")
+                or f"scanner_status={scanner_status_field}"
+            ),
+            "cves": [],
+            "digest": digest,
+            "repository": repo,
+        }
+
+    status_field = item.get("status")
+    if status_field is not None and status_field not in ("ok", "clean", "vulnerable"):
+        return {
+            "status": "indeterminate",
+            "scanner_status": (
+                "indeterminate" if status_field == "indeterminate" else "error"
+            ),
+            "scanner_error": str(
+                item.get("error")
+                or item.get("scanner_error")
+                or f"unrecognized or failed status {status_field!r}"
+            ),
+            "cves": [],
+            "digest": digest,
+            "repository": repo,
+        }
+
+    error_field = item.get("error") or item.get("scanner_error")
+    if error_field:
+        return {
+            "status": "indeterminate",
+            "scanner_status": "error",
+            "scanner_error": str(error_field),
+            "cves": [],
+            "digest": digest,
+            "repository": repo,
+        }
+
+    if "Results" in item:
+        results = item.get("Results")
+        if not isinstance(results, list):
+            return {
+                "status": "indeterminate",
+                "scanner_status": "error",
+                "scanner_error": "malformed Trivy Results: expected list",
+                "cves": [],
+                "digest": digest,
+                "repository": repo,
+            }
+        trivy_vulns: list[dict[str, Any]] = []
+        for res in results:
+            if not isinstance(res, dict):
+                return {
+                    "status": "indeterminate",
+                    "scanner_status": "error",
+                    "scanner_error": "malformed Trivy target: expected dict",
+                    "cves": [],
+                    "digest": digest,
+                    "repository": repo,
+                }
+            target_name = res.get("Target")
+            if not isinstance(target_name, str) or not target_name.strip():
+                return {
+                    "status": "indeterminate",
+                    "scanner_status": "error",
+                    "scanner_error": "malformed Trivy target: missing or empty Target string",
+                    "cves": [],
+                    "digest": digest,
+                    "repository": repo,
+                }
+            if "Vulnerabilities" in res:
+                vulns = res["Vulnerabilities"]
+                if not isinstance(vulns, list):
+                    return {
+                        "status": "indeterminate",
+                        "scanner_status": "error",
+                        "scanner_error": "malformed Vulnerabilities in Trivy target: expected list",
+                        "cves": [],
+                        "digest": digest,
+                        "repository": repo,
+                    }
+                for v in vulns:
+                    entry, err = _normalize_cve_entry(v)
+                    if err is not None:
+                        return {
+                            "status": "indeterminate",
+                            "scanner_status": "error",
+                            "scanner_error": f"malformed vulnerability entry in Trivy target: {err}",
+                            "cves": [],
+                            "digest": digest,
+                            "repository": repo,
+                        }
+                    assert entry is not None
+                    trivy_vulns.append(entry)
+        cves = sorted(trivy_vulns, key=lambda c: (c["severity"], c["id"], c["package"]))
+        return {
+            "status": "vulnerable" if cves else "clean",
+            "scanner_status": "ok",
+            "scanner_error": None,
+            "cves": cves,
+            "digest": digest,
+            "repository": repo,
+        }
+
+    if "cves" in item or "vulnerabilities" in item:
+        raw_list = item.get("cves") if "cves" in item else item.get("vulnerabilities")
+        if not isinstance(raw_list, list):
+            return {
+                "status": "indeterminate",
+                "scanner_status": "error",
+                "scanner_error": "malformed cves list: expected list",
+                "cves": [],
+                "digest": digest,
+                "repository": repo,
+            }
+        norm_cves: list[dict[str, Any]] = []
+        for c in raw_list:
+            entry, err = _normalize_cve_entry(c)
+            if err is not None:
+                return {
+                    "status": "indeterminate",
+                    "scanner_status": "error",
+                    "scanner_error": f"malformed CVE entry in findings: {err}",
+                    "cves": [],
+                    "digest": digest,
+                    "repository": repo,
+                }
+            assert entry is not None
+            norm_cves.append(entry)
+        cves = sorted(norm_cves, key=lambda c: (c["severity"], c["id"], c["package"]))
+        return {
+            "status": "vulnerable" if cves else "clean",
+            "scanner_status": "ok",
+            "scanner_error": None,
+            "cves": cves,
+            "digest": digest,
+            "repository": repo,
+        }
+
+    return {
+        "status": "indeterminate",
+        "scanner_status": "error",
+        "scanner_error": (
+            "invalid or malformed scan payload: missing findings envelope"
+        ),
+        "cves": [],
+        "digest": digest,
+        "repository": repo,
+    }
+
+
+def audit_cves(
+    lock: Mapping[str, Any],
+    scan_results: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
+    previous_report: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Decoupled CVE auditor and delta reporter.
+
+    Differentiates scanner infrastructure errors (timeouts, network, DB sync)
+    as 'indeterminate' from clean zero-CVE scans ('clean') and actual
+    vulnerabilities ('vulnerable').
+    Binds scan evidence strictly to locked image digests.
+    Tracks CVE deltas (new, resolved, unchanged) between successive audits,
+    preserving baseline findings during outages rather than falsely resolving them.
+    """
+    items: list[dict[str, Any]] = []
+    if isinstance(scan_results, dict):
+        if "images" in scan_results and isinstance(scan_results["images"], list):
+            items = [_normalize_scan_item(it) for it in scan_results["images"]]
+        elif "Results" in scan_results and isinstance(scan_results["Results"], list):
+            items = [_normalize_scan_item(scan_results)]
+        else:
+            for k, v in scan_results.items():
+                items.append(_normalize_scan_item(v, fallback_key=k))
+    elif isinstance(scan_results, list):
+        items = [_normalize_scan_item(it) for it in scan_results]
+
+    scans_by_digest: dict[str, dict[str, Any]] = {}
+    scans_by_repo_and_digest: dict[tuple[str, str], dict[str, Any]] = {}
+    scans_by_repo_unbound: dict[str, list[dict[str, Any]]] = {}
+    mismatched_digests_by_repo: dict[str, list[str]] = {}
+
+    for item in items:
+        dig = item.get("digest")
+        rep = item.get("repository")
+        if dig:
+            scans_by_digest[dig] = item
+            if rep:
+                scans_by_repo_and_digest[(rep, dig)] = item
+                mismatched_digests_by_repo.setdefault(rep, []).append(dig)
+        elif rep:
+            scans_by_repo_unbound.setdefault(rep, []).append(item)
+
+    prev_by_digest: dict[str, Any] = {}
+    prev_by_repo: dict[str, Any] = {}
+    if isinstance(previous_report, dict) and "images" in previous_report:
+        for prev_img in previous_report["images"]:
+            if isinstance(prev_img, dict):
+                p_dest = prev_img.get("destination_repository")
+                p_digest = prev_img.get("digest")
+                if p_digest:
+                    prev_by_digest[p_digest] = prev_img
+                if p_dest:
+                    prev_by_repo[p_dest] = prev_img
+
+    evaluated_images: list[dict[str, Any]] = []
+    count_clean = 0
+    count_vulnerable = 0
+    count_indeterminate = 0
+    all_new_cves: list[dict[str, Any]] = []
+    all_resolved_cves: list[dict[str, Any]] = []
+
+    for record in lock.get("images", []):
+        dest_repo = str(record.get("destination_repository", ""))
+        digest_val = str(record.get("digest", ""))
+
+        scan: dict[str, Any] | None = None
+        if digest_val and digest_val in scans_by_digest:
+            scan = scans_by_digest[digest_val]
+        elif (dest_repo, digest_val) in scans_by_repo_and_digest:
+            scan = scans_by_repo_and_digest[(dest_repo, digest_val)]
+        elif (
+            dest_repo in mismatched_digests_by_repo
+            and digest_val not in mismatched_digests_by_repo[dest_repo]
+        ):
+            scan = {
+                "status": "indeterminate",
+                "scanner_status": "missing",
+                "scanner_error": (
+                    f"scan digest mismatch: required {digest_val}, "
+                    f"observed {mismatched_digests_by_repo[dest_repo]}"
+                ),
+                "cves": [],
+            }
+        elif dest_repo in scans_by_repo_unbound:
+            unbound_scan = scans_by_repo_unbound[dest_repo][0]
+            if not digest_val:
+                scan = unbound_scan
+            elif (
+                unbound_scan.get("scanner_status") == "error"
+                or unbound_scan.get("status") in ("error", "failed", "indeterminate")
+                or unbound_scan.get("scanner_error")
+            ):
+                scan = unbound_scan
+            else:
+                scan = {
+                    "status": "indeterminate",
+                    "scanner_status": "missing",
+                    "scanner_error": "scan missing verified digest association",
+                    "cves": [],
+                }
+
+        if scan is None:
+            scan = {
+                "status": "indeterminate",
+                "scanner_status": "missing",
+                "scanner_error": "no scan results provided",
+                "cves": [],
+            }
+
+        status = scan["status"]
+        scanner_status = scan["scanner_status"]
+        scanner_error = scan.get("scanner_error")
+        cves = scan.get("cves", [])
+
+        prev_entry = prev_by_digest.get(digest_val)
+        if prev_entry is None and not digest_val:
+            prev_entry = prev_by_repo.get(dest_repo)
+
+        prev_baseline: dict[str, Any] | None = None
+        if prev_entry is not None:
+            last_succ = prev_entry.get("last_successful")
+            if (
+                isinstance(last_succ, dict)
+                and (not digest_val or last_succ.get("digest") == digest_val)
+                and last_succ.get("status") in ("clean", "vulnerable")
+                and isinstance(last_succ.get("cves"), list)
+            ):
+                prev_baseline = last_succ
+            elif (
+                prev_entry.get("status") in ("clean", "vulnerable")
+                and prev_entry.get("scanner_status") == "ok"
+                and (not digest_val or prev_entry.get("digest") == digest_val)
+                and isinstance(prev_entry.get("cves"), list)
+            ):
+                prev_baseline = {
+                    "digest": digest_val,
+                    "status": prev_entry["status"],
+                    "cves": prev_entry["cves"],
+                }
+
+        curr_successful = status in ("clean", "vulnerable") and scanner_status == "ok"
+
+        if not curr_successful:
+            count_indeterminate += 1
+            last_known = (
+                prev_baseline.get("cves", [])
+                if prev_baseline is not None
+                else (
+                    prev_entry.get("cves", [])
+                    if prev_entry
+                    and (not digest_val or prev_entry.get("digest") == digest_val)
+                    else []
+                )
+            )
+            delta = {
+                "status": "unknown",
+                "new_cves": [],
+                "resolved_cves": [],
+                "unchanged_cves": [],
+            }
+            cves = last_known
+            current_last_successful = prev_baseline
+        else:
+            if cves:
+                count_vulnerable += 1
+            else:
+                count_clean += 1
+
+            if prev_baseline is None:
+                delta = {
+                    "status": "initial_baseline",
+                    "new_cves": cves,
+                    "resolved_cves": [],
+                    "unchanged_cves": [],
+                }
+                all_new_cves.extend(cves)
+            else:
+                prev_map = {
+                    c["id"]: c
+                    for c in prev_baseline.get("cves", [])
+                    if isinstance(c, dict) and "id" in c
+                }
+                curr_map = {c["id"]: c for c in cves if "id" in c}
+                new_ids = sorted(set(curr_map) - set(prev_map))
+                resolved_ids = sorted(set(prev_map) - set(curr_map))
+                unchanged_ids = sorted(set(curr_map) & set(prev_map))
+                delta = {
+                    "status": "computed",
+                    "new_cves": [curr_map[cid] for cid in new_ids],
+                    "resolved_cves": [prev_map[cid] for cid in resolved_ids],
+                    "unchanged_cves": [curr_map[cid] for cid in unchanged_ids],
+                }
+                all_new_cves.extend(delta["new_cves"])
+                all_resolved_cves.extend(delta["resolved_cves"])
+
+            current_last_successful = {
+                "digest": digest_val,
+                "status": status,
+                "cves": cves,
+            }
+
+        evaluated_images.append(
+            {
+                "destination_repository": dest_repo,
+                "digest": digest_val,
+                "kind": record.get("kind"),
+                "status": status,
+                "scanner_status": scanner_status,
+                "scanner_error": scanner_error,
+                "cves": cves,
+                "delta": delta,
+                "last_successful": current_last_successful,
+            }
+        )
+
+    if count_indeterminate > 0:
+        overall_status = "indeterminate"
+    elif count_vulnerable > 0:
+        overall_status = "vulnerable"
+    else:
+        overall_status = "clean"
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "registry-cve-report",
+        "generated_at": _timestamp(),
+        "status": overall_status,
+        "summary": {
+            "total_images": len(evaluated_images),
+            "clean_images": count_clean,
+            "vulnerable_images": count_vulnerable,
+            "indeterminate_images": count_indeterminate,
+            "total_cves": sum(len(img["cves"]) for img in evaluated_images),
+            "new_cves_count": len(all_new_cves),
+            "resolved_cves_count": len(all_resolved_cves),
+        },
+        "images": sorted(
+            evaluated_images, key=lambda img: img["destination_repository"]
+        ),
+        "delta": {
+            "new_cves": all_new_cves,
+            "resolved_cves": all_resolved_cves,
+        },
+    }

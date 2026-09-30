@@ -27,7 +27,9 @@ from scripts.registry.core import (
     ImageReference,
     OciClient,
     RegistryError,
+    SemVer,
     access_control_users,
+    audit_cves,
     build_live_snapshot,
     check_auth_consistency,
     check_consumers,
@@ -35,10 +37,13 @@ from scripts.registry.core import (
     copy_plan,
     destination_repository,
     discover_inventory,
+    discover_upstream_updates,
     filter_transient_observed_errors,
+    find_upstream_update_candidates,
     image_kind,
     load_lock,
     parse_htpasswd,
+    parse_semver,
     promote_first_party_lock,
     reconcile_retention,
     render_access_control,
@@ -2800,6 +2805,932 @@ class PromoteFirstPartyTests(unittest.TestCase):
                     previous_digest="sha256:" + "a" * 64,
                     digest="sha256:" + "b" * 64,
                 )
+
+
+class SemVerTests(unittest.TestCase):
+    def test_parse_semver_standard_and_prefixed(self) -> None:
+        v1 = parse_semver("v1.2.3")
+        self.assertIsNotNone(v1)
+        assert v1 is not None
+        self.assertIsInstance(v1, SemVer)
+        self.assertEqual((v1.major, v1.minor, v1.patch), (1, 2, 3))
+        self.assertEqual(v1.prefix, "v")
+        self.assertIsNone(v1.flavor)
+        self.assertIsNone(v1.prerelease)
+
+        v2 = parse_semver("1.36.2")
+        self.assertIsNotNone(v2)
+        assert v2 is not None
+        self.assertEqual((v2.major, v2.minor, v2.patch), (1, 36, 2))
+        self.assertEqual(v2.prefix, "")
+
+    def test_parse_semver_flavors_and_two_part_versions(self) -> None:
+        v_alpine = parse_semver("1.27-alpine")
+        self.assertIsNotNone(v_alpine)
+        assert v_alpine is not None
+        self.assertEqual((v_alpine.major, v_alpine.minor, v_alpine.patch), (1, 27, 0))
+        self.assertEqual(v_alpine.flavor, "alpine")
+
+        v_major_only = parse_semver("14-alpine")
+        self.assertIsNotNone(v_major_only)
+        assert v_major_only is not None
+        self.assertEqual(
+            (v_major_only.major, v_major_only.minor, v_major_only.patch), (14, 0, 0)
+        )
+        self.assertEqual(v_major_only.flavor, "alpine")
+
+        v_distroless = parse_semver("v3.12.0-distroless")
+        self.assertIsNotNone(v_distroless)
+        assert v_distroless is not None
+        self.assertEqual(v_distroless.flavor, "distroless")
+        self.assertEqual(v_distroless.prefix, "v")
+
+        v_full = parse_semver("42.70.2-full")
+        self.assertIsNotNone(v_full)
+        assert v_full is not None
+        self.assertEqual(v_full.flavor, "full")
+
+        v_sec = parse_semver("13.0.1-security-01")
+        self.assertIsNotNone(v_sec)
+        assert v_sec is not None
+        self.assertIsNone(v_sec.flavor)
+        self.assertEqual(v_sec.revision_type, "security")
+        self.assertEqual(v_sec.revision_value, 1)
+
+        v_build = parse_semver("v0.13.3-build20260727")
+        self.assertIsNotNone(v_build)
+        assert v_build is not None
+        self.assertIsNone(v_build.flavor)
+        self.assertEqual(v_build.revision_type, "build")
+        self.assertEqual(v_build.revision_value, 20260727)
+
+    def test_parse_semver_prereleases(self) -> None:
+        v_rc = parse_semver("v1.2.3-rc1")
+        self.assertIsNotNone(v_rc)
+        assert v_rc is not None
+        self.assertEqual(v_rc.prerelease, "rc1")
+        self.assertIsNone(v_rc.flavor)
+
+        v_rc_dot = parse_semver("v1.2.3-rc.1")
+        self.assertIsNotNone(v_rc_dot)
+        assert v_rc_dot is not None
+        self.assertEqual(v_rc_dot.prerelease, "rc.1")
+
+        v_combo = parse_semver("v1.2.3-alpine-rc1")
+        self.assertIsNotNone(v_combo)
+        assert v_combo is not None
+        self.assertEqual(v_combo.flavor, "alpine")
+        self.assertEqual(v_combo.prerelease, "rc1")
+
+    def test_parse_semver_unparseable_tags(self) -> None:
+        self.assertIsNone(parse_semver("latest"))
+        self.assertIsNone(parse_semver("gpu"))
+        self.assertIsNone(parse_semver("retention-deployed-44ef4942e171939b"))
+        self.assertIsNone(parse_semver(""))
+        self.assertIsNone(parse_semver(None))
+
+    def test_semver_comparison_and_flavor_compatibility(self) -> None:
+        v1 = parse_semver("1.2.3")
+        v2 = parse_semver("1.2.4")
+        v3 = parse_semver("1.3.0")
+        v4 = parse_semver("2.0.0")
+        v_rc = parse_semver("1.2.3-rc1")
+        v_alp = parse_semver("1.2.3-alpine")
+        v_alp2 = parse_semver("1.2.4-alpine")
+
+        assert v1 is not None and v2 is not None and v3 is not None and v4 is not None
+        assert v_rc is not None and v_alp is not None and v_alp2 is not None
+
+        self.assertTrue(v1 < v2 < v3 < v4)
+        self.assertTrue(v_rc < v1)
+        self.assertTrue(v1.is_compatible_flavor(v2))
+        self.assertFalse(v1.is_compatible_flavor(v_alp))
+        self.assertTrue(v_alp.is_compatible_flavor(v_alp2))
+
+
+class UpstreamDiscoveryTests(unittest.TestCase):
+    def test_find_upstream_update_candidates_patch_minor_major(self) -> None:
+        tags = [
+            "1.36.0",
+            "1.36.1",
+            "1.36.2",
+            "1.36.3",
+            "1.37.0",
+            "1.37.1",
+            "2.0.0",
+            "2.0.1-rc1",
+            "1.37.0-alpine",
+            "latest",
+        ]
+        res = find_upstream_update_candidates(tags, "1.36.2", constraint="minor")
+        self.assertTrue(res["parseable"])
+        self.assertEqual(res["latest_patch"], "1.36.3")
+        self.assertEqual(res["latest_minor"], "1.37.1")
+        self.assertEqual(res["latest_major"], "2.0.0")
+        self.assertEqual(res["selected_candidate"], "1.37.1")
+
+        # Constraint patch only
+        res_patch = find_upstream_update_candidates(tags, "1.36.2", constraint="patch")
+        self.assertEqual(res_patch["selected_candidate"], "1.36.3")
+
+        # Constraint major
+        res_major = find_upstream_update_candidates(tags, "1.36.2", constraint="major")
+        self.assertEqual(res_major["selected_candidate"], "2.0.0")
+
+    def test_find_upstream_update_candidates_preserves_flavor(self) -> None:
+        tags = ["1.27-alpine", "1.28-alpine", "1.28-debian", "1.29"]
+        res = find_upstream_update_candidates(tags, "1.27-alpine", constraint="minor")
+        self.assertEqual(res["flavor"], "alpine")
+        self.assertEqual(res["latest_minor"], "1.28-alpine")
+        self.assertEqual(res["selected_candidate"], "1.28-alpine")
+
+    def test_find_upstream_update_candidates_fallback_to_patch(self) -> None:
+        tags = ["1.2.0", "1.2.1"]
+        res = find_upstream_update_candidates(tags, "1.2.0", constraint="minor")
+        self.assertEqual(res["latest_patch"], "1.2.1")
+        self.assertIsNone(res["latest_minor"])
+        self.assertEqual(res["selected_candidate"], "1.2.1")
+
+    def test_find_upstream_update_candidates_unparseable(self) -> None:
+        res = find_upstream_update_candidates(["latest", "v1.0.0"], "latest")
+        self.assertFalse(res["parseable"])
+        self.assertIsNone(res["selected_candidate"])
+
+    def test_discover_upstream_updates_report(self) -> None:
+        lock = {
+            "destination_registry": "registry.rupan.dev",
+            "images": [
+                {
+                    "destination_repository": "upstream/docker.io/alpine/k8s",
+                    "digest": "sha256:" + "a" * 64,
+                    "kind": "upstream",
+                    "source": {
+                        "registry": "docker.io",
+                        "repository": "alpine/k8s",
+                        "tag": "1.36.2",
+                    },
+                },
+                {
+                    "destination_repository": "upstream/docker.io/flannel/flannel",
+                    "digest": "sha256:" + "b" * 64,
+                    "kind": "upstream",
+                    "source": {
+                        "registry": "docker.io",
+                        "repository": "flannel/flannel",
+                        "tag": "v0.25.0",
+                    },
+                },
+            ],
+        }
+        client = OciClient()
+        client.inspect_tool = "skopeo"
+
+        def mock_list_tags(repo: str, *, destination: bool = False) -> list[str]:
+            if "alpine/k8s" in repo:
+                return ["1.36.2", "1.36.3", "1.37.0"]
+            if "flannel" in repo:
+                return ["v0.25.0"]
+            return []
+
+        with patch.object(client, "list_tags", side_effect=mock_list_tags):
+            report = discover_upstream_updates(client, lock, constraint="minor")
+
+        self.assertEqual(report["status"], "ok")
+        self.assertEqual(report["automerge_policy"], "manual-review-required")
+        self.assertEqual(report["summary"]["total_upstream_images"], 2)
+        self.assertEqual(report["summary"]["updates_available"], 1)
+        self.assertEqual(report["summary"]["up_to_date"], 1)
+
+        update = report["updates"][0]
+        self.assertEqual(
+            update["destination_repository"], "upstream/docker.io/alpine/k8s"
+        )
+        self.assertEqual(update["selected_candidate"], "1.37.0")
+        self.assertFalse(update["automerge_permitted"])
+        self.assertTrue(update["requires_manual_review"])
+
+
+class CveAuditTests(unittest.TestCase):
+    def test_audit_cves_clean_and_vulnerable(self) -> None:
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": "sha256:" + "1" * 64,
+                    "kind": "first-party",
+                },
+                {
+                    "destination_repository": "upstream/docker.io/binwiederhier/ntfy",
+                    "digest": "sha256:" + "2" * 64,
+                    "kind": "upstream",
+                },
+            ]
+        }
+        scans = {
+            "apps/apolline": {
+                "digest": "sha256:" + "1" * 64,
+                "status": "ok",
+                "cves": [],
+            },
+            "upstream/docker.io/binwiederhier/ntfy": {
+                "digest": "sha256:" + "2" * 64,
+                "status": "ok",
+                "cves": [
+                    {
+                        "id": "CVE-2026-9999",
+                        "severity": "HIGH",
+                        "package": "golang.org/x/crypto",
+                        "installed_version": "0.1.0",
+                        "fixed_version": "0.2.0",
+                        "title": "Crypto panic",
+                    }
+                ],
+            },
+        }
+        report = audit_cves(lock, scan_results=scans)
+        self.assertEqual(report["status"], "vulnerable")
+        self.assertEqual(report["summary"]["clean_images"], 1)
+        self.assertEqual(report["summary"]["vulnerable_images"], 1)
+        self.assertEqual(report["summary"]["indeterminate_images"], 0)
+        self.assertEqual(report["summary"]["total_cves"], 1)
+
+    def test_audit_cves_scanner_error_is_indeterminate_not_clean(self) -> None:
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": "sha256:" + "1" * 64,
+                    "kind": "first-party",
+                }
+            ]
+        }
+        # Scanner timed out or failed to download CVE database
+        scans = {
+            "apps/apolline": {
+                "digest": "sha256:" + "1" * 64,
+                "status": "error",
+                "error": "database download failed: 504 Gateway Timeout",
+            }
+        }
+        report = audit_cves(lock, scan_results=scans)
+        self.assertEqual(report["status"], "indeterminate")
+        self.assertEqual(report["summary"]["clean_images"], 0)
+        self.assertEqual(report["summary"]["indeterminate_images"], 1)
+        self.assertEqual(report["images"][0]["scanner_status"], "error")
+        self.assertIn("504 Gateway Timeout", report["images"][0]["scanner_error"])
+
+    def test_audit_cves_delta_tracking(self) -> None:
+        digest_val = "sha256:" + "1" * 64
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": digest_val,
+                }
+            ]
+        }
+        prev_report = {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": digest_val,
+                    "status": "vulnerable",
+                    "scanner_status": "ok",
+                    "cves": [
+                        {"id": "CVE-2026-0001", "severity": "HIGH", "package": "pkg1"},
+                        {
+                            "id": "CVE-2026-0002",
+                            "severity": "MEDIUM",
+                            "package": "pkg2",
+                        },
+                    ],
+                }
+            ]
+        }
+        # Current scan resolved CVE-0001, kept CVE-0002, added CVE-0003
+        curr_scans = {
+            "apps/apolline": {
+                "digest": digest_val,
+                "status": "ok",
+                "cves": [
+                    {"id": "CVE-2026-0002", "severity": "MEDIUM", "package": "pkg2"},
+                    {"id": "CVE-2026-0003", "severity": "CRITICAL", "package": "pkg3"},
+                ],
+            }
+        }
+        report = audit_cves(lock, scan_results=curr_scans, previous_report=prev_report)
+        delta = report["images"][0]["delta"]
+        self.assertEqual([c["id"] for c in delta["new_cves"]], ["CVE-2026-0003"])
+        self.assertEqual([c["id"] for c in delta["resolved_cves"]], ["CVE-2026-0001"])
+        self.assertEqual([c["id"] for c in delta["unchanged_cves"]], ["CVE-2026-0002"])
+
+        self.assertEqual(report["summary"]["new_cves_count"], 1)
+        self.assertEqual(report["summary"]["resolved_cves_count"], 1)
+
+    def test_audit_cves_trivy_format(self) -> None:
+        digest_val = "sha256:" + "1" * 64
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": digest_val,
+                }
+            ]
+        }
+        trivy_data = {
+            "destination_repository": "apps/apolline",
+            "digest": digest_val,
+            "Results": [
+                {
+                    "Target": "apps/apolline",
+                    "Vulnerabilities": [
+                        {
+                            "VulnerabilityID": "CVE-2026-1111",
+                            "Severity": "LOW",
+                            "PkgName": "libcurl",
+                            "InstalledVersion": "7.88.1",
+                            "FixedVersion": "7.88.2",
+                            "Title": "Cookie injection",
+                        }
+                    ],
+                }
+            ],
+        }
+        report = audit_cves(lock, scan_results={"apps/apolline": trivy_data})
+        self.assertEqual(report["status"], "vulnerable")
+        self.assertEqual(len(report["images"][0]["cves"]), 1)
+        self.assertEqual(report["images"][0]["cves"][0]["id"], "CVE-2026-1111")
+        self.assertEqual(report["images"][0]["cves"][0]["package"], "libcurl")
+
+
+class RegistryCliUpstreamAndCveTests(unittest.TestCase):
+    def test_cli_discover_upstream(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            lock_path = temp_path / "images.lock.json"
+            report_path = temp_path / "discovery-report.json"
+            raw = manifest()
+            lock_obj = valid_lock(raw)
+            lock_obj["images"][0]["destination_repository"] = (
+                "upstream/docker.io/library/demo"
+            )
+            lock_obj["images"][0]["source"]["tag"] = "1.0.0"
+            lock_obj["images"][0]["source"]["reference"] = (
+                f"docker.io/library/demo:1.0.0@{digest(raw)}"
+            )
+            lock_path.write_text(json.dumps(lock_obj), encoding="utf-8")
+
+            with patch.object(OciClient, "list_tags", return_value=["1.0.0", "1.0.1"]):
+                code = main(
+                    [
+                        "discover-upstream",
+                        "--lock",
+                        str(lock_path),
+                        "--report",
+                        str(report_path),
+                        "--no-cache",
+                    ]
+                )
+            self.assertEqual(code, 0)
+            self.assertTrue(report_path.is_file())
+            data = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(data["status"], "ok")
+            self.assertEqual(data["updates"][0]["selected_candidate"], "1.0.1")
+
+    def test_cli_audit_cves_clean_and_indeterminate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            lock_path = temp_path / "images.lock.json"
+            scans_path = temp_path / "scans.json"
+            report_path = temp_path / "cve-report.json"
+            lock_obj = valid_lock(manifest())
+            dest_repo = lock_obj["images"][0]["destination_repository"]
+            lock_path.write_text(json.dumps(lock_obj), encoding="utf-8")
+
+            # Test clean -> exit code 0
+            scans_path.write_text(
+                json.dumps(
+                    {
+                        dest_repo: {
+                            "digest": lock_obj["images"][0]["digest"],
+                            "status": "ok",
+                            "cves": [],
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            code = main(
+                [
+                    "audit-cves",
+                    "--lock",
+                    str(lock_path),
+                    "--scans",
+                    str(scans_path),
+                    "--report",
+                    str(report_path),
+                ]
+            )
+            self.assertEqual(code, 0)
+
+            # Test indeterminate (scanner error) -> exit code 1
+            scans_path.write_text(
+                json.dumps(
+                    {
+                        dest_repo: {
+                            "status": "error",
+                            "error": "connection timeout",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            code = main(
+                [
+                    "audit-cves",
+                    "--lock",
+                    str(lock_path),
+                    "--scans",
+                    str(scans_path),
+                    "--report",
+                    str(report_path),
+                ]
+            )
+            self.assertEqual(code, 1)
+
+            # Test vulnerable -> exit code 2
+            scans_path.write_text(
+                json.dumps(
+                    {
+                        dest_repo: {
+                            "digest": lock_obj["images"][0]["digest"],
+                            "status": "ok",
+                            "cves": [{"id": "CVE-2026-1234", "severity": "CRITICAL"}],
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            code = main(
+                [
+                    "audit-cves",
+                    "--lock",
+                    str(lock_path),
+                    "--scans",
+                    str(scans_path),
+                    "--report",
+                    str(report_path),
+                ]
+            )
+            self.assertEqual(code, 2)
+
+
+class RegistryReviewRegressionTests(unittest.TestCase):
+    def test_p1_rejects_malformed_indeterminate_and_null_payloads(self) -> None:
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/demo",
+                    "digest": "sha256:" + "a" * 64,
+                }
+            ]
+        }
+        for bad_payload in [
+            {"apps/demo": {"unexpected": "payload"}},
+            {"apps/demo": {"status": "indeterminate", "cves": []}},
+            {"apps/demo": None},
+        ]:
+            report = audit_cves(lock, scan_results=bad_payload)
+            self.assertEqual(report["status"], "indeterminate")
+            self.assertEqual(report["images"][0]["status"], "indeterminate")
+
+    def test_p1_enforces_digest_binding_and_rejects_older_digest(self) -> None:
+        curr_digest = "sha256:" + "a" * 64
+        old_digest = "sha256:" + "b" * 64
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/demo",
+                    "digest": curr_digest,
+                }
+            ]
+        }
+        scans = {
+            "apps/demo": {
+                "status": "ok",
+                "digest": old_digest,
+                "cves": [],
+            }
+        }
+        report = audit_cves(lock, scan_results=scans)
+        self.assertEqual(report["status"], "indeterminate")
+        self.assertEqual(report["images"][0]["scanner_status"], "missing")
+        self.assertIn("mismatch", report["images"][0]["scanner_error"] or "")
+
+    def test_p1_scanner_outages_do_not_falsely_resolve_known_vulnerabilities(
+        self,
+    ) -> None:
+        digest_val = "sha256:" + "a" * 64
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/demo",
+                    "digest": digest_val,
+                }
+            ]
+        }
+        prev_report = {
+            "images": [
+                {
+                    "destination_repository": "apps/demo",
+                    "digest": digest_val,
+                    "status": "vulnerable",
+                    "scanner_status": "ok",
+                    "cves": [
+                        {"id": "CVE-2026-0001", "severity": "HIGH", "package": "pkg1"}
+                    ],
+                }
+            ]
+        }
+        curr_scans = {
+            "apps/demo": {
+                "status": "error",
+                "error": "database download failed: timeout",
+            }
+        }
+        report = audit_cves(lock, scan_results=curr_scans, previous_report=prev_report)
+        self.assertEqual(report["status"], "indeterminate")
+        delta = report["images"][0]["delta"]
+        self.assertEqual(delta["status"], "unknown")
+        self.assertEqual(delta["resolved_cves"], [])
+        self.assertEqual(delta["new_cves"], [])
+        self.assertEqual(len(report["images"][0]["cves"]), 1)
+        self.assertEqual(report["images"][0]["cves"][0]["id"], "CVE-2026-0001")
+
+    def test_p2_ingests_standard_trivy_report(self) -> None:
+        digest_val = "sha256:" + "a" * 64
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "upstream/docker.io/library/demo",
+                    "digest": digest_val,
+                }
+            ]
+        }
+        trivy_report = {
+            "ArtifactName": f"registry.rupan.dev/upstream/docker.io/library/demo@{digest_val}",
+            "ArtifactType": "container_image",
+            "Metadata": {
+                "RepoDigests": [
+                    f"registry.rupan.dev/upstream/docker.io/library/demo@{digest_val}"
+                ]
+            },
+            "Results": [
+                {
+                    "Target": "demo (alpine 3.18)",
+                    "Class": "os-pkgs",
+                    "Vulnerabilities": [
+                        {
+                            "VulnerabilityID": "CVE-2026-0001",
+                            "Severity": "HIGH",
+                            "PkgName": "libssl",
+                            "InstalledVersion": "3.0.1",
+                            "FixedVersion": "3.0.2",
+                        }
+                    ],
+                }
+            ],
+        }
+        report = audit_cves(lock, scan_results=trivy_report)
+        self.assertEqual(report["status"], "vulnerable")
+        self.assertEqual(report["images"][0]["status"], "vulnerable")
+        self.assertEqual(len(report["images"][0]["cves"]), 1)
+        self.assertEqual(report["images"][0]["cves"][0]["id"], "CVE-2026-0001")
+        self.assertEqual(report["images"][0]["cves"][0]["package"], "libssl")
+
+    def test_p2_numeric_prerelease_ordering(self) -> None:
+        v_rc2 = parse_semver("1.0.0-rc.2")
+        v_rc10 = parse_semver("1.0.0-rc.10")
+        assert v_rc2 is not None and v_rc10 is not None
+        self.assertTrue(v_rc2 < v_rc10)
+
+        candidates = find_upstream_update_candidates(["1.0.0-rc.10"], "1.0.0-rc.2")
+        self.assertEqual(candidates["selected_candidate"], "1.0.0-rc.10")
+
+    def test_p2_release_revisions_separate_from_distro_flavors(self) -> None:
+        # Build revisions
+        res_build = find_upstream_update_candidates(
+            ["v0.13.4-build20260930"], "v0.13.3-build20260727"
+        )
+        self.assertEqual(res_build["selected_candidate"], "v0.13.4-build20260930")
+
+        # Security revisions
+        res_sec = find_upstream_update_candidates(
+            ["13.0.1-security-02", "13.0.2-security-02"], "13.0.1-security-01"
+        )
+        self.assertEqual(res_sec["selected_candidate"], "13.0.2-security-02")
+
+    def test_p1_unbound_scan_without_digest_cannot_establish_success(self) -> None:
+        digest_val = "sha256:" + "a" * 64
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/demo",
+                    "digest": digest_val,
+                }
+            ]
+        }
+        # Omission of digest must not return clean for a pinned image
+        unbound_clean = {"apps/demo": {"status": "ok", "cves": []}}
+        report = audit_cves(lock, scan_results=unbound_clean)
+        self.assertEqual(report["status"], "indeterminate")
+        self.assertEqual(report["images"][0]["status"], "indeterminate")
+        self.assertEqual(report["images"][0]["scanner_status"], "missing")
+        self.assertIn(
+            "verified digest association", report["images"][0]["scanner_error"] or ""
+        )
+
+        # Unbound scanner failures may report errors, but cannot establish success
+        unbound_err = {
+            "apps/demo": {
+                "status": "error",
+                "error": "scanner daemon crashed",
+            }
+        }
+        report_err = audit_cves(lock, scan_results=unbound_err)
+        self.assertEqual(report_err["status"], "indeterminate")
+        self.assertEqual(report_err["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_err["images"][0]["scanner_status"], "error")
+        self.assertEqual(
+            report_err["images"][0]["scanner_error"], "scanner daemon crashed"
+        )
+
+    def test_p1_two_lock_digests_under_one_repository(self) -> None:
+        digest_a = "sha256:" + "a" * 64
+        digest_b = "sha256:" + "b" * 64
+        lock = {
+            "images": [
+                {"destination_repository": "apps/demo", "digest": digest_a},
+                {"destination_repository": "apps/demo", "digest": digest_b},
+            ]
+        }
+        # Scan only supplies digest A
+        scans = {
+            "apps/demo": {
+                "digest": digest_a,
+                "status": "ok",
+                "cves": [],
+            }
+        }
+        report = audit_cves(lock, scan_results=scans)
+        self.assertEqual(report["status"], "indeterminate")
+        img_a = next(img for img in report["images"] if img["digest"] == digest_a)
+        img_b = next(img for img in report["images"] if img["digest"] == digest_b)
+        self.assertEqual(img_a["status"], "clean")
+        self.assertEqual(img_b["status"], "indeterminate")
+        self.assertEqual(img_b["scanner_status"], "missing")
+        self.assertIn("mismatch", img_b["scanner_error"] or "")
+
+        # Unbound scan cannot validate either digest
+        unbound_scans = {"apps/demo": {"status": "ok", "cves": []}}
+        report_unbound = audit_cves(lock, scan_results=unbound_scans)
+        self.assertTrue(
+            all(img["status"] == "indeterminate" for img in report_unbound["images"])
+        )
+
+    def test_p1_nested_findings_and_scanner_states_strictly_validated(self) -> None:
+        digest_val = "sha256:" + "a" * 64
+        lock = {
+            "images": [{"destination_repository": "apps/demo", "digest": digest_val}]
+        }
+
+        # Malformed CVE entries
+        report_bad_cves = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "status": "ok",
+                    "cves": [None, {}, "invalid"],
+                }
+            },
+        )
+        self.assertEqual(report_bad_cves["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_bad_cves["images"][0]["scanner_status"], "error")
+        self.assertIn(
+            "malformed CVE entry", report_bad_cves["images"][0]["scanner_error"] or ""
+        )
+
+        # Malformed Trivy target
+        report_bad_trivy = audit_cves(
+            lock,
+            {"apps/demo": {"digest": digest_val, "Results": [None]}},
+        )
+        self.assertEqual(report_bad_trivy["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_bad_trivy["images"][0]["scanner_status"], "error")
+        self.assertIn(
+            "malformed Trivy target",
+            report_bad_trivy["images"][0]["scanner_error"] or "",
+        )
+
+        # Explicit scanner error state ignored
+        report_exp_err = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "status": "ok",
+                    "scanner_status": "error",
+                    "cves": [],
+                }
+            },
+        )
+        self.assertEqual(report_exp_err["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_exp_err["images"][0]["scanner_status"], "error")
+
+        # Unknown / non-ok status ignored
+        report_pending = audit_cves(
+            lock,
+            {"apps/demo": {"digest": digest_val, "status": "pending", "Results": []}},
+        )
+        self.assertEqual(report_pending["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_pending["images"][0]["scanner_status"], "error")
+
+    def test_p2_outage_recovery_preserves_successful_baseline(self) -> None:
+        repo = "upstream/docker.io/library/demo"
+        digest_a = "sha256:" + "a" * 64
+        lock_a = {"images": [{"destination_repository": repo, "digest": digest_a}]}
+
+        # Step 1: Successful initial baseline with 1 finding
+        initial_scan = {
+            repo: {
+                "digest": digest_a,
+                "status": "ok",
+                "cves": [{"id": "CVE-2026-0001"}],
+            }
+        }
+        baseline = audit_cves(lock_a, initial_scan)
+        self.assertEqual(baseline["images"][0]["status"], "vulnerable")
+        self.assertEqual(baseline["images"][0]["delta"]["status"], "initial_baseline")
+
+        # Step 2: Outage occurs (scanner database error)
+        outage_scan = {
+            repo: {"digest": digest_a, "status": "error", "error": "DB sync timeout"}
+        }
+        outage = audit_cves(lock_a, outage_scan, previous_report=baseline)
+        self.assertEqual(outage["images"][0]["status"], "indeterminate")
+        self.assertEqual(outage["images"][0]["delta"]["status"], "unknown")
+        # Baseline finding preserved during outage
+        self.assertEqual(len(outage["images"][0]["cves"]), 1)
+
+        # Step 3a: Recovery with unchanged findings reports computed delta, not initial_baseline
+        recovery_unchanged = audit_cves(lock_a, initial_scan, previous_report=outage)
+        img_rec = recovery_unchanged["images"][0]
+        self.assertEqual(img_rec["status"], "vulnerable")
+        self.assertEqual(img_rec["delta"]["status"], "computed")
+        self.assertEqual(img_rec["delta"]["new_cves"], [])
+        self.assertEqual(img_rec["delta"]["resolved_cves"], [])
+        self.assertEqual(len(img_rec["delta"]["unchanged_cves"]), 1)
+        self.assertEqual(img_rec["delta"]["unchanged_cves"][0]["id"], "CVE-2026-0001")
+
+        # Step 3b: Clean recovery reports genuine resolution
+        clean_scan = {repo: {"digest": digest_a, "status": "ok", "cves": []}}
+        recovery_clean = audit_cves(lock_a, clean_scan, previous_report=outage)
+        img_clean = recovery_clean["images"][0]
+        self.assertEqual(img_clean["status"], "clean")
+        self.assertEqual(img_clean["delta"]["status"], "computed")
+        self.assertEqual(img_clean["delta"]["new_cves"], [])
+        self.assertEqual(len(img_clean["delta"]["resolved_cves"]), 1)
+        self.assertEqual(img_clean["delta"]["resolved_cves"][0]["id"], "CVE-2026-0001")
+
+        # Step 4: Isolation across different digests (digest B outage does not inherit digest A findings)
+        digest_b = "sha256:" + "b" * 64
+        lock_b = {"images": [{"destination_repository": repo, "digest": digest_b}]}
+        diff_outage = audit_cves(lock_b, scan_results={}, previous_report=baseline)
+        self.assertEqual(diff_outage["images"][0]["digest"], digest_b)
+        self.assertEqual(diff_outage["images"][0]["cves"], [])
+        self.assertEqual(diff_outage["summary"]["total_cves"], 0)
+
+    def test_p2_semver_item_11_compliance(self) -> None:
+        # rc.2 < rc.10 (numeric identifier comparison)
+        self.assertTrue(parse_semver("1.0.0-rc.2") < parse_semver("1.0.0-rc.10"))
+        # rc.1.2 < rc.1.3 (compound dot sequence)
+        self.assertTrue(parse_semver("1.0.0-rc.1.2") < parse_semver("1.0.0-rc.1.3"))
+        cand_compound = find_upstream_update_candidates(
+            ["1.0.0-rc.1.3"], "1.0.0-rc.1.2"
+        )
+        self.assertEqual(cand_compound["selected_candidate"], "1.0.0-rc.1.3")
+        # rc10 < rc2 (ASCII lexical comparison for identifiers containing letters)
+        self.assertTrue(parse_semver("1.0.0-rc10") < parse_semver("1.0.0-rc2"))
+        cand_nondotted = find_upstream_update_candidates(["1.0.0-rc10"], "1.0.0-rc2")
+        self.assertIsNone(cand_nondotted["selected_candidate"])
+
+    def test_p1_trivy_null_vulnerabilities_and_missing_target_rejected(self) -> None:
+        digest_val = "sha256:" + "a" * 64
+        lock = {
+            "images": [{"destination_repository": "apps/demo", "digest": digest_val}]
+        }
+
+        # Null vulnerabilities must be rejected
+        report_null = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "Results": [{"Target": "demo (alpine)", "Vulnerabilities": None}],
+                }
+            },
+        )
+        self.assertEqual(report_null["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_null["images"][0]["scanner_status"], "error")
+        self.assertIn("expected list", report_null["images"][0]["scanner_error"] or "")
+
+        # Missing target identity must be rejected
+        report_no_target = audit_cves(
+            lock,
+            {"apps/demo": {"digest": digest_val, "Results": [{}]}},
+        )
+        self.assertEqual(report_no_target["images"][0]["status"], "indeterminate")
+        self.assertEqual(report_no_target["images"][0]["scanner_status"], "error")
+        self.assertIn(
+            "Target string", report_no_target["images"][0]["scanner_error"] or ""
+        )
+
+        # Valid targets with omitted or empty vulnerabilities are clean
+        report_omitted = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "Results": [{"Target": "demo (alpine)"}],
+                }
+            },
+        )
+        self.assertEqual(report_omitted["images"][0]["status"], "clean")
+        self.assertEqual(report_omitted["images"][0]["scanner_status"], "ok")
+
+        report_empty = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "Results": [{"Target": "demo (alpine)", "Vulnerabilities": []}],
+                }
+            },
+        )
+        self.assertEqual(report_empty["images"][0]["status"], "clean")
+
+    def test_p2_missing_scans_do_not_manufacture_successful_baseline(self) -> None:
+        digest_val = "sha256:" + "a" * 64
+        lock = {
+            "images": [{"destination_repository": "apps/demo", "digest": digest_val}]
+        }
+
+        # First missing audit
+        first_missing = audit_cves(lock, None)
+        self.assertIsNone(first_missing["images"][0]["last_successful"])
+
+        # Second missing audit must NOT manufacture a clean baseline
+        second_missing = audit_cves(lock, None, previous_report=first_missing)
+        self.assertIsNone(second_missing["images"][0]["last_successful"])
+        self.assertEqual(second_missing["images"][0]["delta"]["status"], "unknown")
+
+        # First actual success after missing audits must be initial_baseline, NOT computed
+        recovery_clean = audit_cves(
+            lock,
+            {"apps/demo": {"digest": digest_val, "status": "ok", "cves": []}},
+            previous_report=second_missing,
+        )
+        self.assertEqual(recovery_clean["images"][0]["status"], "clean")
+        self.assertEqual(
+            recovery_clean["images"][0]["delta"]["status"], "initial_baseline"
+        )
+        self.assertIsNotNone(recovery_clean["images"][0]["last_successful"])
+
+        # Repeated explicit failures without prior success also do not manufacture a baseline
+        fail1 = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "status": "error",
+                    "error": "timeout",
+                }
+            },
+        )
+        self.assertIsNone(fail1["images"][0]["last_successful"])
+        fail2 = audit_cves(
+            lock,
+            {
+                "apps/demo": {
+                    "digest": digest_val,
+                    "status": "error",
+                    "error": "timeout",
+                }
+            },
+            previous_report=fail1,
+        )
+        self.assertIsNone(fail2["images"][0]["last_successful"])
 
 
 if __name__ == "__main__":

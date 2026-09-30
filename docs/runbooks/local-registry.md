@@ -156,13 +156,14 @@ can authenticate to the private registry. Keep it digest-pinned and scope the
 lock exception to `.gitlab-ci.yml`; Kubernetes workloads must use locked local
 registry references.
 
-The policy check refreshes the sanitized live workload snapshot itself before
-evaluating drift, both in CI and in `just check`, so image rollouts cannot
-fail the gate on a stale committed snapshot. The refresh reads Pod, Job, and
+`just check` and `just check-changed` validate the saved snapshot offline without
+refreshing it. The explicit live `just registry-check` recipe, also used by the
+registry CI lane, refreshes the sanitized snapshot before evaluating drift.
+The refresh reads Pod, Job, and
 CronJob image specifications/status from the current Kubernetes context and
 writes only `registry/observed-images.json`; when no cluster is reachable it
 warns and validates against the committed copy. Refresh manually when you need
-an up-to-date committed snapshot without running the full check:
+an up-to-date snapshot without running the full check:
 
 ```sh
 just registry-snapshot-live
@@ -207,6 +208,41 @@ It
 re-imports the lock that is already committed and reviewed, so no decision is
 involved; it exists to heal a partial import or a manifest the collector took.
 The two jobs look interchangeable and are not.
+
+### Semantic upstream version discovery & non-automerge policy
+
+Upstream image versions are tracked using semantic versioning (`SemVer`), respecting distro/flavor suffixes (such as `-alpine`, `-distroless`, `-full`, or `-security-01`):
+
+```sh
+python -m scripts.registry discover-upstream \
+  --lock registry/images.lock.json \
+  --report artifacts/registry/upstream-discovery.json \
+  --constraint minor
+```
+
+Key rules:
+- **Flavor preservation:** An image on `1.27-alpine` will only select candidates with the `-alpine` suffix (e.g., `1.28-alpine`), never cross-upgrading to `-debian` or unsuffixed variants.
+- **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
+- **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
+- **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+
+### Decoupled CVE audits and delta reporting
+
+Vulnerability scanning (via Trivy, Grype, or Zot vulnerability scans) is deliberately decoupled from routine image copying and lock verification. Image copying (`copy`) and verification (`verify`) remain content-integrity operations that are never blocked by scanner tool or vulnerability database outages.
+
+Out-of-band CVE audits and delta tracking are executed via:
+
+```sh
+python -m scripts.registry audit-cves \
+  --lock registry/images.lock.json \
+  --scans artifacts/registry/trivy-scans.json \
+  --previous-report artifacts/registry/cve-report.json \
+  --report artifacts/registry/cve-report-new.json
+```
+
+Key guarantees:
+- **Indeterminate status:** Scanner infrastructure errors (timeouts, network errors, CVE database download failures) are recorded as `status: "indeterminate"` and `scanner_status: "error"`. They are never reported as clean passes (false negatives) and do not trigger phantom vulnerability alerts.
+- **Delta tracking:** Compares current findings against `--previous-report` to generate `new_cves`, `resolved_cves`, and `unchanged_cves`. Only `new_cves` represent fresh security risk requiring triage, eliminating alert fatigue.
 
 ## Reading a failed drift check
 
@@ -405,6 +441,13 @@ the whole lock on `nas-ci` for main and nightly, using node credentials because 
 
 Still outstanding: a fixture that provokes a real collection pass to confirm index, referrer, and blob survival. It belongs in a disposable
 registry built from the same binary and configuration, not on the production service, which has no on-demand trigger.
+
+## Peer-to-peer image caching (Spegel in K3s)
+
+K3s server nodes run with `--embedded-registry` (configured via `homelab.k3s.registry.embeddedRegistry = true;` in `flake/modules/k3s-server.nix`). This activates the embedded Spegel distributed OCI registry mirror across the cluster:
+- **Port requirements**: TCP port 5001 is open across VLAN 30 (`10.0.30.0/24`) in `networking.firewall.extraInputRules` for peer discovery and gossip.
+- **Node registries configuration**: `scripts.registry node-config` generates `/etc/rancher/k3s/registries.yaml` with explicit mirror blocks for both upstream registries (`docker.io`, `ghcr.io`, etc.) and `destination_registry` (`registry.rupan.dev`).
+- **Resolution order**: When containerd requests an image, it queries the local Spegel registry mirror API on port 6443. Spegel checks via peer gossip (port 5001) whether any peer node in the cluster holds the requested image blob. If cached by a peer, the blob is resolved from that peer. If absent from all peers, containerd falls back to `https://registry.rupan.dev` using the credentials in `configs."registry.rupan.dev"`.
 
 ## Rollback
 

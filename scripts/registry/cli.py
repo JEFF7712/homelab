@@ -14,11 +14,13 @@ from .core import (
     access_control_users,
     atomic_write_json,
     atomic_write_private,
+    audit_cves,
     check_auth_consistency,
     check_consumers,
     copy_lock,
     copy_plan,
     discover_inventory,
+    discover_upstream_updates,
     filter_transient_observed_errors,
     load_inventory,
     load_lock,
@@ -145,12 +147,58 @@ def _parser() -> argparse.ArgumentParser:
     )
     access_control.add_argument("--lock", type=pathlib.Path, required=True)
     access_control.add_argument("--output", type=pathlib.Path, required=True)
+
+    discover = subparsers.add_parser(
+        "discover-upstream",
+        help="semantically discover upstream image version updates",
+    )
+    discover.add_argument("--lock", type=pathlib.Path, required=True)
+    discover.add_argument("--report", type=pathlib.Path, required=True)
+    discover.add_argument(
+        "--constraint",
+        choices=("patch", "minor", "major", "all"),
+        default="minor",
+    )
+    discover.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="limit discovery to destination repositories (repeatable)",
+    )
+    _network_options(discover)
+
+    audit = subparsers.add_parser(
+        "audit-cves",
+        help="generate decoupled CVE audit and delta report",
+    )
+    audit.add_argument("--lock", type=pathlib.Path, required=True)
+    audit.add_argument("--report", type=pathlib.Path, required=True)
+    audit.add_argument("--scans", type=pathlib.Path, default=None)
+    audit.add_argument("--previous-report", type=pathlib.Path, default=None)
     return parser
 
 
 def _network_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--retries", type=int, default=2)
+    parser.add_argument(
+        "--cache-dir",
+        type=pathlib.Path,
+        default=None,
+        help="directory to cache immutable manifests",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="disable the immutable manifest cache",
+    )
+
+
+def _client(args: argparse.Namespace) -> OciClient:
+    cache_dir = (
+        False if getattr(args, "no_cache", False) else getattr(args, "cache_dir", None)
+    )
+    return OciClient(timeout=args.timeout, retries=args.retries, cache_dir=cache_dir)
 
 
 def _print(value: object) -> None:
@@ -221,7 +269,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.command == "resolve":
             inventory = load_inventory(args.inventory)
-            client = OciClient(timeout=args.timeout, retries=args.retries)
+            client = _client(args)
             lock, unresolved = resolve_inventory(
                 inventory, client, destination_registry=args.destination_registry
             )
@@ -247,7 +295,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "promote":
             lock = load_lock(args.lock)
-            client = OciClient(timeout=args.timeout, retries=args.retries)
+            client = _client(args)
             summary = promote_first_party_lock(
                 client,
                 lock,
@@ -298,7 +346,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command in {"copy", "verify"}:
             lock = load_lock(args.lock)
-            client = OciClient(timeout=args.timeout, retries=args.retries)
+            client = _client(args)
             report = (
                 copy_lock(
                     client,
@@ -328,7 +376,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if report["status"] == "ok" else 1
         if args.command == "reconcile-retention":
             lock = load_lock(args.lock)
-            client = OciClient(timeout=args.timeout, retries=args.retries)
+            client = _client(args)
             report = reconcile_retention(
                 client,
                 lock,
@@ -373,6 +421,45 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             )
             return 0
+        if args.command == "discover-upstream":
+            lock = load_lock(args.lock)
+            client = _client(args)
+            report = discover_upstream_updates(
+                client,
+                lock,
+                constraint=args.constraint,
+                only=set(args.only) if args.only else None,
+            )
+            atomic_write_json(args.report, report)
+            _print(report)
+            return 0 if report["status"] == "ok" else 1
+        if args.command == "audit-cves":
+            lock = load_lock(args.lock)
+            scan_data = None
+            if args.scans:
+                try:
+                    scan_data = json.loads(args.scans.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as error:
+                    raise RegistryError(f"cannot read scans file: {error}")
+            previous_report = None
+            if args.previous_report:
+                try:
+                    previous_report = json.loads(
+                        args.previous_report.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError) as error:
+                    raise RegistryError(f"cannot read previous report file: {error}")
+            report = audit_cves(
+                lock, scan_results=scan_data, previous_report=previous_report
+            )
+            atomic_write_json(args.report, report)
+            _print(report)
+            if report["status"] == "clean":
+                return 0
+            elif report["status"] == "indeterminate":
+                return 1
+            else:
+                return 2
         raise AssertionError("unreachable")
     except RegistryError as error:
         _print(
