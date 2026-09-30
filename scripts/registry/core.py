@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -601,6 +602,21 @@ def atomic_write_private(path: pathlib.Path, payload: str) -> None:
             os.unlink(temporary)
 
 
+def atomic_write_bytes(path: pathlib.Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def _fsync_directory(path: pathlib.Path) -> None:
     descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     try:
@@ -966,12 +982,75 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
     return None
 
 
+def _manifest_url(reference: str) -> tuple[str, str]:
+    """The registry, and the `/v2/...` path, for a manifest read."""
+    bare = reference.removeprefix("docker://")
+    registry, _, remainder = bare.partition("/")
+    if not registry or not remainder:
+        raise RegistryError(f"cannot parse an image reference from {reference!r}")
+    repository, separator, tail = remainder.rpartition("@")
+    if not separator or "/" in tail or not _DIGEST_RE.fullmatch(tail):
+        repository, separator, tail = remainder.rpartition(":")
+        if not separator or "/" in tail or not _TAG_RE.fullmatch(tail):
+            raise RegistryError(f"cannot parse an image reference from {reference!r}")
+    if not repository:
+        raise RegistryError(f"cannot parse an image reference from {reference!r}")
+    return registry, f"{repository}/manifests/{tail}"
+
+
+def _next_page(headers: Mapping[str, str] | None) -> str:
+    """The path of the next page from a `Link: <...>; rel="next"` header."""
+    raw = (headers or {}).get("link") or (headers or {}).get("Link") or ""
+    for value in raw.split(","):
+        match = re.match(r'\s*<([^>]+)>\s*;\s*rel="?next"?', value)
+        if match:
+            url = match.group(1)
+            _, _, tail = url.partition("/v2/")
+            return tail if tail else ""
+    return ""
+
+
+def _bearer_challenge(headers: Mapping[str, str] | None) -> dict[str, str] | None:
+    """Parse a `WWW-Authenticate: Bearer` challenge into its parameters."""
+    raw = (headers or {}).get("www-authenticate") or (headers or {}).get(
+        "WWW-Authenticate"
+    )
+    if not raw or not raw.lower().startswith("bearer"):
+        return None
+    challenge = {"realm": "", "service": "", "scope": ""}
+    for key, value in re.findall(r'(\w+)="([^"]*)"', raw):
+        name = key.lower()
+        if name in challenge:
+            challenge[name] = value
+    return challenge if challenge["realm"] else None
+
+
 class OciClient:
-    def __init__(self, *, timeout: int = 60, retries: int = 2) -> None:
+    def __init__(
+        self,
+        *,
+        timeout: int = 60,
+        retries: int = 2,
+        cache_dir: pathlib.Path | None | bool = None,
+    ) -> None:
         if timeout < 1 or retries < 0 or retries > 5:
             raise RegistryError("timeout and retry bounds are invalid")
         self.timeout = timeout
         self.retries = retries
+        if cache_dir is False:
+            self.cache_dir: pathlib.Path | None = None
+        elif isinstance(cache_dir, pathlib.Path):
+            self.cache_dir = cache_dir
+        elif cache_dir is None or cache_dir is True:
+            env_dir = os.environ.get("REGISTRY_MANIFEST_CACHE_DIR")
+            if env_dir:
+                self.cache_dir = pathlib.Path(env_dir)
+            elif env_dir == "":
+                self.cache_dir = None
+            else:
+                self.cache_dir = pathlib.Path.cwd() / ".agent-cache" / "manifests"
+        else:
+            raise RegistryError(f"invalid cache_dir: {cache_dir!r}")
         self.inspect_tool = (
             "skopeo"
             if shutil.which("skopeo")
@@ -981,6 +1060,15 @@ class OciClient:
         )
         self.copy_tool = "skopeo" if shutil.which("skopeo") else None
 
+    @staticmethod
+    def _extract_digest(reference: str) -> str | None:
+        stripped = reference.removeprefix("docker://")
+        if "@" in stripped:
+            _, _, digest_val = stripped.partition("@")
+            if _DIGEST_RE.fullmatch(digest_val):
+                return digest_val
+        return None
+
     def raw_manifest(
         self,
         reference: str,
@@ -988,45 +1076,273 @@ class OciClient:
         destination: bool = False,
         timeout: float | None = None,
     ) -> bytes:
-        if self.inspect_tool == "skopeo":
-            args = ["skopeo", "--registries-conf", "/dev/null", "inspect", "--raw"]
-            auth = os.environ.get(
-                "REGISTRY_DEST_AUTH_FILE"
-                if destination
-                else "REGISTRY_SOURCE_AUTH_FILE"
+        expected_digest = self._extract_digest(reference)
+        if not destination and expected_digest and self.cache_dir is not None:
+            cache_file = (
+                self.cache_dir / f"{expected_digest.removeprefix('sha256:')}.json"
             )
-            if auth:
-                args.extend(["--authfile", auth])
-            args.append(f"docker://{reference}")
-        elif self.inspect_tool == "crane":
-            args = ["crane", "manifest", reference]
-        else:
-            raise RegistryError(
-                "no supported OCI inspection tool found; install skopeo or crane"
-            )
-        return self._run(args, operation="manifest inspection", timeout=timeout)
+            if cache_file.is_file():
+                try:
+                    content = cache_file.read_bytes()
+                    if (
+                        "sha256:" + hashlib.sha256(content).hexdigest()
+                        == expected_digest
+                    ):
+                        return content
+                    cache_file.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
-    def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
-        if self.inspect_tool != "skopeo":
-            raise RegistryError("tag listing requires skopeo")
-        args = ["skopeo", "--registries-conf", "/dev/null", "list-tags"]
-        auth = os.environ.get(
+        accept = ", ".join(
+            sorted(
+                _INDEX_MEDIA_TYPES
+                | {
+                    "application/vnd.oci.image.manifest.v1+json",
+                    "application/vnd.docker.distribution.manifest.v2+json",
+                }
+            )
+        )
+        _, _, raw = self._get(
+            *_manifest_url(reference),
+            destination=destination,
+            accept=accept,
+            timeout=self.timeout if timeout is None else timeout,
+            operation="manifest inspection",
+        )
+        if not destination and self.cache_dir is not None:
+            fetched_digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+            if expected_digest is None or fetched_digest == expected_digest:
+                cache_file = (
+                    self.cache_dir / f"{fetched_digest.removeprefix('sha256:')}.json"
+                )
+                try:
+                    atomic_write_bytes(cache_file, raw)
+                except OSError:
+                    pass
+        return raw
+
+    def _auth_header(self, destination: bool) -> str | None:
+        """The `Authorization` value for the configured auth file, if any."""
+        variable = (
             "REGISTRY_DEST_AUTH_FILE" if destination else "REGISTRY_SOURCE_AUTH_FILE"
         )
-        if auth:
-            args.extend(["--authfile", auth])
-        args.append(f"docker://{repository}")
-        raw = self._run(args, operation="tag listing")
+        path = os.environ.get(variable)
+        if not path:
+            return None
         try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise RegistryError(
-                f"registry returned invalid tag list JSON for {repository}"
-            ) from error
-        tags = payload.get("Tags") if isinstance(payload, dict) else None
-        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
-            raise RegistryError(f"registry returned invalid tags for {repository}")
-        return sorted(tags)
+            payload = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+            auths = payload["auths"]
+        except (OSError, KeyError, TypeError, ValueError):
+            return None
+        if not isinstance(auths, dict):
+            return None
+        for config in auths.values():
+            if not isinstance(config, dict):
+                continue
+            auth = config.get("auth")
+            if isinstance(auth, str) and auth:
+                return f"Basic {auth}"
+        return None
+
+    def _fetch_bearer_token(
+        self, challenge: Mapping[str, str], destination: bool
+    ) -> str | None:
+        """Exchange the credential for a bearer token at the challenge's realm."""
+        query = {
+            key: value
+            for key, value in (
+                ("service", challenge.get("service")),
+                ("scope", challenge.get("scope")),
+            )
+            if value
+        }
+        url = challenge["realm"] + "?" + urllib.parse.urlencode(query)
+        request = urllib.request.Request(url, method="GET")
+        header = self._auth_header(destination)
+        if header:
+            request.add_header("Authorization", header)
+        opener = urllib.request.build_opener(_NoRedirect)
+        try:
+            with opener.open(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read())
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+            return None
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        token = payload.get("token") or payload.get("access_token")
+        return token if isinstance(token, str) and token else None
+
+    def _get(
+        self,
+        registry: str,
+        path: str,
+        *,
+        destination: bool,
+        accept: str,
+        timeout: float,
+        operation: str,
+    ) -> tuple[int, dict[str, str], bytes]:
+        """One authenticated GET, with the status code handed back to the caller.
+
+        Reading in-process rather than shelling out is what removes the
+        failure mode this whole exercise was about: `skopeo` issues an
+        unauthenticated `/v2/` challenge before every read, and zot counts those
+        against `failDelay`, so a busy run of checks tripped zot's brute-force
+        protection and it began answering 401 to credentials that had just
+        worked. One request, already authenticated, and the status is visible
+        here instead of only in the tool's exit code, so absence, refusal and
+        interception are told apart without a second confirming request.
+        """
+        request = urllib.request.Request(
+            f"https://{registry}/v2/{path.lstrip('/')}", method="GET"
+        )
+        request.add_header("Accept", accept)
+        header = self._auth_header(destination)
+        anonymous = header is None
+        if header:
+            request.add_header("Authorization", header)
+        attempts = self.retries
+        retried_with_token = False
+        last: tuple[int, dict[str, str], bytes] | None = None
+        for attempt in range(attempts + 1):
+            opener = urllib.request.build_opener(_NoRedirect)
+            try:
+                with opener.open(request, timeout=timeout) as response:
+                    last = (
+                        response.status,
+                        _header_map(response.headers),
+                        response.read(),
+                    )
+                    break
+            except urllib.error.HTTPError as error:
+                headers = _header_map(error.headers)
+                body = error.read()
+                intercepted = _interception(error.code, headers)
+                if intercepted is not None:
+                    raise TransientRegistryError(f"{operation}: {intercepted}")
+                challenge = _bearer_challenge(headers)
+                if challenge is not None and not retried_with_token:
+                    retried_with_token = True
+                    token = self._fetch_bearer_token(challenge, destination)
+                    if token is not None:
+                        # Public upstreams such as ghcr.io and Docker Hub answer
+                        # 401 with a bearer challenge even for public images, so
+                        # a client that only speaks Basic cannot read them at
+                        # all. Retry once with the token the registry asked for.
+                        retried = urllib.request.Request(
+                            f"https://{registry}/v2/{path.lstrip('/')}", method="GET"
+                        )
+                        retried.add_header("Accept", accept)
+                        retried.add_header("Authorization", f"Bearer {token}")
+                        retry_opener = urllib.request.build_opener(_NoRedirect)
+                        try:
+                            with retry_opener.open(retried, timeout=timeout) as ok:
+                                return (
+                                    ok.status,
+                                    _header_map(ok.headers),
+                                    ok.read(),
+                                )
+                        except urllib.error.HTTPError as retry_error:
+                            if retry_error.code not in {401, 403}:
+                                raise RegistryError(
+                                    f"{operation} failed with HTTP "
+                                    f"{retry_error.code} for {registry}/{path}"
+                                ) from retry_error
+                            error = retry_error
+                            headers = _header_map(retry_error.headers)
+                        except (
+                            urllib.error.URLError,
+                            TimeoutError,
+                            OSError,
+                        ) as retry_error:
+                            raise TransientRegistryError(
+                                f"{operation}: registry unreachable at {registry}: "
+                                f"{retry_error}"
+                            ) from retry_error
+                if error.code in {401, 403}:
+                    # 401 is zot rejecting the credential and 403 is the access
+                    # policy denying the read. Neither says whether the content
+                    # is present, so neither is a verdict about contents. A 404
+                    # below is, and is reported as a real absence.
+                    #
+                    # Say whether a credential was sent, because a 401 without
+                    # one is our own misconfiguration rather than the registry
+                    # refusing, and the two look identical from the status alone.
+                    sent = (
+                        "no credential was sent, so this is our misconfiguration"
+                        if anonymous
+                        else "the credential was sent and refused"
+                    )
+                    raise TransientRegistryError(
+                        f"{operation}: registry refused with {error.code} for "
+                        f"{registry}/{path} and {sent}, so it says nothing about "
+                        "whether the content is present"
+                    )
+                # 404 and 405 are the registry's own answer, so return it rather
+                # than raising, and let the caller decide what it means.
+                last = (error.code, headers, body)
+                break
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                if attempt == attempts:
+                    raise TransientRegistryError(
+                        f"{operation}: registry unreachable at {registry}: {error}"
+                    )
+                time.sleep(min(2**attempt, 8))
+        assert last is not None
+        status, headers, body = last
+        if status == 200:
+            return status, headers, body
+        if status in {401, 403} and anonymous:
+            raise TransientRegistryError(
+                f"{operation}: registry refused with {status} for {registry}/{path}, and the "
+                "request carried no credential, so it is not a statement about "
+                "the content"
+            )
+        raise RegistryError(
+            f"{operation} failed with HTTP {status} for {registry}/{path}"
+        )
+
+    def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
+        """Every tag in a repository, following the registry's pagination.
+
+        A tag list is paged: ghcr.io returns 100 tags and a `Link` header
+        pointing at the rest, so reading only the first page silently hides
+        every tag past it. `skopeo list-tags` followed that for us.
+        """
+        registry, _, name = repository.partition("/")
+        if not registry or not name:
+            raise RegistryError(f"cannot parse a repository from {repository!r}")
+        path = f"{name.rstrip('/')}/tags/list"
+        collected: set[str] = set()
+        seen_paths: set[str] = set()
+        while path and path not in seen_paths:
+            seen_paths.add(path)
+            _, headers, raw = self._get(
+                registry,
+                path,
+                destination=destination,
+                accept="application/json",
+                timeout=float(self.timeout),
+                operation="tag listing",
+            )
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as error:
+                raise RegistryError(
+                    f"registry returned invalid tag list JSON for {repository}"
+                ) from error
+            tags = payload.get("tags") if isinstance(payload, dict) else None
+            if tags is None and isinstance(payload, dict):
+                tags = payload.get("Tags")
+            if not isinstance(tags, list) or not all(
+                isinstance(tag, str) for tag in tags
+            ):
+                raise RegistryError(f"registry returned invalid tags for {repository}")
+            collected.update(tags)
+            path = _next_page(headers)
+        return sorted(collected)
 
     def copy(
         self, source: str, destination: str, *, timeout: float | None = None
@@ -2131,19 +2447,24 @@ def render_node_config(lock: Mapping[str, Any], username: str, password: str) ->
                 f"source repository {registry}/{repository} has conflicting rewrite destinations"
             )
 
+    # The destination registry is listed as a mirror in its own right, not only
+    # when something upstream rewrites onto it, so containerd and Spegel resolve
+    # it through the same block. It gets no rewrite section of its own.
+    mirrored_registries = sorted(set(mappings.keys()) | {destination_registry})
     lines = ["mirrors:"]
-    for registry in sorted(mappings):
+    for registry in mirrored_registries:
         lines.extend(
             [
                 f"  {json.dumps(registry)}:",
                 "    endpoint:",
                 f"      - {json.dumps('https://' + destination_registry)}",
-                "    rewrite:",
             ]
         )
-        for repository, destination in sorted(mappings[registry].items()):
-            pattern = "^" + re.escape(repository) + "$"
-            lines.append(f"      {json.dumps(pattern)}: {json.dumps(destination)}")
+        if mappings.get(registry):
+            lines.append("    rewrite:")
+            for repository, destination in sorted(mappings[registry].items()):
+                pattern = "^" + re.escape(repository) + "$"
+                lines.append(f"      {json.dumps(pattern)}: {json.dumps(destination)}")
     lines.extend(
         [
             "configs:",

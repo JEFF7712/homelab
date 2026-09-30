@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import copy
 import email.message
 import hashlib
 import io
@@ -93,6 +94,265 @@ class OciClientTests(unittest.TestCase):
         self.assertNotIn("--src-tls-verify=false", command)
         self.assertNotIn("--dest-tls-verify=false", command)
 
+    def test_immutable_manifest_is_served_from_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = pathlib.Path(temp_dir)
+            client = OciClient(cache_dir=cache_dir)
+            raw = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}'
+            d = "sha256:" + hashlib.sha256(raw).hexdigest()
+
+            with patch.object(client, "_get", return_value=(200, {}, raw)) as run:
+                first = client.raw_manifest(f"docker.io/library/demo@{d}")
+                self.assertEqual(first, raw)
+                self.assertEqual(run.call_count, 1)
+
+                # Second call should read from disk cache with verified hash
+                second = client.raw_manifest(f"docker.io/library/demo@{d}")
+                self.assertEqual(second, raw)
+                self.assertEqual(run.call_count, 1)
+
+    def test_corrupted_cached_manifest_is_evicted_and_refetched(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = pathlib.Path(temp_dir)
+            client = OciClient(cache_dir=cache_dir)
+            raw = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}'
+            d = "sha256:" + hashlib.sha256(raw).hexdigest()
+
+            cache_file = cache_dir / f"{d.removeprefix('sha256:')}.json"
+            cache_file.write_bytes(b"corrupted-tampered-data")
+
+            with patch.object(client, "_get", return_value=(200, {}, raw)) as run:
+                result = client.raw_manifest(f"docker.io/library/demo@{d}")
+                self.assertEqual(result, raw)
+                self.assertEqual(run.call_count, 1)
+                # Verify that cache file was replaced with verified content
+                self.assertEqual(cache_file.read_bytes(), raw)
+
+    def test_mutable_tag_is_never_read_from_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = pathlib.Path(temp_dir)
+            client = OciClient(cache_dir=cache_dir)
+            raw = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}'
+
+            with patch.object(client, "_get", return_value=(200, {}, raw)) as run:
+                first = client.raw_manifest("docker.io/library/demo:latest")
+                second = client.raw_manifest("docker.io/library/demo:latest")
+                self.assertEqual(first, raw)
+                self.assertEqual(second, raw)
+                # Mutable tags must always hit the registry
+                self.assertEqual(run.call_count, 2)
+
+    def test_destination_query_never_reads_from_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = pathlib.Path(temp_dir)
+            client = OciClient(cache_dir=cache_dir)
+            raw = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}'
+            d = "sha256:" + hashlib.sha256(raw).hexdigest()
+
+            # Pre-populate cache
+            cache_file = cache_dir / f"{d.removeprefix('sha256:')}.json"
+            cache_file.write_bytes(raw)
+
+            with patch.object(client, "_get", return_value=(200, {}, raw)) as run:
+                result = client.raw_manifest(
+                    f"registry.rupan.dev/apps/demo@{d}", destination=True
+                )
+                self.assertEqual(result, raw)
+                # Destination must query the remote registry directly
+                self.assertEqual(run.call_count, 1)
+
+    def test_cache_can_be_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = pathlib.Path(temp_dir)
+            client = OciClient(cache_dir=False)
+            raw = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}'
+            d = "sha256:" + hashlib.sha256(raw).hexdigest()
+
+            with patch.object(client, "_get", return_value=(200, {}, raw)) as run:
+                client.raw_manifest(f"docker.io/library/demo@{d}")
+                client.raw_manifest(f"docker.io/library/demo@{d}")
+                self.assertEqual(run.call_count, 2)
+                self.assertEqual(list(cache_dir.iterdir()), [])
+
+
+class BearerAndPaginationTests(unittest.TestCase):
+    """Public upstreams answer 401 with a bearer challenge, not just a refusal."""
+
+    def test_challenge_is_parsed(self) -> None:
+        raw = (
+            'Bearer realm="https://ghcr.io/token",service="ghcr.io",'
+            'scope="repository:external-secrets/external-secrets:pull"'
+        )
+        self.assertEqual(
+            core._bearer_challenge({"www-authenticate": raw}),
+            {
+                "realm": "https://ghcr.io/token",
+                "service": "ghcr.io",
+                "scope": "repository:external-secrets/external-secrets:pull",
+            },
+        )
+
+    def test_basic_challenge_is_not_a_bearer_challenge(self) -> None:
+        self.assertIsNone(
+            core._bearer_challenge({"www-authenticate": 'Basic realm="x"'})
+        )
+
+    def test_next_page_is_parsed(self) -> None:
+        headers = {
+            "link": '</v2/a/b/tags/list?n=100&last=z>; rel="next", </v2/a/b/tags/list>; rel="prev"'
+        }
+        self.assertEqual(core._next_page(headers), "a/b/tags/list?n=100&last=z")
+
+    def test_absent_link_header_means_no_next_page(self) -> None:
+        self.assertEqual(core._next_page({}), "")
+
+    def _opener_returning(self, responses: list) -> mock.MagicMock:
+        opener = mock.MagicMock()
+        opener.open.side_effect = responses
+        return opener
+
+    @staticmethod
+    def _ok(body: bytes, headers: dict[str, str] | None = None) -> mock.MagicMock:
+        response = mock.MagicMock()
+        response.status = 200
+        response.headers = email.message.Message()
+        for key, value in (headers or {}).items():
+            response.headers[key] = value
+        response.read.return_value = body
+        response.__enter__.return_value = response
+        return response
+
+    def _challenge(self, scope: str = "repository:a/b:pull") -> urllib.error.HTTPError:
+        headers = email.message.Message()
+        headers["www-authenticate"] = (
+            f'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="{scope}"'
+        )
+        return urllib.error.HTTPError(
+            url="https://ghcr.io/v2/a/b/manifests/latest",
+            code=401,
+            msg="Unauthorized",
+            hdrs=headers,
+            fp=None,
+        )
+
+    def test_read_retries_with_a_bearer_token(self) -> None:
+        challenge = self._challenge()
+        self.addCleanup(challenge.close)
+        body = b'{"schemaVersion":2}'
+        opener = self._opener_returning([challenge, self._ok(body)])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with (
+            patch.object(core.urllib.request, "build_opener", return_value=opener),
+            patch.object(
+                client,
+                "_fetch_bearer_token",
+                return_value="tok",
+            ) as fetch,
+        ):
+            raw = client.raw_manifest("docker.io/library/a/b:latest")
+
+        self.assertEqual(raw, body)
+        fetch.assert_called_once()
+        # The retry must present the token, not the original credential.
+        retry_request = opener.open.call_args_list[1].args[0]
+        self.assertEqual(retry_request.get_header("Authorization"), "Bearer tok")
+
+    def test_token_is_requested_with_the_challenge_scope(self) -> None:
+        client = OciClient(retries=0, cache_dir=False)
+        token_response = self._ok(b'{"token":"abc"}')
+        opener = self._opener_returning([token_response])
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            token = client._fetch_bearer_token(
+                {
+                    "realm": "https://ghcr.io/token",
+                    "service": "ghcr.io",
+                    "scope": "repository:a/b:pull",
+                },
+                destination=False,
+            )
+
+        self.assertEqual(token, "abc")
+        url = opener.open.call_args.args[0].full_url
+        self.assertIn("service=ghcr.io", url)
+        self.assertIn("scope=repository", url)
+
+    def test_challenged_read_with_no_token_stays_inconclusive(self) -> None:
+        # A registry that challenges and then refuses is not a statement about
+        # content, so it must not be reported as drift.
+        challenge = self._challenge()
+        self.addCleanup(challenge.close)
+        opener = self._opener_returning([challenge])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with (
+            patch.object(core.urllib.request, "build_opener", return_value=opener),
+            patch.object(client, "_fetch_bearer_token", return_value=None),
+            self.assertRaises(core.TransientRegistryError),
+        ):
+            client.raw_manifest("docker.io/library/a/b:latest")
+
+    def test_tag_listing_follows_pagination(self) -> None:
+        first = self._ok(
+            b'{"tags":["a","b"]}',
+            {"link": '</v2/a/b/tags/list?n=2&last=b>; rel="next"'},
+        )
+        second = self._ok(b'{"tags":["c"]}')
+        opener = self._opener_returning([first, second])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(client.list_tags("ghcr.io/a/b"), ["a", "b", "c"])
+
+        self.assertEqual(opener.open.call_count, 2)
+
+    def test_tag_listing_terminates_on_a_repeating_page(self) -> None:
+        # A registry that points at itself must not loop forever.
+        page = self._ok(b'{"tags":["a"]}', {"link": '</v2/a/b/tags/list>; rel="next"'})
+        opener = self._opener_returning([page, page, page])
+        client = OciClient(retries=0, cache_dir=False)
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(client.list_tags("ghcr.io/a/b"), ["a"])
+
+        self.assertEqual(opener.open.call_count, 1)
+
+
+class ManifestUrlTests(unittest.TestCase):
+    def test_digest_reference_becomes_a_manifests_path(self) -> None:
+        digest = "c" * 64
+        registry, path = core._manifest_url(
+            f"docker://registry.rupan.dev/upstream/lscr.io/linuxserver/sonarr@sha256:{digest}"
+        )
+        self.assertEqual(registry, "registry.rupan.dev")
+        self.assertEqual(
+            path, f"upstream/lscr.io/linuxserver/sonarr/manifests/sha256:{digest}"
+        )
+
+    def test_tag_reference_becomes_a_manifests_path(self) -> None:
+        registry, path = core._manifest_url("docker://ghcr.io/a/b/c:1.2.3")
+        self.assertEqual(registry, "ghcr.io")
+        self.assertEqual(path, "a/b/c/manifests/1.2.3")
+
+    def test_registry_with_dots_and_ports_in_the_repository_survive(self) -> None:
+        # The repository holds dots and the registry holds a host, so the split
+        # cannot simply be on the last dot or colon.
+        _, path = core._manifest_url(
+            "docker://registry.rupan.dev/upstream/docker.io/library/postgres:14-alpine"
+        )
+        self.assertEqual(
+            path, "upstream/docker.io/library/postgres/manifests/14-alpine"
+        )
+
+    def test_unparseable_reference_is_rejected(self) -> None:
+        for bad in ("docker://registry.rupan.dev/", "not-a-reference", "docker://h/"):
+            with (
+                self.subTest(reference=bad),
+                self.assertRaises(RegistryError),
+            ):
+                core._manifest_url(bad)
+
 
 class TransientInterstitialTests(unittest.TestCase):
     """A registry Cloudflare is intercepting must not read as drift."""
@@ -102,27 +362,118 @@ class TransientInterstitialTests(unittest.TestCase):
         client.inspect_tool = "skopeo"
         return client
 
-    def test_intercepted_failure_is_transient_not_missing(self) -> None:
-        client = self._client()
-        completed = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout=b"", stderr=b""
+    def _http_client(self, error: Exception) -> OciClient:
+        client = OciClient(retries=0)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+        patcher = patch.object(core.urllib.request, "build_opener", return_value=opener)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return client
+
+    @staticmethod
+    def _http_error(
+        code: int, headers: email.message.Message | None = None
+    ) -> urllib.error.HTTPError:
+        return urllib.error.HTTPError(
+            url=f"https://{core.DEFAULT_REGISTRY}/v2/apps/demo/manifests/1",
+            code=code,
+            msg="",
+            hdrs=headers if headers is not None else email.message.Message(),
+            fp=None,
         )
 
+    def test_intercepted_read_is_transient_not_missing(self) -> None:
+        headers = email.message.Message()
+        headers["Location"] = "https://x.cloudflareaccess.com/cdn-cgi/access/login/a"
+        error = self._http_error(302, headers)
+        client = self._http_client(error)
+        self.addCleanup(error.close)
+
+        with self.assertRaises(core.TransientRegistryError) as caught:
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            )
+
+        self.assertIn("Cloudflare Access", str(caught.exception))
+        self.assertIsInstance(caught.exception, core.RegistryError)
+
+    def test_absent_manifest_is_a_real_error_not_transient(self) -> None:
+        # The positive signal: zot answering 404 is a statement that the content
+        # is gone, and it must reach the caller as a definite error rather than
+        # being softened into "inconclusive".
+        error = self._http_error(404)
+        client = self._http_client(error)
+        self.addCleanup(error.close)
+
+        with self.assertRaises(core.RegistryError) as caught:
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            )
+
+        self.assertNotIsInstance(caught.exception, core.TransientRegistryError)
+        self.assertIn("404", str(caught.exception))
+
+    def test_credential_refusal_is_transient(self) -> None:
+        error = self._http_error(401)
+        client = self._http_client(error)
+        self.addCleanup(error.close)
+
+        with self.assertRaises(core.TransientRegistryError) as caught:
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            )
+
+        self.assertIn("401", str(caught.exception))
+
+    def test_unreachable_registry_is_transient(self) -> None:
+        client = self._http_client(urllib.error.URLError("connection refused"))
+        with self.assertRaises(core.TransientRegistryError):
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            )
+
+    def test_reads_do_not_shell_out(self) -> None:
+        # The whole point: no unauthenticated /v2/ challenge, because skopeo
+        # issuing one per read is what tripped zot's failDelay protection.
+        error = self._http_error(404)
+        client = self._http_client(error)
+        self.addCleanup(error.close)
+
         with (
-            patch.object(core.subprocess, "run", return_value=completed),
-            patch.object(core, "_spurious_failure", return_value="challenge"),
-            patch.object(core, "_interstitial_reason", return_value=None),
-            self.assertRaises(core.TransientRegistryError) as caught,
+            patch.object(core.subprocess, "run") as run,
+            self.assertRaises(core.RegistryError),
         ):
             client.raw_manifest(
                 f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
             )
 
-        self.assertIn("challenge", str(caught.exception))
-        self.assertIsInstance(caught.exception, core.RegistryError)
+        run.assert_not_called()
 
-    def test_clean_registry_keeps_the_underlying_error(self) -> None:
+    def test_read_issues_exactly_one_request(self) -> None:
+        raw = b'{"schemaVersion":2}'
+        client = OciClient(retries=0)
+        opener = mock.MagicMock()
+        response = mock.MagicMock()
+        response.status = 200
+        response.headers = email.message.Message()
+        response.read.return_value = raw
+        response.__enter__.return_value = response
+        opener.open.return_value = response
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(
+                client.raw_manifest(
+                    f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+                ),
+                raw,
+            )
+        self.assertEqual(opener.open.call_count, 1)
+
+    def test_copy_failure_still_uses_the_probe_to_classify(self) -> None:
+        # Copies still shell out to skopeo, so the confirming probe remains for
+        # them: a failed copy that the registry actually serves is spurious.
         client = self._client()
+        client.copy_tool = "skopeo"
         completed = subprocess.CompletedProcess(
             args=[], returncode=1, stdout=b"", stderr=b"denied"
         )
@@ -133,8 +484,9 @@ class TransientInterstitialTests(unittest.TestCase):
             patch.object(core, "_interstitial_reason", return_value=None),
             self.assertRaises(core.RegistryError) as caught,
         ):
-            client.raw_manifest(
-                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            client.copy(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo@sha256:" + "1" * 64,
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1",
             )
 
         self.assertNotIsInstance(caught.exception, core.TransientRegistryError)
@@ -218,19 +570,6 @@ class TransientInterstitialTests(unittest.TestCase):
 
         self.assertIsNotNone(reason)
         self.assertIn("challenge", reason)
-
-    def test_unreachable_registry_is_transient(self) -> None:
-        opener = mock.MagicMock()
-        opener.open.side_effect = urllib.error.URLError("connection reset")
-        patcher = patch.object(core.urllib.request, "build_opener", return_value=opener)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
-        with patch.dict(os.environ, {}, clear=True):
-            reason = core._interstitial_reason(core.DEFAULT_REGISTRY)
-
-        self.assertIsNotNone(reason)
-        self.assertIn("unreachable", reason)
 
     def test_reference_is_split_out_of_a_skopeo_argument(self) -> None:
         self.assertEqual(
@@ -445,8 +784,9 @@ class TransientInterstitialTests(unittest.TestCase):
 
         self.assertIsNone(reason)
 
-    def test_failed_operation_is_transient_when_the_reference_is_served(self) -> None:
+    def test_failed_copy_is_transient_when_the_reference_is_served(self) -> None:
         client = self._client()
+        client.copy_tool = "skopeo"
         completed = subprocess.CompletedProcess(
             args=[], returncode=1, stdout=b"", stderr=b""
         )
@@ -461,8 +801,9 @@ class TransientInterstitialTests(unittest.TestCase):
             patch.object(core.urllib.request, "build_opener", return_value=opener),
             self.assertRaises(core.TransientRegistryError),
         ):
-            client.raw_manifest(
-                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:tag", destination=True
+            client.copy(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo@sha256:" + "1" * 64,
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:tag",
             )
 
     def test_mass_read_failure_is_inconclusive_not_drift(self) -> None:
@@ -1963,7 +2304,40 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
         )
         record["destination_repository"] = "apps/apolline"
         payload = render_node_config(value, "node-reader", "secret")
-        self.assertNotIn('"registry.rupan.dev":\n    endpoint:', payload)
+        self.assertIn(
+            '"registry.rupan.dev":\n    endpoint:\n      - "https://registry.rupan.dev"',
+            payload,
+        )
+        self.assertNotIn("rewrite:", payload)
+
+    def test_node_config_mirrors_destination_and_rewrites_upstream_for_spegel(
+        self,
+    ) -> None:
+        raw = manifest()
+        value = valid_lock(raw)
+        upstream_record = value["images"][0]
+        first_party = copy.deepcopy(upstream_record)
+        first_party["id"] = "first-party-apps-test"
+        first_party["kind"] = "first-party"
+        first_party["source"].update(
+            {
+                "registry": "registry.rupan.dev",
+                "repository": "apps/test-app",
+                "reference": "registry.rupan.dev/apps/test-app@"
+                + first_party["digest"],
+            }
+        )
+        first_party["destination_repository"] = "apps/test-app"
+        value["images"].append(first_party)
+        payload = render_node_config(value, "node-reader", "secret")
+        self.assertIn(
+            '"registry.rupan.dev":\n    endpoint:\n      - "https://registry.rupan.dev"',
+            payload,
+        )
+        self.assertIn(
+            '"docker.io":\n    endpoint:\n      - "https://registry.rupan.dev"\n    rewrite:\n      "^library/demo$": "upstream/docker.io/library/demo"',
+            payload,
+        )
 
 
 def first_party_record(
@@ -2349,27 +2723,39 @@ class PromoteFirstPartyTests(unittest.TestCase):
         self.assertEqual(summary["skipped"], [])
         self.assertEqual(client.listed, [])
 
-    def test_list_tags_uses_source_authfile(self) -> None:
+    def test_list_tags_reads_over_http_and_uses_the_source_credential(self) -> None:
         client = OciClient()
-        client.inspect_tool = "skopeo"
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(
+                {"auths": {"ghcr.io": {"auth": base64.b64encode(b"u:p").decode()}}},
+                handle,
+            )
+            path = handle.name
+        self.addCleanup(os.unlink, path)
+
         with (
             patch.dict(
-                os.environ, {"REGISTRY_SOURCE_AUTH_FILE": "/tmp/auth.json"}, clear=False
+                os.environ,
+                {"REGISTRY_SOURCE_AUTH_FILE": path, "REGISTRY_DEST_AUTH_FILE": ""},
+                clear=False,
             ),
             patch.object(
                 client,
-                "_run",
-                return_value=json.dumps({"Tags": ["0.0.2", "0.0.1"]}).encode(),
-            ) as run,
+                "_get",
+                return_value=(
+                    200,
+                    {},
+                    json.dumps({"tags": ["0.0.2", "0.0.1"]}).encode(),
+                ),
+            ) as get,
         ):
             self.assertEqual(
                 client.list_tags("ghcr.io/jeff7712/rupan-dev"), ["0.0.1", "0.0.2"]
             )
-        command = run.call_args.args[0]
-        self.assertEqual(
-            command[:4], ["skopeo", "--registries-conf", "/dev/null", "list-tags"]
-        )
-        self.assertIn("/tmp/auth.json", command)
+
+        self.assertFalse(get.call_args.kwargs["destination"])
+        self.assertEqual(get.call_args.args[0], "ghcr.io")
+        self.assertEqual(get.call_args.args[1], "jeff7712/rupan-dev/tags/list")
 
     def test_discovers_gitops_consumers_and_skips_observed(self) -> None:
         old_digest = "sha256:" + "a" * 64
