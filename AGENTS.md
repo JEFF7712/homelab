@@ -62,6 +62,8 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/jarvis-voice.md`: Jarvis voice signal chain, canonical entity IDs, HA wiring checklist, image pins, and latency notes. Read before touching `gitops/voice/` or `home-assistant/www/jarvis/`.
 - `docs/runbooks/roku-bridge-architecture.md` — Roku bulb bridge data flow, PIDs, debug commands, deploy path, and the modern-vs-legacy color schema gotcha. Read before debugging bedroom bulb behavior.
 - `docs/runbooks/cloudflare-tunnel.md` — Cloudflare Tunnel operations.
+- `docs/runbooks/ci-pipelines.md` — GitLab runner lanes, validation jobs, and path-based routing.
+- `docs/runbooks/local-development.md` — pinned dev environment, registry commands, and the offline validation gate.
 - `docs/runbooks/local-registry.md` — local container registry operations.
 - `docs/runbooks/opnsense-recovery.md` — OPNsense disaster recovery.
 - `docs/runbooks/opnsense-bgp-proof.md` — OPNsense BGP reachability proof.
