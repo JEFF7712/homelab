@@ -25,9 +25,9 @@ stages:
   - test
   - security
   - sync
+  - cloudflare
   - registry
   - opnsense
-  - cloudflare
   - deploy
 
 variables:

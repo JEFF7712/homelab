@@ -17,6 +17,12 @@ next apply.
 - Health: `healthy`, 8 connections on `ord10, mci03, ord15, ord06, mci01, ord02`
 - Public origin IP seen by edge: `50.93.213.22` (connector pods live in `10.0.30.0/24`)
 - Apply job: `cloudflare_apply` (manual, `production` environment, `resource_group: cloudflare-tunnel`)
+- Stage order: `cloudflare` runs before `registry`, deliberately. The `registry`
+  stage holds four blocking manual jobs (`registry_retention_reconcile`,
+  `registry_lock_import`, and the two `provision_*_publisher` jobs), and a
+  blocking manual job holds every later stage, so a cloudflare job placed after
+  it would never start on a busy `main`. Nothing in this stack depends on
+  registry work.
 
 ## Traffic path for `photos.rupan.dev`
 
