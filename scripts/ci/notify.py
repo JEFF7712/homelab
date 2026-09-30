@@ -10,12 +10,38 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import sys
 from collections.abc import Sequence
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 MAX_LISTED = 10
+# ntfy rejects a message over a few KiB with a 400, and skopeo's own text is
+# long and repetitive, so reasons are condensed before they are sent.
+MAX_REASON = 220
+MAX_MESSAGE = 3500
+
+
+def reason_for(item: dict) -> str:
+    """One failure reason, stripped of the tool's own noise and bounded."""
+    reasons = item.get("errors") or []
+    text = "; ".join(str(value) for value in reasons) or "unknown"
+    # `time="..." level=fatal msg="..."` prefixes are repeated per image and
+    # carry nothing the reason does not already say.
+    text = re.sub(r'time="[^"]*"\s*', "", text)
+    text = re.sub(r"level=\w+\s*", "", text)
+    text = re.sub(r'\bmsg="?', "", text)
+    text = text.replace('\\"', "").rstrip('"')
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > MAX_REASON:
+        # Keep both ends: skopeo puts the cause last ("... authentication
+        # required"), so a plain head truncation would cut off the only part
+        # worth reading.
+        head = int(MAX_REASON * 0.45)
+        tail = MAX_REASON - head - len(" ... ")
+        text = f"{text[:head].rstrip()} ... {text[-tail:].lstrip()}"
+    return text
 
 
 def summarise(report: dict) -> tuple[str, str]:
@@ -33,8 +59,7 @@ def summarise(report: dict) -> tuple[str, str]:
         "",
     ]
     for item in failed[:MAX_LISTED]:
-        reasons = "; ".join(item.get("errors", [])) or "unknown"
-        lines.append(f"{item['id']}: {reasons}")
+        lines.append(f"{item['id']}: {reason_for(item)}")
     if len(failed) > MAX_LISTED:
         lines.append(f"... and {len(failed) - MAX_LISTED} more")
     if indeterminate:
@@ -44,8 +69,7 @@ def summarise(report: dict) -> tuple[str, str]:
             "was unreachable or intercepted, not because they drifted:"
         )
         for item in indeterminate[:MAX_LISTED]:
-            reasons = "; ".join(item.get("errors", [])) or "unknown"
-            lines.append(f"{item['id']}: {reasons}")
+            lines.append(f"{item['id']}: {reason_for(item)}")
         if len(indeterminate) > MAX_LISTED:
             lines.append(f"... and {len(indeterminate) - MAX_LISTED} more")
     if failed:
@@ -61,7 +85,10 @@ def summarise(report: dict) -> tuple[str, str]:
         if indeterminate
         else "Registry drift: no failures"
     )
-    return title, "\n".join(lines)
+    message = "\n".join(lines)
+    if len(message) > MAX_MESSAGE:
+        message = message[: MAX_MESSAGE - 4].rstrip() + "\n…"
+    return title, message
 
 
 def main(argv: Sequence[str] | None = None) -> int:
