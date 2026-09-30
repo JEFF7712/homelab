@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hearth
+  namespace: hearth
+spec:
+  selector:
+    app: hearth
+  ports:
+    - name: http
+      port: 5050
+      targetPort: 5050

@@ -1935,6 +1935,44 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/hearth/deployment.yaml:23"
+      ],
+      "destination_repository": "upstream/ghcr.io/knowald/ha-hearth",
+      "destination_tags": [
+        "retention-deployed-8e95c28f367358ac"
+      ],
+      "digest": "sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a",
+      "id": "upstream-knowald-ha-hearth-9873cd4d7ba7",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a",
+        "reference": "ghcr.io/knowald/ha-hearth@sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a",
+        "registry": "ghcr.io",
+        "repository": "knowald/ha-hearth",
+        "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:observability/kube-prometheus-stack-kube-state-metrics-58f5d9c5d4-9wxvt/kube-state-metrics"
       ],
       "destination_repository": "upstream/registry.k8s.io/kube-state-metrics/kube-state-metrics",
