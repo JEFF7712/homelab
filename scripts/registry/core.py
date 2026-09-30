@@ -853,6 +853,61 @@ def _interstitial_reason(registry: str) -> str | None:
         return f"registry unreachable: {error}"
 
 
+def _reference_from_args(args: Sequence[str]) -> tuple[str, str, str] | None:
+    """Split a skopeo `docker://` argument into registry, repository, reference."""
+    targets = [a for a in args if a.startswith("docker://")]
+    if not targets:
+        return None
+    remainder = targets[-1].removeprefix("docker://")
+    registry, _, path = remainder.partition("/")
+    if not registry or not path:
+        return None
+    for separator in ("@", ":"):
+        repository, found, reference = path.rpartition(separator)
+        if found and repository and reference:
+            return registry, repository, reference
+    return registry, path, ""
+
+
+def _spurious_failure(args: Sequence[str]) -> str | None:
+    """Why a failed operation does not reflect the registry, or None if it does.
+
+    Probing only `/v2/` is not enough: Cloudflare Access intercepts individual
+    requests, so the base endpoint often answers cleanly while the manifest read
+    does not. Asking for the exact repository and reference the operation failed
+    on, with the same credential, is self-consistent: if that succeeds the
+    registry is serving the content and the tool's failure was spurious.
+    """
+    parsed = _reference_from_args(args)
+    if parsed is None:
+        return None
+    registry, repository, reference = parsed
+    if not reference:
+        return None
+    request = urllib.request.Request(
+        f"https://{registry}/v2/{repository}/manifests/{reference}", method="GET"
+    )
+    header = _dest_auth_header()
+    if header:
+        request.add_header("Authorization", header)
+    for media_type in _INDEX_MEDIA_TYPES:
+        request.add_header("Accept", media_type)
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(request, timeout=15) as response:
+            if response.status == 200:
+                return (
+                    f"{repository}:{reference} is served by {registry} when read "
+                    "directly, so the tool's failure was not the registry's answer"
+                )
+    except urllib.error.HTTPError:
+        # The registry itself rejected or lacks it, which is a real result.
+        return None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None
+    return None
+
+
 class OciClient:
     def __init__(self, *, timeout: int = 60, retries: int = 2) -> None:
         if timeout < 1 or retries < 0 or retries > 5:
@@ -969,6 +1024,11 @@ class OciClient:
                 if attempt == attempts:
                     detail = result.stderr.decode(errors="replace").strip()
                     suffix = f": {detail}" if detail else ""
+                    spurious = _spurious_failure(args)
+                    if spurious is not None:
+                        raise TransientRegistryError(
+                            f"{operation} could not be trusted: {spurious}"
+                        )
                     registry = _registry_from_args(args)
                     if registry is not None:
                         reason = _interstitial_reason(registry)

@@ -229,6 +229,81 @@ class TransientInterstitialTests(unittest.TestCase):
         self.assertIsNotNone(reason)
         self.assertIn("unreachable", reason)
 
+    def test_reference_is_split_out_of_a_skopeo_argument(self) -> None:
+        self.assertEqual(
+            core._reference_from_args(
+                [
+                    "skopeo",
+                    "inspect",
+                    "docker://registry.rupan.dev/apps/demo@sha256:" + "1" * 64,
+                ]
+            ),
+            ("registry.rupan.dev", "apps/demo", "sha256:" + "1" * 64),
+        )
+        self.assertEqual(
+            core._reference_from_args(
+                ["skopeo", "inspect", "docker://r.rupan.dev/a/b:tag"]
+            ),
+            ("r.rupan.dev", "a/b", "tag"),
+        )
+        self.assertIsNone(core._reference_from_args(["skopeo", "list-tags"]))
+
+    def test_served_reference_makes_the_tool_failure_spurious(self) -> None:
+        # Cloudflare intercepts individual reads, so `/v2/` can answer cleanly
+        # while the manifest read does not. Only a per-reference probe catches
+        # that, and getting it wrong means phantom drift.
+        response = mock.MagicMock()
+        response.status = 200
+        response.__enter__.return_value = response
+        opener = mock.MagicMock()
+        opener.open.return_value = response
+        args = ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(args)
+
+        self.assertIsNotNone(reason)
+        self.assertIn("apps/demo:tag", reason)
+
+    def test_registry_rejection_is_not_spurious(self) -> None:
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=404,
+            msg="Not Found",
+            hdrs=email.message.Message(),
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNone(reason)
+
+    def test_failed_operation_is_transient_when_the_reference_is_served(self) -> None:
+        client = self._client()
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=b"", stderr=b""
+        )
+        response = mock.MagicMock()
+        response.status = 200
+        response.__enter__.return_value = response
+        opener = mock.MagicMock()
+        opener.open.return_value = response
+
+        with (
+            patch.object(core.subprocess, "run", return_value=completed),
+            patch.object(core.urllib.request, "build_opener", return_value=opener),
+            self.assertRaises(core.TransientRegistryError),
+        ):
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:tag", destination=True
+            )
+
     def test_verify_lock_marks_unreachable_records_indeterminate(self) -> None:
         record = {
             "id": "first-party-demo",
@@ -309,6 +384,42 @@ class TransientInterstitialTests(unittest.TestCase):
         self.assertIn("drift", title.lower())
         self.assertIn("b: tag missing", message)
         self.assertIn("pull-time outage", message)
+
+    def test_notification_stays_within_the_ntfy_limit(self) -> None:
+        from scripts.ci import notify
+
+        # 54 skopeo errors of real length overflowed ntfy's limit and the
+        # notification came back 400, so the drift page was lost entirely.
+        noisy = (
+            "manifest inspection failed with exit code 1: "
+            'time="2026-09-29T22:10:10-05:00" level=fatal msg="Error parsing image '
+            'name \\"docker://registry.rupan.dev/upstream/docker.io/library/postgres'
+            "@sha256:727876d274666da0b92a445390ba093c84b8e9f8343e1c53cd4e9a7ab2d8531"
+            '0\\": reading manifest in registry.rupan.dev: authentication required"'
+        )
+        report = {
+            "images": [
+                {
+                    "id": f"upstream-library-thing-{index:04d}",
+                    "status": "failed",
+                    "errors": [noisy],
+                }
+                for index in range(54)
+            ]
+        }
+        title, message = notify.summarise(report)
+        self.assertLessEqual(len(message), notify.MAX_MESSAGE)
+        self.assertLessEqual(len(title.encode()), 250)
+        # The reason is still readable after the tool noise is stripped.
+        self.assertIn("authentication required", message)
+        self.assertNotIn("level=fatal", message)
+        self.assertNotIn('time="', message)
+
+    def test_reason_is_bounded_per_image(self) -> None:
+        from scripts.ci import notify
+
+        reason = notify.reason_for({"errors": ["x" * 5000]})
+        self.assertLessEqual(len(reason), notify.MAX_REASON)
 
 
 def _ci_bash_block(script: str) -> str:
