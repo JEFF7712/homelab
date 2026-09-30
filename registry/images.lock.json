@@ -620,7 +620,7 @@
       "destination_repository": "apps/quartz",
       "destination_tags": [
         "0.0.325",
-        "retention-deployed-0d365e7b10fa57bd"
+        "retention-deployed-1e507dd7a5534736"
       ],
       "digest": "sha256:1e507dd7a5534736b3d2fa2705ed1c477157c000c7745207a1c985e90c92da11",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
@@ -3990,7 +3990,7 @@
       ],
       "destination_repository": "upstream/ghcr.io/immich-app/immich-machine-learning",
       "destination_tags": [
-        "retention-deployed-63c5c212cce8ca78"
+        "retention-deployed-5a0839dc5303cd72"
       ],
       "digest": "sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e",
       "id": "upstream-upstream-ghcr-io-immich-app-immich-machine-learn-bb4bd6350441",

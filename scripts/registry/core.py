@@ -766,6 +766,28 @@ def validate_lock(
                     errors.append(
                         f"destination tag {destination}:{tag} has conflicting digests"
                     )
+                # A retention tag encodes the digest it is meant to pin. If the
+                # two disagree the tag resolves to a manifest this record does
+                # not describe, so the digest it is supposed to protect becomes
+                # unreferenced and collectable. A roll that updates the digest
+                # without renaming the tag produces exactly that, and the
+                # mismatch is invisible to every other check here because both
+                # fields are individually well formed.
+                retention_class = record.get("retention_class")
+                if (
+                    tag.startswith("retention-")
+                    and isinstance(retention_class, str)
+                    and isinstance(digest, str)
+                ):
+                    expected = (
+                        f"retention-{retention_class}-"
+                        f"{digest.removeprefix('sha256:')[:16]}"
+                    )
+                    if tag != expected:
+                        errors.append(
+                            f"{prefix}.destination_tags entry {tag} does not match "
+                            f"this record's digest; expected {expected}"
+                        )
         referrers = record.get("referrers")
         if not isinstance(referrers, dict) or not isinstance(
             referrers.get("required"), list

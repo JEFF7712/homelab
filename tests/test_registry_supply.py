@@ -1784,6 +1784,36 @@ class LockTest(unittest.TestCase):
         self.assertTrue(any("digest must" in error for error in errors))
         self.assertTrue(any("conflicting digests" in error for error in errors))
 
+    def test_retention_tag_must_name_the_digest_it_pins(self) -> None:
+        """A roll that moves the digest must move the retention tag with it.
+
+        The tag encodes the digest it protects. When a roll updated the digest
+        and left the tag behind, the tag resolved to a manifest the record no
+        longer described, the digest it was meant to protect became
+        unreferenced, and zot's collector was free to take it. Both fields are
+        individually well formed, so nothing else in the lock noticed.
+        """
+        raw = manifest()
+        value = valid_lock(raw)
+        record = value["images"][0]
+        record["retention_class"] = "deployed"
+        record["destination_tags"] = ["retention-deployed-" + "b" * 16]
+        errors = validate_lock(value)
+        self.assertTrue(
+            any("does not match this record's digest" in error for error in errors),
+            errors,
+        )
+
+        matching = "retention-deployed-" + record["digest"].removeprefix("sha256:")[:16]
+        record["destination_tags"] = [matching]
+        self.assertFalse(
+            [
+                error
+                for error in validate_lock(value)
+                if "does not match this record's digest" in error
+            ]
+        )
+
     def test_incomplete_lock_is_rejected_for_operations(self) -> None:
         raw = manifest()
         value = valid_lock(raw)
