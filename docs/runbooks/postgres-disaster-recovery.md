@@ -62,7 +62,7 @@ If the NVMe drive on `homelab-01` fails or the physical machine requires replace
    - Install replacement NVMe drive.
    - Boot the installer and provision the replacement using `nixos-anywhere`
      and the owning host/disk configuration under `flake/hosts/homelab-01/`.
-     Follow the repository [deployment policy](../../README.md#deployment).
+     Follow the repository [deployment policy](../../README.md#how-its-managed).
      There is no `provision-homelab-01` recipe. Confirm the replacement target
      and recovery plan before disk provisioning.
 
