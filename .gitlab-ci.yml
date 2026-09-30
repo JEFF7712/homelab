@@ -252,7 +252,8 @@ secret_scan_feature:
     - chmod 600 ~/.kube/config
     - export KUBECONFIG="$HOME/.kube/config"
     - >-
-      kubectl cluster-info --request-timeout=10s >/dev/null ||
+      nix develop ./flake -c kubectl cluster-info --request-timeout=10s
+      >/dev/null ||
       { echo 'ERROR: the registry kubeconfig cannot reach the API server.' >&2;
       exit 1; }
   script:
