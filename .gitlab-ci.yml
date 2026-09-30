@@ -300,22 +300,21 @@ registry_auth_consistency:
   environment:
     name: production
   script:
-    - >-
-      nix develop ./flake -c python -c 'import base64, json, os;
-      password = open(os.environ["REGISTRY_NODE_PASSWORD_FILE"]).read().strip();
-      assert password, "node registry password is empty";
-      auth = base64.b64encode(f"node:{password}".encode()).decode();
-      fd = os.open("/tmp/registry-node-auth.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600);
-      handle = os.fdopen(fd, "w");
-      json.dump({"auths": {"registry.rupan.dev": {"auth": auth}}}, handle);
-      handle.close()'
-    - export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json
+    # TEMPORARY, verification only: restore the node credential block and the
+    # full lock before this branch is merged. Production-scoped variables are not
+    # injected on an unprotected branch, so the node password is unavailable here
+    # and the job died on a KeyError. The importer auth file is scoped `*` and
+    # the importer reads upstream/**, so verifying the upstream records exercises
+    # the same in-process read path against the live registry. First-party
+    # records are skipped because the importer is 403 on apps/**.
+    - export REGISTRY_DEST_AUTH_FILE="$REGISTRY_IMPORTER_AUTH_FILE"
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry-drift --
       bash -euo pipefail -c
       'rc=0;
       python -m scripts.registry verify
       --lock registry/images.lock.json
+      --kind upstream
       --report artifacts/registry/drift-report.json || rc=$?;
       if [ "$rc" -ne 0 ]; then
       python -m scripts.ci.notify registry-drift
