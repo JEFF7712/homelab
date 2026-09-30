@@ -1154,6 +1154,11 @@ cloudflare_plan:
   environment:
     name: production
   resource_group: cloudflare-tunnel
+  # Read-only: prints the edge diff and stores the tfplan artifact for the
+  # manual apply below. It carries no needs so a canceled or red job anywhere
+  # else cannot skip the plan; without this, interruptible test jobs canceled
+  # by the next push on this active repo silently skip the edge publish.
+  needs: []
   variables:
     # Distinct from the global TF_STATE_NAME so this stack cannot collide with
     # the opnsense state. TF_HTTP_ADDRESS is expanded from the global
