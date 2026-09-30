@@ -841,13 +841,9 @@ def _interstitial_reason(registry: str) -> str | None:
             del response
             return None
     except urllib.error.HTTPError as error:
-        location = error.headers.get("Location", "") if error.headers else ""
-        if error.code in {301, 302, 303, 307, 308}:
-            if "/cdn-cgi/access" in location or "access/login" in location:
-                return f"Cloudflare Access intercepted the request (redirected to {location[:120]})"
-            return None
-        if error.code == 403 and (error.headers or {}).get("cf-mitigated"):
-            return "Cloudflare Access returned a challenge instead of registry data"
+        intercepted = _interception(error.code, error.headers)
+        if intercepted is not None:
+            return intercepted
         return None
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         return f"registry unreachable: {error}"
@@ -869,6 +865,23 @@ def _reference_from_args(args: Sequence[str]) -> tuple[str, str, str] | None:
     return registry, path, ""
 
 
+def _interception(status: int, headers: Mapping[str, str] | None) -> str | None:
+    """Describe a Cloudflare Access interception, or None if this is the registry.
+
+    Cloudflare answering in zot's place is not a registry verdict, so it must
+    never be read as one. Redirects are not followed, so an Access redirect
+    arrives here as a 3xx rather than as the login page.
+    """
+    location = (headers or {}).get("Location") or (headers or {}).get("location") or ""
+    if status in {301, 302, 303, 307, 308} and (
+        "/cdn-cgi/access" in location or "access/login" in location
+    ):
+        return f"Cloudflare Access intercepted the request (redirected to {location[:120]})"
+    if status == 403 and (headers or {}).get("cf-mitigated"):
+        return "Cloudflare Access returned a challenge instead of registry data"
+    return None
+
+
 def _spurious_failure(args: Sequence[str]) -> str | None:
     """Why a failed operation does not reflect the registry, or None if it does.
 
@@ -877,6 +890,11 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
     does not. Asking for the exact repository and reference the operation failed
     on, with the same credential, is self-consistent: if that succeeds the
     registry is serving the content and the tool's failure was spurious.
+
+    An intercepted probe is equally inconclusive, and is the more common case
+    when Access is misbehaving: dozens of reads fail together precisely because
+    the edge is answering for every one of them, so the probe is intercepted too
+    and must not be read as the registry rejecting the content.
     """
     parsed = _reference_from_args(args)
     if parsed is None:
@@ -900,11 +918,15 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
                     f"{repository}:{reference} is served by {registry} when read "
                     "directly, so the tool's failure was not the registry's answer"
                 )
-    except urllib.error.HTTPError:
-        # The registry itself rejected or lacks it, which is a real result.
+            return None
+    except urllib.error.HTTPError as error:
+        intercepted = _interception(error.code, error.headers)
+        if intercepted is not None:
+            return f"{intercepted} while reading {repository}:{reference}"
+        # A 401 or 404 from the registry itself is a real answer about content.
         return None
-    except (urllib.error.URLError, TimeoutError, OSError):
-        return None
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        return f"registry unreachable while reading {repository}:{reference}: {error}"
     return None
 
 

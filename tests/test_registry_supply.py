@@ -110,7 +110,8 @@ class TransientInterstitialTests(unittest.TestCase):
 
         with (
             patch.object(core.subprocess, "run", return_value=completed),
-            patch.object(core, "_interstitial_reason", return_value="challenge"),
+            patch.object(core, "_spurious_failure", return_value="challenge"),
+            patch.object(core, "_interstitial_reason", return_value=None),
             self.assertRaises(core.TransientRegistryError) as caught,
         ):
             client.raw_manifest(
@@ -128,6 +129,7 @@ class TransientInterstitialTests(unittest.TestCase):
 
         with (
             patch.object(core.subprocess, "run", return_value=completed),
+            patch.object(core, "_spurious_failure", return_value=None),
             patch.object(core, "_interstitial_reason", return_value=None),
             self.assertRaises(core.RegistryError) as caught,
         ):
@@ -284,6 +286,69 @@ class TransientInterstitialTests(unittest.TestCase):
             )
 
         self.assertIsNone(reason)
+
+    def test_intercepted_probe_is_spurious_not_drift(self) -> None:
+        # When Access misbehaves, dozens of reads fail together because the edge
+        # answers for all of them. The probe is intercepted too, and reading that
+        # as the registry rejecting the content produced 45 phantom failures and
+        # a page. An intercepted probe is inconclusive, so it is spurious.
+        headers = email.message.Message()
+        headers["Location"] = (
+            "https://rupan.cloudflareaccess.com/cdn-cgi/access/login/x"
+        )
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=302,
+            msg="Found",
+            hdrs=headers,
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNotNone(reason)
+        self.assertIn("Cloudflare Access", reason)
+        self.assertIn("apps/demo:tag", reason)
+
+    def test_unreachable_probe_is_spurious(self) -> None:
+        opener = mock.MagicMock()
+        opener.open.side_effect = urllib.error.URLError("connection reset")
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNotNone(reason)
+        self.assertIn("unreachable", reason)
+
+    def test_challenge_header_on_probe_is_spurious(self) -> None:
+        headers = email.message.Message()
+        headers["cf-mitigated"] = "challenge"
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=403,
+            msg="Forbidden",
+            hdrs=headers,
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNotNone(reason)
+        self.assertIn("challenge", reason)
 
     def test_failed_operation_is_transient_when_the_reference_is_served(self) -> None:
         client = self._client()
