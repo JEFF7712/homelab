@@ -4,5 +4,11 @@ f7931202fdaa83784974a76b85dc662e7db860a8:trajectory-2026-09-21-045911.json:gener
 f7931202fdaa83784974a76b85dc662e7db860a8:trajectory-2026-09-21-045911.json:generic-api-key:930
 de092ba40aa7364b15535140a113f604021508fe:trajectory-2026-09-21-045911.json:generic-api-key:895
 de092ba40aa7364b15535140a113f604021508fe:trajectory-2026-09-21-045911.json:generic-api-key:930
-# Registry auth unit-test fixture writes a synthetic credential, "bm9kZTpwYXNz" (base64 of node:pass)
+# Registry auth unit-test fixture wrote a synthetic credential literal.
+# The test now builds the token with base64 at runtime, so this entry only
+# covers the historical commit above it. Keep any explanation here free of
+# secret-shaped strings: gitleaks scans this file too, and a base64 token
+# quoted in a comment is itself reported and then needs its own entry.
 ee44d0ce103f60c4d5a08d31fa6a61ede4e46be3:tests/test_registry_supply.py:generic-api-key:161
+08b6cf3cde7fc679b08f8578f27dbf18ecd96a56:.gitleaksignore:generic-api-key:7
+b14d77c887de576d874cd7a1a860ffa2ec8cd7bb:.gitleaksignore:generic-api-key:7
