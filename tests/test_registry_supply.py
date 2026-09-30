@@ -398,6 +398,44 @@ class RegistryCiContractTests(unittest.TestCase):
             "a failed verification must not be masked by the notifier succeeding",
         )
 
+    def test_gc_fixture_runs_offline_and_touches_no_real_registry(self) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        self.assertIn("registry_gc_fixture", pipeline)
+        template = pipeline[".registry_gc_fixture"]
+        script = "\n".join(template["script"])
+
+        self.assertIn("registry-gc-fixture", script)
+        # It serves its own zot on loopback, so it must not carry production
+        # credentials or a resource group that would serialise it against the
+        # jobs that do touch the real registry.
+        self.assertNotIn("environment", template)
+        self.assertNotIn("resource_group", template)
+        self.assertNotIn("REGISTRY_", script)
+        self.assertEqual(template["tags"], ["nas-ci"])
+        self.assertEqual(
+            pipeline["registry_gc_fixture"]["rules"],
+            [
+                {"if": "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", "when": "manual"},
+                {"if": '$CI_PIPELINE_SOURCE == "schedule"'},
+            ],
+        )
+
+    def test_gc_fixture_shares_the_zot_build_with_the_registry(self) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        # One definition feeds both, so the fixture cannot pass against a
+        # different zot than the one holding the images.
+        release = (root / "nix" / "zot-release.nix").read_text()
+        self.assertIn('version = "2.1.20"', release)
+        self.assertIn("zot-release.nix", (root / "flake.nix").read_text())
+        self.assertIn(
+            "zot-release.nix",
+            (root / "flake" / "modules" / "zot-registry.nix").read_text(),
+        )
+        from scripts.registry.gc_fixture import EXPECTED_ZOT_VERSION
+
+        self.assertIn(f'version = "{EXPECTED_ZOT_VERSION}"', release)
+
     def test_retention_reconcile_uses_maintenance_and_is_additive(self) -> None:
         root = pathlib.Path(__file__).resolve().parents[1]
         pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())

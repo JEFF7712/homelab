@@ -212,6 +212,7 @@ class CancellationTest(unittest.TestCase):
             ".registry_lock",
             ".registry_auth_consistency",
             ".registry_drift_check",
+            ".registry_gc_fixture",
         }
         self.assertEqual(
             {

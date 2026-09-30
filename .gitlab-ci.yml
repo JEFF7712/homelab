@@ -333,6 +333,35 @@ registry_drift_check:
 # writable only by the per-project publishers, so the importer cannot create
 # them and the first-party tags were never written. Maintenance already holds
 # adminPolicy, so this needs no new grant. It is additive: a tag that already
+# Serves a throwaway zot on loopback and asserts what its collector keeps. This
+# is what turns "untagged manifests are collectable" from an assumption into a
+# tested fact, which is the premise the retention tags depend on. It needs no
+# credential and touches no real repository, so it carries no environment and no
+# resource group: it can never interfere with the live registry.
+.registry_gc_fixture:
+  timeout: 15m
+  interruptible: true
+  stage: test
+  tags:
+    - nas-ci
+  needs: []
+  script:
+    - nix develop ./flake -c just registry-gc-fixture
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - artifacts/registry/gc-fixture-report.json
+
+registry_gc_fixture:
+  extends:
+    - .nas_ci
+    - .registry_gc_fixture
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
 # matches is untouched, and one that resolves elsewhere is reported, never
 # overwritten. Manual plus nightly, matching the other registry write jobs.
 .registry_retention_reconcile:

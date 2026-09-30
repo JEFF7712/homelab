@@ -86,6 +86,11 @@ registry-check:
 registry-check-auth report="artifacts/registry/auth-report.json":
     python -m scripts.registry check-auth --lock registry/images.lock.json --report {{report}}
 
+# Serves a throwaway zot on loopback and asserts what its collector keeps, so
+# the retention guarantee is tested rather than assumed. Touches nothing real.
+registry-gc-fixture report="artifacts/registry/gc-fixture-report.json":
+    python -m scripts.registry.gc_fixture --report {{report}}
+
 registry-access-control output="artifacts/registry/access-control.json":
     python -m scripts.registry access-control --lock registry/images.lock.json --output {{output}}
 
