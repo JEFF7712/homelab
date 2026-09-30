@@ -13,12 +13,12 @@ check:
 fmt:
     ruff format scripts opnsense_reconciler tests
     nixfmt $(git ls-files -co --exclude-standard '*.nix')
-    tofu -chdir=tofu/opnsense fmt
+    for stack in tofu/*/; do tofu -chdir="$stack" fmt; done
 
 fmt-check:
     ruff format --check scripts opnsense_reconciler tests
     nixfmt --check $(git ls-files -co --exclude-standard '*.nix')
-    tofu -chdir=tofu/opnsense fmt -check
+    for stack in tofu/*/; do tofu -chdir="$stack" fmt -check; done
 
 check-python:
     bash scripts/checks/python.sh
@@ -102,7 +102,7 @@ check-docs:
     python scripts/checks/docs.py
 
 provision-check-deps:
-    tofu -chdir=tofu/opnsense init -backend=false
+    for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false; done
 
 refresh-crd-schemas:
     python scripts/checks/provision_schemas.py

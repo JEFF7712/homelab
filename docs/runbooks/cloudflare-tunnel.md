@@ -1,15 +1,22 @@
 # Cloudflare Tunnel `homelab`
 
-Remote-configured tunnel fronting the new k3s cluster. Dashboard edits apply directly, so record version and order here.
+Remote-configured tunnel fronting the new k3s cluster. The rule list is owned by
+`tofu/cloudflare/` and applied by CI; see "Adding a hostname" before editing
+anything in the Zero Trust dashboard, because dashboard edits do not survive the
+next apply.
 
 ## Identity
 
 - Name: `homelab`
 - ID: `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`
-- Config source: Cloudflare remote configuration (`config_src=cloudflare`; checked 2026-09-23). `gitops/cloudflare/ingress-config.yaml` is a tracked mirror, not the active source.
+- Config source: Cloudflare remote configuration (`config_src=cloudflare`; checked
+  2026-09-23), but the desired state is git: `tofu/cloudflare/main.tf` decodes
+  `gitops/cloudflare/ingress-config.yaml` and pushes it. The dashboard is a
+  read-back of that, not an input.
 - Connectors: 2 replicas from `gitops/cloudflare/tunnel.yaml` (`cloudflared 2026.8.3`)
 - Health: `healthy`, 8 connections on `ord10, mci03, ord15, ord06, mci01, ord02`
 - Public origin IP seen by edge: `50.93.213.22` (connector pods live in `10.0.30.0/24`)
+- Apply job: `cloudflare_apply` (manual, `production` environment, `resource_group: cloudflare-tunnel`)
 
 ## Traffic path for `photos.rupan.dev`
 
@@ -86,13 +93,66 @@ Removed 2026-09-22 (dead origins; no such Services in-cluster, verified via `kub
 - `api.rupan.dev -> http://rupan-api:9000`
 - `homelab.rupan.dev -> http://homelab-api:9200`
 
-## Add a new-cluster hostname
+## Adding a hostname
 
-1. Add the `{hostname, service}` rule to `gitops/cloudflare/ingress-config.yaml` in Cloudflare-evaluated order (specifics first, catch-all last) and to the numbered list above in the same position.
-2. Run `python -m unittest tests.test_cloudflare_tunnel` — it asserts config order matches this runbook and every origin Service exists.
-3. Update the Cloudflare remote ingress configuration to match the GitOps list rule-for-rule and in the same order. The mounted ConfigMap and Reloader do not change remote ingress rules; Reloader only restarts the connector pods.
-4. Confirm the tunnel's remote config matches the GitOps list. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` must already exist (created once per hostname in the dashboard).
+The rule list lives in exactly one place, `gitops/cloudflare/ingress-config.yaml`.
+`tofu/cloudflare/main.tf` decodes it with `yamldecode` and pushes it, so there is
+no second copy to keep in parity. The ConfigMap the connector pods mount is the
+same file; Reloader restarting the pods on a change is harmless and does not
+affect remote ingress.
+
+1. Add the `{hostname, service}` rule to `gitops/cloudflare/ingress-config.yaml`
+   in Cloudflare-evaluated order (specifics first, catch-all last) and to the
+   numbered list above in the same position.
+2. Run `python -m unittest tests.test_cloudflare_tunnel` — asserts config order
+   matches this runbook and every origin Service exists.
+3. Commit and push. `cloudflare_plan` runs on `main` and prints the resource
+   changes; read them in the job log before continuing.
+4. Run `cloudflare_apply` (manual) from the pipeline. It reports the new
+   `config_version` as an artifact.
 5. Verify the public hostname serves the expected origin.
+
+Do not edit ingress rules in the Zero Trust dashboard. The dashboard is where
+the applied state is *read*, and a hand edit there is reverted by the next apply.
+
+DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` is still created by hand in
+the dashboard, once per hostname. It is not managed by this stack.
+
+## First apply (one-time, before trusting the pipeline)
+
+The stack must be imported, not created. Creating it would 409 against the live
+tunnel and fight the connector Deployment. This runs in CI, not locally, because
+the state backend is GitLab's HTTP state API and a local run has no job token.
+
+1. Add the GitLab variables (below) and push this stack.
+2. Run `cloudflare_import` from the pipeline. It imports
+   `cloudflare_zero_trust_tunnel_cloudflared_config.homelab` and then plans with
+   `-detailed-exitcode`, which returns 0 for a no-op, 2 for changes, or 1 for
+   error. **Anything other than 0 here means the imported state and the mirror
+   disagree**; stop and reconcile by hand rather than applying, because this one
+   resource is the entire public edge of the cluster.
+3. Let the next `cloudflare_plan` run and confirm
+   `python -m scripts.cloudflare.plan_summary` prints `no changes: the edge
+   already matches git`.
+4. `cloudflare_apply` then has nothing to do until a hostname changes.
+
+Until step 2, `cloudflare_plan` reports a `create`, which is the expected
+artefact of an unimported singleton and is not a reason to apply.
+
+The one thing to watch in that first plan is `originRequest`. The mirror sets no
+origin options, and if the provider fills defaults in for them, the plan will
+show a permanent diff that no apply can settle. That is the failure mode this
+step exists to catch; if it appears, the fix is in `main.tf`'s `ingress` local,
+not in the dashboard.
+
+GitLab variables, both protected and environment-scoped to `*`, added as a pair:
+`CLOUDFLARE_API_TOKEN` (secret, masked) and `CLOUDFLARE_ACCOUNT_ID`. The
+`cloudflare` jobs read them by those names; `tofu` picks the token up from the
+environment, so it never enters HCL or state. The token needs `Account >
+Cloudflare Tunnel > Edit` on the account and nothing else. The `cloudflare` stack
+uses its own state namespace (`cloudflare-production`); `tofu/opnsense` is
+untouched.
+
 
 ## `pod.rupan.dev` (owner desk)
 
@@ -125,14 +185,43 @@ all, so the hostname is the only way in.
 
 ## Tunnel configuration source
 
-The Cloudflare API reports `config_src=cloudflare` and `remote_config=true`. On 2026-09-23, the remote ingress was updated from version 75 to version 76 to match the GitOps mirror. Supplying `--credentials-file` and a local `--config` file does not change the tunnel's configured source; the Cloudflare remote config remains active.
+The Cloudflare API reports `config_src=cloudflare` and `remote_config=true`, and
+that stays true: the connectors are remote-configured and always have been.
+What changed on 2026-09-29 is who writes that remote config. It is
+`tofu/cloudflare`, not a person in the dashboard.
 
-Before that update, the active remote config had 25 rules while the GitOps mirror had 26. Every remote rule matched the mirror, but the Jellyfin hostname and origin were missing remotely, so the catch-all returned 404. Version 76 now has all 26 rules in the GitOps order, and the public Jellyfin health endpoints return HTTP 200.
+The `config_src` value is unrelated to *where the ingress list is edited*.
+Supplying `--credentials-file` and a local `--config` file never made the local
+file authoritative, and the Deployment's Reloader annotation only restarts
+connector pods. Both statements were true before this stack existed and neither
+is how the rules reach the edge now.
 
-v82 (2026-09-29) appended `pod.rupan.dev` ahead of the catch-all, 43 rules to 44. The prior 43 were diffed byte-identical after the write, so the first-match behaviour of every other hostname is unchanged. The Access login for that hostname predates the tunnel rule: `pod.rupan.dev` was already intercepted by an Access app, so before v82 it 302'd to the login and would have 404'd at the catch-all once past it.
+History, kept because it explains the failure modes this stack is meant to
+remove:
 
-The Deployment opts into Stakater Reloader. This restarts connectors when the ConfigMap changes, but a restart alone does not make the local file authoritative. Keep the Cloudflare remote rule list and GitOps mirror in exact parity when changing hostnames.
+- 2026-09-23, v75 to v76: the remote config had 25 rules against 26 in the
+  mirror. Every rule that existed matched, but Jellyfin was missing remotely, so
+  the catch-all returned 404 until it was added.
+- 2026-09-29, v81 to v82: `pod.rupan.dev` appended ahead of the catch-all, 43
+  rules to 44, prior rules diffed byte-identical afterwards.
+- 2026-09-29: stack added. Both failures above were parity failures between two
+  copies of one list, which is the class of bug `yamldecode` removes.
 
-## Known gap
+## Known gaps
 
-DNS records and Access policies remain dashboard managed. A `cloudflare_tunnel_config` under `tofu/` would close that loop (only `tofu/opnsense/` exists today).
+DNS records and Access policies are still dashboard managed, deliberately.
+
+- DNS spans at least five zones including apexes (`rupan.dev`,
+  `distrojeff.com`, `apollinestore.com`, `darkbitapparel.com`,
+  `pulseagent.dev`). The resource is `cloudflare_dns_record` in provider v5,
+  where the `cname` convenience attribute was removed, so each target is built
+  as `<tunnel-id>.cfargotunnel.com`. Worth doing, but zone by zone, and not
+  before the tunnel config is boring.
+- Access should stay out of this stack for now. In provider v5 the
+  application-scoped policies moved inline onto
+  `cloudflare_zero_trust_access_application`, and applying an application whose
+  `policies` list is empty detaches every policy from it, after which Cloudflare
+  garbage-collects the orphans. There is already a wildcard `*` Access app
+  gating this account's hostnames, so the first bad apply is a lockout rather
+  than a downtime. If it is ever adopted, import first, never auto-apply, and
+  give the `*` app its own state.

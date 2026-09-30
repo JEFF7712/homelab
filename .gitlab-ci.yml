@@ -27,6 +27,7 @@ stages:
   - sync
   - registry
   - opnsense
+  - cloudflare
   - deploy
 
 variables:
@@ -969,6 +970,95 @@ opnsense_apply:
     - >-
       nix develop ./flake -c python -m opnsense_reconciler.dataplane
       --targets opnsense_reconciler/lb-data-plane-targets.json
+
+cloudflare_plan:
+  timeout: 15m
+  stage: cloudflare
+  environment:
+    name: production
+  resource_group: cloudflare-tunnel
+  variables:
+    # Distinct from the global TF_STATE_NAME so this stack cannot collide with
+    # the opnsense state. TF_HTTP_ADDRESS is expanded from the global
+    # TF_STATE_NAME at parse time, so it has to be restated per job.
+    TF_STATE_NAME: cloudflare-production
+    TF_HTTP_ADDRESS: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/cloudflare-production"
+    TF_VAR_cloudflare_account_id: "$CLOUDFLARE_ACCOUNT_ID"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - >-
+      nix develop ./flake -c bash -e -c '
+      tofu -chdir=tofu/cloudflare init -reconfigure &&
+      tofu -chdir=tofu/cloudflare fmt -check &&
+      tofu -chdir=tofu/cloudflare validate &&
+      tofu -chdir=tofu/cloudflare refresh &&
+      tofu -chdir=tofu/cloudflare plan -out=desired.tfplan'
+    - nix develop ./flake -c python -m unittest tests.test_cloudflare_ingress_parity -v
+    - >-
+      nix develop ./flake -c bash -c '
+      tofu -chdir=tofu/cloudflare show -json desired.tfplan > plan.json;
+      python -m scripts.cloudflare.plan_summary plan.json'
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - tofu/cloudflare/desired.tfplan
+
+cloudflare_import:
+  retry: 0
+  timeout: 15m
+  stage: cloudflare
+  environment:
+    name: production
+  resource_group: cloudflare-tunnel
+  variables:
+    TF_STATE_NAME: cloudflare-production
+    TF_HTTP_ADDRESS: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/cloudflare-production"
+    TF_VAR_cloudflare_account_id: "$CLOUDFLARE_ACCOUNT_ID"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  script:
+    # One-time bring-in, and the recovery path if the GitLab state is ever lost.
+    # The tunnel predates this stack, so it must be imported rather than
+    # created; creating it would 409 against the live tunnel. Re-running fails
+    # with "resource is already managed", which is the intended guard.
+    - nix develop ./flake -c tofu -chdir=tofu/cloudflare init -reconfigure
+    - >-
+      nix develop ./flake -c bash -c '
+      tofu -chdir=tofu/cloudflare import \
+        cloudflare_zero_trust_tunnel_cloudflared_config.homelab \
+        "$TF_VAR_cloudflare_account_id/0f08d8c5-6f2c-409e-ba80-dc0601e0227e"'
+    - nix develop ./flake -c tofu -chdir=tofu/cloudflare plan -detailed-exitcode
+
+cloudflare_apply:
+  retry: 0
+  timeout: 15m
+  stage: cloudflare
+  environment:
+    name: production
+  resource_group: cloudflare-tunnel
+  variables:
+    TF_STATE_NAME: cloudflare-production
+    TF_HTTP_ADDRESS: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/cloudflare-production"
+    TF_VAR_cloudflare_account_id: "$CLOUDFLARE_ACCOUNT_ID"
+  needs:
+    - job: cloudflare_plan
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  script:
+    - nix develop ./flake -c tofu -chdir=tofu/cloudflare init -reconfigure
+    - nix develop ./flake -c tofu -chdir=tofu/cloudflare apply desired.tfplan
+    - >-
+      nix develop ./flake -c bash -c '
+      tofu -chdir=tofu/cloudflare output -raw config_version > config_version.txt;
+      cat config_version.txt'
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - config_version.txt
 
 nas_proof:
   timeout: 15m
