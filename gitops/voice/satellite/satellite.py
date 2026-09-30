@@ -441,7 +441,10 @@ class VoiceSatelliteProtocol(APIServer):
         def _safety_timeout() -> None:
             if self.state.satellite is not self:
                 return
-            if getattr(self.state, "playback_inhibited", False) or self._pipeline_active:
+            if (
+                getattr(self.state, "playback_inhibited", False)
+                or self._pipeline_active
+            ):
                 _LOGGER.warning(
                     "TTS safety timer (%.1fs) expired; resetting stuck playback_inhibited and pipeline_active",
                     duration,
@@ -997,7 +1000,9 @@ class VoiceSatelliteProtocol(APIServer):
             return
 
         wake_word_phrase = wake_word.wake_word  # type: ignore[union-attr]
-        _LOGGER.info("🚀 Detected wake word, starting voice pipeline: %s", wake_word_phrase)
+        _LOGGER.info(
+            "🚀 Detected wake word, starting voice pipeline: %s", wake_word_phrase
+        )
 
         self._timer_finished = False
         self._timer_ring_start = None
