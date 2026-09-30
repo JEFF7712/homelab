@@ -7,46 +7,10 @@
 let
   cfg = config.services.homelab-zot-registry;
 
-  release = {
-    version = "2.1.20";
-    hashes = {
-      x86_64-linux = "sha256-oy5C0ELR8XtbExflXMGkFadEyHPc0FwlxWtmVHgli8s=";
-      aarch64-linux = "sha256-1qOUdVh74Y7D1C4NK/pQ9cUGTLvNwiLb2I5V7Pad2Ok=";
-    };
-  };
-
-  zotPlatform =
-    if pkgs.stdenv.hostPlatform.isx86_64 then
-      "amd64"
-    else if pkgs.stdenv.hostPlatform.isAarch64 then
-      "arm64"
-    else
-      null;
-
-  zotPackage = pkgs.stdenvNoCC.mkDerivation {
-    pname = "zot";
-    inherit (release) version;
-    nativeBuildInputs = [ pkgs.patchelf ];
-    src = pkgs.fetchurl {
-      url = "https://github.com/project-zot/zot/releases/download/v${release.version}/zot-linux-${zotPlatform}";
-      hash = release.hashes.${pkgs.stdenv.hostPlatform.system};
-    };
-    dontUnpack = true;
-    installPhase = ''
-      runHook preInstall
-      install -Dm755 "$src" "$out/bin/zot"
-      patchelf --set-interpreter ${pkgs.stdenv.cc.bintools.dynamicLinker} "$out/bin/zot"
-      runHook postInstall
-    '';
-    meta = {
-      description = "OCI-native container registry";
-      homepage = "https://zotregistry.dev/";
-      license = lib.licenses.asl20;
-      mainProgram = "zot";
-      platforms = builtins.attrNames release.hashes;
-      sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
-    };
-  };
+  # Shared with the GC fixture in CI so both run one zot build.
+  inherit ((import ../../nix/zot-release.nix { inherit pkgs lib; }))
+    zotPackage
+    supported;
 
   baseConfig = pkgs.writeText "zot-base-config.json" (
     builtins.toJSON {
@@ -233,7 +197,7 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = zotPlatform != null;
+        assertion = supported;
         message = "homelab-zot-registry supports only x86_64-linux and aarch64-linux";
       }
       {
