@@ -2341,9 +2341,7 @@ def render_node_config(lock: Mapping[str, Any], username: str, password: str) ->
             lines.append("    rewrite:")
             for repository, destination in sorted(mappings[registry].items()):
                 pattern = "^" + re.escape(repository) + "$"
-                lines.append(
-                    f"      {json.dumps(pattern)}: {json.dumps(destination)}"
-                )
+                lines.append(f"      {json.dumps(pattern)}: {json.dumps(destination)}")
     lines.extend(
         [
             "configs:",
