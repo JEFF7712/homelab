@@ -1,0 +1,156 @@
+#!/usr/bin/env fish
+#
+# Watch the four shared Govee H6004 bulbs at layer 2 while music mode runs.
+#
+# Reads neighbor-table state, which is the earliest reliable signal that a bulb
+# has dropped off WiFi. Everything above layer 3 follows from this: no ARP
+# resolution means no devStatus reply, no LedFx color, no light movement.
+#
+# The 2026-09-27 incident began as three bulbs going INCOMPLETE here, while the
+# Govee app still controlled them over Bluetooth and LedFx still reported every
+# device online from cached state. Neither surface detects it.
+#
+# Usage:
+#   fish scripts/watch_govee_bulbs.fgv
+#   fish scripts/watch_govee_bulbs.fgv --interval 30
+#   fish scripts/watch_govee_bulbs.fgv --log ~/govee-watch.log
+#   fish scripts/watch_govee_bulbs.fgv --interface wlo1
+
+set -l BULBS 10.0.20.166 10.0.20.167 10.0.20.168 10.0.20.169
+set -l NAMES floor-lamp ceiling-light-1 ceiling-light-2 tulip-lamp
+
+set -l interval 60
+set -l iface ""
+set -l logfile ""
+
+set -l args $argv
+set -l i 1
+while test $i -le (count $args)
+    set -l arg $args[$i]
+    switch $arg
+        case -i --interval
+            set i (math $i + 1)
+            set interval $args[$i]
+        case --interface --iface
+            set i (math $i + 1)
+            set iface $args[$i]
+        case -l --log
+            set i (math $i + 1)
+            set logfile $args[$i]
+        case -h --help
+            echo "Usage: fish scripts/watch_govee_bulbs.fgv [options]"
+            echo
+            echo "  -i, --interval SECONDS   Poll cadence, default 60"
+            echo "      --interface IFACE     Bind neighbor queries to IFACE"
+            echo "  -l, --log PATH           Append timestamped results to PATH"
+            echo "  -h, --help               This message"
+            echo
+            echo "Prints only on state change, so a long run stays readable."
+            exit 0
+        case '*'
+            echo "Unknown option: $arg"
+            echo "Try --help"
+            exit 2
+    end
+    set i (math $i + 1)
+end
+
+# Resolve the interface holding the bulbs so the check reads the right table.
+if test -z "$iface"
+    for candidate in wlo1 wlan0 wlp0s0 enp0s3 enp0s18
+        if ip link show $candidate > /dev/null 2>&1
+            set iface $candidate
+            break
+        end
+    end
+end
+
+function bulb_entry --argument-names ip
+    if test -n "$iface"
+        ip neigh show to $ip dev $iface 2>/dev/null | string collect
+    else
+        ip neigh show to $ip 2>/dev/null | string collect
+    end
+end
+
+# Prove the check works before trusting a clean result. A wrong interface or the
+# wrong VLAN reports every bulb DOWN forever, which is indistinguishable from a
+# real outage and would waste the whole run.
+set -l selftest_pass false
+for ip in $BULBS
+    if test -n "$iface"
+        ip neigh del $ip dev $iface > /dev/null 2>&1
+    else
+        ip neigh del $ip > /dev/null 2>&1
+    end
+    if ping -c1 -W1 -n $ip > /dev/null 2>&1
+        if string match -q '*lladdr*' -- (bulb_entry $ip)
+            set selftest_pass true
+            break
+        end
+    end
+end
+
+if test "$selftest_pass" != true
+    echo "ERROR: no bulb answered from this host on interface '"$iface"'."
+    echo "Cannot tell an outage apart from a broken check. Aborting."
+    echo
+    echo "Check that you are on the trusted-client VLAN and try:"
+    echo "  ping -c1 10.0.20.166"
+    echo "  ip -br addr"
+    exit 1
+end
+
+echo "Watching "(count $BULBS)" bulbs on interface $iface every $interval s"
+if test -n "$logfile"
+    echo "Logging to $logfile"
+end
+echo "Printing on state change only. ctrl-c to stop."
+echo
+
+set -l prev ""
+set -l start (date +%s)
+
+while true
+    set -l stamp (date -u +%Y-%m-%dT%H:%M:%SZ)
+    set -l line ""
+    set -l down_now 0
+
+    for idx in (seq (count $BULBS))
+        set -l ip $BULBS[$idx]
+        set -l name $NAMES[$idx]
+
+        # lladdr present means the bulb answered ARP. FAILED or INCOMPLETE means
+        # it is off the network. Re-arming the entry first keeps a stale lladdr
+        # from reading as up long after the bulb is actually gone.
+        if test -n "$iface"
+            ip neigh del $ip dev $iface > /dev/null 2>&1
+        else
+            ip neigh del $ip > /dev/null 2>&1
+        end
+        ping -c1 -W1 -n $ip > /dev/null 2>&1
+
+        if string match -q '*lladdr*' -- (bulb_entry $ip)
+            set line $line $name=up
+        else
+            set line $line $name=DOWN
+            set down_now (math $down_now + 1)
+        end
+    end
+
+    # Compare on state only, not the timestamp, so a steady run stays quiet.
+    if test "$line" != "$prev"
+        set elapsed (math (date +%s) - $start)
+        set -l out $stamp" "(string join " " $line)"  [+$elapsed s]"
+        if test $down_now -gt 0
+            set out $out" <-- $down_now unreachable"
+        end
+        echo $out
+        if test -n "$logfile"
+            echo $out >> $logfile
+        end
+        set prev $line
+    end
+
+    sleep $interval
+end
