@@ -72,7 +72,12 @@ class PromoteCommitRaceTest(unittest.TestCase):
 
     def _run_conflicting_loop(self, root: Path, body: str) -> None:
         origin = root / "origin.git"
-        subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+        # Name the branch explicitly. Without it the bare repo's HEAD follows
+        # init.defaultBranch, which is `main` in a developer checkout and
+        # `master` in the hermetic build, and a clone of the latter is empty.
+        subprocess.run(
+            ["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True
+        )
 
         def clone(name: str) -> Path:
             path = root / name
