@@ -87,8 +87,7 @@ Cloudflare Access public bypass configured.
 41. `media.rupan.dev -> http://filebrowser.media:80`
 42. `bookshelf.rupan.dev -> http://bookshelf.media:80`
 43. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-44. `hearth.rupan.dev -> http://hearth.hearth:5050` (Hearth wall dashboard, added 2026-09-30; requires a dashboard-managed Access app before serving, same pattern as `pod-agent-dashboard` below; Hearth has no accounts of its own)
-45. `http_status:404`
+44. `http_status:404`
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)

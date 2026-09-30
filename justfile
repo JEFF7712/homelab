@@ -187,14 +187,6 @@ ha-verify *args:
 ha-revert *args:
     python -m scripts.home_assistant revert {{args}}
 
-# Hearth dashboard snapshots. The visual editor is the primary author;
-# snapshot commits the live document to Git for history and recovery.
-hearth-snapshot:
-    bash scripts/hearth.sh snapshot
-
-hearth-restore:
-    bash scripts/hearth.sh restore
-
 # Live Jarvis routing eval (executes local-path device actions; run when
 # someone is home to observe). Offline corpus checks run in the unit suite.
 jarvis-eval-live *args:

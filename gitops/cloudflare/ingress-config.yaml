@@ -93,6 +93,4 @@ data:
         service: http://bookshelf.media:80
       - hostname: pod.rupan.dev
         service: http://pod-agent-dashboard.pod-agent:80
-      - hostname: hearth.rupan.dev
-        service: http://hearth.hearth:5050
       - service: http_status:404

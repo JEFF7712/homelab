@@ -9,7 +9,6 @@ resources:
   - eso.yaml
   - flux-system
   - flux-webhook.yaml
-  - hearth.yaml
   - home-assistant.yaml
   - immich.yaml
   - ingress-crds.yaml

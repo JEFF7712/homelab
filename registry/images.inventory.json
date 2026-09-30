@@ -1441,24 +1441,6 @@
     },
     {
       "consumers": [
-        "gitops/hearth/deployment.yaml:23",
-        "observed:hearth/hearth-86cbcdccc-nmxgp/hearth"
-      ],
-      "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/knowald/ha-hearth",
-      "id": "upstream-upstream-ghcr-io-knowald-ha-hearth-1bd5942c51de",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a",
-        "reference": "registry.rupan.dev/upstream/ghcr.io/knowald/ha-hearth@sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a",
-        "registry": "registry.rupan.dev",
-        "repository": "upstream/ghcr.io/knowald/ha-hearth",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
         "gitops/music-assistant/ledfx.yaml:41",
         "observed:music-assistant/ledfx-5c4d95ff5f-bfhbw/ledfx"
       ],
