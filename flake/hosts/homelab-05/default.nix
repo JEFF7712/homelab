@@ -8,6 +8,7 @@
     ../../modules/nvidia.nix
     ../../modules/kiosk.nix
     ../../modules/jarvis-spectrum.nix
+    ../../modules/apollo-ble-bridge.nix
   ];
 
   networking.hostName = "homelab-05";
@@ -27,6 +28,30 @@
     "--kubelet-arg=system-reserved=cpu=1,memory=2Gi"
     "--kubelet-arg=kube-reserved=cpu=500m,memory=1Gi"
   ];
+
+  # Bluetooth support for Sabrent BT-UB40 (CSR8510 A10) adapter
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+    settings = {
+      General = {
+        Experimental = true;
+        AutoEnable = true;
+      };
+    };
+  };
+
+  # Persist Bluetooth pairing keys across reboots
+  environment.persistence."/persist".directories = [
+    "/var/lib/bluetooth"
+  ];
+
+  environment.systemPackages = [
+    pkgs.bluez
+    pkgs.bluez-tools
+  ];
+
+  homelab.apollo-ble-bridge.enable = true;
 
   security.rtkit.enable = true;
   services.pipewire = {

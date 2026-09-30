@@ -124,6 +124,11 @@
 - entity_id: light.living_room_tulip_lamp
   labels:
     - shared_space
+- area_id: living_room
+  entity_id: light.apollo_led_strip_apollo_led_strip
+  labels:
+    - shared_space
+  name: Living Room LED Strip
 - name: Soundbar
   entity_id: media_player.homelab_05_satellite_media_player_2
   labels: []

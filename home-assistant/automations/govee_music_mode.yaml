@@ -32,6 +32,7 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+                - light.apollo_led_strip_apollo_led_strip
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights

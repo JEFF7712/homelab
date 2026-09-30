@@ -279,6 +279,17 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.apollo_led_strip_apollo_led_strip
+            name: Light Strip
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
           - entity: light.kitchen_mushroom_lamp
             name: Mushroom Lamp
             fill_container: true
