@@ -401,6 +401,22 @@ firewall_filters = {
       destination = { net = "any", port = "" }
     }
   }
+  clients-block-bambu-internet = {
+    description = "Block Bambu Lab A1 printer from the Internet (LAN mode only)"
+    enabled     = true
+    sequence    = 227
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "block"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "any"
+      quick       = true
+      log         = true
+      source      = { net = "iot_bambu_a1", port = "" }
+      destination = { net = "any", port = "" }
+    }
+  }
   infrastructure-allow-dns = {
     description = "Allow infrastructure to OPNsense DNS"
     enabled     = true

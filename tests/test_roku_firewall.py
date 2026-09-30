@@ -174,5 +174,22 @@ class RokuLanFreezeTests(unittest.TestCase):
             self.assertIn(mac, block)
 
 
+class BambuLanFreezeTests(unittest.TestCase):
+    def test_wan_block_precedes_internet_allow(self) -> None:
+        block = rule_block("clients-block-bambu-internet")
+        allow = rule_block("clients-allow-internet")
+
+        def seq(block_text: str) -> int:
+            match = re.search(r"sequence\s*=\s*(\d+)", block_text)
+            self.assertIsNotNone(match)
+            assert match is not None
+            return int(match.group(1))
+
+        self.assertLess(seq(block), seq(allow))
+        self.assertIn('"block"', block)
+        self.assertRegex(block, r"quick\s+= true")
+        self.assertIn('"iot_bambu_a1"', block)
+
+
 if __name__ == "__main__":
     unittest.main()
