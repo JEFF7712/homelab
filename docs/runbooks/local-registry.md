@@ -208,8 +208,37 @@ re-imports the lock that is already committed and reviewed, so no decision is
 involved; it exists to heal a partial import or a manifest the collector took.
 The two jobs look interchangeable and are not.
 
-## What gates the registry jobs
+## Reading a failed drift check
 
+The check asked for 401 and called it missing content three times, at 54, 45
+and 8 images, each time a different scattered subset that recovered on rerun.
+The cause was not Cloudflare, and the runbook previously said it was. zot's
+journal settles it: the registry received every one of those requests and
+answered 401 itself, with no authenticated identity, in one contiguous run
+starting partway through the check and lasting to the end of the job.
+
+So the discriminator is the status zot returns, not the shape of the run:
+
+- `404` on a manifest is the registry stating the content is gone. That is a
+  positive signal and is reported as drift.
+- `401` is the registry rejecting the credential. It says nothing about content,
+  so the record is inconclusive.
+- `403` is the access policy denying a read, which is a real answer about who
+  may read what, and is reported.
+
+A `401` burst partway through a run is worth investigating on its own: the
+journal is the place to start, with
+`journalctl -u zot --since "<window>"` on `nas-01`, which logs every request
+with its path, status and identity. Until that is understood, treat a burst as
+a client-credential or rate problem, not as content loss.
+
+There is a run-level backstop for the case where a whole run cannot see the
+registry: when a large share of records could not be read at all, the report
+calls the run inconclusive rather than drifted. It is a fallback, not the
+mechanism, and it is deliberately unable to soften a record whose content was
+read and found wrong.
+
+## What gates the registry jobs
 A job with no `needs` inherits the whole previous stage, so any red job in it
 skips this one. That coupled every registry write to every unrelated test, and
 it failed silently: a gitleaks false positive and a pyright error each froze

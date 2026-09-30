@@ -350,6 +350,72 @@ class TransientInterstitialTests(unittest.TestCase):
         self.assertIsNotNone(reason)
         self.assertIn("challenge", reason)
 
+    def test_zot_401_on_probe_is_spurious(self) -> None:
+        # The real failure, confirmed in zot's own journal: it received the
+        # request and answered 401, rejecting the credential, in a contiguous run
+        # partway through the check. zot uses 404 for absent content, so a 401 is
+        # never a statement about what the registry holds.
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=401,
+            msg="Unauthorized",
+            hdrs=email.message.Message(),
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNotNone(reason)
+        self.assertIn("401", reason)
+
+    def test_zot_404_on_probe_is_a_real_verdict(self) -> None:
+        # 404 is zot saying the content is gone. That is the positive signal, and
+        # it must stay reportable or genuine mass loss would be hidden.
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=404,
+            msg="Not Found",
+            hdrs=email.message.Message(),
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNone(reason)
+
+    def test_access_denial_on_probe_is_a_real_verdict(self) -> None:
+        # 403 from the access policy is the registry stating who may read what,
+        # which is a real answer rather than a broken client.
+        error = urllib.error.HTTPError(
+            url="https://registry.rupan.dev/v2/apps/demo/manifests/tag",
+            code=403,
+            msg="Forbidden",
+            hdrs=email.message.Message(),
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+
+        with patch.object(core.urllib.request, "build_opener", return_value=opener):
+            reason = core._spurious_failure(
+                ["skopeo", "inspect", "docker://registry.rupan.dev/apps/demo:tag"]
+            )
+
+        self.assertIsNone(reason)
+
     def test_failed_operation_is_transient_when_the_reference_is_served(self) -> None:
         client = self._client()
         completed = subprocess.CompletedProcess(

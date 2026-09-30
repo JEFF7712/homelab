@@ -892,16 +892,22 @@ def _interception(status: int, headers: Mapping[str, str] | None) -> str | None:
 def _spurious_failure(args: Sequence[str]) -> str | None:
     """Why a failed operation does not reflect the registry, or None if it does.
 
-    Probing only `/v2/` is not enough: Cloudflare Access intercepts individual
-    requests, so the base endpoint often answers cleanly while the manifest read
-    does not. Asking for the exact repository and reference the operation failed
-    on, with the same credential, is self-consistent: if that succeeds the
-    registry is serving the content and the tool's failure was spurious.
+    Probing only `/v2/` is not enough: an edge answering for the registry, and
+    zot rejecting the credential, both answer individual requests while the rest
+    of the run succeeds. Asking for the exact repository and reference the
+    operation failed on, with the same credential, separates the three cases
+    that matter:
 
-    An intercepted probe is equally inconclusive, and is the more common case
-    when Access is misbehaving: dozens of reads fail together precisely because
-    the edge is answering for every one of them, so the probe is intercepted too
-    and must not be read as the registry rejecting the content.
+    - the registry serves it, so the tool's failure was spurious;
+    - the path is intercepted or the registry is unreachable, so nothing is
+      known;
+    - zot answers 404, or denies access with 403, which is a verdict about the
+      content and is reported as drift.
+
+    A 401 is deliberately inconclusive. zot returns it when it rejects the
+    credential, and its journal shows those arriving in a contiguous run
+    partway through a check, which is how a credential problem was mistaken for
+    missing content three times.
     """
     parsed = _reference_from_args(args)
     if parsed is None:
@@ -930,7 +936,17 @@ def _spurious_failure(args: Sequence[str]) -> str | None:
         intercepted = _interception(error.code, _header_map(error.headers))
         if intercepted is not None:
             return f"{intercepted} while reading {repository}:{reference}"
-        # A 401 or 404 from the registry itself is a real answer about content.
+        if error.code == 401:
+            # zot answers 401 when it rejects the credential and 404 when the
+            # content is absent, so a 401 is never a statement about what the
+            # registry holds. The journal shows these arriving in a contiguous
+            # run partway through a check, which is why they looked like drift.
+            return (
+                f"zot rejected the credential for {repository}:{reference} with 401, "
+                "which says nothing about whether the content is present"
+            )
+        # A 404, and a 403 from the access policy, are the registry's own
+        # verdicts about content or about who may read it.
         return None
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         return f"registry unreachable while reading {repository}:{reference}: {error}"
