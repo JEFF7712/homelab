@@ -323,6 +323,26 @@ per-shop/order intent reservations prevent a new proposal from repeating a
 production submission or cancellation. Customer actions remain GATED, and
 production retry remains disabled by default.
 
+Rollout commit `f787984` was applied by Flux. Both services are ready on the
+verified image ID, all 28 image pins across 16 workload resources match it,
+all 225 installed package files match tested source, and the four case tables
+exist. The authenticated Orders page and matching read-only CLI/MCP case
+views verify. A notification-free scan of 28 supplier orders and 27 Etsy
+receipts found zero exceptions or cases. Counts stayed at 401 proposals, 558
+business write-log rows, 21 spending reservations, and one token row.
+Isolated deployed-code replays verified lost-response recovery, one supplier
+request per operation, and separate customer obligations with networking
+disabled. No synthetic cases or business writes were inserted in production.
+
+The initial pipeline ran during the image transition and correctly reported
+the previous image in its registry gate. Its separate flake job failed
+`test_registered_command_recovers_empty_workspace_from_scoped_launch` and
+`test_native_session_bridge_survives_filtered_environment_and_cleans_up` in
+agent-workflow code unchanged by this release. Post-rollout scoped
+documentation, GitOps/schema, registry checks, and full formatting pass. The
+broader flake failure remains a separate CI limitation. Refresh actual cluster
+observations after rollout before using the final registry gate as evidence.
+
 After Flux applies this release, verify both service image IDs, all 28 image
 pins across 16 scheduled and service resources, the four case tables, and all
 225 installed Python/JSON package files. Verify the authenticated Orders page

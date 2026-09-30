@@ -123,11 +123,11 @@
         "pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "pod-agent/pod-agent-dashboard-58647cd944-skv8t/dashboard",
-        "pod-agent/pod-agent-dashboard-58647cd944-skv8t/seed-memory",
-        "pod-agent/pod-agent-discord-bot-d8d4bc4cb-8ntz5/bot"
+        "pod-agent/pod-agent-dashboard-548b8d7564-qvjcl/dashboard",
+        "pod-agent/pod-agent-dashboard-548b8d7564-qvjcl/seed-memory",
+        "pod-agent/pod-agent-discord-bot-bbcb9bc56-zr2gt/bot"
       ],
-      "reference": "registry.rupan.dev/apps/pod-agent@sha256:ace7f80d9f3128b4bfb16b84abd688575d530fdbaf604932b266c43d0ce22f36"
+      "reference": "registry.rupan.dev/apps/pod-agent@sha256:0cd9075379682a0a826b2f285bb2dcc7d07af0b7a18f00b6a76cfe78cfe6dd32"
     },
     {
       "consumers": [
@@ -717,6 +717,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-30T20:08:43+00:00",
+  "observed_at": "2026-09-30T20:18:10+00:00",
   "schema_version": 1
 }
