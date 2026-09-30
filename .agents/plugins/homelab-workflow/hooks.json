@@ -1,0 +1,30 @@
+{
+  "homelab-workflow": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "payload=$(cat); directory=$(printf '%s' \"$payload\" | jq -r '.workspacePaths[0] // empty'); if test -z \"$directory\" && command -v homelab-agent-session >/dev/null 2>&1; then directory=$(homelab-agent-session | jq -r '.root // empty'); fi; root=$(git -C \"$directory\" rev-parse --show-toplevel 2>/dev/null); if test -f \"$root/hooks/antigravity\"; then printf '%s' \"$payload\" | \"$root/hooks/antigravity\" context; else printf '%s\\n' '{}'; fi",
+        "timeout": 10
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "payload=$(cat); directory=$(printf '%s' \"$payload\" | jq -r '.workspacePaths[0] // empty'); if test -z \"$directory\" && command -v homelab-agent-session >/dev/null 2>&1; then directory=$(homelab-agent-session | jq -r '.root // empty'); fi; root=$(git -C \"$directory\" rev-parse --show-toplevel 2>/dev/null); if test -f \"$root/hooks/antigravity\"; then printf '%s' \"$payload\" | \"$root/hooks/antigravity\" failure; else printf '%s\\n' '{}'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "payload=$(cat); directory=$(printf '%s' \"$payload\" | jq -r '.workspacePaths[0] // empty'); if test -z \"$directory\" && command -v homelab-agent-session >/dev/null 2>&1; then directory=$(homelab-agent-session | jq -r '.root // empty'); fi; root=$(git -C \"$directory\" rev-parse --show-toplevel 2>/dev/null); if test -f \"$root/hooks/antigravity\"; then printf '%s' \"$payload\" | \"$root/hooks/antigravity\" stop; else printf '%s\\n' '{}'; fi",
+        "timeout": 10
+      }
+    ]
+  }
+}

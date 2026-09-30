@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "homelab-workflow",
+  "version": "1.0.0",
+  "description": "Shared homelab context, validation evidence, and checkpoint reminders.",
+  "compat": {"source": "native", "manifestDir": ".muse-plugin"},
+  "capabilities": {
+    "skills": [],
+    "commands": [],
+    "hooks": [
+      {"id": "context", "event": "SessionStart", "command": ["bash", "hooks/context.sh"], "timeoutMs": 10000},
+      {"id": "result", "event": "PostToolUse", "command": ["bash", "hooks/result.sh"], "timeoutMs": 10000},
+      {"id": "failure", "event": "PostToolUseFailure", "command": ["bash", "hooks/failure.sh"], "timeoutMs": 10000},
+      {"id": "stop", "event": "Stop", "command": ["bash", "hooks/stop.sh"], "timeoutMs": 10000}
+    ],
+    "mcpServers": [],
+    "reminders": []
+  }
+}

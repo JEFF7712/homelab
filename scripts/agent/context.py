@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .git_state import collect_git_state
+from .session import CLIENTS
 from .tasks import TaskError, resume_task, validate_task_id
 
 MAX_CONTEXT_BYTES = 6144
@@ -24,7 +25,7 @@ def _available_tasks(root: Path) -> list[str]:
             record = json.loads((path / "task.json").read_text(encoding="utf-8"))
         except (TaskError, OSError, UnicodeError, json.JSONDecodeError):
             continue
-        if record.get("status") in {"active", "blocked"}:
+        if isinstance(record, dict) and record.get("status") in {"active", "blocked"}:
             result.append(path.name)
     return sorted(result)
 
@@ -100,20 +101,47 @@ def render_context(payload: dict[str, Any]) -> str:
         f"  untracked: {summary['untracked']}",
         "  changed paths:",
     ]
-    lines.extend(f"    {path}" for path in summary["files"])
+    lines.extend(f"    {path[:256]}" for path in summary["files"][:12])
+    if len(summary["files"]) > 12:
+        lines.append(
+            f"    [paths truncated: {len(summary['files']) - 12} more; use --json]"
+        )
     lines.extend(["", "Tasks", f"  selected: {task['selected'] or 'none'}"])
-    lines.extend(f"  available: {item}" for item in task["available"])
+    if not task["selected"]:
+        lines.append(
+            f"  select explicitly: just agent-run <task-id> <{'|'.join(CLIENTS)}>"
+        )
+    lines.extend(f"  available: {item}" for item in task["available"][:12])
+    if len(task["available"]) > 12:
+        lines.append(
+            f"  [tasks truncated: {len(task['available']) - 12} more; use --json]"
+        )
     if task["inspection"]:
         checkpoint = task["inspection"]["checkpoint"]
+        record = task["inspection"]["task"]
+        active_verifications = [
+            item
+            for item in task["inspection"]["verifications"]
+            if not item["superseded"]
+        ]
         lines.extend(
             [
+                f"  objective: {record['objective'][:512]}",
                 f"  head drift: {str(checkpoint['head_drift']).lower()}",
                 f"  fingerprint drift: {str(checkpoint['fingerprint_drift']).lower()}",
-                f"  next action: {task['inspection']['next_action']}",
+                f"  unresolved failures: {len(record['unresolved_failures'])}",
+                f"  latest verification records: {len(active_verifications)}, "
+                f"stale: {sum(item['stale'] for item in active_verifications)}, "
+                f"failed: {sum(item['exit_code'] != 0 for item in active_verifications)}",
+                f"  next action: {task['inspection']['next_action'][:512]}",
             ]
         )
     lines.extend(
         [
+            "",
+            "Navigation",
+            "  ownership and checks: AGENT_MAP.md",
+            "  task and command contracts: docs/agent-workflow.md",
             "",
             "Validation",
             "  targeted: just check-changed",

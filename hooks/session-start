@@ -4,4 +4,5 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 hook_load || hook_ok
 context=$(AGENT_HOOK_ACTIVE=1 timeout 5 just --justfile "$REPO_ROOT/justfile" --working-directory "$REPO_ROOT" agent-context 2>/dev/null) || context="Repository context unavailable in this environment."
-hook_context "Auto-injected repository context:\n$context"
+hook_context "Auto-injected repository context:
+$context"

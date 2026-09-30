@@ -8,7 +8,7 @@ Complete authorized work through verification. Inspect `git status`, applicable 
 
 Start with `just agent-context`, then use `AGENT_MAP.md` to find the owning source. Track work with `just task-new <id>`, `just task-resume <id>`, `just task-checkpoint <id>`, and `just task-export <id>`. Use `just check-changed` for scoped validation, `just check` for the full offline gate, and `just fmt-check` before handoff. Diagnose the local setup with `just doctor`. Run live diagnostics explicitly with `just status cluster` or `just status network`.
 
-Task records and evidence under `.agent-state/` are local and ignored. Export reviewed handoffs with `just task-export <id>` and transfer uncommitted patches separately. Do not auto-stage files. Full command contracts and schemas are in `docs/agent-workflow.md`.
+Launch fresh clients with `just agent-run <id> <client>` to inherit task selection. Supported clients and native plugin setup are listed in `docs/agent-workflow.md`. Use `just agent-verify --json --record --task <id> -- <command>` to record source-bound verification. Task records and evidence under `.agent-state/` are local and ignored. Export reviewed handoffs with `just task-export <id>` and transfer uncommitted patches separately. Do not auto-stage files. Full command contracts and schemas are in `docs/agent-workflow.md`.
 
 ## Context and Ownership
 

@@ -6,13 +6,81 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from scripts.agent.hook_runtime import (
+    failure_status,
+    record_failure,
+    tasks_needing_attention,
+)
 from tests.agent_helpers import commit, make_repository
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class AgentHookTest(unittest.TestCase):
+    def test_real_client_failure_shapes_and_unknown_codes(self) -> None:
+        cases = [
+            (
+                {
+                    "hook_event_name": "PostToolUseFailure",
+                    "error": "Exit code 7\nfailed",
+                },
+                (True, 7),
+            ),
+            (
+                {
+                    "hook_event_name": "postToolUseFailure",
+                    "error_message": "Command timed out",
+                    "failure_type": "timeout",
+                },
+                (True, None),
+            ),
+            ({"hook_event_name": "PostToolUse", "tool_response": ""}, (False, None)),
+            (
+                {
+                    "tool_response": json.dumps(
+                        {"command": "verify", "results": [{"exit_code": 7}]}
+                    )
+                },
+                (True, 7),
+            ),
+            (
+                {
+                    "tool_response": json.dumps(
+                        {
+                            "command": "check-changed",
+                            "results": [{"exit_code": 0}, {"exit_code": 3}],
+                        }
+                    )
+                },
+                (True, 3),
+            ),
+            ({"tool_response": {"exit_code": 0}}, (False, 0)),
+        ]
+        for payload, expected in cases:
+            with self.subTest(payload=payload):
+                self.assertEqual(failure_status(payload), expected)
+
+    def test_failure_event_without_exit_code_does_not_invent_one(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            record_failure(
+                root,
+                {
+                    "hook_event_name": "postToolUseFailure",
+                    "tool_input": {"command": "just check"},
+                    "error_message": "timeout TOKEN=synthetic-secret",
+                    "failure_type": "timeout",
+                },
+            )
+            record = json.loads(
+                (root / ".agent-state/evidence/hooks/unknown.jsonl").read_text()
+            )
+        self.assertIsNone(record["exit_code"])
+        self.assertEqual(record["failure_type"], "timeout")
+        self.assertNotIn("synthetic-secret", record["error"])
+
     def test_client_hook_configuration_is_valid_json(self) -> None:
         for path in (
             ".claude/settings.json",
@@ -87,6 +155,7 @@ class AgentHookTest(unittest.TestCase):
             matching = subprocess.run(
                 ["bash", script],
                 cwd=directory,
+                env={**os.environ, "PYTHONPATH": str(ROOT)},
                 input=json.dumps(
                     {
                         "session_id": identity,
@@ -116,6 +185,7 @@ class AgentHookTest(unittest.TestCase):
             unmatched = subprocess.run(
                 ["bash", script],
                 cwd=directory,
+                env={**os.environ, "PYTHONPATH": str(ROOT)},
                 input=json.dumps(
                     {
                         "session_id": other_identity,
@@ -141,6 +211,7 @@ class AgentHookTest(unittest.TestCase):
             result = subprocess.run(
                 ["bash", str(hooks / "validation-result")],
                 cwd=directory,
+                env={**os.environ, "PYTHONPATH": str(ROOT)},
                 input=json.dumps(
                     {
                         "session_id": identity,
@@ -158,6 +229,54 @@ class AgentHookTest(unittest.TestCase):
             record = json.loads(evidence.read_text())
             self.assertEqual(record["exit_code"], 1)
             self.assertIn("just check", record["check"])
+
+    def test_failure_evidence_redacts_before_truncation_and_is_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            hooks = Path(directory) / "hooks"
+            shutil.copytree(ROOT / "hooks", hooks)
+            for command in (
+                'python --token "synthetic secret" PASSWORD=other-secret',
+                "just check " + "x" * 155 + ' TOKEN="' + "private" * 50 + '"',
+                "/usr/bin/python3 -m unittest",
+            ):
+                result = subprocess.run(
+                    ["bash", str(hooks / "validation-result")],
+                    env={**os.environ, "PYTHONPATH": str(ROOT)},
+                    input=json.dumps(
+                        {"session_id": "fixture", "command": command, "exit_code": 1}
+                    ),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+            raw = (
+                Path(directory) / ".agent-state/evidence/hooks/fixture.jsonl"
+            ).read_text()
+            records = [json.loads(line) for line in raw.splitlines()]
+        self.assertEqual(len(records), 3)
+        for secret in ("synthetic secret", "other-secret", "private"):
+            self.assertNotIn(secret, raw)
+        self.assertTrue(
+            all(item["timestamp"] and len(item["check"]) <= 200 for item in records)
+        )
+
+    def test_malformed_failure_payloads_fail_open(self) -> None:
+        for payload in (
+            "not-json",
+            "[]",
+            '{"command":"just check","exit_code":"invalid"}',
+            '{"tool_input":[],"tool_response":[]}',
+        ):
+            result = subprocess.run(
+                ["bash", str(ROOT / "hooks/validation-result")],
+                input=payload,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {})
 
 
 class AgentStopHookTest(unittest.TestCase):
@@ -274,6 +393,35 @@ class AgentStopHookTest(unittest.TestCase):
         self.assertEqual(unscoped.returncode, 0, unscoped.stderr)
         self.assertEqual(json.loads(unscoped.stdout), {})
 
+    def test_batch_scan_collects_git_state_once_and_skips_corrupt_records(self) -> None:
+        from scripts.agent.git_state import collect_git_state
+
+        with tempfile.TemporaryDirectory() as directory:
+            repository = self.make_repo(directory)
+            for index in range(12):
+                self.create_task(repository, f"batch-{index:02d}")
+            corrupt = repository / ".agent-state/tasks/corrupt"
+            corrupt.mkdir()
+            (corrupt / "task.json").write_text("not-json")
+            (repository / "tracked.txt").write_text("changed\n")
+            with mock.patch(
+                "scripts.agent.hook_runtime.collect_git_state", wraps=collect_git_state
+            ) as collect:
+                attention = tasks_needing_attention(repository)
+            self.assertEqual(collect.call_count, 1)
+            self.assertEqual(attention, [f"batch-{index:02d}" for index in range(5)])
+
+    def test_unresolved_failure_reminds_even_when_checkpoint_is_current(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = self.make_repo(directory)
+            self.create_task(repository, "unresolved")
+            path = repository / ".agent-state/tasks/unresolved/task.json"
+            record = json.loads(path.read_text())
+            record["unresolved_failures"] = ["schema validation failed"]
+            path.write_text(json.dumps(record))
+            result = self.run_stop(repository, "unresolved")
+        self.assertIn("unresolved", json.loads(result.stdout)["followup_message"])
+
 
 class AgentOpencodePluginTest(unittest.TestCase):
     PLUGIN = ROOT / ".opencode/plugins/agent-harness.js"
@@ -283,6 +431,108 @@ class AgentOpencodePluginTest(unittest.TestCase):
         if node is None:
             self.fail("node is required for plugin tests; run nix develop ./flake")
         return node
+
+    def test_lifecycle_injects_context_and_reminds_once_per_turn(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="agent-opencode-") as directory:
+            root = Path(directory)
+            hooks = root / "hooks"
+            hooks.mkdir()
+            for name, response in (
+                (
+                    "session-start",
+                    '{"hookSpecificOutput":{"additionalContext":"scoped context"}}',
+                ),
+                ("stop", '{"systemMessage":"checkpoint selected task"}'),
+            ):
+                (hooks / name).write_text(
+                    '#!/bin/sh\ncat >> "$(dirname "$0")/received.jsonl"\n'
+                    + f"printf '%s\\n' '{response}'\n"
+                )
+            harness = f"""
+                import assert from 'node:assert/strict';
+                const plugin = await import({json.dumps(f"file://{self.PLUGIN}")});
+                const toasts = [];
+                const hooks = await plugin.AgentHarness({{
+                    worktree: {json.dumps(directory)},
+                    client: {{tui: {{showToast: async (options) => toasts.push(options.body)}}}},
+                }});
+                const transform = hooks['experimental.chat.system.transform'];
+                const output = {{system: ['original']}};
+                await transform({{sessionID: 'selected'}}, output);
+                await transform({{sessionID: 'selected'}}, output);
+                assert.deepEqual(output.system, ['original', 'scoped context']);
+                await hooks.event({{event: {{type: 'session.idle', properties: {{sessionID: 'other'}}}}}});
+                const idle = {{event: {{type: 'session.idle', properties: {{sessionID: 'selected'}}}}}};
+                await hooks.event(idle);
+                await hooks.event(idle);
+                assert.equal(toasts.length, 1);
+                assert.equal(toasts[0].message, 'checkpoint selected task');
+                await transform({{sessionID: 'selected'}}, {{system: []}});
+                await hooks.event({{event: {{type: 'session.compacted', properties: {{sessionID: 'selected'}}}}}});
+                await transform({{sessionID: 'selected'}}, {{system: []}});
+                await hooks.event(idle);
+                assert.equal(toasts.length, 2);
+                await transform({{sessionID: 'deleted'}}, {{system: []}});
+                await hooks.event({{event: {{type: 'session.deleted', properties: {{info: {{id: 'deleted'}}}}}}}});
+                await hooks.event({{event: {{type: 'session.idle', properties: {{sessionID: 'deleted'}}}}}});
+                assert.equal(toasts.length, 2);
+                await hooks.dispose();
+            """
+            result = subprocess.run(
+                [self.require_node(), "--input-type=module", "-e", harness],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            events = [
+                json.loads(line)
+                for line in (hooks / "received.jsonl").read_text().splitlines()
+            ]
+            self.assertEqual(
+                [event["hook_event_name"] for event in events],
+                [
+                    "SessionStart",
+                    "Stop",
+                    "SessionStart",
+                    "SessionStart",
+                    "Stop",
+                    "SessionStart",
+                ],
+            )
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(
+                result.stderr.count("[agent-harness] checkpoint selected task"), 2
+            )
+
+    def test_lifecycle_fails_open_when_shared_hooks_are_missing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="agent-opencode-") as directory:
+            harness = f"""
+                import assert from 'node:assert/strict';
+                const plugin = await import({json.dumps(f"file://{self.PLUGIN}")});
+                const hooks = await plugin.AgentHarness({{worktree: {json.dumps(directory)}}});
+                const output = {{system: ['original']}};
+                await hooks['experimental.chat.system.transform']({{sessionID: 'selected'}}, output);
+                assert.deepEqual(output.system, ['original']);
+                await hooks.event({{event: {{type: 'session.idle', properties: {{sessionID: 'selected'}}}}}});
+                await hooks['experimental.chat.system.transform']({{}}, output);
+                assert.deepEqual(output.system, ['original']);
+            """
+            result = subprocess.run(
+                [
+                    self.require_node(),
+                    "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+                    "--input-type=module",
+                    "-e",
+                    harness,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(result.stderr, "")
 
     def test_plugin_exports_exactly_one_entrypoint(self) -> None:
         # OpenCode loads every exported function as a plugin entrypoint, so
@@ -369,11 +619,13 @@ class AgentOpencodePluginTest(unittest.TestCase):
             [
                 {
                     "session_id": "sess-1",
+                    "hook_event_name": "PostToolUse",
                     "tool_input": {"command": "just check"},
                     "tool_response": {"exit_code": 1},
                 },
                 {
                     "session_id": "abc",
+                    "hook_event_name": "PostToolUse",
                     "tool_input": {"command": "python -m unittest"},
                     "tool_response": {"exit_code": 2},
                 },

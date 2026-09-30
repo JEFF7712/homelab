@@ -78,6 +78,19 @@ class AgentContextTest(unittest.TestCase):
         self.assertLessEqual(len(result.stdout.encode()), 6144)
         self.assertIn("truncated", result.stdout.lower())
         self.assertIn("untracked: 800", result.stdout)
+        self.assertIn("Tasks", result.stdout)
+        self.assertIn("just check-changed", result.stdout)
+        self.assertIn("AGENT_MAP.md", result.stdout)
+
+    def test_nonobject_task_record_does_not_break_startup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = self.make_repo(directory)
+            path = repository / ".agent-state/tasks/corrupt"
+            path.mkdir(parents=True)
+            (path / "task.json").write_text("[]")
+            result = run_agent(repository, "context", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["task"]["available"], [])
 
     def test_export_redacts_and_explains_uncommitted_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -104,6 +117,36 @@ class AgentContextTest(unittest.TestCase):
         self.assertIn("patch", handoff.lower())
         self.assertIn("Exported at:", handoff)
         self.assertIn("Current HEAD at export:", handoff)
+
+    def test_export_marks_old_evidence_stale_without_rewriting_record(self) -> None:
+        from scripts.agent.git_state import collect_git_state
+        from scripts.agent.tasks import create_task, export_task, resume_task
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.make_repo(directory)
+            payload = creation_payload()
+            payload["verification_records"] = [
+                {
+                    "command": "just check",
+                    "exit_code": 0,
+                    "time": "2026-09-30T00:00:00Z",
+                    "source_fingerprint": collect_git_state(root).fingerprint,
+                    "evidence_path": ".agent-state/evidence/check.log",
+                    "stale": False,
+                }
+            ]
+            create_task(root, "export-stale", payload)
+            record = root / ".agent-state/tasks/export-stale/task.json"
+            original = record.read_bytes()
+            (root / "tracked.txt").write_text("changed")
+            exported = export_task(root, "export-stale").read_text()
+            self.assertIn("freshness `stale`", exported)
+            self.assertIn("verified at `2026-09-30T00:00:00Z`", exported)
+            self.assertIn("Current source fingerprint at export:", exported)
+            self.assertEqual(record.read_bytes(), original)
+            self.assertTrue(
+                resume_task(root, "export-stale")["verifications"][0]["stale"]
+            )
 
 
 if __name__ == "__main__":

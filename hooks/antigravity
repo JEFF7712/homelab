@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+HOOKS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$HOOKS_DIR/.." && pwd)
+cd "$REPO_ROOT"
+if [[ ${AGENT_HOOK_ACTIVE:-0} == 1 ]]; then
+  printf '%s\n' '{}'
+  exit 0
+fi
+timeout 9 python -m scripts.agent.antigravity_hook "$@" || printf '%s\n' '{}'

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import tomllib
 
 
 def run_doctor(root: Path) -> dict[str, Any]:
@@ -63,16 +66,42 @@ def run_doctor(root: Path) -> dict[str, Any]:
         ".mcp.json",
         ".opencode/plugins/agent-harness.js",
         "opencode.json",
+        ".agents/plugins/homelab-workflow/plugin.json",
+        ".agents/plugins/homelab-workflow/hooks.json",
+        ".muse/harness/.muse-plugin/plugin.json",
     ):
-        present = (root / relative).is_file()
+        path = root / relative
+        present = path.is_file()
+        valid = present
+        if present and path.suffix in {".json", ".toml"}:
+            try:
+                content = path.read_text(encoding="utf-8")
+                parsed = (
+                    tomllib.loads(content)
+                    if path.suffix == ".toml"
+                    else json.loads(content)
+                )
+                valid = isinstance(parsed, dict)
+            except (OSError, ValueError):
+                valid = False
         checks.append(
             {
                 "name": f"adapter:{relative}",
-                "status": "pass" if present else "unavailable",
-                "detail": "configured" if present else "not configured",
-                "remedy": "use explicit just agent-context and task-checkpoint commands"
-                if not present
-                else "",
+                "status": "pass" if valid else ("fail" if present else "unavailable"),
+                "detail": (
+                    "present, syntax valid"
+                    if path.suffix in {".json", ".toml"}
+                    else "present"
+                )
+                if valid
+                else ("invalid configuration syntax" if present else "not configured"),
+                "remedy": ""
+                if valid
+                else (
+                    f"repair configuration syntax in {relative}"
+                    if present
+                    else "use explicit just agent-context and task-checkpoint commands"
+                ),
             }
         )
     for relative in (

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
+import shlex
 import subprocess
+import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .git_state import GitState
+from .git_state import GitState, collect_git_state
 from .redact import redact
 
 
@@ -41,7 +45,7 @@ COMMANDS = {
     "tofu": ("bash", "scripts/checks/tofu.sh"),
     "agent-workflows": ("bash", "scripts/checks/agent-workflows.sh"),
     "home-assistant": ("bash", "scripts/checks/home-assistant.sh"),
-    "docs": ("python", "scripts/checks/docs.py"),
+    "docs": ("python", "-m", "scripts.checks.docs"),
     "registry": ("bash", "scripts/checks/registry.sh"),
     "workspace-validate": (
         "python",
@@ -107,7 +111,23 @@ def _route(path: str) -> list[tuple[str, str]]:
                 f"{path} changes Home Assistant configuration management",
             )
         ]
-    if path.startswith(("scripts/agent/", "hooks/", ".opencode/", "tests/test_agent_")):
+    if path in {
+        ".claude/settings.json",
+        ".codex/hooks.json",
+        ".codex/config.toml",
+        ".cursor/hooks.json",
+        ".mcp.json",
+        "opencode.json",
+    } or path.startswith(
+        (
+            "scripts/agent/",
+            "hooks/",
+            ".opencode/",
+            ".agents/plugins/",
+            ".muse/harness/",
+            "tests/test_agent_",
+        )
+    ):
         return [("agent-workflows", f"{path} changes agent workflow behavior")]
     if path.startswith(("scripts/registry/", "registry/", "tests/test_registry_")):
         return [("registry", f"{path} changes the registry supply contract")]
@@ -150,24 +170,55 @@ def run_selection(root: Path, selection: CheckSelection) -> dict[str, Any]:
     evidence_dir.mkdir(parents=True, exist_ok=True)
     results = []
     for item in selection.checks:
+        before = collect_git_state(root)
+        started_at = datetime.now(timezone.utc).isoformat()
         result = subprocess.run(
             item.command, cwd=root, capture_output=True, text=True, check=False
         )
-        evidence = evidence_dir / f"{item.name}.log"
-        evidence.write_text(
-            redact(result.stdout + result.stderr)[-65536:], encoding="utf-8"
-        )
-        results.append(
-            {
-                "name": item.name,
+        after = collect_git_state(root)
+        finished_at = datetime.now(timezone.utc).isoformat()
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix=f"{item.name}-",
+            suffix=".log",
+            dir=evidence_dir,
+            delete=False,
+        ) as handle:
+            handle.write(redact(result.stdout + result.stderr)[-65536:])
+            evidence = Path(handle.name)
+        outcome = {
+            "name": item.name,
+            "exit_code": result.returncode,
+            "evidence_path": str(evidence),
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "current_fingerprint": after.fingerprint,
+            "verification": {
+                "command": redact(shlex.join(item.command)),
                 "exit_code": result.returncode,
+                "time": finished_at,
+                "source_fingerprint": before.fingerprint,
                 "evidence_path": str(evidence),
-            }
+                "stale": before.fingerprint != after.fingerprint,
+            },
+        }
+        report = evidence.with_suffix(".json")
+        outcome["report_path"] = str(report)
+        report.write_text(
+            json.dumps(outcome, sort_keys=True, indent=2) + "\n", encoding="utf-8"
         )
+        results.append(outcome)
         if result.returncode:
             break
     return {
         "selection": selection.to_dict(),
         "results": results,
-        "status": "pass" if all(item["exit_code"] == 0 for item in results) else "fail",
+        "status": "fail"
+        if any(item["exit_code"] != 0 for item in results)
+        else (
+            "stale"
+            if any(item["verification"]["stale"] for item in results)
+            else "pass"
+        ),
     }

@@ -14,6 +14,10 @@ _SECRET_ASSIGNMENT = re.compile(
     r"(?i)\b([A-Z][A-Z0-9_]*(?:TOKEN|PASSWORD|PASSWD|SECRET|API_KEY|ACCESS_KEY|CREDENTIAL)[A-Z0-9_]*|"
     r"token|password|secret|api_key)\s*=\s*([^\s'\"]+|\"[^\"]*\"|'[^']*')"
 )
+_SECRET_ARGUMENT = re.compile(
+    r"(?i)(--(?:token|password|passwd|secret|api[-_]key|access[-_]key|credential)"
+    r"(?:=|\s+))(\"[^\"]*\"|'[^']*'|[^\s]+)"
+)
 _MACHINE_CREDENTIAL_PATH = re.compile(
     r"(?<![A-Za-z0-9_./-])"
     r"(?:~|\$HOME|\$\{HOME\}|/home/[^/\s]+|/Users/[^/\s]+|/root)"
@@ -29,4 +33,5 @@ def redact(value: str) -> str:
     value = _AUTHORIZATION.sub(r"\1" + REDACTED, value)
     value = _API_KEY_HEADER.sub(r"\1" + REDACTED, value)
     value = _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}={REDACTED}", value)
+    value = _SECRET_ARGUMENT.sub(r"\1" + REDACTED, value)
     return _MACHINE_CREDENTIAL_PATH.sub(REDACTED, value)

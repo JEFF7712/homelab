@@ -1,6 +1,18 @@
 agent-context *args:
     python -m scripts.agent context {{args}}
 
+[positional-arguments]
+agent-run id client *args:
+    python -m scripts.agent agent-run "$@"
+
+[positional-arguments]
+agent-verify *args:
+    python -m scripts.agent verify "$@"
+
+[positional-arguments]
+agent-smoke id client *args:
+    python -m scripts.agent.client_smoke "$@"
+
 doctor *args:
     python -m scripts.agent doctor {{args}}
 
@@ -107,7 +119,7 @@ check-tofu:
     bash scripts/checks/tofu.sh
 
 check-docs:
-    python scripts/checks/docs.py
+    python -m scripts.checks.docs
 
 provision-check-deps:
     for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false; done

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +9,7 @@ from scripts.agent.checks import (
     CheckSelection,
     SelectedCheck,
     render_check_changed_text,
+    run_selection,
     select_checks,
 )
 from scripts.agent.git_state import collect_git_state
@@ -15,6 +17,61 @@ from tests.agent_helpers import commit, make_repository
 
 
 class AgentCheckSelectionTest(unittest.TestCase):
+    def test_repeated_checks_preserve_previous_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repository(Path(directory))
+            (root / "source.txt").write_text("initial")
+            commit(root, "initial")
+            selection = CheckSelection(
+                (),
+                (
+                    SelectedCheck(
+                        "docs",
+                        (sys.executable, "-c", "print('TOKEN=synthetic-secret')"),
+                        ("fixture",),
+                    ),
+                ),
+            )
+            first = run_selection(root, selection)
+            first_path = Path(first["results"][0]["evidence_path"])
+            original = first_path.read_text()
+            second = run_selection(root, selection)
+            second_path = Path(second["results"][0]["evidence_path"])
+            self.assertNotEqual(first_path, second_path)
+            self.assertEqual(first_path.read_text(), original)
+            self.assertIn("[REDACTED]", original)
+            self.assertNotIn("synthetic-secret", original)
+
+    def test_check_reports_source_change_during_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repository(Path(directory))
+            (root / "source.txt").write_text("initial")
+            commit(root, "initial")
+            selection = CheckSelection(
+                (),
+                (
+                    SelectedCheck(
+                        "fixture",
+                        (
+                            sys.executable,
+                            "-c",
+                            "from pathlib import Path; Path('source.txt').write_text('changed')",
+                        ),
+                        ("fixture",),
+                    ),
+                ),
+            )
+            result = run_selection(root, selection)
+            outcome = result["results"][0]
+            self.assertEqual(result["status"], "stale")
+            self.assertTrue(outcome["verification"]["stale"])
+            self.assertEqual(outcome["exit_code"], 0)
+            self.assertNotEqual(
+                outcome["verification"]["source_fingerprint"],
+                outcome["current_fingerprint"],
+            )
+            self.assertTrue(Path(outcome["report_path"]).is_file())
+
     def select(self, path: str):
         with tempfile.TemporaryDirectory() as directory:
             repository = make_repository(Path(directory))
@@ -34,6 +91,12 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "tofu/opnsense/network.tf": "tofu",
             "scripts/agent/context.py": "agent-workflows",
             ".opencode/plugins/agent-harness.js": "agent-workflows",
+            ".claude/settings.json": "agent-workflows",
+            ".codex/hooks.json": "agent-workflows",
+            ".codex/config.toml": "agent-workflows",
+            ".cursor/hooks.json": "agent-workflows",
+            ".mcp.json": "agent-workflows",
+            "opencode.json": "agent-workflows",
             "scripts/agent_workspaces/core.py": "workspace-validate",
             "config/agent-workspaces/workspaces.json": "workspace-validate",
             "flake/tests/agent-workspace-packet-flow.nix": "full",

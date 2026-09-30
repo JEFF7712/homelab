@@ -12,6 +12,8 @@ from tests.agent_helpers import commit, make_repository
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 COMMANDS = (
+    "agent-run",
+    "verify",
     "context",
     "doctor",
     "check-changed",
@@ -38,6 +40,47 @@ def run_agent(
 
 
 class AgentCliTest(unittest.TestCase):
+    def test_context_failure_has_a_json_envelope(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = run_agent("context", "--json", cwd=Path(directory))
+        self.assertEqual(result.returncode, 2)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["command"], "context")
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(result.stderr, "")
+
+    def test_verify_records_real_exit_status_and_can_checkpoint_evidence(self) -> None:
+        from scripts.agent.tasks import create_task
+        from tests.test_agent_tasks import creation_payload
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_repository(Path(directory))
+            (root / "source").write_text("initial")
+            commit(root, "initial")
+            create_task(root, "verify-demo", creation_payload())
+            result = run_agent(
+                "verify",
+                "--json",
+                "--task",
+                "verify-demo",
+                "--record",
+                "--",
+                sys.executable,
+                "-c",
+                "raise SystemExit(7)",
+                cwd=root,
+            )
+            self.assertEqual(result.returncode, 7, result.stderr)
+            payload = json.loads(result.stdout)
+            verification = payload["results"][0]["verification"]
+            record = json.loads(
+                (root / ".agent-state/tasks/verify-demo/task.json").read_text()
+            )
+            self.assertEqual(record["verification_records"], [verification])
+            self.assertEqual(verification["exit_code"], 7)
+            self.assertFalse(verification["stale"])
+            self.assertTrue(verification["time"])
+
     def test_help_lists_public_commands(self) -> None:
         result = run_agent("--help")
 

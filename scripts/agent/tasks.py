@@ -448,6 +448,20 @@ def checkpoint_task(
     return _operation_result(updated, warning)
 
 
+def inspect_verifications(
+    records: list[dict[str, Any]], fingerprint: str
+) -> list[dict[str, Any]]:
+    latest = {record["command"]: index for index, record in enumerate(records)}
+    return [
+        {
+            **record,
+            "stale": record["stale"] or record["source_fingerprint"] != fingerprint,
+            "superseded": latest[record["command"]] != index,
+        }
+        for index, record in enumerate(records)
+    ]
+
+
 def resume_task(root: Path, task_id: str) -> dict[str, Any]:
     task_id = validate_task_id(task_id)
     root_state = collect_git_state(root)
@@ -457,13 +471,9 @@ def resume_task(root: Path, task_id: str) -> dict[str, Any]:
         base_available = base_state.base.available
     except GitBaseError:
         base_available = False
-    stale_verifications = [
-        {
-            **verification,
-            "stale": verification["source_fingerprint"] != root_state.fingerprint,
-        }
-        for verification in record["verification_records"]
-    ]
+    stale_verifications = inspect_verifications(
+        record["verification_records"], root_state.fingerprint
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "task": record,
@@ -496,7 +506,11 @@ def export_task(root: Path, task_id: str, *, replace: bool = False) -> Path:
     remaining = "\n".join(f"- {item}" for item in record["remaining_work"]) or "- None"
     evidence = (
         "\n".join(
-            f"- `{item['command']}`: exit {item['exit_code']}, evidence `{item['evidence_path']}`"
+            f"- `{item['command']}`: exit {item['exit_code']}, "
+            f"freshness `{'stale' if item['stale'] else 'current'}`, "
+            f"superseded `{str(item['superseded']).lower()}`, "
+            f"verified at `{item['time']}`, source fingerprint `{item['source_fingerprint']}`, "
+            f"evidence `{item['evidence_path']}`"
             for item in inspection["verifications"]
         )
         or "- None recorded"
@@ -508,7 +522,10 @@ def export_task(root: Path, task_id: str, *, replace: bool = False) -> Path:
         f"Session: `{record['session']}`\n\nExported at: `{_now()}`\n\n"
         f"Current HEAD at export: `{state.head or 'unborn'}`\n\n## Objective\n\n{record['objective']}\n\n"
         f"## Acceptance criteria\n\n{criteria}\n\n## Owned source\n\n{source}\n\n"
-        f"## Remaining work\n\n{remaining}\n\n## Verification\n\n{evidence}\n\n"
+        f"## Remaining work\n\n{remaining}\n\n## Verification\n\n"
+        f"Current source fingerprint at export: `{state.fingerprint}`\n\n"
+        "Freshness describes source identity at export time; it does not establish live infrastructure health.\n\n"
+        f"{evidence}\n\n"
         f"## Next action\n\n{record['next_action']}\n\n## Uncommitted work\n\n"
         "This handoff does not contain uncommitted file content. Recover it from the original checkout, "
         "or create and transfer a reviewed patch before moving to another machine.\n"

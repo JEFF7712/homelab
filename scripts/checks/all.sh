@@ -11,7 +11,7 @@ bash scripts/checks/nix.sh all
 bash scripts/checks/gitops.sh
 bash scripts/checks/tofu.sh
 bash scripts/checks/home-assistant.sh
-python scripts/checks/docs.py
+python -m scripts.checks.docs
 python scripts/checks/whitespace.py
 if [[ "${SKIP_SECRET_SCAN:-0}" != "1" ]]; then
   gitleaks detect --source . --redact

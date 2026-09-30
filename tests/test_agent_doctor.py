@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,6 +9,23 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AgentDoctorTest(unittest.TestCase):
+    def test_invalid_adapter_syntax_fails_without_echoing_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Path(directory)
+            shutil.copy(ROOT / ".gitlab-ci.yml", repository / ".gitlab-ci.yml")
+            (repository / ".codex").mkdir()
+            (repository / ".codex/hooks.json").write_text(
+                '{"token": "synthetic-private-value"'
+            )
+            payload = run_doctor(repository)
+        item = next(
+            item
+            for item in payload["checks"]
+            if item["name"] == "adapter:.codex/hooks.json"
+        )
+        self.assertEqual(item["status"], "fail")
+        self.assertNotIn("synthetic-private-value", str(payload))
+
     def test_doctor_reports_structured_results_without_secret_values(self) -> None:
         payload = run_doctor(ROOT)
         self.assertEqual(payload["schema_version"], 1)

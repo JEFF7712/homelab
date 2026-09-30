@@ -49,6 +49,38 @@ def run_agent(
 
 
 class TaskRecordTest(unittest.TestCase):
+    def test_later_verification_supersedes_old_failure_and_retains_explicit_staleness(
+        self,
+    ) -> None:
+        from scripts.agent.tasks import inspect_verifications
+
+        records = [
+            {
+                "command": "just check",
+                "exit_code": 1,
+                "stale": False,
+                "source_fingerprint": "old",
+            },
+            {
+                "command": "just check",
+                "exit_code": 0,
+                "stale": False,
+                "source_fingerprint": "current",
+            },
+            {
+                "command": "just fmt-check",
+                "exit_code": 0,
+                "stale": True,
+                "source_fingerprint": "current",
+            },
+        ]
+        inspection = inspect_verifications(records, "current")
+        self.assertTrue(inspection[0]["superseded"])
+        self.assertFalse(inspection[1]["superseded"])
+        self.assertFalse(inspection[1]["stale"])
+        self.assertTrue(inspection[2]["stale"])
+        self.assertNotIn("superseded", records[0])
+
     def test_creation_template_passes_creation_validation(self) -> None:
         from scripts.agent.tasks import creation_template, validate_task_record
 

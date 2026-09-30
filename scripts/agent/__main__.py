@@ -2,16 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .checks import render_check_changed_text, run_selection, select_checks
+from .checks import (
+    CheckSelection,
+    SelectedCheck,
+    render_check_changed_text,
+    run_selection,
+    select_checks,
+)
 from .context import context_payload, render_context
 from .doctor import run_doctor
 from .evidence import write_evidence
 from .git_state import GitBaseError, collect_git_state
 from .redact import redact
+from .session import CLIENTS, run_client
 from .status import status_payload
 from .tasks import (
     TaskError,
@@ -34,6 +42,23 @@ def build_parser() -> argparse.ArgumentParser:
     context = subparsers.add_parser("context", help="show local repository context")
     add_json_option(context)
     context.add_argument("--task")
+
+    agent_run = subparsers.add_parser(
+        "agent-run", help="start a client with explicit session task selection"
+    )
+    agent_run.add_argument("id")
+    agent_run.add_argument("client", choices=tuple(CLIENTS))
+    agent_run.add_argument("client_args", nargs=argparse.REMAINDER)
+
+    verify = subparsers.add_parser(
+        "verify", help="run a command with source-bound verification evidence"
+    )
+    verify.add_argument("--task")
+    verify.add_argument(
+        "--record", action="store_true", help="append verification to the selected task"
+    )
+    add_json_option(verify)
+    verify.add_argument("argv", nargs=argparse.REMAINDER)
 
     doctor = subparsers.add_parser("doctor", help="diagnose local workflow tooling")
     add_json_option(doctor)
@@ -116,11 +141,69 @@ def _task_error_payload(command: str, error: BaseException) -> dict[str, object]
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     arguments = parser.parse_args(argv)
+    if arguments.command == "verify":
+        try:
+            command = (
+                arguments.argv[1:] if arguments.argv[:1] == ["--"] else arguments.argv
+            )
+            if not command:
+                raise TaskError("verify requires a command after --")
+            selected = arguments.task or os.environ.get("AGENT_TASK_ID")
+            inspection = resume_task(Path.cwd(), selected) if selected else None
+            if arguments.record and not inspection:
+                raise TaskError("--record requires --task or AGENT_TASK_ID")
+            if (
+                arguments.record
+                and inspection
+                and inspection["task"]["status"] == "complete"
+            ):
+                raise TaskError("cannot append verification to a complete task")
+            state = collect_git_state()
+            selection = CheckSelection(
+                (), (SelectedCheck("verify", tuple(command), ("explicit command",)),)
+            )
+            payload = run_selection(state.root, selection)
+            if arguments.record and inspection:
+                record = inspection["task"]
+                record["expected_revision"] = record["record_revision"]
+                record["verification_records"].append(
+                    payload["results"][0]["verification"]
+                )
+                checkpoint_task(state.root, record["task_id"], record)
+            if arguments.json:
+                print(
+                    json.dumps(
+                        {"schema_version": 1, "command": "verify", **payload},
+                        sort_keys=True,
+                    )
+                )
+            else:
+                print(render_check_changed_text(selection, payload), end="")
+            code = payload["results"][0]["exit_code"]
+            return code if code > 0 else (1 if payload["status"] != "pass" else 0)
+        except (TaskError, RuntimeError, OSError) as error:
+            if arguments.json:
+                print(json.dumps(_task_error_payload("verify", error), sort_keys=True))
+            else:
+                print(f"verify: {redact(str(error))}", file=sys.stderr)
+            return 2
+    if arguments.command == "agent-run":
+        try:
+            client_args = arguments.client_args
+            if client_args[:1] == ["--"]:
+                client_args = client_args[1:]
+            return run_client(Path.cwd(), arguments.id, arguments.client, client_args)
+        except (TaskError, RuntimeError, OSError) as error:
+            print(f"agent-run: {redact(str(error))}", file=sys.stderr)
+            return 2
     if arguments.command == "context":
         try:
             payload = context_payload(task_id=arguments.task)
         except (TaskError, RuntimeError, OSError) as error:
-            print(f"context: {redact(str(error))}", file=sys.stderr)
+            if arguments.json:
+                print(json.dumps(_task_error_payload("context", error), sort_keys=True))
+            else:
+                print(f"context: {redact(str(error))}", file=sys.stderr)
             return 2
         if arguments.json:
             print(json.dumps(payload, sort_keys=True))
@@ -157,7 +240,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(render_check_changed_text(selection, payload), end="")
             return (
                 1
-                if isinstance(payload, dict) and payload.get("status") == "fail"
+                if isinstance(payload, dict)
+                and payload.get("status") in {"fail", "stale"}
                 else 0
             )
         except (GitBaseError, RuntimeError, OSError) as error:
@@ -232,6 +316,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     print(
                         f"Drift: head={str(checkpoint['head_drift']).lower()} fingerprint={str(checkpoint['fingerprint_drift']).lower()}"
                     )
+                    for verification in payload["verifications"]:
+                        print(
+                            f"Verification: {'superseded' if verification['superseded'] else ('stale' if verification['stale'] else 'current')}, "
+                            f"exit {verification['exit_code']}, time {verification['time']}, evidence {verification['evidence_path']}"
+                        )
             return 0
         except (TaskError, RuntimeError, OSError) as error:
             if arguments.json:

@@ -60,10 +60,11 @@ If the NVMe drive on `homelab-01` fails or the physical machine requires replace
 
 1. **Replace Hardware & Provision Base System:**
    - Install replacement NVMe drive.
-   - Boot installer and apply nixos configuration via disko:
-     ```sh
-     just provision-homelab-01
-     ```
+   - Boot the installer and provision the replacement using `nixos-anywhere`
+     and the owning host/disk configuration under `flake/hosts/homelab-01/`.
+     Follow the repository [deployment policy](../../README.md#deployment).
+     There is no `provision-homelab-01` recipe. Confirm the replacement target
+     and recovery plan before disk provisioning.
 
 2. **Recreate Local Storage Mounts & Ownership:**
    PostgreSQL containers run as UID `70` (alpine postgres for Home Assistant) or `999` (debian postgres for Immich):

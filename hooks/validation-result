@@ -3,12 +3,6 @@ set -euo pipefail
 # shellcheck source=hooks/common.sh
 source "$(dirname "$0")/common.sh"
 hook_load || hook_ok
-command=$(jq -r '.tool_input.command // .command // empty' <<<"$HOOK_INPUT")
-exit_code=$(jq -r '.tool_response.exit_code // .tool_response.exitCode // .exit_code // empty' <<<"$HOOK_INPUT")
-[[ -n $command && -n $exit_code && $exit_code != 0 ]] || hook_ok
-[[ $command =~ (^|[[:space:]])(just|nix|tofu|ruff|pyright|yamllint|kubeconform|kubectl|python|bash|gh)[[:space:]] ]] || hook_ok
-mkdir -p "$REPO_ROOT/.agent-state/evidence/hooks" || hook_ok
-identity=$(hook_session | tr -cd 'A-Za-z0-9._-' | head -c 64)
-evidence="$REPO_ROOT/.agent-state/evidence/hooks/${identity:-unknown}.jsonl"
-jq -n --arg command "$(printf '%s' "$command" | head -c 200)" --argjson exit_code "$exit_code" '{check:$command,exit_code:$exit_code}' >>"$evidence" || hook_ok
+cd "$REPO_ROOT"
+AGENT_HOOK_ACTIVE=1 timeout 3 python -m scripts.agent.hook_runtime failure <<<"$HOOK_INPUT" 2>/dev/null || hook_ok
 hook_ok

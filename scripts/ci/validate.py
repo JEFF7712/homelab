@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
         return subprocess.call(["bash", "scripts/ci/cache.sh", args.flake])
     if scope.mode == "documentation":
         for command in (
-            ["python", "scripts/checks/docs.py"],
+            ["python", "-m", "scripts.checks.docs"],
             ["python", "scripts/checks/whitespace.py"],
         ):
             code = subprocess.call(command)

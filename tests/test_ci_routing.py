@@ -240,7 +240,7 @@ class ValidationLaneTest(unittest.TestCase):
             self.assertEqual(
                 commands,
                 [
-                    ["python", "scripts/checks/docs.py"],
+                    ["python", "-m", "scripts.checks.docs"],
                     ["python", "scripts/checks/whitespace.py"],
                 ],
             )
