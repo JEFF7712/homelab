@@ -20,7 +20,14 @@ MAX_LISTED = 10
 
 def summarise(report: dict) -> tuple[str, str]:
     images = report.get("images", [])
-    failed = [item for item in images if item.get("status") != "verified"]
+    failed = [
+        item
+        for item in images
+        if item.get("status") not in {"verified", "indeterminate"}
+    ]
+    # A record the check could not reach is not evidence of drift, so it is
+    # called out separately rather than folded into a phantom failure count.
+    indeterminate = [item for item in images if item.get("status") == "indeterminate"]
     lines = [
         f"{len(failed)} of {len(images)} locked images failed verification.",
         "",
@@ -30,14 +37,28 @@ def summarise(report: dict) -> tuple[str, str]:
         lines.append(f"{item['id']}: {reasons}")
     if len(failed) > MAX_LISTED:
         lines.append(f"... and {len(failed) - MAX_LISTED} more")
-    lines.append("")
-    lines.append(
-        "Untagged manifests are collectable by default on this registry, so a "
-        "missing digest is a pull-time outage, not just a stale lock."
-    )
+    if indeterminate:
+        lines.append("")
+        lines.append(
+            f"{len(indeterminate)} image(s) were inconclusive because the registry "
+            "was unreachable or intercepted, not because they drifted:"
+        )
+        for item in indeterminate[:MAX_LISTED]:
+            reasons = "; ".join(item.get("errors", [])) or "unknown"
+            lines.append(f"{item['id']}: {reasons}")
+        if len(indeterminate) > MAX_LISTED:
+            lines.append(f"... and {len(indeterminate) - MAX_LISTED} more")
+    if failed:
+        lines.append("")
+        lines.append(
+            "Untagged manifests are collectable by default on this registry, so a "
+            "missing digest is a pull-time outage, not just a stale lock."
+        )
     title = (
         f"Registry drift: {len(failed)} image(s) unverified"
         if failed
+        else f"Registry check inconclusive: {len(indeterminate)} unreachable"
+        if indeterminate
         else "Registry drift: no failures"
     )
     return title, "\n".join(lines)

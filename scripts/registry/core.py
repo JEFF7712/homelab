@@ -14,6 +14,8 @@ import shutil
 import subprocess
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -41,6 +43,21 @@ _CHART_RE = re.compile(r"^\s+chart:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE)
 
 class RegistryError(RuntimeError):
     pass
+
+
+class TransientRegistryError(RegistryError):
+    """A failure that says nothing about the registry's actual contents.
+
+    Cloudflare Access intermittently answers the runner instead of zot, which
+    makes an authenticated read look like a bare 401 and a tag lookup look like
+    a missing tag. Reporting that as drift pages on a phantom, so the probe
+    distinguishes it and the record is marked inconclusive.
+    """
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -783,6 +800,59 @@ def _platforms(manifest: Mapping[str, Any]) -> list[str]:
     return sorted(values)
 
 
+def _dest_auth_header() -> str | None:
+    """The `Authorization` value the destination auth file supplies, if any."""
+    variable = os.environ.get("REGISTRY_DEST_AUTH_FILE")
+    if not variable:
+        return None
+    try:
+        payload = json.loads(pathlib.Path(variable).read_text(encoding="utf-8"))
+        config = payload["auths"][DEFAULT_REGISTRY]
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+    auth = config.get("auth") if isinstance(config, dict) else None
+    return f"Basic {auth}" if isinstance(auth, str) else None
+
+
+def _registry_from_args(args: Sequence[str]) -> str | None:
+    """The registry an skopeo invocation targets, from its `docker://` argument."""
+    for argument in args:
+        if argument.startswith("docker://"):
+            remainder = argument.removeprefix("docker://")
+            return remainder.split("/", 1)[0] or None
+    return None
+
+
+def _interstitial_reason(registry: str) -> str | None:
+    """Describe why the registry cannot be trusted right now, or None if it can.
+
+    A 401 from the registry's own auth challenge is healthy, so it is not
+    reported. What must be caught is Cloudflare Access answering in zot's
+    place, which surfaces as a redirect into its login flow or as a challenge
+    header, and plain unreachability.
+    """
+    request = urllib.request.Request(f"https://{registry}/v2/", method="GET")
+    header = _dest_auth_header()
+    if header:
+        request.add_header("Authorization", header)
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(request, timeout=10) as response:
+            del response
+            return None
+    except urllib.error.HTTPError as error:
+        location = error.headers.get("Location", "") if error.headers else ""
+        if error.code in {301, 302, 303, 307, 308}:
+            if "/cdn-cgi/access" in location or "access/login" in location:
+                return f"Cloudflare Access intercepted the request (redirected to {location[:120]})"
+            return None
+        if error.code == 403 and (error.headers or {}).get("cf-mitigated"):
+            return "Cloudflare Access returned a challenge instead of registry data"
+        return None
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        return f"registry unreachable: {error}"
+
+
 class OciClient:
     def __init__(self, *, timeout: int = 60, retries: int = 2) -> None:
         if timeout < 1 or retries < 0 or retries > 5:
@@ -899,10 +969,17 @@ class OciClient:
                 if attempt == attempts:
                     detail = result.stderr.decode(errors="replace").strip()
                     suffix = f": {detail}" if detail else ""
+                    registry = _registry_from_args(args)
+                    if registry is not None:
+                        reason = _interstitial_reason(registry)
+                        if reason is not None:
+                            raise TransientRegistryError(
+                                f"{operation} could not reach {registry}: {reason}"
+                            )
                     raise RegistryError(
                         f"{operation} failed with exit code {result.returncode}{suffix}"
                     )
-            time.sleep(min(2**attempt, 4))
+            time.sleep(min(2**attempt, 8))
         raise AssertionError("unreachable")
 
 
@@ -1416,6 +1493,10 @@ def verify_record(
                 client, ref, destination=True, timeout=timeout
             )
             matched = observed_referrer == digest
+        except TransientRegistryError:
+            # An unreachable registry says nothing about whether the referrer
+            # is there, so it must not be recorded as a missing referrer.
+            raise
         except RegistryError:
             observed_referrer = None
             matched = False
@@ -1438,6 +1519,11 @@ def verify_record(
             observed_tag, _, _ = _inspect_digest(
                 client, reference, destination=True, timeout=timeout
             )
+        except TransientRegistryError:
+            # Same reasoning as the referrer probe: a registry Cloudflare is
+            # intercepting would otherwise be reported as a missing tag, which
+            # is the exact false drift this check exists to catch.
+            raise
         except RegistryError:
             observed_tag = None
         matched = observed_tag == record["digest"]
@@ -1566,6 +1652,18 @@ def verify_lock(
             continue
         try:
             outcome = verify_record(client, lock, record)
+        except TransientRegistryError as error:
+            outcome = {
+                "id": record["id"],
+                "status": "indeterminate",
+                "destination": f"{lock['destination_registry']}/{record['destination_repository']}@{record['digest']}",
+                "expected_digest": record["digest"],
+                "observed_digest": None,
+                "platforms": {"expected": record["platforms"], "observed": []},
+                "referrers": [],
+                "tags": [],
+                "errors": [str(error)],
+            }
         except RegistryError as error:
             outcome = {
                 "id": record["id"],
@@ -1743,19 +1841,30 @@ def operation_report(
     summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     failures = sum(item["status"] == "failed" for item in outcomes)
+    indeterminate = sum(item["status"] == "indeterminate" for item in outcomes)
     base = {
         "total": len(outcomes),
         "failed": failures,
+        "indeterminate": indeterminate,
     }
     if summary:
         base.update(summary)
+    if status_override is None:
+        if failures:
+            status = "failed"
+        elif indeterminate:
+            status = "indeterminate"
+        else:
+            status = "ok"
+    else:
+        status = status_override
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "registry-operation-report",
         "command": command,
         "generated_at": _timestamp(),
         "source_revision": lock.get("source_revision", "unavailable"),
-        "status": status_override or ("ok" if failures == 0 else "failed"),
+        "status": status,
         "summary": base,
         "images": outcomes,
     }

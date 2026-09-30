@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import email.message
 import hashlib
 import io
 import json
@@ -12,11 +13,14 @@ import stat
 import subprocess
 import tempfile
 import unittest
+import urllib.error
 from typing import Any
+from unittest import mock
 from unittest.mock import patch
 
 import yaml
 
+from scripts.registry import core
 from scripts.registry.cli import main
 from scripts.registry.core import (
     ImageReference,
@@ -88,6 +92,223 @@ class OciClientTests(unittest.TestCase):
         self.assertIn("--preserve-digests", command)
         self.assertNotIn("--src-tls-verify=false", command)
         self.assertNotIn("--dest-tls-verify=false", command)
+
+
+class TransientInterstitialTests(unittest.TestCase):
+    """A registry Cloudflare is intercepting must not read as drift."""
+
+    def _client(self) -> OciClient:
+        client = OciClient(retries=0)
+        client.inspect_tool = "skopeo"
+        return client
+
+    def test_intercepted_failure_is_transient_not_missing(self) -> None:
+        client = self._client()
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=b"", stderr=b""
+        )
+
+        with (
+            patch.object(core.subprocess, "run", return_value=completed),
+            patch.object(core, "_interstitial_reason", return_value="challenge"),
+            self.assertRaises(core.TransientRegistryError) as caught,
+        ):
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            )
+
+        self.assertIn("challenge", str(caught.exception))
+        self.assertIsInstance(caught.exception, core.RegistryError)
+
+    def test_clean_registry_keeps_the_underlying_error(self) -> None:
+        client = self._client()
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=b"", stderr=b"denied"
+        )
+
+        with (
+            patch.object(core.subprocess, "run", return_value=completed),
+            patch.object(core, "_interstitial_reason", return_value=None),
+            self.assertRaises(core.RegistryError) as caught,
+        ):
+            client.raw_manifest(
+                f"docker://{core.DEFAULT_REGISTRY}/apps/demo:1", destination=True
+            )
+
+        self.assertNotIsInstance(caught.exception, core.TransientRegistryError)
+        self.assertIn("denied", str(caught.exception))
+
+    def test_registry_is_read_from_the_docker_argument(self) -> None:
+        self.assertEqual(
+            core._registry_from_args(
+                ["skopeo", "inspect", "docker://registry.example.com/apps/demo:1"]
+            ),
+            "registry.example.com",
+        )
+        self.assertIsNone(core._registry_from_args(["skopeo", "list-tags"]))
+
+    def _with_response(self, error: urllib.error.HTTPError) -> None:
+        """Make the probe see `error` instead of touching the network."""
+        opener = mock.MagicMock()
+        opener.open.side_effect = error
+        patcher = patch.object(core.urllib.request, "build_opener", return_value=opener)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_auth_challenge_is_not_an_interstitial(self) -> None:
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(
+                {"auths": {core.DEFAULT_REGISTRY: {"auth": "bm9kZTpwYXNz"}}}, handle
+            )
+            path = handle.name
+        self.addCleanup(os.unlink, path)
+
+        error = urllib.error.HTTPError(
+            url=f"https://{core.DEFAULT_REGISTRY}/v2/",
+            code=401,
+            msg="Unauthorized",
+            hdrs=email.message.Message(),
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        self._with_response(error)
+
+        with patch.dict(os.environ, {"REGISTRY_DEST_AUTH_FILE": path}):
+            self.assertIsNone(core._interstitial_reason(core.DEFAULT_REGISTRY))
+
+    def test_access_redirect_is_an_interstitial(self) -> None:
+        headers = email.message.Message()
+        headers["Location"] = (
+            "https://rupan.cloudflareaccess.com/cdn-cgi/access/login/x"
+        )
+        error = urllib.error.HTTPError(
+            url=f"https://{core.DEFAULT_REGISTRY}/v2/",
+            code=302,
+            msg="Found",
+            hdrs=headers,
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        self._with_response(error)
+
+        with patch.dict(os.environ, {}, clear=True):
+            reason = core._interstitial_reason(core.DEFAULT_REGISTRY)
+
+        self.assertIsNotNone(reason)
+        self.assertIn("Cloudflare Access", reason)
+
+    def test_cf_challenge_header_is_an_interstitial(self) -> None:
+        headers = email.message.Message()
+        headers["cf-mitigated"] = "challenge"
+        error = urllib.error.HTTPError(
+            url=f"https://{core.DEFAULT_REGISTRY}/v2/",
+            code=403,
+            msg="Forbidden",
+            hdrs=headers,
+            fp=None,
+        )
+        self.addCleanup(error.close)
+        self._with_response(error)
+
+        with patch.dict(os.environ, {}, clear=True):
+            reason = core._interstitial_reason(core.DEFAULT_REGISTRY)
+
+        self.assertIsNotNone(reason)
+        self.assertIn("challenge", reason)
+
+    def test_unreachable_registry_is_transient(self) -> None:
+        opener = mock.MagicMock()
+        opener.open.side_effect = urllib.error.URLError("connection reset")
+        patcher = patch.object(core.urllib.request, "build_opener", return_value=opener)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        with patch.dict(os.environ, {}, clear=True):
+            reason = core._interstitial_reason(core.DEFAULT_REGISTRY)
+
+        self.assertIsNotNone(reason)
+        self.assertIn("unreachable", reason)
+
+    def test_verify_lock_marks_unreachable_records_indeterminate(self) -> None:
+        record = {
+            "id": "first-party-demo",
+            "kind": "first-party",
+            "destination_repository": "apps/demo",
+            "digest": "sha256:" + "1" * 64,
+            "media_type": "application/vnd.oci.image.index.v1+json",
+            "platforms": [],
+            "destination_tags": ["sha-1111111"],
+            "referrers": {"required": []},
+        }
+        lock = {
+            "destination_registry": core.DEFAULT_REGISTRY,
+            "images": [record],
+        }
+
+        with patch.object(
+            core,
+            "verify_record",
+            side_effect=core.TransientRegistryError("unreachable"),
+        ):
+            report = core.verify_lock(self._client(), lock)
+
+        self.assertEqual(report["status"], "indeterminate")
+        self.assertEqual(report["summary"]["failed"], 0)
+        self.assertEqual(report["summary"]["indeterminate"], 1)
+        self.assertEqual(report["images"][0]["status"], "indeterminate")
+
+    def test_real_drift_still_fails(self) -> None:
+        record = {
+            "id": "first-party-demo",
+            "kind": "first-party",
+            "destination_repository": "apps/demo",
+            "digest": "sha256:" + "1" * 64,
+            "media_type": "application/vnd.oci.image.index.v1+json",
+            "platforms": [],
+            "destination_tags": ["sha-1111111"],
+            "referrers": {"required": []},
+        }
+        lock = {
+            "destination_registry": core.DEFAULT_REGISTRY,
+            "images": [record],
+        }
+
+        with patch.object(
+            core, "verify_record", side_effect=core.RegistryError("missing")
+        ):
+            report = core.verify_lock(self._client(), lock)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(report["summary"]["failed"], 1)
+        self.assertEqual(report["summary"]["indeterminate"], 0)
+
+    def test_notification_separates_inconclusive_from_drift(self) -> None:
+        from scripts.ci.notify import summarise
+
+        report = {
+            "images": [
+                {"id": "a", "status": "verified", "errors": []},
+                {"id": "b", "status": "indeterminate", "errors": ["unreachable"]},
+            ]
+        }
+        title, message = summarise(report)
+        self.assertIn("inconclusive", title.lower())
+        self.assertIn("b: unreachable", message)
+        self.assertNotIn("unverified", title)
+
+    def test_notification_still_reports_real_drift(self) -> None:
+        from scripts.ci.notify import summarise
+
+        report = {
+            "images": [
+                {"id": "a", "status": "verified", "errors": []},
+                {"id": "b", "status": "failed", "errors": ["tag missing"]},
+            ]
+        }
+        title, message = summarise(report)
+        self.assertIn("drift", title.lower())
+        self.assertIn("b: tag missing", message)
+        self.assertIn("pull-time outage", message)
 
 
 class RegistryCiContractTests(unittest.TestCase):
