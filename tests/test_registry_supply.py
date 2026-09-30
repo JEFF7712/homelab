@@ -1963,7 +1963,40 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
         )
         record["destination_repository"] = "apps/apolline"
         payload = render_node_config(value, "node-reader", "secret")
-        self.assertNotIn('"registry.rupan.dev":\n    endpoint:', payload)
+        self.assertIn(
+            '"registry.rupan.dev":\n    endpoint:\n      - "https://registry.rupan.dev"',
+            payload,
+        )
+        self.assertNotIn("rewrite:", payload)
+
+    def test_node_config_mirrors_destination_and_rewrites_upstream_for_spegel(
+        self,
+    ) -> None:
+        raw = manifest()
+        value = valid_lock(raw)
+        upstream_record = value["images"][0]
+        first_party = copy.deepcopy(upstream_record)
+        first_party["id"] = "first-party-apps-test"
+        first_party["kind"] = "first-party"
+        first_party["source"].update(
+            {
+                "registry": "registry.rupan.dev",
+                "repository": "apps/test-app",
+                "reference": "registry.rupan.dev/apps/test-app@"
+                + first_party["digest"],
+            }
+        )
+        first_party["destination_repository"] = "apps/test-app"
+        value["images"].append(first_party)
+        payload = render_node_config(value, "node-reader", "secret")
+        self.assertIn(
+            '"registry.rupan.dev":\n    endpoint:\n      - "https://registry.rupan.dev"',
+            payload,
+        )
+        self.assertIn(
+            '"docker.io":\n    endpoint:\n      - "https://registry.rupan.dev"\n    rewrite:\n      "^library/demo$": "upstream/docker.io/library/demo"',
+            payload,
+        )
 
 
 def first_party_record(
