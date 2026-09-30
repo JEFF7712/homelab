@@ -187,6 +187,10 @@ class RegistryCiContractTests(unittest.TestCase):
         # node is read-only on apps/** and the importer is 403 there, so only
         # maintenance can create the first-party retention tags.
         self.assertIn("REGISTRY_MAINTENANCE_AUTH_FILE", script)
+        # The copy reads from the destination registry, so both sides need the
+        # maintenance credential; with only the destination set, skopeo reads
+        # the source manifest with the upstream credential and gets 401.
+        self.assertEqual(script.count("REGISTRY_MAINTENANCE_AUTH_FILE"), 2)
         self.assertIn("reconcile-retention", script)
         self.assertEqual(template["environment"], {"name": "production"})
         self.assertEqual(template["resource_group"], "registry-content")

@@ -353,7 +353,12 @@ registry_drift_check:
       when: manual
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
+    # The copy's source is the destination registry, so skopeo needs the
+    # maintenance credential on both sides. With only the destination set it
+    # reads the manifest with the upstream credential and fails with
+    # "authentication required".
     - export REGISTRY_DEST_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
+    - export REGISTRY_SOURCE_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry-retention --
       bash -euo pipefail -c
