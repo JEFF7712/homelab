@@ -1168,9 +1168,19 @@ class OciClient:
                     # policy denying the read. Neither says whether the content
                     # is present, so neither is a verdict about contents. A 404
                     # below is, and is reported as a real absence.
+                    #
+                    # Say whether a credential was sent, because a 401 without
+                    # one is our own misconfiguration rather than the registry
+                    # refusing, and the two look identical from the status alone.
+                    sent = (
+                        "no credential was sent, so this is our misconfiguration"
+                        if anonymous
+                        else "the credential was sent and refused"
+                    )
                     raise TransientRegistryError(
-                        f"{operation}: registry refused with {error.code} for {registry}/{path}, "
-                        "which says nothing about whether the content is present"
+                        f"{operation}: registry refused with {error.code} for "
+                        f"{registry}/{path} and {sent}, so it says nothing about "
+                        "whether the content is present"
                     )
                 # 404 and 405 are the registry's own answer, so return it rather
                 # than raising, and let the caller decide what it means.
