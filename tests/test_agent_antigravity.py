@@ -12,6 +12,7 @@ from unittest import mock
 
 from scripts.agent.antigravity_hook import adapt_hook, normalized_payload
 from scripts.agent.session import client_environment
+from tests.agent_helpers import bash_shebang
 
 
 class AntigravityAdapterTest(unittest.TestCase):
@@ -28,7 +29,7 @@ class AntigravityAdapterTest(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(root)], check=True)
             (root / "hooks").mkdir()
             adapter = root / "hooks/antigravity"
-            adapter.write_text("#!/usr/bin/env bash\ncat\n")
+            adapter.write_text(bash_shebang() + "\ncat\n")
             adapter.chmod(0o755)
             with client_environment(root, "selected", "antigravity") as environment:
                 result = subprocess.run(
