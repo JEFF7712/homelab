@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-30T21:17:35+00:00",
+  "generated_at": "2026-09-30T21:49:10+00:00",
   "images": [
     {
       "authenticity": {
@@ -535,10 +535,10 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1790797816",
-        "retention-deployed-0cd9075379682a0a"
+        "0.0.1790804801",
+        "retention-deployed-6e960719f584b8f1"
       ],
-      "digest": "sha256:0cd9075379682a0a826b2f285bb2dcc7d07af0b7a18f00b6a76cfe78cfe6dd32",
+      "digest": "sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -559,11 +559,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:0cd9075379682a0a826b2f285bb2dcc7d07af0b7a18f00b6a76cfe78cfe6dd32",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1790797816@sha256:0cd9075379682a0a826b2f285bb2dcc7d07af0b7a18f00b6a76cfe78cfe6dd32",
+        "digest": "sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1790804801@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1790797816"
+        "tag": "0.0.1790804801"
       }
     },
     {

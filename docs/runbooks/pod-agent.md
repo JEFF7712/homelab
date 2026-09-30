@@ -356,6 +356,56 @@ database, additive tables, current OAuth authority, and scheduled operation.
 Do not re-enable the stale laptop authority. Executable customer messages and
 refunds remain separate capability and authority work.
 
+## Shared LLC budget release, September 30
+
+Owner approval covers publication and deployment of application revision
+`8eab78aa801d4581dfa119d54e61ae99082fed57`. GitHub Actions run `36780750352`
+passed 2,927 tests (three skipped), full Pyright, and image publication.
+The CI index is
+`sha256:ec7fb02eeec43e479c1ccb71545c0229c14ce25926a47cae9f6ff191fe0a5b4f`.
+The imported amd64 child is
+`sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c`.
+Its raw manifest digest matches the CI child and its revision label matches the
+tested source. Numeric tag `0.0.1790804801` and retention tag
+`retention-deployed-6e960719f584b8f1` preserve the imported image. The previous
+`retention-deployed-0cd9075379682a0a` tag was verified before rollout.
+
+Backup job `pod-agent-pre-budget-8eab78a` accepted encrypted snapshot
+`/data/backups/state-20260930T214041017342Z.db.age`, including decryption,
+integrity, and plaintext hash verification. It contains 401 proposals and one
+OAuth token row. Before migration, production has 558 business writes and
+21 consumed reservations totaling 420 cents. The latest successful Mercury
+snapshot records 13,374 cents and was about nine hours old at inspection.
+
+The additive migration assigns existing reservations to `distrojeff-llc`
+without changing their historical fields. One entity budget retains the $100
+reserve, $10 daily limit, and $50 monthly limit. DistroJeff starts with those
+limits, Darkbit with zero. Owner allocations share the entity caps; this
+release does not assign new spending authority to another shop.
+
+Every current cost-bearing listing action requires fresh shared cash and an
+allocation, rechecked before execution. All outstanding commitments count
+across date boundaries. Attempted writes cannot release funds, and a failed
+write cannot reuse that proposal's reservation for a second request after a
+crash. Spending since the bank snapshot also reduces available cash. Unknown
+outcomes remain held until verified reconciliation establishes settlement.
+
+After Flux applies the image, verify both service image IDs and every
+scheduled/init consumer, all 226 packaged source files, budget tables, and
+unchanged reservation-history hashes. Inspect `entity budget status` for both
+shops and the authenticated Desk view. Run concurrent shared-cash and
+interrupted-write replays only in temporary databases with fake providers and
+networking disabled. Refresh actual registry observations after rollout.
+The pre-rollout snapshot retains the previous running image honestly, so its
+registry gate can report the expected image transition before Flux converges.
+
+This milestone covers publication and renewal fees. It does not establish
+individual bank-charge reconciliation or coverage of production, refunds,
+overhead, subscriptions, taxes, replacements, or acquisition spend. Customer
+messaging, refunds, and an owned storefront remain deferred by owner decision.
+Rollback restores the previous image while retaining production data and OAuth
+authority; old code also restores shop-scoped reservation checks.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.

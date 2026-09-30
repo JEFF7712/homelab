@@ -137,10 +137,10 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-695bf94767-jhgwr/quartz",
-        "obsidian/quartz-notes-695bf94767-r6b94/quartz"
+        "obsidian/quartz-notes-75fd5b797f-cfp7l/quartz",
+        "obsidian/quartz-notes-75fd5b797f-wpd2z/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:1e507dd7a5534736b3d2fa2705ed1c477157c000c7745207a1c985e90c92da11"
     },
     {
       "consumers": [
@@ -184,8 +184,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-597657f697-2qkv9/cloudflared",
-        "cloudflare/cloudflared-597657f697-rln4s/cloudflared"
+        "cloudflare/cloudflared-847888bf7-76l4h/cloudflared",
+        "cloudflare/cloudflared-847888bf7-pgcrf/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -490,6 +490,12 @@
     },
     {
       "consumers": [
+        "hearth/hearth-86cbcdccc-nmxgp/hearth"
+      ],
+      "reference": "registry.rupan.dev/upstream/ghcr.io/knowald/ha-hearth@sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a"
+    },
+    {
+      "consumers": [
         "music-assistant/ledfx-5c4d95ff5f-bfhbw/ledfx"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
@@ -717,6 +723,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-30T20:18:10+00:00",
+  "observed_at": "2026-09-30T21:50:40+00:00",
   "schema_version": 1
 }
