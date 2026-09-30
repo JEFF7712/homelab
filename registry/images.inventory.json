@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T17:32:22+00:00",
+  "generated_at": "2026-09-30T17:55:04+00:00",
   "images": [
     {
       "consumers": [
@@ -320,9 +320,9 @@
         "observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "observed:pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "observed:pod-agent/pod-agent-dashboard-d4d6fd6bd-45khc/dashboard",
-        "observed:pod-agent/pod-agent-dashboard-d4d6fd6bd-45khc/seed-memory",
-        "observed:pod-agent/pod-agent-discord-bot-5584cf55cd-zr7rd/bot"
+        "observed:pod-agent/pod-agent-dashboard-58647cd944-skv8t/dashboard",
+        "observed:pod-agent/pod-agent-dashboard-58647cd944-skv8t/seed-memory",
+        "observed:pod-agent/pod-agent-discord-bot-d8d4bc4cb-8ntz5/bot"
       ],
       "destination_repository": "apps/pod-agent",
       "id": "first-party-apps-pod-agent-b6c2dabcd7ee",
@@ -1990,7 +1990,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "53a3fc63d01acca4715d0459ba3bd3d1aef8b24b",
+  "source_revision": "45c8b4e8807512a1256d8d508979e498acec3da5",
   "unresolved_inputs": [
     {
       "blocking": false,

@@ -281,6 +281,22 @@ Customer cases do not yet ingest conversations or execute new refunds,
 replacements, claims, or cancellation authority. Rollback the application pin
 while retaining the additive tables and their audit records.
 
+Verified after rollout: Flux applied a main revision containing release commit
+`45c8b4e`; both service pods are ready on the imported digest. All 28 container
+and init image pins across 16 Deployments/CronJobs match it. All 224 installed
+package files match tested source, the three new tables exist, and the
+authenticated Orders page serves the case section. A live scan covering 28
+Printify orders and 27 Etsy receipts found no current exceptions. It made no
+new proposals, business write-log entries, or spending reservations. A real
+case lifecycle remains unverified until an exception occurs.
+
+Post-rollout `just check-changed HEAD^` passed documentation, rendered
+GitOps/schema, and live registry policy. Full formatting passed. The initial
+rollout pipeline's offline registry gate used a stale committed observation
+snapshot; the follow-up refresh records actual running images. Its drift job
+also reported a separate Quartz tag/lock mismatch introduced before this
+release. No Quartz desired state or registry tags were changed by this rollout.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.
