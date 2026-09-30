@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T20:18:10+00:00",
+  "generated_at": "2026-09-30T21:17:35+00:00",
   "images": [
     {
       "consumers": [
@@ -2007,7 +2007,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "f7879847272cb4a64ea78ecb96e78e70089c4e76",
+  "source_revision": "6d43c1d4092c694d9e051721248da66adeb7a1c6",
   "unresolved_inputs": [
     {
       "blocking": false,

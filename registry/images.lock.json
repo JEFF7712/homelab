@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-30T20:07:21+00:00",
+  "generated_at": "2026-09-30T21:17:35+00:00",
   "images": [
     {
       "authenticity": {
@@ -619,7 +619,7 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.324",
+        "0.0.325",
         "retention-deployed-0d365e7b10fa57bd"
       ],
       "digest": "sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc",
@@ -645,10 +645,10 @@
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.324@sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.325@sha256:0d365e7b10fa57bdddf7124c75f5567501de6069b7ddedbab80769ebc024dcdc",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.324"
+        "tag": "0.0.325"
       }
     },
     {
