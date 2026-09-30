@@ -335,6 +335,11 @@ registry_drift_check:
     - .nas_ci
     - .registry_drift_check
   rules:
+    # TEMPORARY, verification only: drop before this branch is merged. It lets
+    # the read-only drift check run here, because every other rule requires the
+    # default branch or a schedule, and a feature-branch pipeline would
+    # otherwise contain no job that talks to the registry at all.
+    - if: '$CI_COMMIT_BRANCH == "registry-http-reads"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
