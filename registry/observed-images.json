@@ -146,13 +146,13 @@
       "consumers": [
         "rupan-dev/website-deploy-74c8474bbd-l2kpx/web"
       ],
-      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:b0e55f46dd930d4b3d7ec2cc02b0d13fe5e2d8ae18927ebb8e1ccd2c10cd2dcb"
+      "reference": "registry.rupan.dev/apps/rupan-dev@sha256:3f35e70d3e999e10e79d0f8e447871860d5898b32123f08b7fe7bd0ac156cb68"
     },
     {
       "consumers": [
         "rupanism/website-deploy-6cd59f5bf5-8lztq/web"
       ],
-      "reference": "registry.rupan.dev/apps/rupanism@sha256:3404e0f8143e8c5ec48df12f33d73d83a8179cd5b75e45219a245f934bfd2f9c"
+      "reference": "registry.rupan.dev/apps/rupanism@sha256:1d825e169b0bc438c3b82ec10133feac5b5244c59ad05090fe9c15bffb6a34f9"
     },
     {
       "consumers": [
