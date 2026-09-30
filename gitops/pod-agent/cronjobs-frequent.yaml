@@ -26,7 +26,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -45,7 +45,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: veto-sweep
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - veto-sweep
@@ -114,7 +114,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -133,7 +133,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: oauth-refresh
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - etsy
@@ -203,7 +203,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -222,7 +222,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: email-watch
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - email-watch
@@ -291,7 +291,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: watchdog
-              image: registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - watchdog
@@ -310,6 +310,96 @@ spec:
                   memory: 64Mi
                 limits:
                   memory: 256Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: home
+                  mountPath: /home/podagent
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-planner-recovery
+  namespace: pod-agent
+spec:
+  schedule: "45 * * * *"
+  suspend: false
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1200
+      template:
+        spec:
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: wait-for-network
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              command: [python, /app/wait-for-network.py]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          containers:
+            - name: planner-recovery
+              image: registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              args:
+                - planner
+                - recover
+                - --shop
+                - distrojeff
+              workingDir: /data
+              envFrom:
+                - secretRef:
+                    name: pod-agent-env
+                - configMapRef:
+                    name: pod-agent-config
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
               volumeMounts:
                 - name: data
                   mountPath: /data

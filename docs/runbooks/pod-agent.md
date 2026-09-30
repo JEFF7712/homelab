@@ -1,7 +1,7 @@
 # pod-agent on the homelab
 
 pod-agent (DistroJeff LLC storefront ops) runs in k3s under `gitops/pod-agent/`:
-two Deployments (dashboard, discord-bot) and thirteen CronJobs mirroring the
+two Deployments (dashboard, discord-bot) and fourteen CronJobs mirroring the
 laptop systemd table. All stateful pods are pinned to `homelab-01` with a
 `ReadWriteOnce` hostPath volume, because `state.db` is a single-writer SQLite
 database with `fcntl` locks. There is exactly one writer rule: the laptop
@@ -24,7 +24,7 @@ token rotation races.
 - `gitops/pod-agent/discord-bot.yaml` — approvals gateway bot.
 - `gitops/pod-agent/cronjobs-daily.yaml` — backup, observe, cycle, price,
   sweep. `cronjobs-frequent.yaml` — veto-sweep, oauth-refresh, email-watch,
-  watchdog. `cronjobs-weekly.yaml` — privacy-purge, learn, discover,
+  watchdog, and planner-recovery. `cronjobs-weekly.yaml` — privacy-purge, learn, discover,
   shipping. Schedules use `timeZone: America/Chicago` to keep laptop
   wall-clock times.
 - `gitops/clusters/homelab-01/pod-agent.yaml` — Flux Kustomization.
@@ -190,6 +190,57 @@ pod spec can substitute for it.
    re-auth from the token-authority host: port-forward if headless, then run
    `pod-agent etsy auth --shop distrojeff` with `ETSY_REDIRECT_URI`
    reachable (`http://localhost:3003/callback` by default; forward 3003).
+
+## Reliability release, September 30
+
+The planner-recovery CronJob is enabled alongside application release
+`81d65c7`, which provides `planner recover`. It runs at minute 45 each
+hour, uses the existing production data volume and credentials, and has a
+1200-second deadline. `backoffLimit: 0` and `restartPolicy: Never` leave retry
+decisions to the persisted planner attempt budget rather than Kubernetes.
+Publishing recovery runs in the existing veto sweep and daily cycle.
+
+Owner authorization covers source publication, image import, and production
+activation. GitHub Actions run `36677365905` passed 2,828 tests (three skipped),
+Pyright, and the image build. Validation uses managed Python 3.12.14, `age`,
+and a delegated systemd cgroup so the process containment tests run without
+weakening their requirements. The pre-rollout encrypted backup
+`/data/backups/state-20260930T061520321839Z.db.age` passed decryption and
+integrity verification with 396 proposals and one OAuth token row.
+
+The production plan for September 30 was already completed before this
+release. Recovery must leave that plan unchanged. The first new daily plan
+under this release remains a separate acceptance gate.
+
+Release acceptance:
+
+1. Publish the locally tested pod-agent source after owner authorization.
+   Verify the image build, import its exact source revision into the local
+   registry, and verify the resulting digest before updating all pod-agent
+   consumer pins through registry promotion. Preserve unrelated registry
+   observations and checkout changes.
+2. Back up production state and verify the backup. Keep the laptop timers
+   disabled. Set planner-recovery `suspend: false` only alongside the new
+   image pin, then publish the scoped GitOps change and verify Flux applies it.
+3. Verify the running image and CLI, `planner_attempts` schema, and unchanged
+   Etsy token authority. A synthetic failure exercise must use a temporary
+   SQLite database, disabled notification credentials, and fake providers;
+   never alter a real planner run or inject a failed business write.
+4. Verify the next real daily cycle and hourly recovery in `/data/state.db`.
+   A failed legacy run without attempt metadata stays blocked. The hourly
+   job does not invent a new plan. Confirm the new daily plan reaches a
+   completed action batch or an evidence-backed no-action result, and that
+   the watchdog reports any continuing failure.
+5. Verify publishing recovery retains unknown reservations and settles only
+   verified outcomes. Confirm no repeat full publish or SEO write. A healthy
+   Deployment or successful synthetic exercise alone does not establish
+   production business recovery.
+
+Rollback this release by suspending planner-recovery and reverting the
+application image pins. Keep the production database in place: the new
+planner-attempt table is additive, and current operation may have newer
+orders or rotated OAuth credentials than a prior backup. Do not switch back
+to the stale laptop database as part of an application rollback.
 
 ## Rollback
 

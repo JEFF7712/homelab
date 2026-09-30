@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T00:45:02+00:00",
+  "generated_at": "2026-09-30T06:26:46+00:00",
   "images": [
     {
       "consumers": [
@@ -282,6 +282,8 @@
         "gitops/pod-agent/cronjobs-frequent.yaml:225",
         "gitops/pod-agent/cronjobs-frequent.yaml:29",
         "gitops/pod-agent/cronjobs-frequent.yaml:294",
+        "gitops/pod-agent/cronjobs-frequent.yaml:365",
+        "gitops/pod-agent/cronjobs-frequent.yaml:384",
         "gitops/pod-agent/cronjobs-frequent.yaml:48",
         "gitops/pod-agent/cronjobs-weekly.yaml:118",
         "gitops/pod-agent/cronjobs-weekly.yaml:187",
@@ -321,7 +323,7 @@
         "observed:pod-agent/pod-agent-discord-bot-7d56ffb7ff-4bqj6/bot"
       ],
       "destination_repository": "apps/pod-agent",
-      "id": "first-party-apps-pod-agent-e3453501a72b",
+      "id": "first-party-apps-pod-agent-04ce5261fdec",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/pod-agent",
@@ -330,8 +332,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa",
-        "reference": "registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa",
+        "digest": "sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31",
+        "reference": "registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
         "tag": null
@@ -1471,7 +1473,7 @@
     },
     {
       "consumers": [
-        "gitops/voice/satellite.yaml:2630",
+        "gitops/voice/satellite.yaml:2635",
         "observed:voice/linux-voice-assistant-5847b79d6b-plz2k/satellite"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant",
@@ -1986,7 +1988,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "9da857743c635a1447d718a95e65224bd7d8bbb2",
+  "source_revision": "28f44380aa3c2c93b6966a72704b01129618a682",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2087,9 +2089,9 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/pod-agent/cronjobs-daily.yaml:30,gitops/pod-agent/cronjobs-daily.yaml:111,gitops/pod-agent/cronjobs-daily.yaml:130,gitops/pod-agent/cronjobs-daily.yaml:202,gitops/pod-agent/cronjobs-daily.yaml:221,gitops/pod-agent/cronjobs-daily.yaml:291,gitops/pod-agent/cronjobs-daily.yaml:310,gitops/pod-agent/cronjobs-daily.yaml:382,gitops/pod-agent/cronjobs-daily.yaml:401,gitops/pod-agent/cronjobs-frequent.yaml:29,gitops/pod-agent/cronjobs-frequent.yaml:48,gitops/pod-agent/cronjobs-frequent.yaml:117,gitops/pod-agent/cronjobs-frequent.yaml:136,gitops/pod-agent/cronjobs-frequent.yaml:206,gitops/pod-agent/cronjobs-frequent.yaml:225,gitops/pod-agent/cronjobs-frequent.yaml:294,gitops/pod-agent/cronjobs-weekly.yaml:30,gitops/pod-agent/cronjobs-weekly.yaml:99,gitops/pod-agent/cronjobs-weekly.yaml:118,gitops/pod-agent/cronjobs-weekly.yaml:187,gitops/pod-agent/cronjobs-weekly.yaml:206,gitops/pod-agent/cronjobs-weekly.yaml:278,gitops/pod-agent/cronjobs-weekly.yaml:297,gitops/pod-agent/dashboard.yaml:28,gitops/pod-agent/dashboard.yaml:50,gitops/pod-agent/discord-bot.yaml:29,observed:pod-agent/cronjob-pod-agent-backup/backup,observed:pod-agent/cronjob-pod-agent-cycle/cycle,observed:pod-agent/cronjob-pod-agent-cycle/wait-for-network,observed:pod-agent/cronjob-pod-agent-discover/discover,observed:pod-agent/cronjob-pod-agent-discover/wait-for-network,observed:pod-agent/cronjob-pod-agent-email-watch/email-watch,observed:pod-agent/cronjob-pod-agent-email-watch/wait-for-network,observed:pod-agent/cronjob-pod-agent-learn/learn,observed:pod-agent/cronjob-pod-agent-learn/wait-for-network,observed:pod-agent/cronjob-pod-agent-oauth-refresh/oauth-refresh,observed:pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network,observed:pod-agent/cronjob-pod-agent-observe/observe,observed:pod-agent/cronjob-pod-agent-observe/wait-for-network,observed:pod-agent/cronjob-pod-agent-price/price,observed:pod-agent/cronjob-pod-agent-price/wait-for-network,observed:pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge,observed:pod-agent/cronjob-pod-agent-shipping/shipping,observed:pod-agent/cronjob-pod-agent-shipping/wait-for-network,observed:pod-agent/cronjob-pod-agent-sweep/sweep,observed:pod-agent/cronjob-pod-agent-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep,observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-watchdog/watchdog,observed:pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/dashboard,observed:pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/seed-memory,observed:pod-agent/pod-agent-discord-bot-7d56ffb7ff-4bqj6/bot",
-      "id": "producer:first-party-apps-pod-agent-e3453501a72b",
-      "input": "registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa",
+      "consumer": "gitops/pod-agent/cronjobs-daily.yaml:30,gitops/pod-agent/cronjobs-daily.yaml:111,gitops/pod-agent/cronjobs-daily.yaml:130,gitops/pod-agent/cronjobs-daily.yaml:202,gitops/pod-agent/cronjobs-daily.yaml:221,gitops/pod-agent/cronjobs-daily.yaml:291,gitops/pod-agent/cronjobs-daily.yaml:310,gitops/pod-agent/cronjobs-daily.yaml:382,gitops/pod-agent/cronjobs-daily.yaml:401,gitops/pod-agent/cronjobs-frequent.yaml:29,gitops/pod-agent/cronjobs-frequent.yaml:48,gitops/pod-agent/cronjobs-frequent.yaml:117,gitops/pod-agent/cronjobs-frequent.yaml:136,gitops/pod-agent/cronjobs-frequent.yaml:206,gitops/pod-agent/cronjobs-frequent.yaml:225,gitops/pod-agent/cronjobs-frequent.yaml:294,gitops/pod-agent/cronjobs-frequent.yaml:365,gitops/pod-agent/cronjobs-frequent.yaml:384,gitops/pod-agent/cronjobs-weekly.yaml:30,gitops/pod-agent/cronjobs-weekly.yaml:99,gitops/pod-agent/cronjobs-weekly.yaml:118,gitops/pod-agent/cronjobs-weekly.yaml:187,gitops/pod-agent/cronjobs-weekly.yaml:206,gitops/pod-agent/cronjobs-weekly.yaml:278,gitops/pod-agent/cronjobs-weekly.yaml:297,gitops/pod-agent/dashboard.yaml:28,gitops/pod-agent/dashboard.yaml:50,gitops/pod-agent/discord-bot.yaml:29,observed:pod-agent/cronjob-pod-agent-backup/backup,observed:pod-agent/cronjob-pod-agent-cycle/cycle,observed:pod-agent/cronjob-pod-agent-cycle/wait-for-network,observed:pod-agent/cronjob-pod-agent-discover/discover,observed:pod-agent/cronjob-pod-agent-discover/wait-for-network,observed:pod-agent/cronjob-pod-agent-email-watch/email-watch,observed:pod-agent/cronjob-pod-agent-email-watch/wait-for-network,observed:pod-agent/cronjob-pod-agent-learn/learn,observed:pod-agent/cronjob-pod-agent-learn/wait-for-network,observed:pod-agent/cronjob-pod-agent-oauth-refresh/oauth-refresh,observed:pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network,observed:pod-agent/cronjob-pod-agent-observe/observe,observed:pod-agent/cronjob-pod-agent-observe/wait-for-network,observed:pod-agent/cronjob-pod-agent-price/price,observed:pod-agent/cronjob-pod-agent-price/wait-for-network,observed:pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge,observed:pod-agent/cronjob-pod-agent-shipping/shipping,observed:pod-agent/cronjob-pod-agent-shipping/wait-for-network,observed:pod-agent/cronjob-pod-agent-sweep/sweep,observed:pod-agent/cronjob-pod-agent-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep,observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-watchdog/watchdog,observed:pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/dashboard,observed:pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/seed-memory,observed:pod-agent/pod-agent-discord-bot-7d56ffb7ff-4bqj6/bot",
+      "id": "producer:first-party-apps-pod-agent-04ce5261fdec",
+      "input": "registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

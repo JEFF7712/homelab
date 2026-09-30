@@ -125,7 +125,7 @@
         "pod-agent/pod-agent-dashboard-fc47d45c4-69cm4/seed-memory",
         "pod-agent/pod-agent-discord-bot-7d56ffb7ff-4bqj6/bot"
       ],
-      "reference": "registry.rupan.dev/apps/pod-agent@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa"
+      "reference": "registry.rupan.dev/apps/pod-agent@sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31"
     },
     {
       "consumers": [
