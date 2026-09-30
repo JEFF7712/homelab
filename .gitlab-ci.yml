@@ -358,9 +358,10 @@ registry_gc_fixture:
     - .nas_ci
     - .registry_gc_fixture
   rules:
+    # Schedule first, for the same reason as the retention reconciler above.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 # matches is untouched, and one that resolves elsewhere is reported, never
 # overwritten. Manual plus nightly, matching the other registry write jobs.
@@ -378,9 +379,12 @@ registry_gc_fixture:
     name: production
   resource_group: registry-content
   rules:
+    # Schedule first: a scheduled pipeline also runs on the default branch, so
+    # a manual rule listed ahead of this one would match first and the nightly
+    # run would never happen.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
     # The copy's source is the destination registry, so skopeo needs the
     # maintenance credential on both sides. With only the destination set it

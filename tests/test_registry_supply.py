@@ -535,8 +535,8 @@ class RegistryCiContractTests(unittest.TestCase):
         self.assertEqual(
             pipeline["registry_gc_fixture"]["rules"],
             [
-                {"if": "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", "when": "manual"},
                 {"if": '$CI_PIPELINE_SOURCE == "schedule"'},
+                {"if": "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", "when": "manual"},
             ],
         )
 
@@ -619,8 +619,8 @@ class RegistryCiContractTests(unittest.TestCase):
         self.assertEqual(
             template["rules"],
             [
-                {"if": '$CI_COMMIT_BRANCH == "main"', "when": "manual"},
                 {"if": '$CI_PIPELINE_SOURCE == "schedule"'},
+                {"if": '$CI_COMMIT_BRANCH == "main"', "when": "manual"},
             ],
         )
 

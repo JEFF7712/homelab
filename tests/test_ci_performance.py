@@ -197,6 +197,38 @@ class CancellationTest(unittest.TestCase):
                     self.assertIn("secret_scan", job["needs"])
         self.assertEqual(pipeline[".secret_scan"]["stage"], "test")
 
+    def test_scheduled_jobs_are_not_shadowed_by_a_manual_rule(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        # A scheduled pipeline also runs on the default branch, so a
+        # `when: manual` rule listed before the schedule rule matches first and
+        # the nightly run never happens. Both registry maintenance jobs shipped
+        # with the order reversed and had never run automatically.
+        shadowed = set()
+        for name, job in pipeline.items():
+            if not isinstance(job, dict):
+                continue
+            rules = job.get("rules")
+            if not isinstance(rules, list):
+                continue
+            seen_manual = False
+            for rule in rules:
+                if not isinstance(rule, dict):
+                    continue
+                if rule.get("when") == "manual":
+                    seen_manual = True
+                if "schedule" in str(rule.get("if", "")) and seen_manual:
+                    shadowed.add(name)
+                    break
+        self.assertEqual(shadowed, set())
+
+    def test_nightly_registry_maintenance_actually_runs_on_a_schedule(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        for name in (".registry_retention_reconcile", "registry_gc_fixture"):
+            with self.subTest(job=name):
+                rules = pipeline[name]["rules"]
+                self.assertIn("schedule", str(rules[0]["if"]))
+                self.assertNotEqual(rules[0].get("when"), "manual")
+
     def test_only_validation_jobs_are_interruptible(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
         self.assertEqual(
