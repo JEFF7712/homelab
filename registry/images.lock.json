@@ -623,7 +623,7 @@
         "0.0.315",
         "retention-deployed-fc87d8d26b9fa602"
       ],
-      "digest": "sha256:fc87d8d26b9fa602fd2694ed60cc7ebfacdf5ddf6198f3f54c415c562194c657",
+      "digest": "sha256:b9ecc412472f48b03adb426d33f969b8f01e7760046c7e03c338ee47f2c78c44",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -645,8 +645,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:fc87d8d26b9fa602fd2694ed60cc7ebfacdf5ddf6198f3f54c415c562194c657",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.315@sha256:fc87d8d26b9fa602fd2694ed60cc7ebfacdf5ddf6198f3f54c415c562194c657",
+        "digest": "sha256:b9ecc412472f48b03adb426d33f969b8f01e7760046c7e03c338ee47f2c78c44",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.315@sha256:b9ecc412472f48b03adb426d33f969b8f01e7760046c7e03c338ee47f2c78c44",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
         "tag": "0.0.315"
