@@ -300,21 +300,22 @@ registry_auth_consistency:
   environment:
     name: production
   script:
-    # TEMPORARY, verification only: restore the node credential block and the
-    # full lock before this branch is merged. Production-scoped variables are not
-    # injected on an unprotected branch, so the node password is unavailable here
-    # and the job died on a KeyError. The importer auth file is scoped `*` and
-    # the importer reads upstream/**, so verifying the upstream records exercises
-    # the same in-process read path against the live registry. First-party
-    # records are skipped because the importer is 403 on apps/**.
-    - export REGISTRY_DEST_AUTH_FILE="$REGISTRY_IMPORTER_AUTH_FILE"
+    - >-
+      nix develop ./flake -c python -c 'import base64, json, os;
+      password = open(os.environ["REGISTRY_NODE_PASSWORD_FILE"]).read().strip();
+      assert password, "node registry password is empty";
+      auth = base64.b64encode(f"node:{password}".encode()).decode();
+      fd = os.open("/tmp/registry-node-auth.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600);
+      handle = os.fdopen(fd, "w");
+      json.dump({"auths": {"registry.rupan.dev": {"auth": auth}}}, handle);
+      handle.close()'
+    - export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry-drift --
       bash -euo pipefail -c
       'rc=0;
       python -m scripts.registry verify
       --lock registry/images.lock.json
-      --kind upstream
       --report artifacts/registry/drift-report.json || rc=$?;
       if [ "$rc" -ne 0 ]; then
       python -m scripts.ci.notify registry-drift
@@ -334,11 +335,6 @@ registry_drift_check:
     - .nas_ci
     - .registry_drift_check
   rules:
-    # TEMPORARY, verification only: drop before this branch is merged. It lets
-    # the read-only drift check run here, because every other rule requires the
-    # default branch or a schedule, and a feature-branch pipeline would
-    # otherwise contain no job that talks to the registry at all.
-    - if: '$CI_COMMIT_BRANCH == "registry-http-reads"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
