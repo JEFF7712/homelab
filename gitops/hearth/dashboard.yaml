@@ -1,0 +1,185 @@
+revision: 2
+version: 5
+day_night:
+  entity: sun.sun
+rail:
+  - id: clock
+    type: clock
+  - id: divider
+    type: spacer
+    line: true
+    height: 24
+  - id: nav
+    type: nav
+  - id: today-weather
+    type: weather
+    entity: weather.forecast_home
+  - id: today-label
+    type: label
+    text: Today
+  - id: today-energy
+    type: energy
+    entity: sensor.0xffffb40e0608c96f_energy
+  - id: printer-progress
+    type: progress
+    name: A1
+    icon: printer-3d
+    status_entity: sensor.a1_03900d642327265_print_status
+    progress_entity: sensor.a1_03900d642327265_print_progress
+    unit: "%"
+    remaining_entity: sensor.a1_03900d642327265_remaining_time
+    active_states:
+      - running
+      - paused
+    completed_states:
+      - finish
+  - id: spacer
+    type: spacer
+rooms:
+  - id: home
+    name: Home
+    icon: home
+    hide_header: true
+    cards:
+      - - id: home-lights
+          type: entities
+          title: Lights
+          show_count: true
+          entities:
+            - entity: light.all_govee_lights
+              name: All Govee Lights
+            - entity: light.kitchen_ceiling_light_1
+              name: Kitchen Ceiling 1
+            - entity: light.kitchen_ceiling_light_2
+              name: Kitchen Ceiling 2
+            - entity: light.living_room_floor_lamp
+              name: Floor Lamp
+            - entity: light.living_room_tulip_lamp
+              name: Tulip Lamp
+            - entity: light.kitchen_mushroom_lamp
+              name: Mushroom Lamp
+            - entity: light.kitchen_fuck_off_sign
+              name: Fuck Off Sign
+            - entity: light.living_room_good_vibes_sign
+              name: Good Vibes Sign
+            - entity: switch.stairs_light
+              name: Stairs Light
+      - - id: home-scenes
+          type: scenes
+          title: Scenes
+          style: chips
+          scenes:
+            - entity: scene.cooking_bright_kitchen
+              name: Cooking
+            - entity: scene.dinner_warm_dim
+              name: Dinner
+            - entity: scene.movie_low_living_room
+              name: Movie
+        - id: home-temperature
+          type: temperature
+          label: Living Room
+          entity: sensor.living_room_ac_ambient_temperature_degf
+          climate_entity: climate.living_room_ac_living_room_ac_thermostat
+      - - id: home-people
+          type: entities
+          title: Home
+          show_count: true
+          entities:
+            - entity: person.rupan_sunderapandyan
+              name: Rupan
+            - entity: person.sam
+              name: Sam
+            - entity: person.jayanth
+              name: Jayanth
+        - id: home-media
+          type: media
+          entity: media_player.homelab_05_satellite_media_player
+  - id: kitchen
+    name: Kitchen
+    icon: countertops
+    cards:
+      - - id: kitchen-lighting
+          type: entities
+          title: Lighting
+          show_count: true
+          entities:
+            - entity: light.kitchen_lights
+              name: All Kitchen Lights
+            - entity: light.kitchen_ceiling_light_1
+              name: Kitchen Ceiling 1
+            - entity: light.kitchen_ceiling_light_2
+              name: Kitchen Ceiling 2
+            - entity: light.kitchen_mushroom_lamp
+              name: Mushroom Lamp
+            - entity: light.kitchen_fuck_off_sign
+              name: Fuck Off Sign
+        - id: kitchen-devices
+          type: entities
+          title: Devices
+          entities:
+            - entity: switch.fuck_off_sign
+              name: Fuck Off Sign
+            - entity: switch.kitchen_mushroom_lamp
+              name: Mushroom Lamp
+  - id: living-room
+    name: Living Room
+    icon: weekend
+    cards:
+      - - id: living-room-lighting
+          type: entities
+          title: Lighting
+          show_count: true
+          entities:
+            - entity: light.living_room_lights
+              name: All Living Room Lights
+            - entity: light.living_room_floor_lamp
+              name: Floor Lamp
+            - entity: light.living_room_tulip_lamp
+              name: Tulip Lamp
+            - entity: light.living_room_good_vibes_sign
+              name: Good Vibes Sign
+        - id: living-room-devices
+          type: entities
+          title: Devices
+          entities:
+            - entity: switch.living_room_good_vibes_sign
+              name: Good Vibes Sign
+      - - id: living-room-climate
+          type: climate
+          entity: climate.living_room_ac_living_room_ac_thermostat
+        - id: living-room-media
+          type: media
+          entity: media_player.homelab_05_satellite_media_player
+  - id: rupan-bedroom
+    name: Rupan Bedroom
+    icon: bed
+    cards:
+      - - id: rupan-bedroom-lighting
+          type: entities
+          title: Lighting
+          show_count: true
+          entities:
+            - entity: light.desk_lamp_desk_lamp
+              name: Desk Lamp
+            - entity: light.floor_lamp_floor_lamp
+              name: Floor Lamp
+            - entity: light.light_strip_light_strip
+              name: Light Strip
+        - id: rupan-bedroom-devices
+          type: entities
+          title: Devices
+          entities:
+            - entity: switch.bedroom_mushroom_plug
+              name: Bedroom Mushroom Lamp
+            - entity: switch.bedroom_window_plug
+              name: Bedroom Window Light
+  - id: stairs
+    name: Stairs
+    icon: stairs
+    cards:
+      - - id: stairs-devices
+          type: entities
+          title: Devices
+          entities:
+            - entity: switch.stairs_light
+              name: Light
