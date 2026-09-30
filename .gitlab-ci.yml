@@ -482,29 +482,42 @@ registry_promote_first_party:
     - >-
       nix develop ./flake -c bash -e -c '
         export GIT_TERMINAL_PROMPT=0
+        commit_rc=0
         if git diff --quiet -- registry/ gitops/; then
           echo "No first-party promotions; nothing to commit."
-          exit 0
-        fi
-        if [ -z "${GITLAB_PUSH_TOKEN:-}" ]; then
-          echo "WARNING: GITLAB_PUSH_TOKEN is not set; promotion changes will not be committed."
-          git diff --stat -- registry/ gitops/
-          exit 0
-        fi
-        git config user.email "registry-promote@homelab.local"
-        git config user.name "Homelab Registry Promotion"
-        git add registry/ gitops/
-        git commit -m "registry: promote first-party images to newest producer tags"
-        push_url="https://oauth2:${GITLAB_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-        for attempt in 1 2 3; do
-          if git push "$push_url" HEAD:"$CI_COMMIT_BRANCH"; then
-            exit 0
+        else
+          if [ -z "${GITLAB_PUSH_TOKEN:-}" ]; then
+            echo "WARNING: GITLAB_PUSH_TOKEN is not set; promotion changes will not be committed."
+            git diff --stat -- registry/ gitops/
+          else
+            git config user.email "registry-promote@homelab.local"
+            git config user.name "Homelab Registry Promotion"
+            git add registry/ gitops/
+            git commit -m "registry: promote first-party images to newest producer tags"
+            push_url="https://oauth2:${GITLAB_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+            for attempt in 1 2 3; do
+              if git push "$push_url" HEAD:"$CI_COMMIT_BRANCH"; then
+                break
+              fi
+              git fetch "$push_url" "$CI_COMMIT_BRANCH"
+              git rebase FETCH_HEAD
+              sleep $((attempt * 15))
+              if [ "$attempt" = 3 ]; then
+                commit_rc=1
+              fi
+            done
           fi
-          git fetch "$push_url" "$CI_COMMIT_BRANCH"
-          git rebase FETCH_HEAD
-          sleep $((attempt * 15))
-        done
-        exit 1
+        fi
+        # Pin the digests this promotion just locked in, before returning. A
+        # promoted digest is protected only by its sha-* tag until its retention
+        # tag exists, and nothing else creates it: the importer is 403 on
+        # apps/**. The standalone reconciler cannot cover this window because it
+        # runs in a separate job against the pre-push commit of this pipeline,
+        # which does not contain the promotion yet.
+        export REGISTRY_DEST_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
+        export REGISTRY_SOURCE_AUTH_FILE="$REGISTRY_MAINTENANCE_AUTH_FILE"
+        just registry-reconcile-retention || commit_rc=1
+        exit $commit_rc
       '
   artifacts:
     expire_in: 7 days

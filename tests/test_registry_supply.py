@@ -311,6 +311,14 @@ class TransientInterstitialTests(unittest.TestCase):
         self.assertIn("pull-time outage", message)
 
 
+def _ci_bash_block(script: str) -> str:
+    """The body of a `nix develop ./flake -c bash -e -c '...'` CI step."""
+    match = re.search(r"bash -e -c '(.*)'\s*$", script, re.DOTALL)
+    if match is None:
+        raise AssertionError("no bash -e -c block found in the CI script")
+    return match.group(1)
+
+
 class RegistryCiContractTests(unittest.TestCase):
     def test_node_rollout_verifies_lock_without_retired_migration_identity(
         self,
@@ -450,6 +458,34 @@ class RegistryCiContractTests(unittest.TestCase):
                 self.assertIn(
                     "zot-release.nix", flake.read_text(), f"{flake} lacks zot"
                 )
+
+    def test_promotion_pins_its_own_retention_tags(self) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        job = pipeline["registry_promote_first_party"]
+        block = "\n".join(job["script"])
+
+        # A promoted digest is protected only by its sha-* tag until the
+        # retention tag exists, and nothing else creates it for apps/**.
+        self.assertIn("registry-reconcile-retention", block)
+        # Both sides of the copy read the destination registry, as in the
+        # standalone reconciler job.
+        self.assertEqual(block.count("REGISTRY_MAINTENANCE_AUTH_FILE"), 2)
+        # The standalone reconciler cannot cover this: it runs in a separate job
+        # against the pre-push commit, so its ordering here is arbitrary.
+        self.assertEqual(job["resource_group"], "registry-content")
+
+        # The reconcile has to happen after the lock is written, and no earlier
+        # exit may skip it: a failed push used to exit 1 with the digests
+        # promoted but unpinned.
+        inner = _ci_bash_block(block)
+        self.assertLess(
+            inner.index("git commit"), inner.index("registry-reconcile-retention")
+        )
+        self.assertNotIn("exit 0", inner)
+        self.assertEqual(inner.count("exit $commit_rc"), 1)
+        # A reconcile failure must still fail the job rather than pass quietly.
+        self.assertIn("just registry-reconcile-retention || commit_rc=1", inner)
 
     def test_retention_reconcile_uses_maintenance_and_is_additive(self) -> None:
         root = pathlib.Path(__file__).resolve().parents[1]
