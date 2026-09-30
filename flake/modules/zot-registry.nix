@@ -22,6 +22,7 @@ let
         dedupe = true;
         gc = true;
         gcInterval = "24h";
+        fastRestart = cfg.fastRestart;
       };
       http = {
         address = "127.0.0.1";
@@ -135,6 +136,12 @@ in
       type = lib.types.str;
       default = "/tank/registry";
       description = "Mounted local filesystem containing all zot data and metadata.";
+    };
+
+    fastRestart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Skip full storage directory reconciliation on startup when metaDB fast-restart stamp matches.";
     };
 
     htpasswdFile = lib.mkOption {

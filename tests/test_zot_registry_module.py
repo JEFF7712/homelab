@@ -279,6 +279,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
                 str(credentials / "htpasswd"),
             )
             self.assertTrue(rendered["storage"]["gc"])
+            self.assertTrue(rendered["storage"]["fastRestart"])
             self.assertTrue(rendered["extensions"]["ui"]["enable"])
 
             rejected_credentials = temporary / "rejected-credentials"
