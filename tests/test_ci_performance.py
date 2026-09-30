@@ -221,6 +221,59 @@ class CancellationTest(unittest.TestCase):
                     break
         self.assertEqual(shadowed, set())
 
+    def test_registry_writes_depend_on_specific_gates_not_the_whole_stage(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+
+        # A job without `needs` inherits the previous stage, so any red job in
+        # it skips this one. That froze promotion twice: once on a gitleaks false
+        # positive and once on a pyright error, both unrelated to the registry.
+        advancing = ("registry_promote_first_party", "registry_update_import")
+        # Promotion also validates the lock it writes in-job via
+        # `just check-registry`, so dropping repository_tests is safe.
+        self.assertIn(
+            "just check-registry",
+            "\n".join(pipeline["registry_promote_first_party"]["script"]),
+        )
+        for name in advancing:
+            with self.subTest(job=name):
+                needs = pipeline[name]["needs"]
+                names = {n if isinstance(n, str) else n["job"] for n in needs}
+                # repository_tests is intentionally absent: it would pull the
+                # unit suite into every promotion, and the policy test above
+                # requires anything consuming it to consume the whole check
+                # suite, which is the coupling being removed.
+                self.assertIn("secret_scan", names)
+                self.assertNotIn("repository_tests", names)
+
+        # registry_lock_import keeps only the lock it re-imports; the retention
+        # reconciler stays fully ungated. Both restore an invariant, so a red
+        # repository must not be able to pause them.
+        self.assertEqual(
+            [
+                n if isinstance(n, str) else n["job"]
+                for n in pipeline["registry_lock_import"]["needs"]
+            ],
+            ["registry_lock"],
+        )
+        reconcile = pipeline[".registry_retention_reconcile"]["needs"]
+        self.assertEqual(reconcile, [])
+
+    def test_live_verification_never_gates_registry_writes(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+        # drift_check verifies a live registry behind an edge that intermittently
+        # answers for it. It alerts on its own, so letting it gate writes would
+        # couple every write to that flakiness, which is how a phantom failure
+        # once stopped the pipeline outright.
+        for name, job in pipeline.items():
+            if not isinstance(job, dict) or name.startswith("."):
+                continue
+            needs = job.get("needs")
+            if not isinstance(needs, list):
+                continue
+            names = {n if isinstance(n, str) else n.get("job") for n in needs}
+            with self.subTest(job=name):
+                self.assertNotIn("registry_drift_check", names)
+
     def test_upstream_import_gates_stay_asymmetric(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
 

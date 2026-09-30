@@ -198,14 +198,47 @@ content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
 Git commit only after that job succeeds.
 
-`registry_update_import` is deliberately manual and must stay that way. The
+`registry_lock_import` is deliberately manual and must stay that way. The
 candidate is a proposal: importing it before the reviewed commit that pins it
 would place content in the registry that nothing references, which the
-collector then removes, and it would drop the human checkpoint on an upstream
-change. `registry_lock_import` is the opposite case and runs nightly. It
+collector then removes, and it would drop the human checkpoint on an
+upstream change. `registry_lock_import` is the opposite case and runs nightly.
+It
 re-imports the lock that is already committed and reviewed, so no decision is
 involved; it exists to heal a partial import or a manifest the collector took.
 The two jobs look interchangeable and are not.
+
+## What gates the registry jobs
+
+A job with no `needs` inherits the whole previous stage, so any red job in it
+skips this one. That coupled every registry write to every unrelated test, and
+it failed silently: a gitleaks false positive and a pyright error each froze
+promotion, lock import, and the retention reconciler while the pipeline simply
+reported the registry stage as skipped.
+
+The registry jobs therefore carry explicit `needs`, and they split by what the
+job does rather than by which stage it sits in:
+
+- `registry_promote_first_party` and `registry_update_import` advance the
+  registry, so they depend on `secret_scan` and, for promotion, `registry_lock`.
+  Promotion validates the lock it writes itself, in-job, with
+  `just check-registry`.
+- `registry_lock_import` depends only on `registry_lock`, the lock it
+  re-imports.
+- The retention reconciler has `needs: []` and is fully ungated.
+
+The ungated jobs are the ones that restore an invariant rather than change
+anything. A gate that paused them would let retention tags lapse, or leave a
+lock unhealed, precisely when the repository was already in trouble.
+
+Two things are deliberately not gates. `repository_tests` is a real check, but
+depending on it would pull the unit suite into the path of every promotion, and
+the policy test in `tests/test_ci_performance.py` requires anything consuming
+it to also consume the whole check suite, which is the coupling being removed.
+`registry_drift_check` verifies a live registry behind an edge that
+intermittently answers for it; it notifies on its own, so letting it gate
+writes would tie every write to that flakiness.
+
 
 ## First-party promotion
 

@@ -374,6 +374,11 @@ registry_gc_fixture:
     # Cloudflare Access bypass, not privilege. Without a tag the job never
     # matches a runner and sits pending forever.
     - nas-ci
+  # Intentionally ungated. This job restores an invariant rather than changing
+  # anything, so it must keep running when the repository is red: a gate that
+  # paused it would let retention tags lapse exactly when the repo is already in
+  # trouble. The jobs that advance the registry, which do write, are the ones
+  # gated on the checks that judge what they write.
   needs: []
   environment:
     name: production
@@ -461,6 +466,25 @@ registry_promote_first_party:
   resource_group: registry-content
   environment:
     name: production
+  # Promotion changes the lock and commits to main, so it waits for the two
+  # gates that judge that: no secret in what is about to be written, and a lock
+  # that currently validates. Without explicit needs a job inherits the whole
+  # test stage, so any red test anywhere stopped promotion, and a gitleaks false
+  # positive and a pyright error each froze it silently.
+  #
+  # repository_tests is deliberately not listed even though it is a real gate.
+  # Depending on it would pull the unit suite into the path of every promotion,
+  # which is the coupling being removed, and the policy test requires anything
+  # consuming it to also consume the whole check suite. Promotion validates what
+  # it writes itself, with `just check-registry` later in this script, so the
+  # lock is still checked before the job can pass.
+  #
+  # registry_drift_check is absent for the same reason: it verifies a live
+  # registry behind an edge that intermittently answers for it, and it alerts on
+  # its own, so gating writes on it would couple them to that flakiness.
+  needs:
+    - secret_scan
+    - registry_lock
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == "main"'
@@ -540,9 +564,13 @@ registry_update_import:
   environment:
     name: production
   resource_group: registry-content
+  # The resolved candidate it copies, plus the secret gate. Same reasoning as
+  # registry_promote_first_party above: this copies and verifies content and
+  # does not write the repository, so it has nothing for a check to judge.
   needs:
     - job: registry_resolve
       artifacts: true
+    - secret_scan
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
