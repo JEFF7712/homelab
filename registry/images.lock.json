@@ -535,16 +535,15 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "sha-06cd773",
-        "retention-deployed-59f669bf8e20b96c"
+        "sha-a9b2b10",
+        "retention-deployed-23a36fba60e50bdf"
       ],
-      "digest": "sha256:59f669bf8e20b96c504a78626636973c69342acf49542739276b011a85c1e243",
+      "digest": "sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/pod-agent",
@@ -560,11 +559,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:59f669bf8e20b96c504a78626636973c69342acf49542739276b011a85c1e243",
-        "reference": "registry.rupan.dev/apps/pod-agent:sha-06cd773@sha256:59f669bf8e20b96c504a78626636973c69342acf49542739276b011a85c1e243",
+        "digest": "sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa",
+        "reference": "registry.rupan.dev/apps/pod-agent:sha-a9b2b10@sha256:23a36fba60e50bdf821954325d702c370284e9541d0e9713458d26c8c74dc0aa",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "sha-06cd773"
+        "tag": "sha-a9b2b10"
       }
     },
     {
