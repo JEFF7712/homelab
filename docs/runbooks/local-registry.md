@@ -198,6 +198,15 @@ content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
 Git commit only after that job succeeds.
 
+`registry_update_import` is deliberately manual and must stay that way. The
+candidate is a proposal: importing it before the reviewed commit that pins it
+would place content in the registry that nothing references, which the
+collector then removes, and it would drop the human checkpoint on an upstream
+change. `registry_lock_import` is the opposite case and runs nightly. It
+re-imports the lock that is already committed and reviewed, so no decision is
+involved; it exists to heal a partial import or a manifest the collector took.
+The two jobs look interchangeable and are not.
+
 ## First-party promotion
 
 First-party sites (`0.0.N` tags, plus `ism` on `latest`) roll out without a

@@ -221,6 +221,28 @@ class CancellationTest(unittest.TestCase):
                     break
         self.assertEqual(shadowed, set())
 
+    def test_upstream_import_gates_stay_asymmetric(self) -> None:
+        pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+
+        # Repairs the already-committed, already-reviewed lock, so it is safe to
+        # run unattended and self-heals a partial import.
+        lock_import = pipeline["registry_lock_import"]["rules"]
+        self.assertIn("schedule", str(lock_import[0]["if"]))
+        self.assertNotEqual(lock_import[0].get("when"), "manual")
+
+        # Imports a candidate that is still awaiting review. Running it nightly
+        # would put unreferenced content in the registry and remove the human
+        # checkpoint on an upstream change, so it must stay manual-only.
+        update_import = pipeline["registry_update_import"]["rules"]
+        self.assertEqual(
+            update_import, [{"if": '$CI_COMMIT_BRANCH == "main"', "when": "manual"}]
+        )
+        # The candidate is only proposed by a job that never writes, so this
+        # review gate is the only thing between resolve and the copy.
+        self.assertEqual(
+            pipeline["registry_update_import"]["needs"][0]["job"], "registry_resolve"
+        )
+
     def test_nightly_registry_maintenance_actually_runs_on_a_schedule(self) -> None:
         pipeline = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
         for name in (".registry_retention_reconcile", "registry_gc_fixture"):

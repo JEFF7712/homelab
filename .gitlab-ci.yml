@@ -576,6 +576,12 @@ registry_lock_import:
   needs:
     - registry_lock
   rules:
+    # Nightly, unlike registry_update_import below. This repairs the lock that
+    # is already committed and reviewed, so there is no decision left to make:
+    # a partial import, or a manifest the collector took, is restored without
+    # anyone noticing. The importer is 403 on apps/**, so it can only restore
+    # upstream/** and cannot disturb a first-party image.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
   script:
