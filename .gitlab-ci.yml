@@ -335,12 +335,6 @@ registry_drift_check:
     - .nas_ci
     - .registry_drift_check
   rules:
-    # TEMPORARY, verification only: remove before this branch is merged. The
-    # branch is protected so the production-scoped node credential is available,
-    # which is the one thing an unprotected branch cannot get. Every other rule
-    # requires the default branch or a schedule, so without this the branch
-    # pipeline contains no job that talks to the registry.
-    - if: '$CI_COMMIT_BRANCH == "registry-http-reads"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
