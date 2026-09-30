@@ -644,8 +644,18 @@ registry_lock_import:
     # anyone noticing. The importer is 403 on apps/**, so it can only restore
     # upstream/** and cannot disturb a first-party image.
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    # And unattended on any commit that changes the lock. A lock entry asserts
+    # the content is in the registry, but nothing else fetches it: 5d01b10 added
+    # a Hearth image to the inventory and deployed a manifest referencing it in
+    # the same commit, this job sat manual and had never once run, and the pod
+    # sat in ImagePullBackOff because no job had ever copied the bytes. Neither
+    # gate catches that: registry_lock only reads the lock, and drift_check does
+    # read the registry but runs long after Flux has already deployed. Scoped to
+    # the lock so an unrelated push does not re-inspect every upstream image.
     - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
+      changes:
+        - registry/images.inventory.json
+        - registry/images.lock.json
   script:
     - export REGISTRY_DEST_AUTH_FILE="$REGISTRY_IMPORTER_AUTH_FILE"
     - export REGISTRY_SOURCE_AUTH_FILE

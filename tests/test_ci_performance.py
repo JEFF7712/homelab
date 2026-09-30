@@ -327,6 +327,19 @@ class CancellationTest(unittest.TestCase):
         self.assertIn("schedule", str(lock_import[0]["if"]))
         self.assertNotEqual(lock_import[0].get("when"), "manual")
 
+        # It also runs unattended when the lock itself changes, because a lock
+        # entry is only a declaration that the content is in the registry and
+        # this job is the only thing that fetches it. 5d01b10 added an image to
+        # the inventory and deployed a manifest referencing it, and with the job
+        # manual nothing ever copied the bytes.
+        on_lock_change = lock_import[1]
+        self.assertEqual(on_lock_change["if"], '$CI_COMMIT_BRANCH == "main"')
+        self.assertNotIn("when", on_lock_change)
+        self.assertEqual(
+            set(on_lock_change["changes"]),
+            {"registry/images.inventory.json", "registry/images.lock.json"},
+        )
+
         # Imports a candidate that is still awaiting review. Running it nightly
         # would put unreferenced content in the registry and remove the human
         # checkpoint on an upstream change, so it must stay manual-only.
