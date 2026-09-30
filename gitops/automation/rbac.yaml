@@ -5,6 +5,19 @@ metadata:
   name: automation-runner
   namespace: automation
 ---
+# A long-lived token for automation-runner so CI can build a kubeconfig without
+# minting a short-lived one each run. The controller fills in token, ca.crt, and
+# namespace, so only the annotation is ours and nothing secret is committed.
+# Needed because the CI runner is a k3s agent and holds no kubeconfig of its own.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: automation-runner-ci-token
+  namespace: automation
+  annotations:
+    kubernetes.io/service-account.name: automation-runner
+type: kubernetes.io/service-account-token
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
