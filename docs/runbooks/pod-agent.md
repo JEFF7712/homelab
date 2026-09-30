@@ -212,6 +212,18 @@ The production plan for September 30 was already completed before this
 release. Recovery must leave that plan unchanged. The first new daily plan
 under this release remains a separate acceptance gate.
 
+Deployment verified at 06:33 UTC: Flux applied homelab commit `e3aae41`, both
+Deployments are ready, and the enabled recovery job uses
+`sha256:4bf67af5e1af517a0ce241243527ac60201788daaec7375394e6c0e9807aec31`.
+All 222 installed package files match the tested source. The additive
+`planner_attempts` table exists. Manual recovery job
+`pod-agent-recovery-verify-81d65c7` completed successfully, recording task run
+4212 and returning `already_ran` for planner run 50 without a new attempt or
+business write. Reservation and write-log counts stayed unchanged.
+Homelab pipeline `2896059825` passed all automatic jobs; unrelated deployment
+jobs remain manual. A successful fresh plan and a real interrupted-publish
+recovery still require separate production evidence.
+
 Release acceptance:
 
 1. Publish the locally tested pod-agent source after owner authorization.
