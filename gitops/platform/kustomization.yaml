@@ -9,3 +9,21 @@ resources:
   - nvidia-device-plugin/runtimeclass.yaml
   - nvidia-device-plugin/daemonset.yaml
   - priorityclass.yaml
+  - coredns-pdb.yaml
+  - cnpg/repository.yaml
+  - cnpg/release.yaml
+  - storage-class.yaml
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: coredns
+        namespace: kube-system
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      name: coredns
+      namespace: kube-system
