@@ -72,6 +72,7 @@
       DynamicUser = lib.mkForce false;
       User = "atticd";
       Group = "atticd";
+      TimeoutStartSec = "15min";
       ReadWritePaths = [ "/persist/attic" ];
       ExecStartPre = [
         "+${pkgs.writeShellScript "ensure-attic-storage-permissions" ''
