@@ -14,6 +14,17 @@ just agent-context
 just check-changed
 ```
 
+## Git and Sovereign Infrastructure
+
+- **Primary Git Remote (`origin`):** `ssh://forgejo@git.internal:2222/JEFF7712/homelab.git`
+  - Self-hosted Forgejo instance running on `nas-01` (`10.0.30.20:3000`).
+  - Developers push exclusively to `origin`.
+  - Automatic push mirror synchronously backs up every push to GitLab.com (`JEFF7712/homelab`).
+- **CI System:** Woodpecker CI (`http://ci.internal:8000`) on `homelab-04`.
+- **GitOps:** Flux CD on `homelab-01` reconciles from Forgejo with sub-second webhook notifications.
+- **S3 State Backend:** Garage S3 on `nas-01` (`http://s3.internal:3900`) storing OpenTofu state in `homelab-tofu-state`.
+
+
 ## Registry commands
 
 Useful registry commands are exposed through `just`:

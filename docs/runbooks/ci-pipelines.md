@@ -1,8 +1,26 @@
 # CI pipelines
 
-Runner lanes, validation jobs, and path-based routing for the GitLab
-pipelines. This is the detail behind the CI summary in `README.md`; the
-pipeline definition itself lives in `.gitlab-ci.yml`.
+Runner lanes, validation jobs, and path-based routing for CI pipelines.
+The sovereign CI engine is Woodpecker CI (`http://ci.internal:8000`), triggered
+by push webhooks from Forgejo (`http://git.internal:3000`).
+
+## Woodpecker CI Architecture
+
+- **Server:** Woodpecker CI server running on `homelab-04` (`10.0.30.14:8000`),
+  authenticated via Forgejo OAuth2.
+- **Agent Tiers:**
+  - `trusted`: Local host execution (`tier=trusted,type=local`) for `main` branch
+    commits. Executes `.woodpecker/lint.yaml`, `.woodpecker/offline-checks.yaml`,
+    and `.woodpecker/tofu-plan.yaml` within the Nix development environment.
+  - `deploy`: Dedicated local agent (`tier=deploy,type=local`) reserved exclusively
+    for production deployments.
+  - `sandbox`: Docker container executor (`tier=sandbox,type=docker`) isolated for
+    untrusted pull requests and feature branches.
+- **Pipeline Workflows:**
+  - `lint`: Code formatting and gitleaks secrets scan.
+  - `offline-checks`: Dependency provisioning and full offline test gate (`scripts/checks/all.sh`).
+  - `tofu-plan`: OpenTofu validation and speculative plan execution against Garage S3 state.
+
 
 ## Runner lanes
 

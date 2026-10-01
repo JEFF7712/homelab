@@ -275,5 +275,11 @@ in
 
     # 7. Firewall configuration: open port 8000 for LAN web UI access
     networking.firewall.allowedTCPPorts = [ 8000 ];
+
+    # 8. Host resolution for CI jobs
+    networking.hosts = {
+      "192.168.1.1" = [ "OPNsense.internal" ];
+      "10.0.30.20" = [ "registry.rupan.dev" ];
+    };
   };
 }

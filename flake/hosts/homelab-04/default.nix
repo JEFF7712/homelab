@@ -7,7 +7,6 @@
     ../../modules/monero.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
-    ../../modules/gitlab-runner.nix
     ../../modules/woodpecker.nix
   ];
 
