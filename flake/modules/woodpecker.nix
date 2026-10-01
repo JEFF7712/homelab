@@ -247,6 +247,12 @@ in
         "/tmp"
       ];
       WorkingDirectory = "/persist/woodpecker/workspace-trusted";
+      MemoryDenyWriteExecute = lib.mkForce false;
+      SystemCallFilter = lib.mkForce [ ];
+      ProtectSystem = lib.mkForce false;
+      PrivateUsers = lib.mkForce false;
+      NoNewPrivileges = lib.mkForce false;
+      LockPersonality = lib.mkForce false;
     };
 
     systemd.services.woodpecker-agent-deploy.serviceConfig = {
@@ -259,6 +265,12 @@ in
         "/tmp"
       ];
       WorkingDirectory = "/persist/woodpecker/workspace-deploy";
+      MemoryDenyWriteExecute = lib.mkForce false;
+      SystemCallFilter = lib.mkForce [ ];
+      ProtectSystem = lib.mkForce false;
+      PrivateUsers = lib.mkForce false;
+      NoNewPrivileges = lib.mkForce false;
+      LockPersonality = lib.mkForce false;
     };
 
     # 7. Firewall configuration: open port 8000 for LAN web UI access
