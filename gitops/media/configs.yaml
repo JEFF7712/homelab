@@ -57,7 +57,7 @@ data:
     # (tidaler via the tidal-dl compat shim installed by lidarr-boot.sh).
     # Tidal auth is a pre-provisioned token on the config PVC, not a
     # secret in this file; see docs/runbooks/arr-credentials.md.
-    dlClientSource="deezer"
+    dlClientSource="both"
     arlToken="__DEEZER_ARL__"
     tidalCountryCode="US"
     # Upstream default canary (166356219) no longer returns audio streams
