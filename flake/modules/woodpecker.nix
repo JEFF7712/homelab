@@ -279,7 +279,12 @@ in
     # 8. Host resolution for CI jobs
     networking.hosts = {
       "192.168.1.1" = [ "OPNsense.internal" ];
-      "10.0.30.20" = [ "registry.rupan.dev" ];
+      "10.0.30.20" = [
+        "registry.rupan.dev"
+        "git.internal"
+        "s3.internal"
+      ];
+      "10.0.30.14" = [ "ci.internal" ];
     };
   };
 }
