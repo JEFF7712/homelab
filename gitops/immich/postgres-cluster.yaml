@@ -1,0 +1,59 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-cluster
+  namespace: immich
+spec:
+  instances: 2
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+      secret:
+        name: immich-secrets
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+        - CREATE EXTENSION IF NOT EXISTS "cube";
+        - CREATE EXTENSION IF NOT EXISTS "earthdistance";
+        - CREATE EXTENSION IF NOT EXISTS "unaccent";
+        - CREATE EXTENSION IF NOT EXISTS "vector";
+        - CREATE EXTENSION IF NOT EXISTS "vchord";
+  storage:
+    size: 20Gi
+    storageClass: local-nvme
+  affinity:
+    enablePodAntiAffinity: true
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - homelab-01
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - homelab-01
+                  - homelab-05
+  postgresql:
+    shared_preload_libraries:
+      - "vchord.so"
+    parameters:
+      shared_buffers: 256MB
+      work_mem: 32MB
+      maintenance_work_mem: 128MB
+      max_connections: "100"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      memory: 2Gi

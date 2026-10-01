@@ -26,7 +26,12 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: backups
-    # 5. Allow ingress from internal LAN clients and NetBird VPN mesh
+    # 5. Allow ingress from CloudNativePG operator (instance probes and metrics)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+    # 6. Allow ingress from internal LAN clients and NetBird VPN mesh
     - from:
         - ipBlock:
             cidr: 10.0.0.0/16

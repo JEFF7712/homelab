@@ -4,7 +4,7 @@ metadata:
   name: immich-postgres
   namespace: immich
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -102,4 +102,5 @@ spec:
     - port: 5432
       targetPort: 5432
   selector:
-    app: immich-postgres
+    cnpg.io/cluster: immich-cluster
+    role: primary
