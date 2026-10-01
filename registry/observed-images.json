@@ -137,10 +137,10 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-fb5778d6-8v2lj/quartz",
-        "obsidian/quartz-notes-fb5778d6-tfhbh/quartz"
+        "obsidian/quartz-notes-646ffd4578-w667f/quartz",
+        "obsidian/quartz-notes-646ffd4578-xddnb/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:940a511fbdd2b6eb890c988e3ec9f81c99a6564f207a69ebb1e11928e2ca6378"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:4a7b70c6f941587307853ce4d863f84e83a19c7330d2604149de87a4c60703d0"
     },
     {
       "consumers": [
@@ -717,6 +717,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-10-01T01:36:37+00:00",
+  "observed_at": "2026-10-01T02:23:09+00:00",
   "schema_version": 1
 }

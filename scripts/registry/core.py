@@ -1017,6 +1017,8 @@ def _manifest_url(reference: str) -> tuple[str, str]:
             raise RegistryError(f"cannot parse an image reference from {reference!r}")
     if not repository:
         raise RegistryError(f"cannot parse an image reference from {reference!r}")
+    if registry == "docker.io":
+        registry = "registry-1.docker.io"
     return registry, f"{repository}/manifests/{tail}"
 
 
@@ -1143,7 +1145,7 @@ class OciClient:
                     pass
         return raw
 
-    def _auth_header(self, destination: bool) -> str | None:
+    def _auth_header(self, destination: bool, registry: str) -> str | None:
         """The `Authorization` value for the configured auth file, if any."""
         variable = (
             "REGISTRY_DEST_AUTH_FILE" if destination else "REGISTRY_SOURCE_AUTH_FILE"
@@ -1158,7 +1160,15 @@ class OciClient:
             return None
         if not isinstance(auths, dict):
             return None
-        for config in auths.values():
+        aliases = {registry}
+        if registry in {"docker.io", "registry-1.docker.io"}:
+            aliases.update({"docker.io", "registry-1.docker.io", "index.docker.io"})
+        for server, config in auths.items():
+            host = urllib.parse.urlparse(
+                server if "://" in server else f"https://{server}"
+            ).netloc
+            if host not in aliases:
+                continue
             if not isinstance(config, dict):
                 continue
             auth = config.get("auth")
@@ -1167,7 +1177,7 @@ class OciClient:
         return None
 
     def _fetch_bearer_token(
-        self, challenge: Mapping[str, str], destination: bool
+        self, challenge: Mapping[str, str], destination: bool, registry: str
     ) -> str | None:
         """Exchange the credential for a bearer token at the challenge's realm."""
         query = {
@@ -1180,7 +1190,7 @@ class OciClient:
         }
         url = challenge["realm"] + "?" + urllib.parse.urlencode(query)
         request = urllib.request.Request(url, method="GET")
-        header = self._auth_header(destination)
+        header = self._auth_header(destination, registry)
         if header:
             request.add_header("Authorization", header)
         opener = urllib.request.build_opener(_NoRedirect)
@@ -1221,7 +1231,7 @@ class OciClient:
             f"https://{registry}/v2/{path.lstrip('/')}", method="GET"
         )
         request.add_header("Accept", accept)
-        header = self._auth_header(destination)
+        header = self._auth_header(destination, registry)
         anonymous = header is None
         if header:
             request.add_header("Authorization", header)
@@ -1247,7 +1257,7 @@ class OciClient:
                 challenge = _bearer_challenge(headers)
                 if challenge is not None and not retried_with_token:
                     retried_with_token = True
-                    token = self._fetch_bearer_token(challenge, destination)
+                    token = self._fetch_bearer_token(challenge, destination, registry)
                     if token is not None:
                         # Public upstreams such as ghcr.io and Docker Hub answer
                         # 401 with a bearer challenge even for public images, so
@@ -1473,6 +1483,7 @@ def resolve_inventory(
     for image in inventory["images"]:
         source = image["source"]
         reference = ImageReference.parse(source["reference"])
+        local_reference = reference
         original_reference = _decode_local_upstream_mirror(
             reference, destination_registry
         )
@@ -1487,16 +1498,30 @@ def resolve_inventory(
                 "reference": reference.canonical,
             }
         try:
-            observed_digest, media_type, platforms = manifest_details(
-                client,
-                reference.immutable if reference.digest else reference.canonical,
-                destination=reference.registry == destination_registry,
-            )
+            try:
+                inspected = local_reference if original_reference else reference
+                observed_digest, media_type, platforms = manifest_details(
+                    client,
+                    inspected.immutable if inspected.digest else inspected.canonical,
+                    destination=inspected.registry == destination_registry,
+                )
+                resolution = {
+                    "status": "local-registry-verified"
+                    if original_reference
+                    else "source-registry-verified"
+                }
+            except RegistryError:
+                if original_reference is None:
+                    raise
+                observed_digest, media_type, platforms = manifest_details(
+                    client,
+                    reference.immutable if reference.digest else reference.canonical,
+                )
+                resolution = {"status": "source-registry-verified"}
             if reference.digest and observed_digest != reference.digest:
                 raise RegistryError(
                     f"source manifest digest mismatch for {reference.canonical}: expected {reference.digest}, observed {observed_digest}"
                 )
-            resolution = {"status": "source-registry-verified"}
         except RegistryError as error:
             observed = image.get("observed_manifest")
             if reference.digest and isinstance(observed, dict):

@@ -193,7 +193,13 @@ values are 1 through 8).
 For an upstream update, resolve the upstream tag, verify publisher authenticity according to that image's policy, copy the immutable digest and required referrers, verify the destination, then propose the local digest change. A local tag alone is not update discovery.
 
 The `registry_resolve` CI job produces an inventory, candidate lock, and exact
-copy plan without changing the registry. After review, `registry_update_import`
+copy plan without changing the registry. It shares `registry-content` with the
+other registry clients and uploads diagnostics even when resolution fails.
+For existing local upstream mirrors, it verifies the local manifest digest
+before falling back to the upstream registry, while preserving the canonical
+upstream identity in the candidate. Docker Hub reads use `registry-1.docker.io`;
+OCI credentials are selected for the requested registry.
+After review, `registry_update_import`
 copies and verifies only the candidate's upstream records under the serialized
 content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed

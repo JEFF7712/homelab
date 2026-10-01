@@ -452,6 +452,7 @@ registry_lock_feature:
 registry_resolve:
   timeout: 15m
   stage: registry
+  resource_group: registry-content
   tags:
     - nas-ci
   environment:
@@ -493,6 +494,7 @@ registry_resolve:
   after_script:
     - shred -u /tmp/registry-node-auth.json 2>/dev/null || rm -f /tmp/registry-node-auth.json
   artifacts:
+    when: always
     expire_in: 7 days
     paths:
       - artifacts/registry/

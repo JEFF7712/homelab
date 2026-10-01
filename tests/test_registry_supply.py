@@ -202,6 +202,28 @@ class BearerAndPaginationTests(unittest.TestCase):
             core._bearer_challenge({"www-authenticate": 'Basic realm="x"'})
         )
 
+    def test_credentials_are_selected_for_the_requested_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "auth.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "auths": {
+                            "registry.rupan.dev": {"auth": "local"},
+                            "https://index.docker.io/v1/": {"auth": "docker"},
+                            "ghcr.io": {"auth": "github"},
+                        }
+                    }
+                )
+            )
+            client = OciClient(cache_dir=False)
+            with patch.dict(os.environ, {"REGISTRY_SOURCE_AUTH_FILE": str(path)}):
+                self.assertEqual(client._auth_header(False, "ghcr.io"), "Basic github")
+                self.assertEqual(
+                    client._auth_header(False, "registry-1.docker.io"), "Basic docker"
+                )
+                self.assertIsNone(client._auth_header(False, "quay.io"))
+
     def test_next_page_is_parsed(self) -> None:
         headers = {
             "link": '</v2/a/b/tags/list?n=100&last=z>; rel="next", </v2/a/b/tags/list>; rel="prev"'
@@ -276,6 +298,7 @@ class BearerAndPaginationTests(unittest.TestCase):
                     "scope": "repository:a/b:pull",
                 },
                 destination=False,
+                registry="ghcr.io",
             )
 
         self.assertEqual(token, "abc")
@@ -325,6 +348,12 @@ class BearerAndPaginationTests(unittest.TestCase):
 
 
 class ManifestUrlTests(unittest.TestCase):
+    def test_docker_hub_uses_registry_api_host(self) -> None:
+        self.assertEqual(
+            core._manifest_url("docker.io/library/alpine:3.22"),
+            ("registry-1.docker.io", "library/alpine/manifests/3.22"),
+        )
+
     def test_digest_reference_becomes_a_manifests_path(self) -> None:
         digest = "c" * 64
         registry, path = core._manifest_url(
@@ -1244,6 +1273,8 @@ class RegistryCiContractTests(unittest.TestCase):
         self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
         self.assertIn("registry-node-auth.json", script)
         self.assertNotIn("REGISTRY_IMPORTER_AUTH_FILE", script)
+        self.assertEqual(job["resource_group"], "registry-content")
+        self.assertEqual(job["artifacts"]["when"], "always")
         self.assertIn("just check-registry", script)
         self.assertIn("GITLAB_PUSH_TOKEN", script)
         self.assertIn("git fetch", script)
@@ -1940,6 +1971,27 @@ class LockTest(unittest.TestCase):
             record["destination_repository"],
             "upstream/quay.io/prometheus-operator/prometheus-config-reloader",
         )
+
+        local_immutable = local_reference.split(":v0.94.0@")[0] + "@" + expected_digest
+        local_client = FakeClient({local_immutable: raw})
+        with patch.object(
+            local_client, "raw_manifest", wraps=local_client.raw_manifest
+        ) as read:
+            local_lock, local_unresolved = resolve_inventory(inventory, local_client)  # type: ignore[arg-type]
+        read.assert_called_once_with(local_immutable, destination=True)
+        self.assertEqual(local_unresolved, [])
+        self.assertEqual(local_lock["images"][0]["source"], record["source"])
+        self.assertEqual(
+            local_lock["images"][0]["resolution"]["status"], "local-registry-verified"
+        )
+
+        inventory["images"][0].pop("observed_manifest")
+        wrong_client = FakeClient(
+            {local_immutable: manifest(platforms=[("linux", "arm64")])}
+        )
+        wrong_lock, wrong_unresolved = resolve_inventory(inventory, wrong_client)  # type: ignore[arg-type]
+        self.assertEqual(wrong_lock["images"], [])
+        self.assertIn("digest mismatch", wrong_unresolved[0]["reason"])
 
     def test_plan_is_ordered_and_uses_digest_sources(self) -> None:
         raw = manifest()
