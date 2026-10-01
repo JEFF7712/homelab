@@ -19,6 +19,7 @@ spec:
       labels:
         app: jellyfin
     spec:
+      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/hostname: homelab-04
       securityContext:

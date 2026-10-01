@@ -13,6 +13,7 @@ spec:
       labels:
         app: quartz-notes
     spec:
+      automountServiceAccountToken: false
       imagePullSecrets:
         - name: ghcr-pull
       securityContext:

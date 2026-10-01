@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate-ingress
+  namespace: photography
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1. Allow pods within the namespace to communicate with each other
+    - from:
+        - podSelector: {}
+    # 2. Allow ingress from Cloudflare Tunnel connector pods
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+    # 3. Allow ingress from Observability (Prometheus/Alloy scrapers)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability

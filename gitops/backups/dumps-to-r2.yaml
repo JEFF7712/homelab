@@ -14,6 +14,7 @@ spec:
       activeDeadlineSeconds: 3600
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
           securityContext:
             seccompProfile:

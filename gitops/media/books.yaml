@@ -16,6 +16,7 @@ spec:
       labels:
         app: calibre-web
     spec:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
@@ -125,6 +126,7 @@ spec:
       labels:
         app: bookshelf
     spec:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch

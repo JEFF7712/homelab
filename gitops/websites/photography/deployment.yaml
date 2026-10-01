@@ -13,6 +13,7 @@ spec:
       labels:
         app: photography-web
     spec:
+      automountServiceAccountToken: false
       imagePullSecrets:
         - name: ghcr-pull
       securityContext:

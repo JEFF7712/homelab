@@ -15,6 +15,7 @@ spec:
       labels:
         app: immich-server
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

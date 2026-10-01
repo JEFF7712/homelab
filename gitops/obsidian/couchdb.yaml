@@ -19,6 +19,7 @@ spec:
       annotations:
         couchdb-config-version: "2"
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

@@ -13,6 +13,7 @@ spec:
       labels:
         app: nixagent-web
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:

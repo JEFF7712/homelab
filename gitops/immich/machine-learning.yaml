@@ -15,6 +15,7 @@ spec:
       labels:
         app: immich-machine-learning
     spec:
+      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/hostname: homelab-05
       securityContext:

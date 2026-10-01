@@ -15,6 +15,7 @@ spec:
       labels:
         app: immich-postgres
     spec:
+      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/hostname: homelab-01
       securityContext:

@@ -13,6 +13,7 @@ spec:
       labels:
         app: rupanism-web
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:

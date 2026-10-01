@@ -17,6 +17,7 @@ spec:
       labels:
         app: navidrome
     spec:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
@@ -103,6 +104,7 @@ spec:
     spec:
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
           securityContext:
             fsGroup: 1000

@@ -13,6 +13,7 @@ spec:
       labels:
         app: ism-web
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:

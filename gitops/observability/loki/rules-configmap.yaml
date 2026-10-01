@@ -75,3 +75,47 @@ data:
             annotations:
               summary: "Music Assistant lost its Home Assistant link"
               description: "MA lost its HA link; restart the music-assistant Deployment."
+
+      - name: host-security-alerts
+        rules:
+          - alert: HostSSHAuthFailed
+            expr: |
+              count_over_time(
+                {component="system-journal"}
+                |~ "(?i)(Failed password|Failed publickey|invalid user|\\[preauth\\])"
+                [5m]
+              ) > 5
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Repeated SSH authentication failures detected on host"
+              description: "More than 5 SSH auth failures observed on {{ $labels.hostname }} in 5m."
+
+          - alert: HostSudoAuthFailed
+            expr: |
+              count_over_time(
+                {component="system-journal"}
+                |~ "(?i)(incorrect password attempt|authentication failure.*sudo)"
+                [5m]
+              ) > 0
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Failed sudo authentication attempt detected"
+              description: "A failed sudo authentication was logged in system journal on {{ $labels.hostname }}."
+
+          - alert: HostSudoInteractiveRoot
+            expr: |
+              count_over_time(
+                {component="system-journal"}
+                |~ "(?i)sudo:.*COMMAND=(/run/current-system/sw/bin/(su|bash|zsh)|/bin/sh)"
+                [5m]
+              ) > 0
+            for: 0m
+            labels:
+              severity: info
+            annotations:
+              summary: "Interactive root shell spawned via sudo"
+              description: "An interactive root shell was spawned via sudo on {{ $labels.hostname }}."

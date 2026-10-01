@@ -13,6 +13,7 @@ spec:
       labels:
         app: darkbit-web
     spec:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 101
         runAsNonRoot: true

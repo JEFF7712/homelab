@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: immich-isolate-ingress
+  namespace: immich
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1. Allow all pods within immich namespace (server, ML, postgres, valkey)
+    - from:
+        - podSelector: {}
+    # 2. Allow ingress from Cloudflare Tunnel connector pods
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+    # 3. Allow ingress from Observability (Prometheus/Alloy scrapers)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+    # 4. Allow ingress from Backups namespace (immich-db-dump CronJob)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: backups
+    # 5. Allow ingress from internal LAN clients and NetBird VPN mesh
+    - from:
+        - ipBlock:
+            cidr: 10.0.0.0/16

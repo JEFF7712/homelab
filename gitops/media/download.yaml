@@ -22,6 +22,7 @@ spec:
       labels:
         app: download
     spec:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
