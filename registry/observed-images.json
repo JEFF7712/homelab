@@ -123,11 +123,11 @@
         "pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "pod-agent/pod-agent-dashboard-548b8d7564-qvjcl/dashboard",
-        "pod-agent/pod-agent-dashboard-548b8d7564-qvjcl/seed-memory",
-        "pod-agent/pod-agent-discord-bot-bbcb9bc56-zr2gt/bot"
+        "pod-agent/pod-agent-dashboard-5cf5f7cfb-2fcjq/dashboard",
+        "pod-agent/pod-agent-dashboard-5cf5f7cfb-2fcjq/seed-memory",
+        "pod-agent/pod-agent-discord-bot-55dd84458d-ldrqq/bot"
       ],
-      "reference": "registry.rupan.dev/apps/pod-agent@sha256:0cd9075379682a0a826b2f285bb2dcc7d07af0b7a18f00b6a76cfe78cfe6dd32"
+      "reference": "registry.rupan.dev/apps/pod-agent@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c"
     },
     {
       "consumers": [
@@ -137,10 +137,10 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-75fd5b797f-cfp7l/quartz",
-        "obsidian/quartz-notes-75fd5b797f-wpd2z/quartz"
+        "obsidian/quartz-notes-fb5778d6-8v2lj/quartz",
+        "obsidian/quartz-notes-fb5778d6-tfhbh/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:1e507dd7a5534736b3d2fa2705ed1c477157c000c7745207a1c985e90c92da11"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:940a511fbdd2b6eb890c988e3ec9f81c99a6564f207a69ebb1e11928e2ca6378"
     },
     {
       "consumers": [
@@ -184,8 +184,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-847888bf7-76l4h/cloudflared",
-        "cloudflare/cloudflared-847888bf7-pgcrf/cloudflared"
+        "cloudflare/cloudflared-597657f697-4phzb/cloudflared",
+        "cloudflare/cloudflared-597657f697-tq8rw/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -332,8 +332,8 @@
         "media/cronjob-arr-credential-sync/sync",
         "media/cronjob-soularr/soularr",
         "media/cronjob-spotify-sync/sync",
-        "media/job-soularr-29846537/soularr",
-        "media/soularr-29846537-lrw6s/soularr"
+        "media/job-soularr-29846957/soularr",
+        "media/soularr-29846957-cmrpx/soularr"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
     },
@@ -487,12 +487,6 @@
         "immich/immich-postgres-7798f756f7-z6h56/postgres"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/postgres@sha256:1a078b237c1d9b420b0ee59147386b4aa60d3a07a8e6a402fc84a57e41b043a4"
-    },
-    {
-      "consumers": [
-        "hearth/hearth-86cbcdccc-nmxgp/hearth"
-      ],
-      "reference": "registry.rupan.dev/upstream/ghcr.io/knowald/ha-hearth@sha256:8e95c28f367358ac11ae5c81672c1871d0f7f2486cd7e52d445375b6ac0b771a"
     },
     {
       "consumers": [
@@ -723,6 +717,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-09-30T21:50:40+00:00",
+  "observed_at": "2026-10-01T01:36:37+00:00",
   "schema_version": 1
 }

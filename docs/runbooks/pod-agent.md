@@ -406,6 +406,52 @@ messaging, refunds, and an owned storefront remain deferred by owner decision.
 Rollback restores the previous image while retaining production data and OAuth
 authority; old code also restores shop-scoped reservation checks.
 
+Verified September 30 at approximately 21:59 UTC: Flux applied rollout
+commit `327939a1b7b7edbbb1c5f4bab30b9e0364bf9bf3`, and both Deployments
+completed rollout successfully. Each service's 226 packaged Python/JSON files
+match tested source. All 28 rendered image pins across 16 resources use the
+verified image; later repository reads confirm these desired pins remain.
+The three budget tables exist, all 21 reservation histories have the same hash
+as before migration, and counts remain 401 proposals, 558 business writes,
+21 reservations, and one OAuth token row. The authenticated Desk and read-only
+budget projection verify $133.74 observed cash, a $100 reserve, no current
+holds, and $33.74 cash headroom. Monthly consumed reservations total $4.20.
+DistroJeff retains its allocation, and Darkbit remains at zero.
+
+Isolated deployed-code replays pass shared-cash concurrency, persistence of
+unknown commitments across restart, and refusal to reuse funds after an
+interrupted failed write. Networking was disabled, providers were fake, and
+only temporary databases were used. No production financial action or
+allocation change was needed for acceptance.
+
+Initial pipeline `2898994410` passed repository tests, the flake check,
+YAML/schema, formatting, secret scan, and registry authentication. The
+registry-lock gate observed the previous application image before convergence;
+the drift check also reported an existing Quartz tag/lock mismatch. This
+rollout does not change Quartz desired state or tags.
+
+Follow-up verification completed October 1, 2026 at 01:38 UTC (September 30
+in America/Chicago). Both services still run the approved image; all 226
+installed Python/JSON files in each match tested source. Counts and historical
+reservations are unchanged. Both read-only budget commands and the
+authenticated Desk pass. Cash, reserve, headroom, and allocations are
+unchanged. October's daily and monthly consumed counters are zero;
+September's 420 cents remain in the ledger.
+
+`registry/observed-images.json` was refreshed from actual Kubernetes state
+at 01:36:37 UTC and `registry/images.inventory.json` regenerated from it.
+Temporary publisher and source-authentication copies on nas-01 and their
+scratch directory were removed, with absence verified. The local temporary
+publisher credential was also removed.
+
+Documentation and formatting checks pass. The full offline registry gate is
+blocked by an existing Quartz lock defect in source revision
+`0924a0536708573f0b7a67bfe9bbc3109040058b`: digest `940a511f` is paired with
+retention tag `retention-deployed-1e507dd7a5534736`, where
+`retention-deployed-940a511fbdd2b6eb` is required. The refreshed snapshot
+records Quartz's actual running image, but this follow-up changes no Quartz
+desired pins, lock entries, or tags.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.
