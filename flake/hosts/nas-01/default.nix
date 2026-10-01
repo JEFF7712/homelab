@@ -14,6 +14,8 @@
     ../../modules/nas-data.nix
     ../../modules/zot-registry.nix
     ../../modules/ledfx-bedroom.nix
+    ../../modules/forgejo.nix
+    ../../modules/nas-s3.nix
   ];
 
   networking.hostName = "nas-01";
@@ -22,6 +24,9 @@
   # playback and streams to the relay. Deliberately separate from the
   # shared-spaces LedFx instance: no shared device, virtual, or scene.
   homelab.ledfxBedroom.enable = true;
+
+  homelab.forgejo.enable = true;
+  homelab.s3.enable = true;
 
   services.homelab-zot-registry = {
     enable = true;

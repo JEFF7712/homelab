@@ -1,0 +1,19 @@
+# .woodpecker/offline-checks.yaml
+# Complete offline validation gate: all tests, flake evaluations, gitops checks.
+
+when:
+  - event: [pull_request, push]
+    branch: main
+
+labels:
+  tier: trusted
+  type: local
+
+concurrency:
+  name: nix-flake-evaluation
+  limit: 1
+
+steps:
+  - name: offline-gate
+    commands:
+      - nix develop ./flake -c bash scripts/checks/all.sh

@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - receiver-token.yaml
   - receiver.yaml
+  - forgejo-receiver.yaml

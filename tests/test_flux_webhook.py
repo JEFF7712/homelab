@@ -52,6 +52,24 @@ class FluxWebhookContract(unittest.TestCase):
             self.assertIn("remoteRef", entry)
         self.assertNotIn("stringData", token)
 
+    def test_forgejo_receiver_reconciles_root_sources(self) -> None:
+        receiver = load_single(WEBHOOK_DIR / "forgejo-receiver.yaml")
+        self.assertEqual(receiver["apiVersion"], "notification.toolkit.fluxcd.io/v1")
+        self.assertEqual(receiver["kind"], "Receiver")
+        self.assertEqual(receiver["metadata"]["name"], "forgejo-push")
+        self.assertEqual(receiver["metadata"]["namespace"], "flux-system")
+        spec = receiver["spec"]
+        self.assertEqual(spec["type"], "generic")
+        self.assertEqual(spec["secretRef"], {"name": "receiver-token"})
+        resources = {(r["kind"], r["name"], r["namespace"]) for r in spec["resources"]}
+        self.assertEqual(
+            resources,
+            {
+                ("GitRepository", "flux-system", "flux-system"),
+                ("Kustomization", "flux-system", "flux-system"),
+            },
+        )
+
     def test_cluster_wiring_depends_on_eso(self) -> None:
         wiring = load_single(CLUSTER_DIR / "flux-webhook.yaml")
         self.assertEqual(wiring["kind"], "Kustomization")
@@ -65,7 +83,8 @@ class FluxWebhookContract(unittest.TestCase):
         self.assertIn("flux-webhook.yaml", cluster["resources"])
         bundle = load_single(WEBHOOK_DIR / "kustomization.yaml")
         self.assertEqual(
-            sorted(bundle["resources"]), ["receiver-token.yaml", "receiver.yaml"]
+            sorted(bundle["resources"]),
+            ["forgejo-receiver.yaml", "receiver-token.yaml", "receiver.yaml"],
         )
 
 

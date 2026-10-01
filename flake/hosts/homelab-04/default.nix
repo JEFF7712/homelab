@@ -8,9 +8,12 @@
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/gitlab-runner.nix
+    ../../modules/woodpecker.nix
   ];
 
   networking.hostName = "homelab-04";
+
+  homelab.woodpecker.enable = true;
 
   homelab.monero.enable = true;
 

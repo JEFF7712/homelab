@@ -37,6 +37,21 @@
             answer = "10.0.30.20";
             enabled = true;
           }
+          {
+            domain = "git.internal";
+            answer = "10.0.30.20";
+            enabled = true;
+          }
+          {
+            domain = "s3.internal";
+            answer = "10.0.30.20";
+            enabled = true;
+          }
+          {
+            domain = "ci.internal";
+            answer = "10.0.30.14";
+            enabled = true;
+          }
         ];
       };
       filters = [

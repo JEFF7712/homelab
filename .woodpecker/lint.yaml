@@ -1,0 +1,18 @@
+# .woodpecker/lint.yaml
+# Fast feedback: formatting, linting, and secret checks.
+
+when:
+  - event: [pull_request, push]
+
+labels:
+  tier: trusted
+  type: local
+
+steps:
+  - name: formatting
+    commands:
+      - nix develop ./flake -c just fmt-check
+
+  - name: secrets-scan
+    commands:
+      - nix develop ./flake -c bash scripts/checks/secrets.sh

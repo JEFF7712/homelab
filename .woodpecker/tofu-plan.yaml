@@ -1,0 +1,19 @@
+# .woodpecker/tofu-plan.yaml
+# Infrastructure plans and validation against Garage S3 backend.
+
+when:
+  - event: push
+    branch: main
+
+labels:
+  tier: trusted
+  type: local
+
+concurrency:
+  name: opnsense-control-plane
+  limit: 1
+
+steps:
+  - name: tofu-validation
+    commands:
+      - nix develop ./flake -c bash scripts/checks/tofu.sh

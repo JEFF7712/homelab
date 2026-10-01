@@ -80,6 +80,16 @@
           mountpoint = "/tank/registry";
           options.mountpoint = "legacy";
         };
+        forgejo = {
+          type = "zfs_fs";
+          mountpoint = "/tank/forgejo";
+          options.mountpoint = "legacy";
+        };
+        s3 = {
+          type = "zfs_fs";
+          mountpoint = "/tank/s3";
+          options.mountpoint = "legacy";
+        };
       };
     };
   };
