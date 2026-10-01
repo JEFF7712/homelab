@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }:
@@ -27,7 +28,19 @@
     acmeEmail = "rupanpandyan@gmail.com";
   };
 
-  fileSystems."/var/log".neededForBoot = true;
+  fileSystems =
+    lib.mapAttrs' (_: dataset: lib.nameValuePair dataset.mountpoint { options = [ "nofail" ]; }) (
+      lib.filterAttrs (
+        name: _:
+        lib.elem name [
+          "forgejo"
+          "s3"
+        ]
+      ) config.disko.devices.zpool.tank.datasets
+    )
+    // {
+      "/var/log".neededForBoot = true;
+    };
 
   # Bluetooth support for bedroom Bose SoundLink Flex 2
   hardware.bluetooth = {

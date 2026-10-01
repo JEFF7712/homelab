@@ -22,6 +22,80 @@ from scripts.deploy_fleet import (
 
 
 class DeployFleetTest(unittest.TestCase):
+    def test_nas_missing_dataset_blocks_rebuild_even_when_preflight_skipped(
+        self,
+    ) -> None:
+        commands: list[list[str]] = []
+        for dry_run in (False, True):
+            with self.subTest(dry_run=dry_run):
+                commands.clear()
+
+                def runner(
+                    argv: list[str], **kwargs: object
+                ) -> subprocess.CompletedProcess[str]:
+                    del kwargs
+                    commands.append(argv)
+                    if argv[:2] == ["nix", "eval"]:
+                        return subprocess.CompletedProcess(
+                            argv, 0, '["tank/forgejo", "tank/s3"]', ""
+                        )
+                    return subprocess.CompletedProcess(
+                        argv, 1, "", "cannot open 'tank/s3': dataset does not exist"
+                    )
+
+                deployer = FleetDeployer(
+                    targets=[FLEET_HOSTS["nas-01"]],
+                    dry_run=dry_run,
+                    skip_preflight=True,
+                    runner=runner,
+                    enable_notifications=False,
+                )
+                with self.assertRaisesRegex(
+                    FleetDeploymentError, "NAS storage preflight failed"
+                ):
+                    deployer.execute()
+                self.assertFalse(any(cmd[0] == "nixos-rebuild" for cmd in commands))
+
+    def test_nas_existing_datasets_are_checked_before_rebuild(self) -> None:
+        commands: list[list[str]] = []
+
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            del kwargs
+            commands.append(argv)
+            output = (
+                '["tank/forgejo", "tank/s3"]' if argv[:2] == ["nix", "eval"] else ""
+            )
+            return subprocess.CompletedProcess(argv, 0, output, "")
+
+        deployer = FleetDeployer(targets=[FLEET_HOSTS["nas-01"]], runner=runner)
+        deployer.rebuild_host(FLEET_HOSTS["nas-01"])
+        self.assertEqual([cmd[0] for cmd in commands], ["nix", "ssh", "nixos-rebuild"])
+        self.assertIn("tank/forgejo tank/s3", commands[1][-1])
+
+    def test_nas_storage_evaluation_failure_blocks_rebuild(self) -> None:
+        runner = MagicMock(
+            return_value=subprocess.CompletedProcess(["nix"], 1, "", "eval failed")
+        )
+        deployer = FleetDeployer(targets=[FLEET_HOSTS["nas-01"]], runner=runner)
+        with self.assertRaisesRegex(FleetDeploymentError, "eval failed"):
+            deployer.rebuild_host(FLEET_HOSTS["nas-01"])
+        self.assertEqual(runner.call_count, 1)
+
+    def test_nas_invalid_storage_evaluation_blocks_rebuild(self) -> None:
+        for output in ("", "{}", "[null]", '["-bad"]'):
+            with self.subTest(output=output):
+                runner = MagicMock(
+                    return_value=subprocess.CompletedProcess(["nix"], 0, output, "")
+                )
+                deployer = FleetDeployer(targets=[FLEET_HOSTS["nas-01"]], runner=runner)
+                with self.assertRaisesRegex(
+                    FleetDeploymentError, "NAS storage evaluation"
+                ):
+                    deployer.rebuild_host(FLEET_HOSTS["nas-01"])
+                self.assertEqual(runner.call_count, 1)
+
     def test_parse_targets_default_order(self) -> None:
         targets = parse_targets(None)
         names = [t.name for t in targets]
@@ -327,6 +401,10 @@ class DeployFleetTest(unittest.TestCase):
         ) -> subprocess.CompletedProcess[str]:
             del kwargs
             executed_commands.append(argv)
+            if argv[:2] == ["nix", "eval"]:
+                return subprocess.CompletedProcess(
+                    argv, 0, '["tank/media", "tank/attic"]', ""
+                )
             return subprocess.CompletedProcess(argv, 0, "", "")
 
         checked_sockets: list[tuple[str, int]] = []

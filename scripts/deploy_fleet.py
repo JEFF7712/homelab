@@ -527,6 +527,8 @@ class FleetDeployer:
         run_command(cmd, runner=self.runner, timeout=self.drain_timeout + 10.0)
 
     def rebuild_host(self, host: HostConfig) -> None:
+        if host.host_type == "appliance-nas":
+            self.verify_nas_datasets(host)
         action = "dry-activate" if self.dry_run else "switch"
         logger.info("[%s] Executing nixos-rebuild %s...", host.name, action)
         cmd = [
@@ -541,6 +543,61 @@ class FleetDeployer:
             "--elevate=sudo",
         ]
         run_command(cmd, runner=self.runner, timeout=600.0)
+
+    def verify_nas_datasets(self, host: HostConfig) -> None:
+        result = run_command(
+            [
+                "nix",
+                "eval",
+                "--json",
+                f"{self.flake_path}#nixosConfigurations.{host.name}.config.fileSystems",
+                "--apply",
+                (
+                    "filesystems: builtins.map (fs: fs.device) (builtins.filter "
+                    '(fs: fs.fsType == "zfs") (builtins.attrValues filesystems))'
+                ),
+            ],
+            runner=self.runner,
+            timeout=120.0,
+        )
+        try:
+            datasets = json.loads(result.stdout)
+        except json.JSONDecodeError as err:
+            raise FleetDeploymentError(
+                "NAS storage evaluation returned invalid JSON"
+            ) from err
+        if not isinstance(datasets, list) or not all(
+            isinstance(dataset, str) and dataset and not dataset.startswith("-")
+            for dataset in datasets
+        ):
+            raise FleetDeploymentError(
+                "NAS storage evaluation returned invalid datasets"
+            )
+        if not datasets:
+            return
+        cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
+        if self.ssh_opts is not None:
+            cmd.extend(self.ssh_opts)
+        else:
+            cmd.extend(
+                shlex.split(os.getenv("NIX_SSHOPTS") or os.getenv("SSH_OPTS") or "")
+            )
+        cmd.extend(
+            [
+                f"{self.ssh_user}@{host.ip}",
+                shlex.join(
+                    ["sudo", "-n", "zfs", "list", "-H", "-o", "name", *datasets]
+                ),
+            ]
+        )
+        result = run_command(cmd, runner=self.runner, timeout=30.0, check=False)
+        if result.returncode != 0:
+            detail = (result.stdout + "\n" + result.stderr).strip()
+            raise FleetDeploymentError(
+                f"NAS storage preflight failed on {host.name}: provision or restore the "
+                f"configured ZFS datasets before rebuilding. NixOS rebuild does not "
+                f"create Disko datasets.\n{detail}"
+            )
 
     def wait_node_ready(self, node_name: str) -> None:
         if self.dry_run:
