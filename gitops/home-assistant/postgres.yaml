@@ -4,7 +4,7 @@ metadata:
   name: home-assistant-postgres
   namespace: home-assistant
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -101,4 +101,5 @@ spec:
     - port: 5432
       targetPort: 5432
   selector:
-    app: home-assistant-postgres
+    cnpg.io/cluster: home-assistant-cluster
+    role: primary

@@ -10,3 +10,4 @@ resources:
   - service.yaml
   - monitoring.yaml
   - spotify-credentials.yaml
+  - postgres-cluster.yaml
