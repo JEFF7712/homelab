@@ -127,7 +127,7 @@
         "pod-agent/pod-agent-dashboard-5cf5f7cfb-2fcjq/seed-memory",
         "pod-agent/pod-agent-discord-bot-55dd84458d-ldrqq/bot"
       ],
-      "reference": "registry.rupan.dev/apps/pod-agent@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c"
+      "reference": "registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35"
     },
     {
       "consumers": [
@@ -137,10 +137,10 @@
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-646ffd4578-w667f/quartz",
-        "obsidian/quartz-notes-646ffd4578-xddnb/quartz"
+        "obsidian/quartz-notes-ff7988f78-cz78t/quartz",
+        "obsidian/quartz-notes-ff7988f78-g8jhk/quartz"
       ],
-      "reference": "registry.rupan.dev/apps/quartz@sha256:4a7b70c6f941587307853ce4d863f84e83a19c7330d2604149de87a4c60703d0"
+      "reference": "registry.rupan.dev/apps/quartz@sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851"
     },
     {
       "consumers": [
@@ -717,6 +717,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-10-01T02:23:09+00:00",
+  "observed_at": "2026-10-01T02:59:11+00:00",
   "schema_version": 1
 }

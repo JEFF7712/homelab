@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-09-30T21:49:10+00:00",
+  "generated_at": "2026-10-01T03:03:28+00:00",
   "images": [
     {
       "authenticity": {
@@ -535,10 +535,10 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1790804801",
-        "retention-deployed-6e960719f584b8f1"
+        "0.0.1790823694",
+        "retention-deployed-dbfe375306767c79"
       ],
-      "digest": "sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
+      "digest": "sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -559,11 +559,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1790804801@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
+        "digest": "sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1790823694@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1790804801"
+        "tag": "0.0.1790823694"
       }
     },
     {
@@ -644,11 +644,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.329@sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.329",
-        "digest": "sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.329@sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851"
+        "tag": "0.0.329"
       }
     },
     {

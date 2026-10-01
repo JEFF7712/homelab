@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T01:46:02+00:00",
+  "generated_at": "2026-10-01T03:03:29+00:00",
   "images": [
     {
       "consumers": [
@@ -325,7 +325,7 @@
         "observed:pod-agent/pod-agent-discord-bot-55dd84458d-ldrqq/bot"
       ],
       "destination_repository": "apps/pod-agent",
-      "id": "first-party-apps-pod-agent-85f706113d7b",
+      "id": "first-party-apps-pod-agent-39dea1483db0",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/pod-agent",
@@ -334,8 +334,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
-        "reference": "registry.rupan.dev/apps/pod-agent@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
+        "digest": "sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
+        "reference": "registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
         "tag": null
@@ -365,11 +365,12 @@
     },
     {
       "consumers": [
-        "observed:obsidian/quartz-notes-fb5778d6-8v2lj/quartz",
-        "observed:obsidian/quartz-notes-fb5778d6-tfhbh/quartz"
+        "gitops/obsidian/deployment.yaml:25",
+        "observed:obsidian/quartz-notes-ff7988f78-cz78t/quartz",
+        "observed:obsidian/quartz-notes-ff7988f78-g8jhk/quartz"
       ],
       "destination_repository": "apps/quartz",
-      "id": "first-party-apps-quartz-425e2f9fb32c",
+      "id": "first-party-apps-quartz-85b34e2ac302",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/quartz",
@@ -378,29 +379,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:940a511fbdd2b6eb890c988e3ec9f81c99a6564f207a69ebb1e11928e2ca6378",
-        "reference": "registry.rupan.dev/apps/quartz@sha256:940a511fbdd2b6eb890c988e3ec9f81c99a6564f207a69ebb1e11928e2ca6378",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/quartz",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
-        "gitops/obsidian/deployment.yaml:25"
-      ],
-      "destination_repository": "apps/quartz",
-      "id": "first-party-apps-quartz-525e6569f9a7",
-      "kind": "first-party",
-      "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/quartz",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:4a7b70c6f941587307853ce4d863f84e83a19c7330d2604149de87a4c60703d0",
-        "reference": "registry.rupan.dev/apps/quartz@sha256:4a7b70c6f941587307853ce4d863f84e83a19c7330d2604149de87a4c60703d0",
+        "digest": "sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851",
+        "reference": "registry.rupan.dev/apps/quartz@sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
         "tag": null
@@ -2010,7 +1990,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "a318b22e9525b641f77759c380a5c8f53ce367c6",
+  "source_revision": "93f225fdefd1942108d1a4718967d4da80b6fe33",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2112,8 +2092,8 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/pod-agent/cronjobs-daily.yaml:30,gitops/pod-agent/cronjobs-daily.yaml:111,gitops/pod-agent/cronjobs-daily.yaml:130,gitops/pod-agent/cronjobs-daily.yaml:202,gitops/pod-agent/cronjobs-daily.yaml:221,gitops/pod-agent/cronjobs-daily.yaml:291,gitops/pod-agent/cronjobs-daily.yaml:310,gitops/pod-agent/cronjobs-daily.yaml:382,gitops/pod-agent/cronjobs-daily.yaml:401,gitops/pod-agent/cronjobs-frequent.yaml:29,gitops/pod-agent/cronjobs-frequent.yaml:48,gitops/pod-agent/cronjobs-frequent.yaml:117,gitops/pod-agent/cronjobs-frequent.yaml:136,gitops/pod-agent/cronjobs-frequent.yaml:206,gitops/pod-agent/cronjobs-frequent.yaml:225,gitops/pod-agent/cronjobs-frequent.yaml:294,gitops/pod-agent/cronjobs-frequent.yaml:365,gitops/pod-agent/cronjobs-frequent.yaml:384,gitops/pod-agent/cronjobs-weekly.yaml:30,gitops/pod-agent/cronjobs-weekly.yaml:99,gitops/pod-agent/cronjobs-weekly.yaml:118,gitops/pod-agent/cronjobs-weekly.yaml:187,gitops/pod-agent/cronjobs-weekly.yaml:206,gitops/pod-agent/cronjobs-weekly.yaml:278,gitops/pod-agent/cronjobs-weekly.yaml:297,gitops/pod-agent/dashboard.yaml:28,gitops/pod-agent/dashboard.yaml:50,gitops/pod-agent/discord-bot.yaml:29,observed:pod-agent/cronjob-pod-agent-backup/backup,observed:pod-agent/cronjob-pod-agent-cycle/cycle,observed:pod-agent/cronjob-pod-agent-cycle/wait-for-network,observed:pod-agent/cronjob-pod-agent-discover/discover,observed:pod-agent/cronjob-pod-agent-discover/wait-for-network,observed:pod-agent/cronjob-pod-agent-email-watch/email-watch,observed:pod-agent/cronjob-pod-agent-email-watch/wait-for-network,observed:pod-agent/cronjob-pod-agent-learn/learn,observed:pod-agent/cronjob-pod-agent-learn/wait-for-network,observed:pod-agent/cronjob-pod-agent-oauth-refresh/oauth-refresh,observed:pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network,observed:pod-agent/cronjob-pod-agent-observe/observe,observed:pod-agent/cronjob-pod-agent-observe/wait-for-network,observed:pod-agent/cronjob-pod-agent-planner-recovery/planner-recovery,observed:pod-agent/cronjob-pod-agent-planner-recovery/wait-for-network,observed:pod-agent/cronjob-pod-agent-price/price,observed:pod-agent/cronjob-pod-agent-price/wait-for-network,observed:pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge,observed:pod-agent/cronjob-pod-agent-shipping/shipping,observed:pod-agent/cronjob-pod-agent-shipping/wait-for-network,observed:pod-agent/cronjob-pod-agent-sweep/sweep,observed:pod-agent/cronjob-pod-agent-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep,observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-watchdog/watchdog,observed:pod-agent/pod-agent-dashboard-5cf5f7cfb-2fcjq/dashboard,observed:pod-agent/pod-agent-dashboard-5cf5f7cfb-2fcjq/seed-memory,observed:pod-agent/pod-agent-discord-bot-55dd84458d-ldrqq/bot",
-      "id": "producer:first-party-apps-pod-agent-85f706113d7b",
-      "input": "registry.rupan.dev/apps/pod-agent@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c",
+      "id": "producer:first-party-apps-pod-agent-39dea1483db0",
+      "input": "registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
@@ -2127,17 +2107,9 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "observed:obsidian/quartz-notes-fb5778d6-8v2lj/quartz,observed:obsidian/quartz-notes-fb5778d6-tfhbh/quartz",
-      "id": "producer:first-party-apps-quartz-425e2f9fb32c",
-      "input": "registry.rupan.dev/apps/quartz@sha256:940a511fbdd2b6eb890c988e3ec9f81c99a6564f207a69ebb1e11928e2ca6378",
-      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
-    },
-    {
-      "blocking": false,
-      "class": "producer-pipeline",
-      "consumer": "gitops/obsidian/deployment.yaml:25",
-      "id": "producer:first-party-apps-quartz-525e6569f9a7",
-      "input": "registry.rupan.dev/apps/quartz@sha256:4a7b70c6f941587307853ce4d863f84e83a19c7330d2604149de87a4c60703d0",
+      "consumer": "gitops/obsidian/deployment.yaml:25,observed:obsidian/quartz-notes-ff7988f78-cz78t/quartz,observed:obsidian/quartz-notes-ff7988f78-g8jhk/quartz",
+      "id": "producer:first-party-apps-quartz-85b34e2ac302",
+      "input": "registry.rupan.dev/apps/quartz@sha256:f1475abb1744505911289254d84d7009212e3200b997cb9f72c1201537d5a851",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

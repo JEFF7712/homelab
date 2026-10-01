@@ -25,7 +25,7 @@ spec:
       initContainers:
         - name: seed-memory
           # Pinned digest; tags roll forward via registry promotion.
-          image: registry.rupan.dev/apps/pod-agent@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -47,7 +47,7 @@ spec:
             runAsUser: 101
       containers:
         - name: dashboard
-          image: registry.rupan.dev/apps/pod-agent@sha256:6e960719f584b8f177cbeeb8ec693228eabc4249b2e9721ae4b0a5857aa96a7c  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - dashboard

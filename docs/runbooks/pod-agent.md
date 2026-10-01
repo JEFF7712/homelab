@@ -452,6 +452,46 @@ retention tag `retention-deployed-1e507dd7a5534736`, where
 records Quartz's actual running image, but this follow-up changes no Quartz
 desired pins, lock entries, or tags.
 
+## Listing-fee reconciliation release, September 30
+
+Application revision `9c32d45` adds Etsy fee evidence and cash commitments that
+remain reserved until platform funding is established. Revision `86ca155`
+makes the CLI test credentials self-contained without changing the application
+package. Owner approval covers source publication and this deployment. GitHub
+Actions run `36807830342` passed 2,959 tests (three skipped), Pyright, and image
+publication. The verified CI index is
+`sha256:6d5db73fe93345ef2ff2892812831553dbb1fd4b9bda0b733fd007c94f1506b9`.
+Its amd64 child is
+`sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35`.
+Promotion tag: `0.0.1790823694`. Verify both the numeric and retention tags
+retain the exact child manifest before updating consumer pins.
+
+Pre-rollout backup job `pod-agent-pre-charge-9c32d45` accepted encrypted
+snapshot `/data/backups/state-20261001T024908678299Z.db.age`, including
+decryption, integrity, and content-hash checks. The previous application
+manifest remains available under `retention-deployed-6e960719f584b8f1`.
+
+After Flux applies this release, verify both Deployments, all 28 container and
+init image pins across the 16 POD resources, all 227 installed package files,
+and the additive `etsy_charge_entries`, `etsy_charge_observations`, and
+`exposure_charge_matches` tables. Exercise the existing observation service
+with notifications disabled and provider requests restricted to GET, then
+verify fee matching, cash headroom, and the authenticated Desk. Compare
+proposal, business-write, reservation, and token-row counts with the
+pre-rollout evidence. Original reservation fields, LLC limits, and shop
+allocations must remain unchanged.
+
+The pre-rollout provider replay found 21 exact listing-fee matches totaling
+420 cents and a payment-account balance of -420 cents. Against the observed
+13,374-cent bank balance and 10,000-cent reserve, headroom was 2,954 cents.
+Record fresh production results separately; publication of the image does
+not establish that the observer or new cash calculation ran successfully.
+
+This release does not add customer messaging, refunds, supplier purchases,
+advertising authority, or changes to veto windows. Roll back image pins while
+retaining the production database and its additive financial evidence. Never
+restore a stale snapshot over newer orders or rotated OAuth credentials.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.
