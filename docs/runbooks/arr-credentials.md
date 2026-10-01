@@ -87,13 +87,27 @@ is untouched. Trust note: tidaler is a small community fork that holds
 a Tidal OAuth token, so treat releases with care and keep the pin.
 
 Auth lives outside Git at `/config/xdg/tidaler/token.json` on the
-lidarr-config PVC (survives restarts). It was provisioned from a
-browser-session access token with no refresh token, so it expires
-roughly weekly. Symptoms of expiry: the Audio log shows
+lidarr-config PVC (survives restarts). When provisioned with a
+`refresh_token`, `tidaler` automatically refreshes its access token in
+the background. If provisioned without a refresh token (or if revoked),
+the session expires after 24 hours. Symptoms of expiry: the Audio log shows
 `tidal-dl-shim: TIDAL session invalid` and the Tidal client test fails,
 which exits the Audio daemon until the next pod restart.
 
-Re-authenticate:
+Authenticate via interactive OAuth (Recommended, auto-refreshes indefinitely):
+
+1. Run interactive login inside the pod:
+   `kubectl exec -it -n media deploy/lidarr -c lidarr -- tidaler login`
+2. Open the printed `https://login.tidal.com/authorize?...` link in a browser,
+   sign in, and copy the full redirect URL from the resulting 'Oops' page
+   (`https://tidal.com/android/login/auth?code=...`).
+3. Paste the redirect URL back into the terminal prompt. `tidaler` exchanges
+   the code for an access token and persistent refresh token, automatically
+   saving to `/config/xdg/tidaler/token.json`.
+4. Ensure the legacy symlink exists:
+   `kubectl exec -n media deploy/lidarr -c lidarr -- ln -sf /config/xdg/tidaler/token.json /config/xdg/.tidal-dl.token.json`
+
+Fallback: browser-session token (Expires strictly in 24 hours):
 
 1. Log into `listen.tidal.com`, copy the `Authorization: Bearer`
    token from any `api.tidal.com` request in devtools.
