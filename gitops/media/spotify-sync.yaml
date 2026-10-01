@@ -340,11 +340,17 @@ data:
             )
             self.artist_records = self.lidarr.artists()
             self.artist_defaults = self.lidarr.artist_defaults(self.artist_records)
-            self.existing_artists = {
-                normalize(record.get("artistName", "")): record
-                for record in self.artist_records
-                if normalize(record.get("artistName", ""))
-            }
+            self.existing_artists: dict[str, dict[str, Any]] = {}
+            for record in self.artist_records:
+                name_key = normalize(record.get("artistName", ""))
+                clean_key = record.get("cleanName", "")
+                mbid = record.get("foreignArtistId", "")
+                if name_key:
+                    self.existing_artists[name_key] = record
+                if clean_key:
+                    self.existing_artists[clean_key] = record
+                if mbid:
+                    self.existing_artists[mbid] = record
             self.library = LocalLibrary(self.music_dir)
             self.state = self.load_state()
 
@@ -439,6 +445,13 @@ data:
                     )
                     if exact.get("id"):
                         record = exact
+                    elif exact.get("cleanName") and exact["cleanName"] in existing:
+                        record = existing[exact["cleanName"]]
+                    elif (
+                        exact.get("foreignArtistId")
+                        and exact["foreignArtistId"] in existing
+                    ):
+                        record = existing[exact["foreignArtistId"]]
                     else:
                         payload = dict(exact)
                         payload.update(
@@ -454,8 +467,16 @@ data:
                         if self.args.dry_run:
                             logger.info("Would add %s to Lidarr", artist)
                         else:
-                            self.lidarr.post("/api/v1/artist", payload)
-                        existing[key] = exact
+                            created = self.lidarr.post("/api/v1/artist", payload)
+                            if isinstance(created, dict):
+                                record = created
+                            else:
+                                record = exact
+                        existing[key] = record
+                        if record.get("cleanName"):
+                            existing[record["cleanName"]] = record
+                        if record.get("foreignArtistId"):
+                            existing[record["foreignArtistId"]] = record
                         added += 1
                         logger.info("Added %s to Lidarr", artist)
                 if record is not None and not record.get("monitored", True):
@@ -635,6 +656,7 @@ spec:
           labels:
             app.kubernetes.io/name: spotify-sync
         spec:
+          automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:
             fsGroup: 1000

@@ -57,7 +57,7 @@ data:
     # (tidaler via the tidal-dl compat shim installed by lidarr-boot.sh).
     # Tidal auth is a pre-provisioned token on the config PVC, not a
     # secret in this file; see docs/runbooks/arr-credentials.md.
-    dlClientSource="both"
+    dlClientSource="deezer"
     arlToken="__DEEZER_ARL__"
     tidalCountryCode="US"
     # Upstream default canary (166356219) no longer returns audio streams
@@ -204,9 +204,19 @@ data:
     # /init and Lidarr keep the image default environment. Invoked via
     # bash explicitly because the scripts' with-contenv shebang would
     # reset the override back to the container default.
-    XDG_CONFIG_HOME=/config/xdg nohup bash /config/custom-services.d/Audio >>/config/logs/Audio-supervisor.log 2>&1 &
-    XDG_CONFIG_HOME=/config/xdg nohup bash /config/custom-services.d/ARLChecker \
-      >>/config/logs/ARLChecker-supervisor.log 2>&1 &
+    mkdir -p /config/logs
+    (
+      while true; do
+        XDG_CONFIG_HOME=/config/xdg bash /config/custom-services.d/Audio
+        sleep 60
+      done
+    ) >>/config/logs/Audio-supervisor.log 2>&1 &
+    (
+      while true; do
+        XDG_CONFIG_HOME=/config/xdg bash /config/custom-services.d/ARLChecker
+        sleep 60
+      done
+    ) >>/config/logs/ARLChecker-supervisor.log 2>&1 &
     echo "--- [lidarr-boot] exec /init ---"
     exec /init
   # tidal-dl compatibility shim: translates the legacy tidal-dl CLI used by
