@@ -106,6 +106,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _read_json_stdin() -> dict[str, object]:
+    if sys.stdin.isatty():
+        raise TaskError("no JSON on stdin; pipe a document or use task-new --template")
     try:
         value = json.load(sys.stdin)
     except json.JSONDecodeError as error:

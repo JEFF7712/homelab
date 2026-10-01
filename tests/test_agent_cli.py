@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests.agent_helpers import commit, make_repository
 
@@ -126,6 +127,16 @@ class AgentCliTest(unittest.TestCase):
         detached_payload = json.loads(detached.stdout)
         self.assertIsNone(detached_payload["repository"]["branch"])
         self.assertTrue(detached_payload["repository"]["detached"])
+
+    def test_task_stdin_refuses_tty_instead_of_hanging(self) -> None:
+        from scripts.agent.__main__ import _read_json_stdin
+        from scripts.agent.tasks import TaskError
+
+        with (
+            mock.patch.object(sys.stdin, "isatty", return_value=True),
+            self.assertRaisesRegex(TaskError, "no JSON on stdin"),
+        ):
+            _read_json_stdin()
 
     def test_task_new_template_prints_valid_creation_document(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
