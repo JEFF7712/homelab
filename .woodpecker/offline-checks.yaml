@@ -21,5 +21,7 @@ steps:
 
   - name: offline-gate
     image: bash
+    environment:
+      CI_LINT_EXTERNAL: "1"
     commands:
       - nix develop ./flake -c bash scripts/checks/all.sh
