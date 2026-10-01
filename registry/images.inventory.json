@@ -455,6 +455,27 @@
     },
     {
       "consumers": [
+        "gitops/websites/sovereign/deployment.yaml:23"
+      ],
+      "destination_repository": "apps/sovereign-site",
+      "id": "first-party-apps-sovereign-site-27a20660a06e",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/sovereign-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:eed655a19b7814d481a7bf5342176af1923d7fbca35267124ff4e4079459dfa7",
+        "reference": "registry.rupan.dev/apps/sovereign-site@sha256:eed655a19b7814d481a7bf5342176af1923d7fbca35267124ff4e4079459dfa7",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/sovereign-site",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
         "gitops/websites/spatia/deployment.yaml:37",
         "observed:spatia/website-deploy-ffc545d79-bxjfb/web"
       ],
