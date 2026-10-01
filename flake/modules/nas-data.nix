@@ -23,10 +23,23 @@
   services.nfs.server = {
     enable = true;
     exports = ''
-      /tank/media     10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash) 10.0.10.0/24(ro,sync,no_subtree_check)
-      /tank/backups   10.0.30.0/24(rw,sync,no_subtree_check)
-      /tank/cluster   10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash)
+      /tank/media     10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash,mountpoint) 10.0.10.0/24(ro,sync,no_subtree_check,mountpoint)
+      /tank/backups   10.0.30.0/24(rw,sync,no_subtree_check,mountpoint)
+      /tank/cluster   10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash,mountpoint)
     '';
+  };
+
+  systemd.services.nfs-server = {
+    wants = [
+      "tank-media.mount"
+      "tank-backups.mount"
+      "tank-cluster.mount"
+    ];
+    after = [
+      "tank-media.mount"
+      "tank-backups.mount"
+      "tank-cluster.mount"
+    ];
   };
 
   services.sanoid = {
@@ -68,6 +81,10 @@
   systemd.services.atticd = {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
+    unitConfig.RequiresMountsFor = [
+      "/tank/attic"
+      "/persist/attic"
+    ];
     serviceConfig = {
       DynamicUser = lib.mkForce false;
       User = "atticd";
@@ -116,8 +133,17 @@
     description = "Copy photos and documents to the independent 2 TB disk";
     after = [ "mnt-backup\\x2d2tb.mount" ];
     requires = [ "mnt-backup\\x2d2tb.mount" ];
+    unitConfig.RequiresMountsFor = [
+      "/tank/photos"
+      "/tank/documents"
+      "/mnt/backup-2tb"
+    ];
+    path = [ pkgs.util-linux ];
     serviceConfig = {
       Type = "oneshot";
+      ExecStartPre = pkgs.writeShellScript "check-nas-backup-mounts" (
+        builtins.readFile ../../scripts/nas/check-backup-mounts.sh
+      );
       ExecStart = pkgs.writeShellScript "nas-backup-2tb" ''
         set -eu
         ${pkgs.rsync}/bin/rsync -a --delete /tank/photos/ /mnt/backup-2tb/photos/

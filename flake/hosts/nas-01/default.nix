@@ -30,13 +30,7 @@
 
   fileSystems =
     lib.mapAttrs' (_: dataset: lib.nameValuePair dataset.mountpoint { options = [ "nofail" ]; }) (
-      lib.filterAttrs (
-        name: _:
-        lib.elem name [
-          "forgejo"
-          "s3"
-        ]
-      ) config.disko.devices.zpool.tank.datasets
+      lib.filterAttrs (_: dataset: dataset.mountpoint != null) config.disko.devices.zpool.tank.datasets
     )
     // {
       "/var/log".neededForBoot = true;

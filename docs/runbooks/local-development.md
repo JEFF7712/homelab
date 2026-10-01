@@ -39,8 +39,18 @@ new datasets explicitly before deployment: adding a Disko declaration does not
 create a dataset during `nixos-rebuild`. Never run Disko against the existing
 tank to add an application dataset.
 
-Forgejo and S3 application mounts use `nofail`, so missing application storage
-does not send the NAS into emergency mode. Their services still require their
-mounts and cannot start without them. Core storage and boot mounts retain their
-required behavior. Direct `nixos-rebuild` commands bypass the fleet storage
-check; use the fleet deployment entry point for NAS changes.
+Every declared tank data mount uses `nofail`, so missing application storage
+does not send the NAS into emergency mode. Attic, Zot, Forgejo and S3 services
+require their respective mounts. NFS waits for its export mounts to finish
+attempting to mount and exports only mounted paths, using the `mountpoint`
+export option. A missing export does not disable the remaining exports.
+After recovering an export mount, run `sudo exportfs -ra` on the NAS.
+
+The photos/documents backup requires both source mounts and the destination
+mount. Before any `rsync --delete`, it also verifies the source dataset names
+and that the destination is an XFS mount. A missing or incorrect mount fails
+the job before backup contents can be modified.
+
+Core root datasets and both boot partitions retain their required behavior.
+Direct `nixos-rebuild` commands bypass the fleet storage check; use the fleet
+deployment entry point for NAS changes.
