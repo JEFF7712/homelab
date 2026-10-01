@@ -22,7 +22,7 @@ ARR_MANIFEST = ROOT / "gitops" / "media" / "arr.yaml"
 REQUIRED_ASSIGNMENTS = {
     "enableAutoConfig": "false",
     "enableAudio": "true",
-    "dlClientSource": "both",
+    "dlClientSource": "deezer",
     "tidalClientTestDownloadId": "77610756",
     "audioFormat": "native",
     "audioBitrate": "lossless",
@@ -94,7 +94,7 @@ class TestTemplateFormat(unittest.TestCase):
             "source /dev/stdin"
             ' && [ -n "$enableAutoConfig" ]'
             ' && [ "$enableAudio" = true ]'
-            ' && [ "$dlClientSource" = both ]'
+            ' && [ "$dlClientSource" = deezer ]'
             ' && echo OK-"$arlToken"-"$lidarrAPI"'
         )
         proc = subprocess.run(
@@ -132,7 +132,11 @@ class TestBootWrapper(unittest.TestCase):
 
     def test_boot_wrapper_scopes_deemix_config_home(self):
         source = extended_configmap()["data"]["lidarr-boot.sh"]
-        self.assertIn("XDG_CONFIG_HOME=/config/xdg nohup bash", source)
+        for service in ("Audio", "ARLChecker"):
+            self.assertIn(
+                f"XDG_CONFIG_HOME=/config/xdg bash /config/custom-services.d/{service}",
+                source,
+            )
         self.assertNotIn("export XDG_CONFIG_HOME", source)
 
     def test_boot_wrapper_installs_tidal_backend(self):
