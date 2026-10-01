@@ -223,6 +223,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
       initContainers:
         - name: fix-permissions
           image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
@@ -282,8 +284,8 @@ spec:
               port: 8686
             initialDelaySeconds: 60
             periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 5
+            timeoutSeconds: 15
+            failureThreshold: 10
           # Boot runs apk + the deemix/freyr toolchain setup before /init,
           # routinely 4-6 minutes on fresh rootfs. The 120s delay let
           # liveness SIGKILL slow boots at ~220s and loop them.
@@ -293,11 +295,11 @@ spec:
               port: 8686
             initialDelaySeconds: 300
             periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 5
+            timeoutSeconds: 15
+            failureThreshold: 10
           resources:
             requests:
-              cpu: 250m
+              cpu: 500m
               memory: 512Mi
             limits:
               memory: 3Gi

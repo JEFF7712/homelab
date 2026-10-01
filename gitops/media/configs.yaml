@@ -24,7 +24,7 @@ data:
     enableAudio="true"
     enableVideo="false"
     enableUnmappedFilesCleaner="false"
-    enableQueueCleaner="false"
+    enableQueueCleaner="true"
     enableChangeCategory="false"
 
     ##### SCRIPT INTERVALS
