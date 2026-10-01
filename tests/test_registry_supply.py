@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import stat
 import subprocess
 import tempfile
@@ -1337,6 +1338,84 @@ def valid_lock(raw: bytes) -> dict[str, Any]:
         "mirror_exceptions": [],
         "unresolved_inputs": [],
     }
+
+
+class RegistryCiConvergenceTests(unittest.TestCase):
+    def _run_gate(
+        self, failures: int, *, invalid_lock: bool = False
+    ) -> tuple[subprocess.CompletedProcess[str], int, list[str], bool]:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
+        script = shlex.split(pipeline[".registry_lock"]["script"][0])[-1]
+        with tempfile.TemporaryDirectory() as directory:
+            workdir = pathlib.Path(directory)
+            tools = workdir / "bin"
+            tools.mkdir()
+            counter = workdir / "counter"
+            counter.write_text("0")
+            sleeps = workdir / "sleeps"
+            just = tools / "just"
+            just.write_text(
+                "#!/bin/sh\n"
+                'case "$1" in\n'
+                "registry-plan)\n"
+                '  [ "$PLAN_FAILURE" = 0 ] || exit 7\n'
+                "  printf '%s\\n' '{\"kind\":\"plan\"}'\n"
+                "  ;;\n"
+                "registry-check)\n"
+                '  attempt=$(cat "$COUNTER")\n'
+                "  attempt=$((attempt + 1))\n"
+                '  printf %s "$attempt" > "$COUNTER"\n'
+                '  [ "$attempt" -gt "$CHECK_FAILURES" ] || exit 4\n'
+                "  ;;\n"
+                "*) exit 8 ;;\n"
+                "esac\n"
+            )
+            sleep = tools / "sleep"
+            sleep.write_text('#!/bin/sh\nprintf "%s\\n" "$1" >> "$SLEEPS"\n')
+            for tool in (just, sleep):
+                tool.chmod(0o755)
+            result = subprocess.run(
+                ["bash", "-euo", "pipefail", "-c", script],
+                cwd=workdir,
+                env={
+                    **os.environ,
+                    "PATH": f"{tools}:{os.environ['PATH']}",
+                    "COUNTER": str(counter),
+                    "SLEEPS": str(sleeps),
+                    "CHECK_FAILURES": str(failures),
+                    "PLAN_FAILURE": "1" if invalid_lock else "0",
+                },
+                capture_output=True,
+                text=True,
+            )
+            return (
+                result,
+                int(counter.read_text()),
+                sleeps.read_text().splitlines() if sleeps.exists() else [],
+                (workdir / "registry-copy-plan.json").exists(),
+            )
+
+    def test_rollout_convergence_refreshes_policy_then_emits_plan(self) -> None:
+        result, checks, sleeps, has_plan = self._run_gate(2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(checks, 3)
+        self.assertEqual(sleeps, ["20", "20"])
+        self.assertTrue(has_plan)
+
+    def test_persistent_drift_remains_failed_and_emits_no_plan(self) -> None:
+        result, checks, sleeps, has_plan = self._run_gate(100)
+        self.assertEqual(result.returncode, 4, result.stderr)
+        self.assertEqual(checks, 10)
+        self.assertEqual(sleeps, ["20"] * 9)
+        self.assertFalse(has_plan)
+
+    def test_invalid_lock_fails_before_live_checks_or_waits(self) -> None:
+        result, checks, sleeps, has_plan = self._run_gate(0, invalid_lock=True)
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assertEqual(checks, 0)
+        self.assertEqual(sleeps, [])
+        self.assertFalse(has_plan)
 
 
 class AuthConsistencyTest(unittest.TestCase):

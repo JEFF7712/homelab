@@ -262,7 +262,17 @@ secret_scan_feature:
   script:
     - >-
       nix develop ./flake -c python -m scripts.ci.run registry -- bash -euo pipefail -c
-      'just registry-check && just registry-plan > registry-copy-plan.json'
+      'just registry-plan >/dev/null;
+      rc=1;
+      for attempt in {1..10}; do
+      if just registry-check; then rc=0; break; else rc=$?; fi;
+      if [ "$attempt" -lt 10 ]; then
+      echo "Registry policy has not converged, retrying in 20s ($attempt/10)";
+      sleep 20;
+      fi;
+      done;
+      [ "$rc" -eq 0 ] || exit "$rc";
+      just registry-plan > registry-copy-plan.json'
   after_script:
     - shred -u ~/.kube/config 2>/dev/null || rm -f ~/.kube/config
   artifacts:

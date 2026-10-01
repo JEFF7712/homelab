@@ -205,6 +205,12 @@ content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
 Git commit only after that job succeeds.
 
+The CI lock gate validates the lock before inspecting the live cluster. A
+rollout can briefly leave old pods running after the new digest is committed,
+so the gate refreshes and checks live policy up to ten times, with 20 seconds
+between failures. Invalid locks fail immediately; policy that does not converge
+still fails with the check's exit status.
+
 `registry_lock_import` is deliberately manual and must stay that way. The
 candidate is a proposal: importing it before the reviewed commit that pins it
 would place content in the registry that nothing references, which the
