@@ -59,8 +59,10 @@ class TestTunnelIngressParity(unittest.TestCase):
         self.assertEqual(got, runbook_ingress())
 
     def test_no_duplicate_hostnames(self) -> None:
-        hosts = [r["hostname"] for r in config_ingress() if "hostname" in r]
-        self.assertEqual(len(hosts), len(set(hosts)))
+        routes = [
+            (r["hostname"], r.get("path")) for r in config_ingress() if "hostname" in r
+        ]
+        self.assertEqual(len(routes), len(set(routes)))
 
     def test_every_origin_service_exists(self) -> None:
         live = manifest_services() | CHART_CREATED

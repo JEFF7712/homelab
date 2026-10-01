@@ -88,7 +88,10 @@
       matchConfig.Name = "enp5s0";
       networkConfig = {
         Address = "10.0.30.20/24";
-        DNS = "10.0.30.10";
+        DNS = [
+          "10.0.30.10"
+          "10.0.30.1"
+        ];
         Gateway = "10.0.30.1";
       };
       linkConfig.RequiredForOnline = "routable";

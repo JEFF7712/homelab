@@ -35,7 +35,7 @@ Related manifests:
 - `gitops/cloudflare/tunnel.yaml`
 - `gitops/immich/server.yaml`
 
-## Ingress order (v82, 2026-09-29)
+## Ingress order (v82 applied 2026-09-29; `sovereign.rupan.dev` staged ahead of apply)
 
 Cloudflare evaluates top to bottom, first match wins. Keep specifics first, catch-all last.
 
@@ -50,44 +50,46 @@ Cloudflare Access public bypass configured.
 4. `nix-agent.rupan.dev -> http://nixagent-svc.nixagent:80`
 5. `rupanism.rupan.dev -> http://rupanism-svc.rupanism:80`
 6. `spatia.rupan.dev -> http://spatia-svc.spatia:80`
-7. `demo.rupan.dev -> http://cr-demo-svc.cr-demo:80`
-8. `soluble.rupan.dev -> http://soluble-rupan-svc.soluble-rupan:80`
-9. `photo.rupan.dev -> http://photography-svc.photography:80`
-10. `majorfinder.rupan.dev -> http://majorfinder-svc.majorfinder:80`
-11. `notes.rupan.dev -> http://quartz-notes.obsidian.svc.cluster.local:80`
-12. `ntfy.rupan.dev -> http://ntfy-ntfy.observability.svc.cluster.local:80`
-13. `obsidian.rupan.dev -> http://couchdb.obsidian.svc.cluster.local:5984`
-14. `renovate-status.rupan.dev -> http://renovate-dashboard.automation.svc.cluster.local:80`
-15. `renovate-approve.rupan.dev -> http://renovate-approval-webhook.automation.svc.cluster.local:80`
-16. `ha.rupan.dev -> http://home-assistant.home-assistant:8123`
-17. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
-18. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
-19. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
-20. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
-21. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
-22. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
-23. `apollinestore.com -> http://apolline-svc.apolline:80`
-24. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
-25. `pulseagent.dev -> http://pulse-svc.pulse:80`
-26. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
-27. `jellyfin.rupan.dev -> http://jellyfin.media:80`
-28. `navidrome.rupan.dev -> http://navidrome.media:80`
-29. `music.rupan.dev -> http://navidrome.media:80`
-30. `seerr.rupan.dev -> http://seerr.media:80`
-31. `requests.rupan.dev -> http://seerr.media:80`
-32. `lidarr.rupan.dev -> http://lidarr.media:80`
-33. `radarr.rupan.dev -> http://radarr.media:80`
-34. `sonarr.rupan.dev -> http://sonarr.media:80`
-35. `prowlarr.rupan.dev -> http://prowlarr.media:80`
-36. `bazarr.rupan.dev -> http://bazarr.media:80`
-37. `slskd.rupan.dev -> http://slskd.media:80`
-38. `torrent.rupan.dev -> http://qbittorrent.media:80`
-39. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
-40. `books.rupan.dev -> http://calibre-web.media:80`
-41. `media.rupan.dev -> http://filebrowser.media:80`
-42. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-43. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-44. `http_status:404`
+7. `sovereign.rupan.dev -> http://sovereign-inquiry-svc.sovereign:80` (path `^/api/inquiries/?$`, pilot inquiry receiver)
+8. `sovereign.rupan.dev -> http://sovereign-svc.sovereign:80` (private concept site, staged; Access app `sovereign`, see below)
+9. `demo.rupan.dev -> http://cr-demo-svc.cr-demo:80`
+10. `soluble.rupan.dev -> http://soluble-rupan-svc.soluble-rupan:80`
+11. `photo.rupan.dev -> http://photography-svc.photography:80`
+12. `majorfinder.rupan.dev -> http://majorfinder-svc.majorfinder:80`
+13. `notes.rupan.dev -> http://quartz-notes.obsidian.svc.cluster.local:80`
+14. `ntfy.rupan.dev -> http://ntfy-ntfy.observability.svc.cluster.local:80`
+15. `obsidian.rupan.dev -> http://couchdb.obsidian.svc.cluster.local:5984`
+16. `renovate-status.rupan.dev -> http://renovate-dashboard.automation.svc.cluster.local:80`
+17. `renovate-approve.rupan.dev -> http://renovate-approval-webhook.automation.svc.cluster.local:80`
+18. `ha.rupan.dev -> http://home-assistant.home-assistant:8123`
+19. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
+20. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
+21. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
+22. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
+23. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
+24. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
+25. `apollinestore.com -> http://apolline-svc.apolline:80`
+26. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
+27. `pulseagent.dev -> http://pulse-svc.pulse:80`
+28. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
+29. `jellyfin.rupan.dev -> http://jellyfin.media:80`
+30. `navidrome.rupan.dev -> http://navidrome.media:80`
+31. `music.rupan.dev -> http://navidrome.media:80`
+32. `seerr.rupan.dev -> http://seerr.media:80`
+33. `requests.rupan.dev -> http://seerr.media:80`
+34. `lidarr.rupan.dev -> http://lidarr.media:80`
+35. `radarr.rupan.dev -> http://radarr.media:80`
+36. `sonarr.rupan.dev -> http://sonarr.media:80`
+37. `prowlarr.rupan.dev -> http://prowlarr.media:80`
+38. `bazarr.rupan.dev -> http://bazarr.media:80`
+39. `slskd.rupan.dev -> http://slskd.media:80`
+40. `torrent.rupan.dev -> http://qbittorrent.media:80`
+41. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
+42. `books.rupan.dev -> http://calibre-web.media:80`
+43. `media.rupan.dev -> http://filebrowser.media:80`
+44. `bookshelf.rupan.dev -> http://bookshelf.media:80`
+45. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+46. `http_status:404`
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)
@@ -188,6 +190,25 @@ Origin reachability is restricted in-cluster by
 namespace may open a connection to the dashboard container port. A
 compromised workload elsewhere in the cluster has no path to the origin at
 all, so the hostname is the only way in.
+
+## `sovereign.rupan.dev` (private concept site)
+
+The Sovereign concept site is not a public launch: it exists for owner review
+and early customer discovery. It stays behind a dedicated Cloudflare Access
+application, dashboard managed like DNS (see "Known gaps"):
+
+1. Access application `sovereign`, hostname `sovereign.rupan.dev`, with an
+   **Allow** policy on the owner email only. No Bypass policy: Bypass on this
+   hostname would put the pre-launch site on the public internet. The wildcard
+   `*` app must not gain a Bypass covering it either.
+2. DNS `CNAME sovereign.rupan.dev ->
+   0f08d8c5-6f2c-409e-ba80-dc0601e0227e.cfargotunnel.com`, created by hand in
+   the dashboard once, like every other hostname here.
+3. The tunnel rule itself (`gitops/cloudflare/ingress-config.yaml`) is applied
+   by `cloudflare_apply` like any other hostname; Access sits in front of it
+   at the edge, so an unauthenticated visitor never reaches the origin.
+
+The producer repository (`JEFF7712/sovereign`) is private.
 
 ## Tunnel configuration source
 

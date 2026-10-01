@@ -131,8 +131,14 @@
 
   systemd.services.nas-backup-2tb = {
     description = "Copy photos and documents to the independent 2 TB disk";
-    after = [ "mnt-backup\\x2d2tb.mount" ];
-    requires = [ "mnt-backup\\x2d2tb.mount" ];
+    after = [
+      "mnt-backup\\x2d2tb.mount"
+      "tank-cluster.mount"
+    ];
+    requires = [
+      "mnt-backup\\x2d2tb.mount"
+      "tank-cluster.mount"
+    ];
     unitConfig.RequiresMountsFor = [
       "/tank/photos"
       "/tank/documents"
@@ -146,8 +152,15 @@
       );
       ExecStart = pkgs.writeShellScript "nas-backup-2tb" ''
         set -eu
-        ${pkgs.rsync}/bin/rsync -a --delete /tank/photos/ /mnt/backup-2tb/photos/
-        ${pkgs.rsync}/bin/rsync -a --delete /tank/documents/ /mnt/backup-2tb/documents/
+        immich_dir=$(${pkgs.findutils}/bin/find /tank/cluster -maxdepth 1 -name "immich-immich-library-pvc-*" | head -n 1)
+        if [ -n "$immich_dir" ] && [ -d "$immich_dir" ]; then
+          ${pkgs.rsync}/bin/rsync -a --delete "$immich_dir/" /mnt/backup-2tb/photos/
+        elif [ -d /tank/photos ]; then
+          ${pkgs.rsync}/bin/rsync -a --delete /tank/photos/ /mnt/backup-2tb/photos/
+        fi
+        if [ -d /tank/documents ]; then
+          ${pkgs.rsync}/bin/rsync -a --delete /tank/documents/ /mnt/backup-2tb/documents/
+        fi
       '';
     };
   };

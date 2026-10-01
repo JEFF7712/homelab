@@ -15,6 +15,7 @@ blocks in main.tf cover the rest.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import unittest
 from pathlib import Path
@@ -57,7 +58,8 @@ def mirrored_ingress() -> list[dict]:
 
 class TestTunnelIngressIsMirrored(unittest.TestCase):
     @unittest.skipUnless(
-        BACKEND_STATE.exists(), "tofu/cloudflare backend not initialised (CI only)"
+        BACKEND_STATE.exists() and shutil.which("tofu"),
+        "tofu/cloudflare backend not initialised (CI only)",
     )
     def test_evaluated_ingress_matches_mirror(self) -> None:
         self.assertEqual(evaluated_ingress(), mirrored_ingress())

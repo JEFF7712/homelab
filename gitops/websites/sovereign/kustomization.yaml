@@ -7,3 +7,4 @@ resources:
   - network-policy.yaml
   - inquiry-script.yaml
   - inquiry.yaml
+  - service.yaml

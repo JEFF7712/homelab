@@ -22,9 +22,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_MAP = (
-    REPO_ROOT / "gitops" / "websites" / "sovereign" / "inquiry-script.yaml"
-)
+SCRIPT_MAP = REPO_ROOT / "gitops" / "websites" / "sovereign" / "inquiry-script.yaml"
 KUSTOMIZATION = REPO_ROOT / "gitops" / "websites" / "sovereign" / "kustomization.yaml"
 INGRESS_CONFIG = REPO_ROOT / "gitops" / "cloudflare" / "ingress-config.yaml"
 
@@ -132,7 +130,10 @@ class InquiryReceiverTest(unittest.TestCase):
         response.read()
         self.assertEqual(response.status, 400)
         status, _ = request(
-            "POST", "/api/inquiries", valid_payload(), content_type="text/plain",
+            "POST",
+            "/api/inquiries",
+            valid_payload(),
+            content_type="text/plain",
             forwarded_for="test-415-1",
         )
         self.assertEqual(status, 415)

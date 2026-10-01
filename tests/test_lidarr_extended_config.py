@@ -22,7 +22,7 @@ ARR_MANIFEST = ROOT / "gitops" / "media" / "arr.yaml"
 REQUIRED_ASSIGNMENTS = {
     "enableAutoConfig": "false",
     "enableAudio": "true",
-    "dlClientSource": "deezer",
+    "dlClientSource": "both",
     "tidalClientTestDownloadId": "77610756",
     "audioFormat": "native",
     "audioBitrate": "lossless",
@@ -94,7 +94,7 @@ class TestTemplateFormat(unittest.TestCase):
             "source /dev/stdin"
             ' && [ -n "$enableAutoConfig" ]'
             ' && [ "$enableAudio" = true ]'
-            ' && [ "$dlClientSource" = deezer ]'
+            ' && [ "$dlClientSource" = both ]'
             ' && echo OK-"$arlToken"-"$lidarrAPI"'
         )
         proc = subprocess.run(

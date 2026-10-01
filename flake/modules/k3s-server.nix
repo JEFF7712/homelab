@@ -151,7 +151,10 @@ in
         matchConfig.Name = cfg.primaryInterface;
         networkConfig = {
           Address = "${cfg.nodeIp}/24";
-          DNS = "10.0.30.10";
+          DNS = [
+            "10.0.30.10"
+            "10.0.30.1"
+          ];
           Gateway = "10.0.30.1";
           IPv6AcceptRA = true;
         };
@@ -188,8 +191,8 @@ in
         ++ [
           "--kubelet-arg=container-log-max-size=10Mi"
           "--kubelet-arg=container-log-max-files=5"
-          "--kubelet-arg=image-gc-high-threshold=80"
-          "--kubelet-arg=image-gc-low-threshold=70"
+          "--kubelet-arg=image-gc-high-threshold=70"
+          "--kubelet-arg=image-gc-low-threshold=60"
           "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<10%,imagefs.available<10%"
         ]
         ++ lib.optionals (cfg.role == "server") [
