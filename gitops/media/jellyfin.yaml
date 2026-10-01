@@ -71,6 +71,13 @@ spec:
               mountPath: /run
             - name: dri
               mountPath: /dev/dri
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8096
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /health
