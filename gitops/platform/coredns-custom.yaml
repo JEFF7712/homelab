@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  registry.server: |
+    registry.rupan.dev:53 {
+        errors
+        cache 30
+        hosts {
+            10.0.30.20 registry.rupan.dev
+            fallthrough
+        }
+        forward . /etc/resolv.conf
+    }
+  internal.server: |
+    git.internal:53 s3.internal:53 ci.internal:53 {
+        errors
+        cache 30
+        hosts {
+            10.0.30.20 git.internal
+            10.0.30.20 s3.internal
+            10.0.30.14 ci.internal
+            fallthrough
+        }
+        forward . /etc/resolv.conf
+    }

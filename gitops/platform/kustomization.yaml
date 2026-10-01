@@ -10,6 +10,7 @@ resources:
   - nvidia-device-plugin/daemonset.yaml
   - priorityclass.yaml
   - coredns-pdb.yaml
+  - coredns-custom.yaml
   - cnpg/repository.yaml
   - cnpg/release.yaml
   - storage-class.yaml
