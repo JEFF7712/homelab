@@ -1,0 +1,137 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sovereign-inquiry
+  namespace: sovereign
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sovereign-inquiry
+  template:
+    metadata:
+      labels:
+        app: sovereign-inquiry
+      annotations:
+        reloader.stakater.com/auto: 'true'
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: receiver
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /config/inquiry.py
+          env:
+            - name: PORT
+              value: '8080'
+            - name: DB_PATH
+              value: /data/inquiries.db
+            - name: NTFY_URL
+              value: http://ntfy-ntfy.observability.svc.cluster.local/sovereign-pilot
+            - name: NTFY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sovereign-inquiry-ntfy
+                  key: ntfy-token
+                  optional: true
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: config
+          configMap:
+            name: sovereign-inquiry-script
+            defaultMode: 493
+        - name: data
+          persistentVolumeClaim:
+            claimName: sovereign-inquiry-data
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sovereign-inquiry-svc
+  namespace: sovereign
+spec:
+  selector:
+    app: sovereign-inquiry
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sovereign-inquiry-data
+  namespace: sovereign
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: sovereign-inquiry-ntfy
+  namespace: sovereign
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: gitlab-project
+    kind: ClusterSecretStore
+  target:
+    name: sovereign-inquiry-ntfy
+    creationPolicy: Owner
+  data:
+    - secretKey: ntfy-token
+      remoteRef:
+        key: SOVEREIGN_INQUIRY_NTFY_TOKEN

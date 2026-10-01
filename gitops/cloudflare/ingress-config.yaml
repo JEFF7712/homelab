@@ -19,6 +19,11 @@ data:
         service: http://rupanism-svc.rupanism:80
       - hostname: spatia.rupan.dev
         service: http://spatia-svc.spatia:80
+      - hostname: sovereign.rupan.dev
+        path: ^/api/inquiries/?$
+        service: http://sovereign-inquiry-svc.sovereign:80
+      - hostname: sovereign.rupan.dev
+        service: http://sovereign-svc.sovereign:80
       - hostname: demo.rupan.dev
         service: http://cr-demo-svc.cr-demo:80
       - hostname: soluble.rupan.dev
