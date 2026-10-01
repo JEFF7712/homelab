@@ -50,6 +50,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -200,6 +201,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -350,6 +352,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -500,6 +503,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -650,6 +654,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -800,6 +805,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -950,6 +956,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -1100,6 +1107,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -1250,6 +1258,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -1400,6 +1409,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -1550,6 +1560,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -1700,6 +1711,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -1850,6 +1862,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -2003,6 +2016,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
@@ -2141,6 +2155,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              rm -f /var/run/docker.sock
               dockerd --host=unix:///var/run/docker.sock --dns=10.0.30.10 &
               pid=$!
               while [ ! -S /var/run/docker.sock ]; do
