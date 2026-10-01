@@ -2,7 +2,7 @@
 # Fast feedback: formatting, linting, and secret checks.
 
 when:
-  - event: [pull_request, push]
+  - event: [pull_request, push, manual]
 
 labels:
   tier: trusted

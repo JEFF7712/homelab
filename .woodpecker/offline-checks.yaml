@@ -2,7 +2,7 @@
 # Complete offline validation gate: all tests, flake evaluations, gitops checks.
 
 when:
-  - event: [pull_request, push]
+  - event: [pull_request, push, manual]
     branch: main
 
 labels:
