@@ -131,7 +131,9 @@ def _route(path: str) -> list[tuple[str, str]]:
         return [("agent-workflows", f"{path} changes agent workflow behavior")]
     if path.startswith(("scripts/registry/", "registry/", "tests/test_registry_")):
         return [("registry", f"{path} changes the registry supply contract")]
-    if path.endswith(".md") or path.startswith("docs/"):
+    if path.endswith(".md") or path.startswith(
+        ("docs/", ".claude/skills/", "skills/", ".agents/skills/")
+    ):
         return [("docs", f"{path} changes documentation")]
     return [("full", f"{path} has no narrower maintained mapping")]
 

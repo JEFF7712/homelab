@@ -101,6 +101,8 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "config/agent-workspaces/workspaces.json": "workspace-validate",
             "flake/tests/agent-workspace-packet-flow.nix": "full",
             "docs/readme.md": "docs",
+            "skills/homelab-diagnose/SKILL.md": "docs",
+            ".claude/skills/homelab-diagnose": "docs",
             "unknown/code.go": "full",
             ".gitlab-ci.yml": "full",
         }
