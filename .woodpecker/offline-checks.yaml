@@ -10,10 +10,11 @@ labels:
   type: local
 
 concurrency:
-  name: nix-flake-evaluation
+  group: nix-flake-evaluation
   limit: 1
 
 steps:
   - name: offline-gate
+    image: bash
     commands:
       - nix develop ./flake -c bash scripts/checks/all.sh
