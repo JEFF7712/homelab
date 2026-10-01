@@ -186,6 +186,7 @@ in
           nix
           openssh
           opentofu
+          woodpecker-plugin-git
         ];
       };
 
@@ -220,6 +221,7 @@ in
           nix
           openssh
           opentofu
+          woodpecker-plugin-git
         ];
       };
     };
