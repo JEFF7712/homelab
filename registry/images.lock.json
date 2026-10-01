@@ -4368,6 +4368,41 @@
       "reason": "The protected nas-ci runner pulls its pinned Nix job image before the job can authenticate to the private registry; this is a CI bootstrap dependency, not a Kubernetes workload.",
       "source_reference": "docker.io/nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c",
       "tested": true
+    },
+    {
+      "consumer": "observed:cnpg-system/*",
+      "evidence": "docs/runbooks/local-registry.md#cloudnativepg-operator-and-postgresql-cluster-images",
+      "reason": "CloudNativePG operator manager pod deployed directly from upstream ghcr.io.",
+      "source_reference": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+      "tested": true
+    },
+    {
+      "consumer": "observed:home-assistant/*",
+      "evidence": "docs/runbooks/local-registry.md#cloudnativepg-operator-and-postgresql-cluster-images",
+      "reason": "CloudNativePG bootstrap controller init container deployed directly from upstream ghcr.io.",
+      "source_reference": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+      "tested": true
+    },
+    {
+      "consumer": "observed:immich/*",
+      "evidence": "docs/runbooks/local-registry.md#cloudnativepg-operator-and-postgresql-cluster-images",
+      "reason": "CloudNativePG bootstrap controller init container deployed directly from upstream ghcr.io.",
+      "source_reference": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+      "tested": true
+    },
+    {
+      "consumer": "observed:home-assistant/*",
+      "evidence": "docs/runbooks/local-registry.md#cloudnativepg-operator-and-postgresql-cluster-images",
+      "reason": "CloudNativePG PostgreSQL 17 database cluster for Home Assistant deployed from upstream ghcr.io.",
+      "source_reference": "ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
+      "tested": true
+    },
+    {
+      "consumer": "observed:immich/*",
+      "evidence": "docs/runbooks/local-registry.md#cloudnativepg-operator-and-postgresql-cluster-images",
+      "reason": "CloudNativePG PostgreSQL 16 with VectorChord extension for Immich deployed from upstream ghcr.io.",
+      "source_reference": "ghcr.io/tensorchord/cloudnative-vectorchord:16@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
+      "tested": true
     }
   ],
   "schema_version": 1,

@@ -156,6 +156,15 @@ can authenticate to the private registry. Keep it digest-pinned and scope the
 lock exception to `.gitlab-ci.yml`; Kubernetes workloads must use locked local
 registry references.
 
+### CloudNativePG operator and PostgreSQL cluster images
+
+CloudNativePG operator and its managed database cluster instances (`home-assistant-cluster`,
+`immich-cluster`) pull controller and database images directly from `ghcr.io`
+(`ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1`, `ghcr.io/cloudnative-pg/postgresql:17`, and
+`ghcr.io/tensorchord/cloudnative-vectorchord:16`). These operator-managed upstream images
+are declared as tested mirror exceptions until integrated into the local registry mirroring lane.
+
+
 `just check` and `just check-changed` validate the saved snapshot offline without
 refreshing it. The explicit live `just registry-check` recipe, also used by the
 registry CI lane, refreshes the sanitized snapshot before evaluating drift.
@@ -400,6 +409,7 @@ Known producer checkouts are:
 - `/home/rupan/projects/old/soluble`
 - `/home/rupan/projects/photography` (`apps/photography`)
 - `/home/rupan/projects/spatia`
+- `/home/rupan/projects/sovereign` (`apps/sovereign-site`, publisher `publisher-sovereign-site`; private repo `JEFF7712/sovereign`)
 - `/home/rupan/obsidian`
 - `/tmp/opencode/bookshelf` is a temporary CI checkout for `apps/bookshelf`; the
   producer lives at `JEFF7712/bookshelf` on `develop`
