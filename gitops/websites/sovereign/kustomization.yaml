@@ -1,10 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# deployment.yaml/service.yaml rejoin once registry/images.lock.json carries
+# deployment.yaml rejoined once registry/images.lock.json carried
 # apps/sovereign-site; the lock gate fails on consumers without a locked digest.
 resources:
   - namespace.yaml
   - network-policy.yaml
+  - deployment.yaml
+  - service.yaml
   - inquiry-script.yaml
   - inquiry.yaml
-  - service.yaml

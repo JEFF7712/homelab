@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T20:44:39+00:00",
+  "generated_at": "2026-10-02T00:12:39+00:00",
   "images": [
     {
       "consumers": [
@@ -450,6 +450,27 @@
         "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
         "registry": "registry.rupan.dev",
         "repository": "apps/solubility-gnn",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/websites/sovereign/deployment.yaml:26"
+      ],
+      "destination_repository": "apps/sovereign-site",
+      "id": "first-party-apps-sovereign-site-e767dad7b798",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/sovereign-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
+        "reference": "registry.rupan.dev/apps/sovereign-site@sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/sovereign-site",
         "tag": null
       }
     },
@@ -939,10 +960,10 @@
         "gitops/home-assistant/deployment.yaml:32",
         "gitops/home-assistant/deployment.yaml:71",
         "gitops/media/arr.yaml:124",
-        "gitops/media/arr.yaml:228",
+        "gitops/media/arr.yaml:230",
         "gitops/media/arr.yaml:28",
-        "gitops/media/arr.yaml:357",
-        "gitops/media/arr.yaml:454",
+        "gitops/media/arr.yaml:359",
+        "gitops/media/arr.yaml:456",
         "gitops/media/books.yaml:137",
         "gitops/media/books.yaml:27",
         "gitops/media/download.yaml:33",
@@ -1392,7 +1413,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:555",
+        "gitops/media/arr.yaml:557",
         "observed:media/flaresolverr-74946bdd4-hfk8l/flaresolverr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr",
@@ -1500,7 +1521,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:241",
+        "gitops/media/arr.yaml:243",
         "observed:media/lidarr-656bfcbb8f-t5xpr/lidarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/hotio/lidarr",
@@ -1680,7 +1701,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:467",
+        "gitops/media/arr.yaml:469",
         "observed:media/bazarr-7dc998dd85-tx5fq/bazarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr",
@@ -1734,7 +1755,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:370",
+        "gitops/media/arr.yaml:372",
         "observed:media/prowlarr-854d9db7dc-p8jlm/prowlarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr",
@@ -2052,7 +2073,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "621c483277d9449cf78381f63d22844e95d46df2",
+  "source_revision": "d2b72edd51710d3eadd1b947daf01663ec01d201",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2196,6 +2217,14 @@
       "consumer": "gitops/websites/soluble-rupan/deployment.yaml:23,observed:soluble-rupan/website-deploy-7bfbbc4f97-4wvrr/web,observed:soluble-rupan/website-deploy-7bfbbc4f97-z54gh/web",
       "id": "producer:first-party-apps-solubility-gnn-82f91661a241",
       "input": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/sovereign/deployment.yaml:26",
+      "id": "producer:first-party-apps-sovereign-site-e767dad7b798",
+      "input": "registry.rupan.dev/apps/sovereign-site@sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

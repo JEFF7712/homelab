@@ -1,7 +1,49 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-01T03:03:28+00:00",
+  "generated_at": "2026-10-02T00:11:46+00:00",
   "images": [
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/websites/sovereign/deployment.yaml:26"
+      ],
+      "destination_repository": "apps/sovereign-site",
+      "destination_tags": [
+        "0.0.3",
+        "retention-deployed-9772ef3eef01b455"
+      ],
+      "digest": "sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
+      "id": "first-party-apps-sovereign-site-e7f0ef653bdf",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/sovereign-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
+        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.3@sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/sovereign-site",
+        "tag": "0.0.3"
+      }
+    },
     {
       "authenticity": {
         "reason": "Pinned source and local GPU verification; no registry signature policy declared",
@@ -644,11 +686,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.337@sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.337",
-        "digest": "sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.337@sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0"
+        "tag": "0.0.337"
       }
     },
     {
