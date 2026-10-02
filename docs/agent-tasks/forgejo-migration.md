@@ -1,18 +1,18 @@
 # Agent Task: forgejo-migration
 
-Status: `active`
+Status: `complete`
 
 Base commit: `628aa12e6a207555f19c2de3106f97f9a1177ffc`
 
-Checkpoint HEAD: `a4c93e58f07f21b44135939635228fac2b24ce8a`
+Checkpoint HEAD: `621c483277d9449cf78381f63d22844e95d46df2`
 
 Owner: `antigravity`
 
 Session: `da5d19e1-8279-4127-9a5e-4c52e011680b`
 
-Exported at: `2026-10-01T18:50:06.334522+00:00`
+Exported at: `2026-10-01T20:27:48.840547+00:00`
 
-Current HEAD at export: `b3af4af87c584156a20b3fceccea9939664baa02`
+Current HEAD at export: `621c483277d9449cf78381f63d22844e95d46df2`
 
 ## Objective
 
@@ -26,7 +26,9 @@ Deploy Forgejo and self-hosted S3 on nas-01 with GitLab DR mirror
 - [x] homelab repo cloned to Forgejo and mirrored downstream to GitLab.com (Git push to git.internal succeeded, Forgejo push mirror sync verified last_update timestamp with 0 errors)
 - [x] OpenTofu states for OPNsense and Cloudflare migrated to Garage S3 and verified (tofu state push succeeded, tofu state list and tofu plan -detailed-exitcode verified with 0 diff and exit code 0)
 - [x] Woodpecker CI server and tiered agents running on homelab-04 (Services woodpecker-server, woodpecker-agent-sandbox, woodpecker-agent-trusted, woodpecker-agent-deploy active on homelab-04, Web UI HTTP 200 OK on ci.internal:8000)
-- [x] Woodpecker pipeline definitions authored and passing checks (.woodpecker/lint.yaml, offline-checks.yaml, tofu-plan.yaml created, just fmt-check and flake checks pass)
+- [x] Woodpecker pipeline definitions authored and passing checks (.woodpecker/lint.yaml, offline-checks.yaml, tofu-plan.yaml created, just fmt-check and flake checks pass; Pipeline 6 completed with 100% success)
+- [x] Flux GitOps re-bootstrapped to track Forgejo (flux-system secret updated, gotk-sync.yaml updated to ssh://forgejo@git.internal:2222, generic webhook receiver deployed and active, all 21 kustomizations reconciled Ready: True)
+- [x] GitLab runner decommissioned on homelab-04 (gitlab-runner module removed from homelab-04/default.nix, deployed via deploy_fleet, gitlab-runner service uninstalled)
 
 ## Owned source
 
@@ -35,16 +37,18 @@ Deploy Forgejo and self-hosted S3 on nas-01 with GitLab DR mirror
 - `flake/modules/nas-s3.nix`
 - `flake/hosts/nas-01/tank-config.nix`
 - `flake/modules/nas-data.nix`
+- `flake/modules/woodpecker.nix`
+- `flake/hosts/homelab-04/default.nix`
+- `docs/runbooks/ci-pipelines.md`
+- `docs/runbooks/local-development.md`
 
 ## Remaining work
 
-- Create flake/modules/forgejo.nix
-- Import module into flake/hosts/nas-01/default.nix
-- Verify Nix evaluation with nix flake check or scoped checks
+- None
 
 ## Verification
 
-Current source fingerprint at export: `c76c1b5374e16fcb8cb0104002046bc63e2d5c2b3ebd719114498f33bdc160fb`
+Current source fingerprint at export: `fa50d2d13060d6a409b9c313ee7c5b7ea65f4fffa537bdf2b99e1a2252333574`
 
 Freshness describes source identity at export time; it does not establish live infrastructure health.
 
@@ -52,7 +56,7 @@ Freshness describes source identity at export time; it does not establish live i
 
 ## Next action
 
-Phase 4: Durable Flux Re-Bootstrap targeting Forgejo on nas-01
+Task completed
 
 ## Uncommitted work
 
