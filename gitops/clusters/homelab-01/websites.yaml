@@ -63,3 +63,7 @@ spec:
       kind: Deployment
       name: website-deploy
       namespace: rupan-dev
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: website-deploy
+      namespace: sovereign
