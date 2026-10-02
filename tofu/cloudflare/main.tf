@@ -10,10 +10,14 @@ locals {
   tunnel          = yamldecode(local.config_map.data["config.yaml"])
 
   # The catch-all carries no hostname; every earlier rule must.
+  # path must pass through: without it a pathed rule (e.g. the sovereign
+  # /api/inquiries receiver) collapses onto its bare-hostname sibling and the
+  # first match shadows the other at the edge.
   ingress = [
     for rule in local.tunnel.ingress : {
       hostname = try(rule.hostname, null)
       service  = rule.service
+      path     = try(rule.path, null)
     }
   ]
 }
