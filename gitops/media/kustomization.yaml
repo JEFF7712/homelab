@@ -9,6 +9,7 @@ resources:
   - configs.yaml
   - arr.yaml
   - arr-secret-sync.yaml
+  - arr-queue-hygiene.yaml
   - spotify-sync.yaml
   - soularr.yaml
   - download.yaml

@@ -1,0 +1,306 @@
+# Import-failure hygiene for the Lidarr download chain.
+#
+# Arr-Extended (streaming-source downloader) fetches whatever soularr /
+# spotify-sync request, but Lidarr can only import releases present in its
+# MusicBrainz-based metadata. Singles, mixtapes, and regional tracks that
+# MusicBrainz does not know stall forever as completed/importFailed and
+# pile up in /config/extended/import/ (45 items / 2.0G observed 2026-10-02).
+#
+# This CronJob runs nightly and, for queue items stuck in importFailed
+# longer than RETENTION_DAYS (default 3):
+#   - removes them from the Lidarr queue (no blocklist: a metadata refresh
+#     may make a future grab importable),
+#   - moves their download directories out of the import folder into a dated
+#     quarantine directory on the same PVC for manual review (beets import
+#     or delete),
+#   - posts a digest to ntfy when NTFY_URL/NTFY_TOPIC are set.
+#
+# Queue removal is the load-bearing behavior; file-move failures are
+# reported but never fail the run. API failures exit nonzero so the
+# CronJob surfaces them.
+#
+# Runbook: docs/runbooks/arr-queue-hygiene.md
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arr-queue-hygiene
+  namespace: media
+data:
+  hygiene.py: |
+    """Purge stale unimportable items from Lidarr's queue (see header)."""
+
+    import datetime
+    import json
+    import os
+    import shutil
+    import sys
+    import urllib.request
+    from typing import Any, Optional
+
+    TIMEOUT = 15
+    PAGE_SIZE = 200
+
+    LIDARR_HOST = os.environ.get("LIDARR_HOST", "lidarr.media")
+    IMPORT_PREFIX = "/config/extended/import/"
+    QUARANTINE_ROOT = "/lidarr-config/extended/import-quarantine"
+
+
+    class ApiError(Exception):
+        pass
+
+
+    def api(
+        method: str,
+        base: str,
+        api_key: str,
+        path: str,
+        body: Optional[dict] = None,
+    ) -> tuple[int, Any]:
+        data = None
+        headers = {"X-Api-Key": api_key, "Accept": "application/json"}
+        if body is not None:
+            data = json.dumps(body).encode()
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(
+            base + path, data=data, headers=headers, method=method
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                raw = resp.read().decode()
+                return resp.status, json.loads(raw) if raw else None
+        except urllib.error.HTTPError as e:
+            raw = e.read().decode()
+            try:
+                return e.code, json.loads(raw) if raw else None
+            except json.JSONDecodeError:
+                return e.code, raw
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            raise ApiError(f"{method} {base}{path}: {e}") from e
+
+
+    def parse_time(value: Any) -> Optional[datetime.datetime]:
+        if not isinstance(value, str) or not value:
+            return None
+        try:
+            parsed = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        return parsed
+
+
+    def is_import_failed(record: dict) -> bool:
+        state = record.get("trackedDownloadState") or ""
+        return state.lower() == "importfailed"
+
+
+    def is_stale(
+        record: dict,
+        now: datetime.datetime,
+        retention_days: int,
+    ) -> bool:
+        completed = parse_time(record.get("estimatedCompletionTime"))
+        if completed is None:
+            return False
+        return (now - completed) >= datetime.timedelta(days=retention_days)
+
+
+    def select_stale(
+        records: list,
+        now: datetime.datetime,
+        retention_days: int,
+    ) -> list:
+        return [
+            r for r in records
+            if is_import_failed(r) and is_stale(r, now, retention_days)
+        ]
+
+
+    def fetch_queue(base: str, api_key: str) -> list:
+        records: list = []
+        page = 1
+        while True:
+            status, payload = api(
+                "GET", base, api_key,
+                f"/api/v1/queue?page={page}&pageSize={PAGE_SIZE}",
+            )
+            if status != 200 or not isinstance(payload, dict):
+                raise ApiError(f"GET queue page {page} -> HTTP{status}")
+            batch = payload.get("records", [])
+            records.extend(batch)
+            total = payload.get("totalRecords", len(records))
+            if len(records) >= total or not batch:
+                return records
+            page += 1
+
+
+    def quarantine_dir(output_path: Any, stamp: str) -> Optional[str]:
+        if not isinstance(output_path, str):
+            return None
+        if not output_path.startswith(IMPORT_PREFIX):
+            return None
+        leaf = output_path[len(IMPORT_PREFIX):].strip("/")
+        if not leaf or "/" in leaf:
+            return None
+        return os.path.join(f"{QUARANTINE_ROOT}-{stamp}", leaf)
+
+
+    def move_to_quarantine(src: str, dest: str) -> Optional[str]:
+        try:
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            if not os.path.isdir(src):
+                return f"not a directory, skipped: {src}"
+            shutil.move(src, dest)
+            return None
+        except OSError as e:
+            return f"move failed {src}: {e}"
+
+
+    def notify(message: str) -> None:
+        url = os.environ.get("NTFY_URL", "").rstrip("/")
+        topic = os.environ.get("NTFY_TOPIC", "").strip("/")
+        if not url or not topic:
+            return
+        req = urllib.request.Request(
+            f"{url}/{topic}",
+            data=message.encode(),
+            headers={"Title": "lidarr queue hygiene"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT):
+                pass
+        except Exception as e:  # best effort: never fail the run on notify
+            print(f"ntfy notification failed: {e}")
+
+
+    def required_env(name: str) -> str:
+        value = os.environ.get(name, "")
+        if not value:
+            raise ApiError(f"missing required env {name}")
+        return value
+
+
+    def run() -> int:
+        problems: list[str] = []
+        try:
+            api_key = required_env("LIDARR_API_KEY")
+            retention = int(os.environ.get("RETENTION_DAYS", "3"))
+            base = f"http://{LIDARR_HOST}"
+            now = datetime.datetime.now(datetime.timezone.utc)
+            records = fetch_queue(base, api_key)
+            stale = select_stale(records, now, retention)
+            print(f"queue: {len(records)} total, {len(stale)} stale importFailed")
+            if not stale:
+                print("OK: nothing to purge")
+                return 0
+            ids = [r["id"] for r in stale]
+            status, _ = api(
+                "DELETE", base, api_key,
+                "/api/v1/queue/bulk?removeFromClient=false&blocklist=false",
+                {"ids": ids},
+            )
+            if status not in (200, 202):
+                problems.append(f"DELETE queue/bulk -> HTTP{status}")
+                print("FAIL:")
+                for p in problems:
+                    print(f"  - {p}")
+                return 1
+            stamp = now.strftime("%Y-%m-%d")
+            moved, file_notes = 0, []
+            for record in stale:
+                dest = quarantine_dir(record.get("outputPath"), stamp)
+                if dest is None:
+                    continue
+                src = os.path.join(
+                    "/lidarr-config/extended/import",
+                    os.path.basename(dest),
+                )
+                note = move_to_quarantine(src, dest)
+                if note is None:
+                    moved += 1
+                else:
+                    file_notes.append(f"{record.get('title')}: {note}")
+            titles = [str(r.get("title", "?")) for r in stale]
+            print(f"purged {len(ids)} queue items, quarantined {moved} dirs")
+            for note in file_notes:
+                print(f"  file: {note}")
+            notify(
+                f"lidarr hygiene purged {len(ids)} stale importFailed items "
+                f"({moved} dirs quarantined): " + ", ".join(titles[:10])
+            )
+        except ApiError as e:
+            problems.append(str(e))
+        except ValueError as e:
+            problems.append(f"bad RETENTION_DAYS: {e}")
+        if problems:
+            print("FAIL:")
+            for p in problems:
+                print(f"  - {p}")
+            return 1
+        print("OK: hygiene pass complete")
+        return 0
+
+
+    if __name__ == "__main__":
+        sys.exit(run())
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: arr-queue-hygiene
+  namespace: media
+spec:
+  schedule: "15 6 * * *"
+  timeZone: America/Chicago
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: hygiene
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command: ["python3", "/app/hygiene.py"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                runAsNonRoot: true
+              env:
+                - name: RETENTION_DAYS
+                  value: "3"
+              envFrom:
+                - secretRef:
+                    name: media-app
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+                - name: lidarr-config
+                  mountPath: /lidarr-config
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: script
+              configMap:
+                name: arr-queue-hygiene
+            - name: tmp
+              emptyDir: {}
+            - name: lidarr-config
+              persistentVolumeClaim:
+                claimName: lidarr-config
