@@ -24,19 +24,33 @@ by push webhooks from Forgejo (`http://git.internal:3000`).
 
 ## Runner lanes
 
-`nas-privileged` is the protected NAS runner for deployment, OPNsense, and
-registry import jobs. Its GitLab runner must be locked, protected, limited to
-one job, and configured not to accept untagged jobs. Scope `SSH_DEPLOY_KEY`,
-`HOSTS_KNOWN`, OPNsense, and registry credentials to the `production`
-environment in GitLab.
+GitLab runners are decommissioned. Migration Phase 5 removed the
+`gitlab-runner` module from `homelab-04`, uninstalled the service, and
+cleared `/persist/gitlab-runner/` tokens. GitLab.com remains a
+downstream DR mirror only. `.gitlab-ci.yml` is retained as the
+documented rollback path (see the rollback section of the
+`2026-09-30-forgejo-woodpecker-migration` plan), not as an active
+scheduler: with no runner registered its jobs cannot execute until
+someone re-registers one.
 
-`nas-ci` is a separate NAS runner for formatting, repository tests,
-YAML/schema checks, secret scanning, registry-lock validation, and GitHub sync
-across `main`, release tags, and feature branches / merge requests. Register it
-with the `nas-ci` tag, locked, with untagged jobs disabled, and unprotected
-access level so it can run both protected and feature pipeline jobs. Its
-authentication-token file is `/persist/gitlab-runner/ci-authentication-token`;
-do not give it deployment, OPNsense, or registry credentials.
+Lane ownership now lives on the Woodpecker tiers above:
+
+- `trusted` (`tier=trusted,type=local`) owns the old `nas-ci` lane:
+  formatting, repository tests, YAML/schema checks, secret scanning,
+  registry-lock validation, and speculative OpenTofu plans across
+  `main`, release tags, and feature branches.
+- `sandbox` (`tier=sandbox,type=docker`) isolates untrusted pull
+  requests and feature branches.
+- `deploy` (`tier=deploy,type=local`) owns the old `nas-privileged`
+  lane: fleet deployment, OPNsense apply, and registry import and
+  mutation jobs. Production credentials stay scoped to deploy-event
+  workflows.
+
+Flux listens on two receivers under `gitops/flux-webhook/`:
+`forgejo-push` (type `generic`) is the primary push path from
+`git.internal`, and `gitlab-push` (type `gitlab`) is retained
+alongside it. Both reconcile the same root sources and the pair is
+pinned by `tests/test_flux_webhook.py`.
 
 ## Validation lanes
 
