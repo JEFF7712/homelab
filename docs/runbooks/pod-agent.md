@@ -492,6 +492,50 @@ advertising authority, or changes to veto windows. Roll back image pins while
 retaining the production database and its additive financial evidence. Never
 restore a stale snapshot over newer orders or rotated OAuth credentials.
 
+Verified at October 1, 03:09:55 UTC (September 30 in America/Chicago): Flux
+applied rollout commit `2dcd5e7`; both Deployments were ready and all 28 image
+pins matched the imported amd64 digest. All 227 installed package files matched
+approved source in both services. Observation run 146 exercised the existing
+automatic collector with notifications disabled and eight GET requests. Etsy,
+Printify, Mercury, Mercury transactions, and fee evidence all reported `ok`.
+All 21 listing-fee reservations matched, totaling 420 cents, with zero unmatched
+reservations. The payment-account balance was -420 cents, bank cash was
+13,374 cents, and shared headroom was 2,954 cents. The authenticated Desk served
+the new unsettled-funds figure.
+
+Business counts stayed at 401 proposals, 558 business writes, 21 reservations,
+and one OAuth token row. Original reservation fields, LLC limits, and shop
+allocations were unchanged. A separate deployed-code replay, with networking
+disabled and a temporary database, passed concurrent shared-cash, uncertain
+hold persistence, and interrupted-failure retry checks. Discretionary spending
+still refused because verified advertising and fixed overhead were unavailable.
+
+The updated homelab base passed 1,246 tests (23 skipped), scoped GitOps,
+documentation and registry checks, and formatting. Pipeline `2899560592` passed
+repository tests, Flake, YAML/schema, formatting, secret scan, registry auth,
+and drift. Its live registry-lock check initially saw the old pods before Flux
+finished; retry job `16854152916` passed after rollout. NAS import credentials
+and scratch were removed and their absence verified. These observations are
+historical release evidence; current cluster state requires a fresh live read.
+
+Closeout verification on October 3, 2026, at 21:53:09 UTC refreshed production
+evidence after access was restored. Both services remained healthy, Flux was
+ready, and all 28 current consumer pins still used the verified release. Both
+installed 227-file packages matched approved source. Scheduled observation
+and governor collection had continued through October 3 with successful
+provider reads.
+
+Observation run 153 refreshed bank and Etsy ledger evidence together, using
+GET-only provider requests with notifications disabled. All 25 reservations
+matched fees totaling 500 cents, with zero unmatched reservations. Etsy's
+remaining payment-account debt was 80 cents and Mercury available cash was
+12,954 cents. Shared headroom was 2,874 cents after the 10,000-cent reserve.
+Existing business counts stayed at 413 proposals, 579 business writes, 25
+reservations, and one OAuth token row. Original reservation fields, budgets,
+allocations, and the authenticated Desk passed verification. Discretionary
+spending continued to refuse because advertising and fixed overhead remained
+unmeasured.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.
