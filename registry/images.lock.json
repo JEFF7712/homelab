@@ -4400,6 +4400,49 @@
         "repository": "nvidia/k8s-device-plugin",
         "tag": "v0.17.0"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "observed:obsidian/quartz-notes-64b8478c64-69cfh/quartz",
+        "observed:obsidian/quartz-notes-64b8478c64-fzmfs/quartz"
+      ],
+      "destination_repository": "apps/quartz",
+      "destination_tags": [
+        "0.0.337",
+        "retention-deployed-748a84ea18051aea"
+      ],
+      "digest": "sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0",
+      "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": {
+        "location": "external-image-repository:ghcr.io/jeff7712/quartz",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.337@sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/quartz",
+        "tag": "0.0.337"
+      }
     }
   ],
   "kind": "registry-image-lock",
