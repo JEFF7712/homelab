@@ -1,0 +1,31 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-cloudflare-oidc
+  namespace: observability
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: gitlab-project
+    kind: ClusterSecretStore
+  target:
+    name: grafana-cloudflare-oidc
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "{{ .client_id }}"
+        GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{ .client_secret }}"
+        # yamllint disable rule:line-length
+        GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/{{ .client_id }}/authorization"
+        GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/{{ .client_id }}/token"
+        GF_AUTH_GENERIC_OAUTH_API_URL: "https://rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/{{ .client_id }}/userinfo"
+        GF_AUTH_GENERIC_OAUTH_JWK_SET_URL: "https://rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/{{ .client_id }}/jwks"
+        # yamllint enable rule:line-length
+  data:
+    - secretKey: client_id
+      remoteRef:
+        key: GRAFANA_CLOUDFLARE_OIDC_CLIENT_ID
+    - secretKey: client_secret
+      remoteRef:
+        key: GRAFANA_CLOUDFLARE_OIDC_CLIENT_SECRET

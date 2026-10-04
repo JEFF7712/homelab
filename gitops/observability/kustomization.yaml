@@ -14,6 +14,7 @@ resources:
   - loki/release.yaml
   - alloy/release.yaml
   - grafana/service.yaml
+  - grafana/cloudflare-oidc.yaml
   - grafana/dashboard-kubernetes.yaml
   - grafana/dashboard-jarvis.yaml
   - grafana/dashboard-gpu.yaml
