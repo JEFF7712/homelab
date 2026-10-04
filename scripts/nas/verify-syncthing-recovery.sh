@@ -268,6 +268,11 @@ fi
 log "Staggered versioning restoration verified successfully!"
 
 # 10. Delete probe file on laptop to test deletion archiving and ZFS snapshot recovery
+# Syncthing staggered versioner retains at most one version per 30-second window in the first hour.
+# Wait 35s to ensure the deletion archive falls into a distinct bucket from the modification archive.
+log "Waiting 35s to cross the 30-second staggered versioner bucket interval..."
+sleep 35
+
 log "Deleting probe file on laptop..."
 rm -f "$LOCAL_PROBE_PATH"
 LOCAL_PROBE_CREATED=false
