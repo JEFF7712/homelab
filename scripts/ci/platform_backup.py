@@ -68,13 +68,24 @@ def main() -> None:
                 subprocess.run(["systemctl", "start", service], check=True)
                 stopped.remove(service)
             subprocess.run(
-                ["restic", "backup", "--tag", "sovereign-platform", ".", *datasets],
+                [
+                    "restic",
+                    "--retry-lock",
+                    "5m",
+                    "backup",
+                    "--tag",
+                    "sovereign-platform",
+                    ".",
+                    *datasets,
+                ],
                 cwd=stage,
                 check=True,
             )
             subprocess.run(
                 [
                     "restic",
+                    "--retry-lock",
+                    "5m",
                     "forget",
                     "--tag",
                     "sovereign-platform",
@@ -92,7 +103,10 @@ def main() -> None:
                 ],
                 check=True,
             )
-            subprocess.run(["restic", "check", "--read-data-subset=1/20"], check=True)
+            subprocess.run(
+                ["restic", "--retry-lock", "5m", "check", "--read-data-subset=1/20"],
+                check=True,
+            )
         finally:
             failures: list[Exception] = []
             for service in stopped:
