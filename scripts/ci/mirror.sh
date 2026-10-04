@@ -12,9 +12,21 @@ export GITHUB_TOKEN
 source_sha=${CI_COMMIT_SHA:?CI_COMMIT_SHA is required}
 source_branch=${CI_REPO_DEFAULT_BRANCH:-${CI_DEFAULT_BRANCH:?default branch is required}}
 mirror_url=https://github.com/JEFF7712/homelab.git
+mirror_work=$(mktemp -d "${TMPDIR:-/tmp}/github-mirror-XXXXXX")
+trap 'rm -rf "$mirror_work"' EXIT
+printf '#!%s\n' "$(command -v bash)" > "$mirror_work/source-credential"
+cat >> "$mirror_work/source-credential" <<'CREDENTIAL'
+if [[ $1 == get ]]; then
+  printf '%s\n' username=homelab-ci-source "password=${FORGEJO_SOURCE_READ_TOKEN:-}"
+fi
+CREDENTIAL
+chmod 0700 "$mirror_work/source-credential"
+source_git() {
+  git -c credential.helper= -c "credential.http://git.internal:3000.helper=$mirror_work/source-credential" "$@"
+}
 source_is_current() {
   local tip
-  tip=$(git ls-remote origin "refs/heads/$source_branch") || return 2
+  tip=$(source_git ls-remote origin "refs/heads/$source_branch") || return 2
   [[ ${tip%%[[:space:]]*} == "$source_sha" ]]
 }
 check_source() {
@@ -32,10 +44,8 @@ git diff --quiet
 git diff --cached --quiet
 
 if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
-  git fetch --no-tags --unshallow origin
+  source_git fetch --no-tags --unshallow origin
 fi
-mirror_work=$(mktemp -d "${TMPDIR:-/tmp}/github-mirror-XXXXXX")
-trap 'rm -rf "$mirror_work"' EXIT
 printf '#!%s\n' "$(command -v bash)" > "$mirror_work/credential"
 cat >> "$mirror_work/credential" <<'CREDENTIAL'
 if [[ $1 == get ]]; then

@@ -17,7 +17,7 @@ variables:
     max-jobs = 1
     cores = 2
 
-stages: [validate, operate]
+stages: [validate, plan, operate]
 
 validate:
   stage: validate
@@ -28,17 +28,39 @@ validate:
     - nix develop ./flake -c python scripts/jev_decision_gate.py
     - nix develop ./flake -c just check
 
-operate:
-  stage: operate
+.production-operation:
   tags: [homelab-dr-operations]
   resource_group: production-authority
   needs: [validate]
+  environment:
+    name: production
+
+opnsense-plan:
+  extends: .production-operation
+  stage: plan
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
+  script:
+    - CI_OPERATION=opnsense-plan nix develop ./flake -c python -m scripts.ci.gitlab_operation
+
+cloudflare-plan:
+  extends: .production-operation
+  stage: plan
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
+  script:
+    - CI_OPERATION=cloudflare-plan nix develop ./flake -c python -m scripts.ci.gitlab_operation
+
+operate:
+  extends: .production-operation
+  stage: operate
+  needs: [validate, opnsense-plan, cloudflare-plan]
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
       when: manual
     - when: never
   allow_failure: false
-  environment:
-    name: production
   script:
     - nix develop ./flake -c python -m scripts.ci.gitlab_operation

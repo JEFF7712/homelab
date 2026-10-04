@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -25,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
-from scripts.ci.operation import pack, unpack
+from scripts.ci.operation import current_source, pack, unpack
 from scripts.ci.platform_backup import snapshot_database
 from scripts.ci.policy import VALIDATION, configuration, verify_request
 from scripts.ci.prepare_platform import certificate
@@ -33,6 +34,67 @@ from scripts.ci.state import Store, handler
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
+
+
+class GitLabRecoveryGraphTest(unittest.TestCase):
+    def test_apply_waits_for_both_plans_in_its_own_pipeline(self) -> None:
+        workflow = yaml.safe_load((ROOT / "config/ci/gitlab-dr.yml").read_text())
+        self.assertNotIn("environment", workflow["validate"])
+        self.assertEqual(
+            set(workflow["operate"]["needs"]),
+            {"validate", "opnsense-plan", "cloudflare-plan"},
+        )
+        for name in ["opnsense-plan", "cloudflare-plan"]:
+            job = workflow[name]
+            self.assertEqual(job["stage"], "plan")
+            self.assertEqual(job["extends"], ".production-operation")
+            self.assertTrue(job["script"][0].startswith(f"CI_OPERATION={name} "))
+            self.assertEqual(job["rules"][-1], {"when": "never"})
+            self.assertIn("CI_COMMIT_REF_PROTECTED", job["rules"][0]["if"])
+
+
+class CurrentSourceTest(unittest.TestCase):
+    def test_forgejo_tip_uses_read_only_api_identity(self) -> None:
+        environment = {
+            "CI_COMMIT_SHA": SHA,
+            "FORGEJO_SOURCE_READ_TOKEN": "read-only-fixture",
+        }
+        response = io.BytesIO(json.dumps({"commit": {"id": SHA}}).encode())
+        with (
+            patch(
+                "scripts.ci.operation.subprocess.check_output", return_value=SHA
+            ) as git,
+            patch(
+                "scripts.ci.operation.urllib.request.urlopen", return_value=response
+            ) as request,
+        ):
+            current_source(environment)
+        self.assertEqual(git.call_count, 1)
+        self.assertEqual(
+            request.call_args.args[0].get_header("Authorization"),
+            "token read-only-fixture",
+        )
+
+    def test_forgejo_tip_change_rejects_operation(self) -> None:
+        environment = {
+            "CI_COMMIT_SHA": SHA,
+            "FORGEJO_SOURCE_READ_TOKEN": "read-only-fixture",
+        }
+        response = io.BytesIO(json.dumps({"commit": {"id": "b" * 40}}).encode())
+        with (
+            patch("scripts.ci.operation.subprocess.check_output", return_value=SHA),
+            patch("scripts.ci.operation.urllib.request.urlopen", return_value=response),
+            self.assertRaisesRegex(ValueError, "current main"),
+        ):
+            current_source(environment)
+
+    def test_recovery_tip_uses_native_gitlab_clone_authentication(self) -> None:
+        environment = {"CI_COMMIT_SHA": SHA, "CI_OPERATION_AUTHORITY": "gitlab"}
+        with patch(
+            "scripts.ci.operation.subprocess.check_output",
+            side_effect=[SHA, SHA + " refs/heads/main\n"],
+        ):
+            current_source(environment)
 
 
 class PolicyTest(unittest.TestCase):
@@ -81,6 +143,18 @@ class PolicyTest(unittest.TestCase):
     def deployment(self) -> dict:
         self.request["pipeline"].update(event="deployment", deploy_to="opnsense-apply")
         return configuration(self.request, self.catalog, self.parent, SHA)
+
+    def test_pr_lifecycle_does_not_replace_mandatory_source_validation(self) -> None:
+        for event in ["pull_request_closed", "pull_request_metadata"]:
+            self.request["pipeline"]["event"] = event
+            result = configuration(self.request, self.catalog, current=SHA)
+            self.assertEqual(
+                [item["name"] for item in result["configs"]], ["pr-lifecycle.yaml"]
+            )
+            workflow = yaml.safe_load(result["configs"][0]["data"])
+            self.assertEqual(workflow["labels"], {"tier": "sandbox", "type": "docker"})
+            self.assertNotEqual(workflow["steps"][0]["name"], VALIDATION)
+            self.assertNotIn("from_secret", json.dumps(workflow))
 
     def test_only_current_main_push_gets_automatic_secret_workflows(self) -> None:
         result = configuration(self.request, self.catalog, current=SHA)

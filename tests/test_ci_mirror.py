@@ -49,6 +49,7 @@ class MirrorTest(unittest.TestCase):
         env = dict(
             os.environ,
             GITHUB_TOKEN="test-credential",
+            FORGEJO_SOURCE_READ_TOKEN="read-only-source-fixture",
             CI_COMMIT_SHA=self.sha,
             CI_DEFAULT_BRANCH="main",
             GIT_CONFIG_GLOBAL=str(self.config),
@@ -74,6 +75,13 @@ class MirrorTest(unittest.TestCase):
             "import os, subprocess, sys\nfrom pathlib import Path\n"
             f"real_git = {shutil.which('git')!r}\n"
             "args = sys.argv[1:]\n"
+            "if 'ls-remote' in args and 'origin' in args:\n"
+            "    result = subprocess.run([real_git, *args[:args.index('ls-remote')], 'credential', 'fill'],\n"
+            "        input='protocol=http\\nhost=git.internal:3000\\n\\n', text=True, capture_output=True, check=True)\n"
+            "    values = dict(line.split('=', 1) for line in result.stdout.splitlines())\n"
+            "    if values.get('username') != 'homelab-ci-source' or values.get('password') != os.environ['FORGEJO_SOURCE_READ_TOKEN']:\n"
+            "        raise SystemExit('source credential protocol mismatch')\n"
+            "    Path(os.environ['SOURCE_CREDENTIAL_PROBE']).write_text('verified')\n"
             "if 'push' in args:\n"
             "    if any(arg.startswith('--force') for arg in args):\n"
             "        raise SystemExit('force pushes are prohibited')\n"
@@ -87,11 +95,15 @@ class MirrorTest(unittest.TestCase):
         )
         wrapper.chmod(0o755)
         probe = self.directory / "credential-probe"
+        source_probe = self.directory / "source-credential-probe"
         result = self.run_mirror(
-            PATH=f"{binaries}:{os.environ['PATH']}", CREDENTIAL_PROBE=str(probe)
+            PATH=f"{binaries}:{os.environ['PATH']}",
+            CREDENTIAL_PROBE=str(probe),
+            SOURCE_CREDENTIAL_PROBE=str(source_probe),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(probe.read_text(), "verified")
+        self.assertEqual(source_probe.read_text(), "verified")
         tip = subprocess.run(
             ["git", "--git-dir", str(self.mirror), "rev-parse", "main"],
             text=True,

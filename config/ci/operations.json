@@ -28,6 +28,9 @@
       },
       "REGISTRY_SOURCE_AUTH_FILE": {
         "from_secret": "registry_source_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -65,6 +68,9 @@
       },
       "REGISTRY_NODE_PASSWORD_FILE": {
         "from_secret": "registry_node_password_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -92,6 +98,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -126,6 +135,9 @@
       },
       "REGISTRY_SOURCE_AUTH_FILE": {
         "from_secret": "registry_source_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -166,6 +178,9 @@
       },
       "REGISTRY_SOURCE_AUTH_FILE": {
         "from_secret": "registry_source_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -208,6 +223,9 @@
       },
       "FORGEJO_PUBLISH_TOKEN": {
         "from_secret": "forgejo_publish_token"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -245,6 +263,9 @@
       },
       "REGISTRY_SOURCE_AUTH_FILE": {
         "from_secret": "registry_source_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -284,6 +305,9 @@
       },
       "REGISTRY_SOURCE_AUTH_FILE": {
         "from_secret": "registry_source_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -332,6 +356,9 @@
       },
       "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE": {
         "from_secret": "registry_jarvis_publisher_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -379,6 +406,9 @@
       },
       "REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE": {
         "from_secret": "registry_pod_agent_publisher_auth_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -441,6 +471,9 @@
       },
       "RESTIC_PASSWORD": {
         "from_secret": "restic_password"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -487,6 +520,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -548,6 +584,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -597,6 +636,9 @@
       },
       "REGISTRY_NODE_PASSWORD_FILE": {
         "from_secret": "registry_node_password_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -652,6 +694,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -707,6 +752,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -762,6 +810,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -817,6 +868,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -872,6 +926,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -919,7 +976,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "OPNSENSE_CA_FILE",
@@ -972,7 +1032,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "OPNSENSE_CA_FILE",
@@ -1021,7 +1084,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "OPNSENSE_CA_FILE",
@@ -1077,7 +1143,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "OPNSENSE_CA_FILE",
@@ -1118,7 +1187,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "STATE_CA_FILE"
@@ -1158,7 +1230,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "STATE_CA_FILE"
@@ -1196,7 +1271,10 @@
       "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
       "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
       "TF_HTTP_LOCK_METHOD": "LOCK",
-      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
     },
     "file_secrets": [
       "STATE_CA_FILE"
@@ -1227,6 +1305,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1275,6 +1356,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1325,6 +1409,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1370,6 +1457,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1415,6 +1505,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1464,6 +1557,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1516,6 +1612,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1545,6 +1644,9 @@
       },
       "GITHUB_TOKEN": {
         "from_secret": "github_token"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
@@ -1572,6 +1674,9 @@
       },
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
       }
     },
     "file_secrets": [
