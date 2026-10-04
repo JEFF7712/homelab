@@ -57,6 +57,7 @@ in
     virtualisation.docker = {
       enable = true;
       daemon.settings."cgroup-parent" = "ci.slice";
+      daemon.settings."data-root" = "/persist/docker";
       daemon.settings.dns = [ "10.0.30.10" ];
       autoPrune = {
         enable = true;

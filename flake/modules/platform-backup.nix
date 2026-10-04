@@ -23,11 +23,13 @@ in
         pkgs.zfs
       ];
       environment.PYTHONPATH = toString source;
+      environment.XDG_CACHE_HOME = "/var/cache/platform-backup";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName}";
         EnvironmentFile = "/persist/platform-backup.env";
         StateDirectory = "platform-backup";
+        CacheDirectory = "platform-backup";
         UMask = "0077";
       };
     };
