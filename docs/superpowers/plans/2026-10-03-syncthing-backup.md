@@ -1,8 +1,8 @@
 # Laptop-to-NAS Syncthing Backup Implementation Plan
 
-**Target System:** `laptop-nixos` (client) and `nas-01` (receiver)  
-**Date:** 2026-10-03  
-**Status:** Ready for Independent Audit (Deployment Held)  
+**Target System:** `laptop-nixos` (client) and `nas-01` (receiver)
+**Date:** 2026-10-03
+**Status:** Ready for Independent Audit (Deployment Held)
 
 ---
 
@@ -73,7 +73,7 @@ All 12 folders share identical string identifiers across both machines:
 | `laptop-pictures` | `/home/rupan/Pictures` | `/tank/backups/syncthing/laptop/Pictures` | `sendonly` | `receiveonly` | No |
 | `laptop-videos` | `/home/rupan/Videos` | `/tank/backups/syncthing/laptop/Videos` | `sendonly` | `receiveonly` | No |
 
-**Universal Build Artifact Filters (`buildIgnores`):**  
+**Universal Build Artifact Filters (`buildIgnores`):**
 `node_modules`, `target`, `.direnv`, `result`, `result-*`, `.venv`, `venv`, `__pycache__`, `*.pyc`, `.build`, `build`, `dist`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`.
 
 ---
