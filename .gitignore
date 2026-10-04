@@ -25,3 +25,5 @@ trajectory-*.json
 3d-prints/
 gitops/voice/voice-id/profiles.json
 scripts/voice_id/profiles.json
+.stfolder/
+.stignore
