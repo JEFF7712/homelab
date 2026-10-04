@@ -126,7 +126,7 @@ metadata:
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    name: gitlab-project
+    name: homelab-secrets
     kind: ClusterSecretStore
   target:
     name: sovereign-inquiry-ntfy
@@ -134,4 +134,5 @@ spec:
   data:
     - secretKey: ntfy-token
       remoteRef:
-        key: SOVEREIGN_INQUIRY_NTFY_TOKEN
+        key: homelab-values
+        property: SOVEREIGN_INQUIRY_NTFY_TOKEN

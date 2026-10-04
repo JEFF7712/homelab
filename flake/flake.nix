@@ -59,6 +59,9 @@
         builtins.listToAttrs (
           map (hostName: nixpkgs.lib.nameValuePair hostName (mkHost hostName [ ])) baseHosts
         )
+        // {
+          homelab-04-dr = mkHost "homelab-04" [ { homelab.gitlabDR.enable = true; } ];
+        }
         // builtins.listToAttrs (
           map (
             hostName:
@@ -72,9 +75,16 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        vmCheck =
+          check:
+          check.extend {
+            # QEMU falls back to TCG when sandbox jobs have no host KVM device.
+            modules = [ { requiredFeatures.kvm = false; } ];
+          };
         python = pkgs.python313.withPackages (pythonPackages: [
           pythonPackages.pyyaml
           pythonPackages.jinja2
+          pythonPackages.cryptography
         ]);
       in
       {
@@ -164,9 +174,11 @@
             touch $out
           '';
 
-        checks.agent-workspace-packet-flow = import ./tests/agent-workspace-packet-flow.nix {
-          inherit nixpkgs system;
-        };
+        checks.agent-workspace-packet-flow = vmCheck (
+          import ./tests/agent-workspace-packet-flow.nix {
+            inherit nixpkgs system;
+          }
+        );
 
         checks.agent-workspace-host-reservations =
           let
@@ -208,11 +220,11 @@
             touch $out
           '';
 
-        checks.agent-workspace-libvirt-normalization =
-          import ./tests/agent-workspace-libvirt-normalization.nix
-            {
-              inherit nixpkgs system;
-            };
+        checks.agent-workspace-libvirt-normalization = vmCheck (
+          import ./tests/agent-workspace-libvirt-normalization.nix {
+            inherit nixpkgs system;
+          }
+        );
 
         checks.kiosk-tty1 =
           let

@@ -8,11 +8,14 @@
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
+    ../../modules/gitlab-dr.nix
+    ../../modules/platform-backup.nix
   ];
 
   networking.hostName = "homelab-04";
 
   homelab.woodpecker.enable = true;
+  homelab.platformBackup.enable = true;
 
   homelab.monero.enable = true;
 

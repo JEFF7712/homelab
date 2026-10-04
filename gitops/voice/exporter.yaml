@@ -628,7 +628,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: gitlab-project
+    name: homelab-secrets
   target:
     name: jarvis-exporter-ha
     creationPolicy: Owner
@@ -639,7 +639,8 @@ spec:
   data:
     - secretKey: ha_token
       remoteRef:
-        key: JARVIS_EXPORTER_HA_TOKEN
+        key: homelab-values
+        property: JARVIS_EXPORTER_HA_TOKEN
 ---
 apiVersion: apps/v1
 kind: Deployment

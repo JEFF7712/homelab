@@ -7,7 +7,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: gitlab-project
+    name: homelab-secrets
   target:
     name: receiver-token
     creationPolicy: Owner
@@ -16,4 +16,5 @@ spec:
   data:
     - secretKey: token
       remoteRef:
-        key: FLUX_RECEIVER_TOKEN
+        key: homelab-values
+        property: FLUX_RECEIVER_TOKEN

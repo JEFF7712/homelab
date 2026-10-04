@@ -15,7 +15,10 @@
     ../../modules/zot-registry.nix
     ../../modules/ledfx-bedroom.nix
     ../../modules/forgejo.nix
+    ../../modules/git-dr-mirror.nix
     ../../modules/nas-s3.nix
+    ../../modules/tofu-state.nix
+    ../../modules/platform-backup.nix
     ../../modules/nas-syncthing.nix
   ];
 
@@ -28,6 +31,8 @@
 
   homelab.forgejo.enable = true;
   homelab.s3.enable = true;
+  homelab.tofuState.enable = true;
+  homelab.platformBackup.enable = true;
   homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {

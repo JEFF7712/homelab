@@ -38,8 +38,8 @@ spec:
             - ALL
       config: |
         {
-          "platform": "gitlab",
-          "endpoint": "https://gitlab.com/api/v4",
+          "platform": "forgejo",
+          "endpoint": "http://git.internal:3000/api/v1/",
           "binarySource": "global",
           "autodiscover": true,
           "autodiscoverFilter": [
@@ -59,7 +59,7 @@ spec:
         valueFrom:
           secretKeyRef:
             name: renovate-secrets
-            key: gitlab-token
+            key: forgejo-token
       - name: GITHUB_COM_TOKEN
         valueFrom:
           secretKeyRef:

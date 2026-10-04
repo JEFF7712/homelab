@@ -23,6 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: dashboard
+        command: [python, /config/dashboard.py]
         image: registry.rupan.dev/apps/homelab-renovate-dashboard@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3  # yamllint disable-line rule:line-length
         resources:
           requests:
@@ -59,11 +60,16 @@ spec:
             secretKeyRef:
               name: renovate-secrets
               key: github-token
-        - name: GITLAB_TOKEN
+        - name: FORGEJO_TOKEN
           valueFrom:
             secretKeyRef:
               name: renovate-secrets
-              key: gitlab-token
+              key: forgejo-token
+        - name: FORGEJO_APPROVAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: renovate-secrets
+              key: forgejo-approval-token
         ports:
         - containerPort: 8080
         readinessProbe:
@@ -91,6 +97,8 @@ spec:
           sources:
           - configMap:
               name: automation-config
+          - configMap:
+              name: forgejo-dashboard-script
       - name: tmp
         emptyDir: {}
 ---

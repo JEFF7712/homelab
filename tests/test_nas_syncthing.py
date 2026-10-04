@@ -17,7 +17,7 @@ EXPECTED_FOLDERS = {
     "laptop-obsidian",
     "laptop-school",
     "laptop-businesses",
-    "laptop-pictures",
+    "laptop-media",
     "laptop-videos",
     "laptop-research",
     "laptop-homelab",

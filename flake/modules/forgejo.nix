@@ -57,16 +57,16 @@ in
           START_SSH_SERVER = true;
         };
         service = {
-          DISABLE_REGISTRATION = false;
-          REQUIRE_SIGNIN_VIEW = false;
+          DISABLE_REGISTRATION = true;
+          REQUIRE_SIGNIN_VIEW = true;
         };
         mirror = {
-          ENABLED = true;
+          ENABLED = false;
           MIN_INTERVAL = "5m";
           DEFAULT_INTERVAL = "30m";
         };
         webhook = {
-          ALLOWED_HOST_LIST = "ci.internal,*.internal,10.0.0.0/8,192.168.0.0/16";
+          ALLOWED_HOST_LIST = "ci.internal,flux-wh-33b0c8004348.rupan.dev,*.internal,10.0.0.0/8,192.168.0.0/16";
         };
       };
     };

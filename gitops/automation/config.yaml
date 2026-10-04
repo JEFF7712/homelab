@@ -47,6 +47,5 @@ data:
     JEFF7712|rupan.dev
     JEFF7712|solubility-predictor
     JEFF7712|obsidian-vault
-  renovate-agent-gitlab-infra-repositories.txt: |
+  renovate-agent-forgejo-infra-repositories.txt: |
     JEFF7712|homelab
-

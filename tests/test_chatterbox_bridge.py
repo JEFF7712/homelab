@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
 import sys
 import tempfile
 import types
@@ -383,6 +384,27 @@ class TtsTextTest(unittest.TestCase):
         self.assertEqual(metrics.counters.get("jarvis_tts_queue_rejections_total"), 1)
 
     def test_cache_paths_validation_with_actual_mount_permissions(self) -> None:
+        if os.geteuid() == 0:
+
+            def drop_privileges() -> None:
+                os.setgroups([])
+                os.setgid(65534)
+                os.setuid(65534)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "unittest",
+                    "tests.test_chatterbox_bridge.TtsTextTest.test_cache_paths_validation_with_actual_mount_permissions",
+                ],
+                cwd=REPO_ROOT,
+                preexec_fn=drop_privileges,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             models_dir = tmp_path / "models"

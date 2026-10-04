@@ -1,104 +1,63 @@
 # CI pipelines
 
-Runner lanes, validation jobs, and path-based routing for CI pipelines.
-The sovereign CI engine is Woodpecker CI (`http://ci.internal:8000`), triggered
-by push webhooks from Forgejo (`http://git.internal:3000`).
+Forgejo is primary; Woodpecker runs on homelab-04. This describes the migration
+branch implementation. Live acceptance is tracked in
+[Forgejo disaster recovery](forgejo-disaster-recovery.md).
 
-## Woodpecker CI Architecture
+## Execution and authority
 
-- **Server:** Woodpecker CI server running on `homelab-04` (`10.0.30.14:8000`),
-  authenticated via Forgejo OAuth2.
-- **Agent Tiers:**
-  - `trusted`: Local host execution (`tier=trusted,type=local`) for `main` branch
-    commits. Executes `.woodpecker/lint.yaml`, `.woodpecker/offline-checks.yaml`,
-    and `.woodpecker/tofu-plan.yaml` within the Nix development environment.
-  - `deploy`: Dedicated local agent (`tier=deploy,type=local`) reserved exclusively
-    for production deployments.
-  - `sandbox`: Docker container executor (`tier=sandbox,type=docker`) isolated for
-    untrusted pull requests and feature branches.
-- **Pipeline Workflows:**
-  - `lint`: Code formatting and gitleaks secrets scan.
-  - `offline-checks`: Dependency provisioning and full offline test gate (`scripts/checks/all.sh`).
-  - `tofu-plan`: OpenTofu validation and speculative plan execution against Garage S3 state.
+All three agents use Docker. Sandbox jobs receive no production credentials,
+host mounts, Docker socket, privileged mode, or host Nix trust. Containers
+have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
+Sandbox has two workflow slots; trusted and deploy agents have one each.
+All operations share production-authority concurrency with limit one.
 
+The immutable server configuration extension verifies the signed request,
+repository, event, current main SHA, deployment operator, and successful
+validation parent. Repository YAML cannot select an executor, command, secret,
+or privileged container. Policy failures return 403 and fail the pipeline.
+Repository settings must clear extension overrides and all trusted permissions.
 
-## Runner lanes
+The patched Woodpecker server records the deployment operator before policy
+evaluation and rejects restart query variable overrides. Retain the patch
+during upgrades. Deployment rights remain restricted to project operators.
 
-GitLab runners are decommissioned. Migration Phase 5 removed the
-`gitlab-runner` module from `homelab-04`, uninstalled the service, and
-cleared `/persist/gitlab-runner/` tokens. GitLab.com remains a
-downstream DR mirror only. `.gitlab-ci.yml` is retained as the
-documented rollback path (see the rollback section of the
-`2026-09-30-forgejo-woodpecker-migration` plan), not as an active
-scheduler: with no runner registered its jobs cannot execute until
-someone re-registers one.
+## Validation and operations
 
-Lane ownership now lives on the Woodpecker tiers above:
+Push, PR, tag, manual, and cron events run validation-v2: dependency provisioning,
+formatting, the production Jev decision fixture gate, and the full offline gate. The
+required Forgejo status is ci/woodpecker/validation-v2. Validation has no secrets.
+PRs never receive production workflows, regardless of target branch or YAML.
 
-- `trusted` (`tier=trusted,type=local`) owns the old `nas-ci` lane:
-  formatting, repository tests, YAML/schema checks, secret scanning,
-  registry-lock validation, and speculative OpenTofu plans across
-  `main`, release tags, and feature branches.
-- `sandbox` (`tier=sandbox,type=docker`) isolates untrusted pull
-  requests and feature branches.
-- `deploy` (`tier=deploy,type=local`) owns the old `nas-privileged`
-  lane: fleet deployment, OPNsense apply, and registry import and
-  mutation jobs. Production credentials stay scoped to deploy-event
-  workflows.
+A current main push additionally runs opnsense-plan, cloudflare-plan, and
+sync-to-github and cache-publish after validation. The maintenance cron runs registry drift,
+retention reconciliation, and first-party promotion. Promotion creates a PR.
+The external Obsidian publisher must stop writing homelab main before enabling
+branch protection.
 
-Flux listens on two receivers under `gitops/flux-webhook/`:
-`forgejo-push` (type `generic`) is the primary push path from
-`git.internal`, and `gitlab-push` (type `gitlab`) is retained
-alongside it. Both reconcile the same root sources and the pair is
-pinned by `tests/test_flux_webhook.py`.
+config/ci/operations.json defines all manual deployment targets. Select its
+key as deploy_to when restarting successful current-main push or manual
+validation. The catalog covers registry operations, publisher provisioning,
+registry platform and nodes, DNS, Zigbee, LedFx, NAS proof, OPNsense,
+Cloudflare, fleet, agent workspaces, Home Assistant, GitHub mirroring and cache.
 
-## Validation lanes
+Validation and artifacts expire after 24 hours. Apply consumes the saved
+binary plan for the same SHA and validation parent. Dry-run prerequisites
+use completion receipts under that identity. The runner rejects stale main,
+missing prerequisites, unsafe artifact paths, and completed operations before
+executing commands. File secrets use mode 0600 and temporary storage.
 
-Validation jobs are interruptible so new commits cancel superseded checks.
-Deployment, mirror sync, and registry mutations retain their cancellation defaults.
-The dedicated secret scan checks the pushed commit range or the MR diff base
-through HEAD. Scheduled, manual, tag, and new-branch pipelines scan all history.
-Missing history is fetched before scanning; an invalid range fails the job.
-Repository tests omit their duplicate secret scan; local `just check` retains it.
-Flake checks and cache population share the `nix-flake-evaluation` resource group,
-so only one runs at a time across pipelines. Their logs include elapsed time
-and Nix evaluation statistics for performance comparisons. Cache population runs
-against the same tracked flake source to reuse validated check outputs. The cache
-job runs automatically on main and remains blocking and manual on release tags.
-Fleet deployment retains that dependency and always checks the full flake and
-builds all fleet outputs in its preflight, before loading SSH credentials,
-including when upload credentials are unavailable.
+Provider plan identities require read-only access; deploy identities require
+service-specific write access. State credentials are separate from Garage.
+Woodpecker secrets are image restricted and event scoped. Only selected main
+push and maintenance workflows receive their required secrets.
 
-CI assigns formatting, YAML linting, registry policy, and secret scanning to
-dedicated jobs. Repository tests retain type checks, rendered Kubernetes validation,
-and provider validation. The flake job owns the sandboxed unit suite and
-publishes its JUnit report, including failures recovered from the Nix build log.
-The subsequent flake and cache checks reuse its successful derivation instead of
-running the suite again. The sandbox includes `gitleaks` so secret-scan regression
-tests still execute. Nix-dependent registry integration tests run once outside
-the sandbox in the repository job and publish `nix-integration.xml`; they are
-excluded from the sandbox suite. Local `just check` retains the full gate.
-Validation jobs publish timing artifacts.
-Jobs have explicit time limits and retry once for runner infrastructure failures.
-Deployment and registry mutations do not retry automatically.
+## Recovery
 
-## Path-based routing
+GitLab CI is disabled by default. An offline runner or GitLab webhook is not
+failover. homelab-04-dr disables Woodpecker agents and enables fresh Docker
+GitLab runners. The scheduler must also match the state authority.
 
-Push and merge-request jobs classify the complete changed-path set. Changes only
-to root documentation (`README.md`, `HARDWARE.md`, `AGENT_MAP.md`, `AGENTS.md`,
-`CLAUDE.md`) and Markdown under `docs/` run documentation checks without unit
-tests or fleet checks. Changes confined to `gitops/voice/`, `home-assistant/www/`,
-and documentation retain all repository checks and sandboxed unit tests but skip
-fleet evaluation and cache builds. Formatting, YAML, registry policy, and secret
-scanning remain required in both lanes. Every other path, including Nix files
-inside those application directories, selects full validation. Missing history,
-new branches, unrelated bases, tags, schedules, web/API pipelines, and
-`CI_FULL_VALIDATION=1` also select full validation. Each routed job publishes its
-decision and changed paths under `artifacts/ci/`; no required dependency is omitted.
-
-GitHub mirroring uses a separate resource group, checks the current source tip
-before each push, and uses an exact remote lease. Its temporary authentication
-helper and cache credentials are isolated to their respective jobs.
-
-The read-only OPNsense dataplane check depends on the validated plan, so optional
-manual registry jobs do not block it. Infrastructure mutations retain manual gates.
+Both Flux webhook receivers reference the same GitRepository. Changing
+receiver type does not change its source. Use the explicit cutover and
+restore procedure in [Forgejo disaster recovery](forgejo-disaster-recovery.md).

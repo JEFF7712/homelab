@@ -7,11 +7,12 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: gitlab-project
+    name: homelab-secrets
   target:
     name: eso-canary
     creationPolicy: Owner
   data:
     - secretKey: canary
       remoteRef:
-        key: FLUX_ESO_CANARY
+        key: homelab-values
+        property: FLUX_ESO_CANARY

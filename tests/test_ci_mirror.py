@@ -75,6 +75,8 @@ class MirrorTest(unittest.TestCase):
             f"real_git = {shutil.which('git')!r}\n"
             "args = sys.argv[1:]\n"
             "if 'push' in args:\n"
+            "    if any(arg.startswith('--force') for arg in args):\n"
+            "        raise SystemExit('force pushes are prohibited')\n"
             "    result = subprocess.run([real_git, *args[:args.index('push')], 'credential', 'fill'],\n"
             "        input='protocol=https\\nhost=github.com\\n\\n', text=True, capture_output=True, check=True)\n"
             "    values = dict(line.split('=', 1) for line in result.stdout.splitlines())\n"
@@ -119,6 +121,19 @@ class MirrorTest(unittest.TestCase):
             check=False,
         )
         self.assertEqual(refs.returncode, 1)
+
+    def test_existing_public_history_is_preserved_by_normal_push(self) -> None:
+        first = self.run_mirror()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        old_tip = self.git("rev-parse", "HEAD").stdout.strip()
+        self.git("checkout", "-q", self.sha)
+        self.git("commit", "--allow-empty", "-qm", "source advances")
+        next_sha = self.git("rev-parse", "HEAD").stdout.strip()
+        self.git("push", "-q", "origin", "HEAD:main")
+        second = self.run_mirror(CI_COMMIT_SHA=next_sha)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.git("merge-base", "--is-ancestor", old_tip, "HEAD")
+        self.git("merge-base", "--is-ancestor", next_sha, "HEAD")
 
     def test_source_lookup_failure_fails_job(self) -> None:
         self.git("remote", "set-url", "origin", str(self.directory / "unavailable"))

@@ -21,7 +21,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: gitlab-project
+    name: homelab-secrets
   target:
     name: immich-backup-secrets
     creationPolicy: Owner
@@ -30,4 +30,5 @@ spec:
   data:
     - secretKey: restic-password
       remoteRef:
-        key: RESTIC_PASSWORD
+        key: homelab-values
+        property: RESTIC_PASSWORD
