@@ -245,9 +245,25 @@ spec:
         existingSecret: grafana-admin-creds
         userKey: admin-user
         passwordKey: admin-password
+      envFromSecret: grafana-cloudflare-oidc
       grafana.ini:
+        server:
+          root_url: https://grafana.rupan.dev
         auth.anonymous:
           enabled: false
+        auth.generic_oauth:
+          enabled: true
+          name: Cloudflare Access
+          auto_login: true
+          allow_sign_up: true
+          scopes: openid email profile
+          login_attribute_path: sub
+          email_attribute_path: email
+          role_attribute_path: "email == 'rupanpandyan@gmail.com' && 'GrafanaAdmin'"
+          role_attribute_strict: true
+          allow_assign_grafana_admin: true
+          use_pkce: true
+          validate_id_token: true
       additionalDataSources:
         - name: Loki
           type: loki
