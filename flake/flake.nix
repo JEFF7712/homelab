@@ -75,6 +75,12 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        vmCheck =
+          check:
+          check.overrideAttrs (old: {
+            # QEMU falls back to TCG when sandbox jobs have no host KVM device.
+            requiredSystemFeatures = builtins.filter (feature: feature != "kvm") old.requiredSystemFeatures;
+          });
         python = pkgs.python313.withPackages (pythonPackages: [
           pythonPackages.pyyaml
           pythonPackages.jinja2
@@ -168,9 +174,11 @@
             touch $out
           '';
 
-        checks.agent-workspace-packet-flow = import ./tests/agent-workspace-packet-flow.nix {
-          inherit nixpkgs system;
-        };
+        checks.agent-workspace-packet-flow = vmCheck (
+          import ./tests/agent-workspace-packet-flow.nix {
+            inherit nixpkgs system;
+          }
+        );
 
         checks.agent-workspace-host-reservations =
           let
@@ -212,11 +220,11 @@
             touch $out
           '';
 
-        checks.agent-workspace-libvirt-normalization =
-          import ./tests/agent-workspace-libvirt-normalization.nix
-            {
-              inherit nixpkgs system;
-            };
+        checks.agent-workspace-libvirt-normalization = vmCheck (
+          import ./tests/agent-workspace-libvirt-normalization.nix {
+            inherit nixpkgs system;
+          }
+        );
 
         checks.kiosk-tty1 =
           let
