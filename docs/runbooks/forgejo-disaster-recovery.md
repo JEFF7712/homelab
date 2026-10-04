@@ -119,9 +119,11 @@ authorization. Drain both schedulers before activation or authority changes.
 5. Select gitlab with NAS ci-authority. Active OpenTofu locks prevent the
    switch. Drain non-OpenTofu operations first as well. Old credentials can
    no longer lock, write state, upload artifacts or obtain operation permits.
-6. Run fresh validation. Set CI_OPERATION to a catalog key for the protected
-   manual operate job. Run plans first; apply consumes their saved plans for
-   this pipeline. Promotion creates a GitLab MR rather than writing main.
+6. Run fresh validation and the two automatic production plan jobs. They save
+   both plans under this pipeline ID. Set CI_OPERATION to a catalog key when
+   playing the protected manual operate job; apply consumes the corresponding
+   saved plan from this pipeline. Promotion creates a GitLab MR rather than
+   writing main.
 7. Explicitly change the Flux GitRepository URL to the recovery GitLab SSH
    remote and install matching known_hosts/private-key authentication through
    recovery source. Preserve the original object and encrypted credentials.

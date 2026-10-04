@@ -35,6 +35,23 @@ ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
 
 
+class GitLabRecoveryGraphTest(unittest.TestCase):
+    def test_apply_waits_for_both_plans_in_its_own_pipeline(self) -> None:
+        workflow = yaml.safe_load((ROOT / "config/ci/gitlab-dr.yml").read_text())
+        self.assertNotIn("environment", workflow["validate"])
+        self.assertEqual(
+            set(workflow["operate"]["needs"]),
+            {"validate", "opnsense-plan", "cloudflare-plan"},
+        )
+        for name in ["opnsense-plan", "cloudflare-plan"]:
+            job = workflow[name]
+            self.assertEqual(job["stage"], "plan")
+            self.assertEqual(job["extends"], ".production-operation")
+            self.assertTrue(job["script"][0].startswith(f"CI_OPERATION={name} "))
+            self.assertEqual(job["rules"][-1], {"when": "never"})
+            self.assertIn("CI_COMMIT_REF_PROTECTED", job["rules"][0]["if"])
+
+
 class PolicyTest(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
