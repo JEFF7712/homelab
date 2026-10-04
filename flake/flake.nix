@@ -77,10 +77,10 @@
         pkgs = import nixpkgs { inherit system; };
         vmCheck =
           check:
-          check.overrideAttrs (old: {
+          check.extend {
             # QEMU falls back to TCG when sandbox jobs have no host KVM device.
-            requiredSystemFeatures = builtins.filter (feature: feature != "kvm") old.requiredSystemFeatures;
-          });
+            modules = [ { requiredFeatures.kvm = false; } ];
+          };
         python = pkgs.python313.withPackages (pythonPackages: [
           pythonPackages.pyyaml
           pythonPackages.jinja2
