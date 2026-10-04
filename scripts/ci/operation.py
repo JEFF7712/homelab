@@ -21,10 +21,23 @@ def current_source(environment: dict[str, str]) -> None:
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Invalid source SHA")
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    remote = subprocess.check_output(
-        ["git", "ls-remote", "origin", "refs/heads/main"], text=True
-    ).split()
-    if head != sha or not remote or remote[0] != sha:
+    if head != sha:
+        raise ValueError("Operation source must be the current main commit")
+    if environment.get("CI_OPERATION_AUTHORITY") == "gitlab":
+        remote = subprocess.check_output(
+            ["git", "ls-remote", "origin", "refs/heads/main"], text=True
+        ).split()
+        current = remote[0] if remote else ""
+    else:
+        request = urllib.request.Request(
+            "http://git.internal:3000/api/v1/repos/JEFF7712/homelab/branches/main",
+            headers={
+                "Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]
+            },
+        )
+        with urllib.request.urlopen(request, timeout=10) as response:
+            current = json.load(response)["commit"]["id"]
+    if current != sha:
         raise ValueError("Operation source must be the current main commit")
 
 

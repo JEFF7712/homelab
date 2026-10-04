@@ -13,7 +13,7 @@ def main() -> None:
     for variable, value in operation["environment"].items():
         if isinstance(value, dict):
             key = value["from_secret"].upper()
-            if key == "FORGEJO_PUBLISH_TOKEN":
+            if key in {"FORGEJO_PUBLISH_TOKEN", "FORGEJO_SOURCE_READ_TOKEN"}:
                 continue
             if key.startswith("STATE_") and key.endswith("_PASSWORD"):
                 continue

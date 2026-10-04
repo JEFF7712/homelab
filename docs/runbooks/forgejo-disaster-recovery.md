@@ -16,6 +16,8 @@ authorization. Drain both schedulers before activation or authority changes.
    uses normal atomic pushes, verifies refs and rejects divergence.
 3. Provision repository-scoped publisher and Renovate identities. Supply
    FORGEJO_PUBLISH_TOKEN and FORGEJO_RENOVATE_TOKEN through protected inputs.
+   Provision a separate read-only repository identity as
+   FORGEJO_SOURCE_READ_TOKEN for current-main checks in operation jobs.
    FORGEJO_DASHBOARD_APPROVAL_TOKEN must belong to an authorized human operator,
    scoped to repository reads and issue comments. A bot cannot approve itself.
 4. Provision read-only OPNsense and Cloudflare plan identities and separate

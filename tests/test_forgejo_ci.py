@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -25,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
-from scripts.ci.operation import pack, unpack
+from scripts.ci.operation import current_source, pack, unpack
 from scripts.ci.platform_backup import snapshot_database
 from scripts.ci.policy import VALIDATION, configuration, verify_request
 from scripts.ci.prepare_platform import certificate
@@ -50,6 +51,50 @@ class GitLabRecoveryGraphTest(unittest.TestCase):
             self.assertTrue(job["script"][0].startswith(f"CI_OPERATION={name} "))
             self.assertEqual(job["rules"][-1], {"when": "never"})
             self.assertIn("CI_COMMIT_REF_PROTECTED", job["rules"][0]["if"])
+
+
+class CurrentSourceTest(unittest.TestCase):
+    def test_forgejo_tip_uses_read_only_api_identity(self) -> None:
+        environment = {
+            "CI_COMMIT_SHA": SHA,
+            "FORGEJO_SOURCE_READ_TOKEN": "read-only-fixture",
+        }
+        response = io.BytesIO(json.dumps({"commit": {"id": SHA}}).encode())
+        with (
+            patch(
+                "scripts.ci.operation.subprocess.check_output", return_value=SHA
+            ) as git,
+            patch(
+                "scripts.ci.operation.urllib.request.urlopen", return_value=response
+            ) as request,
+        ):
+            current_source(environment)
+        self.assertEqual(git.call_count, 1)
+        self.assertEqual(
+            request.call_args.args[0].get_header("Authorization"),
+            "token read-only-fixture",
+        )
+
+    def test_forgejo_tip_change_rejects_operation(self) -> None:
+        environment = {
+            "CI_COMMIT_SHA": SHA,
+            "FORGEJO_SOURCE_READ_TOKEN": "read-only-fixture",
+        }
+        response = io.BytesIO(json.dumps({"commit": {"id": "b" * 40}}).encode())
+        with (
+            patch("scripts.ci.operation.subprocess.check_output", return_value=SHA),
+            patch("scripts.ci.operation.urllib.request.urlopen", return_value=response),
+            self.assertRaisesRegex(ValueError, "current main"),
+        ):
+            current_source(environment)
+
+    def test_recovery_tip_uses_native_gitlab_clone_authentication(self) -> None:
+        environment = {"CI_COMMIT_SHA": SHA, "CI_OPERATION_AUTHORITY": "gitlab"}
+        with patch(
+            "scripts.ci.operation.subprocess.check_output",
+            side_effect=[SHA, SHA + " refs/heads/main\n"],
+        ):
+            current_source(environment)
 
 
 class PolicyTest(unittest.TestCase):
