@@ -95,7 +95,7 @@ in
             "laptop-obsidian" = mkBackupFolder "laptop-obsidian" "obsidian";
             "laptop-school" = mkBackupFolder "laptop-school" "school";
             "laptop-businesses" = mkBackupFolder "laptop-businesses" "businesses";
-            "laptop-pictures" = mkBackupFolder "laptop-pictures" "Pictures";
+            "laptop-media" = mkBackupFolder "laptop-media" "media";
             "laptop-videos" = mkBackupFolder "laptop-videos" "Videos";
             "laptop-research" = mkBackupFolder "laptop-research" "research";
             "laptop-homelab" = mkBackupFolder "laptop-homelab" "homelab";
