@@ -77,6 +77,10 @@
   icon: mdi:lightbulb-auto
   entity_id: input_boolean.bedroom_lights_auto_on
   labels: []
+- name: Bedroom Bedtime Charging Done
+  icon: mdi:cellphone-charging
+  entity_id: input_boolean.bedroom_bedtime_charging_done
+  labels: []
 - name: Bedroom Music Mode
   icon: mdi:music
   entity_id: input_boolean.bedroom_music_mode

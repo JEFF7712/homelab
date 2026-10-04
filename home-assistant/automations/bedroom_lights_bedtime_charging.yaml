@@ -1,23 +1,55 @@
 id: bedroom_lights_bedtime_charging
 alias: "Bedroom Lights: Bedtime Phone Charging"
 description: >-
-  Turn off bedroom lights when phone starts charging after 10:00 PM. Trigger
-  via the Companion App native Shortcut action firing the
-  bedtime_phone_charging event.
+  Turn off bedroom lights once per phone-charging session after 10:00 PM.
+  Trigger via the Companion App native Shortcut action firing the
+  bedtime_phone_charging event, with the battery-state sensor as fallback.
+  The first trigger in a session turns the lights off and latches
+  input_boolean.bedroom_bedtime_charging_done, so turning the lights back on
+  afterwards keeps them on instead of a second trigger turning them off
+  again. Unplugging the phone (leaving Charging) or 08:00 clears the latch
+  so the next plug-in works again.
 triggers:
   - trigger: event
     event_type: bedtime_phone_charging
+    id: "plugged"
   - trigger: state
     entity_id: sensor.rupan_phone_battery_state
     to: "Charging"
     for: "00:02:00"
-conditions:
-  - condition: time
-    after: "22:00:00"
-    before: "08:00:00"
-  - condition: state
-    entity_id: person.rupan_sunderapandyan
-    state: "home"
+    id: "plugged"
+  - trigger: state
+    entity_id: sensor.rupan_phone_battery_state
+    from: "Charging"
+    id: "unplugged"
+  - trigger: time
+    at: "08:00:00"
+    id: "unplugged"
+conditions: []
 actions:
-  - action: script.bedroom_lights_off
-mode: single
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "unplugged"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.bedroom_bedtime_charging_done
+      - conditions:
+          - condition: trigger
+            id: "plugged"
+          - condition: state
+            entity_id: input_boolean.bedroom_bedtime_charging_done
+            state: "off"
+          - condition: time
+            after: "22:00:00"
+            before: "08:00:00"
+          - condition: state
+            entity_id: person.rupan_sunderapandyan
+            state: "home"
+        sequence:
+          - action: script.bedroom_lights_off
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.bedroom_bedtime_charging_done
+mode: queued
