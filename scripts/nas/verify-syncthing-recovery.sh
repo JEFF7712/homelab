@@ -136,8 +136,8 @@ for folder in "${!EXPECTED_PATHS[@]}"; do
 done
 
 # 4. Enforce completion gate across ALL 12 folders (wait for initial bulk sync to reach steady state)
-log "Enforcing completion gate across all 12 folders on nas-01 (timeout: 300s)..."
-GATE_TIMEOUT=300
+GATE_TIMEOUT="${GATE_TIMEOUT:-3600}"
+log "Enforcing completion gate across all 12 folders on nas-01 (timeout: ${GATE_TIMEOUT}s)..."
 GATE_ELAPSED=0
 GATE_POLL_INTERVAL=5
 GATE_ALL_IDLE=false
