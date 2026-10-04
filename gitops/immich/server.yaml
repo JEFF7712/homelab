@@ -12,6 +12,8 @@ spec:
       app: immich-server
   template:
     metadata:
+      annotations:
+        homelab.rupan.dev/oidc-config-revision: "2"
       labels:
         app: immich-server
     spec:
