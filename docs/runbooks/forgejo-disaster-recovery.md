@@ -43,6 +43,9 @@ authorization. Drain both schedulers before activation or authority changes.
    Register replacement agents with separate credentials; rotate exposed
    legacy credentials and revoke obsolete registered agents and any old global
    agent secret. Install the bundle's Woodpecker secret payload.
+   Command steps require empty secret image filters. Restrict secrets by event;
+   the exclusive signed policy admits secret-bearing jobs only from current
+   protected main and gives PRs only secret-free validation.
 8. Verify repository identity before applying
    config/ci/woodpecker-repository.json to Woodpecker repository 1. This
    removes trusted permissions and per-repository extension overrides.

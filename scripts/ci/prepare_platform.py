@@ -21,7 +21,6 @@ from cryptography.x509.oid import NameOID
 
 from scripts.ci.authority import select
 from scripts.ci.migrate_secrets import ROOT, variables
-from scripts.ci.policy import IMAGE
 from scripts.ci.state import Store
 
 RECIPIENT = "age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl"
@@ -172,7 +171,7 @@ def main() -> None:
                         "events": sorted(
                             {"deployment"} | automatic_events.get(name, set())
                         ),
-                        "images": [IMAGE],
+                        "images": [],
                     }
                     for name in sorted(required)
                 ]
