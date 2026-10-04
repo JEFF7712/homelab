@@ -99,6 +99,18 @@ class PolicyTest(unittest.TestCase):
         self.request["pipeline"].update(event="deployment", deploy_to="opnsense-apply")
         return configuration(self.request, self.catalog, self.parent, SHA)
 
+    def test_pr_lifecycle_does_not_replace_mandatory_source_validation(self) -> None:
+        for event in ["pull_request_closed", "pull_request_metadata"]:
+            self.request["pipeline"]["event"] = event
+            result = configuration(self.request, self.catalog, current=SHA)
+            self.assertEqual(
+                [item["name"] for item in result["configs"]], ["pr-lifecycle.yaml"]
+            )
+            workflow = yaml.safe_load(result["configs"][0]["data"])
+            self.assertEqual(workflow["labels"], {"tier": "sandbox", "type": "docker"})
+            self.assertNotEqual(workflow["steps"][0]["name"], VALIDATION)
+            self.assertNotIn("from_secret", json.dumps(workflow))
+
     def test_only_current_main_push_gets_automatic_secret_workflows(self) -> None:
         result = configuration(self.request, self.catalog, current=SHA)
         self.assertEqual(

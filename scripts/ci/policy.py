@@ -74,8 +74,40 @@ def configuration(
     if pipeline.get("variables"):
         raise ValueError("Pipeline variable overrides are prohibited")
     event = pipeline["event"]
-    if event not in {"push", "pull_request", "tag", "manual", "deployment", "cron"}:
+    if event not in {
+        "push",
+        "pull_request",
+        "pull_request_closed",
+        "pull_request_metadata",
+        "tag",
+        "release",
+        "manual",
+        "deployment",
+        "cron",
+    }:
         raise ValueError("Unsupported event")
+    if event in {"pull_request_closed", "pull_request_metadata"}:
+        return {
+            "configs": [
+                {
+                    "name": "pr-lifecycle.yaml",
+                    "data": yaml.safe_dump(
+                        {
+                            "when": [{"event": event}],
+                            "labels": {"tier": "sandbox", "type": "docker"},
+                            "steps": [
+                                {
+                                    "name": "pr-lifecycle",
+                                    "image": IMAGE,
+                                    "commands": ["true"],
+                                }
+                            ],
+                        },
+                        sort_keys=False,
+                    ),
+                }
+            ],
+        }
     main = pipeline.get("ref") == "refs/heads/main" and not pipeline.get("from_fork")
     configs: list[dict[str, str]] = []
 
