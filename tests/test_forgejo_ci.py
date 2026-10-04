@@ -17,13 +17,14 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from scripts.ci.authority import select
-from scripts.ci.dr_mirror import mirror
+from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import pack, unpack
 from scripts.ci.platform_backup import snapshot_database
 from scripts.ci.policy import VALIDATION, configuration, verify_request
@@ -422,6 +423,18 @@ class NativeBackendTest(unittest.TestCase):
 
 
 class RecoveryMirrorTest(unittest.TestCase):
+    def test_owned_source_can_be_read_by_root_without_global_git_trust(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary)
+            subprocess.run(["git", "init", "-q", str(source)], check=True)
+            with patch.dict(os.environ, {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}):
+                rejected = subprocess.run(
+                    ["git", "-C", str(source), "status"],
+                    capture_output=True,
+                )
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(refs(source), {})
+
     def test_normal_mirroring_rejects_divergence_without_deleting_recovery_commits(
         self,
     ) -> None:

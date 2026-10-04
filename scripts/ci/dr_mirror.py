@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def refs(repository: Path, remote: str | None = None) -> dict[str, str]:
-    command = ["git", "-C", str(repository)]
+    command = ["git", "-c", f"safe.directory={repository}", "-C", str(repository)]
     command += (
         ["ls-remote", remote, "refs/heads/*", "refs/tags/*"]
         if remote
@@ -33,6 +33,8 @@ def mirror(repository: Path, remote: str) -> None:
     subprocess.run(
         [
             "git",
+            "-c",
+            f"safe.directory={repository}",
             "-C",
             str(repository),
             "push",
