@@ -65,6 +65,16 @@
           mountpoint = "/tank/backups";
           options.mountpoint = "legacy";
         };
+        "backups/syncthing" = {
+          type = "zfs_fs";
+          mountpoint = "/tank/backups/syncthing";
+          options = {
+            mountpoint = "legacy";
+            encryption = "aes-256-gcm";
+            keyformat = "passphrase";
+            keylocation = "file:///persist/keys/tank-syncthing.key";
+          };
+        };
         cluster = {
           type = "zfs_fs";
           mountpoint = "/tank/cluster";

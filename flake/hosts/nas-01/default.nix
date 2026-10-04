@@ -16,6 +16,7 @@
     ../../modules/ledfx-bedroom.nix
     ../../modules/forgejo.nix
     ../../modules/nas-s3.nix
+    ../../modules/nas-syncthing.nix
   ];
 
   networking.hostName = "nas-01";
@@ -27,6 +28,7 @@
 
   homelab.forgejo.enable = true;
   homelab.s3.enable = true;
+  homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {
     enable = true;

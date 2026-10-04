@@ -65,6 +65,7 @@
       "tank/photos".useTemplate = [ "personal" ];
       "tank/documents".useTemplate = [ "personal" ];
       "tank/backups".useTemplate = [ "operational" ];
+      "tank/backups/syncthing".useTemplate = [ "operational" ];
       "tank/cluster".useTemplate = [ "operational" ];
       "tank/media".useTemplate = [ "weekly" ];
       "tank/attic".useTemplate = [ "weekly" ];
