@@ -1,0 +1,1588 @@
+{
+  "registry-auth-consistency": {
+    "commands": [
+      "nix develop ./flake -c python -m scripts.ci.run registry-auth -- bash -euo pipefail -c 'just registry-check-auth'"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_HTPASSWD_FILE": {
+        "from_secret": "registry_htpasswd_file"
+      },
+      "REGISTRY_IMPORTER_AUTH_FILE": {
+        "from_secret": "registry_importer_auth_file"
+      },
+      "REGISTRY_MAINTENANCE_AUTH_FILE": {
+        "from_secret": "registry_maintenance_auth_file"
+      },
+      "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_jarvis_publisher_auth_file"
+      },
+      "REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_pod_agent_publisher_auth_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_HTPASSWD_FILE",
+      "REGISTRY_IMPORTER_AUTH_FILE",
+      "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE",
+      "REGISTRY_MAINTENANCE_AUTH_FILE",
+      "REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "ci-diagnostics",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_auth_consistency",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "registry-drift-check": {
+    "commands": [
+      "nix develop ./flake -c python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c python -m scripts.ci.run registry-drift -- bash -euo pipefail -c 'rc=0; python -m scripts.registry verify --lock registry/images.lock.json --report artifacts/registry/drift-report.json || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify registry-drift artifacts/registry/drift-report.json || true; fi; exit $rc'"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_drift_check",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "registry-gc-fixture": {
+    "commands": [
+      "nix develop ./flake -c just registry-gc-fixture"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "ci-diagnostics",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/gc-fixture-report.json"
+    ],
+    "legacy_job": "registry_gc_fixture",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "registry-retention-reconcile": {
+    "commands": [
+      "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_MAINTENANCE_AUTH_FILE\"",
+      "export REGISTRY_SOURCE_AUTH_FILE=\"$REGISTRY_MAINTENANCE_AUTH_FILE\"",
+      "nix develop ./flake -c python -m scripts.ci.run registry-retention -- bash -euo pipefail -c 'just registry-reconcile-retention'"
+    ],
+    "environment": {
+      "REGISTRY_MAINTENANCE_AUTH_FILE": {
+        "from_secret": "registry_maintenance_auth_file"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_MAINTENANCE_AUTH_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_retention_reconcile",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "registry-resolve": {
+    "commands": [
+      "export REGISTRY_SOURCE_AUTH_FILE",
+      "nix develop ./flake -c python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "mkdir -p artifacts/registry",
+      "nix develop ./flake -c python -m scripts.registry inventory --output artifacts/registry/images.inventory.json",
+      "nix develop ./flake -c python -m scripts.registry resolve --inventory artifacts/registry/images.inventory.json --output artifacts/registry/images.lock.candidate.json",
+      "nix develop ./flake -c python -m scripts.registry plan --lock artifacts/registry/images.lock.candidate.json > artifacts/registry/copy-plan.candidate.json"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_resolve",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "registry-promote-first-party": {
+    "commands": [
+      "export REGISTRY_SOURCE_AUTH_FILE",
+      "nix develop ./flake -c python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json | tee promote-report.json",
+      "nix develop ./flake -c bash -c 'just check-registry'",
+      "nix develop ./flake -c python -m scripts.ci.promote_commit"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [
+      "promote-report.json"
+    ],
+    "legacy_job": "registry_promote_first_party",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "registry-update-import": {
+    "commands": [
+      "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_IMPORTER_AUTH_FILE\"",
+      "export REGISTRY_SOURCE_AUTH_FILE",
+      "nix develop ./flake -c python -m scripts.registry copy --lock artifacts/registry/images.lock.candidate.json --kind upstream --report artifacts/registry/update-import-report.json",
+      "nix develop ./flake -c python -m scripts.registry verify --lock artifacts/registry/images.lock.candidate.json --kind upstream --report artifacts/registry/update-verify-report.json"
+    ],
+    "environment": {
+      "REGISTRY_IMPORTER_AUTH_FILE": {
+        "from_secret": "registry_importer_auth_file"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_IMPORTER_AUTH_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [
+      "registry-resolve"
+    ],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_update_import",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "registry-lock-import": {
+    "commands": [
+      "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_IMPORTER_AUTH_FILE\"",
+      "export REGISTRY_SOURCE_AUTH_FILE",
+      "nix develop ./flake -c python -m scripts.registry copy --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-import-report.json",
+      "nix develop ./flake -c python -m scripts.registry verify --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-verify-report.json"
+    ],
+    "environment": {
+      "REGISTRY_IMPORTER_AUTH_FILE": {
+        "from_secret": "registry_importer_auth_file"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_IMPORTER_AUTH_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_lock_import",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "provision-jarvis-publisher": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "nix develop ./flake -c python -m unittest tests.test_registry_jarvis_publisher",
+      "nix develop ./flake -c just check-registry",
+      "nix develop ./flake -c python -m scripts.registry.provision_jarvis"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_jarvis_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "provision_jarvis_publisher",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "provision-pod-agent-publisher": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "nix develop ./flake -c python -m unittest tests.test_registry_pod_agent_publisher",
+      "nix develop ./flake -c just check-registry",
+      "nix develop ./flake -c python -m scripts.registry.provision_pod_agent"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_pod_agent_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "provision_pod_agent_publisher",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-platform": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo zfs list tank/registry >/dev/null 2>&1 || sudo zfs create -o mountpoint=legacy tank/registry; sudo install -d -m 0750 -o root -g root /tank/registry /persist/zot /persist/zot/status'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/htpasswd' < \"$REGISTRY_HTPASSWD_FILE\"",
+      "nix develop ./flake -c python -m scripts.registry access-control --lock registry/images.lock.json --output /tmp/zot-access-control.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/access-control.json' < /tmp/zot-access-control.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/cloudflare-dns-api-token' < \"$REGISTRY_CLOUDFLARE_TOKEN_FILE\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/restic-password' < \"$REGISTRY_RESTIC_PASSWORD_FILE\"",
+      "nixos-rebuild --flake ./flake#nas-01 --use-remote-sudo switch --target-host rupan@10.0.30.20 --build-host rupan@10.0.30.20",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo chown root:zot /persist/zot/restic-password; sudo chmod 0640 /persist/zot/restic-password'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'mountpoint -q /tank/registry && sudo systemctl is-active zot nginx'"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "REGISTRY_CLOUDFLARE_TOKEN_FILE": {
+        "from_secret": "registry_cloudflare_token_file"
+      },
+      "REGISTRY_HTPASSWD_FILE": {
+        "from_secret": "registry_htpasswd_file"
+      },
+      "REGISTRY_RESTIC_PASSWORD_FILE": {
+        "from_secret": "registry_restic_password_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "RESTIC_PASSWORD": {
+        "from_secret": "restic_password"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_CLOUDFLARE_TOKEN_FILE",
+      "REGISTRY_HTPASSWD_FILE",
+      "REGISTRY_RESTIC_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_registry_platform",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-dns": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
+      "test \"$(getent ahostsv4 registry.rupan.dev | awk 'NR == 1 { print $1 }')\" = 10.0.30.20",
+      "test \"$(nix develop ./flake -c curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://registry.rupan.dev/v2/)\" = 401"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-dns",
+    "needs": [
+      "deploy-registry-platform"
+    ],
+    "outputs": [],
+    "legacy_job": "deploy_registry_dns",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-zigbee-gateway": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "nix develop ./flake -c python -m scripts.zigbee_gateway | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/zigbee2mqtt-secret.yaml'",
+      "printf '%s' \"$HOME_ASSISTANT_MQTT_PASSWORD\" | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/mosquitto-home-assistant-password'",
+      "printf '%s' \"$ZIGBEE2MQTT_MQTT_PASSWORD\" | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/mosquitto-zigbee2mqtt-password'",
+      "nix develop ./flake -c python -m scripts.roku_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-bridge-bulbs.yaml'",
+      "printf '%s' \"$ROKU_BRIDGE_MQTT_PASSWORD\" | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/mosquitto-roku-bridge-password'",
+      "nix develop ./flake -c python -m scripts.roku_cloud_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-cloud-bulbs.yaml'",
+      "ROKU_CLOUD_RENDER_MODE=cookies nix develop ./flake -c python -m scripts.roku_cloud_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-cloud-cookies.json'",
+      "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo systemctl restart roku-bridge-secrets roku-cloud-bridge-secrets roku-bridge roku-cloud-bridge'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge'"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HOME_ASSISTANT_MQTT_PASSWORD": {
+        "from_secret": "home_assistant_mqtt_password"
+      },
+      "ROKU_BRIDGE_MQTT_PASSWORD": {
+        "from_secret": "roku_bridge_mqtt_password"
+      },
+      "ZIGBEE2MQTT_MQTT_PASSWORD": {
+        "from_secret": "zigbee2mqtt_mqtt_password"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "zigbee-gateway",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_zigbee_gateway",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-nas-ledfx-bedroom": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "nix develop ./flake -c python3 -c 'import base64,json,os,pathlib; password = pathlib.Path(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read_text().strip(); auth = base64.b64encode(f\"node:{password}\".encode()).decode(); pathlib.Path(\"/tmp/registry-auth.json\").write_text( json.dumps({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, indent=2))'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -d -m 0700 /persist/secrets; sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/registry-auth.json' < /tmp/registry-auth.json",
+      "rm -f /tmp/registry-auth.json",
+      "nixos-rebuild --flake ./flake#nas-01 --use-remote-sudo switch --target-host rupan@10.0.30.20 --build-host rupan@10.0.30.20",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo systemctl is-active ledfx-bedroom; for attempt in $(seq 1 60); do\n  if curl --silent --fail --output /dev/null http://127.0.0.1:8888/api/info; then\n    echo \"LedFx API ready\"; exit 0\n  fi;\n  sleep 2;\ndone; echo \"LedFx API did not become ready\" >&2; sudo journalctl -u ledfx-bedroom -n 40 --no-pager >&2; exit 1'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo k3s kubectl get --raw=\"/readyz\" >/dev/null'"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "nas-ledfx-bedroom",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_nas_ledfx_bedroom",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-node-01": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
+      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
+      "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo k3s kubectl get --raw=\"/readyz?verbose\" | grep -F \"[+]etcd ok\"; sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'"
+    ],
+    "environment": {
+      "DEPLOY_HOST": "homelab-01",
+      "DEPLOY_ADDR": "10.0.30.11",
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-node-rollout",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_registry_node_01",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-node-02": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
+      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
+      "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo k3s kubectl get --raw=\"/readyz?verbose\" | grep -F \"[+]etcd ok\"; sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'"
+    ],
+    "environment": {
+      "DEPLOY_HOST": "homelab-02",
+      "DEPLOY_ADDR": "10.0.30.12",
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-node-rollout",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_registry_node_02",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-node-03": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
+      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
+      "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo k3s kubectl get --raw=\"/readyz?verbose\" | grep -F \"[+]etcd ok\"; sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'"
+    ],
+    "environment": {
+      "DEPLOY_HOST": "homelab-03",
+      "DEPLOY_ADDR": "10.0.30.13",
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-node-rollout",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_registry_node_03",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-node-04": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
+      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
+      "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo k3s kubectl get --raw=\"/readyz?verbose\" | grep -F \"[+]etcd ok\"; sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'"
+    ],
+    "environment": {
+      "DEPLOY_HOST": "homelab-04",
+      "DEPLOY_ADDR": "10.0.30.14",
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-node-rollout",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_registry_node_04",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "deploy-registry-node-05": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
+      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
+      "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
+      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
+      "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo k3s kubectl get --raw=\"/readyz?verbose\" | grep -F \"[+]etcd ok\"; sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s'"
+    ],
+    "environment": {
+      "DEPLOY_HOST": "homelab-05",
+      "DEPLOY_ADDR": "10.0.30.15",
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-node-rollout",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_registry_node_05",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "opnsense-inventory": {
+    "commands": [
+      "nix develop ./flake -c python -m opnsense_reconciler.inventory --artifact-dir artifacts/opnsense"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_URI": "https://OPNsense.internal",
+      "TF_VAR_opnsense_uri": "https://OPNsense.internal",
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_plan_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_plan_api_secret"
+      },
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "OPNSENSE_BACKUP_RECIPIENT": {
+        "from_secret": "opnsense_backup_recipient"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/opnsense",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [],
+    "outputs": [
+      "artifacts/opnsense/"
+    ],
+    "legacy_job": "opnsense_inventory",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "opnsense-plan": {
+    "commands": [
+      "nix develop ./flake -c python -m opnsense_reconciler.inventory --artifact-dir artifacts/opnsense",
+      "export SSL_CERT_FILE=\"/tmp/opnsense-combined-ca.crt\"",
+      "for bundle in \"${NIX_SSL_CERT_FILE:-}\" /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt; do\n  if [ -n \"$bundle\" ] && [ -f \"$bundle\" ]; then\n    cat \"$bundle\" > \"$SSL_CERT_FILE\"\n    break\n  fi\ndone",
+      "if [ -n \"${OPNSENSE_CA_FILE:-}\" ] && [ -f \"${OPNSENSE_CA_FILE:-}\" ]; then\n  cat \"$OPNSENSE_CA_FILE\" >> \"$SSL_CERT_FILE\"\nfi",
+      "test \"$(nix develop ./flake -c python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
+      "nix develop ./flake -c bash -e -c ' tofu -chdir=tofu/opnsense init -reconfigure && tofu -chdir=tofu/opnsense validate && tofu -chdir=tofu/opnsense plan -refresh-only -out=refresh-only.tfplan && tofu -chdir=tofu/opnsense plan -out=desired.tfplan'",
+      "nix develop ./flake -c python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
+    ],
+    "environment": {
+      "OPNSENSE_URI": "https://OPNsense.internal",
+      "TF_VAR_opnsense_uri": "https://OPNsense.internal",
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_plan_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_plan_api_secret"
+      },
+      "OPNSENSE_BACKUP_RECIPIENT": {
+        "from_secret": "opnsense_backup_recipient"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/opnsense",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [],
+    "outputs": [
+      "tofu/opnsense/refresh-only.tfplan",
+      "tofu/opnsense/desired.tfplan",
+      "artifacts/opnsense/"
+    ],
+    "legacy_job": "opnsense_plan",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "opnsense-dataplane": {
+    "commands": [
+      "nix develop ./flake -c python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_URI": "https://OPNsense.internal",
+      "TF_VAR_opnsense_uri": "https://OPNsense.internal",
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_plan_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_plan_api_secret"
+      },
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "OPNSENSE_BACKUP_RECIPIENT": {
+        "from_secret": "opnsense_backup_recipient"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/opnsense",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [
+      "opnsense-plan"
+    ],
+    "outputs": [],
+    "legacy_job": "opnsense_dataplane",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "opnsense-apply": {
+    "commands": [
+      "export SSL_CERT_FILE=\"/tmp/opnsense-combined-ca.crt\"",
+      "for bundle in \"${NIX_SSL_CERT_FILE:-}\" /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt; do\n  if [ -n \"$bundle\" ] && [ -f \"$bundle\" ]; then\n    cat \"$bundle\" > \"$SSL_CERT_FILE\"\n    break\n  fi\ndone",
+      "if [ -n \"${OPNSENSE_CA_FILE:-}\" ] && [ -f \"${OPNSENSE_CA_FILE:-}\" ]; then\n  cat \"$OPNSENSE_CA_FILE\" >> \"$SSL_CERT_FILE\"\nfi",
+      "nix develop ./flake -c tofu -chdir=tofu/opnsense init -reconfigure",
+      "nix develop ./flake -c tofu -chdir=tofu/opnsense show -json desired.tfplan > /tmp/desired.json && nix develop ./flake -c python -m opnsense_reconciler.check_plan --plan /tmp/desired.json --expect-uri \"$OPNSENSE_URI\"",
+      "test \"$(nix develop ./flake -c python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
+      "nix develop ./flake -c tofu -chdir=tofu/opnsense init -reconfigure",
+      "nix develop ./flake -c tofu -chdir=tofu/opnsense apply desired.tfplan",
+      "nix develop ./flake -c python -m opnsense_reconciler.reconcile --assignments opnsense_reconciler/assignments.json --inventory artifacts/opnsense/inventory.json --kea-interfaces opnsense_reconciler/kea-interfaces.json --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json --bgp-neighbors opnsense_reconciler/bgp-neighbors.json --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json --unbound-acls opnsense_reconciler/unbound-acls.json",
+      "nix develop ./flake -c python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
+    ],
+    "environment": {
+      "OPNSENSE_URI": "https://OPNsense.internal",
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "TF_VAR_opnsense_uri": "https://OPNsense.internal",
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_deploy_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_deploy_api_secret"
+      },
+      "OPNSENSE_BACKUP_RECIPIENT": {
+        "from_secret": "opnsense_backup_recipient"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/opnsense",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/opnsense/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [
+      "opnsense-plan"
+    ],
+    "outputs": [],
+    "legacy_job": "opnsense_apply",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "opnsense-plan"
+  },
+  "cloudflare-plan": {
+    "commands": [
+      "nix develop ./flake -c bash -e -c ' tofu -chdir=tofu/cloudflare init -reconfigure && tofu -chdir=tofu/cloudflare fmt -check && tofu -chdir=tofu/cloudflare validate && tofu -chdir=tofu/cloudflare plan -out=desired.tfplan'",
+      "nix develop ./flake -c python -m unittest tests.test_cloudflare_ingress_parity -v",
+      "nix develop ./flake -c bash -c ' tofu -chdir=tofu/cloudflare show -json desired.tfplan > plan.json; python -m scripts.cloudflare.plan_summary plan.json'"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-tunnel",
+    "needs": [],
+    "outputs": [
+      "tofu/cloudflare/desired.tfplan"
+    ],
+    "legacy_job": "cloudflare_plan",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "cloudflare-import": {
+    "commands": [
+      "nix develop ./flake -c tofu -chdir=tofu/cloudflare init -reconfigure",
+      "nix develop ./flake -c bash -c ' tofu -chdir=tofu/cloudflare import \\\n  cloudflare_zero_trust_tunnel_cloudflared_config.homelab \\\n  \"$TF_VAR_cloudflare_account_id/0f08d8c5-6f2c-409e-ba80-dc0601e0227e\"'",
+      "set +e; nix develop ./flake -c tofu -chdir=tofu/cloudflare plan -detailed-exitcode; result=$?; set -e; test \"$result\" = 0 || test \"$result\" = 2"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_deploy_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-tunnel",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "cloudflare_import",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "cloudflare-apply": {
+    "commands": [
+      "nix develop ./flake -c tofu -chdir=tofu/cloudflare init -reconfigure",
+      "nix develop ./flake -c tofu -chdir=tofu/cloudflare apply desired.tfplan",
+      "nix develop ./flake -c bash -c ' tofu -chdir=tofu/cloudflare output -raw config_version > config_version.txt; cat config_version.txt'"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_deploy_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK"
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-tunnel",
+    "needs": [
+      "cloudflare-plan"
+    ],
+    "outputs": [
+      "config_version.txt"
+    ],
+    "legacy_job": "cloudflare_apply",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "cloudflare-plan"
+  },
+  "nas-proof": {
+    "commands": [
+      "hostname",
+      "ip -4 -brief address show",
+      "ping -c 2 -W 2 10.0.30.20",
+      "ping -c 2 -W 2 10.0.30.11"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "ci-diagnostics",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "nas_proof",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-fleet-dry-run": {
+    "commands": [
+      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "nix develop ./flake -c just deploy-fleet --dry-run ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_fleet_dry_run",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-fleet": {
+    "commands": [
+      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "nix develop ./flake -c just deploy-fleet ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_fleet",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "deploy-fleet-dry-run"
+  },
+  "deploy-agent-workspace-host-dry-run": {
+    "commands": [
+      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "nix develop ./flake -c just deploy-fleet --dry-run --target homelab-01"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_agent_workspace_host_dry_run",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-agent-workspace-host": {
+    "commands": [
+      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "nix develop ./flake -c just deploy-fleet --target homelab-01"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_agent_workspace_host",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "deploy-agent-workspace-host-dry-run"
+  },
+  "deploy-home-assistant-dry-run": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
+      "nix develop ./flake -c python -m scripts.home_assistant diff --instance homelab-01"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HASS_TOKEN": {
+        "from_secret": "hass_token"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "home-assistant-homelab-01",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_home_assistant_dry_run",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-home-assistant": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
+      "nix develop ./flake -c python -m scripts.home_assistant plan --instance homelab-01 --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
+      "plan_file=$(nix develop ./flake -c python3 -c 'import json; print(json.load(open(\"plan.json\"))[\"plan_file\"])')",
+      "nix develop ./flake -c python -m scripts.home_assistant apply --instance homelab-01 --plan-file \"$plan_file\" --yes",
+      "nix develop ./flake -c python -m scripts.home_assistant verify --instance homelab-01"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HASS_TOKEN": {
+        "from_secret": "hass_token"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "home-assistant-homelab-01",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "deploy_home_assistant",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "deploy-home-assistant-dry-run"
+  },
+  "sync-to-github": {
+    "commands": [
+      "nix develop ./flake -c python -m scripts.ci.run mirror -- bash scripts/ci/mirror.sh"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "GITHUB_TOKEN": {
+        "from_secret": "github_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "github-mirror",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "sync_to_github",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "cache-publish": {
+    "commands": [
+      "bash scripts/ci/cache.sh"
+    ],
+    "environment": {
+      "ATTIC_TOKEN": {
+        "from_secret": "attic_token"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "nix-cache",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "nix_cache",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  }
+}

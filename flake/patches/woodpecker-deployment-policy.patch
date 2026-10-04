@@ -1,0 +1,23 @@
+diff --git a/server/api/pipeline.go b/server/api/pipeline.go
+--- a/server/api/pipeline.go
++++ b/server/api/pipeline.go
+@@ -593,6 +593,7 @@ func PostPipeline(c *gin.Context) {
+ 		}
+ 
+ 		pl.DeployTo = c.DefaultQuery("deploy_to", pl.DeployTo)
++		pl.Author = session.User(c).Login
+ 	}
+ 
+ 	// Read query string parameters into pipelineParams, exclude reserved params
+@@ -610,6 +611,11 @@ func PostPipeline(c *gin.Context) {
+ 		}
+ 	}
+ 
++	if len(envs) != 0 {
++		c.AbortWithStatus(http.StatusBadRequest)
++		return
++	}
++
+ 	newPipeline, err := pipeline.Restart(c, _store, pl, user, repo, envs)
+ 	if err != nil {
+ 		handlePipelineErr(c, err)

@@ -19,10 +19,11 @@ just check-changed
 - **Primary Git Remote (`origin`):** `ssh://forgejo@git.internal:2222/JEFF7712/homelab.git`
   - Self-hosted Forgejo instance running on `nas-01` (`10.0.30.20:3000`).
   - Developers push exclusively to `origin`.
-  - Automatic push mirror synchronously backs up every push to GitLab.com (`JEFF7712/homelab`).
+  - The normal-push recovery mirror verifies GitLab heads and tags every five minutes.
 - **CI System:** Woodpecker CI (`http://ci.internal:8000`) on `homelab-04`.
 - **GitOps:** Flux CD on `homelab-01` reconciles from Forgejo with sub-second webhook notifications.
-- **S3 State Backend:** Garage S3 on `nas-01` (`http://s3.internal:3900`) storing OpenTofu state in `homelab-tofu-state`.
+- **State Backend:** TLS HTTP service on NAS (`https://s3.internal:3902`) with durable locks and version history. Garage holds the frozen migration input.
+- Deployment and explicit GitLab fallback: [Forgejo disaster recovery](forgejo-disaster-recovery.md).
 
 
 ## Registry commands

@@ -306,7 +306,8 @@ class TestManifests(unittest.TestCase):
         data = next(
             d for d in docs if d.get("metadata", {}).get("name") == "media-app"
         )["spec"]["data"]
-        got = {e["secretKey"]: e["remoteRef"]["key"] for e in data}
+        self.assertTrue(all(e["remoteRef"]["key"] == "homelab-values" for e in data))
+        got = {e["secretKey"]: e["remoteRef"]["property"] for e in data}
         for key, remote in EXPECTED_SECRET_KEYS.items():
             self.assertEqual(got.get(key), remote)
 

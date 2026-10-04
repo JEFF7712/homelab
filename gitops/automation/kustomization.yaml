@@ -17,6 +17,7 @@ resources:
   - renovate-agent.yaml
   - renovate-approval-webhook-script.yaml
   - renovate-dashboard.yaml
+  - forgejo-dashboard-script.yaml
   - renovate-gitlab.yaml
   - renovate-github.yaml
   - github-runner

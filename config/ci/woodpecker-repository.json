@@ -1,0 +1,13 @@
+{
+  "allow_pr": true,
+  "allow_deploy": true,
+  "trusted": {"network": false, "volumes": false, "security": false},
+  "config_extension_endpoint": "",
+  "config_extension_exclusive": false,
+  "config_extension_netrc": false,
+  "secret_extension_endpoint": "",
+  "registry_extension_endpoint": "",
+  "netrc_trusted": [],
+  "require_approval": "forks",
+  "cancel_previous_pipeline_events": ["push", "pull_request", "manual"]
+}

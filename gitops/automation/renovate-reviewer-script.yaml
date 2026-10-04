@@ -33,8 +33,8 @@ data:
       if item.strip()
     }
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-    GITLAB_TOKEN = os.getenv("GITLAB_TOKEN", "")
-    GITLAB_ENDPOINT = os.getenv("GITLAB_ENDPOINT", "https://gitlab.com/api/v4")
+    FORGEJO_TOKEN = os.getenv("FORGEJO_TOKEN", "")
+    FORGEJO_ENDPOINT = os.getenv("FORGEJO_ENDPOINT", "http://git.internal:3000/api/v1")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_REVIEW_MODEL = os.getenv("OPENAI_REVIEW_MODEL", os.getenv("OPENAI_MODEL", "gpt-5.4-mini"))
     OPENAI_CODING_MODEL = os.getenv("OPENAI_CODING_MODEL", "gpt-5.5")
@@ -105,15 +105,10 @@ data:
       }
       return request_raw(method, f"https://api.github.com{path}", headers, body)
 
-    def gitlab(method, path, body=None):
-      if not GITLAB_TOKEN:
-        raise RuntimeError("GITLAB_TOKEN is required")
-      headers = {
-        "PRIVATE-TOKEN": GITLAB_TOKEN,
-        "Accept": "application/json",
-        "User-Agent": "homelab-renovate-agent",
-      }
-      return request(method, f"{GITLAB_ENDPOINT}{path}", headers, body)
+    def forgejo(method, path, body=None):
+      if not FORGEJO_TOKEN:
+        raise RuntimeError("FORGEJO_TOKEN is required")
+      return request(method, f"{FORGEJO_ENDPOINT}{path}", {"Authorization": f"token {FORGEJO_TOKEN}"}, body)
 
     def kube_context():
       return ssl.create_default_context(cafile=SA_CA_PATH)
@@ -255,8 +250,8 @@ data:
           repos.append((owner.strip(), repo.strip()))
       return repos
 
-    def load_gitlab_infra_repos():
-      path = "/config/renovate-agent-gitlab-infra-repositories.txt"
+    def load_forgejo_infra_repos():
+      path = "/config/renovate-agent-forgejo-infra-repositories.txt"
       repos = []
       if not os.path.exists(path):
         return repos
@@ -870,201 +865,31 @@ data:
     def state_key(owner, repo, number, sha):
       return f"{owner}-{repo}-{number}-{sha[:12]}"
 
-    def gitlab_state_key(namespace, project, iid, sha):
-      return f"gitlab-{namespace}-{project}-{iid}-{sha[:12]}"
-
-    def gitlab_project_id(namespace, project):
-      return urllib.parse.quote(f"{namespace}/{project}", safe="")
-
-    def gitlab_mr_is_renovate(mr):
-      branch = mr.get("source_branch", "")
-      title = mr.get("title", "").lower()
-      labels = {label.lower() for label in mr.get("labels", [])}
-      return branch.startswith("renovate/") or "renovate" in title or "renovate" in labels
-
-    def gitlab_major_update(mr):
-      combined = f"{mr.get('title', '')}\n{mr.get('description') or ''}"
-      if re.search(r"\bmajor\b", combined, flags=re.IGNORECASE):
-        return True
-      return any(new > current for current, new in semver_major_pairs(combined))
-
-    def gitlab_changed_files(project_id, iid):
-      changes = gitlab("GET", f"/projects/{project_id}/merge_requests/{iid}/changes")
-      files = []
-      for item in changes.get("changes", [])[:25]:
-        files.append({
-          "filename": item.get("new_path") or item.get("old_path"),
-          "status": "modified",
-          "additions": 0,
-          "deletions": 0,
-          "patch": (item.get("diff") or "")[:2500],
-        })
-      return files
-
-    def gitlab_approval_for(project_id, mr):
-      labels = {label.lower() for label in mr.get("labels", [])}
-      if APPROVAL_LABEL.lower() in labels:
-        return {
-          "approved": True,
-          "method": f"label:{APPROVAL_LABEL}",
-        }
-      iid = mr.get("iid")
-      if not iid:
-        return {
-          "approved": False,
-          "method": "",
-        }
-      try:
-        notes = gitlab("GET", f"/projects/{project_id}/merge_requests/{iid}/notes?per_page=100")
-      except Exception:
-        notes = []
-      for note in notes:
-        author = (note.get("author", {}) or {}).get("username", "").lower()
-        body = (note.get("body") or "").lower()
-        if author in APPROVERS and APPROVAL_COMMAND.lower() in body:
-          return {
-            "approved": True,
-            "method": f"comment:{author}",
-          }
-      return {
-        "approved": False,
-        "method": "",
-      }
-
-    def gitlab_pipeline_status(pipeline):
-      if not pipeline:
-        return None
-      status = pipeline.get("status")
-      if status == "success":
-        state = "success"
-      elif status in ("pending", "running", "created", "waiting_for_resource", "preparing"):
-        state = "pending"
-      elif status in ("failed", "canceled", "skipped", "manual"):
-        state = "failure"
-      else:
-        state = "unknown"
-      web_url = pipeline.get("web_url", "pipeline")
-      return {
-        "state": state,
-        "successes": [web_url] if state == "success" else [],
-        "pending": [web_url] if state == "pending" else [],
-        "failures": [web_url] if state == "failure" else [],
-        "errors": [],
-      }
-
-    def gitlab_checks(project_id, sha, mr=None):
-      embedded = gitlab_pipeline_status((mr or {}).get("head_pipeline") or (mr or {}).get("pipeline"))
-      if embedded:
-        return embedded
-      iid = (mr or {}).get("iid")
-      if iid:
-        pipelines = gitlab("GET", f"/projects/{project_id}/merge_requests/{iid}/pipelines?per_page=10")
-        if pipelines:
-          return gitlab_pipeline_status(pipelines[0])
-      pipelines = gitlab("GET", f"/projects/{project_id}/repository/commits/{sha}/pipelines?per_page=10")
-      if not pipelines:
-        return {"state": "unknown", "successes": [], "pending": [], "failures": [], "errors": ["no pipelines found"]}
-      return gitlab_pipeline_status(pipelines[0])
-
-    def infra_decision(mr, checks, files):
-      filenames = [item.get("filename", "") for item in files]
-      very_safe = all(
-        name.endswith((".yaml", ".yml", ".json"))
-        and not name.startswith(("secrets/", "bootstrap/", "terraform/"))
-        for name in filenames
-      )
-      if checks["state"] == "failure":
-        return {
-          "decision": "blocked",
-          "confidence": "high",
-          "reason": "GitLab pipeline is failing.",
-          "requires_permission": True,
-          "can_merge": False,
-        }
-      if checks["state"] in ("pending", "unknown"):
-        return {
-          "decision": "wait",
-          "confidence": "medium",
-          "reason": f"GitLab pipeline is {checks['state']}.",
-          "requires_permission": False,
-          "can_merge": False,
-        }
-      if very_safe:
-        return {
-          "decision": "needs_approval",
-          "confidence": "medium",
-          "reason": "Homelab infra update has passing checks, but infra changes require approval.",
-          "requires_permission": True,
-          "can_merge": False,
-        }
-      return {
-        "decision": "needs_approval",
-        "confidence": "high",
-        "reason": "Homelab infra changes are always approval-gated.",
-        "requires_permission": True,
-        "can_merge": False,
-      }
-
-    def process_gitlab_mr(namespace, project, mr, state):
-      project_id = gitlab_project_id(namespace, project)
-      iid = mr["iid"]
-      sha = mr.get("sha") or mr.get("diff_refs", {}).get("head_sha", "")
-      key = gitlab_state_key(namespace, project, iid, sha)
-      approval = gitlab_approval_for(project_id, mr)
-      existing_raw = state.get("data", {}).get(key)
-      existing = json.loads(existing_raw) if existing_raw else {}
-      if existing and not approval.get("approved"):
-        print(f"gitlab:{namespace}/{project}!{iid}: already processed {sha[:12]}")
+    def process_forgejo_pr(owner, repo, pr, state):
+      number = pr["number"]
+      sha = pr.get("head", {}).get("sha", "")
+      key = f"forgejo-{owner}-{repo}-{number}-{sha[:12]}"
+      if not sha:
+        raise RuntimeError("Pull request has no source commit")
+      statuses = forgejo("GET", f"/repos/{owner}/{repo}/commits/{sha}/status")
+      checks = next((item for item in statuses.get("statuses", []) if item.get("context") == "ci/woodpecker/validation-v2"), {})
+      checks_state = checks.get("status", "unknown")
+      comments = forgejo("GET", f"/repos/{owner}/{repo}/issues/{number}/comments?limit=100")
+      approval = next((comment for comment in reversed(comments)
+        if comment.get("user", {}).get("login", "").lower() in APPROVERS
+        and comment.get("body", "").strip().lower() == f"{APPROVAL_COMMAND} {sha}".lower()), None)
+      existing = json.loads(state.get("data", {}).get(key, "{}"))
+      if existing.get("action") == "merged":
         return
-      if existing and existing.get("action") == "merged":
-        print(f"gitlab:{namespace}/{project}!{iid}: already merged {sha[:12]}")
+      action = "waiting"
+      if checks_state == "success" and approval:
+        forgejo("POST", f"/repos/{owner}/{repo}/pulls/{number}/merge", {"Do": "merge", "head_commit_id": sha, "delete_branch_after_merge": True})
+        action = "merged"
+      if existing.get("checks") == checks_state and existing.get("action") == action:
         return
-      checks = gitlab_checks(project_id, sha, mr)
-      files = gitlab_changed_files(project_id, iid)
-      decision = infra_decision(mr, checks, files)
-      action = "notified"
-      if approval.get("approved") and checks["state"] == "success" and decision.get("decision") == "needs_approval":
-        try:
-          gitlab("PUT", f"/projects/{project_id}/merge_requests/{iid}/merge", {"should_remove_source_branch": True})
-          action = "merged"
-        except Exception as exc:
-          decision = {
-            "decision": "blocked",
-            "confidence": "high",
-            "reason": f"GitLab merge failed: {exc}",
-            "requires_permission": True,
-            "can_merge": False,
-          }
-          action = "merge_failed"
-      title = f"Renovate infra approval needed: {project}!{iid}" if decision.get("requires_permission") else f"Renovate infra waiting: {project}!{iid}"
-      if action == "merged":
-        title = f"Renovate infra merged: {project}!{iid}"
-      priority = "high" if decision.get("requires_permission") else "low"
-      if action == "merged":
-        priority = "default"
-      message = "\n".join([
-        mr.get("title", ""),
-        mr.get("web_url", ""),
-        "scope: gitlab-infra",
-        f"action: {action}",
-        f"decision: {decision.get('decision')} ({decision.get('confidence')})",
-        f"checks: {checks['state']}",
-        f"approval: {approval.get('method') or 'none'}",
-        "files: " + ", ".join(item.get("filename", "") for item in files[:8]),
-        f"reason: {decision.get('reason', '')}",
-      ])
-      notify(title, priority, message, click=mr.get("web_url"))
-      patch_state(key, json.dumps({
-        "platform": "gitlab",
-        "repo": f"{namespace}/{project}",
-        "number": iid,
-        "sha": sha,
-        "decision": decision,
-        "approval": approval,
-        "action": action,
-        "processed_at": int(time.time()),
-      }, sort_keys=True))
-      print(f"gitlab:{namespace}/{project}!{iid}: {action} {decision.get('decision')}")
+      notify(f"Renovate Forgejo: {repo}#{number}", "default" if action == "merged" else "high",
+        f"{pr.get('title', '')}\nchecks: {checks_state}\naction: {action}\nApprove this exact commit in the PR: {APPROVAL_COMMAND} {sha}", click=pr.get("html_url"))
+      patch_state(key, json.dumps({"platform": "forgejo", "repo": f"{owner}/{repo}", "number": number, "sha": sha, "checks": checks_state, "approval": {"approved": bool(approval), "method": "comment" if approval else ""}, "action": action, "processed_at": int(time.time())}, sort_keys=True))
 
     def process_pr(owner, repo, pr, state):
       number = pr["number"]
@@ -1314,36 +1139,17 @@ data:
             "high",
             f"{owner}/{repo} could not be scanned: {exc}",
           )
-      for namespace, project in load_gitlab_infra_repos():
+      for owner, repo in load_forgejo_infra_repos():
         try:
-          project_id = gitlab_project_id(namespace, project)
-          mrs = gitlab("GET", f"/projects/{project_id}/merge_requests?state=opened&per_page=100")
-          for mr in mrs:
-            if not gitlab_mr_is_renovate(mr):
-              continue
-            if not gitlab_major_update(mr):
+          for pr in forgejo("GET", f"/repos/{owner}/{repo}/pulls?state=open&limit=100"):
+            if not renovate_pr(pr):
               continue
             found += 1
-            try:
-              process_gitlab_mr(namespace, project, mr, state)
-              processed += 1
-            except Exception as exc:
-              print(f"gitlab:{namespace}/{project}!{mr.get('iid')}: processing failed: {exc}", file=sys.stderr)
-              notify_once(
-                state,
-                notification_dedupe_key("gitlab-mr", namespace, project, mr.get("iid"), mr.get("sha", ""), exc),
-                f"Renovate agent: GitLab MR review failed {project}!{mr.get('iid')}",
-                "high",
-                f"{namespace}/{project}!{mr.get('iid')} could not be reviewed: {exc}\n{mr.get('web_url', '')}",
-              )
+            process_forgejo_pr(owner, repo, pr, state)
+            processed += 1
         except Exception as exc:
-          notify_once(
-            state,
-            notification_dedupe_key("gitlab-repo", namespace, project, exc),
-            f"Renovate agent: GitLab repo scan failed {project}",
-            "high",
-            f"{namespace}/{project} could not be scanned: {exc}",
-          )
+          notify_once(state, notification_dedupe_key("forgejo-repo", owner, repo, exc),
+            f"Renovate Forgejo scan failed: {repo}", "high", f"{owner}/{repo}: {exc}")
       send_digest()
       print(f"Renovate agent complete: found={found} processed={processed} mode={MODE}")
 

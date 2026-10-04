@@ -1,0 +1,44 @@
+image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
+
+workflow:
+  rules:
+    - if: '$CI_DR_ACTIVE != "1"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+
+variables:
+  NIX_CONFIG: |
+    experimental-features = nix-command flakes
+    accept-flake-config = true
+    sandbox = false
+    max-jobs = 1
+    cores = 2
+
+stages: [validate, operate]
+
+validate:
+  stage: validate
+  tags: [homelab-dr-validation]
+  script:
+    - nix develop ./flake -c just provision-check-deps
+    - nix develop ./flake -c just fmt-check
+    - nix develop ./flake -c python scripts/jev_decision_gate.py
+    - nix develop ./flake -c just check
+
+operate:
+  stage: operate
+  tags: [homelab-dr-operations]
+  resource_group: production-authority
+  needs: [validate]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+    - when: never
+  allow_failure: false
+  environment:
+    name: production
+  script:
+    - nix develop ./flake -c python -m scripts.ci.gitlab_operation

@@ -76,11 +76,11 @@ spec:
                 secretKeyRef:
                   name: renovate-secrets
                   key: github-token
-            - name: GITLAB_TOKEN
+            - name: FORGEJO_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: renovate-secrets
-                  key: gitlab-token
+                  key: forgejo-token
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

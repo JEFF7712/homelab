@@ -37,14 +37,14 @@ class FluxWebhookContract(unittest.TestCase):
             },
         )
 
-    def test_token_comes_from_gitlab_not_plaintext(self) -> None:
+    def test_token_comes_from_local_store_not_plaintext(self) -> None:
         token = load_single(WEBHOOK_DIR / "receiver-token.yaml")
         self.assertEqual(token["kind"], "ExternalSecret")
         self.assertEqual(token["metadata"]["namespace"], "flux-system")
         self.assertEqual(token["spec"]["target"]["name"], "receiver-token")
         store = token["spec"]["secretStoreRef"]
         self.assertEqual(
-            (store["kind"], store["name"]), ("ClusterSecretStore", "gitlab-project")
+            (store["kind"], store["name"]), ("ClusterSecretStore", "homelab-secrets")
         )
         keys = [entry["secretKey"] for entry in token["spec"]["data"]]
         self.assertIn("token", keys)

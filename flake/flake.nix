@@ -59,6 +59,9 @@
         builtins.listToAttrs (
           map (hostName: nixpkgs.lib.nameValuePair hostName (mkHost hostName [ ])) baseHosts
         )
+        // {
+          homelab-04-dr = mkHost "homelab-04" [ { homelab.gitlabDR.enable = true; } ];
+        }
         // builtins.listToAttrs (
           map (
             hostName:
@@ -75,6 +78,7 @@
         python = pkgs.python313.withPackages (pythonPackages: [
           pythonPackages.pyyaml
           pythonPackages.jinja2
+          pythonPackages.cryptography
         ]);
       in
       {

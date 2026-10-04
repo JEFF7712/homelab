@@ -4,13 +4,13 @@ cd "$(dirname "$0")/../.."
 export GIT_TERMINAL_PROMPT=0
 
 if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-  echo "GITHUB_TOKEN is not set; skipping GitHub mirror sync."
-  exit 0
+  echo "GITHUB_TOKEN is required for GitHub mirror sync." >&2
+  exit 1
 fi
 export GITHUB_TOKEN
 
 source_sha=${CI_COMMIT_SHA:?CI_COMMIT_SHA is required}
-source_branch=${CI_DEFAULT_BRANCH:?CI_DEFAULT_BRANCH is required}
+source_branch=${CI_REPO_DEFAULT_BRANCH:-${CI_DEFAULT_BRANCH:?default branch is required}}
 mirror_url=https://github.com/JEFF7712/homelab.git
 source_is_current() {
   local tip
@@ -28,6 +28,8 @@ check_source() {
 }
 check_source
 [[ $(git rev-parse HEAD) == "$source_sha" ]]
+git diff --quiet
+git diff --cached --quiet
 
 if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
   git fetch --no-tags --unshallow origin
@@ -46,19 +48,28 @@ mirror_git() {
 }
 
 mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
-mirror_warning+="on [GitLab](https://gitlab.com/JEFF7712/homelab)."
+mirror_warning+="on [Forgejo](http://git.internal:3000/JEFF7712/homelab)."
 readme=$(cat README.md)
 printf '%s\n\n%s' "$mirror_warning" "$readme" > README.md
 git add README.md
-git -c user.email=runner@gitlab.com -c user.name='GitLab Runner' \
+git -c user.email=ci@rupan.dev -c user.name='Homelab CI' \
   commit -m 'Automated: Add GitHub Mirror Warning'
 
 for attempt in 1 2 3; do
   check_source
   remote_tip=$(mirror_git ls-remote "$mirror_url" refs/heads/main)
   remote_sha=${remote_tip%%[[:space:]]*}
-  if mirror_git -c http.version=HTTP/1.1 push "$mirror_url" \
-    "--force-with-lease=refs/heads/main:$remote_sha" HEAD:refs/heads/main; then
+  if [[ -n "$remote_sha" ]]; then
+    mirror_git fetch --no-tags "$mirror_url" "$remote_sha"
+    if ! git merge-base --is-ancestor "$remote_sha" HEAD; then
+      snapshot=$(git -c user.email=ci@rupan.dev -c user.name='Homelab CI' \
+        commit-tree 'HEAD^{tree}' -p HEAD -p "$remote_sha" \
+        -m 'Automated: Preserve public mirror history')
+      git reset --hard "$snapshot"
+    fi
+  fi
+  check_source
+  if mirror_git -c http.version=HTTP/1.1 push "$mirror_url" HEAD:refs/heads/main; then
     exit 0
   fi
   if [[ $attempt != 3 ]]; then

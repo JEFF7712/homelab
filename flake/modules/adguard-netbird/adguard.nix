@@ -33,6 +33,11 @@
         filters_update_interval = 24;
         rewrites = [
           {
+            domain = "OPNsense.internal";
+            answer = "192.168.1.1";
+            enabled = true;
+          }
+          {
             domain = "registry.rupan.dev";
             answer = "10.0.30.20";
             enabled = true;

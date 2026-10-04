@@ -7,7 +7,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: gitlab-project
+    name: homelab-secrets
   target:
     name: cloudflare-api-token
     creationPolicy: Owner
@@ -16,4 +16,5 @@ spec:
   data:
     - secretKey: api-token
       remoteRef:
-        key: CF_API_TOKEN
+        key: homelab-values
+        property: CF_API_TOKEN

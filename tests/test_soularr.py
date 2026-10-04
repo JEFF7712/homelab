@@ -151,10 +151,16 @@ class TestCrossManifestWiring(unittest.TestCase):
             if doc["metadata"]["name"] != "media-app":
                 continue
             keys = {
-                entry["secretKey"]: entry["remoteRef"]["key"]
+                entry["secretKey"]: entry["remoteRef"]["property"]
                 for entry in doc["spec"]["data"]
             }
             self.assertEqual(keys.get("SLSKD_API_KEY"), "SLSKD_API_KEY")
+            self.assertTrue(
+                all(
+                    entry["remoteRef"]["key"] == "homelab-values"
+                    for entry in doc["spec"]["data"]
+                )
+            )
             return
         raise AssertionError("media-app ExternalSecret not found")
 

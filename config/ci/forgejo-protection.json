@@ -1,0 +1,9 @@
+{
+  "branch_name": "main",
+  "enable_push": false,
+  "enable_status_check": true,
+  "status_check_contexts": ["ci/woodpecker/validation-v2"],
+  "apply_to_admins": true,
+  "block_on_rejected_reviews": true,
+  "block_on_outdated_branch": true
+}

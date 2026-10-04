@@ -1,27 +1,22 @@
-# .woodpecker/offline-checks.yaml
-# Complete offline validation gate: all tests, flake evaluations, gitops checks.
-
 when:
-  - event: [pull_request, push, manual]
-    branch: main
+  - event: [pull_request, push, manual, tag, cron]
 
 labels:
-  tier: trusted
-  type: local
-
-concurrency:
-  group: nix-flake-evaluation
-  limit: 1
+  tier: sandbox
+  type: docker
 
 steps:
-  - name: provision-deps
-    image: bash
+  - name: validation-v2
+    image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
+    environment:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+        sandbox = false
+        max-jobs = 1
+        cores = 2
     commands:
       - nix develop ./flake -c just provision-check-deps
-
-  - name: offline-gate
-    image: bash
-    environment:
-      CI_LINT_EXTERNAL: "1"
-    commands:
-      - nix develop ./flake -c bash scripts/checks/all.sh
+      - nix develop ./flake -c just fmt-check
+      - nix develop ./flake -c python scripts/jev_decision_gate.py
+      - nix develop ./flake -c just check
