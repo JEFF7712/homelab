@@ -62,6 +62,9 @@ authorization. Drain both schedulers before activation or authority changes.
 9. Regenerate homelab-values.sops.yaml with scripts.ci.migrate_secrets
    --overrides using the new Forgejo credentials. Verify every ExternalSecret
    property is present without printing values. Publish only encrypted data.
+   The helper preserves the existing encrypted values. Use --import-gitlab
+   only for explicit legacy adoption; production-scoped inputs take precedence
+   over wildcard values. Normal secret rotation does not contact GitLab.
 10. Remove the direct GitLab GitOps-write step from the external Obsidian
     workflow. The task evidence contains the reviewed patch. Preserve image
     publication and retention; Woodpecker promotion now creates review PRs.
@@ -78,8 +81,9 @@ authorization. Drain both schedulers before activation or authority changes.
     and deploy agents stopped. Publish the encrypted review branch and verify
     validation-v2 on its PR. Apply main protection, then merge normally.
     Flux owns Kubernetes changes. Verify the local ESO store and all
-    ExternalSecrets before retiring GitLab secret access. Preserve the
-    encrypted GitLab ESO credential as escrow until acceptance.
+    ExternalSecrets before retiring GitLab secret access. Remove the unused
+    GitLab ESO Secret and revoke its dedicated project reader token after
+    acceptance. Preserve its encrypted record for migration evidence.
 13. With executors drained, select woodpecker using NAS ci-authority. Start
     trusted and deploy agents, resume the maintenance cron, and run fresh
     current-main validation, both plans, a harmless manual diagnostic,

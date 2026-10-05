@@ -103,6 +103,12 @@
             ${pkgs.coreutils}/bin/chmod 0600 /persist/attic/server.db
           fi
         ''}"
+        "${pkgs.writeShellScript "optimize-attic-query-plans" ''
+          set -eu
+          if [ -f /persist/attic/server.db ]; then
+            ${pkgs.sqlite}/bin/sqlite3 /persist/attic/server.db 'PRAGMA optimize=0x10002;'
+          fi
+        ''}"
       ];
     };
   };

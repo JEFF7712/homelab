@@ -36,7 +36,7 @@ When a user asks an agent to make a Home Assistant change (e.g. "Create an autom
 4. **Plan Application**:
    Run `just ha-plan --select automation/bedtime_lights`. Inspect generated immutable actions and bindings.
 5. **Commit and Deploy**:
-   Commit and push accepted source changes. The protected GitLab CI deployment job (`deploy_home_assistant`) plans, applies, and verifies changes against the target cluster, advancing the shared cluster baseline (`home-assistant-baseline-<instance>`).
+   Publish a Forgejo PR, pass Woodpecker validation, and merge through main protection. Run the protected `deploy-home-assistant-dry-run` target from the successful current-main pipeline, then `deploy-home-assistant` from that same parent. The deployment verifies changes against the target cluster and advances the shared cluster baseline (`home-assistant-baseline-<instance>`).
    *Authorized Local Apply*: If authorized for manual execution, run `just ha-apply --select automation/bedtime_lights` after ensuring UI edits are paused. The tool acquires an atomic lock, performs read-before-write validation, verifies readback, and advances the shared and local baseline.
 6. **Report Completion**:
    Confirm to the user that the automation is live, active, and editable in the Home Assistant UI.
@@ -61,7 +61,7 @@ When a user experiments in the Home Assistant UI and later requests to "reconcil
 4. **Validate Candidate Source**:
    Run `just ha-validate` and `just check-changed`.
 5. **Commit and Deploy**:
-   Once committed and deployed through authorized repository workflow (or CI `deploy_home_assistant`), the verified baseline advances upon deployment verification.
+   Once merged and deployed through the authorized `deploy-home-assistant` target, the verified baseline advances upon deployment verification.
 
 ### Revert Workflow (Explicit Live Reset)
 
