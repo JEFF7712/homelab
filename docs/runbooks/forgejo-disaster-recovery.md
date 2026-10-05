@@ -42,6 +42,11 @@ authorization. Drain both schedulers before activation or authority changes.
 7. Install root-owned mode-0600 Woodpecker server.env, separate agent tier
    EnvironmentFiles, policy.env containing POLICY_API_TOKEN, and
    signature-public.pem from the running server's public-key endpoint.
+   Install the bundle's homelab-04/woodpecker/clone.env under
+   /persist/woodpecker/clone.env, also root-owned mode 0600. Native clones use
+   the repository-scoped read-only identity because queued workflows can
+   outlive the OAuth token captured when they compile. Missing clone
+   credentials fail closed. OAuth still owns user identity and status updates.
    Register replacement agents with separate credentials; rotate exposed
    legacy credentials and revoke obsolete registered agents and any old global
    agent secret. Install the bundle's Woodpecker secret payload.

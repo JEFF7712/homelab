@@ -81,6 +81,15 @@ def certificate(hostname: str = "s3.internal") -> tuple[bytes, bytes]:
     )
 
 
+def clone_environment(token: str) -> bytes:
+    if not token or any(character.isspace() for character in token):
+        raise ValueError("Invalid Forgejo clone credential")
+    return (
+        "HOMELAB_FORGEJO_CLONE_USERNAME=homelab-ci-source\n"
+        f"HOMELAB_FORGEJO_CLONE_TOKEN={token}\n"
+    ).encode()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -159,6 +168,9 @@ def main() -> None:
             fingerprints[name] = hashlib.sha256(body).hexdigest()
         select(database, "disabled")
         files = {
+            "homelab-04/woodpecker/clone.env": clone_environment(
+                available["forgejo_source_read_token"]
+            ),
             "nas-01/tofu-state/state.sqlite": database.read_bytes(),
             "nas-01/tofu-state/credentials.json": json.dumps(credentials).encode(),
             "nas-01/tofu-state/server.pem": cert,
