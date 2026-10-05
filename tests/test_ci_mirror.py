@@ -147,6 +147,21 @@ class MirrorTest(unittest.TestCase):
         self.git("merge-base", "--is-ancestor", old_tip, "HEAD")
         self.git("merge-base", "--is-ancestor", next_sha, "HEAD")
 
+    def test_existing_public_history_fetch_restores_missing_objects(self) -> None:
+        first = self.run_mirror()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        old_tip = self.git("rev-parse", "HEAD").stdout.strip()
+        tree = self.git("rev-parse", "HEAD^{tree}").stdout.strip()
+        self.git("checkout", "-q", self.sha)
+        self.git("commit", "--allow-empty", "-qm", "source advances")
+        next_sha = self.git("rev-parse", "HEAD").stdout.strip()
+        self.git("push", "-q", "origin", "HEAD:main")
+        (self.repo / ".git/objects" / tree[:2] / tree[2:]).unlink()
+        second = self.run_mirror(CI_COMMIT_SHA=next_sha)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.git("cat-file", "-e", f"{old_tip}^{{tree}}")
+        self.git("merge-base", "--is-ancestor", old_tip, "HEAD")
+
     def test_source_lookup_failure_fails_job(self) -> None:
         self.git("remote", "set-url", "origin", str(self.directory / "unavailable"))
         result = self.run_mirror()

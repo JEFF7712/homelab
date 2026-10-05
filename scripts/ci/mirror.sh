@@ -70,7 +70,7 @@ for attempt in 1 2 3; do
   remote_tip=$(mirror_git ls-remote "$mirror_url" refs/heads/main)
   remote_sha=${remote_tip%%[[:space:]]*}
   if [[ -n "$remote_sha" ]]; then
-    mirror_git fetch --no-tags "$mirror_url" "$remote_sha"
+    mirror_git fetch --refetch --no-tags "$mirror_url" "$remote_sha"
     if ! git merge-base --is-ancestor "$remote_sha" HEAD; then
       snapshot=$(git -c user.email=ci@rupan.dev -c user.name='Homelab CI' \
         commit-tree 'HEAD^{tree}' -p HEAD -p "$remote_sha" \
