@@ -111,9 +111,11 @@ authorization. Drain both schedulers before activation or authority changes.
 ## Forgejo outage with NAS available
 
 1. Stop new Woodpecker work and drain operations. Suspend promotion and
-   external writers. Stop and runtime-mask git-dr-mirror.timer and
-   git-dr-mirror.service so a NixOS activation cannot restart replication
-   before the recovery history has returned to Forgejo. Record accepted source SHA,
+   external writers. Create /persist/forgejo/dr-freeze, then stop
+   git-dr-mirror.timer and git-dr-mirror.service. The persistent marker prevents
+   replication across NixOS activation and reboot until recovery history has
+   returned to Forgejo. Runtime systemd masks do not survive NixOS activation.
+   Record accepted source SHA,
    state serials, and the latest verified recovery mirror.
 2. Confirm GitLab has that source and the recovery configuration. Register
    fresh project-locked, tag-only runners: homelab-dr-validation accepts
@@ -174,6 +176,7 @@ Drain GitLab, set CI_DR_ACTIVE=0 and pause recovery runners. Merge recovery
 history normally into Forgejo, preserving both main tips. With both schedulers
 stopped, select woodpecker and deploy normal homelab-04. Restore the Forgejo
 Flux URL and auth Secret. Verify fresh validation, new plans, Flux readiness,
-webhook delivery and replication before resuming timers. Unmask replication
-only after Forgejo main contains the GitLab recovery tip, then perform its
+webhook delivery and replication before resuming timers. Remove
+/persist/forgejo/dr-freeze only after Forgejo main contains the GitLab recovery
+tip, then perform its
 first verified fast-forward mirror before resuming the timer. No force push.
