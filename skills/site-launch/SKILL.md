@@ -26,11 +26,11 @@ One directory per site under `gitops/websites/<site>/`, copied from the hardened
 - `kustomization.yaml` listing the four files.
 - Register the directory in `gitops/websites/kustomization.yaml` and add a `website-deploy` healthCheck for the new namespace in `gitops/clusters/homelab-01/websites.yaml` (Flux `websites` Kustomization, path `./gitops/websites`, `prune: true`, 10m interval). Without the healthCheck entry Flux does not gate on the new Deployment.
 
-Extras only when the site needs them (see `sovereign/`): a `nfs-cluster` PVC for state, an `ExternalSecret` against the `gitlab-project` ClusterSecretStore for tokens, path-scoped tunnel rules for per-path backends.
+Extras only when the site needs them (see `sovereign/`): a `nfs-cluster` PVC for state, an `ExternalSecret` against the `homelab-secrets` ClusterSecretStore for SOPS-managed tokens, path-scoped tunnel rules for per-path backends.
 
 ## Phase 3: edge
 
-Delegate to the `tunnel-hostname` skill: ingress rule in `gitops/cloudflare/ingress-config.yaml` (specifics first, catch-all last), runbook list updated in position, `python -m unittest tests.test_cloudflare_tunnel`, push, `cloudflare_apply`, hand-made DNS CNAME, Access policy (Bypass for public, Allow-owner-email for sensitive). Origins must be Service DNS names, never a Cilium LB VIP.
+Delegate to the `tunnel-hostname` skill: ingress rule in `gitops/cloudflare/ingress-config.yaml` (specifics first, catch-all last), runbook list updated in position, `python -m unittest tests.test_cloudflare_tunnel`, merge a validated Forgejo PR, protected `cloudflare-apply` from that successful current-main pipeline, hand-made DNS CNAME, Access policy (Bypass for public, Allow-owner-email for sensitive). Origins must be Service DNS names, never a Cilium LB VIP.
 
 ## Phase 4: validate offline, then publish
 
@@ -43,20 +43,20 @@ git diff --check
 just check-changed
 ```
 
-Push to `main`. Flux picks it up on its normal interval (GitRepository 1m, Kustomizations 10m). Confirm `websites` Kustomization `READY=True` at the new revision, then one ready pod and one ready endpoint in the site namespace.
+Publish a Forgejo PR, pass Woodpecker validation, and merge through main protection. Flux reconciles after its webhook or normal interval (GitRepository 1m, Kustomizations 10m). Confirm `websites` Kustomization `READY=True` at the new revision, then one ready pod and one ready endpoint in the site namespace.
 
 ## Phase 5: go-live verification
 
 1. In-cluster: resolve the origin Service from a pod and curl it (proves Flux deployed the right content behind the Service).
 2. Public: curl the hostname (proves tunnel + DNS). Confirm the Access behavior matches intent (public serves, sensitive challenges).
-3. Steady state: future producer pushes flow through the scheduled `registry_promote_first_party` job (commits lock + consumer digest together) and Flux. End-to-end latency is site CI, plus the promotion schedule interval, plus Flux reconciliation.
+3. Steady state: future producer pushes flow through scheduled `registry-promote-first-party` (creates a Forgejo review PR containing the lock and consumer digest), then merge and Flux reconciliation. End-to-end latency includes producer CI, promotion, review, and Flux reconciliation.
 4. Rollback is a Git revert; `prune: true` removes the site's resources.
 
 ## Gotchas
 
-- Path-scoped tunnel rules (two rules, one hostname) currently break `tests/test_cloudflare_tunnel.py` duplicate-hostname and order assertions (observed failing 2026-10-01 on staged sovereign work). Keep path rules minimal, and if you add one, update the parity test in the same commit.
+- Tunnel parity includes hostname, service and path. Preserve ingress order when adding path-scoped rules.
 - Promotion is verification-only and never mirrors content; only `publisher-<project>` can write its destination. Candidates the producer has not published are skipped, not queued.
-- `registry_promote_first_party` needs its pipeline schedule and `GITLAB_PUSH_TOKEN` (`write_repository`); without the token it reports but commits nothing.
+- `registry-promote-first-party` needs the Woodpecker maintenance cron and repository-scoped `FORGEJO_PUBLISH_TOKEN`; promotion creates a review PR and cannot write protected main.
 - Never trigger manual registry jobs (`registry_lock_import`, `cloudflare_apply`, retention) from a push; a repository push authorizes nothing by itself.
 
 ## Maintaining this skill
