@@ -162,6 +162,63 @@ class MirrorTest(unittest.TestCase):
         self.git("cat-file", "-e", f"{old_tip}^{{tree}}")
         self.git("merge-base", "--is-ancestor", old_tip, "HEAD")
 
+    def test_partial_source_is_complete_before_public_push(self) -> None:
+        self.git("config", "uploadpack.allowFilter", "true")
+        subprocess.run(
+            [
+                "git",
+                "--git-dir",
+                str(self.origin),
+                "config",
+                "uploadpack.allowFilter",
+                "true",
+            ],
+            check=True,
+        )
+        (self.repo / "README.md").write_text("Historical source content\n")
+        self.git("commit", "-qam", "historical content")
+        historical_blob = self.git("rev-parse", "HEAD:README.md").stdout.strip()
+        (self.repo / "README.md").write_text("Current source content\n")
+        self.git("commit", "-qam", "current content")
+        self.sha = self.git("rev-parse", "HEAD").stdout.strip()
+        self.git("push", "-q", "origin", "main")
+        partial = self.directory / "partial-source"
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-local",
+                "--branch",
+                "main",
+                self.origin.as_uri(),
+                str(partial),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        self.repo = partial
+        missing = self.git("rev-list", "--objects", "--missing=print", "HEAD").stdout
+        self.assertIn("?" + historical_blob, missing)
+        binaries = self.directory / "partial-bin"
+        binaries.mkdir()
+        wrapper = binaries / "git"
+        wrapper.write_text(
+            f"#!{sys.executable}\n"
+            "import os, subprocess, sys\n"
+            f"real_git = {shutil.which('git')!r}\n"
+            "args = sys.argv[1:]\n"
+            "if 'push' in args:\n"
+            "    result = subprocess.run([real_git, 'rev-list', '--objects', '--missing=print', 'HEAD'], capture_output=True, text=True, check=True)\n"
+            "    if any(line.startswith('?') for line in result.stdout.splitlines()):\n"
+            "        raise SystemExit('source history is incomplete before public push')\n"
+            "os.execv(real_git, [real_git, *args])\n"
+        )
+        wrapper.chmod(0o755)
+        result = self.run_mirror(PATH=f"{binaries}:{os.environ['PATH']}")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.git("cat-file", "-e", historical_blob)
+
     def test_source_lookup_failure_fails_job(self) -> None:
         self.git("remote", "set-url", "origin", str(self.directory / "unavailable"))
         result = self.run_mirror()
