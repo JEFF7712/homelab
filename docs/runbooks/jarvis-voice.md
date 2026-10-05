@@ -308,7 +308,7 @@ including `climate.living_room_ac_living_room_ac_thermostat`,
 `media_player.homelab_05_satellite_media_player_2`,
 `scene.movie_low_living_room`); no entity registry, HA state dump, prompt,
 or chat history.
-The API key comes from GitLab CI/CD variable `TYPESAFE_API_KEY` through the
+The API key comes from SOPS-managed property `TYPESAFE_API_KEY` through the
 `home-assistant-secrets` ExternalSecret and container environment. Never put the
 key in the config entry or Git.
 
@@ -393,7 +393,7 @@ published loader does not provide a validated 4-bit path that fits alongside
 the existing GPU workload.
 
 Deployment requires three operator steps after the Git change is reviewed and
-published: create the protected/masked `TYPESAFE_API_KEY` GitLab variable,
+published: update `TYPESAFE_API_KEY` in `gitops/secrets/homelab-values.sops.yaml` using SOPS,
 reconcile Home Assistant through Flux, then add the `Jarvis Jev Router`
 integration in HA with an empty fallback agent. Finally, select the router
 in the preferred Assist pipeline and re-run
@@ -707,8 +707,8 @@ Readiness requires authenticated HA subscriptions. Prometheus should alert
 when `jarvis_exporter_ha_connected` is zero, the subscription state is not
 `subscribed`, or the last event age is stale.
 
-The exporter needs a Home Assistant long-lived token in the GitLab project
-variable `JARVIS_EXPORTER_HA_TOKEN` (consumed via the `gitlab-project`
+The exporter needs a Home Assistant long-lived token in SOPS-managed property
+`JARVIS_EXPORTER_HA_TOKEN` (consumed via the `homelab-secrets`
 ClusterSecretStore). Without it the exporter still serves `/metrics` with
 `connected=0`, and the dashboard shows no turns. Exporter logic is covered
 by `tests/test_jarvis_exporter.py`, which executes the exact script embedded

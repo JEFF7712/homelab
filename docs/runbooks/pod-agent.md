@@ -39,15 +39,16 @@ registry digest. Tags roll forward via the
 
 ## One-time setup (owner / privileged CI only)
 
-### 1. GitLab variables
+### 1. Encrypted secret values
 
-Create each variable below in the GitLab project backing the
-`gitlab-project` ClusterSecretStore (same store as `backups`). Values come
+Add each value below to `gitops/secrets/homelab-values.sops.yaml` using SOPS.
+The `homelab-secrets` ClusterSecretStore reads the decrypted Kubernetes Secret
+(same store as `backups`). Values come
 from the laptop `.env`; `POD_AGENT_BACKUP_IDENTITY_FILE` is the *content* of
 the age key file (laptop: `~/.config/pod-agent/backup-age.key`), and
 `POD_AGENT_DASHBOARD_TOKEN` is new (generate with `openssl rand -hex 32`).
 
-| GitLab variable | Source |
+| Secret property | Source |
 | --- | --- |
 | `DISCORD_WEBHOOK_ORDERS` | laptop `.env` |
 | `DISCORD_WEBHOOK_SEO` | laptop `.env` |
