@@ -74,6 +74,7 @@ in
       "d /persist/woodpecker 0750 woodpecker woodpecker -"
       "d /persist/woodpecker/server-data 0700 woodpecker woodpecker -"
       "z /persist/woodpecker/server.env 0600 root root -"
+      "z /persist/woodpecker/clone.env 0600 root root -"
       "z /persist/woodpecker/agent.env 0600 root root -"
       "z /persist/woodpecker/agent-sandbox.env 0600 root root -"
       "z /persist/woodpecker/agent-trusted.env 0600 root root -"
@@ -83,7 +84,13 @@ in
     services.woodpecker-server = {
       enable = true;
       package = pkgs.woodpecker-server.overrideAttrs (old: {
-        patches = (old.patches or [ ]) ++ [ ../patches/woodpecker-deployment-policy.patch ];
+        patches = (old.patches or [ ]) ++ [
+          ../patches/woodpecker-deployment-policy.patch
+          ../patches/woodpecker-clone-identity.patch
+        ];
+        postCheck = (old.postCheck or "") + ''
+          go test ./server/forge/gitea -run '^TestNetrcCloneAccount$'
+        '';
       });
       environment = {
         WOODPECKER_HOST = cfg.serverHost;
@@ -103,7 +110,10 @@ in
         WOODPECKER_CONFIG_EXTENSION_NETRC = "true";
         WOODPECKER_EXTENSIONS_ALLOWED_HOSTS = "loopback";
       };
-      environmentFile = [ "/persist/woodpecker/server.env" ];
+      environmentFile = [
+        "/persist/woodpecker/server.env"
+        "/persist/woodpecker/clone.env"
+      ];
     };
     systemd.services.woodpecker-server.serviceConfig = {
       DynamicUser = lib.mkForce false;
