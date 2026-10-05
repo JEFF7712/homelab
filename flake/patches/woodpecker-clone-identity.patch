@@ -1,0 +1,69 @@
+diff --git a/server/forge/gitea/gitea.go b/server/forge/gitea/gitea.go
+--- a/server/forge/gitea/gitea.go
++++ b/server/forge/gitea/gitea.go
+@@ -22,6 +22,7 @@
+ 	"errors"
+ 	"fmt"
+ 	"net/http"
++	"os"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -339,16 +340,12 @@
+ 	return err
+ }
+ 
+-// Netrc returns a netrc file capable of authenticating Gitea requests and
+-// cloning Gitea repositories. The netrc will use the global machine account
+-// when configured.
+-func (c *Gitea) Netrc(u *model.User, r *model.Repo) (*model.Netrc, error) {
+-	login := ""
+-	token := ""
+-
+-	if u != nil {
+-		login = u.Login
+-		token = u.AccessToken
++// Netrc uses the read-only clone account so queued jobs cannot outlive OAuth.
++func (c *Gitea) Netrc(_ *model.User, r *model.Repo) (*model.Netrc, error) {
++	login := os.Getenv("HOMELAB_FORGEJO_CLONE_USERNAME")
++	token := os.Getenv("HOMELAB_FORGEJO_CLONE_TOKEN")
++	if login == "" || token == "" {
++		return nil, errors.New("missing dedicated Forgejo clone credentials")
+ 	}
+ 
+ 	host, err := common.ExtractHostFromCloneURL(r.Clone)
+diff --git a/server/forge/gitea/homelab_clone_test.go b/server/forge/gitea/homelab_clone_test.go
+--- /dev/null
++++ b/server/forge/gitea/homelab_clone_test.go
+@@ -0,0 +1,31 @@
++package gitea
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"go.woodpecker-ci.org/woodpecker/v3/server/model"
++)
++
++func TestNetrcCloneAccount(t *testing.T) {
++	forge := &Gitea{}
++	owner := &model.User{Login: "owner", AccessToken: "expired-owner-token", Expiry: 1}
++	repo := &model.Repo{Clone: "http://git.internal:3000/JEFF7712/homelab.git"}
++	t.Setenv("HOMELAB_FORGEJO_CLONE_USERNAME", "homelab-ci-source")
++	t.Setenv("HOMELAB_FORGEJO_CLONE_TOKEN", "repository-read-token")
++
++	t.Run("queued clone ignores expired owner OAuth", func(t *testing.T) {
++		credentials, err := forge.Netrc(owner, repo)
++		require.NoError(t, err)
++		require.Equal(t, "homelab-ci-source", credentials.Login)
++		require.Equal(t, "repository-read-token", credentials.Password)
++	})
++	for _, missing := range []string{"HOMELAB_FORGEJO_CLONE_USERNAME", "HOMELAB_FORGEJO_CLONE_TOKEN"} {
++		t.Run(missing, func(t *testing.T) {
++			t.Setenv(missing, "")
++			credentials, err := forge.Netrc(owner, repo)
++			require.Error(t, err)
++			require.Nil(t, credentials)
++		})
++	}
++}

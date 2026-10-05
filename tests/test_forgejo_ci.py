@@ -29,11 +29,30 @@ from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import current_source, pack, unpack
 from scripts.ci.platform_backup import snapshot_database
 from scripts.ci.policy import VALIDATION, configuration, verify_request
-from scripts.ci.prepare_platform import certificate
+from scripts.ci.prepare_platform import certificate, clone_environment
 from scripts.ci.state import Store, handler
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
+
+
+class CloneIdentityPreparationTest(unittest.TestCase):
+    def test_clone_environment_uses_the_read_only_identity(self) -> None:
+        environment = dict(
+            line.split("=", 1)
+            for line in clone_environment("repository-read-token").decode().splitlines()
+        )
+        self.assertEqual(
+            environment["HOMELAB_FORGEJO_CLONE_USERNAME"], "homelab-ci-source"
+        )
+        self.assertEqual(
+            environment["HOMELAB_FORGEJO_CLONE_TOKEN"], "repository-read-token"
+        )
+
+    def test_missing_or_injected_clone_credentials_fail_closed(self) -> None:
+        for token in ["", "\nOTHER=value", "token\rOTHER=value", "token value"]:
+            with self.subTest(token=token), self.assertRaises(ValueError):
+                clone_environment(token)
 
 
 class GitLabRecoveryGraphTest(unittest.TestCase):
@@ -455,6 +474,7 @@ class NativeBackendTest(unittest.TestCase):
                         env=environment,
                         text=True,
                         capture_output=True,
+                        check=False,
                     )
                     if success:
                         self.assertEqual(
@@ -505,6 +525,7 @@ class RecoveryMirrorTest(unittest.TestCase):
                 rejected = subprocess.run(
                     ["git", "-C", str(source), "status"],
                     capture_output=True,
+                    check=False,
                 )
                 self.assertNotEqual(rejected.returncode, 0)
                 self.assertEqual(refs(source), {})
