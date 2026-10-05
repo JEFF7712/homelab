@@ -132,7 +132,10 @@ authorization. Drain both schedulers before activation or authority changes.
    no longer lock, write state, upload artifacts or obtain operation permits.
 6. Run fresh validation and the two automatic production plan jobs. They save
    both plans under this pipeline ID. Set CI_OPERATION to a catalog key when
-   playing the protected manual operate job; apply consumes the corresponding
+   creating the recovery pipeline, then play its protected manual operate job.
+   Set the project pipeline variable override minimum role to Owner;
+   disallowing all overrides blocks this operation selector. Do not rely on
+   retrying an already played job to replace its variables. Apply consumes the corresponding
    saved plan from this pipeline. Promotion creates a GitLab MR rather than
    writing main.
 7. Explicitly change the Flux GitRepository URL to the recovery GitLab SSH
