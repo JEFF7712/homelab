@@ -35,6 +35,11 @@ retention reconciliation, and first-party promotion. Promotion creates a PR.
 The external Obsidian publisher must stop writing homelab main before enabling
 branch protection.
 
+Attic optimizes its SQLite query-planner statistics before startup. Missing
+statistics can make chunk hash lookups scan the valid-chunk index, stalling
+uploads as the cache grows. The bounded PRAGMA optimize pass preserves cache
+objects and lets the server load the appropriate hash-index query plan.
+
 config/ci/operations.json defines all manual deployment targets. Select its
 key as deploy_to when restarting successful current-main push or manual
 validation. The catalog covers registry operations, publisher provisioning,
@@ -49,7 +54,7 @@ executing commands. File secrets use mode 0600 and temporary storage.
 
 Provider plan identities require read-only access; deploy identities require
 service-specific write access. State credentials are separate from Garage.
-Woodpecker secrets are image restricted and event scoped. Only selected main
+Woodpecker command-step secrets require empty image filters and are event scoped. Only selected main
 push and maintenance workflows receive their required secrets.
 
 ## Recovery
