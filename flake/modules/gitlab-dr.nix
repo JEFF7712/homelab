@@ -25,6 +25,7 @@
         UMask = "0077";
         Slice = "ci.slice";
         ProtectHome = true;
+        PrivateTmp = true;
         ProtectSystem = "strict";
         ReadWritePaths = [
           "/persist/gitlab-dr"

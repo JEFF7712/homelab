@@ -14,6 +14,7 @@ in
 {
   config = lib.mkIf config.homelab.forgejo.enable {
     systemd.services.git-dr-mirror = {
+      unitConfig.ConditionPathExists = "!/persist/forgejo/dr-freeze";
       path = [
         pkgs.git
         pkgs.bash

@@ -62,6 +62,9 @@ authorization. Drain both schedulers before activation or authority changes.
 9. Regenerate homelab-values.sops.yaml with scripts.ci.migrate_secrets
    --overrides using the new Forgejo credentials. Verify every ExternalSecret
    property is present without printing values. Publish only encrypted data.
+   The helper preserves the existing encrypted values. Use --import-gitlab
+   only for explicit legacy adoption; production-scoped inputs take precedence
+   over wildcard values. Normal secret rotation does not contact GitLab.
 10. Remove the direct GitLab GitOps-write step from the external Obsidian
     workflow. The task evidence contains the reviewed patch. Preserve image
     publication and retention; Woodpecker promotion now creates review PRs.
@@ -78,8 +81,9 @@ authorization. Drain both schedulers before activation or authority changes.
     and deploy agents stopped. Publish the encrypted review branch and verify
     validation-v2 on its PR. Apply main protection, then merge normally.
     Flux owns Kubernetes changes. Verify the local ESO store and all
-    ExternalSecrets before retiring GitLab secret access. Preserve the
-    encrypted GitLab ESO credential as escrow until acceptance.
+    ExternalSecrets before retiring GitLab secret access. Remove the unused
+    GitLab ESO Secret and revoke its dedicated project reader token after
+    acceptance. Preserve its encrypted record for migration evidence.
 13. With executors drained, select woodpecker using NAS ci-authority. Start
     trusted and deploy agents, resume the maintenance cron, and run fresh
     current-main validation, both plans, a harmless manual diagnostic,
@@ -107,7 +111,11 @@ authorization. Drain both schedulers before activation or authority changes.
 ## Forgejo outage with NAS available
 
 1. Stop new Woodpecker work and drain operations. Suspend promotion and
-   external writers. Stop git-dr-mirror.timer. Record accepted source SHA,
+   external writers. Create /persist/forgejo/dr-freeze, then stop
+   git-dr-mirror.timer and git-dr-mirror.service. The persistent marker prevents
+   replication across NixOS activation and reboot until recovery history has
+   returned to Forgejo. Runtime systemd masks do not survive NixOS activation.
+   Record accepted source SHA,
    state serials, and the latest verified recovery mirror.
 2. Confirm GitLab has that source and the recovery configuration. Register
    fresh project-locked, tag-only runners: homelab-dr-validation accepts
@@ -128,7 +136,10 @@ authorization. Drain both schedulers before activation or authority changes.
    no longer lock, write state, upload artifacts or obtain operation permits.
 6. Run fresh validation and the two automatic production plan jobs. They save
    both plans under this pipeline ID. Set CI_OPERATION to a catalog key when
-   playing the protected manual operate job; apply consumes the corresponding
+   creating the recovery pipeline, then play its protected manual operate job.
+   Set the project pipeline variable override minimum role to Owner;
+   disallowing all overrides blocks this operation selector. Do not rely on
+   retrying an already played job to replace its variables. Apply consumes the corresponding
    saved plan from this pipeline. Promotion creates a GitLab MR rather than
    writing main.
 7. Explicitly change the Flux GitRepository URL to the recovery GitLab SSH
@@ -165,4 +176,7 @@ Drain GitLab, set CI_DR_ACTIVE=0 and pause recovery runners. Merge recovery
 history normally into Forgejo, preserving both main tips. With both schedulers
 stopped, select woodpecker and deploy normal homelab-04. Restore the Forgejo
 Flux URL and auth Secret. Verify fresh validation, new plans, Flux readiness,
-webhook delivery and replication before resuming timers. No force push.
+webhook delivery and replication before resuming timers. Remove
+/persist/forgejo/dr-freeze only after Forgejo main contains the GitLab recovery
+tip, then perform its
+first verified fast-forward mirror before resuming the timer. No force push.

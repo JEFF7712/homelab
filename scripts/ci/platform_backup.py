@@ -20,6 +20,20 @@ def snapshot_database(source: Path, target: Path) -> None:
                 raise ValueError(f"Invalid SQLite backup: {source.name}")
 
 
+def stop_active_services(services: list[str], stopped: list[str]) -> None:
+    for service in services:
+        status = subprocess.run(
+            ["systemctl", "is-active", service], capture_output=True, text=True
+        )
+        state = status.stdout.strip()
+        if state in {"inactive", "failed"} and status.returncode == 3:
+            continue
+        if state != "active" or status.returncode != 0:
+            raise RuntimeError(f"Cannot safely snapshot {service}: {state}")
+        stopped.append(service)
+        subprocess.run(["systemctl", "stop", service], check=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", choices=["nas-01", "homelab-04"], required=True)
@@ -33,9 +47,7 @@ def main() -> None:
         stopped: list[str] = []
         try:
             if args.host == "nas-01":
-                for service in ["forgejo", "garage"]:
-                    subprocess.run(["systemctl", "stop", service], check=True)
-                    stopped.append(service)
+                stop_active_services(["forgejo", "garage"], stopped)
                 for directory in ["forgejo", "garage"]:
                     shutil.copytree(
                         Path("/persist") / directory, stage / directory, symlinks=True
