@@ -46,6 +46,7 @@ git diff --cached --quiet
 if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
   source_git fetch --no-tags --unshallow origin
 fi
+source_git fetch --refetch --no-filter --no-tags origin "$source_sha"
 printf '#!%s\n' "$(command -v bash)" > "$mirror_work/credential"
 cat >> "$mirror_work/credential" <<'CREDENTIAL'
 if [[ $1 == get ]]; then
@@ -54,7 +55,9 @@ fi
 CREDENTIAL
 chmod 0700 "$mirror_work/credential"
 mirror_git() {
-  git -c credential.helper= -c "credential.https://github.com.helper=$mirror_work/credential" "$@"
+  git -c credential.helper= \
+    -c "credential.http://git.internal:3000.helper=$mirror_work/source-credential" \
+    -c "credential.https://github.com.helper=$mirror_work/credential" "$@"
 }
 
 mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
