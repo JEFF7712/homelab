@@ -51,7 +51,11 @@ def mirrored_ingress() -> list[dict]:
     config = yaml.safe_load(MIRROR.read_text(encoding="utf-8"))
     tunnel = yaml.safe_load(config["data"]["config.yaml"])
     return [
-        {"hostname": rule.get("hostname"), "service": rule["service"]}
+        {
+            "hostname": rule.get("hostname"),
+            "service": rule["service"],
+            "path": rule.get("path"),
+        }
         for rule in tunnel["ingress"]
     ]
 
@@ -66,7 +70,9 @@ class TestTunnelIngressIsMirrored(unittest.TestCase):
 
     def test_mirror_ends_in_the_catch_all(self) -> None:
         rules = mirrored_ingress()
-        self.assertEqual(rules[-1], {"hostname": None, "service": "http_status:404"})
+        self.assertEqual(
+            rules[-1], {"hostname": None, "service": "http_status:404", "path": None}
+        )
 
 
 if __name__ == "__main__":
