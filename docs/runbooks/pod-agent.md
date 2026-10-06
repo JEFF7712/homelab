@@ -537,6 +537,35 @@ allocations, and the authenticated Desk passed verification. Discretionary
 spending continued to refuse because advertising and fixed overhead remained
 unmeasured.
 
+## Cost accounting release, October 5
+
+Application revision `7efdfb3` adds a private economics inbox and shared operating
+cost allocations. GitHub Actions run `37396002685` validated the application
+before image publication. The amd64 image digest is
+`sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c`.
+
+`ECONOMICS_INBOX_DIR=/data/economics-inbox` enables ingestion before scheduled
+observation. Keep the directory mode 0700 and billing evidence mode 0600, owned
+by uid 101. Original receipts are private volume data and must never enter Git.
+Preview with `observe sync-inputs /data/economics-inbox`; apply verified evidence
+with `--apply`, then confirm unchanged imports on retry and `observe cost-status`.
+
+The owner-confirmed inventory assigns current costs to DistroJeff and zero to
+inactive Darkbit. Free LLM subscriptions count as zero; Mercury already supplies
+Zoho and other bank-paid expenses. The original annual domain receipt verifies
+USD 11.48. Inventory coverage expires December 7 and must be renewed with current
+evidence. Advertising API costing requires three complete statement canaries
+with positive advertising charges. The saved July export is partial, so net
+income and discretionary spending remain blocked by incomplete advertising data.
+
+The release preserves reserves, spending limits, and action authority. Migration
+withholds legacy statement normalizations until their original CSVs are reimported.
+The encrypted pre-deployment snapshot
+`/data/backups/state-20261006T005100653483Z.db.age` passed integrity and decryption
+verification. The prior image remains available under
+`retention-deployed-dbfe375306767c79`. Application release documentation records
+live acceptance separately from these desired-state settings.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.

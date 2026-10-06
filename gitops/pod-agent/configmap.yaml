@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/name: pod-agent
 data:
   DB_PATH: /data/state.db
+  ECONOMICS_INBOX_DIR: /data/economics-inbox
   ASSETS_ROOT: /data/assets/distro-logos
   TELEGRAM_STATE_PATH: /data/telegram_bot_state.json
   POD_AGENT_AGE_BIN: /usr/bin/age

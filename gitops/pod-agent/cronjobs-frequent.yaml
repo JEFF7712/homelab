@@ -26,7 +26,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -45,7 +45,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: veto-sweep
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - veto-sweep
@@ -114,7 +114,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -133,7 +133,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: oauth-refresh
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - etsy
@@ -203,7 +203,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -222,7 +222,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: email-watch
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - email-watch
@@ -291,7 +291,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: watchdog
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - watchdog
@@ -362,7 +362,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -381,7 +381,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: planner-recovery
-              image: registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - planner
