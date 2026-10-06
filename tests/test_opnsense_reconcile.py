@@ -13,6 +13,7 @@ from opnsense_reconciler.reconcile import (
     reconcile_outbound_nat,
     reconcile_udp_broadcast_relays,
     reconcile_unbound_acls,
+    reconcile_unbound_host_overrides,
     resolve_vlan_devices,
     verify_bgp,
 )
@@ -150,6 +151,12 @@ class ReconcileInterfaceTests(unittest.TestCase):
             seen["acl_client"] = client
             seen["acls"] = desired
 
+        def reconcile_host_overrides(
+            client: object, desired: list[dict[str, object]]
+        ) -> None:
+            seen["override_client"] = client
+            seen["host_overrides"] = desired
+
         def reconcile_relays(client: object, desired: list[dict[str, object]]) -> None:
             seen["relay_client"] = client
             seen["relays"] = desired
@@ -179,6 +186,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
             bgp_expected_routes = root / "bgp-expected-routes.json"
             outbound_nat_rules = root / "outbound-nat-rules.json"
             unbound_acls = root / "unbound-acls.json"
+            unbound_host_overrides = root / "unbound-host-overrides.json"
             assignments.write_text('[{"parent":"igb0","tag":30}]')
             inventory.write_text('{"assignment_api_available":true}')
             kea_interfaces.write_text('["opt1","opt2"]')
@@ -187,6 +195,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
             bgp_expected_routes.write_text('["10.0.40.10/32"]')
             outbound_nat_rules.write_text("[]")
             unbound_acls.write_text("[]")
+            unbound_host_overrides.write_text("[]")
 
             main(
                 [
@@ -206,6 +215,8 @@ class ReconcileInterfaceTests(unittest.TestCase):
                     str(outbound_nat_rules),
                     "--unbound-acls",
                     str(unbound_acls),
+                    "--unbound-host-overrides",
+                    str(unbound_host_overrides),
                 ],
                 environ={
                     "OPNSENSE_URL": "https://192.168.1.1",
@@ -220,6 +231,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
                 reconcile_bgp=reconcile_bgp,
                 reconcile_outbound=reconcile_outbound,
                 reconcile_acls=reconcile_acls,
+                reconcile_host_overrides=reconcile_host_overrides,
                 reconcile_relays=reconcile_relays,
                 ensure_relay_plugin=ensure_relay_plugin,
                 prove_bgp=prove_bgp,
@@ -236,6 +248,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
         self.assertEqual(seen["proof_routes"], {"10.0.40.10/32"})
         self.assertEqual(seen["outbound_rules"], [])
         self.assertEqual(seen["acls"], [])
+        self.assertEqual(seen["host_overrides"], [])
         self.assertEqual(seen["relays"], [])
 
     def test_resolve_vlan_devices_uses_live_parent_and_tag(self) -> None:
@@ -1274,6 +1287,217 @@ class UnboundAclReconciliationTests(unittest.TestCase):
                     self.assertTrue(
                         network.subnet_of(ipaddress.ip_network("10.0.0.0/8"))
                     )
+
+
+class UnboundHostOverrideReconciliationTests(unittest.TestCase):
+    def desired(self) -> list[dict[str, object]]:
+        return [
+            {
+                "hostname": "registry",
+                "domain": "rupan.dev",
+                "rr": "A",
+                "server": "10.0.30.20",
+                "description": "Local container registry",
+                "enabled": "1",
+            }
+        ]
+
+    def test_noop_when_live_matches_desired(self) -> None:
+        class OverrideClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str]] = []
+
+            def get(self, path: str) -> object:
+                self.calls.append(("GET", path))
+                return {
+                    "rows": [
+                        {
+                            "uuid": "uuid-override",
+                            "hostname": "registry",
+                            "domain": "rupan.dev",
+                            "rr": "A",
+                            "server": "10.0.30.20",
+                            "enabled": "1",
+                        }
+                    ]
+                }
+
+            def post(self, path: str, payload: object) -> object:
+                raise AssertionError(f"matching override must not write: {path}")
+
+        client = OverrideClient()
+        reconcile_unbound_host_overrides(client, self.desired())
+        self.assertEqual(
+            client.calls,
+            [
+                ("GET", "/api/unbound/settings/search_host_override"),
+                ("GET", "/api/unbound/settings/search_host_override"),
+            ],
+        )
+
+    def test_adds_missing_override_reconfigures_and_verifies(self) -> None:
+        class OverrideClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, object | None]] = []
+                self.reads = 0
+
+            def get(self, path: str) -> object:
+                self.calls.append(("GET", path, None))
+                self.reads += 1
+                rows: list[dict[str, object]] = []
+                if self.reads > 1:
+                    rows.append(
+                        {
+                            "uuid": "uuid-override",
+                            "hostname": "registry",
+                            "domain": "rupan.dev",
+                            "rr": "A",
+                            "server": "10.0.30.20",
+                            "enabled": "1",
+                        }
+                    )
+                return {"rows": rows}
+
+            def post(self, path: str, payload: object) -> object:
+                self.calls.append(("POST", path, payload))
+                return {"result": "saved"}
+
+        client = OverrideClient()
+        reconcile_unbound_host_overrides(client, self.desired())
+        self.assertIn(
+            (
+                "POST",
+                "/api/unbound/settings/add_host_override",
+                {
+                    "host": {
+                        "hostname": "registry",
+                        "domain": "rupan.dev",
+                        "rr": "A",
+                        "server": "10.0.30.20",
+                        "description": "Local container registry",
+                        "enabled": "1",
+                    }
+                },
+            ),
+            client.calls,
+        )
+        self.assertIn(("POST", "/api/unbound/service/reconfigure", {}), client.calls)
+
+    def test_updates_drifted_server_by_uuid(self) -> None:
+        desired = self.desired()
+
+        class OverrideClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, object | None]] = []
+                self.rows: list[dict[str, object]] = [
+                    {
+                        "uuid": "uuid-override",
+                        "hostname": "registry",
+                        "domain": "rupan.dev",
+                        "rr": "A",
+                        "server": "10.0.30.99",
+                        "enabled": "1",
+                    }
+                ]
+
+            def get(self, path: str) -> object:
+                self.calls.append(("GET", path, None))
+                return {"rows": self.rows}
+
+            def post(self, path: str, payload: object) -> object:
+                self.calls.append(("POST", path, payload))
+                if path.startswith("/api/unbound/settings/set_host_override/"):
+                    self.rows = [dict(desired[0], uuid="uuid-override")]
+                return {"result": "saved"}
+
+        client = OverrideClient()
+        reconcile_unbound_host_overrides(client, desired)
+        self.assertIn(
+            (
+                "POST",
+                "/api/unbound/settings/set_host_override/uuid-override",
+                {
+                    "host": {
+                        "hostname": "registry",
+                        "domain": "rupan.dev",
+                        "rr": "A",
+                        "server": "10.0.30.20",
+                        "description": "Local container registry",
+                        "enabled": "1",
+                    }
+                },
+            ),
+            client.calls,
+        )
+
+    def test_refuses_unknown_live_override_without_writing(self) -> None:
+        class OverrideClient:
+            def get(self, path: str) -> object:
+                return {
+                    "rows": [
+                        {
+                            "uuid": "uuid-rogue",
+                            "hostname": "rogue",
+                            "domain": "example.com",
+                            "rr": "A",
+                            "server": "192.0.2.1",
+                        }
+                    ]
+                }
+
+            def post(self, path: str, payload: object) -> object:
+                raise AssertionError(
+                    f"unexpected override must not be removed automatically: {path}"
+                )
+
+        with self.assertRaisesRegex(RuntimeError, "rogue.example.com/A"):
+            reconcile_unbound_host_overrides(OverrideClient(), [])
+
+    def test_rejects_record_type_mismatch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "AAAA"):
+            reconcile_unbound_host_overrides(
+                client=FakeClient(),
+                desired_overrides=[
+                    {
+                        "hostname": "registry",
+                        "domain": "rupan.dev",
+                        "rr": "AAAA",
+                        "server": "10.0.30.20",
+                        "enabled": "1",
+                    }
+                ],
+            )
+
+    def test_rejects_dotted_hostname(self) -> None:
+        with self.assertRaisesRegex(ValueError, "single label"):
+            reconcile_unbound_host_overrides(
+                client=FakeClient(),
+                desired_overrides=[
+                    {
+                        "hostname": "registry.rupan.dev",
+                        "domain": "rupan.dev",
+                        "rr": "A",
+                        "server": "10.0.30.20",
+                        "enabled": "1",
+                    }
+                ],
+            )
+
+    def test_registry_override_points_at_nas(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "opnsense_reconciler/unbound-host-overrides.json"
+        )
+        overrides = json.loads(path.read_text())
+
+        self.assertIsInstance(overrides, list)
+        by_key = {
+            f"{item['hostname']}.{item['domain']}/{item['rr']}": item
+            for item in overrides
+        }
+        self.assertIn("registry.rupan.dev/A", by_key)
+        self.assertEqual(by_key["registry.rupan.dev/A"]["server"], "10.0.30.20")
+        self.assertEqual(by_key["registry.rupan.dev/A"]["enabled"], "1")
 
 
 if __name__ == "__main__":

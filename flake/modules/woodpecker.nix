@@ -148,8 +148,9 @@ in
     networking.firewall.allowedTCPPorts = [ 8000 ];
     networking.hosts = {
       "192.168.1.1" = [ "OPNsense.internal" ];
+      # registry.rupan.dev is pinned in k3s-server.nix, which every
+      # woodpecker host also enables, so it is not repeated here.
       "10.0.30.20" = [
-        "registry.rupan.dev"
         "git.internal"
         "s3.internal"
       ];

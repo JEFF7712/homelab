@@ -240,6 +240,14 @@ in
       group = "zot";
     };
 
+    # The host serves registry.rupan.dev itself, so resolve it locally.
+    # Public DNS returns Cloudflare addresses for the name, which route
+    # through the tunnel and fail large layers, and the AdGuard rewrite is
+    # a single point of failure for on-host verification and imports.
+    networking.hosts = {
+      "10.0.30.20" = [ cfg.hostName ];
+    };
+
     systemd.services.zot = {
       description = "zot OCI registry";
       wantedBy = [ "multi-user.target" ];
