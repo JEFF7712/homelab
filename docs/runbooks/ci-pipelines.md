@@ -32,8 +32,10 @@ PRs never receive production workflows, regardless of target branch or YAML.
 A current main push additionally runs opnsense-plan, cloudflare-plan, and
 sync-to-github and cache-publish after validation. The maintenance cron runs registry drift,
 retention reconciliation, and first-party promotion. Promotion creates a PR.
-The external Obsidian publisher must stop writing homelab main before enabling
-branch protection.
+Branch protection applies: no direct pushes to main; merges require the
+green validation-v2 status. The external Obsidian publisher no longer writes
+homelab main; it publishes images only and the maintenance promotion PR
+carries the digest bump.
 
 Attic optimizes its SQLite query-planner statistics before startup. Missing
 statistics can make chunk hash lookups scan the valid-chunk index, stalling
