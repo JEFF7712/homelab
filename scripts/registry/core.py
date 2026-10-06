@@ -2420,6 +2420,7 @@ def check_consumers(root: pathlib.Path, lock: Mapping[str, Any]) -> dict[str, An
     }
     exceptions = lock.get("mirror_exceptions", [])
     errors: list[dict[str, str]] = []
+    drift: list[dict[str, str]] = []
     for image in inventory["images"]:
         reference = image["source"]["reference"]
         parsed = ImageReference.parse(reference)
@@ -2431,13 +2432,15 @@ def check_consumers(root: pathlib.Path, lock: Mapping[str, Any]) -> dict[str, An
         for consumer in image["consumers"]:
             if _matches_exception(reference, consumer, exceptions):
                 continue
-            errors.append(
-                {
-                    "consumer": consumer,
-                    "reference": reference,
-                    "error": "consumer is not an exact locked local digest and has no tested mirror exception",
-                }
-            )
+            entry = {
+                "consumer": consumer,
+                "reference": reference,
+                "error": "consumer is not an exact locked local digest and has no tested mirror exception",
+            }
+            if consumer.startswith("observed:"):
+                drift.append(entry)
+            else:
+                errors.append(entry)
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "registry-policy-report",
@@ -2449,6 +2452,9 @@ def check_consumers(root: pathlib.Path, lock: Mapping[str, Any]) -> dict[str, An
         ),
         "errors": sorted(
             errors, key=lambda item: (item["consumer"], item["reference"])
+        ),
+        "drift": sorted(
+            drift, key=lambda item: (item["consumer"], item["reference"])
         ),
         "discovery_gaps": inventory["unresolved_inputs"],
     }
