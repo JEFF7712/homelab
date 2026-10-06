@@ -4,7 +4,7 @@
     "k3s-bootstrap",
     "live-workloads"
   ],
-  "evidence": "sanitized read-only Kubernetes Pod, Job, and CronJob image snapshot",
+  "evidence": "sanitized read-only Kubernetes Pod, Job, and CronJob image snapshot; pod-agent entries refreshed 2026-10-06T01:18:05+00:00; other entries retain observed_at",
   "images": [
     {
       "consumers": [
@@ -211,9 +211,9 @@
         "pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "pod-agent/pod-agent-dashboard-5495f98898-mbjnk/dashboard",
-        "pod-agent/pod-agent-dashboard-5495f98898-mbjnk/seed-memory",
-        "pod-agent/pod-agent-discord-bot-69f56986d9-pjt4x/bot"
+        "pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/dashboard",
+        "pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/seed-memory",
+        "pod-agent/pod-agent-discord-bot-5c674b678-k4xn4/bot"
       ],
       "reference": "registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c"
     },
