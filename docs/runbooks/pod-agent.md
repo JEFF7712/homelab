@@ -566,6 +566,24 @@ verification. The prior image remains available under
 `retention-deployed-dbfe375306767c79`. Application release documentation records
 live acceptance separately from these desired-state settings.
 
+Live acceptance on October 6 at 01:15:26 UTC (October 5 local) passed. Flux
+applied `e3ed062`; both services are ready, all 28 image pins across 16 current
+POD resources match, and both 230-file packages match approved source. Observation
+158 imported both manifests once, skipped them on retry, and measured 98 cents
+of overhead. Advertising is the only unknown economics component and still
+blocks discretionary reservations. The GET-only exercise preserved 421 proposals,
+587 business writes, 29 reservations, one token row, reservation history, and
+owner limits. The authenticated Desk returns HTTP 200.
+
+The rollout found an existing registry cold-pull DNS issue on homelab-01. The
+host resolved the registry to Cloudflare Access and received HTML. Recovery
+seeded the verified digest with a local containerd pull inside a temporary mount
+namespace: private hostname resolution, files-first NSS, Go DNS, and the existing
+node pull credential. TLS verification remained enabled. Global resolver settings
+were untouched. Persistent DNS repair remains a separate follow-up; losing the
+cached image would expose that cold-pull failure again. Temporary authentication
+files must be removed after a recovery import.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.
