@@ -2401,6 +2401,52 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
             self.assertEqual(report["status"], "failed")
             self.assertIn("no tested mirror exception", report["errors"][0]["error"])
 
+    def test_check_consumers_reports_observed_digest_lag_as_drift(self) -> None:
+        raw = manifest()
+        value = valid_lock(raw)
+        destination = (
+            f"registry.rupan.dev/{value['images'][0]['destination_repository']}"
+            f"@{value['images'][0]['digest']}"
+        )
+        stale = (
+            f"registry.rupan.dev/{value['images'][0]['destination_repository']}"
+            "@sha256:" + "f" * 64
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "gitops").mkdir()
+            (root / "gitops/app.yaml").write_text(
+                f"image: {destination}\n",
+                encoding="utf-8",
+            )
+            observed_path = root / "registry" / "observed-images.json"
+            observed_path.parent.mkdir(parents=True)
+            observed_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "kind": "registry-observed-images",
+                        "observed_at": "2026-10-06T00:00:00+00:00",
+                        "coverage": ["obsidian"],
+                        "images": [
+                            {
+                                "reference": stale,
+                                "consumers": ["obsidian/quartz-notes/quartz"],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = check_consumers(root, value)
+            self.assertEqual(report["status"], "ok")
+            self.assertEqual(report["errors"], [])
+            self.assertEqual(len(report["drift"]), 1)
+            self.assertEqual(
+                report["drift"][0]["consumer"],
+                "observed:obsidian/quartz-notes/quartz",
+            )
+
     def test_check_consumers_accepts_locked_source_and_mirror_digest_with_tag(
         self,
     ) -> None:
