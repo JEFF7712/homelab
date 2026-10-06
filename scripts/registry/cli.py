@@ -322,9 +322,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 atomic_write_json(args.inventory, discover_inventory(args.root))
                 report = check_consumers(args.root, lock)
                 previous = {item["previous_digest"] for item in summary["promoted"]}
-                errors = filter_transient_observed_errors(
-                    report["drift"], previous
-                ) + report["errors"]
+                errors = (
+                    filter_transient_observed_errors(report["drift"], previous)
+                    + report["errors"]
+                )
                 if errors:
                     raise RegistryError(
                         "promoted consumers failed policy check: "
