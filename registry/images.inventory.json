@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-02T00:12:39+00:00",
+  "generated_at": "2026-10-06T00:58:25+00:00",
   "images": [
     {
       "consumers": [
@@ -135,7 +135,7 @@
     },
     {
       "consumers": [
-        "gitops/automation/renovate-dashboard.yaml:26",
+        "gitops/automation/renovate-dashboard.yaml:27",
         "observed:automation/renovate-dashboard-54f965546c-wzn4v/dashboard"
       ],
       "destination_repository": "apps/homelab-renovate-dashboard",
@@ -325,7 +325,7 @@
         "observed:pod-agent/pod-agent-discord-bot-69f56986d9-pjt4x/bot"
       ],
       "destination_repository": "apps/pod-agent",
-      "id": "first-party-apps-pod-agent-39dea1483db0",
+      "id": "first-party-apps-pod-agent-fde09ed8d835",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/pod-agent",
@@ -334,8 +334,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
-        "reference": "registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
+        "digest": "sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
+        "reference": "registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
         "tag": null
@@ -1107,6 +1107,7 @@
     {
       "consumers": [
         "gitops/automation/renovate-agent.yaml:131",
+        "gitops/media/arr-queue-hygiene.yaml:270",
         "gitops/media/arr-secret-sync.yaml:261",
         "gitops/media/soularr.yaml:185",
         "gitops/media/spotify-sync.yaml:667",
@@ -1133,7 +1134,7 @@
     },
     {
       "consumers": [
-        "gitops/voice/exporter.yaml:667",
+        "gitops/voice/exporter.yaml:668",
         "observed:voice/jarvis-exporter-746b49b9fd-699j9/exporter",
         "observed:voice/wyoming-stt-gateway-6d658768f9-d5n6p/gateway",
         "observed:voice/wyoming-stt-gateway-6d658768f9-dmncz/gateway",
@@ -1557,7 +1558,7 @@
     },
     {
       "consumers": [
-        "gitops/immich/server.yaml:24",
+        "gitops/immich/server.yaml:26",
         "observed:immich/immich-server-5c799b6d5b-wzcst/immich-server"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/immich-app/immich-server",
@@ -2073,7 +2074,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "d2b72edd51710d3eadd1b947daf01663ec01d201",
+  "source_revision": "17bcef53aba695462fe9cac98ff4f417bc90bad7",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2126,7 +2127,7 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/automation/renovate-dashboard.yaml:26,observed:automation/renovate-dashboard-54f965546c-wzn4v/dashboard",
+      "consumer": "gitops/automation/renovate-dashboard.yaml:27,observed:automation/renovate-dashboard-54f965546c-wzn4v/dashboard",
       "id": "producer:first-party-apps-homelab-renovate-dashboard-4196d7b8fde7",
       "input": "registry.rupan.dev/apps/homelab-renovate-dashboard@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
@@ -2175,8 +2176,8 @@
       "blocking": false,
       "class": "producer-pipeline",
       "consumer": "gitops/pod-agent/cronjobs-daily.yaml:30,gitops/pod-agent/cronjobs-daily.yaml:111,gitops/pod-agent/cronjobs-daily.yaml:130,gitops/pod-agent/cronjobs-daily.yaml:202,gitops/pod-agent/cronjobs-daily.yaml:221,gitops/pod-agent/cronjobs-daily.yaml:291,gitops/pod-agent/cronjobs-daily.yaml:310,gitops/pod-agent/cronjobs-daily.yaml:382,gitops/pod-agent/cronjobs-daily.yaml:401,gitops/pod-agent/cronjobs-frequent.yaml:29,gitops/pod-agent/cronjobs-frequent.yaml:48,gitops/pod-agent/cronjobs-frequent.yaml:117,gitops/pod-agent/cronjobs-frequent.yaml:136,gitops/pod-agent/cronjobs-frequent.yaml:206,gitops/pod-agent/cronjobs-frequent.yaml:225,gitops/pod-agent/cronjobs-frequent.yaml:294,gitops/pod-agent/cronjobs-frequent.yaml:365,gitops/pod-agent/cronjobs-frequent.yaml:384,gitops/pod-agent/cronjobs-weekly.yaml:30,gitops/pod-agent/cronjobs-weekly.yaml:99,gitops/pod-agent/cronjobs-weekly.yaml:118,gitops/pod-agent/cronjobs-weekly.yaml:187,gitops/pod-agent/cronjobs-weekly.yaml:206,gitops/pod-agent/cronjobs-weekly.yaml:278,gitops/pod-agent/cronjobs-weekly.yaml:297,gitops/pod-agent/dashboard.yaml:28,gitops/pod-agent/dashboard.yaml:50,gitops/pod-agent/discord-bot.yaml:29,observed:pod-agent/cronjob-pod-agent-backup/backup,observed:pod-agent/cronjob-pod-agent-cycle/cycle,observed:pod-agent/cronjob-pod-agent-cycle/wait-for-network,observed:pod-agent/cronjob-pod-agent-discover/discover,observed:pod-agent/cronjob-pod-agent-discover/wait-for-network,observed:pod-agent/cronjob-pod-agent-email-watch/email-watch,observed:pod-agent/cronjob-pod-agent-email-watch/wait-for-network,observed:pod-agent/cronjob-pod-agent-learn/learn,observed:pod-agent/cronjob-pod-agent-learn/wait-for-network,observed:pod-agent/cronjob-pod-agent-oauth-refresh/oauth-refresh,observed:pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network,observed:pod-agent/cronjob-pod-agent-observe/observe,observed:pod-agent/cronjob-pod-agent-observe/wait-for-network,observed:pod-agent/cronjob-pod-agent-planner-recovery/planner-recovery,observed:pod-agent/cronjob-pod-agent-planner-recovery/wait-for-network,observed:pod-agent/cronjob-pod-agent-price/price,observed:pod-agent/cronjob-pod-agent-price/wait-for-network,observed:pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge,observed:pod-agent/cronjob-pod-agent-shipping/shipping,observed:pod-agent/cronjob-pod-agent-shipping/wait-for-network,observed:pod-agent/cronjob-pod-agent-sweep/sweep,observed:pod-agent/cronjob-pod-agent-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep,observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-watchdog/watchdog,observed:pod-agent/pod-agent-dashboard-5495f98898-mbjnk/dashboard,observed:pod-agent/pod-agent-dashboard-5495f98898-mbjnk/seed-memory,observed:pod-agent/pod-agent-discord-bot-69f56986d9-pjt4x/bot",
-      "id": "producer:first-party-apps-pod-agent-39dea1483db0",
-      "input": "registry.rupan.dev/apps/pod-agent@sha256:dbfe375306767c79a05eb383c79e276b5efdfb36ef0043612b282f96e3fa2a35",
+      "id": "producer:first-party-apps-pod-agent-fde09ed8d835",
+      "input": "registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
