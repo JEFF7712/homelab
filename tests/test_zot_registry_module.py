@@ -78,6 +78,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
                 ;
             }};
             firewall = cfg.networking.firewall.extraInputRules;
+            hosts = cfg.networking.hosts;
             persistence = map (
               directory: directory.directory
             ) cfg.environment.persistence."/persist".directories;
@@ -196,6 +197,12 @@ class ZotRegistryModuleTests(unittest.TestCase):
         self.assertIn("homelab_zot_tls_certificate_expiry_timestamp_seconds", module)
         self.assertIn("homelab_zot_%s_last_success_timestamp_seconds", module)
         self.assertIn("for status in backup import", module)
+
+    def test_registry_name_resolves_locally_on_hosts_and_nodes(self) -> None:
+        self.assertEqual(self.evaluated["hosts"]["10.0.30.20"], ["registry.rupan.dev"])
+
+        k3s_server = (ROOT / "flake/modules/k3s-server.nix").read_text()
+        self.assertIn('"10.0.30.20" = [ "registry.rupan.dev" ];', k3s_server)
 
     def test_backup_sandbox_can_write_its_success_marker(self) -> None:
         nas_data = (ROOT / "flake/modules/nas-data.nix").read_text()
