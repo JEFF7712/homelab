@@ -952,7 +952,6 @@
         "status": "unsupported"
       },
       "consumers": [
-        "gitops/music-assistant/server.yaml:73",
         "observed:music-assistant/music-assistant-76b7c5b4d9-pnjh2/pot-provider"
       ],
       "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
@@ -4442,6 +4441,45 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
         "tag": "0.0.337"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/music-assistant/server.yaml:90"
+      ],
+      "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
+      "destination_tags": [
+        "2.0.1",
+        "retention-deployed-96d95372bbf04db6"
+      ],
+      "digest": "sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
+      "id": "upstream-brainicism-bgutil-ytdlp-pot-provider-cb01e15fb70a",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
+        "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.1@sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
+        "registry": "docker.io",
+        "repository": "brainicism/bgutil-ytdlp-pot-provider",
+        "tag": "2.0.1"
       }
     }
   ],
