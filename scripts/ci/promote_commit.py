@@ -9,6 +9,18 @@ from pathlib import Path
 from scripts.ci.operation import current_source
 
 
+def _change_key(path: str, data: bytes) -> bytes:
+    if path == "registry/images.lock.json":
+        try:
+            payload = json.loads(data)
+        except ValueError:
+            return data
+        if isinstance(payload, dict):
+            payload.pop("generated_at", None)
+            return json.dumps(payload, sort_keys=True).encode()
+    return data
+
+
 def main() -> None:
     current_source(dict(os.environ))
     changed = subprocess.check_output(
@@ -20,7 +32,8 @@ def main() -> None:
     if any(not Path(path).is_file() for path in changed):
         raise ValueError("Promotion cannot delete files")
     content = b"".join(
-        path.encode() + b"\0" + Path(path).read_bytes() for path in sorted(changed)
+        path.encode() + b"\0" + _change_key(path, Path(path).read_bytes())
+        for path in sorted(changed)
     )
     branch = f"registry-promotion/{os.environ['CI_COMMIT_SHA'][:12]}-{hashlib.sha256(content).hexdigest()[:12]}"
     recovery = os.environ.get("CI_OPERATION_AUTHORITY") == "gitlab"
