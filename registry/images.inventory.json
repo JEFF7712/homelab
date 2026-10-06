@@ -2076,6 +2076,27 @@
         "repository": "brainicism/bgutil-ytdlp-pot-provider",
         "tag": "2.0.1"
       }
+    },
+    {
+      "consumers": [
+        "gitops/websites/bus-display/deployment.yaml:23"
+      ],
+      "destination_repository": "apps/bus-display",
+      "id": "first-party-apps-bus-display-54431734056f",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/bus-display",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+        "reference": "registry.rupan.dev/apps/bus-display@sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/bus-display",
+        "tag": null
+      }
     }
   ],
   "kind": "registry-inventory",

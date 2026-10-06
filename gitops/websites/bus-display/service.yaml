@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bus-display-svc
+  namespace: bus-display
+  labels:
+    bgp-advertise: "true"
+    app: bus-display-web
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  selector:
+    app: bus-display-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
