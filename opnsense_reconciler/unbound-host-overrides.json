@@ -6,5 +6,21 @@
     "server": "10.0.30.20",
     "description": "Local container registry: public DNS returns Cloudflare tunnel addresses that fail large layers",
     "enabled": "1"
+  },
+  {
+    "hostname": "grafana",
+    "domain": "homelab",
+    "rr": "A",
+    "server": "10.0.40.13",
+    "description": "Adopted pre-existing override: Grafana load-balancer VIP, verified live 2026-10-06",
+    "enabled": "1"
+  },
+  {
+    "hostname": "ntfy",
+    "domain": "homelab",
+    "rr": "A",
+    "server": "10.0.40.12",
+    "description": "Adopted pre-existing override: ntfy load-balancer VIP, verified live 2026-10-06",
+    "enabled": "1"
   }
 ]
