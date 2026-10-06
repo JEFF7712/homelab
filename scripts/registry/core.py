@@ -2453,9 +2453,7 @@ def check_consumers(root: pathlib.Path, lock: Mapping[str, Any]) -> dict[str, An
         "errors": sorted(
             errors, key=lambda item: (item["consumer"], item["reference"])
         ),
-        "drift": sorted(
-            drift, key=lambda item: (item["consumer"], item["reference"])
-        ),
+        "drift": sorted(drift, key=lambda item: (item["consumer"], item["reference"])),
         "discovery_gaps": inventory["unresolved_inputs"],
     }
 
