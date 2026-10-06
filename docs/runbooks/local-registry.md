@@ -14,7 +14,7 @@ The 2026-09-06 and 2026-09-07 preflight observed:
 - The independent XFS backup disk at `/mnt/backup-2tb`, with 123 GiB available. Registry backup deployment must stop if the initial inventory plus retention headroom does not fit.
 - Three Ready k3s servers at `10.0.30.11` through `10.0.30.13`, running k3s `v1.35.7+k3s1`.
 - No `/etc/rancher/k3s/registries.yaml` on any k3s server.
-- No exact public DNS record for `registry.rupan.dev`. The public wildcard currently resolves the name through Cloudflare Tunnel. The declared AdGuard rewrite is therefore required for private clients to reach `10.0.30.20`.
+- No exact public DNS record for `registry.rupan.dev`. The public wildcard currently resolves the name through Cloudflare Tunnel. NixOS hosts do not depend on that path: `k3s-server.nix` (all k3s nodes) and the zot module (`nas-01`) pin `registry.rupan.dev` to `10.0.30.20` in `/etc/hosts`, so uncached pulls survive an AdGuard outage or a fallback to the secondary resolver. OPNsense Unbound carries the same answer as a reconciled host override (`opnsense_reconciler/unbound-host-overrides.json`, applied by the manual `opnsense_apply` CI job), which covers non-NixOS and DHCP clients that use `10.0.30.1`. The declared AdGuard rewrite remains as the primary path for those clients.
 - Attic, GitLab Runner, and NFS active on the NAS. No zot or HTTPS listener was present.
 
 Treat these as timestamped observations. Repeat the preflight before changing a host.

@@ -1,4 +1,5 @@
 import argparse
+import ipaddress
 import json
 import os
 import time
@@ -805,6 +806,170 @@ def _unbound_acl_live_fields(
     }
 
 
+UNBOUND_HOST_OVERRIDE_FIELDS: tuple[str, ...] = (
+    "hostname",
+    "domain",
+    "rr",
+    "server",
+    "description",
+    "enabled",
+)
+
+
+def reconcile_unbound_host_overrides(
+    client: Client,
+    desired_overrides: list[dict[str, object]],
+) -> None:
+    desired_by_key = _desired_unbound_host_overrides(desired_overrides)
+    live_by_key = _live_unbound_host_overrides(
+        client.get("/api/unbound/settings/search_host_override")
+    )
+    unexpected = sorted(set(live_by_key) - set(desired_by_key))
+    if unexpected:
+        raise RuntimeError(
+            "unexpected Unbound host overrides require human-directed removal: "
+            + ", ".join(unexpected)
+        )
+    changed = False
+    for key, desired in desired_by_key.items():
+        live = live_by_key.get(key)
+        if live is None:
+            _require_stored(
+                client.post(
+                    "/api/unbound/settings/add_host_override",
+                    {"host": _serialize_unbound_host_override(desired)},
+                )
+            )
+            changed = True
+        elif _normalize_unbound_host_override(live) != _normalize_unbound_host_override(
+            desired
+        ):
+            _require_stored(
+                client.post(
+                    f"/api/unbound/settings/set_host_override/{live['uuid']}",
+                    {"host": _serialize_unbound_host_override(desired)},
+                )
+            )
+            changed = True
+    if changed:
+        client.post("/api/unbound/service/reconfigure", {})
+    verified = _live_unbound_host_overrides(
+        client.get("/api/unbound/settings/search_host_override")
+    )
+    mismatches = sorted(
+        key
+        for key, desired in desired_by_key.items()
+        if _normalize_unbound_host_override(verified.get(key, {}))
+        != _normalize_unbound_host_override(desired)
+    )
+    if mismatches:
+        raise RuntimeError(
+            "Unbound host override verification failed for " + ", ".join(mismatches)
+        )
+
+
+def _serialize_unbound_host_override(
+    override: dict[str, object],
+) -> dict[str, object]:
+    return {key: override.get(key) for key in UNBOUND_HOST_OVERRIDE_FIELDS}
+
+
+def _normalize_unbound_host_override(
+    override: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        "hostname": override.get("hostname"),
+        "domain": override.get("domain"),
+        "rr": str(override.get("rr")).upper(),
+        "server": override.get("server"),
+        "enabled": _normalize_unbound_enabled(override.get("enabled")),
+    }
+
+
+def _desired_unbound_host_overrides(
+    desired_overrides: list[dict[str, object]],
+) -> dict[str, dict[str, object]]:
+    desired_by_key: dict[str, dict[str, object]] = {}
+    for desired in desired_overrides:
+        if not isinstance(desired, dict):
+            raise ValueError("Unbound host overrides must contain objects")
+        entry = {key: desired.get(key) for key in UNBOUND_HOST_OVERRIDE_FIELDS}
+        hostname = entry["hostname"]
+        domain = entry["domain"]
+        if not isinstance(hostname, str) or not hostname or "." in hostname:
+            raise ValueError("Unbound host override hostname must be a single label")
+        if not isinstance(domain, str) or not domain:
+            raise ValueError("Unbound host override requires a domain")
+        if entry["rr"] not in ("A", "AAAA"):
+            raise ValueError(
+                f"Unbound host override {hostname}.{domain} rr must be A or AAAA"
+            )
+        server = entry["server"]
+        if not isinstance(server, str) or not server:
+            raise ValueError(
+                f"Unbound host override {hostname}.{domain} requires a server address"
+            )
+        _require_override_address(entry["rr"], server, hostname, domain)
+        if entry["enabled"] not in ("0", "1"):
+            raise ValueError(
+                f"Unbound host override {hostname}.{domain} enabled must be 0 or 1"
+            )
+        key = f"{hostname}.{domain}/{entry['rr']}"
+        if key in desired_by_key:
+            raise ValueError(f"duplicate Unbound host override: {key}")
+        desired_by_key[key] = entry
+    return desired_by_key
+
+
+def _require_override_address(
+    rr: object, server: str, hostname: str, domain: str
+) -> None:
+    try:
+        address = ipaddress.ip_address(server)
+    except ValueError:
+        raise ValueError(
+            f"Unbound host override {hostname}.{domain} server is not an IP address"
+        ) from None
+    if (rr == "A" and address.version != 4) or (rr == "AAAA" and address.version != 6):
+        raise ValueError(
+            f"Unbound host override {hostname}.{domain} {rr} record "
+            f"requires an IPv{address.version} server address"
+        )
+
+
+def _live_unbound_host_overrides(response: object) -> dict[str, dict[str, object]]:
+    rows = response.get("rows") if isinstance(response, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("Unbound host override search response contains no rows")
+    live_by_key: dict[str, dict[str, object]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        hostname = row.get("hostname")
+        domain = row.get("domain")
+        uuid = row.get("uuid")
+        if (
+            not isinstance(hostname, str)
+            or not hostname
+            or not isinstance(domain, str)
+            or not domain
+            or not isinstance(uuid, str)
+            or not uuid
+        ):
+            continue
+        rr = str(row.get("rr")).upper()
+        entry: dict[str, object] = {
+            "hostname": hostname,
+            "domain": domain,
+            "rr": rr,
+            "server": row.get("server"),
+            "enabled": _normalize_unbound_enabled(row.get("enabled")),
+        }
+        entry["uuid"] = uuid
+        live_by_key[f"{hostname}.{domain}/{rr}"] = entry
+    return live_by_key
+
+
 def main(
     argv: list[str] | None = None,
     environ: Mapping[str, str] | None = None,
@@ -826,6 +991,9 @@ def main(
     reconcile_acls: Callable[
         [Client, list[dict[str, object]]], None
     ] = reconcile_unbound_acls,
+    reconcile_host_overrides: Callable[
+        [Client, list[dict[str, object]]], None
+    ] = reconcile_unbound_host_overrides,
     prove_bgp: Callable[[Reader, dict[str, int], set[str]], BgpProof] = verify_bgp,
 ) -> None:
     parser = argparse.ArgumentParser(
@@ -839,6 +1007,7 @@ def main(
     parser.add_argument("--bgp-expected-routes", required=True, type=Path)
     parser.add_argument("--outbound-nat-rules", required=True, type=Path)
     parser.add_argument("--unbound-acls", required=True, type=Path)
+    parser.add_argument("--unbound-host-overrides", required=True, type=Path)
     arguments = parser.parse_args(argv)
     environment = environ if environ is not None else os.environ
     required = (
@@ -862,6 +1031,7 @@ def main(
     expected_routes = json.loads(arguments.bgp_expected_routes.read_text())
     desired_outbound_nat = json.loads(arguments.outbound_nat_rules.read_text())
     desired_unbound_acls = json.loads(arguments.unbound_acls.read_text())
+    desired_host_overrides = json.loads(arguments.unbound_host_overrides.read_text())
     if not isinstance(inventory, dict) or not isinstance(
         inventory.get("assignment_api_available"), bool
     ):
@@ -894,6 +1064,10 @@ def main(
         isinstance(item, dict) for item in desired_unbound_acls
     ):
         raise ValueError("Unbound ACLs must contain a list of objects")
+    if not isinstance(desired_host_overrides, list) or not all(
+        isinstance(item, dict) for item in desired_host_overrides
+    ):
+        raise ValueError("Unbound host overrides must contain a list of objects")
     client = client_factory(
         environment["OPNSENSE_URL"],
         Credentials(
@@ -909,6 +1083,7 @@ def main(
     expected_peers = reconcile_bgp(client, desired_bgp_neighbors)
     reconcile_outbound(client, desired_outbound_nat)
     reconcile_acls(client, desired_unbound_acls)
+    reconcile_host_overrides(client, desired_host_overrides)
     proof = prove_bgp(client, expected_peers, set(expected_routes))
     if not proof.ready:
         raise RuntimeError(
@@ -926,6 +1101,7 @@ def main(
                 "udp_broadcast_relay_count": len(desired_udp_broadcast_relays),
                 "outbound_nat_count": len(desired_outbound_nat),
                 "unbound_acl_count": len(desired_unbound_acls),
+                "unbound_host_override_count": len(desired_host_overrides),
             },
             sort_keys=True,
         )
