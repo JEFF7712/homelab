@@ -1,0 +1,10 @@
+[
+  {
+    "hostname": "registry",
+    "domain": "rupan.dev",
+    "rr": "A",
+    "server": "10.0.30.20",
+    "description": "Local container registry: public DNS returns Cloudflare tunnel addresses that fail large layers",
+    "enabled": "1"
+  }
+]
