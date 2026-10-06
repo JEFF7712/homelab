@@ -20,6 +20,12 @@ IMAGE = "nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce
 VALIDATION = "validation-v2"
 NIX_CONFIG = "experimental-features = nix-command flakes\naccept-flake-config = true\nsandbox = false\nmax-jobs = 1\ncores = 2\n"
 
+# Forgejo identities permitted to trigger manual deployments. The machine user
+# holds operator rights by explicit decision: its token is scoped, revocable,
+# and documented in docs/runbooks/ci-pipelines.md. Branch protection and the
+# fresh-validation requirements below apply to it unchanged.
+DEPLOY_AUTHORS = frozenset({"rupan", "JEFF7712", "homelab-agent"})
+
 
 def verify_request(headers: Any, body: bytes, public_key: bytes, now: int) -> None:
     label = "woodpecker-ci-extensions"
@@ -187,7 +193,7 @@ def configuration(
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
         return {"configs": configs}
 
-    if not main or pipeline.get("author") not in {"rupan", "JEFF7712"}:
+    if not main or pipeline.get("author") not in DEPLOY_AUTHORS:
         raise ValueError("Deployment requires an authorized main-branch operator")
     target = pipeline.get("deploy_to", "")
     if target not in operations:

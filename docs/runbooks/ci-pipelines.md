@@ -92,9 +92,15 @@ Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-Triggering a Woodpecker manual deploy (for example `deploy_to=opnsense-apply`)
-still needs a Woodpecker API token, which agents do not hold. That step stays
-human until a scoped Woodpecker operator token is provisioned the same way.
+The deploy policy (`scripts/ci/policy.py`) admits `homelab-agent` as a
+deployment author alongside the human operators. Fresh green main validation
+and the operations catalog gates still apply unchanged, so the bot can only
+trigger reviewed, validated commits. Triggering a Woodpecker manual deploy
+(for example `deploy_to=opnsense-apply`) additionally needs the bot's own
+Woodpecker API token: sign in to Woodpecker once as `homelab-agent` via
+Forgejo, create a token from that profile, and store it as
+`~/.config/woodpecker/token` (mode 0600) on each agent machine. Never commit
+either token.
 
 ## Recovery
 

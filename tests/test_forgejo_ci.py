@@ -28,7 +28,7 @@ from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import current_source, pack, unpack
 from scripts.ci.platform_backup import snapshot_database
-from scripts.ci.policy import VALIDATION, configuration, verify_request
+from scripts.ci.policy import DEPLOY_AUTHORS, VALIDATION, configuration, verify_request
 from scripts.ci.prepare_platform import certificate, clone_environment
 from scripts.ci.state import Store, handler
 
@@ -219,6 +219,15 @@ class PolicyTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 configuration(self.request, self.catalog, self.parent, SHA)
             self.request = saved
+
+    def test_machine_user_is_an_authorized_deploy_operator(self) -> None:
+        self.assertEqual(DEPLOY_AUTHORS, {"rupan", "JEFF7712", "homelab-agent"})
+        saved = copy.deepcopy(self.request)
+        self.request["pipeline"]["author"] = "homelab-agent"
+        result = self.deployment()
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
+        self.request = saved
 
     def test_old_or_incomplete_validation_cannot_authorize_deployment(self) -> None:
         for field, value in [
