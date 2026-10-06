@@ -4481,6 +4481,47 @@
         "repository": "brainicism/bgutil-ytdlp-pot-provider",
         "tag": "2.0.1"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/websites/bus-display/deployment.yaml:23"
+      ],
+      "destination_repository": "apps/bus-display",
+      "destination_tags": [
+        "0.0.2",
+        "retention-deployed-890d7eaacf243c46"
+      ],
+      "digest": "sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+      "id": "first-party-apps-bus-display-0fada16af466",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/bus-display",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+        "reference": "registry.rupan.dev/apps/bus-display:0.0.2@sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/bus-display",
+        "tag": "0.0.2"
+      }
     }
   ],
   "kind": "registry-image-lock",
