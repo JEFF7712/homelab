@@ -57,6 +57,45 @@ service-specific write access. State credentials are separate from Garage.
 Woodpecker command-step secrets require empty image filters and are event scoped. Only selected main
 push and maintenance workflows receive their required secrets.
 
+## Agent Forgejo access
+
+Agents open and merge Forgejo PRs with the `tea` CLI (in the dev shell) as a
+dedicated machine user, never as your personal account and never with a token
+committed to the repo. Branch protection (`config/ci/forgejo-protection.json`)
+applies to the machine user too: no direct pushes to main, merge requires a
+green `ci/woodpecker/validation-v2` status, so agents cannot land red code.
+
+One-time setup, by a human in the Forgejo UI:
+
+1. Create user `homelab-agent` and add it as a collaborator with write access
+   to `JEFF7712/homelab` only.
+2. As that user, generate a token with exactly `read:user`, `read:repository`,
+   `write:repository`, `read:issue`, `write:issue` (`read:user` is mandatory:
+   the API rejects tokens without it). No admin, user-write, or other
+   scopes. When letting `tea login add` mint the token, pass the same list
+   via `--scopes`.
+3. On each machine agents run on: `tea login add --url http://git.internal:3000`,
+   pasting the token when prompted. It lands in `~/.config/tea/config.yml`
+   (mode 0600). Never copy that file into the repo or backups.
+
+Agent flow per change:
+
+```sh
+git push origin <branch>
+just forgejo-pr "imperative title"   # opens the PR against main
+# wait for validation-v2 green in the Forgejo UI, then:
+just forgejo-merge <index>           # merges; prefer fast-forward so the
+                                     # Forgejo to GitLab mirror stays clean
+```
+
+Rotation: revoke the token in the Forgejo UI, generate a replacement with the
+same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
+token as compromised until revoked; it can push branches and merge PRs.
+
+Triggering a Woodpecker manual deploy (for example `deploy_to=opnsense-apply`)
+still needs a Woodpecker API token, which agents do not hold. That step stays
+human until a scoped Woodpecker operator token is provisioned the same way.
+
 ## Recovery
 
 GitLab CI is disabled by default. An offline runner or GitLab webhook is not
