@@ -584,6 +584,55 @@ were untouched. Persistent DNS repair remains a separate follow-up; losing the
 cached image would expose that cold-pull failure again. Temporary authentication
 files must be removed after a recovery import.
 
+## Planner fallback release, October 7
+
+Approved application source is `c8e4d36`, including planner continuity commit
+`21e0f14`. GitHub validation job `112908607141` passed the full application
+suite and Pyright. The first workflow's image stage did not start and the
+workflow finished non-green; a separate manual workflow retry was requested.
+Retry run `37655960881` completed successfully, including image publication.
+The manual local-image release below remains the selected deployment artifact.
+The tested local image was transferred to the NAS, checked against all 238
+package files and the broker source, then published with the scoped POD
+publisher. Registry digest is
+`sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2`,
+with release tag `0.0.1791392642` and a deployed-retention tag. Source parity,
+the official Antigravity binary checksum, and Codex CLI 0.145.0 passed after
+transfer. The application release record distinguishes CI from this manual
+image publication path.
+
+Pre-rollout job `pod-agent-pre-agy-c8e4d36` accepted encrypted snapshot
+`/data/backups/state-20261007T165237492400Z.db.age`, including integrity and
+decryption verification. The previous digest `c13b422e...` remains the rollback
+image. The database migration adds provider evidence and family-set history;
+do not restore an old database over subsequent business actions.
+
+The GitOps change pins 30 image fields and adds one singleton native keyring
+Deployment with Recreate strategy, UID/GID 101, the existing local PVC, and a
+network policy denying IP ingress/egress. Readiness tests the native bus and
+unlocked collection. Its init container creates the dedicated deny-all profile.
+The unlock password is SOPS-encrypted under
+`POD_AGENT_ANTIGRAVITY_KEYRING_PASSWORD`; a separate ExternalSecret projects
+only that property into `pod-agent-antigravity-keyring`. Only the broker mounts
+that Secret, with mode 0440. The common model/business Secret excludes it.
+
+`PLANNER_FALLBACK_PROVIDERS` remains empty during commissioning. Clients use
+`PLANNER_AGY_HOME=/data/cliauth/agy`, model `gemini-3.1-pro-high`, and the shared
+Unix socket `unix:path=/data/cliauth/agy/keyring/bus`. All clients and the broker
+must remain on homelab-01. Codex stays primary. No paid API key or Google credit
+fallback is enabled.
+
+Rollout and Google login acceptance are pending. Follow
+`deploy/ANTIGRAVITY.md` in the application repository: establish native
+subscription login, prove a real schema call after restart, exercise a private
+production clone with a simulated engine, then enable the fallback and verify
+the live plan/action ledger. An unlocked keyring alone does not prove login.
+
+The registry promotion command updated POD pins and registry records but
+reported an unrelated existing observed Nix Agent digest drift. The POD
+digest was verified directly, and that command's overall result is not claimed
+green. Registry source-policy validation remains a separate recorded gate.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.

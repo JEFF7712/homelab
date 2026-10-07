@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-agent-antigravity-keyring
+  namespace: pod-agent
+  labels:
+    app.kubernetes.io/name: pod-agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: pod-agent-antigravity-keyring
+  template:
+    metadata:
+      labels:
+        app: pod-agent-antigravity-keyring
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: homelab-01
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-profile
+          image: registry.rupan.dev/apps/pod-agent@sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2  # yamllint disable-line rule:line-length
+          imagePullPolicy: IfNotPresent
+          command:
+            - pod-agent
+            - planner
+            - agy-profile
+            - /data/cliauth/agy
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsUser: 101
+            runAsGroup: 101
+      containers:
+        - name: keyring
+          image: registry.rupan.dev/apps/pod-agent@sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2  # yamllint disable-line rule:line-length
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /app/antigravity-keyring.py
+            - --home
+            - /data/cliauth/agy
+            - --password-file
+            - /keyring-unlock/password
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          startupProbe:
+            exec:
+              command:
+                - python
+                - /app/antigravity-keyring.py
+                - --home
+                - /data/cliauth/agy
+                - --check
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 12
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - /app/antigravity-keyring.py
+                - --home
+                - /data/cliauth/agy
+                - --check
+            periodSeconds: 10
+            timeoutSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - /app/antigravity-keyring.py
+                - --home
+                - /data/cliauth/agy
+                - --check
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+            - name: unlock
+              mountPath: /keyring-unlock
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsUser: 101
+            runAsGroup: 101
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pod-agent-data
+        - name: tmp
+          emptyDir: {}
+        - name: unlock
+          secret:
+            secretName: pod-agent-antigravity-keyring
+            defaultMode: 288
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: antigravity-keyring-isolation
+  namespace: pod-agent
+  labels:
+    app.kubernetes.io/name: pod-agent
+spec:
+  podSelector:
+    matchLabels:
+      app: pod-agent-antigravity-keyring
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []

@@ -5,6 +5,7 @@ resources:
   - volume.yaml
   - configmap.yaml
   - externalsecret.yaml
+  - antigravity-keyring.yaml
   - dashboard.yaml
   - network-policy.yaml
   - discord-bot.yaml

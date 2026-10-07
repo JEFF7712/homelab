@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-06T00:58:25+00:00",
+  "generated_at": "2026-10-07T17:06:15+00:00",
   "images": [
     {
       "authenticity": {
@@ -493,11 +493,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
+        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.24@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
-        "tag": "0.0.24",
-        "digest": "sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
-        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.24@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a"
+        "tag": "0.0.24"
       }
     },
     {
@@ -548,45 +548,47 @@
         "status": "unsupported"
       },
       "consumers": [
-        "gitops/pod-agent/discord-bot.yaml:29",
-        "gitops/pod-agent/dashboard.yaml:28",
-        "gitops/pod-agent/dashboard.yaml:50",
-        "gitops/pod-agent/cronjobs-daily.yaml:30",
+        "gitops/pod-agent/antigravity-keyring.yaml:30",
+        "gitops/pod-agent/antigravity-keyring.yaml:52",
         "gitops/pod-agent/cronjobs-daily.yaml:111",
         "gitops/pod-agent/cronjobs-daily.yaml:130",
         "gitops/pod-agent/cronjobs-daily.yaml:202",
         "gitops/pod-agent/cronjobs-daily.yaml:221",
         "gitops/pod-agent/cronjobs-daily.yaml:291",
+        "gitops/pod-agent/cronjobs-daily.yaml:30",
         "gitops/pod-agent/cronjobs-daily.yaml:310",
         "gitops/pod-agent/cronjobs-daily.yaml:382",
         "gitops/pod-agent/cronjobs-daily.yaml:401",
-        "gitops/pod-agent/cronjobs-frequent.yaml:29",
-        "gitops/pod-agent/cronjobs-frequent.yaml:48",
         "gitops/pod-agent/cronjobs-frequent.yaml:117",
         "gitops/pod-agent/cronjobs-frequent.yaml:136",
         "gitops/pod-agent/cronjobs-frequent.yaml:206",
         "gitops/pod-agent/cronjobs-frequent.yaml:225",
+        "gitops/pod-agent/cronjobs-frequent.yaml:29",
         "gitops/pod-agent/cronjobs-frequent.yaml:294",
-        "gitops/pod-agent/cronjobs-weekly.yaml:30",
-        "gitops/pod-agent/cronjobs-weekly.yaml:99",
+        "gitops/pod-agent/cronjobs-frequent.yaml:365",
+        "gitops/pod-agent/cronjobs-frequent.yaml:384",
+        "gitops/pod-agent/cronjobs-frequent.yaml:48",
         "gitops/pod-agent/cronjobs-weekly.yaml:118",
         "gitops/pod-agent/cronjobs-weekly.yaml:187",
         "gitops/pod-agent/cronjobs-weekly.yaml:206",
         "gitops/pod-agent/cronjobs-weekly.yaml:278",
-        "gitops/pod-agent/cronjobs-weekly.yaml:297"
+        "gitops/pod-agent/cronjobs-weekly.yaml:297",
+        "gitops/pod-agent/cronjobs-weekly.yaml:30",
+        "gitops/pod-agent/cronjobs-weekly.yaml:99",
+        "gitops/pod-agent/dashboard.yaml:28",
+        "gitops/pod-agent/dashboard.yaml:50",
+        "gitops/pod-agent/discord-bot.yaml:29"
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1791248205",
-        "retention-deployed-c13b422eac2b63e7"
+        "0.0.1791392642",
+        "retention-deployed-6a31496b372b69c3"
       ],
-      "digest": "sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
+      "digest": "sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/pod-agent",
         "owner": "jeff7712",
@@ -601,11 +603,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1791248205@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
+        "digest": "sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1791392642@sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1791248205"
+        "tag": "0.0.1791392642"
       }
     },
     {
@@ -686,11 +688,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:d32be6a26fc7e5d7aabf102e559884f273f69052a116f42823b374491d44865a",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.343@sha256:d32be6a26fc7e5d7aabf102e559884f273f69052a116f42823b374491d44865a",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.343",
-        "digest": "sha256:d32be6a26fc7e5d7aabf102e559884f273f69052a116f42823b374491d44865a",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.343@sha256:d32be6a26fc7e5d7aabf102e559884f273f69052a116f42823b374491d44865a"
+        "tag": "0.0.343"
       }
     },
     {

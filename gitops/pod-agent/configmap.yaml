@@ -20,3 +20,7 @@ data:
   GOVERNOR_SUBSCRIPTION_PROVIDERS: codex
   GOVERNOR_PROVIDER_ROTATION_ORDER: codex
   POD_AGENT_PROVIDER_CONTAINMENT: best-effort
+  PLANNER_FALLBACK_PROVIDERS: ""
+  PLANNER_AGY_HOME: /data/cliauth/agy
+  PLANNER_AGY_MODEL: gemini-3.1-pro-high
+  DBUS_SESSION_BUS_ADDRESS: unix:path=/data/cliauth/agy/keyring/bus
