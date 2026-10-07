@@ -616,17 +616,48 @@ The unlock password is SOPS-encrypted under
 only that property into `pod-agent-antigravity-keyring`. Only the broker mounts
 that Secret, with mode 0440. The common model/business Secret excludes it.
 
-`PLANNER_FALLBACK_PROVIDERS` remains empty during commissioning. Clients use
+`PLANNER_FALLBACK_PROVIDERS` is `agy` after commissioning. Clients use
 `PLANNER_AGY_HOME=/data/cliauth/agy`, model `gemini-3.1-pro-high`, and the shared
 Unix socket `unix:path=/data/cliauth/agy/keyring/bus`. All clients and the broker
 must remain on homelab-01. Codex stays primary. No paid API key or Google credit
 fallback is enabled.
 
-Rollout and Google login acceptance are pending. Follow
-`deploy/ANTIGRAVITY.md` in the application repository: establish native
-subscription login, prove a real schema call after restart, exercise a private
-production clone with a simulated engine, then enable the fallback and verify
-the live plan/action ledger. An unlocked keyring alone does not prove login.
+PR #72 merged as `bfee34b` after both required CI pipelines passed. Flux reached
+Ready on that revision, all three Deployments became available, and all 238
+installed package files, the broker and pinned CLI binaries matched source.
+A fresher pre-rollout backup, `state-20261007T214656404939Z.db.age`, also passed
+integrity and decryption checks before the additive migration.
+
+Google service login passed through the documented remote OAuth flow, using
+the owner's normal Firefox session. An automation-controlled Chrome session
+was refused by Google. Authentication survived a broker restart and a fresh
+client worker, with a real schema-constrained model call passing afterward.
+Commission in an isolated worker with the cycle's 2 GiB limit. Concurrent login
+and canary processes exceeded the dashboard's 512 MiB limit and restarted it;
+the dashboard recovered, and subsequent isolated calls passed.
+
+The service-environment clone retained the real assets and simulated its engine.
+Production's latest planner run 60 was already `ok` under Codex, so the test
+created a clone-only run and injected three Codex usage failures. Antigravity
+recovered that run at attempt four and submitted two simulated drafts. Repeating
+recovery submitted nothing. Proposals, events, business writes, reservations,
+OAuth and pricing rows stayed unchanged in the clone. No synthetic failure was
+written to production provider health.
+
+The follow-up selects source `b599256` and digest
+`sha256:a4c51dd5f4f1f3a77e3acf24a51c6e2b743bab96ae51886a850504abb32ca6b1`,
+tag `0.0.1791410902`. It removes the dashboard token from startup output and
+rotates that token through SOPS. All other encrypted values, including the
+keyring unlock password, were verified unchanged. Application CI run
+`37693694373` passed 3,043 tests, three skips, and Pyright. Source parity and all
+seven native keyring checks passed again on this image.
+
+After Flux applies the follow-up, verify the installed image, live provider
+configuration and a real AGY health row, then run `planner recover` twice and
+inspect the plan/action ledger. With production run 60 already healthy, an idle
+recovery is expected; it does not establish live fallback-created products.
+The application release record holds final rollout acceptance. Keep Codex
+primary and leave API keys and Google credits disabled.
 
 The registry promotion command updated POD pins and registry records but
 reported an unrelated existing observed Nix Agent digest drift. The POD
