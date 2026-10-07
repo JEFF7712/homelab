@@ -15,13 +15,20 @@ spec:
       labels:
         app: home-assistant
       annotations:
-        checksum/config: 8205c93c8e8cccc77907ef372ac1c00c4bef451e6b307e5f588e8cc6c16f9f94
+        checksum/config: 0027f1d289904f4c9eaae918b5b62976c98d140a682600a73a95c8cbd397660e
         checksum/dependencies: 8eac350ea6f0dc5b311c3b363345bb99229e5efa193aa69111e630103301751e
         reloader.stakater.com/auto: 'true'
     spec:
       priorityClassName: homelab-critical
-      nodeSelector:
-        kubernetes.io/hostname: homelab-03
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - homelab-05
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       securityContext:

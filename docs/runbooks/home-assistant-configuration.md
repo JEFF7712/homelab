@@ -137,6 +137,21 @@ Tool invocations are exposed through `just ha-*` or `python -m scripts.home_assi
 
 ## 7. Backup and Disaster Recovery
 
+### Scheduling and Node Failure
+
+Home Assistant uses host networking for HomeKit mDNS and Govee LAN control.
+Its required node affinity excludes `homelab-05`, where LedFx also binds UDP
+port `4002`, but permits scheduling on the other cluster nodes. Both HA's
+configuration and Matter data use shared NFS volumes. If LedFx's node pin
+changes, update HA's exclusion in the same change.
+
+HA remains a single-replica `Recreate` deployment. During a node outage, an
+old pod can remain stuck terminating and block replacement. Confirm the old
+HA and Matter processes have stopped, or fence the failed host, before
+force-deleting that pod. Shared NFS volumes do not prevent concurrent writers.
+After recovery, verify the replacement's node, readiness, public HTTP access,
+and HomeKit, Matter, and Govee device behavior.
+
 ### Backup Coverage
 
 - **Persistent Configuration Volume (`home-assistant-config`)**: Contains `/config` (`.storage/`, `secrets.yaml`, custom components). Backed up via Kubernetes volume snapshot and restic.

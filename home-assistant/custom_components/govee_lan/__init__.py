@@ -1,8 +1,8 @@
 """Govee LAN hub: shared UDP endpoint and protocol helpers for H6004 bulbs.
 
 All commands must originate from source port 4002 or the bulbs silently
-ignore them. HA is pinned to homelab-03 while LedFx is pinned to
-homelab-05, so the exclusive bind here never contends with music mode.
+ignore them. HA excludes homelab-05, where LedFx is pinned, so the
+exclusive bind here never contends with music mode.
 """
 
 from __future__ import annotations
