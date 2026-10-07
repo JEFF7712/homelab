@@ -34,7 +34,7 @@ data:
     }
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
     FORGEJO_TOKEN = os.getenv("FORGEJO_TOKEN", "")
-    FORGEJO_ENDPOINT = os.getenv("FORGEJO_ENDPOINT", "http://git.internal:3000/api/v1")
+    FORGEJO_ENDPOINT = os.getenv("FORGEJO_ENDPOINT", "https://git.rupan.dev/api/v1")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_REVIEW_MODEL = os.getenv("OPENAI_REVIEW_MODEL", os.getenv("OPENAI_MODEL", "gpt-5.4-mini"))
     OPENAI_CODING_MODEL = os.getenv("OPENAI_CODING_MODEL", "gpt-5.5")

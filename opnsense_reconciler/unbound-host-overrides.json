@@ -8,6 +8,14 @@
     "enabled": "1"
   },
   {
+    "hostname": "git",
+    "domain": "rupan.dev",
+    "rr": "A",
+    "server": "10.0.30.20",
+    "description": "Forgejo Git service: local HTTPS endpoint on nas-01",
+    "enabled": "1"
+  },
+  {
     "hostname": "grafana",
     "domain": "homelab",
     "rr": "A",

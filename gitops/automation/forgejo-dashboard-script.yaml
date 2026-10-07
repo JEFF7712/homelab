@@ -23,7 +23,7 @@ data:
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
     FORGEJO_TOKEN = os.getenv("FORGEJO_TOKEN", "")
     FORGEJO_APPROVAL_TOKEN = os.getenv("FORGEJO_APPROVAL_TOKEN", "")
-    FORGEJO_ENDPOINT = os.getenv("FORGEJO_ENDPOINT", "http://git.internal:3000/api/v1")
+    FORGEJO_ENDPOINT = os.getenv("FORGEJO_ENDPOINT", "https://git.rupan.dev/api/v1")
     APPROVAL_LABEL = os.getenv("RENOVATE_AGENT_APPROVAL_LABEL", "renovate-agent-approved")
     APPROVAL_COMMAND = os.getenv("RENOVATE_AGENT_APPROVAL_COMMAND", "/renovate-agent approve")
     SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"

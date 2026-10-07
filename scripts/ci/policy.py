@@ -286,7 +286,7 @@ def main() -> None:
                 if request["pipeline"].get("ref") == "refs/heads/main":
                     credentials = request["netrc"]
                     tip = api(
-                        "http://git.internal:3000/api/v1/repos/JEFF7712/homelab/branches/main",
+                        "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
                         credentials["password"],
                     )
                     current = tip["commit"]["id"]

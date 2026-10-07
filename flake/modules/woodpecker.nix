@@ -40,7 +40,7 @@ in
     };
     forgejoUrl = lib.mkOption {
       type = lib.types.str;
-      default = "http://git.internal:3000";
+      default = "https://git.rupan.dev";
     };
     forgejoClientId = lib.mkOption {
       type = lib.types.str;
@@ -153,6 +153,7 @@ in
       # woodpecker host also enables, so it is not repeated here.
       "10.0.30.20" = [
         "git.internal"
+        "git.rupan.dev"
         "s3.internal"
       ];
       "10.0.30.14" = [ "ci.internal" ];

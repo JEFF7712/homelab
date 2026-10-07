@@ -1498,6 +1498,9 @@ class UnboundHostOverrideReconciliationTests(unittest.TestCase):
         self.assertIn("registry.rupan.dev/A", by_key)
         self.assertEqual(by_key["registry.rupan.dev/A"]["server"], "10.0.30.20")
         self.assertEqual(by_key["registry.rupan.dev/A"]["enabled"], "1")
+        self.assertIn("git.rupan.dev/A", by_key)
+        self.assertEqual(by_key["git.rupan.dev/A"]["server"], "10.0.30.20")
+        self.assertEqual(by_key["git.rupan.dev/A"]["enabled"], "1")
         # Adopted pre-existing overrides: removing either entry returns the
         # reconciler to fail-closed on the next apply.
         self.assertEqual(by_key["grafana.homelab/A"]["server"], "10.0.40.13")
