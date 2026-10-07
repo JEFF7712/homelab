@@ -63,14 +63,24 @@ and [local backend security guidance](https://woodpecker-ci.org/docs/2.8/adminis
 
 ### P1: GitLab is divergent and its DR mirror is failing
 
-Forgejo `main` is `a5af245`; GitLab `main` is `d36436f`. They have diverged:
+**Resolved 2026-10-06.** GitLab `main` was force-synced to Forgejo `main`
+(`5502f04`); the former exclude-by-writer GitLab-only commits are
+duplicated in Forgejo's history. `git-dr-mirror.service` on nas-01 now
+reports "Everything up-to-date" and runs on a five-minute timer. All
+site/publisher writers now push via Forgejo PRs only (`nix-agent` and
+`obsidian-vault` deploy workflows are the canonical examples). GitLab's
+remaining use is a read-only DR mirror. The old GitLab direct-write roll
+flow (`secrets.HOMELAB_GITLAB_TOKEN`) was removed from the obsidian deploy
+workflow during this reconciliation.
+
+As of 2026-10-03: Forgejo `main` was `a5af245`; GitLab `main` was `d36436f`. They have diverged:
 Forgejo has one exclusive documentation commit and GitLab has three exclusive
 Obsidian deployment/registry commits authored by `github-actions[bot]`.
 Neither tip contains the other. The external writer's source workflow was not
 available in this checkout, but its commits establish that GitLab is still a
 write target.
 
-The Forgejo push-mirror record has `sync_on_commit=1`, an eight-hour periodic
+The Forgejo push-mirror record had `sync_on_commit=1`, an eight-hour periodic
 interval, and a nonempty error: GitLab rejects a force push to protected `main`.
 GitLab's protection was independently verified with `allow_force_push=false`.
 The mirror timestamp is October 3 at 21:56:10 UTC, but the error and differing

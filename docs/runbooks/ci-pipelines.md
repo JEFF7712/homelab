@@ -79,6 +79,15 @@ One-time setup, by a human in the Forgejo UI:
 3. On each machine agents run on: `tea login add --url http://git.internal:3000`,
    pasting the token when prompted. It lands in `~/.config/tea/config.yml`
    (mode 0600). Never copy that file into the repo or backups.
+4. Optional, to push branches as the machine user instead of a personal
+   account: generate a dedicated key per agent machine
+   (`ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_homelab_agent -N ''`),
+   register its public key on the `homelab-agent` account in the Forgejo UI
+   (Settings, SSH Keys; the API requires `write:user`, which the agent token
+   deliberately lacks), and add a `git-agent` Host alias in `~/.ssh/config`
+   with `IdentitiesOnly yes`. Push with
+   `git push git-agent:JEFF7712/homelab.git <branch>`. Without this step,
+   `git push origin` authenticates with the machine's default Forgejo key.
 
 Agent flow per change:
 
