@@ -43,6 +43,10 @@ PRs never receive production workflows, regardless of target branch or YAML.
 A current main push additionally runs opnsense-plan, cloudflare-plan, and
 sync-to-github and cache-publish after validation. The maintenance cron runs registry drift,
 retention reconciliation, and first-party promotion. Promotion creates a PR.
+The cron also runs the webhook watchdog ungated: it fails when a recent
+push or pull request has no validation status past the grace period or a
+pending validation past the stuck threshold, which is how a broken
+Forgejo-to-Woodpecker delivery path shows up (Forgejo does not retry).
 Branch protection applies: no direct pushes to main; merges require the
 green validation-v2 status. The external Obsidian publisher no longer writes
 homelab main; it publishes images only and the maintenance promotion PR

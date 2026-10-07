@@ -1685,5 +1685,32 @@
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
+  },
+  "webhook-watchdog": {
+    "commands": [
+      "python -m scripts.ci.webhook_watchdog --grace-minutes 30 --stuck-minutes 90"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "ci-diagnostics",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "webhook_watchdog",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
   }
 }
