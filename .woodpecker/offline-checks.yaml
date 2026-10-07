@@ -13,12 +13,14 @@ steps:
         experimental-features = nix-command flakes
         accept-flake-config = true
         sandbox = false
-        max-jobs = 1
+        max-jobs = 2
         cores = 2
         extra-substituters = http://10.0.30.20:8080/homelab
         extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=
     commands:
       - >-
-        nix develop ./flake -c bash -e -c 'just provision-check-deps; just
-        fmt-check & f=$!; python scripts/jev_decision_gate.py & j=$!; just
-        check & c=$!; wait "$f" && wait "$j" && wait "$c"'
+        nix develop ./flake -c bash -e -c 'just provision-check-deps; python
+        -m scripts.ci.run fmt -- just fmt-check & f=$!; python -m scripts.ci.run
+        jev -- python scripts/jev_decision_gate.py & j=$!; python -m scripts.ci.run
+        gate -- just check & c=$!; rc=0; wait "$f" || rc=1; wait "$j" || rc=1;
+        wait "$c" || rc=1; python -m scripts.ci.timings_report || true; exit $rc'

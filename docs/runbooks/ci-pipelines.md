@@ -29,7 +29,9 @@ provisioning, formatting, the production Jev decision fixture gate, and
 the full offline gate. Provisioning runs first (the OpenTofu gate fails
 when locked providers are absent); formatting, the Jev gate, and the
 full offline gate then run concurrently in the same container, and the
-step fails when any of them fails. All pipelines resolve the dev shell
+step fails when any of them fails. Each lane is timed and a
+slowest-first summary prints at the end of the step without affecting
+the result. All pipelines resolve the dev shell
 and build outputs from the local Attic substituter
 (http://10.0.30.20:8080/homelab), so nix develop fetches prebuilt
 paths instead of downloading or rebuilding them per run;
