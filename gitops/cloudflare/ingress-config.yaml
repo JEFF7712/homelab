@@ -98,4 +98,6 @@ data:
         service: http://bookshelf.media:80
       - hostname: pod.rupan.dev
         service: http://pod-agent-dashboard.pod-agent:80
+      - hostname: git.rupan.dev
+        service: http://forgejo.cloudflare:3000
       - service: http_status:404

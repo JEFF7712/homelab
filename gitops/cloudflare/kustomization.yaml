@@ -5,3 +5,4 @@ resources:
   - tunnel.yaml
   - ingress-config.yaml
   - pdb.yaml
+  - forgejo-service.yaml
