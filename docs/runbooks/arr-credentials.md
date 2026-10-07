@@ -143,6 +143,11 @@ the first time needs a `download` pod restart so slskd picks up the env:
 Tune grabs per run via `number_of_albums_to_grab` in the
 `config.ini.template` (`gitops/media/soularr.yaml`).
 
+Keep `SLSKD_SHARE_CACHE_WORKERS` pinned to eight. Soulseek includes this count
+in its saved share-cache options; using a host-dependent default invalidates
+the cache when the pod moves to a node with a different CPU count. The ensuing
+startup scan keeps the shared download pod unready, including qBittorrent.
+
 ## Symptoms of drift (before the job existed, these were all silent)
 
 - Seerr requests stuck in Pending/Requested: check Seerr request status,

@@ -220,6 +220,8 @@ spec:
               value: /config
             - name: SLSKD_REMOTE_CONFIGURATION
               value: "true"
+            - name: SLSKD_SHARE_CACHE_WORKERS
+              value: "8"
             - name: SLSKD_SOULSEEK__LISTEN_PORT
               valueFrom:
                 secretKeyRef:
