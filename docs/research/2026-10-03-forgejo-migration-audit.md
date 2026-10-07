@@ -94,6 +94,25 @@ the local-development runbook's claim of synchronous backup is incorrect.
 
 ### P1: Deployment and maintenance CI were not migrated
 
+**Status 2026-10-06.** Woodpecker now covers `validation-v2` (sandbox docker
+tier) plus the `opnsense-plan`, `cloudflare-plan`, `sync-to-github`, and
+`cache-publish` push-gated operations via the policy config extension in
+[policy.py](../../scripts/ci/policy.py), and a 10-minute maintenance cron
+(via Woodpecker cron named `maintenance`) that fans out to
+`registry-drift-check`, `registry-retention-reconcile`,
+`registry-promote-first-party`, `registry-lock-import`, `opnsense-inventory`,
+`nas-proof`, and `deploy-fleet-dry-run`. Maintenance cron and the deployment
+events required the corresponding Woodpecker repo secrets to be widened
+to include the `cron` event for the secrets their operations consume
+(`ssh_deploy_key`, `hosts_known`, `registry_importer_auth_file`,
+`opnsense_plan_api_key`/`opnsense_plan_api_secret`, `opnsense_ca_file`,
+`opnsense_backup_recipient`). All records are verified by successful `cron`
+validation pipelines on 2026-10-06. Direct Gitlab deploy jobs remain for
+observation plus legacy Fleet/HA/registry-node provisioning; these still
+run under the provisioning path because they need privileged host access
+and write semantics and are intentionally gated behind `deployment` events
+with operator-appointed pipeline variables.
+
 [.gitlab-ci.yml](../../.gitlab-ci.yml) contains 48 concrete jobs and 12 named
 resource groups. Woodpecker contains three workflows and two groups. There are
 no deployment-event workflows; the live repository has `allow_deploy=0`, no
