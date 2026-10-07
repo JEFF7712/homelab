@@ -40,7 +40,14 @@ class TestSpotifySyncManifest(unittest.TestCase):
         )
         self.assertEqual(
             container["args"],
-            ["--music-dir", "/music/music", "--playlist-dir", "/music/music/playlists"],
+            [
+                "--music-dir",
+                "/music/music",
+                "--playlist-dir",
+                "/music/music/playlists",
+                "--http-timeout",
+                "120",
+            ],
         )
         self.assertEqual(volumes["script"]["configMap"]["name"], "spotify-sync")
 

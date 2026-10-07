@@ -666,7 +666,13 @@ spec:
             - name: sync
               image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
               command: ["python3", "/app/sync.py"]
-              args: ["--music-dir", "/music/music", "--playlist-dir", "/music/music/playlists"]
+              args:
+                - --music-dir
+                - /music/music
+                - --playlist-dir
+                - /music/music/playlists
+                - --http-timeout
+                - "120"
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
