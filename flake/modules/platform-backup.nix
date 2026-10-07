@@ -26,7 +26,7 @@ in
       environment.XDG_CACHE_HOME = "/var/cache/platform-backup";
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName}";
+        ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode backup";
         EnvironmentFile = "/persist/platform-backup.env";
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
@@ -39,6 +39,31 @@ in
         OnCalendar = "hourly";
         Persistent = true;
         RandomizedDelaySec = "5m";
+      };
+    };
+
+    systemd.services.platform-backup-maintenance = lib.mkIf (config.networking.hostName == "nas-01") {
+      description = "Prune and verify platform backup repository";
+      path = [
+        pkgs.restic
+      ];
+      environment.PYTHONPATH = toString source;
+      environment.XDG_CACHE_HOME = "/var/cache/platform-backup";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode maintenance";
+        EnvironmentFile = "/persist/platform-backup.env";
+        StateDirectory = "platform-backup";
+        CacheDirectory = "platform-backup";
+        UMask = "0077";
+      };
+    };
+    systemd.timers.platform-backup-maintenance = lib.mkIf (config.networking.hostName == "nas-01") {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "Sun *-*-* 03:00:00";
+        Persistent = true;
+        RandomizedDelaySec = "15m";
       };
     };
   };

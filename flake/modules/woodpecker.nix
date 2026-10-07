@@ -50,7 +50,8 @@ in
 
   config = lib.mkIf cfg.enable {
     systemd.slices.ci.sliceConfig = {
-      MemoryMax = "32G";
+      MemoryHigh = "18G";
+      MemoryMax = "22G";
       CPUQuota = "1000%";
       CPUWeight = 50;
     };
