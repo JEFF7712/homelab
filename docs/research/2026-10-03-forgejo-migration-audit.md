@@ -137,6 +137,15 @@ jobs. A three-workflow green pipeline is not full legacy CI parity.
 
 ### P1: State locking and offsite/platform recovery are absent
 
+**Status 2026-10-06. Stale.** The current stack no longer uses Garage S3
+state for OPNsense/Cloudflare; tofustate flows through the custom tofu-state
+HTTP server (scripts/ci/state.py on TCP/3902, unit tofuState.enable). That
+server has an explicit `locks` table and honors `TF_HTTP_LOCK_ADDRESS` for
+both plans; the tofu backend is `http` instead. Translation: the real
+locking is provided by state.py, and the S3 `use_lockfile` flag never
+applied. `TF_HTTP_LOCK_ADDRESS` is set in every
+config/ci/operations.json tofu stanza accordingly.
+
 Both [OPNsense](../../tofu/opnsense/backend.tf) and
 [Cloudflare](../../tofu/cloudflare/backend.tf) use Garage S3, but omit
 `use_lockfile` and DynamoDB locking. State is therefore unlocked. Woodpecker
