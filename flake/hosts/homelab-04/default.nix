@@ -4,6 +4,7 @@
     ../../modules/common-base.nix
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
+    ../../modules/k3s-registry-client.nix
     ../../modules/monero.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
