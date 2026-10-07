@@ -189,6 +189,10 @@ def configuration(
                     "registry-drift-check",
                     "registry-retention-reconcile",
                     "registry-promote-first-party",
+                    "registry-lock-import",
+                    "opnsense-inventory",
+                    "nas-proof",
+                    "deploy-fleet-dry-run",
                 ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
         return {"configs": configs}
