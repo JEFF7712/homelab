@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo
+  namespace: cloudflare
+spec:
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: forgejo
+  namespace: cloudflare
+subsets:
+  - addresses:
+      - ip: 10.0.30.20
+    ports:
+      - name: http
+        port: 3000

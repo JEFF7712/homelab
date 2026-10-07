@@ -207,7 +207,11 @@
         "/persist/zot/status"
       ];
     };
-    path = [ pkgs.restic ];
+    path = [
+      pkgs.restic
+      pkgs.zfs
+      pkgs.coreutils
+    ];
     script = ''
       export RESTIC_REPOSITORY=/mnt/backup-2tb/registry-restic
       export RESTIC_PASSWORD_FILE=/persist/zot/restic-password
@@ -215,9 +219,17 @@
         restic init
       fi
       restic snapshots >/dev/null
-      restic backup --exclude=/persist/zot/restic-password /tank/registry /persist/zot /var/lib/acme
+
+      snapshot="tank/registry@registry-backup-$(date +%Y%m%dT%H%M%S)"
+      zfs snapshot "$snapshot"
+      cleanup() {
+        zfs destroy "$snapshot" || true
+      }
+      trap cleanup EXIT
+
+      restic backup --exclude=/persist/zot/restic-password "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
       restic forget --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
-      restic check --read-data-subset=1/20
+      restic check --read-data-subset=5%
       date +%s > /persist/zot/status/backup-last-success.tmp
       sync -f /persist/zot/status/backup-last-success.tmp
       mv /persist/zot/status/backup-last-success.tmp /persist/zot/status/backup-last-success

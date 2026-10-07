@@ -39,7 +39,7 @@ spec:
       config: |
         {
           "platform": "forgejo",
-          "endpoint": "http://git.internal:3000/api/v1/",
+          "endpoint": "https://git.rupan.dev/api/v1/",
           "binarySource": "global",
           "autodiscover": true,
           "autodiscoverFilter": [

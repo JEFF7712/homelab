@@ -77,7 +77,7 @@ class AutomationTest(unittest.TestCase):
                 body = json.loads(request.data)
                 self.assertEqual(body["target_branch" if recovery else "base"], "main")
                 self.assertIn(
-                    "gitlab.com" if recovery else "git.internal", request.full_url
+                    "gitlab.com" if recovery else "git.rupan.dev", request.full_url
                 )
 
     def test_gitlab_maps_role_secrets_and_file_variables(self) -> None:
@@ -194,3 +194,27 @@ class AutomationTest(unittest.TestCase):
             configuration("same", "same")
         with self.assertRaises(ValueError):
             configuration("", "operations")
+
+    def test_forgejo_https_configuration_contract(self) -> None:
+        forgejo_nix = (ROOT / "flake/modules/forgejo.nix").read_text()
+        self.assertIn('default = "git.rupan.dev";', forgejo_nix)
+        self.assertIn('ROOT_URL = "https://${cfg.hostName}/";', forgejo_nix)
+        self.assertIn("DOMAIN = cfg.hostName;", forgejo_nix)
+        self.assertIn("virtualHosts.${cfg.hostName}", forgejo_nix)
+        self.assertIn("onlySSL = true;", forgejo_nix)
+        self.assertIn("useACMEHost = cfg.hostName;", forgejo_nix)
+        self.assertIn('dnsProvider = "cloudflare";', forgejo_nix)
+
+        nas_nix = (ROOT / "flake/hosts/nas-01/default.nix").read_text()
+        self.assertIn("homelab.forgejo", nas_nix)
+        self.assertIn('acmeEmail = "rupanpandyan@gmail.com";', nas_nix)
+
+        woodpecker_nix = (ROOT / "flake/modules/woodpecker.nix").read_text()
+        self.assertIn('default = "https://git.rupan.dev";', woodpecker_nix)
+        self.assertIn('"git.rupan.dev"', woodpecker_nix)
+
+        adguard_nix = (ROOT / "flake/modules/adguard-netbird/adguard.nix").read_text()
+        self.assertIn('"git.rupan.dev"', adguard_nix)
+
+        coredns = (ROOT / "gitops/platform/coredns-custom.yaml").read_text()
+        self.assertIn("10.0.30.20 git.rupan.dev", coredns)

@@ -42,7 +42,7 @@ def main() -> None:
     base = (
         "https://gitlab.com/api/v4/projects/85910419/merge_requests"
         if recovery
-        else "http://git.internal:3000/api/v1/repos/JEFF7712/homelab/pulls"
+        else "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls"
     )
     headers = {"Content-Type": "application/json"}
     headers.update(
@@ -85,11 +85,9 @@ def main() -> None:
         remote = (
             "https://gitlab.com/JEFF7712/homelab.git"
             if recovery
-            else "http://git.internal:3000/JEFF7712/homelab.git"
+            else "https://git.rupan.dev/JEFF7712/homelab.git"
         )
-        credential_host = (
-            "https://gitlab.com" if recovery else "http://git.internal:3000"
-        )
+        credential_host = "https://gitlab.com" if recovery else "https://git.rupan.dev"
         helper = Path(temporary) / "credential"
         helper.write_text(
             '#!/usr/bin/env bash\nif [[ $1 == get ]]; then\n  printf "%s\\n" "username=$CI_PUBLISH_USERNAME" "password=$CI_PUBLISH_TOKEN"\nfi\n'

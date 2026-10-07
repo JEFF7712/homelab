@@ -40,7 +40,7 @@ in
     };
     forgejoUrl = lib.mkOption {
       type = lib.types.str;
-      default = "http://git.internal:3000";
+      default = "https://git.rupan.dev";
     };
     forgejoClientId = lib.mkOption {
       type = lib.types.str;
@@ -50,7 +50,8 @@ in
 
   config = lib.mkIf cfg.enable {
     systemd.slices.ci.sliceConfig = {
-      MemoryMax = "32G";
+      MemoryHigh = "18G";
+      MemoryMax = "22G";
       CPUQuota = "1000%";
       CPUWeight = 50;
     };
@@ -152,6 +153,7 @@ in
       # woodpecker host also enables, so it is not repeated here.
       "10.0.30.20" = [
         "git.internal"
+        "git.rupan.dev"
         "s3.internal"
       ];
       "10.0.30.14" = [ "ci.internal" ];

@@ -30,7 +30,7 @@ def current_source(environment: dict[str, str]) -> None:
         current = remote[0] if remote else ""
     else:
         request = urllib.request.Request(
-            "http://git.internal:3000/api/v1/repos/JEFF7712/homelab/branches/main",
+            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
             headers={
                 "Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]
             },

@@ -22,7 +22,10 @@ fi
 CREDENTIAL
 chmod 0700 "$mirror_work/source-credential"
 source_git() {
-  git -c credential.helper= -c "credential.http://git.internal:3000.helper=$mirror_work/source-credential" "$@"
+  git -c credential.helper= \
+    -c "credential.http://git.internal:3000.helper=$mirror_work/source-credential" \
+    -c "credential.https://git.rupan.dev.helper=$mirror_work/source-credential" \
+    "$@"
 }
 source_is_current() {
   local tip
@@ -57,11 +60,12 @@ chmod 0700 "$mirror_work/credential"
 mirror_git() {
   git -c credential.helper= \
     -c "credential.http://git.internal:3000.helper=$mirror_work/source-credential" \
+    -c "credential.https://git.rupan.dev.helper=$mirror_work/source-credential" \
     -c "credential.https://github.com.helper=$mirror_work/credential" "$@"
 }
 
 mirror_warning="**NOTE - This repository is a mirror.** Active development happens "
-mirror_warning+="on [Forgejo](http://git.internal:3000/JEFF7712/homelab)."
+mirror_warning+="on [Forgejo](https://git.rupan.dev/JEFF7712/homelab)."
 readme=$(cat README.md)
 printf '%s\n\n%s' "$mirror_warning" "$readme" > README.md
 git add README.md

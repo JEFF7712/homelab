@@ -29,7 +29,10 @@
   # shared-spaces LedFx instance: no shared device, virtual, or scene.
   homelab.ledfxBedroom.enable = true;
 
-  homelab.forgejo.enable = true;
+  homelab.forgejo = {
+    enable = true;
+    acmeEmail = "rupanpandyan@gmail.com";
+  };
   homelab.s3.enable = true;
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;

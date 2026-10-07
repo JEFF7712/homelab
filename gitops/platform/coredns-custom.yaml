@@ -5,11 +5,12 @@ metadata:
   namespace: kube-system
 data:
   registry.server: |
-    registry.rupan.dev:53 {
+    registry.rupan.dev:53 git.rupan.dev:53 {
         errors
         cache 30
         hosts {
             10.0.30.20 registry.rupan.dev
+            10.0.30.20 git.rupan.dev
             fallthrough
         }
         forward . /etc/resolv.conf

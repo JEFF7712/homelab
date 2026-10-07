@@ -10,6 +10,11 @@ in
 {
   options.homelab.forgejo = {
     enable = lib.mkEnableOption "Forgejo Git service on nas-01";
+    hostName = lib.mkOption {
+      type = lib.types.str;
+      default = "git.rupan.dev";
+      description = "Public domain name for Forgejo HTTPS interface.";
+    };
     httpPort = lib.mkOption {
       type = lib.types.port;
       default = 3000;
@@ -20,13 +25,63 @@ in
       default = 2222;
       description = "SSH listen port for Forgejo built-in SSH server.";
     };
+    acmeEmail = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Contact email for Forgejo ACME TLS certificate.";
+    };
+    cloudflareTokenFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/persist/zot/cloudflare-dns-api-token";
+      description = "Path to Cloudflare DNS API token file for DNS-01 validation.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.acmeEmail != null;
+        message = "homelab.forgejo.acmeEmail must be set when Forgejo is enabled";
+      }
+    ];
+
     networking.firewall.allowedTCPPorts = [
       cfg.httpPort
       cfg.sshPort
     ];
+
+    networking.hosts = {
+      "10.0.30.20" = [ cfg.hostName ];
+    };
+
+    services.nginx = {
+      enable = true;
+      recommendedOptimisation = true;
+      recommendedProxySettings = true;
+      recommendedTlsSettings = true;
+      virtualHosts.${cfg.hostName} = {
+        onlySSL = true;
+        useACMEHost = cfg.hostName;
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:${toString cfg.httpPort}";
+          proxyWebsockets = true;
+          extraConfig = ''
+            client_max_body_size 512M;
+          '';
+        };
+      };
+    };
+
+    security.acme = lib.mkIf (cfg.acmeEmail != null) {
+      acceptTerms = true;
+      defaults.email = lib.mkDefault cfg.acmeEmail;
+      certs.${cfg.hostName} = {
+        email = cfg.acmeEmail;
+        dnsProvider = "cloudflare";
+        credentialFiles.CF_DNS_API_TOKEN_FILE = cfg.cloudflareTokenFile;
+        group = "nginx";
+      };
+    };
 
     systemd.tmpfiles.rules = [
       "d /persist/forgejo 0750 forgejo forgejo -"
@@ -48,8 +103,8 @@ in
           APP_NAME = "Homelab Git";
         };
         server = {
-          DOMAIN = "git.internal";
-          ROOT_URL = "http://git.internal:${toString cfg.httpPort}/";
+          DOMAIN = cfg.hostName;
+          ROOT_URL = "https://${cfg.hostName}/";
           HTTP_ADDR = "0.0.0.0";
           HTTP_PORT = cfg.httpPort;
           SSH_PORT = cfg.sshPort;
