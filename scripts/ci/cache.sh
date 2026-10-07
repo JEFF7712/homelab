@@ -21,7 +21,8 @@ nix build --no-link --print-out-paths \
   "$flake#checks.x86_64-linux.agent-workspace-packet-flow" \
   "$flake#checks.x86_64-linux.agent-workspace-host-reservations" \
   "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization" \
-  "$flake#checks.x86_64-linux.zot-registry" > "$cache_work/paths"
+  "$flake#checks.x86_64-linux.zot-registry" \
+  "$flake#devShells.x86_64-linux.default" > "$cache_work/paths"
 
 if [[ -z "${ATTIC_TOKEN:-}" ]]; then
   echo "Build succeeded; ATTIC_TOKEN is not set, so upload is skipped."

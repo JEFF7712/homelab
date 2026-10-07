@@ -24,9 +24,18 @@ during upgrades. Deployment rights remain restricted to project operators.
 
 ## Validation and operations
 
-Push, PR, tag, manual, and cron events run validation-v2: dependency provisioning,
-formatting, the production Jev decision fixture gate, and the full offline gate. The
-required Forgejo status is ci/woodpecker/validation-v2. Validation has no secrets.
+Push, PR, tag, manual, and cron events run validation-v2: dependency
+provisioning, formatting, the production Jev decision fixture gate, and
+the full offline gate. Provisioning runs first (the OpenTofu gate fails
+when locked providers are absent); formatting, the Jev gate, and the
+full offline gate then run concurrently in the same container, and the
+step fails when any of them fails. All pipelines resolve the dev shell
+and build outputs from the local Attic substituter
+(http://10.0.30.20:8080/homelab), so nix develop fetches prebuilt
+paths instead of downloading or rebuilding them per run;
+just cache-populate and the cache-publish operation keep the dev shells
+in that cache. The required Forgejo status is ci/woodpecker/validation-v2.
+Validation has no secrets.
 PRs never receive production workflows, regardless of target branch or YAML.
 
 A current main push additionally runs opnsense-plan, cloudflare-plan, and

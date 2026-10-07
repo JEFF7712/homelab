@@ -28,7 +28,13 @@ from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import current_source, pack, unpack
 from scripts.ci.platform_backup import snapshot_database
-from scripts.ci.policy import DEPLOY_AUTHORS, VALIDATION, configuration, verify_request
+from scripts.ci.policy import (
+    DEPLOY_AUTHORS,
+    VALIDATION,
+    VALIDATION_COMMAND,
+    configuration,
+    verify_request,
+)
 from scripts.ci.prepare_platform import certificate, clone_environment
 from scripts.ci.state import Store, handler
 
@@ -154,8 +160,8 @@ class PolicyTest(unittest.TestCase):
             self.assertEqual(workflow["labels"], {"tier": "sandbox", "type": "docker"})
             self.assertNotIn("CI_LINT_EXTERNAL", workflow["steps"][0]["environment"])
             self.assertEqual(
-                workflow["steps"][0]["commands"][-1],
-                "nix develop ./flake -c just check",
+                workflow["steps"][0]["commands"],
+                [VALIDATION_COMMAND],
             )
             self.assertNotIn("from_secret", json.dumps(workflow))
 

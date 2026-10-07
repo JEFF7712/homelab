@@ -18,7 +18,25 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 IMAGE = "nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
-NIX_CONFIG = "experimental-features = nix-command flakes\naccept-flake-config = true\nsandbox = false\nmax-jobs = 1\ncores = 2\n"
+NIX_CONFIG = (
+    "experimental-features = nix-command flakes\n"
+    "accept-flake-config = true\n"
+    "sandbox = false\n"
+    "max-jobs = 1\n"
+    "cores = 2\n"
+    "extra-substituters = http://10.0.30.20:8080/homelab\n"
+    "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
+)
+# One dev-shell resolution for the whole gate. Dependency provisioning
+# must complete first: tofu.sh fails the full gate when the locked
+# providers are absent. Formatting and the Jev fixture gate are fast
+# and read-only, so they run concurrently with the full offline gate
+# and the step fails when any of the three waits reports failure.
+VALIDATION_COMMAND = (
+    "nix develop ./flake -c bash -e -c 'just provision-check-deps; "
+    "just fmt-check & f=$!; python scripts/jev_decision_gate.py & j=$!; "
+    'just check & c=$!; wait "$f" && wait "$j" && wait "$c"\''
+)
 
 # Forgejo identities permitted to trigger manual deployments. The machine user
 # holds operator rights by explicit decision: its token is scoped, revocable,
@@ -165,12 +183,7 @@ def configuration(
                         "name": VALIDATION,
                         "image": IMAGE,
                         "environment": {"NIX_CONFIG": NIX_CONFIG},
-                        "commands": [
-                            "nix develop ./flake -c just provision-check-deps",
-                            "nix develop ./flake -c just fmt-check",
-                            "nix develop ./flake -c python scripts/jev_decision_gate.py",
-                            "nix develop ./flake -c just check",
-                        ],
+                        "commands": [VALIDATION_COMMAND],
                     }
                 ],
             },

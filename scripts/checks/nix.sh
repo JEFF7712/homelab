@@ -21,5 +21,21 @@ hosts=(
 )
 if [[ $target != all ]]; then hosts=("$target"); fi
 if [[ "${SKIP_NIX_EVAL:-0}" != "1" ]]; then
-  for host in "${hosts[@]}"; do nix eval --no-write-lock-file "path:.?dir=flake#nixosConfigurations.${host}.config.system.build.toplevel.drvPath" >/dev/null; done
+  # One process evaluates every host's toplevel derivation graph.
+  # nix eval accepts a single installable, so nix build --dry-run
+  # evaluates all targets in one flake evaluation without building
+  # or fetching anything. The plan goes to stderr and is only
+  # surfaced when the gate fails.
+  eval_targets=()
+  for host in "${hosts[@]}"; do
+    eval_targets+=(
+      "path:.?dir=flake#nixosConfigurations.${host}.config.system.build.toplevel"
+    )
+  done
+  plan_err="$(mktemp)"
+  trap 'rm -f "$plan_err"' EXIT
+  if ! nix build --dry-run --no-link "${eval_targets[@]}" 2>"$plan_err"; then
+    cat "$plan_err" >&2
+    exit 1
+  fi
 fi
