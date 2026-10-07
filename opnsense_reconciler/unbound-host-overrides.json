@@ -30,5 +30,37 @@
     "server": "10.0.40.12",
     "description": "Adopted pre-existing override: ntfy load-balancer VIP, verified live 2026-10-06",
     "enabled": "1"
+  },
+  {
+    "hostname": "ci",
+    "domain": "internal",
+    "rr": "A",
+    "server": "10.0.30.14",
+    "description": "Mirror of the AdGuard rewrite: Woodpecker CI. The secondary resolver has no overrides, so without this a resolved degradation drops Forgejo webhook deliveries with no retry.",
+    "enabled": "1"
+  },
+  {
+    "hostname": "git",
+    "domain": "internal",
+    "rr": "A",
+    "server": "10.0.30.20",
+    "description": "Mirror of the AdGuard rewrite: Forgejo.",
+    "enabled": "1"
+  },
+  {
+    "hostname": "s3",
+    "domain": "internal",
+    "rr": "A",
+    "server": "10.0.30.20",
+    "description": "Mirror of the AdGuard rewrite: S3 state and artifact backend.",
+    "enabled": "1"
+  },
+  {
+    "hostname": "opnsense",
+    "domain": "internal",
+    "rr": "A",
+    "server": "192.168.1.1",
+    "description": "Mirror of the AdGuard rewrite for OPNsense.internal.",
+    "enabled": "1"
   }
 ]

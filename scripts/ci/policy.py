@@ -203,6 +203,10 @@ def configuration(
                 ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
             elif event == "cron" and pipeline.get("cron") == "maintenance":
+                # The watchdog reports missing or stuck validation, so it
+                # runs ungated: depending on validation would silence exactly
+                # the outage it watches for.
+                operation_workflow("webhook-watchdog", "${CI_PIPELINE_NUMBER}", [])
                 for target in [
                     "registry-drift-check",
                     "registry-retention-reconcile",
