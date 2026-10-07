@@ -21,3 +21,7 @@ spec:
       kind: Deployment
       name: pod-agent-discord-bot
       namespace: pod-agent
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: pod-agent-antigravity-keyring
+      namespace: pod-agent

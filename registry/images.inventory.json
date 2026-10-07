@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-06T01:18:05+00:00",
+  "generated_at": "2026-10-07T17:06:16+00:00",
   "images": [
     {
       "consumers": [
@@ -42,6 +42,27 @@
         "reference": "registry.rupan.dev/apps/bookshelf@sha256:4702dab6bcb5583c99bb088137aab03343539d9f7086327f0d94ec691fa68c7e",
         "registry": "registry.rupan.dev",
         "repository": "apps/bookshelf",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/websites/bus-display/deployment.yaml:23"
+      ],
+      "destination_repository": "apps/bus-display",
+      "id": "first-party-apps-bus-display-54431734056f",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/bus-display",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+        "reference": "registry.rupan.dev/apps/bus-display@sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/bus-display",
         "tag": null
       }
     },
@@ -223,7 +244,6 @@
     },
     {
       "consumers": [
-        "gitops/websites/nixagent/deployment.yaml:39",
         "observed:nixagent/website-deploy-5d9cf455b-5swbv/web"
       ],
       "destination_repository": "apps/nix-agent-site",
@@ -238,6 +258,27 @@
       "source": {
         "digest": "sha256:4ee2db56de5f890be912583e1f8c895598ece1b2abba149072eb78dcf931d8e9",
         "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:4ee2db56de5f890be912583e1f8c895598ece1b2abba149072eb78dcf931d8e9",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/nix-agent-site",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/websites/nixagent/deployment.yaml:39"
+      ],
+      "destination_repository": "apps/nix-agent-site",
+      "id": "first-party-apps-nix-agent-site-8e9e82363567",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/nix-agent-site",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
+        "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
         "tag": null
@@ -267,6 +308,8 @@
     },
     {
       "consumers": [
+        "gitops/pod-agent/antigravity-keyring.yaml:30",
+        "gitops/pod-agent/antigravity-keyring.yaml:52",
         "gitops/pod-agent/cronjobs-daily.yaml:111",
         "gitops/pod-agent/cronjobs-daily.yaml:130",
         "gitops/pod-agent/cronjobs-daily.yaml:202",
@@ -325,7 +368,7 @@
         "observed:pod-agent/pod-agent-discord-bot-5c674b678-k4xn4/bot"
       ],
       "destination_repository": "apps/pod-agent",
-      "id": "first-party-apps-pod-agent-fde09ed8d835",
+      "id": "first-party-apps-pod-agent-8ab400fdbb04",
       "kind": "first-party",
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/pod-agent",
@@ -334,8 +377,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
-        "reference": "registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
+        "digest": "sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2",
+        "reference": "registry.rupan.dev/apps/pod-agent@sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
         "tag": null
@@ -511,6 +554,23 @@
         "registry": "docker.io",
         "repository": "brainicism/bgutil-ytdlp-pot-provider",
         "tag": "2.0.0"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/music-assistant/server.yaml:90"
+      ],
+      "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
+      "id": "upstream-brainicism-bgutil-ytdlp-pot-provider-cb01e15fb70a",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
+        "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.1@sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
+        "registry": "docker.io",
+        "repository": "brainicism/bgutil-ytdlp-pot-provider",
+        "tag": "2.0.1"
       }
     },
     {
@@ -2059,44 +2119,6 @@
         "repository": "upstream/registry.k8s.io/sig-storage/nfs-subdir-external-provisioner",
         "tag": null
       }
-    },
-    {
-      "consumers": [
-        "gitops/music-assistant/server.yaml:90"
-      ],
-      "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
-      "id": "upstream-brainicism-bgutil-ytdlp-pot-provider-cb01e15fb70a",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
-        "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.1@sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d",
-        "registry": "docker.io",
-        "repository": "brainicism/bgutil-ytdlp-pot-provider",
-        "tag": "2.0.1"
-      }
-    },
-    {
-      "consumers": [
-        "gitops/websites/bus-display/deployment.yaml:23"
-      ],
-      "destination_repository": "apps/bus-display",
-      "id": "first-party-apps-bus-display-54431734056f",
-      "kind": "first-party",
-      "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/bus-display",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
-        "reference": "registry.rupan.dev/apps/bus-display@sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/bus-display",
-        "tag": null
-      }
     }
   ],
   "kind": "registry-inventory",
@@ -2111,7 +2133,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "e3ed062e181daa2b85782e5b25d968007befa936",
+  "source_revision": "41df2b8fabe880bb17c645ca9f6067195a1757b1",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2127,6 +2149,14 @@
       "consumer": "gitops/media/books.yaml:147,observed:media/bookshelf-7d7b9b9f75-b6ns2/bookshelf",
       "id": "producer:first-party-apps-bookshelf-83e7b0115ace",
       "input": "registry.rupan.dev/apps/bookshelf@sha256:4702dab6bcb5583c99bb088137aab03343539d9f7086327f0d94ec691fa68c7e",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/bus-display/deployment.yaml:23",
+      "id": "producer:first-party-apps-bus-display-54431734056f",
+      "input": "registry.rupan.dev/apps/bus-display@sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
@@ -2196,9 +2226,17 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/nixagent/deployment.yaml:39,observed:nixagent/website-deploy-5d9cf455b-5swbv/web",
+      "consumer": "observed:nixagent/website-deploy-5d9cf455b-5swbv/web",
       "id": "producer:first-party-apps-nix-agent-site-24187a61782c",
       "input": "registry.rupan.dev/apps/nix-agent-site@sha256:4ee2db56de5f890be912583e1f8c895598ece1b2abba149072eb78dcf931d8e9",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/nixagent/deployment.yaml:39",
+      "id": "producer:first-party-apps-nix-agent-site-8e9e82363567",
+      "input": "registry.rupan.dev/apps/nix-agent-site@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
@@ -2212,9 +2250,9 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/pod-agent/cronjobs-daily.yaml:30,gitops/pod-agent/cronjobs-daily.yaml:111,gitops/pod-agent/cronjobs-daily.yaml:130,gitops/pod-agent/cronjobs-daily.yaml:202,gitops/pod-agent/cronjobs-daily.yaml:221,gitops/pod-agent/cronjobs-daily.yaml:291,gitops/pod-agent/cronjobs-daily.yaml:310,gitops/pod-agent/cronjobs-daily.yaml:382,gitops/pod-agent/cronjobs-daily.yaml:401,gitops/pod-agent/cronjobs-frequent.yaml:29,gitops/pod-agent/cronjobs-frequent.yaml:48,gitops/pod-agent/cronjobs-frequent.yaml:117,gitops/pod-agent/cronjobs-frequent.yaml:136,gitops/pod-agent/cronjobs-frequent.yaml:206,gitops/pod-agent/cronjobs-frequent.yaml:225,gitops/pod-agent/cronjobs-frequent.yaml:294,gitops/pod-agent/cronjobs-frequent.yaml:365,gitops/pod-agent/cronjobs-frequent.yaml:384,gitops/pod-agent/cronjobs-weekly.yaml:30,gitops/pod-agent/cronjobs-weekly.yaml:99,gitops/pod-agent/cronjobs-weekly.yaml:118,gitops/pod-agent/cronjobs-weekly.yaml:187,gitops/pod-agent/cronjobs-weekly.yaml:206,gitops/pod-agent/cronjobs-weekly.yaml:278,gitops/pod-agent/cronjobs-weekly.yaml:297,gitops/pod-agent/dashboard.yaml:28,gitops/pod-agent/dashboard.yaml:50,gitops/pod-agent/discord-bot.yaml:29,observed:pod-agent/cronjob-pod-agent-backup/backup,observed:pod-agent/cronjob-pod-agent-cycle/cycle,observed:pod-agent/cronjob-pod-agent-cycle/wait-for-network,observed:pod-agent/cronjob-pod-agent-discover/discover,observed:pod-agent/cronjob-pod-agent-discover/wait-for-network,observed:pod-agent/cronjob-pod-agent-email-watch/email-watch,observed:pod-agent/cronjob-pod-agent-email-watch/wait-for-network,observed:pod-agent/cronjob-pod-agent-learn/learn,observed:pod-agent/cronjob-pod-agent-learn/wait-for-network,observed:pod-agent/cronjob-pod-agent-oauth-refresh/oauth-refresh,observed:pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network,observed:pod-agent/cronjob-pod-agent-observe/observe,observed:pod-agent/cronjob-pod-agent-observe/wait-for-network,observed:pod-agent/cronjob-pod-agent-planner-recovery/planner-recovery,observed:pod-agent/cronjob-pod-agent-planner-recovery/wait-for-network,observed:pod-agent/cronjob-pod-agent-price/price,observed:pod-agent/cronjob-pod-agent-price/wait-for-network,observed:pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge,observed:pod-agent/cronjob-pod-agent-shipping/shipping,observed:pod-agent/cronjob-pod-agent-shipping/wait-for-network,observed:pod-agent/cronjob-pod-agent-sweep/sweep,observed:pod-agent/cronjob-pod-agent-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep,observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-watchdog/watchdog,observed:pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/dashboard,observed:pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/seed-memory,observed:pod-agent/pod-agent-discord-bot-5c674b678-k4xn4/bot",
-      "id": "producer:first-party-apps-pod-agent-fde09ed8d835",
-      "input": "registry.rupan.dev/apps/pod-agent@sha256:c13b422eac2b63e7b2e8dce018b9b14c3f77da1840c115ae1cd7b9dbcf5c135c",
+      "consumer": "gitops/pod-agent/antigravity-keyring.yaml:30,gitops/pod-agent/antigravity-keyring.yaml:52,gitops/pod-agent/cronjobs-daily.yaml:30,gitops/pod-agent/cronjobs-daily.yaml:111,gitops/pod-agent/cronjobs-daily.yaml:130,gitops/pod-agent/cronjobs-daily.yaml:202,gitops/pod-agent/cronjobs-daily.yaml:221,gitops/pod-agent/cronjobs-daily.yaml:291,gitops/pod-agent/cronjobs-daily.yaml:310,gitops/pod-agent/cronjobs-daily.yaml:382,gitops/pod-agent/cronjobs-daily.yaml:401,gitops/pod-agent/cronjobs-frequent.yaml:29,gitops/pod-agent/cronjobs-frequent.yaml:48,gitops/pod-agent/cronjobs-frequent.yaml:117,gitops/pod-agent/cronjobs-frequent.yaml:136,gitops/pod-agent/cronjobs-frequent.yaml:206,gitops/pod-agent/cronjobs-frequent.yaml:225,gitops/pod-agent/cronjobs-frequent.yaml:294,gitops/pod-agent/cronjobs-frequent.yaml:365,gitops/pod-agent/cronjobs-frequent.yaml:384,gitops/pod-agent/cronjobs-weekly.yaml:30,gitops/pod-agent/cronjobs-weekly.yaml:99,gitops/pod-agent/cronjobs-weekly.yaml:118,gitops/pod-agent/cronjobs-weekly.yaml:187,gitops/pod-agent/cronjobs-weekly.yaml:206,gitops/pod-agent/cronjobs-weekly.yaml:278,gitops/pod-agent/cronjobs-weekly.yaml:297,gitops/pod-agent/dashboard.yaml:28,gitops/pod-agent/dashboard.yaml:50,gitops/pod-agent/discord-bot.yaml:29,observed:pod-agent/cronjob-pod-agent-backup/backup,observed:pod-agent/cronjob-pod-agent-cycle/cycle,observed:pod-agent/cronjob-pod-agent-cycle/wait-for-network,observed:pod-agent/cronjob-pod-agent-discover/discover,observed:pod-agent/cronjob-pod-agent-discover/wait-for-network,observed:pod-agent/cronjob-pod-agent-email-watch/email-watch,observed:pod-agent/cronjob-pod-agent-email-watch/wait-for-network,observed:pod-agent/cronjob-pod-agent-learn/learn,observed:pod-agent/cronjob-pod-agent-learn/wait-for-network,observed:pod-agent/cronjob-pod-agent-oauth-refresh/oauth-refresh,observed:pod-agent/cronjob-pod-agent-oauth-refresh/wait-for-network,observed:pod-agent/cronjob-pod-agent-observe/observe,observed:pod-agent/cronjob-pod-agent-observe/wait-for-network,observed:pod-agent/cronjob-pod-agent-planner-recovery/planner-recovery,observed:pod-agent/cronjob-pod-agent-planner-recovery/wait-for-network,observed:pod-agent/cronjob-pod-agent-price/price,observed:pod-agent/cronjob-pod-agent-price/wait-for-network,observed:pod-agent/cronjob-pod-agent-privacy-purge/privacy-purge,observed:pod-agent/cronjob-pod-agent-shipping/shipping,observed:pod-agent/cronjob-pod-agent-shipping/wait-for-network,observed:pod-agent/cronjob-pod-agent-sweep/sweep,observed:pod-agent/cronjob-pod-agent-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep,observed:pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network,observed:pod-agent/cronjob-pod-agent-watchdog/watchdog,observed:pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/dashboard,observed:pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/seed-memory,observed:pod-agent/pod-agent-discord-bot-5c674b678-k4xn4/bot",
+      "id": "producer:first-party-apps-pod-agent-8ab400fdbb04",
+      "input": "registry.rupan.dev/apps/pod-agent@sha256:6a31496b372b69c3847c20cf1859df625e8c3b47e8eef2c4009fa7297264b2e2",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
