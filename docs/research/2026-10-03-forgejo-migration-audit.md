@@ -100,8 +100,10 @@ tier) plus the `opnsense-plan`, `cloudflare-plan`, `sync-to-github`, and
 [policy.py](../../scripts/ci/policy.py), and a 10-minute maintenance cron
 (via Woodpecker cron named `maintenance`) that fans out to
 `registry-drift-check`, `registry-retention-reconcile`,
-`registry-promote-first-party`, `registry-lock-import`, `opnsense-inventory`,
-`nas-proof`, and `deploy-fleet-dry-run`. Maintenance cron and the deployment
+`registry-promote-first-party`, `registry-resolve`, `registry-auth-consistency`,
+`registry-gc-fixture`, `opnsense-plan`, `opnsense-dataplane`, `opnsense-inventory`,
+`nas-proof`, `deploy-fleet-dry-run`, `deploy-agent-workspace-host-dry-run`,
+`deploy-home-assistant-dry-run`. Maintenance cron and the deployment
 events required the corresponding Woodpecker repo secrets to be widened
 to include the `cron` event for the secrets their operations consume
 (`ssh_deploy_key`, `hosts_known`, `registry_importer_auth_file`,
