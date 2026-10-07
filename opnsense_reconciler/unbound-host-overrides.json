@@ -56,6 +56,14 @@
     "enabled": "1"
   },
   {
+    "hostname": "git",
+    "domain": "rupan.dev",
+    "rr": "A",
+    "server": "10.0.30.20",
+    "description": "Mirror of the AdGuard rewrite: Forgejo HTTPS. CI clones must resolve it even when the secondary resolver is in use.",
+    "enabled": "1"
+  },
+  {
     "hostname": "opnsense",
     "domain": "internal",
     "rr": "A",
