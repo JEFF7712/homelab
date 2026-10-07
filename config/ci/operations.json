@@ -1,7 +1,7 @@
 {
   "registry-auth-consistency": {
     "commands": [
-      "nix develop ./flake -c python -m scripts.ci.run registry-auth -- bash -euo pipefail -c 'just registry-check-auth'"
+      "python -m scripts.ci.run registry-auth -- bash -euo pipefail -c 'just registry-check-auth'"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "plan",
@@ -54,9 +54,9 @@
   },
   "registry-drift-check": {
     "commands": [
-      "nix develop ./flake -c python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
+      "python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c python -m scripts.ci.run registry-drift -- bash -euo pipefail -c 'rc=0; python -m scripts.registry verify --lock registry/images.lock.json --report artifacts/registry/drift-report.json || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify registry-drift artifacts/registry/drift-report.json || true; fi; exit $rc'"
+      "python -m scripts.ci.run registry-drift -- bash -euo pipefail -c 'rc=0; python -m scripts.registry verify --lock registry/images.lock.json --report artifacts/registry/drift-report.json || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify registry-drift artifacts/registry/drift-report.json || true; fi; exit $rc'"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "plan",
@@ -89,7 +89,7 @@
   },
   "registry-gc-fixture": {
     "commands": [
-      "nix develop ./flake -c just registry-gc-fixture"
+      "just registry-gc-fixture"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "plan",
@@ -120,7 +120,7 @@
     "commands": [
       "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_MAINTENANCE_AUTH_FILE\"",
       "export REGISTRY_SOURCE_AUTH_FILE=\"$REGISTRY_MAINTENANCE_AUTH_FILE\"",
-      "nix develop ./flake -c python -m scripts.ci.run registry-retention -- bash -euo pipefail -c 'just registry-reconcile-retention'"
+      "python -m scripts.ci.run registry-retention -- bash -euo pipefail -c 'just registry-reconcile-retention'"
     ],
     "environment": {
       "REGISTRY_MAINTENANCE_AUTH_FILE": {
@@ -158,12 +158,12 @@
   "registry-resolve": {
     "commands": [
       "export REGISTRY_SOURCE_AUTH_FILE",
-      "nix develop ./flake -c python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
+      "python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
       "mkdir -p artifacts/registry",
-      "nix develop ./flake -c python -m scripts.registry inventory --output artifacts/registry/images.inventory.json",
-      "nix develop ./flake -c python -m scripts.registry resolve --inventory artifacts/registry/images.inventory.json --output artifacts/registry/images.lock.candidate.json",
-      "nix develop ./flake -c python -m scripts.registry plan --lock artifacts/registry/images.lock.candidate.json > artifacts/registry/copy-plan.candidate.json"
+      "python -m scripts.registry inventory --output artifacts/registry/images.inventory.json",
+      "python -m scripts.registry resolve --inventory artifacts/registry/images.inventory.json --output artifacts/registry/images.lock.candidate.json",
+      "python -m scripts.registry plan --lock artifacts/registry/images.lock.candidate.json > artifacts/registry/copy-plan.candidate.json"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "plan",
@@ -201,11 +201,11 @@
   "registry-promote-first-party": {
     "commands": [
       "export REGISTRY_SOURCE_AUTH_FILE",
-      "nix develop ./flake -c python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
+      "python -c 'import base64, json, os; password = open(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read().strip(); assert password, \"node registry password is empty\"; auth = base64.b64encode(f\"node:{password}\".encode()).decode(); fd = os.open(\"/tmp/registry-node-auth.json\", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); handle = os.fdopen(fd, \"w\"); json.dump({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, handle); handle.close()'",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json | tee promote-report.json",
-      "nix develop ./flake -c bash -c 'just check-registry'",
-      "nix develop ./flake -c python -m scripts.ci.promote_commit"
+      "python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json | tee promote-report.json",
+      "bash -c 'just check-registry'",
+      "python -m scripts.ci.promote_commit"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "deploy",
@@ -247,8 +247,8 @@
     "commands": [
       "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_IMPORTER_AUTH_FILE\"",
       "export REGISTRY_SOURCE_AUTH_FILE",
-      "nix develop ./flake -c python -m scripts.registry copy --lock artifacts/registry/images.lock.candidate.json --kind upstream --report artifacts/registry/update-import-report.json",
-      "nix develop ./flake -c python -m scripts.registry verify --lock artifacts/registry/images.lock.candidate.json --kind upstream --report artifacts/registry/update-verify-report.json"
+      "python -m scripts.registry copy --lock artifacts/registry/images.lock.candidate.json --kind upstream --report artifacts/registry/update-import-report.json",
+      "python -m scripts.registry verify --lock artifacts/registry/images.lock.candidate.json --kind upstream --report artifacts/registry/update-verify-report.json"
     ],
     "environment": {
       "REGISTRY_IMPORTER_AUTH_FILE": {
@@ -289,8 +289,8 @@
     "commands": [
       "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_IMPORTER_AUTH_FILE\"",
       "export REGISTRY_SOURCE_AUTH_FILE",
-      "nix develop ./flake -c python -m scripts.registry copy --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-import-report.json",
-      "nix develop ./flake -c python -m scripts.registry verify --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-verify-report.json"
+      "python -m scripts.registry copy --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-import-report.json",
+      "python -m scripts.registry verify --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-verify-report.json"
     ],
     "environment": {
       "REGISTRY_IMPORTER_AUTH_FILE": {
@@ -336,9 +336,9 @@
       "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
-      "nix develop ./flake -c python -m unittest tests.test_registry_jarvis_publisher",
-      "nix develop ./flake -c just check-registry",
-      "nix develop ./flake -c python -m scripts.registry.provision_jarvis"
+      "python -m unittest tests.test_registry_jarvis_publisher",
+      "just check-registry",
+      "python -m scripts.registry.provision_jarvis"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -386,9 +386,9 @@
       "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
-      "nix develop ./flake -c python -m unittest tests.test_registry_pod_agent_publisher",
-      "nix develop ./flake -c just check-registry",
-      "nix develop ./flake -c python -m scripts.registry.provision_pod_agent"
+      "python -m unittest tests.test_registry_pod_agent_publisher",
+      "just check-registry",
+      "python -m scripts.registry.provision_pod_agent"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -438,7 +438,7 @@
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo zfs list tank/registry >/dev/null 2>&1 || sudo zfs create -o mountpoint=legacy tank/registry; sudo install -d -m 0750 -o root -g root /tank/registry /persist/zot /persist/zot/status'",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/htpasswd' < \"$REGISTRY_HTPASSWD_FILE\"",
-      "nix develop ./flake -c python -m scripts.registry access-control --lock registry/images.lock.json --output /tmp/zot-access-control.json",
+      "python -m scripts.registry access-control --lock registry/images.lock.json --output /tmp/zot-access-control.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/access-control.json' < /tmp/zot-access-control.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/cloudflare-dns-api-token' < \"$REGISTRY_CLOUDFLARE_TOKEN_FILE\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -m 0600 -o root -g root /dev/stdin /persist/zot/restic-password' < \"$REGISTRY_RESTIC_PASSWORD_FILE\"",
@@ -505,7 +505,7 @@
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
       "test \"$(getent ahostsv4 registry.rupan.dev | awk 'NR == 1 { print $1 }')\" = 10.0.30.20",
-      "test \"$(nix develop ./flake -c curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://registry.rupan.dev/v2/)\" = 401"
+      "test \"$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://registry.rupan.dev/v2/)\" = 401"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -551,13 +551,13 @@
       "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
-      "nix develop ./flake -c python -m scripts.zigbee_gateway | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/zigbee2mqtt-secret.yaml'",
+      "python -m scripts.zigbee_gateway | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/zigbee2mqtt-secret.yaml'",
       "printf '%s' \"$HOME_ASSISTANT_MQTT_PASSWORD\" | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/mosquitto-home-assistant-password'",
       "printf '%s' \"$ZIGBEE2MQTT_MQTT_PASSWORD\" | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/mosquitto-zigbee2mqtt-password'",
-      "nix develop ./flake -c python -m scripts.roku_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-bridge-bulbs.yaml'",
+      "python -m scripts.roku_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-bridge-bulbs.yaml'",
       "printf '%s' \"$ROKU_BRIDGE_MQTT_PASSWORD\" | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/mosquitto-roku-bridge-password'",
-      "nix develop ./flake -c python -m scripts.roku_cloud_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-cloud-bulbs.yaml'",
-      "ROKU_CLOUD_RENDER_MODE=cookies nix develop ./flake -c python -m scripts.roku_cloud_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-cloud-cookies.json'",
+      "python -m scripts.roku_cloud_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-cloud-bulbs.yaml'",
+      "ROKU_CLOUD_RENDER_MODE=cookies python -m scripts.roku_cloud_bridge | ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/roku-cloud-cookies.json'",
       "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo systemctl restart roku-bridge-secrets roku-cloud-bridge-secrets roku-bridge roku-cloud-bridge'",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge'"
@@ -613,7 +613,7 @@
       "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
-      "nix develop ./flake -c python3 -c 'import base64,json,os,pathlib; password = pathlib.Path(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read_text().strip(); auth = base64.b64encode(f\"node:{password}\".encode()).decode(); pathlib.Path(\"/tmp/registry-auth.json\").write_text( json.dumps({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, indent=2))'",
+      "python3 -c 'import base64,json,os,pathlib; password = pathlib.Path(os.environ[\"REGISTRY_NODE_PASSWORD_FILE\"]).read_text().strip(); auth = base64.b64encode(f\"node:{password}\".encode()).decode(); pathlib.Path(\"/tmp/registry-auth.json\").write_text( json.dumps({\"auths\": {\"registry.rupan.dev\": {\"auth\": auth}}}, indent=2))'",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.20 'sudo install -d -m 0700 /persist/secrets; sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/registry-auth.json' < /tmp/registry-auth.json",
       "rm -f /tmp/registry-auth.json",
       "nixos-rebuild --flake ./flake#nas-01 --use-remote-sudo switch --target-host rupan@10.0.30.20 --build-host rupan@10.0.30.20",
@@ -667,10 +667,10 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
-      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
       "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "just registry-verify /tmp/registry-node-verify-report.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
       "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
@@ -725,10 +725,10 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
-      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
       "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "just registry-verify /tmp/registry-node-verify-report.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
       "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
@@ -783,10 +783,10 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
-      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
       "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "just registry-verify /tmp/registry-node-verify-report.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
       "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
@@ -841,10 +841,10 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
-      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
       "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "just registry-verify /tmp/registry-node-verify-report.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
       "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
@@ -899,10 +899,10 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "test \"$(nix eval --json path:.?dir=flake#nixosConfigurations.${DEPLOY_HOST}-registry.config.homelab.k3s.registry.enable)\" = \"true\"",
-      "nix develop ./flake -c python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
+      "python -m scripts.registry node-config --lock registry/images.lock.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\" --output /tmp/k3s-registries.yaml",
       "node_password=\"$(tr -d '\\r\\n' < \"$REGISTRY_NODE_PASSWORD_FILE\")\"; test -n \"$node_password\"; node_auth=\"$(printf 'node:%s' \"$node_password\" | base64 -w0)\"; jq -n --arg auth \"$node_auth\" '{\"auths\":{\"registry.rupan.dev\":{\"auth\":$auth}}}' > /tmp/registry-node-auth.json; chmod 0600 /tmp/registry-node-auth.json; unset node_password node_auth",
       "export REGISTRY_DEST_AUTH_FILE=/tmp/registry-node-auth.json",
-      "nix develop ./flake -c just registry-verify /tmp/registry-node-verify-report.json",
+      "just registry-verify /tmp/registry-node-verify-report.json",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/k3s-registries.yaml' < /tmp/k3s-registries.yaml",
       "nixos-rebuild --flake ./flake#\"$DEPLOY_HOST-registry\" --use-remote-sudo switch --target-host rupan@\"$DEPLOY_ADDR\" --build-host rupan@\"$DEPLOY_ADDR\"",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@\"$DEPLOY_ADDR\" 'sudo systemctl is-active k3s && sudo test -s /etc/rancher/k3s/registries.yaml'",
@@ -947,7 +947,7 @@
   },
   "opnsense-inventory": {
     "commands": [
-      "nix develop ./flake -c python -m opnsense_reconciler.inventory --artifact-dir artifacts/opnsense"
+      "python -m opnsense_reconciler.inventory --artifact-dir artifacts/opnsense"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "plan",
@@ -997,13 +997,13 @@
   },
   "opnsense-plan": {
     "commands": [
-      "nix develop ./flake -c python -m opnsense_reconciler.inventory --artifact-dir artifacts/opnsense",
+      "python -m opnsense_reconciler.inventory --artifact-dir artifacts/opnsense",
       "export SSL_CERT_FILE=\"/tmp/opnsense-combined-ca.crt\"",
       "for bundle in \"${NIX_SSL_CERT_FILE:-}\" /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt; do\n  if [ -n \"$bundle\" ] && [ -f \"$bundle\" ]; then\n    cat \"$bundle\" > \"$SSL_CERT_FILE\"\n    break\n  fi\ndone",
       "if [ -n \"${OPNSENSE_CA_FILE:-}\" ] && [ -f \"${OPNSENSE_CA_FILE:-}\" ]; then\n  cat \"$OPNSENSE_CA_FILE\" >> \"$SSL_CERT_FILE\"\nfi",
-      "test \"$(nix develop ./flake -c python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
-      "nix develop ./flake -c bash -e -c ' tofu -chdir=tofu/opnsense init -reconfigure && tofu -chdir=tofu/opnsense validate && tofu -chdir=tofu/opnsense plan -refresh-only -out=refresh-only.tfplan && tofu -chdir=tofu/opnsense plan -out=desired.tfplan'",
-      "nix develop ./flake -c python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
+      "test \"$(python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
+      "bash -e -c ' tofu -chdir=tofu/opnsense init -reconfigure && tofu -chdir=tofu/opnsense validate && tofu -chdir=tofu/opnsense plan -refresh-only -out=refresh-only.tfplan && tofu -chdir=tofu/opnsense plan -out=desired.tfplan'",
+      "python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
     ],
     "environment": {
       "OPNSENSE_URI": "https://OPNsense.internal",
@@ -1055,7 +1055,7 @@
   },
   "opnsense-dataplane": {
     "commands": [
-      "nix develop ./flake -c python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
+      "python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "plan",
@@ -1163,9 +1163,9 @@
   },
   "cloudflare-plan": {
     "commands": [
-      "nix develop ./flake -c bash -e -c ' tofu -chdir=tofu/cloudflare init -reconfigure && tofu -chdir=tofu/cloudflare fmt -check && tofu -chdir=tofu/cloudflare validate && tofu -chdir=tofu/cloudflare plan -out=desired.tfplan'",
-      "nix develop ./flake -c python -m unittest tests.test_cloudflare_ingress_parity -v",
-      "nix develop ./flake -c bash -c ' tofu -chdir=tofu/cloudflare show -json desired.tfplan > plan.json; python -m scripts.cloudflare.plan_summary plan.json'"
+      "bash -e -c ' tofu -chdir=tofu/cloudflare init -reconfigure && tofu -chdir=tofu/cloudflare fmt -check && tofu -chdir=tofu/cloudflare validate && tofu -chdir=tofu/cloudflare plan -out=desired.tfplan'",
+      "python -m unittest tests.test_cloudflare_ingress_parity -v",
+      "bash -c ' tofu -chdir=tofu/cloudflare show -json desired.tfplan > plan.json; python -m scripts.cloudflare.plan_summary plan.json'"
     ],
     "environment": {
       "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
@@ -1206,9 +1206,9 @@
   },
   "cloudflare-import": {
     "commands": [
-      "nix develop ./flake -c tofu -chdir=tofu/cloudflare init -reconfigure",
-      "nix develop ./flake -c bash -c ' tofu -chdir=tofu/cloudflare import \\\n  cloudflare_zero_trust_tunnel_cloudflared_config.homelab \\\n  \"$TF_VAR_cloudflare_account_id/0f08d8c5-6f2c-409e-ba80-dc0601e0227e\"'",
-      "set +e; nix develop ./flake -c tofu -chdir=tofu/cloudflare plan -detailed-exitcode; result=$?; set -e; test \"$result\" = 0 || test \"$result\" = 2"
+      "tofu -chdir=tofu/cloudflare init -reconfigure",
+      "bash -c ' tofu -chdir=tofu/cloudflare import \\\n  cloudflare_zero_trust_tunnel_cloudflared_config.homelab \\\n  \"$TF_VAR_cloudflare_account_id/0f08d8c5-6f2c-409e-ba80-dc0601e0227e\"'",
+      "set +e; tofu -chdir=tofu/cloudflare plan -detailed-exitcode; result=$?; set -e; test \"$result\" = 0 || test \"$result\" = 2"
     ],
     "environment": {
       "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
@@ -1247,9 +1247,9 @@
   },
   "cloudflare-apply": {
     "commands": [
-      "nix develop ./flake -c tofu -chdir=tofu/cloudflare init -reconfigure",
-      "nix develop ./flake -c tofu -chdir=tofu/cloudflare apply desired.tfplan",
-      "nix develop ./flake -c bash -c ' tofu -chdir=tofu/cloudflare output -raw config_version > config_version.txt; cat config_version.txt'"
+      "tofu -chdir=tofu/cloudflare init -reconfigure",
+      "tofu -chdir=tofu/cloudflare apply desired.tfplan",
+      "bash -c ' tofu -chdir=tofu/cloudflare output -raw config_version > config_version.txt; cat config_version.txt'"
     ],
     "environment": {
       "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
@@ -1319,7 +1319,7 @@
   },
   "deploy-fleet-dry-run": {
     "commands": [
-      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1337,7 +1337,7 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "nix develop ./flake -c just deploy-fleet --dry-run ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
+      "just deploy-fleet --dry-run ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1372,7 +1372,7 @@
   },
   "deploy-fleet": {
     "commands": [
-      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1390,7 +1390,7 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "nix develop ./flake -c just deploy-fleet ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
+      "just deploy-fleet ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1425,7 +1425,7 @@
   },
   "deploy-agent-workspace-host-dry-run": {
     "commands": [
-      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1438,7 +1438,7 @@
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
       "chmod 600 ~/.kube/config",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "nix develop ./flake -c just deploy-fleet --dry-run --target homelab-01"
+      "just deploy-fleet --dry-run --target homelab-01"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1473,7 +1473,7 @@
   },
   "deploy-agent-workspace-host": {
     "commands": [
-      "nix develop ./flake -c python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1486,7 +1486,7 @@
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
       "chmod 600 ~/.kube/config",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "nix develop ./flake -c just deploy-fleet --target homelab-01"
+      "just deploy-fleet --target homelab-01"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1535,7 +1535,7 @@
       "export KUBECONFIG=\"$HOME/.kube/config\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
-      "nix develop ./flake -c python -m scripts.home_assistant diff --instance homelab-01"
+      "python -m scripts.home_assistant diff --instance homelab-01"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1587,10 +1587,10 @@
       "export KUBECONFIG=\"$HOME/.kube/config\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
-      "nix develop ./flake -c python -m scripts.home_assistant plan --instance homelab-01 --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
-      "plan_file=$(nix develop ./flake -c python3 -c 'import json; print(json.load(open(\"plan.json\"))[\"plan_file\"])')",
-      "nix develop ./flake -c python -m scripts.home_assistant apply --instance homelab-01 --plan-file \"$plan_file\" --yes",
-      "nix develop ./flake -c python -m scripts.home_assistant verify --instance homelab-01"
+      "python -m scripts.home_assistant plan --instance homelab-01 --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
+      "plan_file=$(python3 -c 'import json; print(json.load(open(\"plan.json\"))[\"plan_file\"])')",
+      "python -m scripts.home_assistant apply --instance homelab-01 --plan-file \"$plan_file\" --yes",
+      "python -m scripts.home_assistant verify --instance homelab-01"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1628,7 +1628,7 @@
   },
   "sync-to-github": {
     "commands": [
-      "nix develop ./flake -c python -m scripts.ci.run mirror -- bash scripts/ci/mirror.sh"
+      "python -m scripts.ci.run mirror -- bash scripts/ci/mirror.sh"
     ],
     "environment": {
       "TF_HTTP_USERNAME": "deploy",

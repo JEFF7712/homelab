@@ -8,5 +8,17 @@ for stack in tofu/*/; do
     echo "OpenTofu providers are not provisioned for $stack; run just provision-check-deps" >&2
     exit 69
   fi
-  tofu -chdir="$stack" validate
 done
+# Stack validates are independent; run them concurrently. PIDs are
+# collected explicitly because a bare `wait` always succeeds and would
+# swallow a validation failure.
+pids=()
+for stack in tofu/*/; do
+  tofu -chdir="$stack" validate &
+  pids+=($!)
+done
+rc=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || rc=1
+done
+exit "$rc"

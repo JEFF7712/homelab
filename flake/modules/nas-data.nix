@@ -7,8 +7,13 @@
 
   # The OPNsense API cert only carries DNS:OPNsense.internal (no IP SANs), so
   # CI jobs on this host must resolve that name to reach the firewall by TLS.
+  # Forgejo webhook deliveries to Woodpecker must resolve ci.internal even
+  # when systemd-resolved has degraded to the secondary resolver, which
+  # carries no internal overrides (lookup failure drops the delivery with
+  # no retry and the pipeline is never created).
   networking.hosts = {
     "192.168.1.1" = [ "OPNsense.internal" ];
+    "10.0.30.14" = [ "ci.internal" ];
   };
 
   fileSystems."/mnt/backup-2tb" = {

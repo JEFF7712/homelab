@@ -22,7 +22,7 @@ NIX_CONFIG = (
     "experimental-features = nix-command flakes\n"
     "accept-flake-config = true\n"
     "sandbox = false\n"
-    "max-jobs = 1\n"
+    "max-jobs = 2\n"
     "cores = 2\n"
     "extra-substituters = http://10.0.30.20:8080/homelab\n"
     "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
@@ -30,12 +30,17 @@ NIX_CONFIG = (
 # One dev-shell resolution for the whole gate. Dependency provisioning
 # must complete first: tofu.sh fails the full gate when the locked
 # providers are absent. Formatting and the Jev fixture gate are fast
-# and read-only, so they run concurrently with the full offline gate
-# and the step fails when any of the three waits reports failure.
+# and read-only, so they run concurrently with the full offline gate.
+# Each lane is timed with scripts.ci.run and a slowest-first summary
+# prints at the end; the summary never fails the step, and the step
+# exits with the gate result.
 VALIDATION_COMMAND = (
     "nix develop ./flake -c bash -e -c 'just provision-check-deps; "
-    "just fmt-check & f=$!; python scripts/jev_decision_gate.py & j=$!; "
-    'just check & c=$!; wait "$f" && wait "$j" && wait "$c"\''
+    "python -m scripts.ci.run fmt -- just fmt-check & f=$!; "
+    "python -m scripts.ci.run jev -- python scripts/jev_decision_gate.py & j=$!; "
+    "python -m scripts.ci.run gate -- just check & c=$!; "
+    'rc=0; wait "$f" || rc=1; wait "$j" || rc=1; wait "$c" || rc=1; '
+    "python -m scripts.ci.timings_report || true; exit $rc'"
 )
 
 # Forgejo identities permitted to trigger manual deployments. The machine user
