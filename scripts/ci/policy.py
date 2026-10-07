@@ -189,10 +189,16 @@ def configuration(
                     "registry-drift-check",
                     "registry-retention-reconcile",
                     "registry-promote-first-party",
-                    "registry-lock-import",
+                    "registry-resolve",
+                    "registry-auth-consistency",
+                    "registry-gc-fixture",
+                    "opnsense-plan",
+                    "opnsense-dataplane",
                     "opnsense-inventory",
                     "nas-proof",
                     "deploy-fleet-dry-run",
+                    "deploy-agent-workspace-host-dry-run",
+                    "deploy-home-assistant-dry-run",
                 ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
         return {"configs": configs}
