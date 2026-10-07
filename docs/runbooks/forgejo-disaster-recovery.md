@@ -16,6 +16,9 @@ authorization. Drain both schedulers before activation or authority changes.
    uses normal atomic pushes, verifies refs and rejects divergence.
 3. Provision repository-scoped publisher and Renovate identities. Supply
    FORGEJO_PUBLISH_TOKEN and FORGEJO_RENOVATE_TOKEN through protected inputs.
+   The Renovate token requires `write:repository`, `write:issue`, `read:user`,
+   and `read:organization`. Verify authenticated `/api/v1/user` access before
+   provisioning it; repository writes alone do not permit initialization.
    Provision a separate read-only repository identity as
    FORGEJO_SOURCE_READ_TOKEN for current-main checks in operation jobs.
    FORGEJO_DASHBOARD_APPROVAL_TOKEN must belong to an authorized human operator,
