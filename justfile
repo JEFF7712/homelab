@@ -53,6 +53,7 @@ cache-populate:
       ./flake#checks.x86_64-linux.agent-workspace-host-reservations \
       ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
       ./flake#checks.x86_64-linux.zot-registry \
+      ./flake#devShells.x86_64-linux.default \
       | attic push local:homelab --stdin
 
 deploy-fleet *args:

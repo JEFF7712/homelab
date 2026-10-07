@@ -16,6 +16,8 @@ variables:
     sandbox = false
     max-jobs = 1
     cores = 2
+    extra-substituters = http://10.0.30.20:8080/homelab
+    extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=
 
 stages: [validate, plan, operate]
 
@@ -23,10 +25,10 @@ validate:
   stage: validate
   tags: [homelab-dr-validation]
   script:
-    - nix develop ./flake -c just provision-check-deps
-    - nix develop ./flake -c just fmt-check
-    - nix develop ./flake -c python scripts/jev_decision_gate.py
-    - nix develop ./flake -c just check
+    - >-
+      nix develop ./flake -c bash -e -c 'just provision-check-deps; just
+      fmt-check & f=$!; python scripts/jev_decision_gate.py & j=$!; just
+      check & c=$!; wait "$f" && wait "$j" && wait "$c"'
 
 .production-operation:
   tags: [homelab-dr-operations]

@@ -1108,13 +1108,12 @@
       "export SSL_CERT_FILE=\"/tmp/opnsense-combined-ca.crt\"",
       "for bundle in \"${NIX_SSL_CERT_FILE:-}\" /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-bundle.crt; do\n  if [ -n \"$bundle\" ] && [ -f \"$bundle\" ]; then\n    cat \"$bundle\" > \"$SSL_CERT_FILE\"\n    break\n  fi\ndone",
       "if [ -n \"${OPNSENSE_CA_FILE:-}\" ] && [ -f \"${OPNSENSE_CA_FILE:-}\" ]; then\n  cat \"$OPNSENSE_CA_FILE\" >> \"$SSL_CERT_FILE\"\nfi",
-      "nix develop ./flake -c tofu -chdir=tofu/opnsense init -reconfigure",
-      "nix develop ./flake -c tofu -chdir=tofu/opnsense show -json desired.tfplan > /tmp/desired.json && nix develop ./flake -c python -m opnsense_reconciler.check_plan --plan /tmp/desired.json --expect-uri \"$OPNSENSE_URI\"",
-      "test \"$(nix develop ./flake -c python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
-      "nix develop ./flake -c tofu -chdir=tofu/opnsense init -reconfigure",
-      "nix develop ./flake -c tofu -chdir=tofu/opnsense apply desired.tfplan",
-      "nix develop ./flake -c python -m opnsense_reconciler.reconcile --assignments opnsense_reconciler/assignments.json --inventory artifacts/opnsense/inventory.json --kea-interfaces opnsense_reconciler/kea-interfaces.json --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json --bgp-neighbors opnsense_reconciler/bgp-neighbors.json --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json --unbound-acls opnsense_reconciler/unbound-acls.json --unbound-host-overrides opnsense_reconciler/unbound-host-overrides.json",
-      "nix develop ./flake -c python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
+      "tofu -chdir=tofu/opnsense init -reconfigure",
+      "tofu -chdir=tofu/opnsense show -json desired.tfplan > /tmp/desired.json && python -m opnsense_reconciler.check_plan --plan /tmp/desired.json --expect-uri \"$OPNSENSE_URI\"",
+      "test \"$(python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
+      "tofu -chdir=tofu/opnsense apply desired.tfplan",
+      "python -m opnsense_reconciler.reconcile --assignments opnsense_reconciler/assignments.json --inventory artifacts/opnsense/inventory.json --kea-interfaces opnsense_reconciler/kea-interfaces.json --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json --bgp-neighbors opnsense_reconciler/bgp-neighbors.json --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json --unbound-acls opnsense_reconciler/unbound-acls.json --unbound-host-overrides opnsense_reconciler/unbound-host-overrides.json",
+      "python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
     ],
     "environment": {
       "OPNSENSE_URI": "https://OPNsense.internal",

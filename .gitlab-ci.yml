@@ -1151,29 +1151,29 @@ opnsense_apply:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
   script:
-    - >-
-      nix develop ./flake -c tofu -chdir=tofu/opnsense show -json desired.tfplan
-      > /tmp/desired.json && nix develop ./flake -c python -m
-      opnsense_reconciler.check_plan --plan /tmp/desired.json --expect-uri "$OPNSENSE_URI"
-    - >-
-      test "$(nix develop ./flake -c python -c
-      'import json;print(json.load(open("artifacts/opnsense/inventory.json"))["assignment_api_available"])')"
-      = True
-    - nix develop ./flake -c tofu -chdir=tofu/opnsense init -reconfigure
-    - nix develop ./flake -c tofu -chdir=tofu/opnsense apply desired.tfplan
-    - >-
-      nix develop ./flake -c python -m opnsense_reconciler.reconcile
-      --assignments opnsense_reconciler/assignments.json
-      --inventory artifacts/opnsense/inventory.json
-      --kea-interfaces opnsense_reconciler/kea-interfaces.json
-      --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json
-      --bgp-neighbors opnsense_reconciler/bgp-neighbors.json
-      --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json
-      --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json
-      --unbound-acls opnsense_reconciler/unbound-acls.json
-    - >-
-      nix develop ./flake -c python -m opnsense_reconciler.dataplane
-      --targets opnsense_reconciler/lb-data-plane-targets.json
+    # One dev-shell resolution for the whole apply. The heredoc keeps
+    # the tofu and reconciler commands in a single bash process instead
+    # of re-evaluating the flake once per nix develop invocation.
+    - |
+      nix develop ./flake -c bash -e -s <<'SCRIPT'
+      tofu -chdir=tofu/opnsense show -json desired.tfplan > /tmp/desired.json
+      python -m opnsense_reconciler.check_plan --plan /tmp/desired.json --expect-uri "$OPNSENSE_URI"
+      python -c 'import json;print(json.load(open(
+        "artifacts/opnsense/inventory.json"))["assignment_api_available"])' > /tmp/assignment-api
+      test "$(cat /tmp/assignment-api)" = True
+      tofu -chdir=tofu/opnsense init -reconfigure
+      tofu -chdir=tofu/opnsense apply desired.tfplan
+      python -m opnsense_reconciler.reconcile \
+        --assignments opnsense_reconciler/assignments.json \
+        --inventory artifacts/opnsense/inventory.json \
+        --kea-interfaces opnsense_reconciler/kea-interfaces.json \
+        --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json \
+        --bgp-neighbors opnsense_reconciler/bgp-neighbors.json \
+        --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json \
+        --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json \
+        --unbound-acls opnsense_reconciler/unbound-acls.json
+      python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json
+      SCRIPT
 
 cloudflare_plan:
   timeout: 15m
