@@ -197,7 +197,7 @@ jarvis-eval-live *args:
 # validation-v2 is green; prefer fast-forward so the Forgejo to GitLab
 # mirror stays clean.
 forgejo-pr title target="main":
-    tea pr create --repo JEFF7712/homelab --base {{target}} --head $(git branch --show-current) --title {{title}}
+    tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
 
 forgejo-merge index:
     tea pr merge --repo JEFF7712/homelab {{index}}
