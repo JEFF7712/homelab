@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T22:10:31+00:00",
+  "generated_at": "2026-10-08T03:34:52+00:00",
   "images": [
     {
       "consumers": [
@@ -721,6 +721,57 @@
     },
     {
       "consumers": [
+        "gitops/producer-base-images/base-images.yaml:29"
+      ],
+      "destination_repository": "upstream/docker.io/library/nginx",
+      "id": "upstream-library-nginx-cee9d2baf509",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": null,
+        "reference": "docker.io/library/nginx:1.29-alpine",
+        "registry": "docker.io",
+        "repository": "library/nginx",
+        "tag": "1.29-alpine"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "id": "upstream-library-node-3653d380c979",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": null,
+        "reference": "docker.io/library/node:24-slim",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-slim"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "id": "upstream-library-node-6a741bf230ac",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": null,
+        "reference": "docker.io/library/node:24-alpine",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-alpine"
+      }
+    },
+    {
+      "consumers": [
         ".gitlab-ci.yml:1"
       ],
       "destination_repository": "upstream/docker.io/nixos/nix",
@@ -734,6 +785,23 @@
         "registry": "docker.io",
         "repository": "nixos/nix",
         "tag": "latest"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:27"
+      ],
+      "destination_repository": "upstream/docker.io/oven/bun",
+      "id": "upstream-oven-bun-c5bf5bcb540b",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": null,
+        "reference": "docker.io/oven/bun:1.4-debian",
+        "registry": "docker.io",
+        "repository": "oven/bun",
+        "tag": "1.4-debian"
       }
     },
     {
@@ -1016,8 +1084,8 @@
     },
     {
       "consumers": [
-        "gitops/home-assistant/deployment.yaml:32",
-        "gitops/home-assistant/deployment.yaml:71",
+        "gitops/home-assistant/deployment.yaml:39",
+        "gitops/home-assistant/deployment.yaml:78",
         "gitops/media/arr.yaml:124",
         "gitops/media/arr.yaml:230",
         "gitops/media/arr.yaml:28",
@@ -1563,7 +1631,7 @@
     },
     {
       "consumers": [
-        "gitops/home-assistant/deployment.yaml:108",
+        "gitops/home-assistant/deployment.yaml:115",
         "observed:home-assistant/home-assistant-7b4b74c849-qtksn/home-assistant"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant",
@@ -1670,7 +1738,7 @@
     },
     {
       "consumers": [
-        "gitops/home-assistant/deployment.yaml:162",
+        "gitops/home-assistant/deployment.yaml:169",
         "observed:home-assistant/home-assistant-7b4b74c849-qtksn/matter-server"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server",
@@ -2133,7 +2201,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "bfee34b229e18cb75d39c1935ab92633b8dc8b24",
+  "source_revision": "3dd5620ad54c83adff27c1cf0b1c0b37f164cedf",
   "unresolved_inputs": [
     {
       "blocking": false,

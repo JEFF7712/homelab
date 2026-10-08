@@ -1,0 +1,29 @@
+# Producer base images mirrored into registry.rupan.dev.
+#
+# These are build inputs for first-party producer Dockerfiles that live
+# outside this repository. They are scanned by `python -m scripts.registry
+# inventory` (image: fields) and mirrored to
+# registry.rupan.dev/upstream/<host>/<path> by the registry import jobs.
+# Producer Dockerfiles must reference the local mirror by digest, never the
+# public registry directly.
+#
+# This directory is NOT referenced by any Flux Kustomization: it is an
+# inventory source only and must never be applied to the cluster.
+#
+# Update flow for a base-image bump: change the tag below, run
+# `just registry-inventory`, resolve/import/verify through the registry CI
+# lane, promote the lock, then update the producer Dockerfile digest.
+apiVersion: v1
+kind: List
+metadata:
+  name: producer-base-images
+items:
+  # JEFF7712/rupan.dev Dockerfile, JEFF7712/rupanism Dockerfile,
+  # JEFF7712/obsidian-vault quartz/Dockerfile (builder stage)
+  - image: docker.io/library/node:24-slim
+  # JEFF7712/rupanism Dockerfile (deps stage), JEFF7712/distrojeff-site Dockerfile (builder stage)
+  - image: docker.io/library/node:24-alpine
+  # JEFF7712/rupanism Dockerfile (deps stage)
+  - image: docker.io/oven/bun:1.4-debian
+  # JEFF7712/obsidian-vault quartz/Dockerfile (runner stage)
+  - image: docker.io/library/nginx:1.29-alpine
