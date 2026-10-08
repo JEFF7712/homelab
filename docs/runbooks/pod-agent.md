@@ -90,29 +90,38 @@ ever operated.
 
 ### 2. Registry import
 
-Done 2026-09-28, with one detour worth knowing. `provision_pod_agent_publisher`
+Done 2026-09-28, direct-publish restored 2026-10-08. `provision_pod_agent_publisher`
 ran green and installed the htpasswd grant plus policy, and
 `REGISTRY_POD_AGENT_PUBLISHER_AUTH_FILE` (GitLab, protected, production) and
 the producer's `REGISTRY_PASSWORD` (GitHub repo secret) both hold the same
-generated password. But the GitHub workflow's zot push never lands:
+generated password. The GitHub workflow's zot push initially never landed:
 `registry.rupan.dev` is behind Cloudflare Access from the public internet, so
 `ubuntu-latest` login succeeds yet blob/manifest writes die at a 302. The
 existing producers avoid this by building on the self-hosted `homelab`
-runner; until pod-agent has one, its workflow publishes ghcr-only.
+runner, which pod-agent now has: `homelab-pod-agent` (repo-scoped,
+`gitops/automation/github-runner`) builds `image.yml`, pulls digest-pinned
+base images from `registry.rupan.dev/upstream` as the read-only `node`
+identity (`REGISTRY_NODE_PASSWORD` repo secret), and pushes to both ghcr.io
+(backup) and `registry.rupan.dev/apps/pod-agent` as `publisher-pod-agent`.
+`registry_promote_first_party` verifies and adopts the tags as before.
 
-Seed procedure used (all over the LAN, no Access in the path): on `nas-01`
-with podman, pull the ghcr tag, retag to
+Two gotchas from the cutover, kept so the next producer skips them. The
+repo's `REGISTRY_PASSWORD` had drifted from nas-01's htpasswd entry (401 on
+login despite a correct username), so the publisher credential was rotated
+per the rotation procedure (backup at
+`/root/htpasswd.bak-podagent-20261008`) and the new value stored as the repo
+secret. And the publisher identity can only write `apps/*`, so base pulls as
+publisher fail with 403: pull as `node`, then re-login as publisher and push
+(distrojeff-site's workflow is the reference).
+
+Retired seed procedure, kept for provenance (all over the LAN, no Access in
+the path): on `nas-01` with podman, pull the ghcr tag, retag to
 `registry.rupan.dev/apps/pod-agent:<sha-tag>`, push with the publisher
 credential. Note podman normalizes the ghcr index to a single-arch manifest,
 so the stored digest (`sha256:836efb...` for `sha-f6e3bb2`) differs from the
 ghcr index digest (`sha256:d9aa44...`) while config+layers are identical.
-`registry_promote_first_party` then verifies and adopts it. NAS rootfs is
-only 4 GB, so point `TMPDIR` at a `/persist` scratch dir for the push and
-`podman rmi` plus remove the scratch afterwards.
-
-Follow-up: register a self-hosted `homelab` runner for `JEFF7712/pod-agent`
-(like `homelab-apolline` serves apolline-site) and restore the zot push in
-its workflow; delete nothing until then.
+NAS rootfs is only 4 GB, so point `TMPDIR` at a `/persist` scratch dir for
+the push and `podman rmi` plus remove the scratch afterwards.
 
 ### 3. Seed the volume (before Flux enables the namespace)
 
