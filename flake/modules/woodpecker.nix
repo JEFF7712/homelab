@@ -149,6 +149,9 @@ in
       trusted = agent "trusted" 1;
       deploy = agent "deploy" 1;
     };
+    systemd.services.woodpecker-agent-sandbox.serviceConfig.Restart = lib.mkForce "always";
+    systemd.services.woodpecker-agent-trusted.serviceConfig.Restart = lib.mkForce "always";
+    systemd.services.woodpecker-agent-deploy.serviceConfig.Restart = lib.mkForce "always";
     networking.firewall.allowedTCPPorts = [ 8000 ];
     networking.hosts = {
       "192.168.1.1" = [ "OPNsense.internal" ];
