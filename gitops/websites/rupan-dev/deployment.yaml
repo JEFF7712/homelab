@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/rupan-dev@sha256:3f35e70d3e999e10e79d0f8e447871860d5898b32123f08b7fe7bd0ac156cb68  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/rupan-dev@sha256:8e97f0d6e3023a6a4ff83dd790d988b4f2acd3705bcb080aefaf9a4237d5dc62  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
