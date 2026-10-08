@@ -664,6 +664,37 @@ reported an unrelated existing observed Nix Agent digest drift. The POD
 digest was verified directly, and that command's overall result is not claimed
 green. Registry source-policy validation remains a separate recorded gate.
 
+## Product quality shadow release, October 7
+
+Application source `800b934` attaches photographs using Codex native image
+inputs and archives originals, normalized inputs, and hashed manifests on
+the existing PVC. The verified local artifact was transferred to the NAS;
+its installed Python source matched the approved revision. Candidate digest:
+`sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb`.
+Publisher tag is `0.0.1791435600`, with its matching deployed-retention tag.
+
+Keep `VISION_PRECHECK_ENABLED=true`, `VISION_PRECHECK_BLOCKING=false`, and
+`VISION_EVIDENCE_ROOT=/data/quality`. The 24-hour publish veto remains active.
+Quality inspection is shadow evidence and does not establish physical print
+quality or authority for automatic correction. There are no independent
+human-labeled held-out photographs yet. Qualification remains false.
+
+Pre-rollout backup `state-20261008T045550358746Z.db.age` passed encryption,
+decryption, SQLite integrity, and plaintext-hash verification. Roll back image
+pins while retaining the live database and additive evidence. Do not restore
+an older snapshot over new orders or rotated tokens.
+
+Independent Gemini review completed in a dedicated authenticated 2 GiB worker.
+Before enabling blocking, bound and escalate persistent uncertainty or
+unavailable capability instead of repeatedly delaying forever. Matching native
+inspections of every human test label remain an intentional qualification gate.
+
+After rollout, verify all 17 deployed consumer image references, package source
+parity, native inspection of the two owner development photographs, and hash
+and private-permission checks from a second worker after the first terminates.
+The application release record distinguishes these live results from local
+tests. No paid API or Google credit fallback is enabled.
+
 ## Rollback
 
 1. Suspend the cluster CronJobs and scale both Deployments to 0.

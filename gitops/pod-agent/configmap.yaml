@@ -24,3 +24,6 @@ data:
   PLANNER_AGY_HOME: /data/cliauth/agy
   PLANNER_AGY_MODEL: gemini-3.1-pro-high
   DBUS_SESSION_BUS_ADDRESS: unix:path=/data/cliauth/agy/keyring/bus
+  VISION_PRECHECK_ENABLED: "true"
+  VISION_PRECHECK_BLOCKING: "false"
+  VISION_EVIDENCE_ROOT: /data/quality
