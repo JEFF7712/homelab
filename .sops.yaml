@@ -1,3 +1,5 @@
 creation_rules:
   - path_regex: gitops/secrets/.*\.sops\.yaml$
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl
+  - path_regex: secrets/woodpecker-clone\.sops\.env$
+    age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl,age1ckzw40ndw6v98ctczzw99lv7k257h4tx7xq6k9f0f5mltq9z9gtq36achw
