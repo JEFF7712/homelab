@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "generated_at": "2026-10-08T06:12:05+00:00",
+=======
+  "generated_at": "2026-10-08T18:42:00+00:00",
+>>>>>>> origin-main-deploy
   "images": [
     {
       "consumers": [
@@ -217,6 +221,27 @@
         "reference": "registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
         "registry": "registry.rupan.dev",
         "repository": "apps/jarvis-nemotron",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/media/arr.yaml:257"
+      ],
+      "destination_repository": "apps/lidarr-extended",
+      "id": "first-party-apps-lidarr-extended-c59cbeca30f2",
+      "kind": "first-party",
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/lidarr-extended",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+        "reference": "registry.rupan.dev/apps/lidarr-extended@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/lidarr-extended",
         "tag": null
       }
     },
@@ -1120,17 +1145,17 @@
       "consumers": [
         "gitops/home-assistant/deployment.yaml:39",
         "gitops/home-assistant/deployment.yaml:78",
-        "gitops/media/arr.yaml:124",
-        "gitops/media/arr.yaml:230",
+        "gitops/media/arr.yaml:134",
+        "gitops/media/arr.yaml:244",
         "gitops/media/arr.yaml:28",
-        "gitops/media/arr.yaml:359",
-        "gitops/media/arr.yaml:456",
+        "gitops/media/arr.yaml:373",
+        "gitops/media/arr.yaml:474",
         "gitops/media/books.yaml:137",
         "gitops/media/books.yaml:27",
         "gitops/media/download.yaml:33",
         "gitops/media/download.yaml:66",
         "gitops/media/frontend.yaml:26",
-        "gitops/media/jellyfin.yaml:34",
+        "gitops/media/jellyfin.yaml:35",
         "gitops/obsidian/couchdb.yaml:28",
         "gitops/websites/nixagent/deployment.yaml:23",
         "gitops/websites/spatia/deployment.yaml:23",
@@ -1270,6 +1295,7 @@
         "gitops/automation/renovate-agent.yaml:131",
         "gitops/media/arr-queue-hygiene.yaml:270",
         "gitops/media/arr-secret-sync.yaml:261",
+        "gitops/media/jellyfin.yaml:225",
         "gitops/media/soularr.yaml:185",
         "gitops/media/spotify-sync.yaml:667",
         "gitops/voice/stt-groq.yaml:264",
@@ -1575,7 +1601,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:557",
+        "gitops/media/arr.yaml:579",
         "observed:media/flaresolverr-74946bdd4-hfk8l/flaresolverr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/flaresolverr/flaresolverr",
@@ -1683,7 +1709,6 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:243",
         "observed:media/lidarr-656bfcbb8f-t5xpr/lidarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/hotio/lidarr",
@@ -1863,7 +1888,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:469",
+        "gitops/media/arr.yaml:487",
         "observed:media/bazarr-7dc998dd85-tx5fq/bazarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr",
@@ -1899,7 +1924,7 @@
     },
     {
       "consumers": [
-        "gitops/media/jellyfin.yaml:47",
+        "gitops/media/jellyfin.yaml:48",
         "observed:media/jellyfin-f445584f8-jr75k/jellyfin"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin",
@@ -1917,7 +1942,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:372",
+        "gitops/media/arr.yaml:386",
         "observed:media/prowlarr-854d9db7dc-p8jlm/prowlarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr",
@@ -1953,7 +1978,7 @@
     },
     {
       "consumers": [
-        "gitops/media/arr.yaml:137",
+        "gitops/media/arr.yaml:147",
         "observed:media/radarr-766f6c966-mc8wf/radarr"
       ],
       "destination_repository": "upstream/registry.rupan.dev/upstream/lscr.io/linuxserver/radarr",
@@ -2235,7 +2260,11 @@
       "registry/observed-images.json"
     ]
   },
+<<<<<<< HEAD
   "source_revision": "8f832a0d3d1e29137ee9c6527367640d9d9af201",
+=======
+  "source_revision": "840636cd9fe92da13ad25bc4108fa78adbdd11ae",
+>>>>>>> origin-main-deploy
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -2315,6 +2344,14 @@
       "consumer": "gitops/voice/stt-nemotron.yaml:30,observed:voice/wyoming-nemotron-65cfd79974-6h9lg/bridge",
       "id": "producer:first-party-apps-jarvis-nemotron-ef31d4b1ea0d",
       "input": "registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/media/arr.yaml:257",
+      "id": "producer:first-party-apps-lidarr-extended-c59cbeca30f2",
+      "input": "registry.rupan.dev/apps/lidarr-extended@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

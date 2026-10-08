@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -95,6 +96,7 @@ in
           extraConfig = ''
             proxy_ssl_server_name on;
             proxy_ssl_verify on;
+            proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
             proxy_set_header Host registry.npmjs.org;
 
             # Pull-through cache: immutable tarballs cache long, packuments
@@ -114,6 +116,7 @@ in
           extraConfig = ''
             proxy_ssl_server_name on;
             proxy_ssl_verify on;
+            proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
             proxy_set_header Host registry.npmjs.org;
             proxy_cache npm;
             proxy_cache_valid 200 365d;

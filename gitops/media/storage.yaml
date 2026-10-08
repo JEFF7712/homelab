@@ -31,3 +31,40 @@ spec:
   resources:
     requests:
       storage: 6Ti
+---
+# Jellyfin config on homelab-04 local NVMe. Isolates SQLite (and image metadata)
+# from NFS latency and lock drops. Media library stays on NFS.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jellyfin-config-nvme-04
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  local:
+    path: /persist/jellyfin/config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-04
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-config-nvme
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-nvme
+  resources:
+    requests:
+      storage: 20Gi
