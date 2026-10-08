@@ -16,6 +16,9 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from scripts.ci.applications import Application, load_catalog
+from scripts.ci.applications import configuration as application_configuration
+
 IMAGE = "nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
 NIX_CONFIG = (
@@ -368,12 +371,69 @@ def configuration(
     return {"configs": configs}
 
 
+def resolve_configuration(
+    request: dict[str, Any],
+    operations: dict[str, Any],
+    applications: tuple[Application, ...],
+) -> dict[str, Any]:
+    repo = request["repo"]
+    if not (
+        type(repo.get("id")) is int
+        and repo["id"] == 1
+        and repo.get("owner", repo.get("namespace")) == "JEFF7712"
+        and repo.get("name") == "homelab"
+    ):
+        return application_configuration(request, applications)
+    parent = None
+    current = ""
+    if request["pipeline"]["event"] == "deployment":
+        number = int(request["pipeline"]["number"])
+        parent = api(
+            f"http://127.0.0.1:8000/api/repos/1/pipelines/{number}",
+            os.environ["POLICY_API_TOKEN"],
+        )
+    reusable = None
+    merge_base = ""
+    if request["pipeline"].get("ref") == "refs/heads/main":
+        credentials = request["netrc"]
+        tip = api(
+            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
+            credentials["password"],
+        )
+        current = tip["commit"]["id"]
+    if request["pipeline"].get("event") == "pull_request":
+        reusable = find_reusable_validation(
+            request,
+            catalog=operations,
+            api_token=os.environ.get("POLICY_API_TOKEN", ""),
+            now=int(time.time()),
+            policy_start_time=START_TIME,
+        )
+        if reusable is None:
+            ref = request["pipeline"].get("ref", "")
+            match = re.match(r"refs/pull/(\d+)/head", ref)
+            if match and request.get("netrc", {}).get("password"):
+                try:
+                    pr_info = api(
+                        f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls/{match.group(1)}",
+                        request["netrc"]["password"],
+                    )
+                    merge_base = pr_info.get("merge_base", "")
+                except Exception:
+                    pass
+    return configuration(
+        request, operations, parent, current, reusable=reusable, merge_base=merge_base
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog", type=Path, required=True)
+    parser.add_argument("--applications", type=Path, required=True)
     parser.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     catalog = json.loads(args.catalog.read_text())
+    applications = load_catalog(args.applications)
     key = args.public_key.read_bytes()
 
     class Handler(BaseHTTPRequestHandler):
@@ -388,52 +448,7 @@ def main() -> None:
                 body = self.rfile.read(length)
                 verify_request(self.headers, body, key, int(time.time()))
                 request = json.loads(body)
-                parent = None
-                current = ""
-                if request["pipeline"]["event"] == "deployment":
-                    # v3.18 calls the extension with the original record before assigning Parent.
-                    number = int(request["pipeline"]["number"])
-                    parent = api(
-                        f"http://127.0.0.1:8000/api/repos/1/pipelines/{number}",
-                        os.environ["POLICY_API_TOKEN"],
-                    )
-                reusable = None
-                merge_base = ""
-                if request["pipeline"].get("ref") == "refs/heads/main":
-                    credentials = request["netrc"]
-                    tip = api(
-                        "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
-                        credentials["password"],
-                    )
-                    current = tip["commit"]["id"]
-                if request["pipeline"].get("event") == "pull_request":
-                    reusable = find_reusable_validation(
-                        request,
-                        catalog=catalog,
-                        api_token=os.environ.get("POLICY_API_TOKEN", ""),
-                        now=int(time.time()),
-                        policy_start_time=START_TIME,
-                    )
-                    if reusable is None:
-                        ref = request["pipeline"].get("ref", "")
-                        match = re.match(r"refs/pull/(\d+)/head", ref)
-                        if match and request.get("netrc", {}).get("password"):
-                            try:
-                                pr_info = api(
-                                    f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls/{match.group(1)}",
-                                    request["netrc"]["password"],
-                                )
-                                merge_base = pr_info.get("merge_base", "")
-                            except Exception:
-                                pass
-                result = configuration(
-                    request,
-                    catalog,
-                    parent,
-                    current,
-                    reusable=reusable,
-                    merge_base=merge_base,
-                )
+                result = resolve_configuration(request, catalog, applications)
             except Exception:
                 # Never include a request body, netrc, or API exception in responses or logs.
                 self.send_error(403, "CI policy rejected request")
