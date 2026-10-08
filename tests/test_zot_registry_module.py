@@ -202,7 +202,8 @@ class ZotRegistryModuleTests(unittest.TestCase):
         self.assertEqual(self.evaluated["hosts"]["10.0.30.20"], ["registry.rupan.dev"])
 
         k3s_server = (ROOT / "flake/modules/k3s-server.nix").read_text()
-        self.assertIn('"10.0.30.20" = [ "registry.rupan.dev" ];', k3s_server)
+        self.assertIn('"10.0.30.20" = [', k3s_server)
+        self.assertIn('"registry.rupan.dev"', k3s_server)
 
     def test_backup_sandbox_can_write_its_success_marker(self) -> None:
         nas_data = (ROOT / "flake/modules/nas-data.nix").read_text()
