@@ -148,6 +148,41 @@ class CommitRangeTest(unittest.TestCase):
         self.assertEqual(scope.mode, "documentation")
         self.assertIn(filename, scope.paths)
 
+    def test_woodpecker_pipeline_files_scoped_when_present(self) -> None:
+        scope = determine(
+            self.root,
+            dict(
+                self.env,
+                CI_PIPELINE_EVENT="push",
+                CI_PIPELINE_FILES=json.dumps(["README.md"]),
+            ),
+        )
+        self.assertEqual(scope.mode, "documentation")
+        self.assertEqual(scope.paths, ("README.md",))
+
+    def test_woodpecker_pipeline_files_infrastructure_path_forces_full(self) -> None:
+        scope = determine(
+            self.root,
+            dict(
+                self.env,
+                CI_PIPELINE_EVENT="push",
+                CI_PIPELINE_FILES=json.dumps(["flake/hosts/homelab-01/default.nix"]),
+            ),
+        )
+        self.assertEqual(scope.mode, "full")
+
+    def test_woodpecker_pipeline_files_invalid_json_falls_back_to_git(self) -> None:
+        scope = determine(
+            self.root,
+            dict(
+                self.env,
+                CI_PIPELINE_EVENT="push",
+                CI_PIPELINE_FILES="{invalid",
+            ),
+        )
+        self.assertEqual(scope.mode, "documentation")
+        self.assertEqual(scope.paths, ("README.md",))
+
 
 class SandboxReportTest(unittest.TestCase):
     def test_successful_build_copies_sandbox_report(self) -> None:

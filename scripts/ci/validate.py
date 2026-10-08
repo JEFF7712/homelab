@@ -5,13 +5,14 @@ import subprocess
 from pathlib import Path
 
 from scripts.ci.contract import build_report
-from scripts.ci.scope import determine
+from scripts.ci.scope import Scope, determine
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("gate", choices=("repository", "flake", "cache", "fleet"))
     parser.add_argument("--flake", default="./flake")
+    parser.add_argument("--full", action="store_true", help="force full gate")
     args = parser.parse_args(argv)
     if args.gate == "fleet":
         code = subprocess.call(
@@ -20,7 +21,10 @@ def main(argv: list[str] | None = None) -> int:
         if code:
             return code
         return subprocess.call(["bash", "scripts/ci/cache.sh", args.flake])
-    scope = determine(Path.cwd())
+    if args.full:
+        scope = Scope("full", "forced by --full flag")
+    else:
+        scope = determine(Path.cwd())
     directory = Path(f"artifacts/ci/{os.environ.get('CI_JOB_ID', 'local')}")
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f"{args.gate}-scope.json").write_text(
@@ -48,6 +52,8 @@ def main(argv: list[str] | None = None) -> int:
         if code:
             return code
         env = dict(os.environ, CI_UNIT_TESTS_EXTERNAL="1")
+        if scope.mode == "application":
+            env["SKIP_FLAKE_CHECK"] = "1"
         return subprocess.call(["just", "check"], env=env)
     code = build_report(args.flake, Path("artifacts/ci/tests.xml"))
     if code or scope.mode == "application":

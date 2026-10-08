@@ -29,4 +29,4 @@ if [[ -z "${ATTIC_TOKEN:-}" ]]; then
   exit 0
 fi
 attic login local http://10.0.30.20:8080/ "$ATTIC_TOKEN"
-attic push local:homelab --stdin < "$cache_work/paths"
+attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin < "$cache_work/paths"

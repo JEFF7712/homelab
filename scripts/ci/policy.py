@@ -24,24 +24,24 @@ NIX_CONFIG = (
     "sandbox = false\n"
     "max-jobs = 2\n"
     "cores = 2\n"
-    "extra-substituters = http://10.0.30.20:8080/homelab\n"
+    "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
     "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
 )
 # One dev-shell resolution for the whole gate. Dependency provisioning
-# must complete first: tofu.sh fails the full gate when the locked
-# providers are absent. Formatting and the Jev fixture gate are fast
-# and read-only, so they run concurrently with the full offline gate.
-# Each lane is timed with scripts.ci.run and a slowest-first summary
-# prints at the end; the summary never fails the step, and the step
-# exits with the gate result.
+# is managed inside validate repository. Formatting and the Jev fixture
+# gate are fast and read-only, so they run concurrently with repository
+# validation. Each lane is timed with scripts.ci.run and a slowest-first
+# summary prints at the end; the summary never fails the step, and the
+# step exits with the gate result.
 VALIDATION_COMMAND = (
-    "nix develop ./flake -c bash -e -c 'just provision-check-deps; "
+    "nix develop ./flake -c bash -e -c '"
     "python -m scripts.ci.run fmt -- just fmt-check & f=$!; "
     "python -m scripts.ci.run jev -- python scripts/jev_decision_gate.py & j=$!; "
-    "python -m scripts.ci.run gate -- just check & c=$!; "
+    "python -m scripts.ci.run gate -- python -m scripts.ci.validate repository & c=$!; "
     'rc=0; wait "$f" || rc=1; wait "$j" || rc=1; wait "$c" || rc=1; '
     "python -m scripts.ci.timings_report || true; exit $rc'"
 )
+START_TIME = int(time.time())
 
 # Forgejo identities permitted to trigger manual deployments. The machine user
 # holds operator rights by explicit decision: its token is scoped, revocable,
@@ -86,12 +86,97 @@ def api(url: str, token: str) -> Any:
         return json.load(response)
 
 
+def find_reusable_validation(
+    request: dict[str, Any],
+    catalog: dict[str, Any],
+    api_token: str = "",
+    now: int | None = None,
+    pipelines: list[dict[str, Any]] | None = None,
+    pr_getter: Any | None = None,
+    policy_start_time: int = 0,
+) -> dict[str, Any] | None:
+    pipeline = request.get("pipeline", {})
+    if pipeline.get("event") != "pull_request":
+        return None
+    if pipeline.get("from_fork"):
+        return None
+    commit = pipeline.get("commit")
+    if not commit or len(commit) != 40:
+        return None
+
+    ref = pipeline.get("ref", "")
+    match = re.match(r"refs/pull/(\d+)/head", ref)
+    if not match:
+        return None
+    pr_number = match.group(1)
+
+    try:
+        if pr_getter is not None:
+            pr_data = pr_getter(pr_number)
+        else:
+            credentials = request.get("netrc", {})
+            if not credentials.get("password"):
+                return None
+            pr_data = api(
+                f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls/{pr_number}",
+                credentials["password"],
+            )
+        if pr_data.get("state") != "open":
+            return None
+        if pr_data.get("base", {}).get("ref") != "main":
+            return None
+        if pr_data.get("head", {}).get("sha") != commit:
+            return None
+    except Exception:
+        return None
+
+    now_ts = now if now is not None else int(time.time())
+    if pipelines is None:
+        if not api_token:
+            return None
+        try:
+            pipelines = api(
+                "http://127.0.0.1:8000/api/repos/1/pipelines?per_page=50",
+                api_token,
+            )
+        except Exception:
+            return None
+
+    if pipelines is None:
+        return None
+
+    for candidate in pipelines:
+        if candidate.get("commit") != commit:
+            continue
+        if candidate.get("id") == pipeline.get("id"):
+            continue
+        if candidate.get("from_fork"):
+            continue
+        if candidate.get("event") not in {"push", "pull_request", "manual"}:
+            continue
+        created = candidate.get("created", 0)
+        if policy_start_time and created < policy_start_time:
+            continue
+        status = candidate.get("status")
+        if status == "success":
+            finished = candidate.get("finished", 0)
+            if now_ts - finished <= 86400:
+                return candidate
+        elif status in {"pending", "running"}:
+            if now_ts - created <= 7200:
+                return candidate
+
+    return None
+
+
 def configuration(
     request: dict[str, Any],
     operations: dict[str, Any],
     parent: dict[str, Any] | None = None,
     current: str = "",
     now: int | None = None,
+    reusable: dict[str, Any] | None = None,
+    merge_base: str = "",
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -178,6 +263,31 @@ def configuration(
         add(target, workflow)
 
     if event != "deployment":
+        if reusable is not None and event == "pull_request":
+            add(
+                "pr-validation-reused",
+                {
+                    "when": [{"event": "pull_request"}],
+                    "labels": {"tier": "sandbox", "type": "docker"},
+                    "steps": [
+                        {
+                            "name": "pr-validation-reused",
+                            "image": IMAGE,
+                            "commands": [
+                                f"echo 'Reusing validation from pipeline #{reusable.get('number', 'unknown')}'"
+                            ],
+                        }
+                    ],
+                },
+            )
+            return {"configs": configs}
+
+        validation_env = {"NIX_CONFIG": NIX_CONFIG}
+        if main or event in {"cron", "tag"}:
+            validation_env["CI_FULL_VALIDATION"] = "1"
+        if event == "pull_request" and merge_base:
+            validation_env["CI_MERGE_BASE"] = merge_base
+
         add(
             VALIDATION,
             {
@@ -187,7 +297,7 @@ def configuration(
                     {
                         "name": VALIDATION,
                         "image": IMAGE,
-                        "environment": {"NIX_CONFIG": NIX_CONFIG},
+                        "environment": validation_env,
                         "commands": [VALIDATION_COMMAND],
                     }
                 ],
@@ -287,6 +397,8 @@ def main() -> None:
                         f"http://127.0.0.1:8000/api/repos/1/pipelines/{number}",
                         os.environ["POLICY_API_TOKEN"],
                     )
+                reusable = None
+                merge_base = ""
                 if request["pipeline"].get("ref") == "refs/heads/main":
                     credentials = request["netrc"]
                     tip = api(
@@ -294,7 +406,34 @@ def main() -> None:
                         credentials["password"],
                     )
                     current = tip["commit"]["id"]
-                result = configuration(request, catalog, parent, current)
+                if request["pipeline"].get("event") == "pull_request":
+                    reusable = find_reusable_validation(
+                        request,
+                        catalog=catalog,
+                        api_token=os.environ.get("POLICY_API_TOKEN", ""),
+                        now=int(time.time()),
+                        policy_start_time=START_TIME,
+                    )
+                    if reusable is None:
+                        ref = request["pipeline"].get("ref", "")
+                        match = re.match(r"refs/pull/(\d+)/head", ref)
+                        if match and request.get("netrc", {}).get("password"):
+                            try:
+                                pr_info = api(
+                                    f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls/{match.group(1)}",
+                                    request["netrc"]["password"],
+                                )
+                                merge_base = pr_info.get("merge_base", "")
+                            except Exception:
+                                pass
+                result = configuration(
+                    request,
+                    catalog,
+                    parent,
+                    current,
+                    reusable=reusable,
+                    merge_base=merge_base,
+                )
             except Exception:
                 # Never include a request body, netrc, or API exception in responses or logs.
                 self.send_error(403, "CI policy rejected request")

@@ -24,21 +24,57 @@ during upgrades. Deployment rights remain restricted to project operators.
 
 ## Validation and operations
 
-Push, PR, tag, manual, and cron events run validation-v2: dependency
-provisioning, formatting, the production Jev decision fixture gate, and
-the full offline gate. Provisioning runs first (the OpenTofu gate fails
-when locked providers are absent); formatting, the Jev gate, and the
-full offline gate then run concurrently in the same container, and the
-step fails when any of them fails. Each lane is timed and a
-slowest-first summary prints at the end of the step without affecting
-the result. All pipelines resolve the dev shell
-and build outputs from the local Attic substituter
-(http://10.0.30.20:8080/homelab), so nix develop fetches prebuilt
-paths instead of downloading or rebuilding them per run;
-just cache-populate and the cache-publish operation keep the dev shells
-in that cache. The required Forgejo status is ci/woodpecker/validation-v2.
-Validation has no secrets.
-PRs never receive production workflows, regardless of target branch or YAML.
+Validation runs across push, PR, tag, manual, and cron events. The required
+Forgejo commit status context is `ci/woodpecker/validation-v2`. Validation has no
+secrets. PRs never receive production workflows, regardless of target branch or YAML.
+
+### Event deduplication and status preservation
+
+Forgejo triggers both branch push and pull request webhooks for PR commits. To
+prevent duplicate execution and runner queue saturation:
+- When a PR event arrives for a commit that has already been validated (or is
+  actively validating) by an authorized pipeline on `main` within 24 hours (or
+  actively pending/running within 2 hours), the policy extension emits
+  `pr-validation-reused.yaml` instead of generating a second `validation-v2`.
+- Emitting `pr-validation-reused` executes a lightweight step that reports
+  `ci/woodpecker/pr-validation-reused` without overwriting the required
+  `ci/woodpecker/validation-v2` status on Forgejo with `pending`. The PR merge
+  check remains green immediately upon push pipeline completion.
+- Deduplication invalidates and runs fresh `validation-v2` if:
+  - The PR originates from a fork (`from_fork: true`).
+  - The PR base branch is not `main`.
+  - The PR head commit does not match the pipeline commit (e.g. force-push).
+  - The PR is closed.
+  - The previous validation failed, expired (>24h), or was created under an
+    earlier policy service version.
+
+### Safe change-based scoping
+
+Validation steps invoke `python -m scripts.ci.validate repository`:
+- Path classification is handled by `scripts/ci/scope.py`.
+- **Documentation changes**: When a change modifies only documentation and
+  markdown files, only docs and whitespace checks run, completing in ~2 seconds.
+- **Application changes**: When changes are confined to allowlisted application
+  areas (e.g. Home Assistant configurations, automations, custom components),
+  repository validation runs with `SKIP_FLAKE_CHECK=1`. Linters, type checks, and
+  unit tests run in ~15 seconds while avoiding full fleet evaluation.
+- **Full offline gate**: Main branch pushes, periodic cron runs, release tags, and
+  any changes touching Nix files or infrastructure paths unconditionally run the
+  full offline gate (`just check` with `nix flake check`).
+
+### Dependency caching and timing visibility
+
+All pipelines resolve the dev shell and build outputs from the local Attic
+substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
+ensures the local cache takes precedence over `cache.nixos.org` (priority 40).
+`just cache-populate` and `scripts/ci/cache.sh` use `--ignore-upstream-cache-filter --jobs 8`
+to ensure all devShell dependencies are cached locally.
+
+Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report`:
+- Queue wait time is tracked from `CI_PIPELINE_CREATED` and reported separately under
+  `[WAIT / QUEUE]`, clearly distinguishing runner queue contention from execution duration.
+- Individual lanes (`fmt`, `jev`, `gate`) and substeps (`provision`, `gate-checks`)
+  report resource usage and execution times under `[EXECUTION BREAKDOWN]`.
 
 A current main push additionally runs opnsense-plan, cloudflare-plan, and
 sync-to-github and cache-publish after validation. The maintenance cron runs registry drift,

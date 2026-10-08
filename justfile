@@ -54,7 +54,7 @@ cache-populate:
       ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
       ./flake#checks.x86_64-linux.zot-registry \
       ./flake#devShells.x86_64-linux.default \
-      | attic push local:homelab --stdin
+      | attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
 
 deploy-fleet *args:
     python -m scripts.deploy_fleet {{args}}

@@ -33,6 +33,7 @@ from scripts.ci.policy import (
     VALIDATION,
     VALIDATION_COMMAND,
     configuration,
+    find_reusable_validation,
     verify_request,
 )
 from scripts.ci.prepare_platform import certificate, clone_environment
@@ -251,6 +252,261 @@ class PolicyTest(unittest.TestCase):
         self.request["pipeline"].update(event="deployment", deploy_to="opnsense-apply")
         with self.assertRaises(ValueError):
             configuration(self.request, self.catalog, self.parent, "b" * 40)
+
+    def test_pr_deduplication_reuses_passed_push_validation(self) -> None:
+        pr_request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 441,
+                "number": 441,
+                "event": "pull_request",
+                "ref": "refs/pull/89/head",
+                "commit": SHA,
+                "author": "rupan",
+                "from_fork": False,
+            },
+        }
+        pr_info = {
+            "state": "open",
+            "base": {"ref": "main", "sha": "b" * 40},
+            "head": {"ref": "feature", "sha": SHA},
+            "merge_base": "b" * 40,
+        }
+        pipelines = [
+            {
+                "id": 440,
+                "number": 440,
+                "event": "push",
+                "ref": "refs/heads/feature",
+                "commit": SHA,
+                "status": "success",
+                "finished": 1000,
+                "created": 900,
+                "from_fork": False,
+            }
+        ]
+        reusable = find_reusable_validation(
+            pr_request,
+            self.catalog,
+            now=1050,
+            pipelines=pipelines,
+            pr_getter=lambda _: pr_info,
+        )
+        self.assertIsNotNone(reusable)
+        self.assertEqual(reusable["id"], 440)
+
+        result = configuration(pr_request, self.catalog, reusable=reusable)
+        self.assertEqual(len(result["configs"]), 1)
+        self.assertEqual(result["configs"][0]["name"], "pr-validation-reused.yaml")
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["steps"][0]["name"], "pr-validation-reused")
+        self.assertIn("440", workflow["steps"][0]["commands"][0])
+        self.assertNotEqual(workflow["steps"][0]["name"], VALIDATION)
+
+    def test_pr_deduplication_reuses_active_push_validation(self) -> None:
+        pr_request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 441,
+                "number": 441,
+                "event": "pull_request",
+                "ref": "refs/pull/89/head",
+                "commit": SHA,
+                "author": "rupan",
+                "from_fork": False,
+            },
+        }
+        pr_info = {
+            "state": "open",
+            "base": {"ref": "main"},
+            "head": {"sha": SHA},
+        }
+        for status in ("pending", "running"):
+            pipelines = [
+                {
+                    "id": 440,
+                    "number": 440,
+                    "event": "push",
+                    "commit": SHA,
+                    "status": status,
+                    "created": 1000,
+                    "from_fork": False,
+                }
+            ]
+            reusable = find_reusable_validation(
+                pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=pipelines,
+                pr_getter=lambda _: pr_info,
+            )
+            self.assertIsNotNone(reusable)
+            self.assertEqual(reusable["id"], 440)
+
+    def test_pr_deduplication_invalidation_guards(self) -> None:
+        base_pr_request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 441,
+                "number": 441,
+                "event": "pull_request",
+                "ref": "refs/pull/89/head",
+                "commit": SHA,
+                "author": "rupan",
+                "from_fork": False,
+            },
+        }
+        base_pr_info = {
+            "state": "open",
+            "base": {"ref": "main"},
+            "head": {"sha": SHA},
+        }
+        base_pipeline = {
+            "id": 440,
+            "number": 440,
+            "event": "push",
+            "commit": SHA,
+            "status": "success",
+            "finished": 1000,
+            "created": 900,
+            "from_fork": False,
+        }
+
+        # Fork PR
+        fork_request = copy.deepcopy(base_pr_request)
+        fork_request["pipeline"]["from_fork"] = True
+        self.assertIsNone(
+            find_reusable_validation(
+                fork_request,
+                self.catalog,
+                now=1050,
+                pipelines=[base_pipeline],
+                pr_getter=lambda _: base_pr_info,
+            )
+        )
+
+        # Base branch changed (targeting non-main)
+        non_main_pr = copy.deepcopy(base_pr_info)
+        non_main_pr["base"]["ref"] = "develop"
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=[base_pipeline],
+                pr_getter=lambda _: non_main_pr,
+            )
+        )
+
+        # Force push / commit mismatch in PR
+        out_of_sync_pr = copy.deepcopy(base_pr_info)
+        out_of_sync_pr["head"]["sha"] = "c" * 40
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=[base_pipeline],
+                pr_getter=lambda _: out_of_sync_pr,
+            )
+        )
+
+        # PR closed
+        closed_pr = copy.deepcopy(base_pr_info)
+        closed_pr["state"] = "closed"
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=[base_pipeline],
+                pr_getter=lambda _: closed_pr,
+            )
+        )
+
+        # Expired validation (> 86400s)
+        expired_pipeline = copy.deepcopy(base_pipeline)
+        expired_pipeline["finished"] = 1000
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1000 + 86401,
+                pipelines=[expired_pipeline],
+                pr_getter=lambda _: base_pr_info,
+            )
+        )
+
+        # Failed validation
+        failed_pipeline = copy.deepcopy(base_pipeline)
+        failed_pipeline["status"] = "failure"
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=[failed_pipeline],
+                pr_getter=lambda _: base_pr_info,
+            )
+        )
+
+        # Self match (pipeline 441 matches candidate 441)
+        self_pipeline = copy.deepcopy(base_pipeline)
+        self_pipeline["id"] = 441
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=[self_pipeline],
+                pr_getter=lambda _: base_pr_info,
+            )
+        )
+
+        # Pipeline created before policy start time
+        old_policy_pipeline = copy.deepcopy(base_pipeline)
+        old_policy_pipeline["created"] = 800
+        self.assertIsNone(
+            find_reusable_validation(
+                base_pr_request,
+                self.catalog,
+                now=1050,
+                pipelines=[old_policy_pipeline],
+                pr_getter=lambda _: base_pr_info,
+                policy_start_time=850,
+            )
+        )
+
+    def test_pr_injects_merge_base_and_main_injects_full_validation(self) -> None:
+        pr_request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 441,
+                "event": "pull_request",
+                "ref": "refs/pull/89/head",
+                "commit": SHA,
+                "author": "rupan",
+            },
+        }
+        result = configuration(pr_request, self.catalog, merge_base="b" * 40)
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["steps"][0]["environment"]["CI_MERGE_BASE"], "b" * 40)
+
+        main_request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 442,
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": SHA,
+                "author": "rupan",
+            },
+        }
+        result_main = configuration(main_request, self.catalog, current=SHA)
+        workflow_main = yaml.safe_load(result_main["configs"][0]["data"])
+        self.assertEqual(
+            workflow_main["steps"][0]["environment"]["CI_FULL_VALIDATION"], "1"
+        )
 
     def test_catalog_commands_parse_and_predecessors_exist(self) -> None:
         import subprocess
