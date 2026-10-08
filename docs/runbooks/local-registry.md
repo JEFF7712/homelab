@@ -480,6 +480,47 @@ Keep the pre-registry NixOS generations and previous external image references u
 - Registry service failure: stop consumer migration, keep existing Pods running, restore the previous NAS generation, and diagnose against the preserved dataset.
 - Corrupt or missing content: do not advance desired state. Re-import from the lock or restore the registry into isolation, then verify the exact digest.
 
+## Producer base images and npm cache
+
+First-party producer Dockerfiles (`JEFF7712/rupanism`, `JEFF7712/rupan-dev`,
+`JEFF7712/distrojeff-site`, `JEFF7712/obsidian-vault`) must not pull from
+public registries. Base images are declared in
+`gitops/producer-base-images/base-images.yaml` (inventory source only, never
+applied by Flux), mirrored into `upstream/docker.io/...` by the registry
+import lane, and referenced by producer Dockerfiles as digest-pinned
+`registry.rupan.dev/upstream/...` references. Update flow: bump the tag in
+`base-images.yaml`, regenerate the inventory, resolve/import/verify, promote
+the lock, then update the Dockerfile digests. Until the lock carries the
+mirrored digest, `registry check` fails on the unmapped entry by design.
+
+`npm ci` and `bun install` in producer builds route through the pull-through
+cache at `https://npm.rupan.dev` via `npm_config_registry` (honored by both
+managers). The cache is plain nginx `proxy_cache` on `nas-01`
+(`flake/modules/npm-cache-proxy.nix`), not a registry application: tarballs
+cache for a year, packuments for 10 minutes, authenticated requests bypass and
+are never stored. The cache is regenerable from upstream and is deliberately
+excluded from sanoid snapshots and restic backup. `tank/npm-cache` is declared
+in `tank-config.nix`; on first deploy create it non-destructively like the
+registry dataset:
+
+```sh
+sudo zfs create -o mountpoint=legacy tank/npm-cache
+sudo install -d -o nginx -g nginx -m 0750 /tank/npm-cache
+sudo mount -t zfs tank/npm-cache /tank/npm-cache
+```
+
+Deployment sequence: create the dataset, deploy `nas-01` (TLS uses the
+existing registry Cloudflare token file, no new secret), apply the Unbound
+override (`opnsense_apply`), verify `npm.rupan.dev` resolves to `10.0.30.20`
+from a runner and a k3s node, then smoke-test with
+`npm_config_registry=https://npm.rupan.dev npm view tslib version`.
+
+Known remaining external dependencies (documented, not blocked): Debian apt in
+the Quartz builder (`git` for plugin clones; apt-cacher-ng is the follow-up if
+this must close), Google Fonts (vendored in rupanism via `next/font/local` and
+in Quartz via `fontOrigin: local`), mermaid diagrams on Quartz pages (cdnjs at
+runtime), ACME, and Git itself.
+
 ## Nix snapshotter pilot
 
 The nix-snapshotter work is a separate pilot after conventional OCI acceptance. It must first pass a disposable NixOS VM matrix for the exact pinned k3s version, authenticated Attic substitution, file-valued paths, reboot, garbage collection, cache outage, ordinary OCI compatibility, and rollback. Do not use `nix:0` references in the initial pilot. A pilot failure does not roll back or invalidate the completed OCI registry migration.

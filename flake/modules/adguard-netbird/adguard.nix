@@ -43,6 +43,11 @@
             enabled = true;
           }
           {
+            domain = "npm.rupan.dev";
+            answer = "10.0.30.20";
+            enabled = true;
+          }
+          {
             domain = "git.rupan.dev";
             answer = "10.0.30.20";
             enabled = true;

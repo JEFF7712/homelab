@@ -90,6 +90,11 @@
           mountpoint = "/tank/registry";
           options.mountpoint = "legacy";
         };
+        npm-cache = {
+          type = "zfs_fs";
+          mountpoint = "/tank/npm-cache";
+          options.mountpoint = "legacy";
+        };
         forgejo = {
           type = "zfs_fs";
           mountpoint = "/tank/forgejo";
