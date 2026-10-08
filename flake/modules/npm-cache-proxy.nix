@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -90,11 +91,12 @@ in
       virtualHosts.${cfg.hostName} = {
         onlySSL = true;
         useACMEHost = cfg.hostName;
-        locations."/" = {
+          locations."/" = {
           proxyPass = cfg.upstream;
           extraConfig = ''
             proxy_ssl_server_name on;
             proxy_ssl_verify on;
+            proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
             proxy_set_header Host registry.npmjs.org;
 
             # Pull-through cache: immutable tarballs cache long, packuments
@@ -109,11 +111,12 @@ in
             proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
           '';
         };
-        locations."~ \\.tgz$" = {
+          locations."~ \\.tgz$" = {
           proxyPass = cfg.upstream;
           extraConfig = ''
             proxy_ssl_server_name on;
             proxy_ssl_verify on;
+            proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
             proxy_set_header Host registry.npmjs.org;
             proxy_cache npm;
             proxy_cache_valid 200 365d;
