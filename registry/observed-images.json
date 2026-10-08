@@ -4,24 +4,24 @@
     "k3s-bootstrap",
     "live-workloads"
   ],
-  "evidence": "sanitized read-only Kubernetes Pod, Job, and CronJob image snapshot; pod-agent entries refreshed 2026-10-06T01:18:05+00:00; other entries retain observed_at",
+  "evidence": "sanitized read-only Kubernetes Pod, Job, and CronJob image snapshot",
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-5bcd647c56-2n29p/pot-provider"
+        "music-assistant/music-assistant-79d6cb97cd-s9vl9/pot-provider"
       ],
-      "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.0@sha256:ed86b6fdd5e430ddd7c8ce1adb55e1ab54db7c7dbc1bcbf3a82454a85b971164"
+      "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.1@sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d"
     },
     {
       "consumers": [
-        "default/bgp-canary-85c4bcc749-8rxr6/web"
+        "default/bgp-canary-85c4bcc749-6vcqv/web"
       ],
       "reference": "docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10"
     },
     {
       "consumers": [
-        "kube-system/coredns-5f4476996-bgx99/coredns",
-        "kube-system/coredns-5f4476996-cs72z/coredns"
+        "kube-system/coredns-5f4476996-bmr8v/coredns",
+        "kube-system/coredns-5f4476996-mwqs7/coredns"
       ],
       "reference": "docker.io/rancher/mirrored-coredns-coredns:1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea"
     },
@@ -57,72 +57,78 @@
     },
     {
       "consumers": [
-        "kube-system/cilium-envoy-2dcvr/cilium-envoy",
-        "kube-system/cilium-envoy-hmfrj/cilium-envoy",
-        "kube-system/cilium-envoy-kp574/cilium-envoy",
-        "kube-system/cilium-envoy-qbpf4/cilium-envoy",
-        "kube-system/cilium-envoy-tfmzj/cilium-envoy"
+        "kube-system/cilium-envoy-7bbcp/cilium-envoy",
+        "kube-system/cilium-envoy-7cgxk/cilium-envoy",
+        "kube-system/cilium-envoy-7xt8t/cilium-envoy",
+        "kube-system/cilium-envoy-tbd6v/cilium-envoy",
+        "kube-system/cilium-envoy-z4txz/cilium-envoy"
       ],
       "reference": "quay.io/cilium/cilium-envoy:v1.37.5-1786810558-766ccfb37260a43e9d228837aa84ce3faf9f64e7@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91"
     },
     {
       "consumers": [
-        "kube-system/cilium-52szz/apply-sysctl-overwrites",
-        "kube-system/cilium-52szz/cilium-agent",
-        "kube-system/cilium-52szz/clean-cilium-state",
-        "kube-system/cilium-52szz/config",
-        "kube-system/cilium-52szz/install-cni-binaries",
-        "kube-system/cilium-52szz/mount-bpf-fs",
-        "kube-system/cilium-52szz/mount-cgroup",
-        "kube-system/cilium-bqgtn/apply-sysctl-overwrites",
-        "kube-system/cilium-bqgtn/cilium-agent",
-        "kube-system/cilium-bqgtn/clean-cilium-state",
-        "kube-system/cilium-bqgtn/config",
-        "kube-system/cilium-bqgtn/install-cni-binaries",
-        "kube-system/cilium-bqgtn/mount-bpf-fs",
-        "kube-system/cilium-bqgtn/mount-cgroup",
-        "kube-system/cilium-ck86n/apply-sysctl-overwrites",
-        "kube-system/cilium-ck86n/cilium-agent",
-        "kube-system/cilium-ck86n/clean-cilium-state",
-        "kube-system/cilium-ck86n/config",
-        "kube-system/cilium-ck86n/install-cni-binaries",
-        "kube-system/cilium-ck86n/mount-bpf-fs",
-        "kube-system/cilium-ck86n/mount-cgroup",
-        "kube-system/cilium-mvszd/apply-sysctl-overwrites",
-        "kube-system/cilium-mvszd/cilium-agent",
-        "kube-system/cilium-mvszd/clean-cilium-state",
-        "kube-system/cilium-mvszd/config",
-        "kube-system/cilium-mvszd/install-cni-binaries",
-        "kube-system/cilium-mvszd/mount-bpf-fs",
-        "kube-system/cilium-mvszd/mount-cgroup",
-        "kube-system/cilium-r54v6/apply-sysctl-overwrites",
-        "kube-system/cilium-r54v6/cilium-agent",
-        "kube-system/cilium-r54v6/clean-cilium-state",
-        "kube-system/cilium-r54v6/config",
-        "kube-system/cilium-r54v6/install-cni-binaries",
-        "kube-system/cilium-r54v6/mount-bpf-fs",
-        "kube-system/cilium-r54v6/mount-cgroup"
+        "kube-system/cilium-9r675/apply-sysctl-overwrites",
+        "kube-system/cilium-9r675/cilium-agent",
+        "kube-system/cilium-9r675/clean-cilium-state",
+        "kube-system/cilium-9r675/config",
+        "kube-system/cilium-9r675/install-cni-binaries",
+        "kube-system/cilium-9r675/mount-bpf-fs",
+        "kube-system/cilium-9r675/mount-cgroup",
+        "kube-system/cilium-fzvxv/apply-sysctl-overwrites",
+        "kube-system/cilium-fzvxv/cilium-agent",
+        "kube-system/cilium-fzvxv/clean-cilium-state",
+        "kube-system/cilium-fzvxv/config",
+        "kube-system/cilium-fzvxv/install-cni-binaries",
+        "kube-system/cilium-fzvxv/mount-bpf-fs",
+        "kube-system/cilium-fzvxv/mount-cgroup",
+        "kube-system/cilium-gpc7x/apply-sysctl-overwrites",
+        "kube-system/cilium-gpc7x/cilium-agent",
+        "kube-system/cilium-gpc7x/clean-cilium-state",
+        "kube-system/cilium-gpc7x/config",
+        "kube-system/cilium-gpc7x/install-cni-binaries",
+        "kube-system/cilium-gpc7x/mount-bpf-fs",
+        "kube-system/cilium-gpc7x/mount-cgroup",
+        "kube-system/cilium-kvdvx/apply-sysctl-overwrites",
+        "kube-system/cilium-kvdvx/cilium-agent",
+        "kube-system/cilium-kvdvx/clean-cilium-state",
+        "kube-system/cilium-kvdvx/config",
+        "kube-system/cilium-kvdvx/install-cni-binaries",
+        "kube-system/cilium-kvdvx/mount-bpf-fs",
+        "kube-system/cilium-kvdvx/mount-cgroup",
+        "kube-system/cilium-l5zj2/apply-sysctl-overwrites",
+        "kube-system/cilium-l5zj2/cilium-agent",
+        "kube-system/cilium-l5zj2/clean-cilium-state",
+        "kube-system/cilium-l5zj2/config",
+        "kube-system/cilium-l5zj2/install-cni-binaries",
+        "kube-system/cilium-l5zj2/mount-bpf-fs",
+        "kube-system/cilium-l5zj2/mount-cgroup"
       ],
       "reference": "quay.io/cilium/cilium:v1.20.1@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b"
     },
     {
       "consumers": [
-        "kube-system/cilium-operator-5bb996d486-ghk8g/cilium-operator",
-        "kube-system/cilium-operator-5bb996d486-hc2xr/cilium-operator"
+        "kube-system/cilium-operator-5bb996d486-bq96k/cilium-operator",
+        "kube-system/cilium-operator-5bb996d486-nn6pg/cilium-operator"
       ],
       "reference": "quay.io/cilium/operator-generic:v1.20.1@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf"
     },
     {
       "consumers": [
-        "apolline/website-deploy-7c5b8dd85b-7bqrs/web"
+        "apolline/website-deploy-7c5b8dd85b-zfd62/web"
       ],
       "reference": "registry.rupan.dev/apps/apolline@sha256:ebd8990814186b9425f0bfa4c2f0860efae30baaea7abc6a7f9cf6353d62fe59"
     },
     {
       "consumers": [
-        "media/bookshelf-7d7b9b9f75-b6ns2/bookshelf"
+        "media/bookshelf-7d7b9b9f75-4hq6h/bookshelf"
       ],
       "reference": "registry.rupan.dev/apps/bookshelf@sha256:4702dab6bcb5583c99bb088137aab03343539d9f7086327f0d94ec691fa68c7e"
+    },
+    {
+      "consumers": [
+        "bus-display/website-deploy-5566655bfb-dm7mr/web"
+      ],
+      "reference": "registry.rupan.dev/apps/bus-display@sha256:7b9b9c48cb881399750f4edd9e82b2f89568542d2e9a8bd1ef8be9e8cc1750d7"
     },
     {
       "consumers": [
@@ -138,9 +144,9 @@
     },
     {
       "consumers": [
-        "distrojeff/website-deploy-77c8657f45-q4nsn/web"
+        "distrojeff/website-deploy-77c8657f45-d4p5x/web"
       ],
-      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:2fa9326b3416cb3468beac626853c7324c6a5ff97a06fa40526a475547ae53d5"
+      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:755f5125ca78494a88b138e255c521ec4391d07a01fb34607d56d0b81dee40e4"
     },
     {
       "consumers": [
@@ -150,37 +156,43 @@
     },
     {
       "consumers": [
-        "automation/renovate-dashboard-54f965546c-wzn4v/dashboard"
+        "automation/renovate-dashboard-849659dcdc-8pt59/dashboard"
       ],
       "reference": "registry.rupan.dev/apps/homelab-renovate-dashboard@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3"
     },
     {
       "consumers": [
-        "ism/website-deploy-7c6b4ff486-hrm27/web"
+        "ism/website-deploy-7c6b4ff486-ftnbj/web"
       ],
       "reference": "registry.rupan.dev/apps/ism@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227"
     },
     {
       "consumers": [
-        "voice/wyoming-nemotron-65cfd79974-6h9lg/bridge"
+        "voice/wyoming-nemotron-65cfd79974-b7nnj/bridge"
       ],
       "reference": "registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc"
     },
     {
       "consumers": [
-        "majorfinder/website-deploy-7b4d7fbddd-l6sqf/web"
+        "media/lidarr-5cf6f9cd67-hfx65/lidarr"
+      ],
+      "reference": "registry.rupan.dev/apps/lidarr-extended@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385"
+    },
+    {
+      "consumers": [
+        "majorfinder/website-deploy-7b4d7fbddd-89th2/web"
       ],
       "reference": "registry.rupan.dev/apps/majorfinder@sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e"
     },
     {
       "consumers": [
-        "nixagent/website-deploy-5d9cf455b-5swbv/web"
+        "nixagent/website-deploy-c58dbd96f-877vd/web"
       ],
-      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:4ee2db56de5f890be912583e1f8c895598ece1b2abba149072eb78dcf931d8e9"
+      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a"
     },
     {
       "consumers": [
-        "photography/website-deploy-7c4fdb5788-92hf8/web"
+        "photography/website-deploy-7c4fdb5788-nzswn/web"
       ],
       "reference": "registry.rupan.dev/apps/photography@sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593"
     },
@@ -211,56 +223,70 @@
         "pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/dashboard",
-        "pod-agent/pod-agent-dashboard-6b494db9cb-7tvdq/seed-memory",
-        "pod-agent/pod-agent-discord-bot-5c674b678-k4xn4/bot"
+        "pod-agent/pod-agent-antigravity-keyring-56cf889544-wkhbt/keyring",
+        "pod-agent/pod-agent-antigravity-keyring-56cf889544-wkhbt/prepare-profile",
+        "pod-agent/pod-agent-dashboard-6cc9d96dd8-6mcvq/dashboard",
+        "pod-agent/pod-agent-dashboard-6cc9d96dd8-6mcvq/seed-memory",
+        "pod-agent/pod-agent-discord-bot-b58dff468-kfpr4/bot"
       ],
       "reference": "registry.rupan.dev/apps/pod-agent@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb"
     },
     {
       "consumers": [
-        "pulse/website-deploy-746c5dfc47-ld4mg/web"
+        "pulse/website-deploy-746c5dfc47-n4t6k/web"
       ],
       "reference": "registry.rupan.dev/apps/pulse-site@sha256:8dacbcb2ae5b7ea8e6509e8e48270af1e9fb5d7226b249dac55df6f2e69adcb8"
     },
     {
       "consumers": [
-        "obsidian/quartz-notes-859c566694-b4gfc/quartz",
+        "obsidian/quartz-notes-859c566694-jfmhm/quartz",
         "obsidian/quartz-notes-859c566694-wsjc7/quartz"
       ],
       "reference": "registry.rupan.dev/apps/quartz@sha256:748a84ea18051aea5e4d0bbfcb9190d1aa4063b6f9ee8ed56aac5704affb84c0"
     },
     {
       "consumers": [
-        "rupan-dev/website-deploy-5c5bf6bd6-qjldh/web"
+        "rupan-dev/website-deploy-5c5bf6bd6-8f6gp/web"
       ],
       "reference": "registry.rupan.dev/apps/rupan-dev@sha256:3f35e70d3e999e10e79d0f8e447871860d5898b32123f08b7fe7bd0ac156cb68"
     },
     {
       "consumers": [
-        "rupanism/website-deploy-5b479567fd-sbztg/web"
+        "rupanism/website-deploy-5b479567fd-9vcbt/web"
       ],
       "reference": "registry.rupan.dev/apps/rupanism@sha256:1d825e169b0bc438c3b82ec10133feac5b5244c59ad05090fe9c15bffb6a34f9"
     },
     {
       "consumers": [
-        "soluble-rupan/website-deploy-7bfbbc4f97-4wvrr/web",
+        "soluble-rupan/website-deploy-7bfbbc4f97-pxv8s/web",
         "soluble-rupan/website-deploy-7bfbbc4f97-z54gh/web"
       ],
       "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea"
     },
     {
       "consumers": [
-        "spatia/website-deploy-75d64d5f9f-lb9gj/web"
+        "sovereign/website-deploy-6ff6f77fc-cvsw7/web"
+      ],
+      "reference": "registry.rupan.dev/apps/sovereign-site@sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221"
+    },
+    {
+      "consumers": [
+        "spatia/website-deploy-75d64d5f9f-cdtn5/web"
       ],
       "reference": "registry.rupan.dev/apps/spatia-site@sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc"
     },
     {
       "consumers": [
+        "automation/cluster-sentinel-29858120-mxd9s/cluster-sentinel",
         "automation/cronjob-cluster-sentinel/cluster-sentinel",
         "automation/cronjob-dockerhub-retention/dockerhub-retention",
         "automation/cronjob-website-healthcheck/healthcheck",
-        "automation/cronjob-website-image-watch/image-watch"
+        "automation/cronjob-website-image-watch/image-watch",
+        "automation/job-cluster-sentinel-29858120/cluster-sentinel",
+        "automation/job-website-healthcheck-29858120/healthcheck",
+        "automation/job-website-image-watch-29858130/image-watch",
+        "automation/website-healthcheck-29858120-fmsd7/healthcheck",
+        "automation/website-image-watch-29858130-mgmxj/image-watch"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47"
     },
@@ -272,8 +298,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-577ccfd854-95n5h/cloudflared",
-        "cloudflare/cloudflared-577ccfd854-b8pr2/cloudflared"
+        "cloudflare/cloudflared-86988bbd9d-774fz/cloudflared",
+        "cloudflare/cloudflared-86988bbd9d-q2ldm/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -285,7 +311,7 @@
     },
     {
       "consumers": [
-        "media/navidrome-84f6f684b9-t2tgw/navidrome"
+        "media/navidrome-84f6f684b9-mst5z/navidrome"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40"
     },
@@ -297,8 +323,8 @@
     },
     {
       "consumers": [
-        "observability/alloy-5vq4p/alloy",
         "observability/alloy-hkms9/alloy",
+        "observability/alloy-l7fsj/alloy",
         "observability/alloy-p9kb6/alloy",
         "observability/alloy-ptbjf/alloy",
         "observability/alloy-qkq6l/alloy"
@@ -307,14 +333,14 @@
     },
     {
       "consumers": [
-        "observability/kube-prometheus-stack-grafana-5b8f77784c-j89c7/grafana"
+        "observability/kube-prometheus-stack-grafana-64c4c758dc-55zl4/grafana"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/grafana/grafana@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5"
     },
     {
       "consumers": [
-        "observability/loki-canary-2tp9s/loki-canary",
         "observability/loki-canary-p8lgp/loki-canary",
+        "observability/loki-canary-pjxxb/loki-canary",
         "observability/loki-canary-pp86t/loki-canary",
         "observability/loki-canary-rq5fx/loki-canary",
         "observability/loki-canary-t92nz/loki-canary"
@@ -335,28 +361,28 @@
     },
     {
       "consumers": [
-        "media/download-fb6cb6d46-6k7nb/seed-slskd"
+        "media/download-8c86d6bd9-plg59/seed-slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-7b4b74c849-qtksn/initialize-config",
-        "home-assistant/home-assistant-7b4b74c849-qtksn/install-hacs",
-        "media/bazarr-7dc998dd85-tx5fq/fix-permissions",
-        "media/bookshelf-7d7b9b9f75-b6ns2/fix-permissions",
+        "home-assistant/home-assistant-86d74c6494-99f46/initialize-config",
+        "home-assistant/home-assistant-86d74c6494-99f46/install-hacs",
+        "media/bazarr-86cd66ff97-vkdhr/fix-permissions",
+        "media/bookshelf-7d7b9b9f75-4hq6h/fix-permissions",
         "media/calibre-web-9c6b87dff-qbmcf/fix-permissions",
-        "media/download-fb6cb6d46-6k7nb/configure-qbittorrent",
-        "media/download-fb6cb6d46-6k7nb/fix-permissions",
-        "media/jellyfin-f445584f8-jr75k/fix-permissions",
-        "media/lidarr-656bfcbb8f-t5xpr/fix-permissions",
-        "media/prowlarr-854d9db7dc-p8jlm/fix-permissions",
-        "media/radarr-766f6c966-mc8wf/fix-permissions",
+        "media/download-8c86d6bd9-plg59/configure-qbittorrent",
+        "media/download-8c86d6bd9-plg59/fix-permissions",
+        "media/jellyfin-6f4947d9c6-b7n7c/fix-permissions",
+        "media/lidarr-5cf6f9cd67-hfx65/fix-permissions",
+        "media/prowlarr-7c59445999-8sqxp/fix-permissions",
+        "media/radarr-67bcbdf494-dwh4j/fix-permissions",
         "media/seerr-5f98bdfcfb-jg6v5/fix-permissions",
-        "media/sonarr-5799bd8f99-5czzr/fix-permissions",
-        "nixagent/website-deploy-5d9cf455b-5swbv/prepare-nginx-tmp",
+        "media/sonarr-6444c4949b-r7thl/fix-permissions",
+        "nixagent/website-deploy-c58dbd96f-877vd/prepare-nginx-tmp",
         "obsidian/couchdb-67ffb7d45d-bdrnl/copy-config",
-        "spatia/website-deploy-75d64d5f9f-lb9gj/prepare-nginx-tmp"
+        "spatia/website-deploy-75d64d5f9f-cdtn5/prepare-nginx-tmp"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616"
     },
@@ -368,21 +394,22 @@
     },
     {
       "consumers": [
-        "automation/github-runner-apolline-74ddc9c5f4-5p8s4/dind",
-        "automation/github-runner-bookshelf-7f5c9b6679-wj5rk/dind",
-        "automation/github-runner-darkbit-7bb4c5696-vf444/dind",
-        "automation/github-runner-distrojeff-b7497888b-fv9zk/dind",
-        "automation/github-runner-ism-659dfc574-q9l2v/dind",
-        "automation/github-runner-majorfinder-6d974cf7c8-xb7z9/dind",
-        "automation/github-runner-nix-agent-7cd8476454-4wb94/dind",
-        "automation/github-runner-photography-6ff8c79b4-slrl8/dind",
-        "automation/github-runner-pulse-574646f46-wk98j/dind",
-        "automation/github-runner-quartz-777656d685-5brhc/dind",
-        "automation/github-runner-rupan-dev-5b74b487c7-ltwqq/dind",
-        "automation/github-runner-rupanism-7c6498bfd6-fm6fc/dind",
-        "automation/github-runner-soluble-8595cd994b-24zlt/dind",
-        "automation/github-runner-sovereign-7c6d8c6866-sbvvr/dind",
-        "automation/github-runner-spatia-5f9c77b94d-gmgc6/dind"
+        "automation/github-runner-apolline-74ddc9c5f4-n8vzn/dind",
+        "automation/github-runner-bookshelf-7f5c9b6679-vm9jn/dind",
+        "automation/github-runner-darkbit-7bb4c5696-9snr4/dind",
+        "automation/github-runner-distrojeff-b7497888b-zr6m5/dind",
+        "automation/github-runner-ism-659dfc574-625n5/dind",
+        "automation/github-runner-majorfinder-6d974cf7c8-b9d85/dind",
+        "automation/github-runner-nix-agent-7cd8476454-6fthx/dind",
+        "automation/github-runner-photography-6ff8c79b4-tqjwz/dind",
+        "automation/github-runner-pod-agent-85dd9d9c8b-4gz4p/dind",
+        "automation/github-runner-pulse-574646f46-x524b/dind",
+        "automation/github-runner-quartz-777656d685-x8zt6/dind",
+        "automation/github-runner-rupan-dev-5b74b487c7-9njtb/dind",
+        "automation/github-runner-rupanism-7c6498bfd6-tjkzc/dind",
+        "automation/github-runner-soluble-8595cd994b-l9xqt/dind",
+        "automation/github-runner-sovereign-7c6d8c6866-mbdz2/dind",
+        "automation/github-runner-spatia-5f9c77b94d-m5lmm/dind"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/docker@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce"
     },
@@ -401,38 +428,42 @@
     {
       "consumers": [
         "voice/jarvis-exporter-746b49b9fd-699j9/exporter",
-        "voice/wyoming-stt-gateway-6d658768f9-d5n6p/gateway",
+        "voice/wyoming-stt-gateway-6d658768f9-4d9fz/gateway",
         "voice/wyoming-stt-gateway-6d658768f9-dmncz/gateway",
-        "voice/wyoming-tts-gateway-5dcbc998b6-75bcb/gateway",
+        "voice/wyoming-tts-gateway-5dcbc998b6-2mhfr/gateway",
         "voice/wyoming-tts-gateway-5dcbc998b6-hgdzv/gateway"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
     },
     {
       "consumers": [
-        "automation/renovate-approval-webhook-b9c566c57-9cpvr/webhook",
+        "automation/renovate-approval-webhook-f4b7bd7c7-crf28/webhook",
         "media/cronjob-arr-credential-sync/sync",
+        "media/cronjob-arr-queue-hygiene/hygiene",
+        "media/cronjob-jellyfin-backup/backup",
         "media/cronjob-soularr/soularr",
         "media/cronjob-spotify-sync/sync",
+        "media/job-soularr-29858177/soularr",
+        "media/soularr-29858177-mxw8l/soularr",
         "sovereign/sovereign-inquiry-84cddfc8bd-bxg4q/receiver"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
     },
     {
       "consumers": [
-        "media/subgen-9647b4f4-hhh2q/subgen"
+        "media/subgen-9647b4f4-zkds6/subgen"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/mccloud/subgen@sha256:2841515a3b409677669f0a10d77d49160bffb8111db91640fb33a4db06b3396c"
     },
     {
       "consumers": [
-        "observability/loki-gateway-67dbb7cfcc-knfq2/nginx"
+        "observability/loki-gateway-67dbb7cfcc-2hbpp/nginx"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6"
     },
     {
       "consumers": [
-        "media/download-fb6cb6d46-6k7nb/gluetun"
+        "media/download-8c86d6bd9-plg59/gluetun"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/qmcgaw/gluetun@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4"
     },
@@ -445,14 +476,14 @@
     },
     {
       "consumers": [
-        "voice/wyoming-piper-dc4d7cb55-t6qr7/piper"
+        "voice/wyoming-piper-dc4d7cb55-w7pzn/piper"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a"
     },
     {
       "consumers": [
-        "voice/wyoming-whisper-747d784788-zfkjf/voice-id",
-        "voice/wyoming-whisper-747d784788-zfkjf/whisper"
+        "voice/wyoming-whisper-747d784788-tdz2b/voice-id",
+        "voice/wyoming-whisper-747d784788-tdz2b/whisper"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80"
     },
@@ -464,49 +495,50 @@
     },
     {
       "consumers": [
-        "media/download-fb6cb6d46-6k7nb/slskd"
+        "media/download-8c86d6bd9-plg59/slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/slskd/slskd@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6"
     },
     {
       "consumers": [
-        "immich/immich-valkey-d77778f46-t8l27/valkey"
+        "immich/immich-valkey-d77778f46-8ngk8/valkey"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/valkey/valkey@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d"
     },
     {
       "consumers": [
-        "automation/github-runner-apolline-74ddc9c5f4-5p8s4/runner",
-        "automation/github-runner-bookshelf-7f5c9b6679-wj5rk/runner",
-        "automation/github-runner-darkbit-7bb4c5696-vf444/runner",
-        "automation/github-runner-distrojeff-b7497888b-fv9zk/runner",
-        "automation/github-runner-ism-659dfc574-q9l2v/runner",
-        "automation/github-runner-majorfinder-6d974cf7c8-xb7z9/runner",
-        "automation/github-runner-nix-agent-7cd8476454-4wb94/runner",
-        "automation/github-runner-photography-6ff8c79b4-slrl8/runner",
-        "automation/github-runner-pulse-574646f46-wk98j/runner",
-        "automation/github-runner-quartz-777656d685-5brhc/runner",
-        "automation/github-runner-rupan-dev-5b74b487c7-ltwqq/runner",
-        "automation/github-runner-rupanism-7c6498bfd6-fm6fc/runner",
-        "automation/github-runner-soluble-8595cd994b-24zlt/runner",
-        "automation/github-runner-sovereign-7c6d8c6866-sbvvr/runner",
-        "automation/github-runner-spatia-5f9c77b94d-gmgc6/runner"
+        "automation/github-runner-apolline-74ddc9c5f4-n8vzn/runner",
+        "automation/github-runner-bookshelf-7f5c9b6679-vm9jn/runner",
+        "automation/github-runner-darkbit-7bb4c5696-9snr4/runner",
+        "automation/github-runner-distrojeff-b7497888b-zr6m5/runner",
+        "automation/github-runner-ism-659dfc574-625n5/runner",
+        "automation/github-runner-majorfinder-6d974cf7c8-b9d85/runner",
+        "automation/github-runner-nix-agent-7cd8476454-6fthx/runner",
+        "automation/github-runner-photography-6ff8c79b4-tqjwz/runner",
+        "automation/github-runner-pod-agent-85dd9d9c8b-4gz4p/runner",
+        "automation/github-runner-pulse-574646f46-x524b/runner",
+        "automation/github-runner-quartz-777656d685-x8zt6/runner",
+        "automation/github-runner-rupan-dev-5b74b487c7-9njtb/runner",
+        "automation/github-runner-rupanism-7c6498bfd6-tjkzc/runner",
+        "automation/github-runner-soluble-8595cd994b-l9xqt/runner",
+        "automation/github-runner-sovereign-7c6d8c6866-mbdz2/runner",
+        "automation/github-runner-spatia-5f9c77b94d-m5lmm/runner"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4"
     },
     {
       "consumers": [
-        "voice/wyoming-chatterbox-5b698cf4d9-29c2t/chatterbox",
-        "voice/wyoming-chatterbox-5b698cf4d9-29c2t/prepare-permissions",
-        "voice/wyoming-chatterbox-5b698cf4d9-29c2t/prepare-runtime"
+        "voice/wyoming-chatterbox-5b698cf4d9-t4b89/chatterbox",
+        "voice/wyoming-chatterbox-5b698cf4d9-t4b89/prepare-permissions",
+        "voice/wyoming-chatterbox-5b698cf4d9-t4b89/prepare-runtime"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
     {
       "consumers": [
-        "external-secrets/external-secrets-84477dcb55-8nxgn/external-secrets",
-        "external-secrets/external-secrets-cert-controller-647dcb9555-zfkkv/cert-controller",
-        "external-secrets/external-secrets-webhook-6fbbdcbd5c-h8v8s/webhook"
+        "external-secrets/external-secrets-7bd75d586c-xwlq4/external-secrets",
+        "external-secrets/external-secrets-cert-controller-7d74db5cf5-mk582/cert-controller",
+        "external-secrets/external-secrets-webhook-6894757f6f-phdpq/webhook"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/external-secrets/external-secrets@sha256:814117b0fd6d121b03e8ba3b6db1cecbe7449a354fc0fc9c4faf73a37aa221b1"
     },
@@ -518,13 +550,13 @@
     },
     {
       "consumers": [
-        "flux-system/helm-controller-55fd84fffc-tptw7/manager"
+        "flux-system/helm-controller-55fd84fffc-2nplx/manager"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/helm-controller@sha256:b113d67328a58ecaa04ce69aa41fb285a1ebd10f021e2371065598a1325042fd"
     },
     {
       "consumers": [
-        "flux-system/kustomize-controller-747cb9dc86-xb6g4/manager"
+        "flux-system/kustomize-controller-747cb9dc86-mk7g7/manager"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/kustomize-controller@sha256:ae1a90c0c76d518618c5e2a64b82b6476c8213aa7a2b17ec8b94828f0230a6b8"
     },
@@ -536,76 +568,68 @@
     },
     {
       "consumers": [
-        "flux-system/source-controller-89b9d4d6f-qqj6d/manager"
+        "flux-system/source-controller-89b9d4d6f-kq5cc/manager"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/fluxcd/source-controller@sha256:773a90fa26e014d4f23d5c6a48ca5875c4686bdc6aac2ea73951b9cd9fda48dd"
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-7b4b74c849-qtksn/home-assistant"
+        "home-assistant/home-assistant-86d74c6494-99f46/home-assistant"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17"
     },
     {
       "consumers": [
-        "media/lidarr-656bfcbb8f-t5xpr/lidarr"
-      ],
-      "reference": "registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f"
-    },
-    {
-      "consumers": [
-        "immich/immich-machine-learning-cf6cb8cb-5rdhb/immich-machine-learning"
+        "immich/immich-machine-learning-cf6cb8cb-sdg2l/immich-machine-learning"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
     {
       "consumers": [
-        "immich/immich-server-5c799b6d5b-wzcst/immich-server"
+        "immich/immich-server-7497ff76bb-zsfbn/immich-server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-server@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb"
     },
     {
       "consumers": [
-        "music-assistant/ledfx-5c4d95ff5f-7zjr4/ledfx"
+        "music-assistant/ledfx-5c4d95ff5f-c7vch/ledfx"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
     },
     {
       "consumers": [
-        "home-assistant/home-assistant-7b4b74c849-qtksn/matter-server"
+        "home-assistant/home-assistant-86d74c6494-99f46/matter-server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236"
     },
     {
       "consumers": [
-        "music-assistant/music-assistant-5bcd647c56-2n29p/server"
+        "music-assistant/music-assistant-79d6cb97cd-s9vl9/server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
     },
     {
       "consumers": [
-        "voice/linux-voice-assistant-5847b79d6b-lxncc/satellite"
+        "voice/linux-voice-assistant-5847b79d6b-57qn2/satellite"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
     },
     {
       "consumers": [
         "automation/cronjob-renovate-github/renovate",
-        "automation/cronjob-renovate-gitlab/renovate",
-        "automation/job-renovate-gitlab-29848080/renovate",
-        "automation/renovate-gitlab-29848080-5nzjg/renovate"
+        "automation/cronjob-renovate-gitlab/renovate"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c"
     },
     {
       "consumers": [
-        "flux-system/reloader-6f96b57fc9-tgwnl/reloader"
+        "flux-system/reloader-597ddcd4cf-2t6g4/reloader"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/stakater/reloader@sha256:def2480040adc164b3a57340e77674eadfd88fb7f0593df25e93297f29c7fd7c"
     },
     {
       "consumers": [
-        "media/bazarr-7dc998dd85-tx5fq/bazarr"
+        "media/bazarr-86cd66ff97-vkdhr/bazarr"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr@sha256:3a820372f19fcb2981ea19fe4b5382934d67414afaba974bce831ddda0a64a02"
     },
@@ -617,31 +641,31 @@
     },
     {
       "consumers": [
-        "media/jellyfin-f445584f8-jr75k/jellyfin"
+        "media/jellyfin-6f4947d9c6-b7n7c/jellyfin"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f"
     },
     {
       "consumers": [
-        "media/prowlarr-854d9db7dc-p8jlm/prowlarr"
+        "media/prowlarr-7c59445999-8sqxp/prowlarr"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr@sha256:ab91301778251f82a31bbfc87f0497376d59e84439d9a1ceff6a61d594d1e3d7"
     },
     {
       "consumers": [
-        "media/download-fb6cb6d46-6k7nb/qbittorrent"
+        "media/download-8c86d6bd9-plg59/qbittorrent"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:304b19cf94bf4fda534e0b086cab9c5f1a9e139a8180c05c0ad7d2ba1526fa99"
     },
     {
       "consumers": [
-        "media/radarr-766f6c966-mc8wf/radarr"
+        "media/radarr-67bcbdf494-dwh4j/radarr"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/radarr@sha256:119aaa4a4f7349bcd2a136c5373a0d7925b5479915c7dfe0c0ad352db2a6d438"
     },
     {
       "consumers": [
-        "media/sonarr-5799bd8f99-5czzr/sonarr"
+        "media/sonarr-6444c4949b-r7thl/sonarr"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/sonarr@sha256:c19aa4ecdf03d73e1d5c901da33744cb7eb4d921f89bafed1ca264601d7fa224"
     },
@@ -672,8 +696,8 @@
     },
     {
       "consumers": [
-        "observability/kube-prometheus-stack-grafana-5b8f77784c-j89c7/grafana-sc-dashboard",
-        "observability/kube-prometheus-stack-grafana-5b8f77784c-j89c7/grafana-sc-datasources"
+        "observability/kube-prometheus-stack-grafana-64c4c758dc-55zl4/grafana-sc-dashboard",
+        "observability/kube-prometheus-stack-grafana-64c4c758dc-55zl4/grafana-sc-datasources"
       ],
       "reference": "registry.rupan.dev/upstream/quay.io/kiwigrid/k8s-sidecar@sha256:694950d736c8b532eba4006527ccbdac98fefc9f30b3346ba2de50b6cad91c94"
     },
@@ -688,8 +712,8 @@
     },
     {
       "consumers": [
-        "observability/alloy-5vq4p/config-reloader",
         "observability/alloy-hkms9/config-reloader",
+        "observability/alloy-l7fsj/config-reloader",
         "observability/alloy-p9kb6/config-reloader",
         "observability/alloy-ptbjf/config-reloader",
         "observability/alloy-qkq6l/config-reloader"
@@ -698,7 +722,7 @@
     },
     {
       "consumers": [
-        "observability/kube-prometheus-stack-operator-86cbb954f5-v698z/kube-prometheus-stack"
+        "observability/kube-prometheus-stack-operator-6c44d4fb75-dmhzp/kube-prometheus-stack"
       ],
       "reference": "registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-operator@sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55"
     },
@@ -726,7 +750,7 @@
     },
     {
       "consumers": [
-        "observability/kube-prometheus-stack-kube-state-metrics-568c54f8cf-s8s94/kube-state-metrics"
+        "observability/kube-prometheus-stack-kube-state-metrics-568c54f8cf-q65sp/kube-state-metrics"
       ],
       "reference": "registry.rupan.dev/upstream/registry.k8s.io/kube-state-metrics/kube-state-metrics@sha256:6b2f0b6f2f86ac5b1aa883a033a8dd55bb96c16d191ec973393bdaadaddac914"
     },
@@ -738,6 +762,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-10-01T20:44:36+00:00",
+  "observed_at": "2026-10-08T22:40:28+00:00",
   "schema_version": 1
 }
