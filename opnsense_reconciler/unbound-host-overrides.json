@@ -8,6 +8,14 @@
     "enabled": "1"
   },
   {
+    "hostname": "npm",
+    "domain": "rupan.dev",
+    "rr": "A",
+    "server": "10.0.30.20",
+    "description": "Local npm pull-through cache on nas-01: keeps producer builds off the public registry",
+    "enabled": "1"
+  },
+  {
     "hostname": "git",
     "domain": "rupan.dev",
     "rr": "A",
