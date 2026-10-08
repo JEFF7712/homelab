@@ -90,9 +90,10 @@ in
         patches = (old.patches or [ ]) ++ [
           ../patches/woodpecker-deployment-policy.patch
           ../patches/woodpecker-clone-identity.patch
+          ../patches/woodpecker-forgejo-visibility.patch
         ];
         postCheck = (old.postCheck or "") + ''
-          go test ./server/forge/gitea -run '^TestNetrcCloneAccount$'
+          go test ./server/forge/gitea -run '^(TestNetrcCloneAccount|TestForgejoVisibilityReconciliation)$'
         '';
       });
       environment = {
