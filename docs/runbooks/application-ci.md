@@ -47,11 +47,12 @@ Register the `node` read-only Zot credential as Darkbit's Woodpecker registry
 pull credential. It supplies the fixed validation image, not publication
 authority. Darkbit has no Woodpecker command-step secrets.
 
-The merged configuration sets all agent tiers to `Restart=always` because
-disconnect exhaustion exits with status zero. Explicit operator stops still
-suppress restarts during recovery. The closure was built and copied to
-homelab-04, but activation and a clean-exit restart test remain pending after
-the execution environment disabled network sockets.
+All agent tiers use `Restart=always` because disconnect exhaustion exits with
+status zero. Explicit operator stops still suppress restarts during recovery.
+Activation on homelab-04 was verified on 2026-10-08 after draining running
+workflows. A clean SIGTERM exit of the idle deploy agent restarted automatically
+after the configured 15-second delay with a new PID. All tiers were active and
+scheduling was resumed afterward.
 
 ## Validation and limits
 
