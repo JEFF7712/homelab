@@ -26,12 +26,31 @@ Verification records contain command, exit code, time, source fingerprint, evide
 
 ## Task lifecycle
 
-1. `just task-new <id> --template > /tmp/<id>.json`, then fill in objective, acceptance criteria, owned files, and next action.
-2. `just task-new <id> < /tmp/<id>.json` to create the task. Creation refuses to overwrite an existing task and requires a committed HEAD.
-3. Launch the client through `just agent-run <id> <client>` so its hooks inherit task selection. For an already running client, use explicit `--task <id>` on context and verification commands. Do the work, keeping edits inside the owned files. Use `just agent-verify --json --record --task <id> -- <check-command>` to bind checks to observed source identity.
-4. `just task-resume <id> --json` to inspect HEAD and fingerprint drift plus stale verification. Take the current `record_revision` from the saved record as `expected_revision`.
-5. `just task-checkpoint <id>` reads the complete updated record plus `expected_revision` from stdin and replaces the checkpoint atomically. A revision mismatch means another writer won; reload and retry.
-6. `just task-export <id>` writes the sanitized handoff to `docs/agent-tasks/<id>.md` for review and commit. The export carries no patch; transfer commits or a reviewed patch separately.
+1. If multiple agents or tasks are active, isolate your workspace in a Git worktree (`git worktree add .worktrees/<id> -b <branch> origin/main`) and enter it.
+2. `just task-new <id> --template > /tmp/<id>.json`, then fill in objective, acceptance criteria, owned files, and next action.
+3. `just task-new <id> < /tmp/<id>.json` to create the task. Creation refuses to overwrite an existing task and requires a committed HEAD.
+4. Launch the client through `just agent-run <id> <client>` so its hooks inherit task selection. For an already running client, use explicit `--task <id>` on context and verification commands. Do the work, keeping edits inside the owned files. Use `just agent-verify --json --record --task <id> -- <check-command>` to bind checks to observed source identity.
+5. `just task-resume <id> --json` to inspect HEAD and fingerprint drift plus stale verification. Take the current `record_revision` from the saved record as `expected_revision`.
+6. `just task-checkpoint <id>` reads the complete updated record plus `expected_revision` from stdin and replaces the checkpoint atomically. A revision mismatch means another writer won; reload and retry.
+7. `just task-export <id>` writes the sanitized handoff to `docs/agent-tasks/<id>.md` for review and commit. The export carries no patch; transfer commits or a reviewed patch separately.
+
+## Concurrent agents and Git worktrees
+
+Multiple agents often operate simultaneously on this repository. Working in a shared checkout causes branch collisions, index staging conflicts, and invalidates verification fingerprints when another session makes edits.
+
+To isolate concurrent tasks:
+
+1. **Create an isolated worktree**: Store task worktrees under `.worktrees/<id>` or `.worktrees/<branch>`. The `.worktrees/` directory is git-ignored and skipped by check and doc scanners.
+   ```sh
+   git worktree add .worktrees/<task-id> -b <branch-name> origin/main
+   cd .worktrees/<task-id>
+   ```
+2. **Run all commands inside the worktree**: Client launchers (`just agent-run <id> <client>`), scoped checks (`just check-changed`), explicit verification (`just agent-verify`), and task management operate seamlessly from the worktree root. Repository tools resolve the worktree root dynamically via `git rev-parse --show-toplevel`.
+3. **Preserve dirty checkouts**: When inspecting a checkout with uncommitted modifications or untracked files from another agent, do not reset, stash, or overwrite them. Create and switch to a separate worktree instead.
+4. **Clean up upon completion**: Once the branch is published, reviewed, and merged, remove the worktree:
+   ```sh
+   git worktree remove .worktrees/<task-id>
+   ```
 
 ## Publishing changes
 
@@ -90,7 +109,7 @@ The GitOps gate fails when a custom-resource schema is missing. Required CRD sch
 
 ## Transfer and cleanup
 
-Exports omit raw task logs and redact common secrets and credential paths. An export does not contain an uncommitted patch. Transfer the commits or create a reviewed patch separately. An export is a point-in-time snapshot: it records the export time and both HEADs, but it never updates itself. Check `git log` on the file before relying on an older handoff. Remove obsolete local task and evidence directories only after inspecting them; no command automatically deletes task state.
+Exports omit raw task logs and redact common secrets and credential paths. An export does not contain an uncommitted patch. Transfer the commits or create a reviewed patch separately. An export is a point-in-time snapshot: it records the export time and both HEADs, but it never updates itself. Check `git log` on the file before relying on an older handoff. Remove obsolete local task and evidence directories only after inspecting them; no command automatically deletes task state. When working in a dedicated worktree, prune it with `git worktree remove .worktrees/<id>` once its branch is merged or exported.
 
 ## Client hooks
 
