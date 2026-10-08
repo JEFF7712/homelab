@@ -13,6 +13,8 @@ let
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
     mkdir -p $out/scripts/ci
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
+    cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
+    cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
     touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
   '';
   agent = tier: count: {
@@ -130,7 +132,7 @@ in
       wants = [ "network-online.target" ];
       environment.PYTHONPATH = toString policySource;
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --public-key %d/signature-public.pem";
+        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --public-key %d/signature-public.pem";
         LoadCredential = "signature-public.pem:/persist/woodpecker/signature-public.pem";
         EnvironmentFile = "/persist/woodpecker/policy.env";
         DynamicUser = true;

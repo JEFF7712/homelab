@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "applications": [
+    {
+      "id": "darkbit",
+      "repository": "JEFF7712/darkbit-site",
+      "woodpecker_repository_id": 2,
+      "default_branch": "main",
+      "validator": "static-site-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "artifact_repository": "apps/darkbit",
+      "deployment_path": "gitops/websites/darkbit",
+      "state": "stateless"
+    }
+  ]
+}
