@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -u
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-/config/xdg}"
+quality=""
+outdir=""
+link=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -q) quality="${2:-}"; shift 2 ;;
+    -o) outdir="${2:-}"; shift 2 ;;
+    -l) link="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+case "$quality" in
+  Master) tidal_quality="HI_RES_LOSSLESS" ;;
+  HiFi) tidal_quality="LOSSLESS" ;;
+  High | Normal) tidal_quality="HIGH" ;;
+  128) tidal_quality="LOW" ;;
+  "") tidal_quality="" ;;
+  *) tidal_quality="LOSSLESS" ;;
+esac
+if [ -n "$outdir" ]; then
+  tidaler cfg download_base_path "$outdir" >/dev/null 2>&1
+fi
+if [ -n "$tidal_quality" ]; then
+  tidaler cfg quality_audio "$tidal_quality" >/dev/null 2>&1
+fi
+if [ -z "$link" ]; then
+  if tidaler login </dev/null 2>&1 | grep -q "logged in"; then
+    exit 0
+  fi
+  echo "tidal-dl-shim: TIDAL session invalid, re-authentication required" >&2
+  exit 1
+fi
+# The Audio script passes bare Tidal album IDs; tidaler needs full URLs.
+case "$link" in
+  *[!0-9]*) ;;
+  *) link="https://tidal.com/browse/album/$link" ;;
+esac
+exec -a tidal-dl tidaler dl "$link"
