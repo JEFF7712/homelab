@@ -30,8 +30,8 @@ in
 
     cloudflareTokenFile = lib.mkOption {
       type = lib.types.str;
-      default = "/persist/npm-cache/cloudflare-dns-api-token";
-      description = "Runtime Cloudflare token used only by the ACME DNS-01 service. Same token value as the registry issuance; separate file.";
+      default = "/persist/zot/cloudflare-dns-api-token";
+      description = "Cloudflare token for ACME DNS-01. Shared with the registry issuance: same zone-scoped token, no new secret to provision.";
     };
 
     acmeEmail = lib.mkOption {

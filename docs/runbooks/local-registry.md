@@ -509,11 +509,10 @@ sudo install -d -o nginx -g nginx -m 0750 /tank/npm-cache
 sudo mount -t zfs tank/npm-cache /tank/npm-cache
 ```
 
-Deployment sequence: create the dataset, provision
-`/persist/npm-cache/cloudflare-dns-api-token` (same token value as the
-registry issuance), deploy `nas-01`, apply the Unbound override
-(`opnsense_apply`), verify `npm.rupan.dev` resolves to `10.0.30.20` from a
-runner and a k3s node, then smoke-test with
+Deployment sequence: create the dataset, deploy `nas-01` (TLS uses the
+existing registry Cloudflare token file, no new secret), apply the Unbound
+override (`opnsense_apply`), verify `npm.rupan.dev` resolves to `10.0.30.20`
+from a runner and a k3s node, then smoke-test with
 `npm_config_registry=https://npm.rupan.dev npm view tslib version`.
 
 Known remaining external dependencies (documented, not blocked): Debian apt in
