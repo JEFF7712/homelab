@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import subprocess
@@ -90,6 +91,14 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
         )
         if actual != head:
             return Scope("full", "checkout does not match pipeline commit")
+        pipeline_files = env.get("CI_PIPELINE_FILES")
+        if pipeline_files:
+            try:
+                files = json.loads(pipeline_files)
+                if isinstance(files, list) and all(isinstance(f, str) for f in files):
+                    return classify(files)
+            except (json.JSONDecodeError, ValueError):
+                pass
         subprocess.run(
             ["git", "merge-base", "--is-ancestor", base, head],
             cwd=root,
