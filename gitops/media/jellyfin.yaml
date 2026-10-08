@@ -20,6 +20,7 @@ spec:
         app: jellyfin
     spec:
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
       nodeSelector:
         kubernetes.io/hostname: homelab-04
       securityContext:
@@ -84,12 +85,16 @@ spec:
               port: 8096
             initialDelaySeconds: 30
             periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /health
               port: 8096
             initialDelaySeconds: 60
             periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: "1"
@@ -100,7 +105,7 @@ spec:
       volumes:
         - name: config
           persistentVolumeClaim:
-            claimName: jellyfin-config
+            claimName: jellyfin-config-nvme
         - name: media
           persistentVolumeClaim:
             claimName: media-library
@@ -123,3 +128,136 @@ spec:
   ports:
     - port: 80
       targetPort: 8096
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jellyfin-backup
+  namespace: media
+data:
+  backup.py: |
+    """Online SQLite backup and retention for Jellyfin database."""
+
+    import datetime
+    import glob
+    import os
+    import sqlite3
+    import sys
+
+    DB_PATH = "/config/data/data/jellyfin.db"
+    BACKUP_DIR = "/backups/SQLiteBackups"
+    RETENTION_DAYS = 7
+
+
+    def run_backup() -> None:
+        if not os.path.isfile(DB_PATH):
+            print(f"Error: Database not found at {DB_PATH}", file=sys.stderr)
+            sys.exit(1)
+
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        backup_file = os.path.join(BACKUP_DIR, f"jellyfin-{today}.db")
+        tmp_backup_file = backup_file + ".tmp"
+
+        if os.path.exists(tmp_backup_file):
+            os.remove(tmp_backup_file)
+
+        print(f"Starting online backup of {DB_PATH} -> {backup_file}...")
+        source = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        dest = sqlite3.connect(tmp_backup_file)
+        try:
+            source.backup(dest)
+        finally:
+            dest.close()
+            source.close()
+
+        # Validate integrity of the newly created backup
+        check = sqlite3.connect(tmp_backup_file)
+        try:
+            cursor = check.cursor()
+            cursor.execute("PRAGMA integrity_check;")
+            result = cursor.fetchone()
+            if not result or result[0] != "ok":
+                raise RuntimeError(f"Backup integrity check failed: {result}")
+            print("Backup integrity verified: ok")
+        finally:
+            check.close()
+
+        os.replace(tmp_backup_file, backup_file)
+        print(f"Successfully saved {backup_file} ({os.path.getsize(backup_file)} bytes)")
+
+        # Prune backups older than RETENTION_DAYS
+        now = datetime.datetime.now()
+        for f in glob.glob(os.path.join(BACKUP_DIR, "jellyfin-*.db")):
+            try:
+                mtime = datetime.datetime.fromtimestamp(os.path.getmtime(f))
+                if (now - mtime).days > RETENTION_DAYS:
+                    os.remove(f)
+                    print(f"Pruned old backup: {f}")
+            except OSError as e:
+                print(f"Warning: failed to remove {f}: {e}", file=sys.stderr)
+
+
+    if __name__ == "__main__":
+        run_backup()
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jellyfin-backup
+  namespace: media
+spec:
+  schedule: "0 2 * * *"
+  timeZone: America/Chicago
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: homelab-04
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command: ["python3", "/app/backup.py"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                runAsNonRoot: true
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+                - name: backups
+                  mountPath: /backups
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: script
+              configMap:
+                name: jellyfin-backup
+            - name: config
+              persistentVolumeClaim:
+                claimName: jellyfin-config-nvme
+            - name: backups
+              persistentVolumeClaim:
+                claimName: jellyfin-config
+            - name: tmp
+              emptyDir: {}
