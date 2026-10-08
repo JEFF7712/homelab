@@ -1,0 +1,63 @@
+diff --git a/server/forge/gitea/helper.go b/server/forge/gitea/helper.go
+--- a/server/forge/gitea/helper.go
++++ b/server/forge/gitea/helper.go
+@@ -36,6 +36,11 @@
+ 		from.HTMLURL,
+ 		from.Owner.AvatarURL,
+ 	)
++	private := from.Private || from.Owner.Visibility != gitea.VisibleTypePublic
++	visibility := model.VisibilityPublic
++	if private {
++		visibility = model.VisibilityPrivate
++	}
+ 	return &model.Repo{
+ 		ForgeRemoteID: model.ForgeRemoteID(fmt.Sprint(from.ID)),
+ 		Name:          name,
+@@ -43,7 +48,8 @@
+ 		FullName:      from.FullName,
+ 		Avatar:        avatar,
+ 		ForgeURL:      from.HTMLURL,
+-		IsSCMPrivate:  from.Private || from.Owner.Visibility != gitea.VisibleTypePublic,
++		IsSCMPrivate:  private,
++		Visibility:    visibility,
+ 		Clone:         from.CloneURL,
+ 		CloneSSH:      from.SSHURL,
+ 		Branch:        from.DefaultBranch,
+diff --git a/server/forge/gitea/homelab_visibility_test.go b/server/forge/gitea/homelab_visibility_test.go
+new file mode 100644
+--- /dev/null
++++ b/server/forge/gitea/homelab_visibility_test.go
+@@ -0,0 +1,33 @@
++package gitea
++
++import (
++	"testing"
++
++	"code.gitea.io/sdk/gitea"
++	"github.com/stretchr/testify/require"
++
++	"go.woodpecker-ci.org/woodpecker/v3/server/model"
++)
++
++func TestForgejoVisibilityReconciliation(t *testing.T) {
++	from := &gitea.Repository{
++		FullName: "owner/site",
++		HTMLURL: "https://git.example.invalid/owner/site",
++		Owner: &gitea.User{UserName: "owner", Visibility: gitea.VisibleTypePublic},
++	}
++	current := &model.Repo{Visibility: model.VisibilityPublic}
++	for _, private := range []bool{true, false} {
++		from.Private = private
++		current.Update(toRepo(from))
++		require.Equal(t, private, current.IsSCMPrivate)
++		if private {
++			require.Equal(t, model.VisibilityPrivate, current.Visibility)
++		} else {
++			require.Equal(t, model.VisibilityPublic, current.Visibility)
++		}
++	}
++	from.Owner.Visibility = gitea.VisibleTypePrivate
++	current.Update(toRepo(from))
++	require.True(t, current.IsSCMPrivate)
++	require.Equal(t, model.VisibilityPrivate, current.Visibility)
++}
