@@ -63,6 +63,13 @@ dhcpv4_subnets = {
 }
 
 dhcpv4_reservations = {
+  laptop_nixos = {
+    description = "Rupan's NixOS laptop"
+    hostname    = "laptop-nixos"
+    ip_address  = "10.0.20.50"
+    mac_address = "90:09:df:07:af:30"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
   ap_downstairs = {
     description = "Downstairs NETGEAR R6400v2 access point"
     hostname    = "ap-downstairs"
@@ -206,6 +213,13 @@ firewall_aliases = {
     description = "Spotify Connect zeroconf ports for Music Assistant players"
     enabled     = true
   }
+  admin_laptop = {
+    name        = "admin_laptop"
+    type        = "host"
+    content     = ["10.0.20.50"]
+    description = "Rupan's laptop admin device on clients VLAN"
+    enabled     = true
+  }
 }
 
 firewall_filters = {
@@ -239,6 +253,22 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.20.0/24", port = "" }
       destination = { net = "10.0.20.1", port = "53" }
+    }
+  }
+  clients-allow-admin-laptop = {
+    description = "Allow admin laptop to all destinations"
+    enabled     = true
+    sequence    = 205
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "any"
+      quick       = true
+      log         = true
+      source      = { net = "admin_laptop", port = "" }
+      destination = { net = "any", port = "" }
     }
   }
   clients-allow-load-balancers = {
