@@ -13,6 +13,7 @@
     ../../modules/nas-base.nix
     ../../modules/nas-data.nix
     ../../modules/zot-registry.nix
+    ../../modules/npm-cache-proxy.nix
     ../../modules/ledfx-bedroom.nix
     ../../modules/forgejo.nix
     ../../modules/git-dr-mirror.nix
@@ -39,6 +40,11 @@
   homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {
+    enable = true;
+    acmeEmail = "rupanpandyan@gmail.com";
+  };
+
+  services.homelab-npm-cache = {
     enable = true;
     acmeEmail = "rupanpandyan@gmail.com";
   };
