@@ -689,6 +689,14 @@ Before enabling blocking, bound and escalate persistent uncertainty or
 unavailable capability instead of repeatedly delaying forever. Matching native
 inspections of every human test label remain an intentional qualification gate.
 
+GitHub workflow `37730109266` completed successfully, including 3,073 passing
+application tests, three skips, clean Pyright, and image publication. The
+selected deployment artifact remains the separately source-verified local image.
+Native-photo worker `pod-quality-native-800b934` passed blind image transport
+and both development-photo inspections. A fresh worker verified both persisted
+verdicts, original/input hashes, private permissions, all 242 package files, and
+`qualified=false`. Business ledgers stayed unchanged during these canaries.
+
 After rollout, verify all 17 deployed consumer image references, package source
 parity, native inspection of the two owner development photographs, and hash
 and private-permission checks from a second worker after the first terminates.
