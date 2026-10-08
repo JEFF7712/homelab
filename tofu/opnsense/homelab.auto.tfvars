@@ -181,8 +181,8 @@ firewall_aliases = {
   netbird_allowed_dests = {
     name        = "netbird_allowed_dests"
     type        = "network"
-    content     = ["10.0.30.0/24", "10.0.40.0/24"]
-    description = "NetBird peers may reach infrastructure and load-balancer VIPs only"
+    content     = ["10.0.10.0/24", "10.0.20.0/24", "10.0.30.0/24", "10.0.40.0/24"]
+    description = "NetBird peers may reach management, clients, infrastructure, and load-balancer VIPs"
     enabled     = true
   }
   govee_lan_ports = {
@@ -738,7 +738,7 @@ firewall_filters = {
     }
   }
   netbird-allow-infrastructure = {
-    description = "Allow NetBird peers to infrastructure and LB VIPs"
+    description = "Allow NetBird peers to permitted homelab destinations"
     enabled     = true
     sequence    = 600
     interface   = { interface = ["opt6"] }
