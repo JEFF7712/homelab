@@ -165,10 +165,14 @@ in
     # Uncached pulls must not depend on the AdGuard rewrite. The secondary
     # resolver (OPNsense at 10.0.30.1) has no override and answers with the
     # public Cloudflare addresses, which route through the tunnel and fail
-    # large layers. Pin the registry to the NAS in /etc/hosts so containerd
-    # resolves it even when AdGuard is down or slow.
+    # large layers. Pin the registry and the npm cache to the NAS in
+    # /etc/hosts so containerd and producer builds resolve them even when
+    # AdGuard is down or slow.
     networking.hosts = {
-      "10.0.30.20" = [ "registry.rupan.dev" ];
+      "10.0.30.20" = [
+        "registry.rupan.dev"
+        "npm.rupan.dev"
+      ];
     };
 
     services.k3s = {

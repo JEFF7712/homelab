@@ -8,11 +8,11 @@
     "enabled": "1"
   },
   {
-    "hostname": "git",
+    "hostname": "npm",
     "domain": "rupan.dev",
     "rr": "A",
     "server": "10.0.30.20",
-    "description": "Forgejo Git service: local HTTPS endpoint on nas-01",
+    "description": "Local npm pull-through cache on nas-01: keeps producer builds off the public registry",
     "enabled": "1"
   },
   {
