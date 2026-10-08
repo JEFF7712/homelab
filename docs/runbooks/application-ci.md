@@ -30,6 +30,29 @@ lifecycle workflow. Tags, releases, cron and deployment events are rejected.
 Application variable overrides and operation requests are rejected before
 homelab API lookups. Repository-selected workflow commands are ignored.
 
+Forgejo requires authenticated repository access. Create pilot repositories
+private, and repair Woodpecker metadata after visibility changes. The pinned
+Forgejo adapter supplies both visibility and SCM privacy so repair can update
+the clone authentication decision.
+
+The clone account has read access to homelab and Darkbit, with no write or admin
+permission. Its current token has only `read:repository` scope. The previous
+token was limited to homelab alone and remains available to existing consumers.
+The encrypted replacement is in `secrets/woodpecker-clone.sops.env`. Decrypt it
+with an authorized independently held age key and restore it as root-owned
+mode 0600 `/persist/woodpecker/clone.env`, then restart the server. Include this
+file in recovery assets; a live server environment alone is insufficient.
+
+Register the `node` read-only Zot credential as Darkbit's Woodpecker registry
+pull credential. It supplies the fixed validation image, not publication
+authority. Darkbit has no Woodpecker command-step secrets.
+
+The merged configuration sets all agent tiers to `Restart=always` because
+disconnect exhaustion exits with status zero. Explicit operator stops still
+suppress restarts during recovery. The closure was built and copied to
+homelab-04, but activation and a clean-exit restart test remain pending after
+the execution environment disabled network sockets.
+
 ## Validation and limits
 
 The validator requires index.html and style.css and checks referenced rendering
@@ -60,8 +83,20 @@ promotion or cluster execution authority. Those stages need an isolated build
 executor and verified artifact handoff before credentials can be introduced.
 The catalog's artifact/deployment paths record ownership, not execution grants.
 
-Next acceptance steps are authorized repository migration/enrollment, activation
-of the reviewed policy, signed-extension/webhook verification, and legitimate
-validation. Then add build/publication and retained input manifests under the
+The source cutover passed live acceptance on 2026-10-08. Darkbit source PR 1
+passed authenticated checkout and application validation and merged under
+main protection. Test PR 2 proved repository-selected privileged commands were
+ignored, a missing asset failed validation and prevented merging, and restoring
+the asset returned validation to green. The test PR was closed without merging.
+Unsigned policy HTTP requests were rejected with 403.
+
+The independent laptop checkpoint at
+`/home/rupan/sovereign-recovery/darkbit/2026-10-08` contains a verified source
+bundle, the encrypted clone credential and a checksum manifest. Credential
+decryption was verified with the workstation key, independent of the NAS.
+This checkpoint covers source and clone authentication, not image inputs or
+complete platform recovery.
+
+Next add build/publication and retained input manifests under the
 [lifecycle RFC](../research/2026-10-08-sovereign-application-lifecycle-rfc.md).
 Offline build and independent recovery remain separate unpassed gates.
