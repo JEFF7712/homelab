@@ -20,8 +20,11 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/bus-display@sha256:890d7eaacf243c46d163a42976d91bb1bac24a53945b2518702827b20858aac2  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/bus-display@sha256:7b9b9c48cb881399750f4edd9e82b2f89568542d2e9a8bd1ef8be9e8cc1750d7  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
+          env:
+            - name: OUTLOOK_CALENDAR_URL_FILE
+              value: /secrets/calendar/outlook-calendar-url
           ports:
             - containerPort: 8080
           livenessProbe:
@@ -44,6 +47,9 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: calendar-secret
+              mountPath: /secrets/calendar
+              readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -55,3 +61,6 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: calendar-secret
+          secret:
+            secretName: bus-display-calendar
