@@ -1,0 +1,33 @@
+# Producer base images mirrored into registry.rupan.dev.
+#
+# These are build inputs for first-party producer Dockerfiles that live
+# outside this repository. They are scanned by `python -m scripts.registry
+# inventory` (image: fields) and mirrored to
+# registry.rupan.dev/upstream/<host>/<path> by the registry import jobs.
+# Producer Dockerfiles must reference the local mirror by digest, never the
+# public registry directly.
+#
+# This directory is NOT referenced by any Flux Kustomization: it is an
+# inventory source only and must never be applied to the cluster.
+#
+# Update flow for a base-image bump: change the tag and digest below, run
+# `just registry-inventory`, resolve/import/verify through the registry CI
+# lane, promote the lock, then update the producer Dockerfile digest.
+apiVersion: v1
+kind: List
+metadata:
+  name: producer-base-images
+items:
+  # JEFF7712/rupan.dev Dockerfile, JEFF7712/rupanism Dockerfile,
+  # JEFF7712/obsidian-vault quartz/Dockerfile (builder stage)
+  - image: docker.io/library/node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+  # JEFF7712/rupanism Dockerfile (deps stage), JEFF7712/distrojeff-site Dockerfile (builder stage)
+  - image: docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+  # JEFF7712/rupanism Dockerfile (deps stage)
+  - image: docker.io/oven/bun:1.4-debian@sha256:4f6e31d1a54d6a3dd312daef655fc998101b5043d52e12592ac293ef04b9bc73
+  # JEFF7712/obsidian-vault quartz/Dockerfile (runner stage)
+  - image: docker.io/library/nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+  # JEFF7712/pod-agent Dockerfile
+  - image: docker.io/library/python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258  # yamllint disable-line rule:line-length
+  # JEFF7712/pod-agent Dockerfile (uv copy stage)
+  - image: ghcr.io/astral-sh/uv:0.12.11@sha256:79c6f4776b851471cc73b7d21d0cc834bb94383c292e83640d27eff512864df7
