@@ -367,10 +367,26 @@ firewall_filters = {
       destination = { net = "224.0.0.251/32", port = "5353" }
     }
   }
+  clients-allow-netbird-3232 = {
+    description = "Allow clients host to NetBird appliance service on TCP 3232"
+    enabled     = true
+    sequence    = 220
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.20.111/32", port = "" }
+      destination = { net = "10.0.60.2/32", port = "3232" }
+    }
+  }
   clients-block-private = {
     description = "Block clients from other private VLANs"
     enabled     = true
-    sequence    = 220
+    sequence    = 221
     interface   = { interface = ["opt1"] }
     filter = {
       action      = "block"
