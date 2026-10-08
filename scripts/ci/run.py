@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     if not command:
         parser.error("a command is required")
     started = time.monotonic()
+    started_wall = time.time()
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
     code = 127
     try:
@@ -44,6 +45,12 @@ def main(argv: list[str] | None = None) -> int:
             "system_seconds": after.ru_stime - before.ru_stime,
             "children_max_rss_kib": after.ru_maxrss,
         }
+        if "CI_PIPELINE_CREATED" in os.environ:
+            try:
+                created_ts = float(os.environ["CI_PIPELINE_CREATED"])
+                report["queue_seconds"] = max(0.0, started_wall - created_ts)
+            except ValueError:
+                pass
         with (directory / "timings.jsonl").open("a") as handle:
             handle.write(json.dumps(report) + "\n")
     return code if code >= 0 else 128 - code
