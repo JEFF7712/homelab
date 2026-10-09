@@ -130,39 +130,60 @@ def _has_local_pip_install(body: str) -> bool:
     return "install" in lowered
 
 
+FORBIDDEN_COMMANDS = frozenset(
+    {
+        "apt",
+        "apt-get",
+        "apk",
+        "npm",
+        "yarn",
+        "bun",
+        "pip",
+        "pip3",
+        "uv",
+        "gem",
+        "cargo",
+        "go",
+        "curl",
+        "wget",
+    }
+)
+
+
+def _split_commands(body: str) -> list[str]:
+    parts = re.split(r"&&|\|\||[;|\n]", body)
+    return [part.strip() for part in parts if part.strip()]
+
+
 def check_run_lines(text: str) -> None:
     """Reject network/package-manager fetches in RUN instructions.
 
-    The only permitted installer is a hermetic local pip install
-    (`--no-index` with a local `--find-links` directory and no remote
-    URLs or index options). Everything else that reaches the network
-    or a distribution package manager is rejected.
+    Only a hermetic local pip install (`--no-index` with a local
+    `--find-links` directory and no remote URLs or index options) may
+    invoke an installer. All other installer, downloader, and
+    version-control fetch commands are rejected by argv[0] so that
+    directory names containing those strings do not false-positive.
     """
     for line in _join_continuations(text):
         if not line.upper().startswith("RUN"):
             continue
         body = line[3:]
-        if _has_local_pip_install(body):
-            forbid_network(body, "RUN instruction")
-            continue
-        forbid_network(body, "RUN instruction")
-        lowered = body.lower()
-        for pattern, name in (
-            (r"\bapt(-get)?\b", "apt"),
-            (r"\bapk\b", "apk"),
-            (r"\bnpm\b", "npm"),
-            (r"\byarn\b", "yarn"),
-            (r"\bbun\b", "bun"),
-            (r"\bpip\d?\b", "pip"),
-            (r"\buv\b", "uv"),
-            (r"\bgem\b", "gem"),
-            (r"\bcargo\b", "cargo"),
-            (r"\bgo\s+(install|get)\b", "go"),
-            (r"\bgit\s+clone\b", "git clone"),
-            (r"\bcurl\b", "curl"),
-            (r"\bwget\b", "wget"),
-        ):
-            if re.search(pattern, lowered):
+        for command in _split_commands(body):
+            argv = command.split()
+            if not argv:
+                continue
+            invoked = argv[0].rsplit("/", 1)[-1].lower()
+            if invoked in {"pip", "pip3", "uv"} and _has_local_pip_install(command):
+                forbid_network(command, "RUN instruction")
+                continue
+            forbid_network(command, "RUN instruction")
+            if invoked in FORBIDDEN_COMMANDS:
                 raise ValueError(
-                    f"RUN must not invoke {name}; retain inputs locally: {line}"
+                    f"RUN must not invoke {invoked}; retain inputs locally: {line}"
+                )
+            if invoked == "git" and any(
+                token.lower() == "clone" for token in argv[1:4]
+            ):
+                raise ValueError(
+                    f"RUN must not git clone; retain inputs locally: {line}"
                 )

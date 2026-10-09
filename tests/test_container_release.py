@@ -918,3 +918,28 @@ class SupplyLinkTest(unittest.TestCase):
                 self.assertEqual(
                     member.linkname, "/opt/cursor-agent/bundle/cursor-agent"
                 )
+
+
+class RunLineParsingTest(unittest.TestCase):
+    def check(self, body: str) -> None:
+        from scripts.ci.dockerfile_supply import check_run_lines
+
+        check_run_lines(f"FROM x\nRUN {body}\n")
+
+    def test_allows_tool_paths_with_forbidden_names(self) -> None:
+        self.check("mkdir -p /opt/npm/codex && tar xzf t.tgz -C /opt/npm/codex")
+        self.check("ln -s /opt/npm/codex/bin/codex.js /usr/local/bin/codex")
+
+    def test_rejects_smuggled_installer_after_pip(self) -> None:
+        from scripts.ci.dockerfile_supply import check_run_lines
+
+        with self.assertRaises(ValueError):
+            check_run_lines(
+                "FROM x\nRUN pip install --no-index --find-links=/w /app && apt-get install -y curl\n"
+            )
+
+    def test_rejects_bare_uv_sync(self) -> None:
+        from scripts.ci.dockerfile_supply import check_run_lines
+
+        with self.assertRaises(ValueError):
+            check_run_lines("FROM x\nRUN uv sync --locked --no-dev\n")
