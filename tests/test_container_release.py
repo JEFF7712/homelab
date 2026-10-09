@@ -943,3 +943,32 @@ class RunLineParsingTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             check_run_lines("FROM x\nRUN uv sync --locked --no-dev\n")
+
+
+class NixOSLaneTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_nixos_push_gets_hygiene_plus_flake_check(self) -> None:
+        import yaml
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        result = configuration(
+            {
+                "repo": {"id": 21, "owner": "JEFF7712", "name": "nixos-config"},
+                "pipeline": {
+                    "event": "push",
+                    "ref": "refs/heads/main",
+                    "commit": "d" * 40,
+                    "number": 5,
+                },
+            },
+            apps,
+        )
+        self.assertEqual(len(result["configs"]), 1)
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        names = [step["name"] for step in workflow["steps"]]
+        self.assertEqual(names, ["application-validation", "nix-flake-check"])
+        check = workflow["steps"][1]
+        self.assertIn("nixos/nix", check["image"])
+        self.assertIn("nix flake check --no-write-lock-file", check["commands"])
+        self.assertNotIn("environment", workflow["steps"][0])

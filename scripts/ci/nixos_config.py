@@ -37,16 +37,10 @@ def validate(root: Path) -> None:
             continue
         elif locked.get("type") == "indirect":
             raise ValueError(f"flake.lock node {name} must not be indirect")
-    workflows = root / ".github" / "workflows"
-    if workflows.is_dir():
-        for workflow in sorted(workflows.glob("*.yml")) + sorted(
-            workflows.glob("*.yaml")
-        ):
-            content = workflow.read_text(encoding="utf-8")
-            if "actions/checkout" in content and "forgejo" not in content.lower():
-                raise ValueError(
-                    f"{workflow.name} checks out source without a Forgejo path"
-                )
+    # NOTE: GitHub publishing workflows (Attic toplevel/ISO pushes) remain
+    # the artifact publisher until a Woodpecker nix-build lane exists. They
+    # are intentionally not rejected here; Forgejo is source authority and
+    # Woodpecker owns validation. See the runbook for the dual-push procedure.
 
 
 if __name__ == "__main__":

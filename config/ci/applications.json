@@ -581,7 +581,7 @@
       "woodpecker_repository_id": 21,
       "default_branch": "main",
       "validator": "nixos-config-v1",
-      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c",
       "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
       "artifact_repository": "-",
       "deployment_path": "-",
