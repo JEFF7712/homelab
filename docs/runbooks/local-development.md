@@ -42,6 +42,25 @@ deployment authorization and protected credentials described in
 [`local-registry.md`](local-registry.md).
 Use `just check` for the complete offline validation gate before handoff.
 
+## Nix input retention
+
+`scripts/ci/cache.sh` publishes host, check and development-shell closures to
+Attic. Before publication it also runs `nix flake archive` and includes the
+root source plus every recursive pinned input in the publication roots.
+Malformed or incomplete archive metadata fails before publication. Without
+`ATTIC_TOKEN`, the job builds the closures but skips publication.
+
+On 2026-10-08, a source audit found the pinned `nixpkgs` source available in
+Attic, but six other recursive input sources returned 404. Binary closure
+publication alone did not retain those source archives.
+
+Successful publication and local source availability are prerequisites for a
+clean offline CI test. They do not prove it: a disposable builder must resolve
+the pinned inputs and all check dependencies without public network access.
+Independent recovery also needs accessible source bundles, cache artifacts,
+verification keys, toolchains and host state outside the infrastructure being
+restored.
+
 ## NAS storage deployments
 
 Fleet deployment checks every ZFS dataset in the evaluated NAS filesystem
