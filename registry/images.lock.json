@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-09T00:31:34+00:00",
+  "generated_at": "2026-10-09T00:54:47+00:00",
   "images": [
     {
       "authenticity": {
@@ -4797,6 +4797,51 @@
         "registry": "nvcr.io",
         "repository": "nvidia/k8s-device-plugin",
         "tag": "v0.17.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:34"
+      ],
+      "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
+      "destination_tags": [
+        "2.10.0",
+        "retention-deployed-0f06b03ec33137b5"
+      ],
+      "digest": "sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964",
+      "id": "upstream-woodpeckerci-plugin-git-c764e24ba07e",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964",
+        "reference": "docker.io/woodpeckerci/plugin-git:2.10.0@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964",
+        "registry": "docker.io",
+        "repository": "woodpeckerci/plugin-git",
+        "tag": "2.10.0"
       }
     }
   ],

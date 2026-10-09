@@ -113,6 +113,7 @@ in
         WOODPECKER_CONFIG_EXTENSION_ENDPOINT = "http://127.0.0.1:8010/config";
         WOODPECKER_CONFIG_EXTENSION_EXCLUSIVE = "true";
         WOODPECKER_CONFIG_EXTENSION_NETRC = "true";
+        WOODPECKER_DEFAULT_CLONE_PLUGIN = "registry.rupan.dev/upstream/docker.io/woodpeckerci/plugin-git@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964";
         WOODPECKER_EXTENSIONS_ALLOWED_HOSTS = "loopback";
       };
       environmentFile = [
