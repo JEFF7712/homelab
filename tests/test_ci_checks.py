@@ -21,6 +21,9 @@ class GitopsCheckTest(unittest.TestCase):
             (repo / "scripts/checks").mkdir(parents=True)
             shutil.copy(ROOT / "scripts/checks/gitops.sh", repo / "scripts/checks")
             (repo / "schemas/kubernetes").mkdir(parents=True)
+            (repo / "schemas/kubernetes-core/v1.35.7-standalone-strict").mkdir(
+                parents=True
+            )
             target = repo / "gitops" / directory
             target.mkdir(parents=True)
             (target / "kustomization.yaml").write_text("resources: []\n")

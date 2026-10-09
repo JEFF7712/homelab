@@ -4,8 +4,13 @@ cd "$(dirname "$0")/../.."
 for tool in yamllint kubectl kubeconform; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then yamllint gitops; fi
 schema_root="$PWD/schemas/kubernetes"
+core_schema_root="$PWD/schemas/kubernetes-core/v1.35.7-standalone-strict"
 if [[ ! -d "$schema_root" ]]; then
   echo 'missing pinned repository CRD schemas under schemas/kubernetes' >&2
+  exit 69
+fi
+if [[ ! -d "$core_schema_root" ]]; then
+  echo 'missing pinned Kubernetes core schemas under schemas/kubernetes-core' >&2
   exit 69
 fi
 check_kustomization() {
@@ -14,7 +19,7 @@ check_kustomization() {
     gitops/secrets/*) return 0 ;;
   esac
   local output status=0
-  output=$({ kubectl kustomize "$(dirname "$file")" | kubeconform -strict -summary -ignore-missing-schemas -skip CustomResourceDefinition -schema-location default -schema-location "$schema_root/{{.ResourceKind}}{{.KindSuffix}}.json"; } 2>&1) || status=$?
+  output=$({ kubectl kustomize "$(dirname "$file")" | kubeconform -strict -summary -kubernetes-version 1.35.7 -skip CustomResourceDefinition -schema-location "$core_schema_root/{{.ResourceKind}}{{.KindSuffix}}.json" -schema-location "$schema_root/{{.ResourceKind}}{{.KindSuffix}}.json"; } 2>&1) || status=$?
   printf '%s\n' "$output"
   if [[ $status -ne 0 ]]; then
     echo "Kubernetes validation failed in $file" >&2
@@ -32,7 +37,7 @@ check_kustomization() {
   fi
 }
 export -f check_kustomization
-export schema_root
+export schema_root core_schema_root
 
 # shellcheck disable=SC2016
 find gitops -name kustomization.yaml -print0 | sort -z | xargs -0 -n 1 -P "${CHECK_JOBS:-8}" bash -euo pipefail -c 'check_kustomization "$1"' _

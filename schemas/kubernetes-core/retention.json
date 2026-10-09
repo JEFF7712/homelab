@@ -1,0 +1,100 @@
+{
+  "version": "1.35.7",
+  "upstream": "https://github.com/yannh/kubernetes-json-schema",
+  "commit": "472c2413165174c6c33d2dd0eab934e37346dbda",
+  "directory": "v1.35.7-standalone-strict",
+  "checksums": [
+    {
+      "filename": "validatingadmissionpolicy-admissionregistration-v1.json",
+      "sha256": "4b8b5f0e0e383363ee248095abe0ba0fd8b79da64d755c68632cbec9617697d9"
+    },
+    {
+      "filename": "validatingadmissionpolicybinding-admissionregistration-v1.json",
+      "sha256": "a705eb1d0de6d38132435c8df35b33097456012b2cd7d92d685442386d1d5db5"
+    },
+    {
+      "filename": "daemonset-apps-v1.json",
+      "sha256": "d6adf88a0790ee7c51f240b01712aaafc897fd2212633aa76331c2a38c216789"
+    },
+    {
+      "filename": "deployment-apps-v1.json",
+      "sha256": "46dc7cc4bec2c9a62400491e2b8057635afbfa6838999c518f7bea5c621a989b"
+    },
+    {
+      "filename": "cronjob-batch-v1.json",
+      "sha256": "df6e1fe99d94e35944027b7bc4317039f22f49cff40c4eb1dc0b54f02fcf8940"
+    },
+    {
+      "filename": "networkpolicy-networking-v1.json",
+      "sha256": "f6324cc464f62228b0418f438d167208e4f86c7e3677ba30f608e79a8b26ba79"
+    },
+    {
+      "filename": "runtimeclass-node-v1.json",
+      "sha256": "a42beafd78e65ae1986571cd3cd55ea843341a19bec7f198b77ce7985708c7ed"
+    },
+    {
+      "filename": "poddisruptionbudget-policy-v1.json",
+      "sha256": "da73f50ad0264d73f668eecaa9959da65afe2846602a7a5c8fd51f7799d6a258"
+    },
+    {
+      "filename": "clusterrole-rbac-v1.json",
+      "sha256": "0777f91c4fa08bd3989b6db8c59dad0429a63dec8f59e883ff55c947a14d0d5f"
+    },
+    {
+      "filename": "clusterrolebinding-rbac-v1.json",
+      "sha256": "e2d0471b444cf7ea4fd69d7eba1b16e06215503bfbc650450c2b6ad9b40f863c"
+    },
+    {
+      "filename": "role-rbac-v1.json",
+      "sha256": "dfe8fb03b1642f985b57b12edd1727b6867c13ed4b6761ef81bdd51b1d236711"
+    },
+    {
+      "filename": "rolebinding-rbac-v1.json",
+      "sha256": "87ab620d0adddcd2803b92357fce2854af752326df8c5408a7588aae98b3031d"
+    },
+    {
+      "filename": "priorityclass-scheduling-v1.json",
+      "sha256": "e9e6a95c984a39cfed9e5b2d7d55fb0f6f5511dffe508afc27db77238bce8f7f"
+    },
+    {
+      "filename": "storageclass-storage-v1.json",
+      "sha256": "9704bb88ec73ed37f8d565dbd2d2ee1e8ee61b5ec63c96a5a61926d6971ef3c9"
+    },
+    {
+      "filename": "configmap-v1.json",
+      "sha256": "e0eaddebd677c08aa092b2da2264d86ac4fc34eed112b9fac2945b3f00c1e9b1"
+    },
+    {
+      "filename": "endpoints-v1.json",
+      "sha256": "a900da742faee20d6b0364f8f0445116e46d31ea2b8c5b7167ca94c89aff33c2"
+    },
+    {
+      "filename": "namespace-v1.json",
+      "sha256": "324fae677b98d1a6d54340db0c334d053e8ffbafceb3f73326e41de2610d5843"
+    },
+    {
+      "filename": "persistentvolume-v1.json",
+      "sha256": "ddff73572bf0965cecf9c160949a1c416f4f9e8ade7f46a649767589a1e2783c"
+    },
+    {
+      "filename": "persistentvolumeclaim-v1.json",
+      "sha256": "6136871ac0337f11a48da5231a2807407c7386967e3432f344141b902f6a538c"
+    },
+    {
+      "filename": "resourcequota-v1.json",
+      "sha256": "9546ed313e622ea84a0ab1ec7ef7e683f05acfbfe97beb746f0b5be6407691df"
+    },
+    {
+      "filename": "secret-v1.json",
+      "sha256": "de761ccb06bd1d2c641fb57397f61b68e7ff53a384f0817ce40e5ded8cee86f3"
+    },
+    {
+      "filename": "service-v1.json",
+      "sha256": "8bf019854daed511e7c174896a898173fa65d88ec5937c687a37303d4cc9351b"
+    },
+    {
+      "filename": "serviceaccount-v1.json",
+      "sha256": "8193d6c3561475c6d3d5c44e1faedb1df53905373d904bc17015694326d659cf"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "system": "x86_64-linux",
+    "address": "registry.opentofu.org/cloudflare/cloudflare",
+    "version": "5.27.0",
+    "platform": "linux_amd64",
+    "filename": "terraform-provider-cloudflare_5.27.0_linux_amd64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_linux_amd64.zip",
+    "hash": "sha256-rkep8pWU1X5jTMC1uWoY2lo2T0PL1zViLOX+gIcoBl8="
+  },
+  {
+    "system": "aarch64-linux",
+    "address": "registry.opentofu.org/cloudflare/cloudflare",
+    "version": "5.27.0",
+    "platform": "linux_arm64",
+    "filename": "terraform-provider-cloudflare_5.27.0_linux_arm64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_linux_arm64.zip",
+    "hash": "sha256-dLYQJeRWuUR5QBe6a2BA9HgUmWSkX10yjR3CQLQ7gVM="
+  },
+  {
+    "system": "x86_64-darwin",
+    "address": "registry.opentofu.org/cloudflare/cloudflare",
+    "version": "5.27.0",
+    "platform": "darwin_amd64",
+    "filename": "terraform-provider-cloudflare_5.27.0_darwin_amd64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_darwin_amd64.zip",
+    "hash": "sha256-p4k6je9x5Uc/a0YqzK0C/H8PhCyvA7zUnTRDdo14ub4="
+  },
+  {
+    "system": "aarch64-darwin",
+    "address": "registry.opentofu.org/cloudflare/cloudflare",
+    "version": "5.27.0",
+    "platform": "darwin_arm64",
+    "filename": "terraform-provider-cloudflare_5.27.0_darwin_arm64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_darwin_arm64.zip",
+    "hash": "sha256-cyPRB7Rt2xRWwvHZOeryjoE3YgPeSC0Vwc/hiBkDyW4="
+  },
+  {
+    "system": "x86_64-linux",
+    "address": "registry.opentofu.org/browningluke/opnsense",
+    "version": "0.26.0",
+    "platform": "linux_amd64",
+    "filename": "terraform-provider-opnsense_0.26.0_linux_amd64.zip",
+    "url": "https://github.com/browningluke/terraform-provider-opnsense/releases/download/v0.26.0/terraform-provider-opnsense_0.26.0_linux_amd64.zip",
+    "hash": "sha256-cgj8dGkO3NWTcAKUQ70Z2l/pHNJmusc0+9ZiiLIm/JM="
+  },
+  {
+    "system": "aarch64-linux",
+    "address": "registry.opentofu.org/browningluke/opnsense",
+    "version": "0.26.0",
+    "platform": "linux_arm64",
+    "filename": "terraform-provider-opnsense_0.26.0_linux_arm64.zip",
+    "url": "https://github.com/browningluke/terraform-provider-opnsense/releases/download/v0.26.0/terraform-provider-opnsense_0.26.0_linux_arm64.zip",
+    "hash": "sha256-Nq7NXyeqUqIgGCPN1JqDdVD4lU94SS8F8Wp/oWyeSZY="
+  },
+  {
+    "system": "x86_64-darwin",
+    "address": "registry.opentofu.org/browningluke/opnsense",
+    "version": "0.26.0",
+    "platform": "darwin_amd64",
+    "filename": "terraform-provider-opnsense_0.26.0_darwin_amd64.zip",
+    "url": "https://github.com/browningluke/terraform-provider-opnsense/releases/download/v0.26.0/terraform-provider-opnsense_0.26.0_darwin_amd64.zip",
+    "hash": "sha256-u4F0FHyyeilH8MSQDSk9xzLIS5sFcfeen1adgZNaRlk="
+  },
+  {
+    "system": "aarch64-darwin",
+    "address": "registry.opentofu.org/browningluke/opnsense",
+    "version": "0.26.0",
+    "platform": "darwin_arm64",
+    "filename": "terraform-provider-opnsense_0.26.0_darwin_arm64.zip",
+    "url": "https://github.com/browningluke/terraform-provider-opnsense/releases/download/v0.26.0/terraform-provider-opnsense_0.26.0_darwin_arm64.zip",
+    "hash": "sha256-XjeQdsM8Q0hcVb0bIGYtPYvue5w9iNuSL3DI7Y0vbvY="
+  }
+]

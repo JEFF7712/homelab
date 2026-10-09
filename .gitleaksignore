@@ -12,3 +12,5 @@ de092ba40aa7364b15535140a113f604021508fe:trajectory-2026-09-21-045911.json:gener
 ee44d0ce103f60c4d5a08d31fa6a61ede4e46be3:tests/test_registry_supply.py:generic-api-key:161
 08b6cf3cde7fc679b08f8578f27dbf18ecd96a56:.gitleaksignore:generic-api-key:7
 b14d77c887de576d874cd7a1a860ffa2ec8cd7bb:.gitleaksignore:generic-api-key:7
+# Public SHA256 of the retained Kubernetes Secret schema, verified by the retention test.
+0681ed1afdf0be1e09361b37e6659b5bd7eb0e41:schemas/kubernetes-core/retention.json:generic-api-key:27
