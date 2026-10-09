@@ -50,12 +50,26 @@ root source plus every recursive pinned input in the publication roots.
 Malformed or incomplete archive metadata fails before publication. Without
 `ATTIC_TOKEN`, the job builds the closures but skips publication.
 
-The job also retains the development-shell derivation's available build-input
-graph, including derivation metadata and already valid outputs. This is
+The job also retains every declared build root's available input graph,
+including derivation metadata and already valid outputs. This covers the
+seven host systems, declared checks and development shell. This is
 different from retaining only the runtime closure: bootstrap hooks and check
 builders can require paths that are not referenced by runtime outputs.
 Graph enumeration failure stops publication; this does not build additional
 package outputs or guarantee availability of inputs that were never fetched.
+
+Pipeline 731 passed with 620 Nix paths downloaded from Attic and none from
+the public Nix cache. All six previously missing development-shell helpers
+were observed in those local downloads. A fresh, network-disabled container
+also restored the latest source and these helpers from retained artifacts
+with signature verification enabled. Its receipt is under
+`/home/rupan/sovereign-recovery/homelab-ci/2026-10-08/cold-build-inputs-20261009-v2/receipt.json`.
+
+Fleet publication pipeline 729 subsequently passed, but nine of its 19
+publicly fetched build helpers still returned 404 after publication. These
+were outside the development-shell graph, motivating collection from every
+declared build root. A successful application validation does not prove a
+complete offline fleet rebuild.
 
 On 2026-10-08, a source audit found the pinned `nixpkgs` source available in
 Attic, but six other recursive input sources returned 404. Binary closure

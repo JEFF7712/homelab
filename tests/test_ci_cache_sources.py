@@ -47,7 +47,12 @@ class CacheSourcesTest(unittest.TestCase):
                 source_paths(archive)
 
     def test_publication_includes_sources_and_rejects_incomplete_archive(self) -> None:
-        for scenario in ("valid", "invalid-archive", "failed-build-inputs"):
+        for scenario in (
+            "valid",
+            "invalid-archive",
+            "failed-derivations",
+            "failed-build-inputs",
+        ):
             with (
                 self.subTest(scenario=scenario),
                 tempfile.TemporaryDirectory() as temporary,
@@ -61,16 +66,23 @@ class CacheSourcesTest(unittest.TestCase):
                 nix = directory / "nix"
                 nix.write_text(
                     f"#!{sys.executable}\n"
-                    "import sys\n"
-                    "if sys.argv[1] == 'build': print('/nix/store/system')\n"
-                    "elif sys.argv[1] == 'path-info': print('/nix/store/devshell.drv')\n"
+                    "import json, os, pathlib, sys\n"
+                    "targets = pathlib.Path(os.environ['BUILD_TARGETS_RECEIPT'])\n"
+                    "if sys.argv[1] == 'build':\n"
+                    " targets.write_text(json.dumps(sys.argv[4:]))\n"
+                    " print('/nix/store/system\\n/nix/store/devshell')\n"
+                    "elif sys.argv[1] == 'path-info':\n"
+                    " assert sys.argv[2] == '--derivation'\n"
+                    " assert sys.argv[3:] == json.loads(targets.read_text())\n"
+                    " print('/nix/store/system.drv\\n/nix/store/devshell.drv')\n"
+                    " sys.exit(int(os.environ['DERIVATION_EXIT']))\n"
                     f"else: print({json.dumps(archive)!r})\n"
                 )
                 nix_store = directory / "nix-store"
                 nix_store.write_text(
                     f"#!{sys.executable}\n"
                     "import os, sys\n"
-                    "assert sys.argv[1:] == ['--query', '--requisites', '--include-outputs', '/nix/store/devshell.drv']\n"
+                    "assert sys.argv[1:] == ['--query', '--requisites', '--include-outputs', '/nix/store/system.drv', '/nix/store/devshell.drv']\n"
                     "print('/nix/store/build-input')\n"
                     "sys.exit(int(os.environ['BUILD_INPUT_EXIT']))\n"
                 )
@@ -93,6 +105,10 @@ class CacheSourcesTest(unittest.TestCase):
                         "PATH": str(directory) + os.pathsep + os.environ["PATH"],
                         "ATTIC_TOKEN": "test-only",
                         "PUSH_RECEIPT": str(receipt),
+                        "BUILD_TARGETS_RECEIPT": str(directory / "build-targets"),
+                        "DERIVATION_EXIT": "5"
+                        if scenario == "failed-derivations"
+                        else "0",
                         "BUILD_INPUT_EXIT": "5"
                         if scenario == "failed-build-inputs"
                         else "0",
@@ -106,6 +122,7 @@ class CacheSourcesTest(unittest.TestCase):
                         receipt.read_text().splitlines(),
                         [
                             "/nix/store/system",
+                            "/nix/store/devshell",
                             "/nix/store/source",
                             "/nix/store/build-input",
                         ],
