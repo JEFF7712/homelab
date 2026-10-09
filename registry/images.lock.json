@@ -54,16 +54,15 @@
       ],
       "destination_repository": "apps/sovereign-site",
       "destination_tags": [
-        "0.0.3",
-        "retention-deployed-9772ef3eef01b455"
+        "0.0.1000001",
+        "retention-deployed-873d57c8372816cf"
       ],
-      "digest": "sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
+      "digest": "sha256:873d57c8372816cf9492e2360a101dc74ebdeea8242e7ad17d219897467d163a",
       "id": "first-party-apps-sovereign-site-e7f0ef653bdf",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "location": "external-image-repository:registry.rupan.dev/apps/sovereign-site",
@@ -79,11 +78,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
-        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.3@sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221",
         "registry": "registry.rupan.dev",
         "repository": "apps/sovereign-site",
-        "tag": "0.0.3"
+        "tag": "0.0.1000001",
+        "digest": "sha256:873d57c8372816cf9492e2360a101dc74ebdeea8242e7ad17d219897467d163a",
+        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.1000001@sha256:873d57c8372816cf9492e2360a101dc74ebdeea8242e7ad17d219897467d163a"
       }
     },
     {
@@ -136,16 +135,15 @@
       ],
       "destination_repository": "apps/apolline",
       "destination_tags": [
-        "0.0.17",
-        "retention-deployed-ebd8990814186b94"
+        "0.0.1000001",
+        "retention-deployed-5ae14a4d5950287a"
       ],
-      "digest": "sha256:ebd8990814186b9425f0bfa4c2f0860efae30baaea7abc6a7f9cf6353d62fe59",
+      "digest": "sha256:5ae14a4d5950287a8736f99c39871f6f8a0fdb67c99dde9e2baf6e83fd714b91",
       "id": "first-party-jeff7712-apolline-5974dfffe554",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/apolline",
@@ -161,11 +159,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:ebd8990814186b9425f0bfa4c2f0860efae30baaea7abc6a7f9cf6353d62fe59",
-        "reference": "registry.rupan.dev/apps/apolline:0.0.17@sha256:ebd8990814186b9425f0bfa4c2f0860efae30baaea7abc6a7f9cf6353d62fe59",
         "registry": "registry.rupan.dev",
         "repository": "apps/apolline",
-        "tag": "0.0.17"
+        "tag": "0.0.1000001",
+        "digest": "sha256:5ae14a4d5950287a8736f99c39871f6f8a0fdb67c99dde9e2baf6e83fd714b91",
+        "reference": "registry.rupan.dev/apps/apolline:0.0.1000001@sha256:5ae14a4d5950287a8736f99c39871f6f8a0fdb67c99dde9e2baf6e83fd714b91"
       }
     },
     {
@@ -220,16 +218,15 @@
       ],
       "destination_repository": "apps/cr-demo",
       "destination_tags": [
-        "0.0.1",
-        "retention-deployed-47f1ac728c8f74af"
+        "0.0.1000001",
+        "retention-deployed-4f8c7d6c2891f484"
       ],
-      "digest": "sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
+      "digest": "sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363",
       "id": "first-party-jeff7712-cr-demo-9573b957c9dc",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "location": "external-image-repository:docker.io/jeff7712/cr-demo",
@@ -245,11 +242,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
-        "reference": "registry.rupan.dev/apps/cr-demo:0.0.1@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1",
         "registry": "registry.rupan.dev",
         "repository": "apps/cr-demo",
-        "tag": "0.0.1"
+        "tag": "0.0.1000001",
+        "digest": "sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363",
+        "reference": "registry.rupan.dev/apps/cr-demo:0.0.1000001@sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363"
       }
     },
     {
@@ -304,14 +301,17 @@
       ],
       "destination_repository": "apps/distrojeff-site",
       "destination_tags": [
-        "0.0.37",
-        "retention-deployed-755f5125ca78494a"
+        "0.0.1000001",
+        "retention-deployed-968b62c24c6b4f4a"
       ],
-      "digest": "sha256:755f5125ca78494a88b138e255c521ec4391d07a01fb34607d56d0b81dee40e4",
+      "digest": "sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40",
       "id": "first-party-jeff7712-distrojeff-site-01461f3c170c",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/distrojeff-site",
         "owner": "jeff7712",
@@ -326,11 +326,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:755f5125ca78494a88b138e255c521ec4391d07a01fb34607d56d0b81dee40e4",
-        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.37@sha256:755f5125ca78494a88b138e255c521ec4391d07a01fb34607d56d0b81dee40e4",
         "registry": "registry.rupan.dev",
         "repository": "apps/distrojeff-site",
-        "tag": "0.0.37"
+        "tag": "0.0.1000001",
+        "digest": "sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40",
+        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000001@sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40"
       }
     },
     {
@@ -423,10 +423,10 @@
       ],
       "destination_repository": "apps/ism",
       "destination_tags": [
-        "latest",
-        "retention-deployed-d8048bd8942e5ac9"
+        "0.0.1000001",
+        "retention-deployed-7f663f0b19b61cb6"
       ],
-      "digest": "sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227",
+      "digest": "sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091",
       "id": "first-party-jeff7712-ism-17c0fc6856fb",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -448,11 +448,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227",
-        "reference": "registry.rupan.dev/apps/ism:latest@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227",
         "registry": "registry.rupan.dev",
         "repository": "apps/ism",
-        "tag": "latest"
+        "tag": "0.0.1000001",
+        "digest": "sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091",
+        "reference": "registry.rupan.dev/apps/ism:0.0.1000001@sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091"
       }
     },
     {
@@ -506,10 +506,10 @@
       ],
       "destination_repository": "apps/majorfinder",
       "destination_tags": [
-        "0.0.4",
-        "retention-deployed-8c2af0947f9a1910"
+        "0.0.1000001",
+        "retention-deployed-24714b06d817ce0e"
       ],
-      "digest": "sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e",
+      "digest": "sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189",
       "id": "first-party-jeff7712-majorfinder-5e85d8d2824c",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -531,11 +531,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e",
-        "reference": "registry.rupan.dev/apps/majorfinder:0.0.4@sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e",
         "registry": "registry.rupan.dev",
         "repository": "apps/majorfinder",
-        "tag": "0.0.4"
+        "tag": "0.0.1000001",
+        "digest": "sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189",
+        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000001@sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189"
       }
     },
     {
@@ -548,10 +548,10 @@
       ],
       "destination_repository": "apps/nix-agent-site",
       "destination_tags": [
-        "0.0.24",
-        "retention-deployed-3035296a0979ed4e"
+        "0.0.1000001",
+        "retention-deployed-8987116457555b4e"
       ],
-      "digest": "sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
+      "digest": "sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f",
       "id": "first-party-jeff7712-nix-agent-site-6727a36d7b92",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -573,11 +573,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
-        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.24@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a",
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
-        "tag": "0.0.24"
+        "tag": "0.0.1000001",
+        "digest": "sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f",
+        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000001@sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f"
       }
     },
     {
@@ -590,16 +590,15 @@
       ],
       "destination_repository": "apps/photography",
       "destination_tags": [
-        "0.0.4",
-        "retention-deployed-2ef68f9dfa1c43ae"
+        "0.0.1000001",
+        "retention-deployed-9944a881e22315fe"
       ],
-      "digest": "sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593",
+      "digest": "sha256:9944a881e22315fea93c116b7668cd5aa3c0513ab60fc608754e0fec4fde188a",
       "id": "first-party-jeff7712-photography-7f744af23df3",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/photography",
@@ -615,11 +614,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593",
-        "reference": "registry.rupan.dev/apps/photography:0.0.4@sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593",
         "registry": "registry.rupan.dev",
         "repository": "apps/photography",
-        "tag": "0.0.4"
+        "tag": "0.0.1000001",
+        "digest": "sha256:9944a881e22315fea93c116b7668cd5aa3c0513ab60fc608754e0fec4fde188a",
+        "reference": "registry.rupan.dev/apps/photography:0.0.1000001@sha256:9944a881e22315fea93c116b7668cd5aa3c0513ab60fc608754e0fec4fde188a"
       }
     },
     {
@@ -700,10 +699,10 @@
       ],
       "destination_repository": "apps/pulse-site",
       "destination_tags": [
-        "0.0.100",
-        "retention-deployed-03dce268feeb8041"
+        "0.0.1000001",
+        "retention-deployed-7e5a74795569eb42"
       ],
-      "digest": "sha256:03dce268feeb80410854c7ec39432920b8d2a6f3f5fe521f0d969e38e2431fe0",
+      "digest": "sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b",
       "id": "first-party-jeff7712-pulse-site-2fd6c4414659",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -725,11 +724,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:03dce268feeb80410854c7ec39432920b8d2a6f3f5fe521f0d969e38e2431fe0",
-        "reference": "registry.rupan.dev/apps/pulse-site:0.0.100@sha256:03dce268feeb80410854c7ec39432920b8d2a6f3f5fe521f0d969e38e2431fe0",
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
-        "tag": "0.0.100"
+        "tag": "0.0.1000001",
+        "digest": "sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b",
+        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000001@sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b"
       }
     },
     {
@@ -743,14 +742,17 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.356",
-        "retention-deployed-b526bee65a6921bf"
+        "0.0.1000001",
+        "retention-deployed-785e71c0563aca7f"
       ],
-      "digest": "sha256:b526bee65a6921bf4fe41da9ee6c558a8896103344f95c3d80e59dd85bd0c2f3",
+      "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/quartz",
         "owner": "jeff7712",
@@ -765,11 +767,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b526bee65a6921bf4fe41da9ee6c558a8896103344f95c3d80e59dd85bd0c2f3",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.356@sha256:b526bee65a6921bf4fe41da9ee6c558a8896103344f95c3d80e59dd85bd0c2f3",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.356"
+        "tag": "0.0.1000001",
+        "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000001@sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a"
       }
     },
     {
@@ -783,14 +785,17 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.356",
-        "retention-deployed-b526bee65a6921bf"
+        "0.0.1000001",
+        "retention-deployed-785e71c0563aca7f"
       ],
-      "digest": "sha256:b526bee65a6921bf4fe41da9ee6c558a8896103344f95c3d80e59dd85bd0c2f3",
+      "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/quartz",
         "owner": "jeff7712",
@@ -805,11 +810,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b526bee65a6921bf4fe41da9ee6c558a8896103344f95c3d80e59dd85bd0c2f3",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.356@sha256:b526bee65a6921bf4fe41da9ee6c558a8896103344f95c3d80e59dd85bd0c2f3",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.356"
+        "tag": "0.0.1000001",
+        "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000001@sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a"
       }
     },
     {
@@ -822,10 +827,10 @@
       ],
       "destination_repository": "apps/rupan-dev",
       "destination_tags": [
-        "0.0.24",
-        "retention-deployed-8e97f0d6e3023a6a"
+        "0.0.1000001",
+        "retention-deployed-665e49253074d6bc"
       ],
-      "digest": "sha256:8e97f0d6e3023a6a4ff83dd790d988b4f2acd3705bcb080aefaf9a4237d5dc62",
+      "digest": "sha256:665e49253074d6bc0482e9a928b36030a61897b0e85c36c6b49ce5c87be9eef9",
       "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -847,11 +852,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:8e97f0d6e3023a6a4ff83dd790d988b4f2acd3705bcb080aefaf9a4237d5dc62",
-        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.24@sha256:8e97f0d6e3023a6a4ff83dd790d988b4f2acd3705bcb080aefaf9a4237d5dc62",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
-        "tag": "0.0.24"
+        "tag": "0.0.1000001",
+        "digest": "sha256:665e49253074d6bc0482e9a928b36030a61897b0e85c36c6b49ce5c87be9eef9",
+        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000001@sha256:665e49253074d6bc0482e9a928b36030a61897b0e85c36c6b49ce5c87be9eef9"
       }
     },
     {
@@ -864,14 +869,17 @@
       ],
       "destination_repository": "apps/rupanism",
       "destination_tags": [
-        "0.0.71",
-        "retention-deployed-59d89b955ca176de"
+        "0.0.1000001",
+        "retention-deployed-a982a71729eefa72"
       ],
-      "digest": "sha256:59d89b955ca176de13cafa3fdbe2ff4687c680bd2ac8a01e367deec9972544c8",
+      "digest": "sha256:a982a71729eefa72f974fa02e8a6ac90181c8def27c8455376f9ce130dc2fe23",
       "id": "first-party-jeff7712-rupanism-cb88e7bb7ba1",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/rupanism",
         "owner": "jeff7712",
@@ -886,11 +894,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:59d89b955ca176de13cafa3fdbe2ff4687c680bd2ac8a01e367deec9972544c8",
-        "reference": "registry.rupan.dev/apps/rupanism:0.0.71@sha256:59d89b955ca176de13cafa3fdbe2ff4687c680bd2ac8a01e367deec9972544c8",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupanism",
-        "tag": "0.0.71"
+        "tag": "0.0.1000001",
+        "digest": "sha256:a982a71729eefa72f974fa02e8a6ac90181c8def27c8455376f9ce130dc2fe23",
+        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000001@sha256:a982a71729eefa72f974fa02e8a6ac90181c8def27c8455376f9ce130dc2fe23"
       }
     },
     {
@@ -946,16 +954,15 @@
       ],
       "destination_repository": "apps/spatia-site",
       "destination_tags": [
-        "0.0.31",
-        "retention-deployed-8369afde6519683c"
+        "0.0.1000001",
+        "retention-deployed-2b0881af3df120f0"
       ],
-      "digest": "sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc",
+      "digest": "sha256:2b0881af3df120f02bd1bacaf76378a0cbf6bcc6eb2047dc8e28df2a103e298e",
       "id": "first-party-jeff7712-spatia-site-ae420f954d9c",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "location": "external-image-repository:ghcr.io/jeff7712/spatia-site",
@@ -971,11 +978,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc",
-        "reference": "registry.rupan.dev/apps/spatia-site:0.0.31@sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc",
         "registry": "registry.rupan.dev",
         "repository": "apps/spatia-site",
-        "tag": "0.0.31"
+        "tag": "0.0.1000001",
+        "digest": "sha256:2b0881af3df120f02bd1bacaf76378a0cbf6bcc6eb2047dc8e28df2a103e298e",
+        "reference": "registry.rupan.dev/apps/spatia-site:0.0.1000001@sha256:2b0881af3df120f02bd1bacaf76378a0cbf6bcc6eb2047dc8e28df2a103e298e"
       }
     },
     {

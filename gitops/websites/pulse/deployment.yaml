@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/pulse-site@sha256:03dce268feeb80410854c7ec39432920b8d2a6f3f5fe521f0d969e38e2431fe0  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pulse-site@sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
