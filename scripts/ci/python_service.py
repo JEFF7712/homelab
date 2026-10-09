@@ -86,9 +86,7 @@ def validate(root: Path) -> None:
                     "delivery belongs to Woodpecker"
                 )
             if "type=gha" in content:
-                raise ValueError(
-                    f"{workflow.name} must not use external GitHub cache"
-                )
+                raise ValueError(f"{workflow.name} must not use external GitHub cache")
 
 
 if __name__ == "__main__":

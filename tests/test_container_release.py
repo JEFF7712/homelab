@@ -803,7 +803,9 @@ class PythonWorkflowTest(unittest.TestCase):
             python_service.validate(self.root)
 
     def test_rejects_gha_cache_workflow(self) -> None:
-        self.write_workflow("jobs:\n  x:\n    steps:\n      - uses: a\n        with:\n          c: type=gha\n")
+        self.write_workflow(
+            "jobs:\n  x:\n    steps:\n      - uses: a\n        with:\n          c: type=gha\n"
+        )
         with self.assertRaises(ValueError):
             python_service.validate(self.root)
 
