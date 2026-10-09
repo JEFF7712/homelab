@@ -11,7 +11,18 @@
       "release_base_image": "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
       "artifact_repository": "apps/darkbit",
       "deployment_path": "gitops/websites/darkbit",
-      "state": "stateless"
+      "state": "stateless",
+      "release_kind": "static",
+      "release_files": [],
+      "release_supply": [],
+      "release_python": "",
+      "release_uid": 0,
+      "release_gid": 0,
+      "release_user": "",
+      "release_entrypoint": [],
+      "release_env": {},
+      "release_workdir": "",
+      "release_scripts": []
     },
     {
       "id": "solubility-gnn",
@@ -23,7 +34,30 @@
       "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
       "artifact_repository": "apps/solubility-gnn",
       "deployment_path": "gitops/websites/soluble-rupan",
-      "state": "stateless"
+      "state": "stateless",
+      "release_kind": "container",
+      "release_files": [
+        "src/",
+        "static/",
+        "models/",
+        "requirements.txt"
+      ],
+      "release_supply": [],
+      "release_python": "3.12",
+      "release_uid": 1000,
+      "release_gid": 1000,
+      "release_user": "1000:1000",
+      "release_entrypoint": [
+        "python",
+        "-m",
+        "src.server"
+      ],
+      "release_env": {
+        "PYTHONUNBUFFERED": "1",
+        "PORT": "8080"
+      },
+      "release_workdir": "/app",
+      "release_scripts": []
     },
     {
       "id": "pod-agent",
@@ -35,7 +69,63 @@
       "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
       "artifact_repository": "apps/pod-agent",
       "deployment_path": "gitops/pod-agent",
-      "state": "stateful"
+      "state": "stateful",
+      "release_kind": "container",
+      "release_files": [
+        "pyproject.toml",
+        "uv.lock",
+        [
+          "src/",
+          "app/src/"
+        ],
+        [
+          "memory/strategies/",
+          "app/repo-memory/strategies/"
+        ],
+        [
+          "deploy/wait-for-network.py",
+          "app/wait-for-network.py"
+        ],
+        [
+          "deploy/antigravity-keyring.py",
+          "app/antigravity-keyring.py"
+        ],
+        [
+          "scripts/backup_state.py",
+          "app/scripts-backup/backup_state.py"
+        ]
+      ],
+      "release_supply": [],
+      "release_python": "3.12",
+      "release_uid": 101,
+      "release_gid": 101,
+      "release_user": "101:101",
+      "release_entrypoint": [
+        "pod-agent",
+        "--help"
+      ],
+      "release_env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "PIP_NO_CACHE_DIR": "1",
+        "DB_PATH": "/data/state.db",
+        "ASSETS_ROOT": "/data/assets/distro-logos",
+        "TELEGRAM_STATE_PATH": "/data/telegram_bot_state.json",
+        "POD_AGENT_AGE_BIN": "/usr/bin/age",
+        "HOME": "/home/podagent",
+        "CODEX_HOME": "/data/cliauth/codex",
+        "CLAUDE_CONFIG_DIR": "/data/cliauth/claude",
+        "CURSOR_CONFIG_DIR": "/data/cliauth/cursor"
+      },
+      "release_workdir": "/data",
+      "release_scripts": [
+        {
+          "name": "pod-agent",
+          "module": "pod_agent.cli",
+          "attr": "app",
+          "syspath": "/app/src"
+        }
+      ]
     },
     {
       "id": "bookshelf",
@@ -47,7 +137,18 @@
       "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
       "artifact_repository": "apps/bookshelf",
       "deployment_path": "gitops/media",
-      "state": "stateful"
+      "state": "stateful",
+      "release_kind": "none",
+      "release_files": [],
+      "release_supply": [],
+      "release_python": "",
+      "release_uid": 0,
+      "release_gid": 0,
+      "release_user": "",
+      "release_entrypoint": [],
+      "release_env": {},
+      "release_workdir": "",
+      "release_scripts": []
     }
   ]
 }
