@@ -1712,5 +1712,55 @@
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
+  },
+  "provision-darkbit-publisher": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "python -m unittest tests.test_registry_darkbit_publisher",
+      "just check-registry",
+      "python -m scripts.registry.provision_darkbit"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "REGISTRY_DARKBIT_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_darkbit_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_DARKBIT_PUBLISHER_AUTH_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "provision_darkbit_publisher",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
   }
 }

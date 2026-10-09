@@ -273,6 +273,7 @@
         "unknown/unknown"
       ],
       "producer": {
+        "local_publisher": "forgejo-darkbit",
         "location": "external-image-repository:ghcr.io/jeff7712/darkbit",
         "owner": "jeff7712",
         "pipeline_status": "unverified"

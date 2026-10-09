@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ class Application:
     default_branch: str
     validator: str
     validation_image: str
+    release_base_image: str
     artifact_repository: str
     deployment_path: str
     state: str
@@ -72,6 +74,11 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             app.validation_image,
         ):
             raise ValueError("Validation image must be an immutable local image")
+        if not re.fullmatch(
+            r"registry\.rupan\.dev/upstream/docker\.io/nginxinc/nginx-unprivileged@sha256:[a-f0-9]{64}",
+            app.release_base_image,
+        ):
+            raise ValueError("Release base must be immutable local unprivileged nginx")
         if (
             app.artifact_repository != f"apps/{app.id}"
             or app.deployment_path != f"gitops/websites/{app.id}"
@@ -144,8 +151,74 @@ def configuration(
         ],
     }
     name = "application-lifecycle" if lifecycle else "application-validation"
-    return {
-        "configs": [
-            {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}
-        ]
-    }
+    configs = [
+        {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}
+    ]
+    if (
+        event == "push"
+        and pipeline.get("ref") == "refs/heads/main"
+        and not pipeline.get("from_fork")
+    ):
+        commit, number = pipeline.get("commit"), pipeline.get("number")
+        if (
+            not isinstance(commit, str)
+            or not re.fullmatch(r"[a-f0-9]{40}", commit)
+            or type(number) is not int
+            or not 0 < number < 1000000
+        ):
+            raise ValueError(
+                "Main release requires exact source commit and pipeline number"
+            )
+        source = Path(__file__).with_name("static_release.py").read_bytes()
+        encoded = base64.b64encode(source).decode()
+        command = f"python -I -c \"import base64; exec(compile(base64.b64decode('{encoded}'), '<server-owned-static-release>', 'exec'))\""
+        arguments = " ".join(
+            shlex.quote(v)
+            for v in [
+                "--base",
+                app.release_base_image,
+                "--commit",
+                commit,
+                "--repository",
+                app.artifact_repository,
+                "--number",
+                str(number),
+            ]
+        )
+        release = {
+            "when": [{"event": "push", "branch": app.default_branch}],
+            "depends_on": ["application-validation"],
+            "labels": {"tier": "sandbox", "type": "docker"},
+            "steps": [
+                {
+                    "name": "prepare-retained-inputs",
+                    "image": app.validation_image,
+                    "environment": {
+                        "REGISTRY_PASSWORD": {"from_secret": "registry_read_password"}
+                    },
+                    "commands": [command + " prepare " + arguments],
+                },
+                {
+                    "name": "assemble-static-image",
+                    "image": app.validation_image,
+                    "commands": [command + " assemble " + arguments],
+                },
+                {
+                    "name": "publish-verified-image",
+                    "image": app.validation_image,
+                    "environment": {
+                        "REGISTRY_PASSWORD": {
+                            "from_secret": app.id + "_registry_password"
+                        }
+                    },
+                    "commands": [command + " publish " + arguments],
+                },
+            ],
+        }
+        configs.append(
+            {
+                "name": "application-release.yaml",
+                "data": yaml.safe_dump(release, sort_keys=False),
+            }
+        )
+    return {"configs": configs}

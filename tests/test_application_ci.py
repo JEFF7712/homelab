@@ -88,7 +88,12 @@ class ApplicationPolicyTest(unittest.TestCase):
         )
         self.request = {
             "repo": {"id": 2, "owner": "JEFF7712", "name": "darkbit-site"},
-            "pipeline": {"event": "push", "ref": "refs/heads/main", "commit": "a" * 40},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "a" * 40,
+                "number": 1,
+            },
         }
 
     def test_validation_routes_without_homelab_api_or_secrets(self) -> None:
@@ -132,6 +137,43 @@ class ApplicationPolicyTest(unittest.TestCase):
             configuration(
                 self.request, (replace(self.app, woodpecker_repository_id=None),)
             )
+
+    def test_only_main_push_gets_separated_release_permissions(self) -> None:
+        workflows = configuration(self.request, (self.app,))["configs"]
+        self.assertEqual(len(workflows), 2)
+        release = yaml.safe_load(workflows[1]["data"])
+        self.assertEqual(release["depends_on"], ["application-validation"])
+        prepare, assemble, publish = release["steps"]
+        self.assertEqual(
+            prepare["environment"]["REGISTRY_PASSWORD"]["from_secret"],
+            "registry_read_password",
+        )
+        self.assertNotIn("environment", assemble)
+        self.assertEqual(
+            publish["environment"]["REGISTRY_PASSWORD"]["from_secret"],
+            "darkbit_registry_password",
+        )
+        for update in [
+            {"event": "pull_request"},
+            {"event": "manual"},
+            {"ref": "refs/heads/feature"},
+            {"from_fork": True},
+        ]:
+            r = copy.deepcopy(self.request)
+            r["pipeline"].update(update)
+            self.assertEqual(len(configuration(r, (self.app,))["configs"]), 1)
+
+    def test_release_source_and_number_fail_closed(self) -> None:
+        for update in [
+            {"commit": "a; command"},
+            {"number": True},
+            {"number": 0},
+            {"number": 1000000},
+        ]:
+            r = copy.deepcopy(self.request)
+            r["pipeline"].update(update)
+            with self.assertRaises(ValueError):
+                configuration(r, (self.app,))
 
     def test_application_cannot_enter_production_event_or_override(self) -> None:
         for change in (
