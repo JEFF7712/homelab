@@ -15,6 +15,7 @@ let
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
     cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
+    cp ${../../scripts/ci/static_release.py} $out/scripts/ci/static_release.py
     touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
   '';
   agent = tier: count: {

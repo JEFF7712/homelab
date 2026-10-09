@@ -738,6 +738,14 @@ def validate_lock(
                 or not producer.get("location")
             ):
                 errors.append(f"{prefix}.producer is required for first-party images")
+            if isinstance(producer, dict) and "local_publisher" in producer:
+                expected = "forgejo-" + str(
+                    record.get("destination_repository", "")
+                ).removeprefix("apps/")
+                if producer["local_publisher"] != expected:
+                    errors.append(
+                        f"{prefix}.producer.local_publisher must match its application"
+                    )
         if record.get("retention_class") not in {"deployed", "rollback", "candidate"}:
             errors.append(f"{prefix}.retention_class is invalid")
         destination = record.get("destination_repository")
@@ -2558,10 +2566,18 @@ def render_access_control(lock: Mapping[str, Any]) -> dict[str, Any]:
             continue
         repository = record["destination_repository"]
         project = repository.removeprefix("apps/")
+        publishers = [f"publisher-{project}"]
+        local_publisher = (record.get("producer") or {}).get("local_publisher")
+        if local_publisher:
+            if local_publisher != f"forgejo-{project}":
+                raise RegistryError(
+                    "Local publisher identity does not match its application"
+                )
+            publishers.append(local_publisher)
         repositories[repository] = {
             "policies": [
                 {"users": ["node"], "actions": read},
-                {"users": [f"publisher-{project}"], "actions": write},
+                {"users": publishers, "actions": write},
             ],
             "defaultPolicy": [],
         }

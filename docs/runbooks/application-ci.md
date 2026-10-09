@@ -79,10 +79,43 @@ actually reports status.
 
 ## Implementation boundary
 
-This lane validates source only. It grants no build, publication, signing,
-promotion or cluster execution authority. Those stages need an isolated build
-executor and verified artifact handoff before credentials can be introduced.
-The catalog's artifact/deployment paths record ownership, not execution grants.
+PRs, forks, manual runs and feature pushes validate source only. A main push also
+runs `application-release` after validation. The server-owned static image
+contract does not execute the repository Dockerfile, Python modules, package
+scripts or build commands. It needs no host socket, privileged container or
+general Dockerfile executor.
+
+Input preparation reads the digest-pinned local unprivileged nginx image using
+`registry_read_password`, the node read-only identity. Assembly receives no
+secret and adds only index.html, style.css and regular files under assets/ to
+the pinned base. Symlinks, missing/corrupt OCI blobs and oversized inputs fail
+closed. Timestamps and archive ownership are fixed for deterministic output.
+
+Publication receives only `darkbit_registry_password` for `forgejo-darkbit`.
+It rechecks the complete base chain, config, source identity and regenerated
+asset layer before any writes. It cannot execute repository code. Zot grants
+this identity read/create/update on apps/darkbit only, with no delete or
+cross-project permission. The legacy publisher remains separate for cutover.
+These credentials are push-scoped to the application repository. The immutable
+policy fixes all step images and commands; command-step secrets have empty
+image filters, as required by the runner.
+Recovery material is encrypted in `secrets/darkbit-release.sops.env`.
+
+The registry client connects directly to 10.0.30.20 while verifying TLS for
+registry.rupan.dev. Redirects cannot move release traffic to Cloudflare or an
+external artifact service. Release tags reserve `0.0.1000001` through
+`0.0.1999999` for Woodpecker pipeline numbers 1 through 999999, above the
+legacy GitHub range. A conflicting existing tag is rejected. CI never writes
+latest or deploys the cluster; a verified digest still needs a protected homelab
+promotion PR and Flux reconciliation. Release signing and SBOM enforcement
+remain separate unimplemented interfaces.
+
+Provision the local publisher through the manual protected
+`provision-darkbit-publisher` homelab CI operation. It replaces only the Darkbit
+entry with its lock-derived policy and refuses any unrelated policy change, preserves
+all existing htpasswd entries, checks for concurrent changes and retains
+root-only rollback files before restarting Zot. Do not replace an existing
+local publisher implicitly.
 
 The source cutover passed live acceptance on 2026-10-08. Darkbit source PR 1
 passed authenticated checkout and application validation and merged under

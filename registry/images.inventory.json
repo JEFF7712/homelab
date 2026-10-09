@@ -98,6 +98,7 @@
       "id": "first-party-apps-darkbit-06a48d3af297",
       "kind": "first-party",
       "producer": {
+        "local_publisher": "forgejo-darkbit",
         "location": "external-image-repository:registry.rupan.dev/apps/darkbit",
         "owner": "jeff7712",
         "pipeline_status": "unverified"
