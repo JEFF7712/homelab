@@ -132,7 +132,8 @@ def main(argv: list[str] | None = None) -> int:
             *["test ! -e " + shlex.quote(path) for path in paths],
             "nix copy --from file:///inputs/cache " + " ".join(map(shlex.quote, paths)),
             "cd /source",
-            "nix develop --offline 'path:.?dir=flake' -c bash -euo pipefail -c "
+            # --offline also disables file-cache substitution; networking is blocked by Podman.
+            "nix develop 'path:.?dir=flake' -c bash -euo pipefail -c "
             + shlex.quote(
                 "just provision-check-deps; CI_TEST_REPORT=artifacts/ci/offline-tests.xml just check; just fmt-check"
             ),
