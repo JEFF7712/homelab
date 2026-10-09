@@ -461,6 +461,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/arr.yaml:257"
+      ],
+      "destination_repository": "apps/lidarr-extended",
+      "destination_tags": [
+        "0.1.0",
+        "retention-deployed-8d5da9f7ebb46e6d"
+      ],
+      "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+      "id": "first-party-apps-lidarr-extended-c59cbeca30f2",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/lidarr-extended",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+        "reference": "registry.rupan.dev/apps/lidarr-extended:0.1.0@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/lidarr-extended",
+        "tag": "0.1.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:majorfinder/website-deploy-f99cbbc9c-bjpn9/web"
       ],
       "destination_repository": "apps/majorfinder",
