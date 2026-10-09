@@ -26,9 +26,9 @@ class OfflineInputsTest(unittest.TestCase):
     def test_core_schema_retention_checksums(self) -> None:
         root = ROOT / "schemas/kubernetes-core"
         manifest = json.loads((root / "retention.json").read_text())
-        for name, checksum in manifest["checksums"].items():
-            data = (root / manifest["directory"] / name).read_bytes()
-            self.assertEqual(hashlib.sha256(data).hexdigest(), checksum)
+        for entry in manifest["checksums"]:
+            data = (root / manifest["directory"] / entry["filename"]).read_bytes()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), entry["sha256"])
             self.assertIsInstance(json.loads(data), dict)
 
     @unittest.skipUnless(shutil.which("kubeconform"), "kubeconform is required")
