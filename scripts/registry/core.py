@@ -21,6 +21,8 @@ from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
+from scripts.ci.applications import load_catalog
+
 SCHEMA_VERSION = 1
 DEFAULT_REGISTRY = "registry.rupan.dev"
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -506,8 +508,22 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
                 "reason": "offline discovery does not contact the cluster; reconcile a fresh sanitized live snapshot",
             }
         )
+    catalog = root / "config/ci/applications.json"
+    applications = (
+        {app.artifact_repository: app for app in load_catalog(catalog)}
+        if catalog.exists()
+        else {}
+    )
     for entry in found.values():
         if entry["kind"] == "first-party":
+            application = applications.get(entry["destination_repository"])
+            if application is not None:
+                entry["producer"] = {
+                    "owner": application.repository.split("/")[0].lower(),
+                    "location": f"forgejo:{application.repository}",
+                    "pipeline_status": "configured-local",
+                    "local_publisher": f"forgejo-{application.id}",
+                }
             gaps.append(
                 {
                     "id": f"producer:{entry['id']}",

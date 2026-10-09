@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import base64
 import copy
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from scripts.registry.core import RegistryError, render_access_control
+from scripts.registry.core import (
+    RegistryError,
+    discover_inventory,
+    render_access_control,
+)
 from scripts.registry.provision_darkbit import check_policy, publisher_password
 
 
@@ -76,6 +83,31 @@ class DarkbitPublisherTest(unittest.TestCase):
             else:
                 with self.assertRaises(ValueError):
                     publisher_password(value)
+
+    def test_inventory_regeneration_preserves_catalog_publisher(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog = root / "config/ci/applications.json"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text(Path("config/ci/applications.json").read_text())
+            deployment = root / "gitops/websites/darkbit/deployment.yaml"
+            deployment.parent.mkdir(parents=True)
+            deployment.write_text(
+                "image: registry.rupan.dev/apps/darkbit@sha256:" + "a" * 64 + "\n"
+            )
+            first = discover_inventory(root)
+            second = discover_inventory(root)
+            producer = first["images"][0]["producer"]
+            self.assertEqual(producer, second["images"][0]["producer"])
+            self.assertEqual(producer["location"], "forgejo:JEFF7712/darkbit-site")
+            policy = render_access_control(first)
+            self.assertIn(
+                "forgejo-darkbit",
+                policy["repositories"]["apps/darkbit"]["policies"][1]["users"],
+            )
+            catalog.write_text(json.dumps({"schema_version": 1, "applications": []}))
+            policy = render_access_control(discover_inventory(root))
+            self.assertNotIn("forgejo-darkbit", str(policy))
 
 
 if __name__ == "__main__":
