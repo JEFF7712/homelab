@@ -12,6 +12,7 @@ COPY outlook_calendar.py /app/outlook_calendar.py
 COPY dashboard_payload.py /app/dashboard_payload.py
 COPY transit_map.py /app/transit_map.py
 COPY journey_planner.py /app/journey_planner.py
+COPY walk_weather.py /app/walk_weather.py
 COPY journey_data.json /app/journey_data.json
 COPY map_shapes.json /app/map_shapes.json
 COPY map_viewport.json /app/map_viewport.json

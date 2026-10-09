@@ -71,6 +71,18 @@ markers are returned, and unrelated routes cannot take a marker slot.
 The firmware repeats this filter when a departure expires between API polls.
 Vehicle observations expire independently after 90 seconds.
 
+Once a trip has been shown, it remains selected during its walking window until
+the bus departs, so the display can change from a walking deadline to a bus
+countdown. Trips that were already uncatchable when first requested remain
+excluded, and cancelled trips are removed.
+
+An independent worker refreshes Open-Meteo hourly rain and showers every 15
+minutes. Each route gets `walk_rain` when at least 0.1 mm is forecast in an hour
+overlapping its home-to-stop walk (excluding the two-minute boarding buffer).
+Forecast failures preserve the last valid result for up to one hour. Missing,
+expired, and out-of-range forecasts produce no umbrella cue. Forecast requests
+run outside the transit polling and HTTP request threads.
+
 The 552 by 300 viewport uses Web Mercator with longitudes -89.4132 to -89.3883
 and latitude center 43.072912344760965. The taller view adds about 400 meters north while retaining the southern edge
 and the earlier eastward pan. `map_viewport.json` mirrors the firmware asset configuration.

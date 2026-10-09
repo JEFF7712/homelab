@@ -83,6 +83,8 @@ class JourneyPlanner:
     def __init__(self, path: Path, transit_map: TransitMap) -> None:
         self.data: dict[str, Any] = json.loads(path.read_text())
         self.map = transit_map
+        self.shown_event = 0
+        self.shown_trips: set[tuple[str, str, str]] = set()
 
     def building(self, location: str) -> dict[str, Any] | None:
         text = f" {normalize(location)} "
@@ -218,6 +220,9 @@ class JourneyPlanner:
             "destination_visible": False,
         }
         start = int(payload.get("event_start_at", 0))
+        if self.shown_event != start:
+            self.shown_event = start
+            self.shown_trips.clear()
         if not payload.get("calendar_available") or start <= now:
             return result
         building = self.building(str(payload.get("event_loc", "")))
@@ -268,8 +273,10 @@ class JourneyPlanner:
                         distance(tuple(self.data["home"]), self.stop_point(board[0]))
                     )
                     leave = departure - walk - BOARD_BUFFER
+                    departing = (tid, service_date, board[0]) in self.shown_trips
                     if (
-                        leave < now
+                        (leave < now and not departing)
+                        or departure < now
                         or departure < start - 90 * 60
                         or departure > deadline
                     ):
@@ -316,7 +323,12 @@ class JourneyPlanner:
                             }
                         )
         candidates.sort(
-            key=lambda r: (-r["leave_at"], r["journey_arrival_at"], r["last_walk_min"])
+            key=lambda r: (
+                -(r["leave_at"] < now),
+                -r["leave_at"],
+                r["journey_arrival_at"],
+                r["last_walk_min"],
+            )
         )
         seen = set()
         for route in candidates:
@@ -327,6 +339,9 @@ class JourneyPlanner:
             result["routes"].append(route)
             if len(result["routes"]) == 3:
                 break
+        self.shown_trips = {
+            (r["trip_id"], r["service_date"], r["stop_id"]) for r in result["routes"]
+        }
         if result["routes"]:
             best = result["routes"][0]
             result.update(
