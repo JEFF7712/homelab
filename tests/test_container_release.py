@@ -1146,7 +1146,6 @@ class ReleaseCommandSizeTest(unittest.TestCase):
         import yaml
 
         apps = load_catalog(self.ROOT / "config/ci/applications.json")
-        app = next(a for a in apps if a.id == "pod-agent")
         apps_replaced = tuple(
             replace(a, woodpecker_repository_id=9199) if a.id == "pod-agent" else a
             for a in apps
@@ -1167,6 +1166,5 @@ class ReleaseCommandSizeTest(unittest.TestCase):
         command = workflow["steps"][1]["commands"][0]
         payload = command.split("b64decode('", 1)[1].split("')", 1)[0]
         source = gzip.decompress(base64.b64decode(payload))
-        namespace: dict = {"__name__": "test"}
         compile(source, "<test-container-release>", "exec")
         self.assertIn(b"def assemble", source)
