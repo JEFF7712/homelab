@@ -972,3 +972,32 @@ class NixOSLaneTest(unittest.TestCase):
         self.assertIn("nixos/nix", check["image"])
         self.assertIn("nix flake check --no-write-lock-file", check["commands"])
         self.assertNotIn("environment", workflow["steps"][0])
+
+
+class SplitBaseTest(unittest.TestCase):
+    def test_strips_cosmetic_tag(self) -> None:
+        from scripts.ci.container_release import split_base
+
+        repo, ref = split_base(
+            "registry.rupan.dev/upstream/docker.io/library/python"
+            ":3.12-slim-bookworm@sha256:" + "c" * 64
+        )
+        self.assertEqual(repo, "upstream/docker.io/library/python")
+        self.assertEqual(ref, "sha256:" + "c" * 64)
+
+    def test_accepts_tagless_base(self) -> None:
+        from scripts.ci.container_release import split_base
+
+        repo, ref = split_base(
+            "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:"
+            + "d" * 64
+        )
+        self.assertEqual(repo, "upstream/docker.io/nginxinc/nginx-unprivileged")
+
+    def test_rejects_bad_digest_and_registry(self) -> None:
+        from scripts.ci.container_release import split_base
+
+        with self.assertRaises(ValueError):
+            split_base("registry.rupan.dev/upstream/x@sha256:zzz")
+        with self.assertRaises(ValueError):
+            split_base("docker.io/library/python@sha256:" + "c" * 64)

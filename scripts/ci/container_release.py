@@ -166,6 +166,23 @@ def check_digest(value: str) -> str:
     return value
 
 
+def split_base(base: str) -> tuple[str, str]:
+    """Split a pinned base reference into registry repository and digest.
+
+    An optional :tag alongside the digest is cosmetic; the digest is
+    authoritative and the tag is dropped for registry requests.
+    """
+    if not base.startswith("registry.rupan.dev/") or "@" not in base:
+        raise ValueError(f"Invalid base reference: {base}")
+    repository, reference = base.removeprefix("registry.rupan.dev/").split("@")
+    check_digest(reference)
+    if ":" in repository.rsplit("/", 1)[-1]:
+        repository = repository.rsplit(":", 1)[0]
+    if not re.fullmatch(r"[A-Za-z0-9_./-]+", repository):
+        raise ValueError(f"Invalid base repository: {repository}")
+    return repository, reference
+
+
 def parse_manifests(raw: str) -> Any:
     try:
         value = json.loads(raw)
@@ -277,8 +294,7 @@ def prepare(
     forgejo_owner: str,
     forgejo_token: str,
 ) -> None:
-    repository, reference = base.removeprefix("registry.rupan.dev/").split("@")
-    check_digest(reference)
+    repository, reference = split_base(base)
     root.mkdir(parents=True, exist_ok=False)
     raw = registry.get(repository, "manifests", reference)
     original = json.loads(raw)
