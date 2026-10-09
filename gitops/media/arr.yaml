@@ -60,12 +60,22 @@ spec:
               mountPath: /tmp
             - name: run
               mountPath: /run
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8989
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /ping
               port: 8989
             initialDelaySeconds: 120
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: 250m
@@ -162,12 +172,16 @@ spec:
               port: 7878
             initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /ping
               port: 7878
             initialDelaySeconds: 120
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: 250m
@@ -240,7 +254,7 @@ spec:
               mountPath: /config
       containers:
         - name: lidarr
-          image: registry.rupan.dev/upstream/ghcr.io/hotio/lidarr@sha256:18b65fc099647c1f60254a16f51219cfc61f8adfc64027b6c55aa3dc82e6895f  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/lidarr-extended@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385  # yamllint disable-line rule:line-length
           command: ["bash", "/tmp/lidarr-extended/lidarr-boot.sh"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -395,12 +409,16 @@ spec:
               port: 9696
             initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /ping
               port: 9696
             initialDelaySeconds: 120
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: 100m
@@ -494,12 +512,16 @@ spec:
               port: 6767
             initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /
               port: 6767
             initialDelaySeconds: 120
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: 100m

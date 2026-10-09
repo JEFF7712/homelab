@@ -145,6 +145,14 @@ class TestBootWrapper(unittest.TestCase):
         self.assertIn("/tmp/lidarr-extended/tidal-dl-shim", source)
         self.assertIn("/usr/local/bin/tidal-dl", source)
 
+    def test_boot_wrapper_error_handling_and_validation(self):
+        source = extended_configmap()["data"]["lidarr-boot.sh"]
+        self.assertIn("set -euo pipefail", source)
+        self.assertIn("retry apk update", source)
+        self.assertIn("retry apk add", source)
+        for bin in ("ffmpeg", "flac", "jq", "xq", "deemix", "tidaler", "tidal-dl"):
+            self.assertIn(bin, source)
+
 
 class TestTidalShim(unittest.TestCase):
     def setUp(self):
