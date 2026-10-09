@@ -1,6 +1,44 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+from scripts.ci.dockerfile_supply import (
+    check_copy_sources,
+    check_run_lines,
+    parse_dockerfile,
+)
+
+PINNED = re.compile(r"^[A-Za-z0-9_.-]+==[^;\s]+(?:;.*)?$")
+OPTION = re.compile(r"^\s*(-f|--find-links|--index-url|--extra-index-url|--|-[a-zA-Z])")
+
+
+def _check_requirements(path: Path) -> None:
+    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("--hash"):
+            continue
+        if OPTION.match(line):
+            if re.search(r"https?://", line):
+                raise ValueError(
+                    f"{path.name}:{number} must not reference remote indexes"
+                )
+            if re.match(r"^\s*(-f|--find-links)\s", line):
+                target = line.split(None, 1)[1].strip().strip("\"'")
+                if "://" in target or target.startswith("/"):
+                    raise ValueError(
+                        f"{path.name}:{number} find-links must be a repo-local path"
+                    )
+                continue
+            raise ValueError(
+                f"{path.name}:{number} options are not allowed except local --find-links"
+            )
+        if "://" in line:
+            raise ValueError(f"{path.name}:{number} must not reference remote URLs")
+        if not PINNED.match(line):
+            raise ValueError(
+                f"{path.name}:{number} dependencies must be pinned with ==: {line}"
+            )
 
 
 def validate(root: Path) -> None:
@@ -13,42 +51,44 @@ def validate(root: Path) -> None:
         else:
             raise ValueError("Python service requires Dockerfile or config/Dockerfile")
     text = dockerfile.read_text(encoding="utf-8")
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.upper().startswith("FROM"):
-            if "@sha256:" not in stripped:
-                raise ValueError(f"Base image must be digest-pinned: {stripped}")
-            if "registry.rupan.dev/upstream/" not in stripped:
-                raise ValueError(
-                    f"Base image must use local upstream mirror: {stripped}"
-                )
-    has_requirements = (root / "requirements.txt").is_file()
-    has_pyproject = (root / "pyproject.toml").is_file()
-    has_uvlock = (root / "uv.lock").is_file()
-    if not (has_requirements or has_pyproject):
-        raise ValueError("Python service requires requirements.txt or pyproject.toml")
-    if has_pyproject and not has_uvlock:
-        raise ValueError("pyproject.toml services require committed uv.lock")
+    supply = parse_dockerfile(dockerfile)
+    if not supply.bases:
+        raise ValueError("Dockerfile declares no base image")
+    check_copy_sources(supply)
+    check_run_lines(text)
+    requirements = root / "requirements.txt"
+    if requirements.is_file():
+        _check_requirements(requirements)
+    else:
+        if not (root / "pyproject.toml").is_file():
+            raise ValueError(
+                "Python service requires requirements.txt or pyproject.toml"
+            )
+        if not (root / "uv.lock").is_file():
+            raise ValueError("pyproject.toml services require committed uv.lock")
     for name in ("docker-compose.yaml", "docker-compose.yml"):
-        if (root / name).is_file():
-            compose = (root / name).read_text(encoding="utf-8")
-            if "ghcr.io/jeff7712" in compose.lower() or "type=gha" in compose:
-                raise ValueError(
-                    f"{name} must not reference external producer cache or GHCR"
-                )
-    github = root / ".github" / "workflows"
-    if github.is_dir():
-        for workflow in github.glob("*.yml"):
+        candidate = root / name
+        if candidate.is_file():
+            compose = candidate.read_text(encoding="utf-8")
+            if "type=gha" in compose:
+                raise ValueError(f"{name} must not use external GitHub cache")
+            if re.search(r"ghcr\.io/jeff7712", compose, re.IGNORECASE):
+                raise ValueError(f"{name} must not reference external GHCR images")
+    workflows = root / ".github" / "workflows"
+    if workflows.is_dir():
+        for workflow in sorted(workflows.glob("*.yml")) + sorted(
+            workflows.glob("*.yaml")
+        ):
             content = workflow.read_text(encoding="utf-8")
-            if "actions/checkout" in content and "forgejo" not in content.lower():
-                pass
+            if "registry.rupan.dev" in content:
+                raise ValueError(
+                    f"{workflow.name} must not publish to the local registry; "
+                    "delivery belongs to Woodpecker"
+                )
+            if "type=gha" in content:
+                raise ValueError(f"{workflow.name} must not use external GitHub cache")
 
 
 if __name__ == "__main__":
-    import sys
-
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
-    validate(target)
-    print("Python service source and local-base contract validated")
+    validate(Path.cwd())
+    print("Python service source and local-supply contract validated")

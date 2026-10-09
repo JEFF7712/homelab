@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from scripts.ci.dockerfile_supply import (
+    check_copy_sources,
+    check_run_lines,
+    parse_dockerfile,
+)
+
 
 def validate(root: Path) -> None:
     root = root.resolve()
@@ -9,13 +15,11 @@ def validate(root: Path) -> None:
     if not dockerfile.is_file():
         raise ValueError("Dotnet service requires docker/Dockerfile")
     text = dockerfile.read_text(encoding="utf-8")
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.upper().startswith("FROM"):
-            if "@sha256:" not in stripped:
-                raise ValueError(f"Base image must be digest-pinned: {stripped}")
+    supply = parse_dockerfile(dockerfile)
+    if not supply.bases:
+        raise ValueError("Dockerfile declares no base image")
+    check_copy_sources(supply)
+    check_run_lines(text)
     if not (root / "src").is_dir():
         raise ValueError("Dotnet service requires src/")
     if not (root / "frontend").is_dir():
@@ -24,4 +28,4 @@ def validate(root: Path) -> None:
 
 if __name__ == "__main__":
     validate(Path.cwd())
-    print("Dotnet service source contract validated")
+    print("Dotnet service source and local-supply contract validated")

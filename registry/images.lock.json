@@ -12,10 +12,10 @@
       ],
       "destination_repository": "apps/bus-display",
       "destination_tags": [
-        "0.0.4",
-        "retention-deployed-ea0f246230e6851f"
+        "0.0.5",
+        "retention-deployed-fd2b167bd21fc3d6"
       ],
-      "digest": "sha256:ea0f246230e6851f9685f237d80e3d4a11cab4a425fdb3caa7a44aa836542fd8",
+      "digest": "sha256:fd2b167bd21fc3d63a68c0e25af0d56d77bcc2023cab04897f4daa290522e56b",
       "id": "first-party-apps-bus-display-244cb03cb790",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -37,11 +37,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:ea0f246230e6851f9685f237d80e3d4a11cab4a425fdb3caa7a44aa836542fd8",
-        "reference": "registry.rupan.dev/apps/bus-display:0.0.4@sha256:ea0f246230e6851f9685f237d80e3d4a11cab4a425fdb3caa7a44aa836542fd8",
+        "digest": "sha256:fd2b167bd21fc3d63a68c0e25af0d56d77bcc2023cab04897f4daa290522e56b",
+        "reference": "registry.rupan.dev/apps/bus-display:0.0.5@sha256:fd2b167bd21fc3d63a68c0e25af0d56d77bcc2023cab04897f4daa290522e56b",
         "registry": "registry.rupan.dev",
         "repository": "apps/bus-display",
-        "tag": "0.0.4"
+        "tag": "0.0.5"
       }
     },
     {
