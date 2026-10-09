@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-08T22:40:55+00:00",
+  "generated_at": "2026-10-09T00:31:34+00:00",
   "images": [
     {
       "authenticity": {
@@ -257,26 +257,25 @@
         "status": "unsupported"
       },
       "consumers": [
-        "observed:darkbit/website-deploy-5c87cf8d7d-lgrn8/web"
+        "gitops/websites/darkbit/deployment.yaml:24"
       ],
       "destination_repository": "apps/darkbit",
       "destination_tags": [
-        "0.0.30",
-        "retention-deployed-ed50b9ea2adda52f"
+        "0.0.1000025",
+        "retention-deployed-9387340adce2259a"
       ],
-      "digest": "sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
+      "digest": "sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
       "id": "first-party-jeff7712-darkbit-dff8afdb518d",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
         "local_publisher": "forgejo-darkbit",
-        "location": "external-image-repository:ghcr.io/jeff7712/darkbit",
+        "location": "forgejo:JEFF7712/darkbit-site",
         "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "pipeline_status": "configured-local"
       },
       "referrers": {
         "required": [],
@@ -287,11 +286,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
-        "reference": "registry.rupan.dev/apps/darkbit:0.0.30@sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
+        "digest": "sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
+        "reference": "registry.rupan.dev/apps/darkbit:0.0.1000025@sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
         "registry": "registry.rupan.dev",
         "repository": "apps/darkbit",
-        "tag": "0.0.30"
+        "tag": "0.0.1000025"
       }
     },
     {

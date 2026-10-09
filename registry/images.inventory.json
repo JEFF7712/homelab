@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-08T22:40:55+00:00",
+  "generated_at": "2026-10-09T00:31:34+00:00",
   "images": [
     {
       "consumers": [
@@ -91,7 +91,6 @@
     },
     {
       "consumers": [
-        "gitops/websites/darkbit/deployment.yaml:24",
         "observed:darkbit/website-deploy-6bf6dd775c-8g2q4/web"
       ],
       "destination_repository": "apps/darkbit",
@@ -99,14 +98,36 @@
       "kind": "first-party",
       "producer": {
         "local_publisher": "forgejo-darkbit",
-        "location": "external-image-repository:registry.rupan.dev/apps/darkbit",
+        "location": "forgejo:JEFF7712/darkbit-site",
         "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "pipeline_status": "configured-local"
       },
       "retention_class": "deployed",
       "source": {
         "digest": "sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
         "reference": "registry.rupan.dev/apps/darkbit@sha256:ed50b9ea2adda52f0dffd77a650f986c2e96cddc12e81e50af51857e55186ab4",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/darkbit",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/websites/darkbit/deployment.yaml:24"
+      ],
+      "destination_repository": "apps/darkbit",
+      "id": "first-party-apps-darkbit-a83efcbacff8",
+      "kind": "first-party",
+      "producer": {
+        "local_publisher": "forgejo-darkbit",
+        "location": "forgejo:JEFF7712/darkbit-site",
+        "owner": "jeff7712",
+        "pipeline_status": "configured-local"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
+        "reference": "registry.rupan.dev/apps/darkbit@sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
         "registry": "registry.rupan.dev",
         "repository": "apps/darkbit",
         "tag": null

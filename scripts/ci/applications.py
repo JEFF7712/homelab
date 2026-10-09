@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 
 @dataclass(frozen=True)
 class Application:
@@ -102,6 +100,8 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
 def configuration(
     request: dict[str, Any], applications: tuple[Application, ...]
 ) -> dict[str, Any]:
+    import yaml
+
     repo, pipeline = request["repo"], request["pipeline"]
     identity = f"{repo.get('owner', repo.get('namespace'))}/{repo.get('name')}"
     app = next(
