@@ -1008,8 +1008,9 @@ class BundledValidatorIsolationTest(unittest.TestCase):
     ROOT = Path(__file__).resolve().parents[1]
 
     def embedded_command(self, repo_id, owner, name, ref="refs/heads/main"):
-        import yaml
         from dataclasses import replace
+
+        import yaml
 
         apps = load_catalog(self.ROOT / "config/ci/applications.json")
         apps = tuple(
@@ -1048,8 +1049,6 @@ class BundledValidatorIsolationTest(unittest.TestCase):
         return process
 
     def test_embedded_python_validator_rejects_without_checkout_imports(self) -> None:
-        import subprocess
-        import sys
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
