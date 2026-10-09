@@ -47,16 +47,32 @@ class CacheSourcesTest(unittest.TestCase):
                 source_paths(archive)
 
     def test_publication_includes_sources_and_rejects_incomplete_archive(self) -> None:
-        for valid in (True, False):
-            with self.subTest(valid=valid), tempfile.TemporaryDirectory() as temporary:
+        for scenario in ("valid", "invalid-archive", "failed-build-inputs"):
+            with (
+                self.subTest(scenario=scenario),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
                 directory = Path(temporary)
-                archive = {"path": "/nix/store/source"} if valid else {}
+                archive = (
+                    {"path": "/nix/store/source"}
+                    if scenario != "invalid-archive"
+                    else {}
+                )
                 nix = directory / "nix"
                 nix.write_text(
                     f"#!{sys.executable}\n"
                     "import sys\n"
                     "if sys.argv[1] == 'build': print('/nix/store/system')\n"
+                    "elif sys.argv[1] == 'path-info': print('/nix/store/devshell.drv')\n"
                     f"else: print({json.dumps(archive)!r})\n"
+                )
+                nix_store = directory / "nix-store"
+                nix_store.write_text(
+                    f"#!{sys.executable}\n"
+                    "import os, sys\n"
+                    "assert sys.argv[1:] == ['--query', '--requisites', '--include-outputs', '/nix/store/devshell.drv']\n"
+                    "print('/nix/store/build-input')\n"
+                    "sys.exit(int(os.environ['BUILD_INPUT_EXIT']))\n"
                 )
                 attic = directory / "attic"
                 attic.write_text(
@@ -66,6 +82,7 @@ class CacheSourcesTest(unittest.TestCase):
                     " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(sys.stdin.read())\n"
                 )
                 nix.chmod(0o755)
+                nix_store.chmod(0o755)
                 attic.chmod(0o755)
                 receipt = directory / "pushed"
                 result = subprocess.run(
@@ -76,15 +93,22 @@ class CacheSourcesTest(unittest.TestCase):
                         "PATH": str(directory) + os.pathsep + os.environ["PATH"],
                         "ATTIC_TOKEN": "test-only",
                         "PUSH_RECEIPT": str(receipt),
+                        "BUILD_INPUT_EXIT": "5"
+                        if scenario == "failed-build-inputs"
+                        else "0",
                     },
                     capture_output=True,
                     text=True,
                 )
-                if valid:
+                if scenario == "valid":
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(
                         receipt.read_text().splitlines(),
-                        ["/nix/store/system", "/nix/store/source"],
+                        [
+                            "/nix/store/system",
+                            "/nix/store/source",
+                            "/nix/store/build-input",
+                        ],
                     )
                 else:
                     self.assertNotEqual(result.returncode, 0)
