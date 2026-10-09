@@ -124,13 +124,43 @@ ignored, a missing asset failed validation and prevented merging, and restoring
 the asset returned validation to green. The test PR was closed without merging.
 Unsigned policy HTTP requests were rejected with 403.
 
-The independent laptop checkpoint at
-`/home/rupan/sovereign-recovery/darkbit/2026-10-08` contains a verified source
-bundle, the encrypted clone credential and a checksum manifest. Credential
-decryption was verified with the workstation key, independent of the NAS.
-This checkpoint covers source and clone authentication, not image inputs or
-complete platform recovery.
+Local delivery passed on 2026-10-08. Darkbit pipeline 25 published
+`0.0.1000025` from Forgejo commit
+`06a94923008597dd32dcaa61d18950d8b3f23555`. Independent assembly matched
+`sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623`.
+Protected homelab PR 112 promoted the image and Flux deployed a healthy
+replacement pod with that exact image identity. Pod assets matched source
+bytes. Public HTTPS matched CSS and image bytes; HTML matched after reversing
+Cloudflare's email-obfuscation rewrite. The GitHub publishing workflow and its
+repository publishing secrets were retired after delivery acceptance.
 
-Next add build/publication and retained input manifests under the
+The independent laptop checkpoint at
+`/home/rupan/sovereign-recovery/darkbit/2026-10-08` contains verified source
+bundles, encrypted clone and publisher credentials, pinned Python and nginx
+OCI inputs, release artifacts and checksum manifests. Credential decryption
+was verified with the workstation key, independent of the NAS. This is a
+local checkpoint, not a tested off-host platform restore.
+
+## Checkout toolchain
+
+The server's default clone plugin is pinned to
+`registry.rupan.dev/upstream/docker.io/woodpeckerci/plugin-git@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964`.
+This is the same 2.10.0 upstream index previously observed in the live Docker
+cache, verified against the upstream manifest. The explicit build-input
+inventory includes it so checkout tooling cannot depend on an untracked
+external tag.
+
+Import and verify the reviewed lock through the protected
+`registry-lock-import` operation before activating the clone pin. The implicit
+clone step uses the server-selected plugin and read-only source identity;
+repository pipeline files do not select it. Verify a new checkout with the
+local pinned image after activation, without treating an existing cached image
+as evidence of local retention.
+
+Credential-free static assembly and runtime have passed tests with networking
+disabled from retained inputs. Clean complete offline CI and independent
+platform recovery remain separate gates under the
 [lifecycle RFC](../research/2026-10-08-sovereign-application-lifecycle-rfc.md).
-Offline build and independent recovery remain separate unpassed gates.
+Homelab validation still needs retained Nix flake sources and complete check
+closures; public ingress still uses Cloudflare. Signing and SBOM enforcement
+also remain open.

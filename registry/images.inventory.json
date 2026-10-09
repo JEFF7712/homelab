@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-09T00:31:34+00:00",
+  "generated_at": "2026-10-09T00:54:47+00:00",
   "images": [
     {
       "consumers": [
@@ -2342,6 +2342,23 @@
         "registry": "registry.rupan.dev",
         "repository": "upstream/registry.k8s.io/sig-storage/nfs-subdir-external-provisioner",
         "tag": null
+      }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:34"
+      ],
+      "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
+      "id": "upstream-woodpeckerci-plugin-git-c764e24ba07e",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964",
+        "reference": "docker.io/woodpeckerci/plugin-git:2.10.0@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964",
+        "registry": "docker.io",
+        "repository": "woodpeckerci/plugin-git",
+        "tag": "2.10.0"
       }
     }
   ],
