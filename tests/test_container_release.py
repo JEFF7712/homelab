@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import io
 import json
 import tarfile
@@ -1001,3 +1002,93 @@ class SplitBaseTest(unittest.TestCase):
             split_base("registry.rupan.dev/upstream/x@sha256:zzz")
         with self.assertRaises(ValueError):
             split_base("docker.io/library/python@sha256:" + "c" * 64)
+
+
+class BundledValidatorIsolationTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def embedded_command(self, repo_id, owner, name, ref="refs/heads/main"):
+        import yaml
+        from dataclasses import replace
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        apps = tuple(
+            replace(app, woodpecker_repository_id=repo_id)
+            if app.repository == f"{owner}/{name}"
+            else app
+            for app in apps
+        )
+        result = configuration(
+            {
+                "repo": {"id": repo_id, "owner": owner, "name": name},
+                "pipeline": {
+                    "event": "push",
+                    "ref": ref,
+                    "commit": "d" * 40,
+                    "number": 9,
+                },
+            },
+            apps,
+        )
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        return workflow["steps"][0]["commands"][0]
+
+    def run_embedded(self, command, root):
+        import subprocess
+        import sys
+
+        encoded = command.split("b64decode('", 1)[1].split("')", 1)[0]
+        validator = base64.b64decode(encoded).decode()
+        process = subprocess.run(
+            [sys.executable, "-I", "-c", validator],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        return process
+
+    def test_embedded_python_validator_rejects_without_checkout_imports(self) -> None:
+        import subprocess
+        import sys
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Dockerfile").write_text(
+                "FROM registry.rupan.dev/upstream/docker.io/library/python:3.12-slim-bookworm@sha256:"
+                + "c" * 64
+                + "\nRUN pip install --no-index --find-links=/wheelhouse -r req.txt\n"
+            )
+            (root / "requirements.txt").write_text("demo==1.0\n")
+            (root / "scripts").mkdir()
+            (root / "scripts" / "ci.py").write_text(
+                "raise RuntimeError('checkout module executed')"
+            )
+            (root / "dockerfile_supply.py").write_text(
+                "raise RuntimeError('checkout supply executed')"
+            )
+            command = self.embedded_command(11, "JEFF7712", "solubility-predictor")
+            process = self.run_embedded(command, root)
+            self.assertEqual(process.returncode, 0, process.stderr)
+            (root / "requirements.txt").write_text("demo>=1.0\n")
+            process = self.run_embedded(command, root)
+            self.assertNotEqual(process.returncode, 0)
+
+    def test_embedded_node_validator_rejects_without_checkout_imports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Dockerfile").write_text(
+                "FROM registry.rupan.dev/upstream/docker.io/library/node:24-slim@sha256:"
+                + "d" * 64
+                + "\n"
+            )
+            (root / "package.json").write_text('{"name": "demo"}\n')
+            (root / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
+            (root / "dockerfile_supply.py").write_text(
+                "raise RuntimeError('checkout supply executed')"
+            )
+            command = self.embedded_command(31, "JEFF7712", "rupan.dev")
+            process = self.run_embedded(command, root)
+            self.assertEqual(process.returncode, 0, process.stderr)
+            (root / "Dockerfile").write_text("FROM node:24-slim\n")
+            process = self.run_embedded(command, root)
+            self.assertNotEqual(process.returncode, 0)

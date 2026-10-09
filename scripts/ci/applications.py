@@ -92,20 +92,22 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 "static-site-v1",
                 "python-service-v1",
                 "dotnet-service-v1",
+                "node-service-v1",
                 "nixos-config-v1",
                 "firmware-v1",
             }
             or app.state not in {"stateless", "stateful"}
         ):
             raise ValueError("Unsupported application contract")
-        expected_kind = {
-            "static-site-v1": "static",
-            "python-service-v1": "container",
-            "dotnet-service-v1": "none",
-            "nixos-config-v1": "none",
-            "firmware-v1": "none",
+        expected_kinds = {
+            "static-site-v1": {"static"},
+            "python-service-v1": {"container", "none"},
+            "dotnet-service-v1": {"none"},
+            "node-service-v1": {"none"},
+            "nixos-config-v1": {"none"},
+            "firmware-v1": {"none"},
         }[app.validator]
-        if app.release_kind != expected_kind:
+        if app.release_kind not in expected_kinds:
             raise ValueError("Release kind must match the validator contract")
         if app.release_kind == "container":
             from scripts.ci.container_release import (
@@ -162,7 +164,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         ):
             raise ValueError("Validation image must be an immutable local image")
         if not re.fullmatch(
-            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
+            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|library/nginx|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.release_base_image,
         ):
             raise ValueError("Release base must be an immutable local image")
@@ -185,7 +187,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             ):
                 raise ValueError("Empty deployment path requires a non-published app")
         elif not re.fullmatch(
-            r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice)",
+            r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice|obsidian)",
             app.deployment_path,
         ):
             raise ValueError("Application deployment path must be an owned GitOps path")
@@ -242,12 +244,45 @@ def configuration(
         "static-site-v1": "static_site.py",
         "python-service-v1": "python_service.py",
         "dotnet-service-v1": "dotnet_service.py",
+        "node-service-v1": "node_service.py",
         "nixos-config-v1": "nixos_config.py",
         "firmware-v1": "firmware.py",
     }
+    bundled_supply = {"python-service-v1", "dotnet-service-v1", "node-service-v1"}
+
+    def validator_source(validator: str) -> bytes:
+        """Self-contained validator source for secret-free sandbox execution.
+
+        Supply validators share dockerfile_supply, which cannot be imported
+        from a repository checkout (the sandbox must never execute checkout
+        modules). The server therefore bundles the shared module with the
+        validator and strips the sibling import.
+        """
+        text = Path(__file__).with_name(validator_files[validator]).read_text()
+        if validator not in bundled_supply:
+            return text.encode()
+        supply = Path(__file__).with_name("dockerfile_supply.py").read_text()
+        kept: list[str] = []
+        skipping = False
+        for line in text.splitlines():
+            if line.startswith("from scripts.ci.dockerfile_supply import"):
+                skipping = not line.rstrip().endswith(")")
+                continue
+            if skipping:
+                skipping = line.strip() != ")"
+                continue
+            if line.startswith("from __future__ import"):
+                continue
+            kept.append(line)
+        bundled = "\n".join(
+            line
+            for line in supply.splitlines()
+            if not line.startswith("from __future__ import")
+        )
+        return (bundled + "\n" + "\n".join(kept) + "\n").encode()
+
     encoded_validators = {
-        key: base64.b64encode(Path(__file__).with_name(filename).read_bytes()).decode()
-        for key, filename in validator_files.items()
+        key: base64.b64encode(validator_source(key)).decode() for key in validator_files
     }
     encoded = encoded_validators[app.validator]
     if app.validator == "nixos-config-v1" and not lifecycle:
@@ -288,9 +323,6 @@ def configuration(
             {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}
         ]
         return {"configs": configs}
-    validator_file = validator_files[app.validator]
-    source = Path(__file__).with_name(validator_file).read_bytes()
-    encoded = base64.b64encode(source).decode()
     workflow = {
         "when": [{"event": event}],
         "labels": {"tier": "sandbox", "type": "docker"},
