@@ -126,7 +126,9 @@ paths). Paths are relative to the input JSON directory. The cache must contain
 the development shell, recursive flake sources, and all validation build
 dependencies. The proof directory must not exist. Logs survive failures;
 `receipt.json` is written only after a passing nonempty test report and all
-commands succeed. The runner assumes a working Podman runtime. This validates
+commands succeed. The runner assumes a working Podman runtime.
+The rootless validation container retains only UID/GID switching capabilities
+so permission tests can run under an unprivileged account. This validates
 offline CI, not a full platform restore or live infrastructure plans.
 
 ## NAS storage deployments

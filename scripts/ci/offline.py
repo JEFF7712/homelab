@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     def run(arguments: list[str], name: str) -> str:
         with (proof / (name + ".log")).open("w") as log:
             result = subprocess.run(
-                [*engine, *arguments], stdout=log, stderr=subprocess.STDOUT
+                [*engine, *arguments], stdout=log, stderr=subprocess.STDOUT, check=False
             )
         if result.returncode:
             raise RuntimeError(
@@ -144,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
         [
             "run",
             *restrictions,
+            "--cap-add=SETUID",
+            "--cap-add=SETGID",
             "--memory=8g",
             "--cpus=4",
             "-e",
@@ -179,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
         "network": "none",
         "credentials": "none",
         "signature_checks_disabled": False,
+        "capabilities": ["SETUID", "SETGID"],
         "tests": int(report.get("tests", "0")),
         "skipped": int(report.get("skipped", "0")),
         "result": "full validation and formatting passed",
