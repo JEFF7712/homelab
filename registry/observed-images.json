@@ -116,7 +116,7 @@
       "consumers": [
         "apolline/website-deploy-7c5b8dd85b-zfd62/web"
       ],
-      "reference": "registry.rupan.dev/apps/apolline@sha256:ebd8990814186b9425f0bfa4c2f0860efae30baaea7abc6a7f9cf6353d62fe59"
+      "reference": "registry.rupan.dev/apps/apolline@sha256:5ae14a4d5950287a8736f99c39871f6f8a0fdb67c99dde9e2baf6e83fd714b91"
     },
     {
       "consumers": [
@@ -134,7 +134,7 @@
       "consumers": [
         "cr-demo/website-deploy-88dc686c-fcfxd/web"
       ],
-      "reference": "registry.rupan.dev/apps/cr-demo@sha256:47f1ac728c8f74af6bc19119c3596713e40f9916b1a58d267a41cd337d16c3e1"
+      "reference": "registry.rupan.dev/apps/cr-demo@sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363"
     },
     {
       "consumers": [
@@ -146,7 +146,7 @@
       "consumers": [
         "distrojeff/website-deploy-77c8657f45-d4p5x/web"
       ],
-      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:755f5125ca78494a88b138e255c521ec4391d07a01fb34607d56d0b81dee40e4"
+      "reference": "registry.rupan.dev/apps/distrojeff-site@sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40"
     },
     {
       "consumers": [
@@ -164,7 +164,7 @@
       "consumers": [
         "ism/website-deploy-7c6b4ff486-ftnbj/web"
       ],
-      "reference": "registry.rupan.dev/apps/ism@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227"
+      "reference": "registry.rupan.dev/apps/ism@sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091"
     },
     {
       "consumers": [
@@ -182,19 +182,19 @@
       "consumers": [
         "majorfinder/website-deploy-7b4d7fbddd-89th2/web"
       ],
-      "reference": "registry.rupan.dev/apps/majorfinder@sha256:8c2af0947f9a1910dd5e80da70613cf68a3e102c4af623e4f60b9afd2ba0ae5e"
+      "reference": "registry.rupan.dev/apps/majorfinder@sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189"
     },
     {
       "consumers": [
         "nixagent/website-deploy-c58dbd96f-877vd/web"
       ],
-      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:3035296a0979ed4ea0220f736dc7a390a81a598d39bfc6554f5f0cb06d43d08a"
+      "reference": "registry.rupan.dev/apps/nix-agent-site@sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f"
     },
     {
       "consumers": [
         "photography/website-deploy-7c4fdb5788-nzswn/web"
       ],
-      "reference": "registry.rupan.dev/apps/photography@sha256:2ef68f9dfa1c43aebd0dce7cf9ac524ea3114235bc994472aac037b826c67593"
+      "reference": "registry.rupan.dev/apps/photography@sha256:9944a881e22315fea93c116b7668cd5aa3c0513ab60fc608754e0fec4fde188a"
     },
     {
       "consumers": [
@@ -267,13 +267,13 @@
       "consumers": [
         "sovereign/website-deploy-6ff6f77fc-cvsw7/web"
       ],
-      "reference": "registry.rupan.dev/apps/sovereign-site@sha256:9772ef3eef01b455f4b32be8773019f241d03e0bbe940dc0c5a5ad9f7579f221"
+      "reference": "registry.rupan.dev/apps/sovereign-site@sha256:873d57c8372816cf9492e2360a101dc74ebdeea8242e7ad17d219897467d163a"
     },
     {
       "consumers": [
         "spatia/website-deploy-75d64d5f9f-cdtn5/web"
       ],
-      "reference": "registry.rupan.dev/apps/spatia-site@sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc"
+      "reference": "registry.rupan.dev/apps/spatia-site@sha256:2b0881af3df120f02bd1bacaf76378a0cbf6bcc6eb2047dc8e28df2a103e298e"
     },
     {
       "consumers": [

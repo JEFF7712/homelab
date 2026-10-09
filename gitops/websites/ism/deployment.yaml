@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/ism@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227
+          image: registry.rupan.dev/apps/ism@sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
