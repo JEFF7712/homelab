@@ -96,7 +96,9 @@ It rechecks the complete base chain, config, source identity and regenerated
 asset layer before any writes. It cannot execute repository code. Zot grants
 this identity read/create/update on apps/darkbit only, with no delete or
 cross-project permission. The legacy publisher remains separate for cutover.
-These credentials are restricted to push events and the pinned Python image.
+These credentials are push-scoped to the application repository. The immutable
+policy fixes all step images and commands; command-step secrets have empty
+image filters, as required by the runner.
 Recovery material is encrypted in `secrets/darkbit-release.sops.env`.
 
 The registry client connects directly to 10.0.30.20 while verifying TLS for
