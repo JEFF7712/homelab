@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from scripts.ci.applications import Application, load_catalog
 from scripts.ci.applications import configuration as application_configuration
 
-IMAGE = "nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
+IMAGE = "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
 NIX_CONFIG = (
     "experimental-features = nix-command flakes\n"

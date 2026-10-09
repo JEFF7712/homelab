@@ -195,3 +195,19 @@ gates under the
 Homelab validation still needs retained Nix flake sources and complete check
 closures; public ingress still uses Cloudflare. Signing and SBOM enforcement
 also remain open.
+
+## Homelab CI runtime
+
+Server-owned homelab validation and operation steps use
+`registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c`.
+The registry prefix changes; the reviewed image digest is unchanged. Its
+index and selected amd64 contents are retained in Zot, and an independent
+verified OCI copy is at
+`/home/rupan/sovereign-recovery/homelab-ci/2026-10-08/nix-tool`.
+Both enrolled repositories have a node-only registry reader. The explicit
+GitLab disaster-recovery configuration retains its legacy Docker Hub image
+reference and is outside the local CI acceptance path.
+
+Local clone and runtime images remove public registry lookups from those
+steps. Nix source and binary retention, provider and schema inputs, a clean
+offline validation run and independent platform recovery are separate gates.
