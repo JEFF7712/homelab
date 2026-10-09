@@ -33,8 +33,15 @@
     # Age out unused /tmp and /var/tmp contents daily. / is a small tmpfs and
     # a forgotten multi-GB build checkout in /tmp (2026-10-09 homelab-04)
     # otherwise counts against kubelet ephemeral-storage until reboot.
-    systemd.additionalUpstreamSystemUnits = [ "systemd-tmpfiles-clean.timer" ];
-    systemd.timers.systemd-tmpfiles-clean.wantedBy = [ "timers.target" ];
+    # The upstream service unit already ships in the base set; only the
+    # timer is defined here (same daily schedule as upstream).
+    systemd.timers.systemd-tmpfiles-clean = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "15min";
+        OnUnitActiveSec = "1d";
+      };
+    };
 
     services.openssh = {
       enable = true;
