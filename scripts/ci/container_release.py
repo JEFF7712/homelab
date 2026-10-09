@@ -592,6 +592,11 @@ def unpack_npm(
     for name, target in bins.items():
         if name not in declared or declared[name] != target:
             raise ValueError(f"npm bin mapping mismatch for {name}")
+        target_path = prefix + target
+        if target_path not in tree:
+            raise ValueError(f"npm bin target missing from tarball: {target}")
+        data, _ = tree[target_path]
+        tree[target_path] = (data, 0o755)
         link = tarfile.TarInfo(f"usr/local/bin/{name}")
         link.type = tarfile.SYMTYPE
         link.linkname = f"/{prefix}{target}"
