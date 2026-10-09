@@ -79,7 +79,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         ):
             raise ValueError("Validation image must be an immutable local image")
         if not re.fullmatch(
-            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
+            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|library/nginx|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.release_base_image,
         ):
             raise ValueError("Release base must be an immutable local image")
