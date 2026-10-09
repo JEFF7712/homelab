@@ -50,9 +50,31 @@ root source plus every recursive pinned input in the publication roots.
 Malformed or incomplete archive metadata fails before publication. Without
 `ATTIC_TOKEN`, the job builds the closures but skips publication.
 
+The job also retains the development-shell derivation's available build-input
+graph, including derivation metadata and already valid outputs. This is
+different from retaining only the runtime closure: bootstrap hooks and check
+builders can require paths that are not referenced by runtime outputs.
+Graph enumeration failure stops publication; this does not build additional
+package outputs or guarantee availability of inputs that were never fetched.
+
 On 2026-10-08, a source audit found the pinned `nixpkgs` source available in
 Attic, but six other recursive input sources returned 404. Binary closure
 publication alone did not retain those source archives.
+
+Pipeline 718 subsequently published all seven external recursive sources.
+A cold, network-disabled test restored source commit `9130256` from its Git
+bundle, explicitly imported those retained sources, and evaluated the
+homelab-04 system derivation without credentials or disabling signature
+checks. This proves source bootstrap, rather than a complete offline CI run.
+Its receipt is under
+`/home/rupan/sovereign-recovery/homelab-ci/2026-10-08/cold-sources-20261008-v2/receipt.json`.
+
+Generation 45 and replacement pipeline 724 verified the local Nix runtime.
+That run downloaded 614 Nix paths locally and six from the public cache.
+All six public paths were present in the available development-shell build
+graph, which measured 5.05 GiB of uncompressed NAR data on the workstation.
+The graph includes many already cached paths; the incremental cache size
+depends on existing retained content.
 
 Successful publication and local source availability are prerequisites for a
 clean offline CI test. They do not prove it: a disposable builder must resolve
@@ -60,6 +82,9 @@ the pinned inputs and all check dependencies without public network access.
 Independent recovery also needs accessible source bundles, cache artifacts,
 verification keys, toolchains and host state outside the infrastructure being
 restored.
+OpenTofu provider installation and kubeconform's default core-schema lookup
+are additional inputs that must be retained before claiming complete offline
+CI.
 
 ## NAS storage deployments
 

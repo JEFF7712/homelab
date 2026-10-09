@@ -30,5 +30,7 @@ if [[ -z "${ATTIC_TOKEN:-}" ]]; then
 fi
 nix flake archive --json --no-write-lock-file "$flake" > "$cache_work/archive.json"
 python -m scripts.ci.cache_sources "$cache_work/archive.json" >> "$cache_work/paths"
+dev_shell_drv=$(nix path-info --derivation "$flake#devShells.x86_64-linux.default")
+nix-store --query --requisites --include-outputs "$dev_shell_drv" >> "$cache_work/paths"
 attic login local http://10.0.30.20:8080/ "$ATTIC_TOKEN"
 attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin < "$cache_work/paths"
