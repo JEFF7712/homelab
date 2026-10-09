@@ -157,9 +157,40 @@ repository pipeline files do not select it. Verify a new checkout with the
 local pinned image after activation, without treating an existing cached image
 as evidence of local retention.
 
-Credential-free static assembly and runtime have passed tests with networking
-disabled from retained inputs. Clean complete offline CI and independent
-platform recovery remain separate gates under the
+Activation passed on 2026-10-08: protected homelab deployment pipeline 709
+copied and verified all 94 upstream lock records without failures. An
+independent node-reader check verified the clone index and all amd64 blobs
+against the retained recovery tool. Homelab-04 generation 44 activated the
+local default after the agents drained. Darkbit manual pipeline 30 passed
+checkout and application validation; homelab manual pipeline 710 passed
+checkout. Neither test published an application release. Generation 43 is the
+host rollback point, and all three agents resumed their previous scheduling.
+
+The import exposed stale Woodpecker importer and maintenance credentials.
+The existing host-side passwords authenticated successfully, while the old
+Woodpecker and GitLab copies returned 401. Woodpecker was repaired without
+rotating passwords or widening event restrictions. The independent checkpoint
+now includes `registry-ci.sops.json`, encrypted for the same recovery recipients
+as the clone escrow. GitLab's stale copies remain a separate legacy repair;
+they are not part of the accepted local delivery path.
+
+On 2026-10-08, a fresh rootless Podman store with zero images restored the
+production source commit `06a94923008597dd32dcaa61d18950d8b3f23555` from its
+retained Git bundle, using the retained Git plugin image. The retained Python
+image and trusted assembly script then reproduced production digest
+`sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623`
+from the pinned nginx inputs. Checkout, assembly and runtime each used
+`--network=none`, without credentials. Runtime served the recovered HTML,
+stylesheet and PNG bytes from a read-only container running as UID 101.
+
+The receipt is `cold-proof-20261008/receipt.json` under the independent laptop
+checkpoint above. `release-checkpoint.json` records retained file hashes,
+including the Git tool and this receipt. The proof covers Linux amd64 static
+application recovery using an available Podman runtime. It does not bootstrap
+Podman, Woodpecker, Forgejo, Zot, Flux, k3s or the underlying hosts.
+
+Clean complete offline CI and independent platform recovery remain separate
+gates under the
 [lifecycle RFC](../research/2026-10-08-sovereign-application-lifecycle-rfc.md).
 Homelab validation still needs retained Nix flake sources and complete check
 closures; public ingress still uses Cloudflare. Signing and SBOM enforcement
