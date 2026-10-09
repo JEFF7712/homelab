@@ -27,7 +27,7 @@
     {
       "id": "solubility-gnn",
       "repository": "JEFF7712/solubility-predictor",
-      "woodpecker_repository_id": null,
+      "woodpecker_repository_id": 18,
       "default_branch": "main",
       "validator": "python-service-v1",
       "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
@@ -42,7 +42,432 @@
         "models/",
         "requirements.txt"
       ],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "aiohappyeyeballs-2.7.1-py3-none-any.whl",
+          "sha256": "sha256:9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "aiohttp-3.14.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:c5e93ab6e6330dce40f5b43996f1fc5f2543296d263a5e4b59ff09e73870b7d8",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "aiosignal-1.4.0-py3-none-any.whl",
+          "sha256": "sha256:053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "annotated_doc-0.0.5-py3-none-any.whl",
+          "sha256": "sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "annotated_types-0.8.0-py3-none-any.whl",
+          "sha256": "sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "anyio-4.15.1-py3-none-any.whl",
+          "sha256": "sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "attrs-26.1.0-py3-none-any.whl",
+          "sha256": "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "certifi-2026.7.22-py3-none-any.whl",
+          "sha256": "sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:3d31298449090ab8d47b7b1b2a555ff73cac7ed438a08b7ac160980c7ebed649",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "click-8.5.0-py3-none-any.whl",
+          "sha256": "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "deprecated-3.0.0-py3-none-any.whl",
+          "sha256": "sha256:58204cf4a7f6270d547af5c278ee7a6bb56045a4b3d8441a1cd11660f41b7939",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "fastapi-0.125.0-py3-none-any.whl",
+          "sha256": "sha256:2570ec4f3aecf5cca8f0428aed2398b774fcdfee6c2116f86e80513f2f86a7a1",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "filelock-4.1.0-py3-none-any.whl",
+          "sha256": "sha256:2ce9818e3e2d8f284c1a964414447ef148d42a5fd5e2a477a7118e574b293ec1",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+          "sha256": "sha256:494a5952b1c597ba44e0e78113a7266e656b9794eec897b19ead706bd7074383",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "fsspec-2026.9.0-py3-none-any.whl",
+          "sha256": "sha256:8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "h11-0.16.0-py3-none-any.whl",
+          "sha256": "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "idna-3.20-py3-none-any.whl",
+          "sha256": "sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "jinja2-3.1.6-py3-none-any.whl",
+          "sha256": "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "limits-5.8.0-py3-none-any.whl",
+          "sha256": "sha256:ae1b008a43eb43073c3c579398bd4eb4c795de60952532dc24720ab45e1ac6b8",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "markupsafe-3.0.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:8e124f974786f831d6043728e38296969d3579db8896fe004682f5758e613581",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "mpmath-1.3.0-py3-none-any.whl",
+          "sha256": "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "multidict-6.9.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:976fd7689d69ec78d67d31d38d396d8adb562f7e8368279f76aed4aa451fa06d",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "networkx-3.7-py3-none-any.whl",
+          "sha256": "sha256:e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "numpy-2.5.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:b7e18c623bb5c95acb3b3328861272816ba199fb531921c5d6d0b675f1fde9e3",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "packaging-26.3-py3-none-any.whl",
+          "sha256": "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "pandas-3.0.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:0704044b676496b8350e023b09f174a26772456c974a2b11c36bebb558c9490d",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "propcache-0.5.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:2814ecd8e818f487bee4b0f921bc4d1c176cc5fc71ac0f072d0fa67eda4ac14b",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "pydantic-2.14.0-py3-none-any.whl",
+          "sha256": "sha256:15fab1bea6f1dc5003b54fc2ecab230c1fd1dbade2acd4addc52d81e32416d4b",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "pydantic_core-2.50.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+          "sha256": "sha256:f187030fc3d62c668feb0f09e92852e0eb414d7fcefc4748f2e67d245aade37e",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "pyparsing-3.3.3-py3-none-any.whl",
+          "sha256": "sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+          "sha256": "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "rdkit-2026.9.1-cp312-cp312-manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:c700cb37954d84bb864d8e02a55cff8b0f5ee6daff6d79a53a1cfe12459fa8c0",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "requests-2.34.2-py3-none-any.whl",
+          "sha256": "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "scipy-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:f55fa87b6c612ecd6b058f167c53231b1d14e412efe361d3d6e38b3631c73218",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "setuptools-84.0.0-py3-none-any.whl",
+          "sha256": "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "six-1.17.0-py2.py3-none-any.whl",
+          "sha256": "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "slowapi-0.1.10-py3-none-any.whl",
+          "sha256": "sha256:3acb61561dc9d687e3d3669362ff6a439de9ba44e2fed3a9c165da26b4b83e28",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "starlette-0.50.0-py3-none-any.whl",
+          "sha256": "sha256:9e5391843ec9b6e472eed1365a78c8098cfceb7a74bfd4d6b1c0c0095efb3bca",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "sympy-1.14.0-py3-none-any.whl",
+          "sha256": "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "torch-2.7.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:64123c05615e27368c7a7816f6e39c6d219998693beabde0b0b9cedf91b5ed8b",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "torch_geometric-2.8.0.post1-py3-none-any.whl",
+          "sha256": "sha256:5d9841cbfa64eadc425e445767127d103dd52fdc5890548c6364986c9bc78029",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "torch_scatter-2.1.2+pt27cpu-cp312-cp312-linux_x86_64.whl",
+          "sha256": "sha256:17220ba2021398a40466d8394ff762b7b9204be84aa1a3f16b7021fa6619af02",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "torch_sparse-0.6.18+pt27cpu-cp312-cp312-linux_x86_64.whl",
+          "sha256": "sha256:080ca9feb29b693a22f7d22ea75ed2f94506e96e57c82e25d11436a7530e1883",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "tqdm-4.70.1-py3-none-any.whl",
+          "sha256": "sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+          "sha256": "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "typing_inspection-0.4.4-py3-none-any.whl",
+          "sha256": "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "urllib3-2.8.0-py3-none-any.whl",
+          "sha256": "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "uvicorn-0.54.0-py3-none-any.whl",
+          "sha256": "sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "wrapt-2.5.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+          "sha256": "sha256:0cabb9c17ab79b2549d1f23b36f436473ad9253ef53995a817feba26fae69d5b",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "xxhash-4.0.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:237b8f63a2a0fcfb1ffc06e21dad23add44e6d354b2b014364a1d41e419a4dee",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        },
+        {
+          "package": "solubility-gnn-wheels",
+          "version": "1",
+          "filename": "yarl-1.25.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "sha256": "sha256:c6f117789d22dce188e5754e8bc65b7e6ebf8cb73963b9fa761f672a5883769d",
+          "kind": "wheel",
+          "dest": "/usr/local"
+        }
+      ],
       "release_python": "3.12",
       "release_uid": 1000,
       "release_gid": 1000,
@@ -62,7 +487,7 @@
     {
       "id": "pod-agent",
       "repository": "JEFF7712/pod-agent",
-      "woodpecker_repository_id": null,
+      "woodpecker_repository_id": 19,
       "default_branch": "main",
       "validator": "python-service-v1",
       "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
@@ -130,7 +555,7 @@
     {
       "id": "bookshelf",
       "repository": "JEFF7712/bookshelf",
-      "woodpecker_repository_id": null,
+      "woodpecker_repository_id": 20,
       "default_branch": "develop",
       "validator": "dotnet-service-v1",
       "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
@@ -149,6 +574,52 @@
       "release_env": {},
       "release_workdir": "",
       "release_scripts": []
+    },
+    {
+      "id": "nixos-config",
+      "repository": "JEFF7712/nixos-config",
+      "woodpecker_repository_id": 21,
+      "default_branch": "main",
+      "validator": "nixos-config-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
+      "artifact_repository": "-",
+      "deployment_path": "-",
+      "state": "stateless",
+      "release_kind": "none",
+      "release_files": [],
+      "release_supply": [],
+      "release_scripts": [],
+      "release_python": "",
+      "release_uid": 0,
+      "release_gid": 0,
+      "release_user": "",
+      "release_entrypoint": [],
+      "release_env": {},
+      "release_workdir": ""
+    },
+    {
+      "id": "bus-route-display",
+      "repository": "JEFF7712/bus-route-display",
+      "woodpecker_repository_id": 22,
+      "default_branch": "main",
+      "validator": "firmware-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
+      "artifact_repository": "-",
+      "deployment_path": "-",
+      "state": "stateless",
+      "release_kind": "none",
+      "release_files": [],
+      "release_supply": [],
+      "release_scripts": [],
+      "release_python": "",
+      "release_uid": 0,
+      "release_gid": 0,
+      "release_user": "",
+      "release_entrypoint": [],
+      "release_env": {},
+      "release_workdir": ""
     }
   ]
 }

@@ -166,9 +166,25 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             app.release_base_image,
         ):
             raise ValueError("Release base must be an immutable local image")
-        if app.artifact_repository != f"apps/{app.id}":
-            raise ValueError("Application artifact must match its identity")
-        if not re.fullmatch(
+        if app.release_kind == "container":
+            if app.artifact_repository != f"apps/{app.id}":
+                raise ValueError("Application artifact must match its identity")
+        elif app.release_kind == "static":
+            if app.artifact_repository != f"apps/{app.id}":
+                raise ValueError("Application artifact must match its identity")
+        elif app.validator in {"nixos-config-v1", "firmware-v1"}:
+            if app.artifact_repository != "-":
+                raise ValueError("Non-published applications must not claim artifacts")
+        else:
+            if app.artifact_repository != f"apps/{app.id}":
+                raise ValueError("Application artifact must match its identity")
+        if app.deployment_path == "-":
+            if not (
+                app.release_kind == "none"
+                and app.validator in {"nixos-config-v1", "firmware-v1"}
+            ):
+                raise ValueError("Empty deployment path requires a non-published app")
+        elif not re.fullmatch(
             r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice)",
             app.deployment_path,
         ):

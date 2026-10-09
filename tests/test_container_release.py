@@ -812,3 +812,56 @@ class PythonWorkflowTest(unittest.TestCase):
     def test_accepts_unrelated_quality_workflow(self) -> None:
         self.write_workflow("jobs:\n  lint:\n    steps:\n      - run: ruff check .\n")
         python_service.validate(self.root)
+
+
+class EnrollmentTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_all_assignments_enrolled(self) -> None:
+        apps = {
+            app.id: app
+            for app in load_catalog(self.ROOT / "config/ci/applications.json")
+        }
+        self.assertEqual(apps["solubility-gnn"].woodpecker_repository_id, 18)
+        self.assertEqual(apps["pod-agent"].woodpecker_repository_id, 19)
+        self.assertEqual(apps["bookshelf"].woodpecker_repository_id, 20)
+        self.assertEqual(apps["nixos-config"].woodpecker_repository_id, 21)
+        self.assertEqual(apps["bus-route-display"].woodpecker_repository_id, 22)
+        self.assertIsNotNone(apps["darkbit"].woodpecker_repository_id)
+
+    def test_nonpublished_apps_claim_no_artifacts(self) -> None:
+        apps = {
+            app.id: app
+            for app in load_catalog(self.ROOT / "config/ci/applications.json")
+        }
+        for app_id in ("nixos-config", "bus-route-display"):
+            self.assertEqual(apps[app_id].artifact_repository, "-")
+            self.assertEqual(apps[app_id].deployment_path, "-")
+            self.assertEqual(apps[app_id].release_kind, "none")
+
+    def test_nixos_and_firmware_push_get_no_release(self) -> None:
+        import yaml
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        for repo_id, owner, name, ref in (
+            (21, "JEFF7712", "nixos-config", "refs/heads/main"),
+            (22, "JEFF7712", "bus-route-display", "refs/heads/main"),
+        ):
+            result = configuration(
+                {
+                    "repo": {"id": repo_id, "owner": owner, "name": name},
+                    "pipeline": {
+                        "event": "push",
+                        "ref": ref,
+                        "commit": "c" * 40,
+                        "number": 3,
+                    },
+                },
+                apps,
+            )
+            self.assertEqual(len(result["configs"]), 1)
+            self.assertEqual(
+                result["configs"][0]["name"], "application-validation.yaml"
+            )
+            workflow = yaml.safe_load(result["configs"][0]["data"])
+            self.assertEqual(workflow["steps"][0]["name"], "application-validation")
