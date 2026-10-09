@@ -865,3 +865,56 @@ class EnrollmentTest(unittest.TestCase):
             )
             workflow = yaml.safe_load(result["configs"][0]["data"])
             self.assertEqual(workflow["steps"][0]["name"], "application-validation")
+
+
+class SupplyLinkTest(unittest.TestCase):
+    def test_link_entries_round_trip_identity(self) -> None:
+        from scripts.ci.container_release import check_supply_item, supply_identity
+
+        entry = {
+            "kind": "link",
+            "path": "/usr/local/bin/agent",
+            "target": "/opt/cursor-agent/bundle/cursor-agent",
+        }
+        self.assertEqual(check_supply_item(entry), entry)
+        self.assertEqual(supply_identity([entry]), [entry])
+
+    def test_link_entry_rejects_relative_paths(self) -> None:
+        from scripts.ci.container_release import check_supply_item
+
+        with self.assertRaises(ValueError):
+            check_supply_item(
+                {"kind": "link", "path": "usr/local/bin/agent", "target": "/x"}
+            )
+        with self.assertRaises(ValueError):
+            check_supply_item(
+                {"kind": "link", "path": "/usr/local/bin/agent", "target": "../x"}
+            )
+
+    def test_link_materializes_symlink_in_layer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "supply").mkdir()
+            layer = release.collect_supply(
+                root,
+                [
+                    {
+                        "kind": "link",
+                        "path": "/usr/local/bin/agent",
+                        "target": "/opt/cursor-agent/bundle/cursor-agent",
+                    }
+                ],
+                [],
+                set(),
+                "3.12",
+                101,
+                101,
+            )
+            with tarfile.open(fileobj=io.BytesIO(layer), mode="r") as archive:
+                names = archive.getnames()
+                self.assertIn("usr/local/bin/agent", names)
+                member = archive.getmember("usr/local/bin/agent")
+                self.assertTrue(member.issym())
+                self.assertEqual(
+                    member.linkname, "/opt/cursor-agent/bundle/cursor-agent"
+                )
