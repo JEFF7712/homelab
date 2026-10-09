@@ -812,3 +812,192 @@ class PythonWorkflowTest(unittest.TestCase):
     def test_accepts_unrelated_quality_workflow(self) -> None:
         self.write_workflow("jobs:\n  lint:\n    steps:\n      - run: ruff check .\n")
         python_service.validate(self.root)
+
+
+class EnrollmentTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_all_assignments_enrolled(self) -> None:
+        apps = {
+            app.id: app
+            for app in load_catalog(self.ROOT / "config/ci/applications.json")
+        }
+        self.assertEqual(apps["solubility-gnn"].woodpecker_repository_id, 18)
+        self.assertEqual(apps["pod-agent"].woodpecker_repository_id, 19)
+        self.assertEqual(apps["bookshelf"].woodpecker_repository_id, 20)
+        self.assertEqual(apps["nixos-config"].woodpecker_repository_id, 21)
+        self.assertEqual(apps["bus-route-display"].woodpecker_repository_id, 22)
+        self.assertIsNotNone(apps["darkbit"].woodpecker_repository_id)
+
+    def test_nonpublished_apps_claim_no_artifacts(self) -> None:
+        apps = {
+            app.id: app
+            for app in load_catalog(self.ROOT / "config/ci/applications.json")
+        }
+        for app_id in ("nixos-config", "bus-route-display"):
+            self.assertEqual(apps[app_id].artifact_repository, "-")
+            self.assertEqual(apps[app_id].deployment_path, "-")
+            self.assertEqual(apps[app_id].release_kind, "none")
+
+    def test_nixos_and_firmware_push_get_no_release(self) -> None:
+        import yaml
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        for repo_id, owner, name, ref in (
+            (21, "JEFF7712", "nixos-config", "refs/heads/main"),
+            (22, "JEFF7712", "bus-route-display", "refs/heads/main"),
+        ):
+            result = configuration(
+                {
+                    "repo": {"id": repo_id, "owner": owner, "name": name},
+                    "pipeline": {
+                        "event": "push",
+                        "ref": ref,
+                        "commit": "c" * 40,
+                        "number": 3,
+                    },
+                },
+                apps,
+            )
+            self.assertEqual(len(result["configs"]), 1)
+            self.assertEqual(
+                result["configs"][0]["name"], "application-validation.yaml"
+            )
+            workflow = yaml.safe_load(result["configs"][0]["data"])
+            self.assertEqual(workflow["steps"][0]["name"], "application-validation")
+
+
+class SupplyLinkTest(unittest.TestCase):
+    def test_link_entries_round_trip_identity(self) -> None:
+        from scripts.ci.container_release import check_supply_item, supply_identity
+
+        entry = {
+            "kind": "link",
+            "path": "/usr/local/bin/agent",
+            "target": "/opt/cursor-agent/bundle/cursor-agent",
+        }
+        self.assertEqual(check_supply_item(entry), entry)
+        self.assertEqual(supply_identity([entry]), [entry])
+
+    def test_link_entry_rejects_relative_paths(self) -> None:
+        from scripts.ci.container_release import check_supply_item
+
+        with self.assertRaises(ValueError):
+            check_supply_item(
+                {"kind": "link", "path": "usr/local/bin/agent", "target": "/x"}
+            )
+        with self.assertRaises(ValueError):
+            check_supply_item(
+                {"kind": "link", "path": "/usr/local/bin/agent", "target": "../x"}
+            )
+
+    def test_link_materializes_symlink_in_layer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "supply").mkdir()
+            layer = release.collect_supply(
+                root,
+                [
+                    {
+                        "kind": "link",
+                        "path": "/usr/local/bin/agent",
+                        "target": "/opt/cursor-agent/bundle/cursor-agent",
+                    }
+                ],
+                [],
+                set(),
+                "3.12",
+                101,
+                101,
+            )
+            with tarfile.open(fileobj=io.BytesIO(layer), mode="r") as archive:
+                names = archive.getnames()
+                self.assertIn("usr/local/bin/agent", names)
+                member = archive.getmember("usr/local/bin/agent")
+                self.assertTrue(member.issym())
+                self.assertEqual(
+                    member.linkname, "/opt/cursor-agent/bundle/cursor-agent"
+                )
+
+
+class RunLineParsingTest(unittest.TestCase):
+    def check(self, body: str) -> None:
+        from scripts.ci.dockerfile_supply import check_run_lines
+
+        check_run_lines(f"FROM x\nRUN {body}\n")
+
+    def test_allows_tool_paths_with_forbidden_names(self) -> None:
+        self.check("mkdir -p /opt/npm/codex && tar xzf t.tgz -C /opt/npm/codex")
+        self.check("ln -s /opt/npm/codex/bin/codex.js /usr/local/bin/codex")
+
+    def test_rejects_smuggled_installer_after_pip(self) -> None:
+        from scripts.ci.dockerfile_supply import check_run_lines
+
+        with self.assertRaises(ValueError):
+            check_run_lines(
+                "FROM x\nRUN pip install --no-index --find-links=/w /app && apt-get install -y curl\n"
+            )
+
+    def test_rejects_bare_uv_sync(self) -> None:
+        from scripts.ci.dockerfile_supply import check_run_lines
+
+        with self.assertRaises(ValueError):
+            check_run_lines("FROM x\nRUN uv sync --locked --no-dev\n")
+
+
+class NixOSLaneTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_nixos_push_gets_hygiene_plus_flake_check(self) -> None:
+        import yaml
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        result = configuration(
+            {
+                "repo": {"id": 21, "owner": "JEFF7712", "name": "nixos-config"},
+                "pipeline": {
+                    "event": "push",
+                    "ref": "refs/heads/main",
+                    "commit": "d" * 40,
+                    "number": 5,
+                },
+            },
+            apps,
+        )
+        self.assertEqual(len(result["configs"]), 1)
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        names = [step["name"] for step in workflow["steps"]]
+        self.assertEqual(names, ["application-validation", "nix-flake-check"])
+        check = workflow["steps"][1]
+        self.assertIn("nixos/nix", check["image"])
+        self.assertIn("nix flake check --no-write-lock-file", check["commands"])
+        self.assertNotIn("environment", workflow["steps"][0])
+
+
+class SplitBaseTest(unittest.TestCase):
+    def test_strips_cosmetic_tag(self) -> None:
+        from scripts.ci.container_release import split_base
+
+        repo, ref = split_base(
+            "registry.rupan.dev/upstream/docker.io/library/python"
+            ":3.12-slim-bookworm@sha256:" + "c" * 64
+        )
+        self.assertEqual(repo, "upstream/docker.io/library/python")
+        self.assertEqual(ref, "sha256:" + "c" * 64)
+
+    def test_accepts_tagless_base(self) -> None:
+        from scripts.ci.container_release import split_base
+
+        repo, ref = split_base(
+            "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:"
+            + "d" * 64
+        )
+        self.assertEqual(repo, "upstream/docker.io/nginxinc/nginx-unprivileged")
+
+    def test_rejects_bad_digest_and_registry(self) -> None:
+        from scripts.ci.container_release import split_base
+
+        with self.assertRaises(ValueError):
+            split_base("registry.rupan.dev/upstream/x@sha256:zzz")
+        with self.assertRaises(ValueError):
+            split_base("docker.io/library/python@sha256:" + "c" * 64)

@@ -166,6 +166,23 @@ def check_digest(value: str) -> str:
     return value
 
 
+def split_base(base: str) -> tuple[str, str]:
+    """Split a pinned base reference into registry repository and digest.
+
+    An optional :tag alongside the digest is cosmetic; the digest is
+    authoritative and the tag is dropped for registry requests.
+    """
+    if not base.startswith("registry.rupan.dev/") or "@" not in base:
+        raise ValueError(f"Invalid base reference: {base}")
+    repository, reference = base.removeprefix("registry.rupan.dev/").split("@")
+    check_digest(reference)
+    if ":" in repository.rsplit("/", 1)[-1]:
+        repository = repository.rsplit(":", 1)[0]
+    if not re.fullmatch(r"[A-Za-z0-9_./-]+", repository):
+        raise ValueError(f"Invalid base repository: {repository}")
+    return repository, reference
+
+
 def parse_manifests(raw: str) -> Any:
     try:
         value = json.loads(raw)
@@ -179,6 +196,16 @@ def parse_manifests(raw: str) -> Any:
 def check_supply_item(item: Any) -> dict[str, Any]:
     if not isinstance(item, dict):
         raise ValueError("Supply entry must be an object")
+    if item.get("kind") == "link":
+        if set(item) != {"kind", "path", "target"}:
+            raise ValueError("Link entry must carry kind/path/target")
+        for field in ("path", "target"):
+            value = item[field]
+            if not isinstance(value, str) or not value.startswith("/"):
+                raise ValueError(f"Link {field} must be an absolute path")
+            if re.search(r"(^|/)\.\.(/|$)", value):
+                raise ValueError(f"Link {field} must be contained")
+        return item
     keys = set(item)
     if keys != {
         "package",
@@ -267,8 +294,7 @@ def prepare(
     forgejo_owner: str,
     forgejo_token: str,
 ) -> None:
-    repository, reference = base.removeprefix("registry.rupan.dev/").split("@")
-    check_digest(reference)
+    repository, reference = split_base(base)
     root.mkdir(parents=True, exist_ok=False)
     raw = registry.get(repository, "manifests", reference)
     original = json.loads(raw)
@@ -291,7 +317,13 @@ def prepare(
             raise ValueError("Base blob size mismatch")
         store(root, data, item["mediaType"])
     stored_supply = []
-    for entry in sorted(supply, key=lambda e: (e["package"], e["filename"])):
+    for entry in sorted(
+        supply,
+        key=lambda e: (e.get("package", ""), e.get("filename", ""), e.get("path", "")),
+    ):
+        if entry["kind"] == "link":
+            stored_supply.append(dict(entry))
+            continue
         data = forgejo_download(
             forgejo_owner,
             entry["package"],
@@ -351,7 +383,10 @@ def load_base(root: Path, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
 def supply_identity(supply: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Canonical release identity for supply entries (preserves bins)."""
     identities = []
-    for entry in sorted(supply, key=lambda e: (e["package"], e["filename"])):
+    for entry in sorted(
+        supply,
+        key=lambda e: (e.get("package", ""), e.get("filename", ""), e.get("path", "")),
+    ):
         identities.append({k: entry[k] for k in sorted(entry) if k != "stored"})
     return identities
 
@@ -627,11 +662,21 @@ def collect_supply(
 ) -> bytes:
     tree: dict[str, tuple[bytes, int]] = {}
     links: dict[str, tarfile.TarInfo] = {}
-    for entry in sorted(supply, key=lambda e: (e["package"], e["filename"])):
+    for entry in sorted(
+        supply,
+        key=lambda e: (e.get("package", ""), e.get("filename", ""), e.get("path", "")),
+    ):
+        kind = entry["kind"]
+        if kind == "link":
+            info = tarfile.TarInfo(entry["path"].lstrip("/"))
+            info.type = tarfile.SYMTYPE
+            info.linkname = entry["target"]
+            info.mtime = 0
+            links[entry["path"].lstrip("/")] = info
+            continue
         data = (root / "supply" / entry["filename"]).read_bytes()
         if digest(data) != entry["sha256"]:
             raise ValueError(f"Supply input mismatch: {entry['filename']}")
-        kind = entry["kind"]
         if kind == "wheel":
             unpack_wheel(data, tree, python)
         elif kind == "npm":

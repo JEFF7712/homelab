@@ -157,7 +157,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         ):
             raise ValueError("Non-container releases must not carry container fields")
         if not re.fullmatch(
-            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged|oven/bun|library/node)|ghcr\.io/astral-sh/uv)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
+            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged|oven/bun|library/node|nixos/nix)|ghcr\.io/astral-sh/uv)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.validation_image,
         ):
             raise ValueError("Validation image must be an immutable local image")
@@ -166,9 +166,25 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             app.release_base_image,
         ):
             raise ValueError("Release base must be an immutable local image")
-        if app.artifact_repository != f"apps/{app.id}":
-            raise ValueError("Application artifact must match its identity")
-        if not re.fullmatch(
+        if app.release_kind == "container":
+            if app.artifact_repository != f"apps/{app.id}":
+                raise ValueError("Application artifact must match its identity")
+        elif app.release_kind == "static":
+            if app.artifact_repository != f"apps/{app.id}":
+                raise ValueError("Application artifact must match its identity")
+        elif app.validator in {"nixos-config-v1", "firmware-v1"}:
+            if app.artifact_repository != "-":
+                raise ValueError("Non-published applications must not claim artifacts")
+        else:
+            if app.artifact_repository != f"apps/{app.id}":
+                raise ValueError("Application artifact must match its identity")
+        if app.deployment_path == "-":
+            if not (
+                app.release_kind == "none"
+                and app.validator in {"nixos-config-v1", "firmware-v1"}
+            ):
+                raise ValueError("Empty deployment path requires a non-published app")
+        elif not re.fullmatch(
             r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice)",
             app.deployment_path,
         ):
@@ -222,13 +238,57 @@ def configuration(
     }:
         raise ValueError("Unsupported application event")
     lifecycle = event in {"pull_request_closed", "pull_request_metadata"}
-    validator_file = {
+    validator_files = {
         "static-site-v1": "static_site.py",
         "python-service-v1": "python_service.py",
         "dotnet-service-v1": "dotnet_service.py",
         "nixos-config-v1": "nixos_config.py",
         "firmware-v1": "firmware.py",
-    }[app.validator]
+    }
+    encoded_validators = {
+        key: base64.b64encode(Path(__file__).with_name(filename).read_bytes()).decode()
+        for key, filename in validator_files.items()
+    }
+    encoded = encoded_validators[app.validator]
+    if app.validator == "nixos-config-v1" and not lifecycle:
+        workflow = {
+            "when": [{"event": event}],
+            "labels": {"tier": "sandbox", "type": "docker"},
+            "steps": [
+                {
+                    "name": "application-validation",
+                    "image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+                    "commands": [
+                        f"python -I -c \"import base64; exec(compile(base64.b64decode('{encoded}'), '<server-owned-static-validator>', 'exec'))\""
+                    ],
+                },
+                {
+                    "name": "nix-flake-check",
+                    "image": app.validation_image,
+                    "environment": {
+                        "NIX_CONFIG": (
+                            "experimental-features = nix-command flakes\n"
+                            "accept-flake-config = true\n"
+                            "sandbox = false\n"
+                            "max-jobs = 2\n"
+                            "cores = 2\n"
+                            "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
+                            "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
+                        )
+                    },
+                    "commands": [
+                        "nix fmt -- --fail-on-change --no-cache",
+                        "nix flake check --no-write-lock-file",
+                    ],
+                },
+            ],
+        }
+        name = "application-validation"
+        configs = [
+            {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}
+        ]
+        return {"configs": configs}
+    validator_file = validator_files[app.validator]
     source = Path(__file__).with_name(validator_file).read_bytes()
     encoded = base64.b64encode(source).decode()
     workflow = {
