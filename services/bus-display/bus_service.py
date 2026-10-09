@@ -21,6 +21,7 @@ from dashboard_payload import dashboard_payload
 from journey_planner import JourneyPlanner, realtime_updates
 from outlook_calendar import MADISON, OutlookCalendar
 from transit_map import TransitMap
+from walk_weather import FORECAST_REFRESH, WalkWeather
 
 # Add current directory to path for local gtfs_realtime_pb2
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -81,6 +82,7 @@ transit_map = TransitMap(Path(__file__).with_name("map_shapes.json"))
 journey_planner = JourneyPlanner(
     Path(__file__).with_name("journey_data.json"), transit_map
 )
+walk_weather = WalkWeather(tuple(journey_planner.data["home"]))
 
 
 # Global cached dashboard payload
@@ -365,6 +367,7 @@ class TransitRequestHandler(BaseHTTPRequestHandler):
                 payload = journey_planner.plan(payload, updates, now)
                 if not payload["journey_available"]:
                     payload["buses"] = nearby_buses
+            payload = walk_weather.apply(payload, now)
             data = json.dumps(payload, indent=2).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -404,7 +407,17 @@ def calendar_worker():
         time.sleep(15)
 
 
+def weather_worker() -> None:
+    while True:
+        try:
+            walk_weather.refresh(time.time())
+        except Exception as error:
+            logger.warning("Walking forecast refresh failed: %s", type(error).__name__)
+        time.sleep(FORECAST_REFRESH)
+
+
 if __name__ == "__main__":
+    threading.Thread(target=weather_worker, daemon=True).start()
     if outlook_calendar is not None:
         threading.Thread(target=calendar_worker, daemon=True).start()
     # Start polling thread

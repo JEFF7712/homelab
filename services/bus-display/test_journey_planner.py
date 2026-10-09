@@ -132,6 +132,17 @@ def test_match_building_and_direct_trip_order(planner: JourneyPlanner) -> None:
     assert "arrive ~9:48 AM" in result["journey_action"]
 
 
+def test_displayed_trip_stays_during_walk_until_departure(
+    planner: JourneyPlanner,
+) -> None:
+    first = plan(planner)
+    route = first["routes"][0]
+    walking = plan(planner, now=route["leave_at"] + 61)
+    assert walking["routes"][0]["trip_id"] == route["trip_id"]
+    assert walking["routes"][0]["leave_at"] == route["leave_at"]
+    assert not plan(planner, now=route["departure_at"] + 1)["routes"]
+
+
 @pytest.mark.parametrize("field", [4, 5])
 def test_pickup_and_dropoff_restrictions(planner: JourneyPlanner, field: int) -> None:
     planner.data["patterns"]["out"]["stops"][0 if field == 4 else 1][field] = "1"
