@@ -54,18 +54,23 @@
       "id": "first-party-apps-bus-display-244cb03cb790",
       "kind": "first-party",
       "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/bus-display",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "services/bus-display/Dockerfile",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-local-build"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:7b9b9c48cb881399750f4edd9e82b2f89568542d2e9a8bd1ef8be9e8cc1750d7",
-        "reference": "registry.rupan.dev/apps/bus-display@sha256:7b9b9c48cb881399750f4edd9e82b2f89568542d2e9a8bd1ef8be9e8cc1750d7",
+        "digest": "sha256:ea0f246230e6851f9685f237d80e3d4a11cab4a425fdb3caa7a44aa836542fd8",
+        "reference": "registry.rupan.dev/apps/bus-display:0.0.4@sha256:ea0f246230e6851f9685f237d80e3d4a11cab4a425fdb3caa7a44aa836542fd8",
         "registry": "registry.rupan.dev",
         "repository": "apps/bus-display",
-        "tag": null
-      }
+        "tag": "0.0.4"
+      },
+      "digest": "sha256:ea0f246230e6851f9685f237d80e3d4a11cab4a425fdb3caa7a44aa836542fd8",
+      "destination_tags": [
+        "0.0.4",
+        "retention-deployed-ea0f246230e6851f"
+      ]
     },
     {
       "consumers": [
