@@ -96,9 +96,38 @@ the pinned inputs and all check dependencies without public network access.
 Independent recovery also needs accessible source bundles, cache artifacts,
 verification keys, toolchains and host state outside the infrastructure being
 restored.
-OpenTofu provider installation and kubeconform's default core-schema lookup
-are additional inputs that must be retained before claiming complete offline
-CI.
+The pinned development shell wraps OpenTofu with an exclusive filesystem
+provider mirror. `nix/ci-providers.json` pins archives for each supported shell
+platform to the versions and ZIP checksums in the stack lock files. The mirror
+and archives are Nix store dependencies, retained by cache publication.
+`just provision-check-deps` initializes with a read-only lock file. Missing
+providers or versions fail rather than falling back to the public registry.
+Update the lock file and mirror entries together when upgrading providers.
+This changes provider installation only; authenticated plans and applies still
+contact their target services and use the existing state configuration.
+
+Core schemas used by the rendered GitOps manifests are committed under
+`schemas/kubernetes-core/v1.35.7-standalone-strict`, matching the observed
+cluster version. `retention.json` records the upstream commit and checksums.
+GitOps validation uses only these files and the existing local CRD schemas.
+Missing schemas fail, including in bootstrap manifests. CRD definitions
+remain explicitly skipped. Add the corresponding schema from the pinned
+upstream commit when introducing another core kind, and update the pin when
+upgrading Kubernetes.
+
+`python -m scripts.ci.offline INPUTS_JSON NEW_PROOF_DIRECTORY` executes the
+full validation and formatting gates in a fresh rootless Podman store with
+networking disabled. It imports retained Git and Nix OCI tools, checks out a
+checksummed source bundle, imports signed Nix inputs from a read-only file
+cache, and executes the unit tests rather than accepting a cached test report.
+The input JSON names `source`, `bundle`, `bundle_sha256`, `ref`, `cache`,
+`store_paths`, `trusted_public_keys`, and `tools` (Git and Nix OCI directory
+paths). Paths are relative to the input JSON directory. The cache must contain
+the development shell, recursive flake sources, and all validation build
+dependencies. The proof directory must not exist. Logs survive failures;
+`receipt.json` is written only after a passing nonempty test report and all
+commands succeed. The runner assumes a working Podman runtime. This validates
+offline CI, not a full platform restore or live infrastructure plans.
 
 ## NAS storage deployments
 

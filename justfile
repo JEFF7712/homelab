@@ -123,7 +123,7 @@ check-docs:
     python -m scripts.checks.docs
 
 provision-check-deps:
-    pids=""; for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false & pids="$pids $!"; done; rc=0; for pid in $pids; do wait "$pid" || rc=1; done; exit "$rc"
+    pids=""; for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false -lockfile=readonly & pids="$pids $!"; done; rc=0; for pid in $pids; do wait "$pid" || rc=1; done; exit "$rc"
 
 refresh-crd-schemas:
     python scripts/checks/provision_schemas.py

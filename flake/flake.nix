@@ -113,7 +113,7 @@
             libvirt
             nixfmt
             nodejs
-            opentofu
+            (import ../nix/ci-providers.nix { inherit pkgs; })
             oras
             patchelf
             prometheus.cli
@@ -143,6 +143,7 @@
                 pkgs.gitleaks
                 pkgs.jq
                 pkgs.just
+                pkgs.kubeconform
                 pkgs.kubectl
                 pkgs.libvirt
                 pkgs.nodejs
