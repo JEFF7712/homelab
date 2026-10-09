@@ -68,6 +68,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 "static-site-v1",
                 "python-service-v1",
                 "dotnet-service-v1",
+                "node-service-v1",
             }
             or app.state not in {"stateless", "stateful"}
         ):
@@ -85,7 +86,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         if app.artifact_repository != f"apps/{app.id}":
             raise ValueError("Application artifact must match its identity")
         if not re.fullmatch(
-            r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice)",
+            r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice|obsidian)",
             app.deployment_path,
         ):
             raise ValueError("Application deployment path must be an owned GitOps path")
@@ -142,6 +143,7 @@ def configuration(
         "static-site-v1": "static_site.py",
         "python-service-v1": "python_service.py",
         "dotnet-service-v1": "dotnet_service.py",
+        "node-service-v1": "node_service.py",
     }[app.validator]
     source = Path(__file__).with_name(validator_file).read_bytes()
     encoded = base64.b64encode(source).decode()
