@@ -222,7 +222,7 @@
                   "--kubelet-arg=container-log-max-files=5"
                   "--kubelet-arg=image-gc-high-threshold=70"
                   "--kubelet-arg=image-gc-low-threshold=60"
-                  "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<10%,imagefs.available<10%"
+                  "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<2Gi,imagefs.available<15Gi"
                   "--etcd-snapshot-dir=/persist/etcd-snapshots"
                   "--etcd-snapshot-retention=14"
                   "--etcd-snapshot-schedule-cron=0 3 * * *"

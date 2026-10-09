@@ -30,6 +30,12 @@
     };
     fileSystems."/persist".neededForBoot = lib.mkDefault true;
 
+    # Age out unused /tmp and /var/tmp contents daily. / is a small tmpfs and
+    # a forgotten multi-GB build checkout in /tmp (2026-10-09 homelab-04)
+    # otherwise counts against kubelet ephemeral-storage until reboot.
+    systemd.additionalUpstreamSystemUnits = [ "systemd-tmpfiles-clean.timer" ];
+    systemd.timers.systemd-tmpfiles-clean.wantedBy = [ "timers.target" ];
+
     services.openssh = {
       enable = true;
       openFirewall = false;
