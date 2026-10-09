@@ -62,26 +62,33 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         ):
             raise ValueError("Invalid application identity")
         if (
-            app.default_branch != "main"
-            or app.validator != "static-site-v1"
-            or app.state != "stateless"
+            app.default_branch not in {"main", "develop"}
+            or app.validator
+            not in {
+                "static-site-v1",
+                "python-service-v1",
+                "dotnet-service-v1",
+            }
+            or app.state not in {"stateless", "stateful"}
         ):
             raise ValueError("Unsupported application contract")
         if not re.fullmatch(
-            r"registry\.rupan\.dev/upstream/[A-Za-z0-9_./-]+@sha256:[a-f0-9]{64}",
+            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged|oven/bun|library/node)|ghcr\.io/astral-sh/uv)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.validation_image,
         ):
             raise ValueError("Validation image must be an immutable local image")
         if not re.fullmatch(
-            r"registry\.rupan\.dev/upstream/docker\.io/nginxinc/nginx-unprivileged@sha256:[a-f0-9]{64}",
+            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.release_base_image,
         ):
-            raise ValueError("Release base must be immutable local unprivileged nginx")
-        if (
-            app.artifact_repository != f"apps/{app.id}"
-            or app.deployment_path != f"gitops/websites/{app.id}"
+            raise ValueError("Release base must be an immutable local image")
+        if app.artifact_repository != f"apps/{app.id}":
+            raise ValueError("Application artifact must match its identity")
+        if not re.fullmatch(
+            r"gitops/(websites/[A-Za-z0-9][A-Za-z0-9_.-]*|media|pod-agent|voice)",
+            app.deployment_path,
         ):
-            raise ValueError("Application ownership paths do not match its identity")
+            raise ValueError("Application deployment path must be an owned GitOps path")
         if (
             app.id in identifiers
             or app.repository in repositories
@@ -131,7 +138,12 @@ def configuration(
     }:
         raise ValueError("Unsupported application event")
     lifecycle = event in {"pull_request_closed", "pull_request_metadata"}
-    source = Path(__file__).with_name("static_site.py").read_bytes()
+    validator_file = {
+        "static-site-v1": "static_site.py",
+        "python-service-v1": "python_service.py",
+        "dotnet-service-v1": "dotnet_service.py",
+    }[app.validator]
+    source = Path(__file__).with_name(validator_file).read_bytes()
     encoded = base64.b64encode(source).decode()
     workflow = {
         "when": [{"event": event}],
@@ -156,8 +168,9 @@ def configuration(
     ]
     if (
         event == "push"
-        and pipeline.get("ref") == "refs/heads/main"
+        and pipeline.get("ref") == f"refs/heads/{app.default_branch}"
         and not pipeline.get("from_fork")
+        and app.validator == "static-site-v1"
     ):
         commit, number = pipeline.get("commit"), pipeline.get("number")
         if (

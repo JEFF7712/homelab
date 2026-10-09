@@ -12,6 +12,42 @@
       "artifact_repository": "apps/darkbit",
       "deployment_path": "gitops/websites/darkbit",
       "state": "stateless"
+    },
+    {
+      "id": "solubility-gnn",
+      "repository": "JEFF7712/solubility-predictor",
+      "woodpecker_repository_id": null,
+      "default_branch": "main",
+      "validator": "python-service-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
+      "artifact_repository": "apps/solubility-gnn",
+      "deployment_path": "gitops/websites/soluble-rupan",
+      "state": "stateless"
+    },
+    {
+      "id": "pod-agent",
+      "repository": "JEFF7712/pod-agent",
+      "woodpecker_repository_id": null,
+      "default_branch": "main",
+      "validator": "python-service-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
+      "artifact_repository": "apps/pod-agent",
+      "deployment_path": "gitops/pod-agent",
+      "state": "stateful"
+    },
+    {
+      "id": "bookshelf",
+      "repository": "JEFF7712/bookshelf",
+      "woodpecker_repository_id": null,
+      "default_branch": "develop",
+      "validator": "dotnet-service-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
+      "artifact_repository": "apps/bookshelf",
+      "deployment_path": "gitops/media",
+      "state": "stateful"
     }
   ]
 }
