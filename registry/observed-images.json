@@ -233,9 +233,9 @@
     },
     {
       "consumers": [
-        "pulse/website-deploy-746c5dfc47-n4t6k/web"
+        "pulse/website-deploy-6955959fc6-w4b5r/web"
       ],
-      "reference": "registry.rupan.dev/apps/pulse-site@sha256:8dacbcb2ae5b7ea8e6509e8e48270af1e9fb5d7226b249dac55df6f2e69adcb8"
+      "reference": "registry.rupan.dev/apps/pulse-site@sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2"
     },
     {
       "consumers": [

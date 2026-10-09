@@ -695,14 +695,15 @@
         "status": "unsupported"
       },
       "consumers": [
-        "observed:pulse/website-deploy-7bc958f8c5-xpb59/web"
+        "gitops/websites/pulse/deployment.yaml:23",
+        "observed:pulse/website-deploy-6955959fc6-w4b5r/web"
       ],
       "destination_repository": "apps/pulse-site",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-7e5a74795569eb42"
+        "0.0.1000002",
+        "retention-deployed-6c1d62dc8c32a92d"
       ],
-      "digest": "sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b",
+      "digest": "sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2",
       "id": "first-party-jeff7712-pulse-site-2fd6c4414659",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.index.v1+json",
@@ -726,9 +727,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
-        "tag": "0.0.1000001",
-        "digest": "sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b",
-        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000001@sha256:7e5a74795569eb422064f4b14bb7f89d41d14e57ab32b4c718323229049eb33b"
+        "tag": "0.0.1000002",
+        "digest": "sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2",
+        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000002@sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2"
       }
     },
     {
