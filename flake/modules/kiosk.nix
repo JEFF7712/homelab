@@ -119,7 +119,13 @@ in
       description = "Seed Home Assistant token into kiosk browser";
       after = [ "cage-tty1.service" ];
       wantedBy = [ "multi-user.target" ];
-      restartIfChanged = lib.mkForce true;
+      # Parked while no display is connected (all DRM outputs on homelab-05
+      # disconnected since 2026-09-25; last successful seed that day). The
+      # seeder fails without a Jarvis page target, and any failed unit marks
+      # every nixos-rebuild switch failed (status 4), reddening fleet
+      # deploys. To re-enable after reconnecting the display, delete this
+      # line, redeploy, and the boot-time seeding resumes automatically.
+      enable = false;
       unitConfig.ConditionPathExists = [ cfg.haTokenFile ];
       serviceConfig = {
         Type = "oneshot";
