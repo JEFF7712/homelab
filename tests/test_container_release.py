@@ -1097,8 +1097,9 @@ class ReleaseCommandSizeTest(unittest.TestCase):
     ROOT = Path(__file__).resolve().parents[1]
 
     def test_container_release_commands_fit_exec_limits(self) -> None:
-        import yaml
         from dataclasses import replace
+
+        import yaml
 
         apps = load_catalog(self.ROOT / "config/ci/applications.json")
         for app in apps:
@@ -1140,8 +1141,9 @@ class ReleaseCommandSizeTest(unittest.TestCase):
     def test_embedded_container_payload_decodes_and_compiles(self) -> None:
         import base64
         import gzip
-        import yaml
         from dataclasses import replace
+
+        import yaml
 
         apps = load_catalog(self.ROOT / "config/ci/applications.json")
         app = next(a for a in apps if a.id == "pod-agent")
