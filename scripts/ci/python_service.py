@@ -74,6 +74,21 @@ def validate(root: Path) -> None:
                 raise ValueError(f"{name} must not use external GitHub cache")
             if re.search(r"ghcr\.io/jeff7712", compose, re.IGNORECASE):
                 raise ValueError(f"{name} must not reference external GHCR images")
+    workflows = root / ".github" / "workflows"
+    if workflows.is_dir():
+        for workflow in sorted(workflows.glob("*.yml")) + sorted(
+            workflows.glob("*.yaml")
+        ):
+            content = workflow.read_text(encoding="utf-8")
+            if "registry.rupan.dev" in content:
+                raise ValueError(
+                    f"{workflow.name} must not publish to the local registry; "
+                    "delivery belongs to Woodpecker"
+                )
+            if "type=gha" in content:
+                raise ValueError(
+                    f"{workflow.name} must not use external GitHub cache"
+                )
 
 
 if __name__ == "__main__":

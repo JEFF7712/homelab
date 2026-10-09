@@ -781,3 +781,32 @@ class ContainerEmissionTest(unittest.TestCase):
         self.assertEqual(apps["pod-agent"].release_user, "101:101")
         self.assertEqual(apps["bookshelf"].release_kind, "none")
         self.assertEqual(apps["darkbit"].release_kind, "static")
+
+
+class PythonWorkflowTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        good_python_root(self.root)
+
+    def write_workflow(self, content: str) -> None:
+        workflows = self.root / ".github" / "workflows"
+        workflows.mkdir(parents=True, exist_ok=True)
+        (workflows / "deploy.yml").write_text(content)
+
+    def test_rejects_registry_publisher_workflow(self) -> None:
+        self.write_workflow(
+            "jobs:\n  push:\n    steps:\n      - run: docker push registry.rupan.dev/x\n"
+        )
+        with self.assertRaises(ValueError):
+            python_service.validate(self.root)
+
+    def test_rejects_gha_cache_workflow(self) -> None:
+        self.write_workflow("jobs:\n  x:\n    steps:\n      - uses: a\n        with:\n          c: type=gha\n")
+        with self.assertRaises(ValueError):
+            python_service.validate(self.root)
+
+    def test_accepts_unrelated_quality_workflow(self) -> None:
+        self.write_workflow("jobs:\n  lint:\n    steps:\n      - run: ruff check .\n")
+        python_service.validate(self.root)
