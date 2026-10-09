@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import copy
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -104,6 +106,18 @@ class DarkbitPublisherTest(unittest.TestCase):
             self.assertIn(
                 "forgejo-darkbit",
                 policy["repositories"]["apps/darkbit"]["policies"][1]["users"],
+            )
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    'import sys; sys.path[:] = [p for p in sys.path if "site-packages" not in p and "dist-packages" not in p]; '
+                    "from pathlib import Path; from scripts.registry.core import discover_inventory; "
+                    'assert discover_inventory(Path(sys.argv[1]))["images"][0]["producer"]["local_publisher"] == "forgejo-darkbit"',
+                    str(root),
+                ],
+                check=True,
+                capture_output=True,
             )
             catalog.write_text(json.dumps({"schema_version": 1, "applications": []}))
             policy = render_access_control(discover_inventory(root))
