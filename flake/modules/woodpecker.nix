@@ -16,6 +16,9 @@ let
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
     cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
     cp ${../../scripts/ci/static_release.py} $out/scripts/ci/static_release.py
+    cp ${../../scripts/ci/python_service.py} $out/scripts/ci/python_service.py
+    cp ${../../scripts/ci/dotnet_service.py} $out/scripts/ci/dotnet_service.py
+    cp ${../../scripts/ci/node_service.py} $out/scripts/ci/node_service.py
     touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
   '';
   agent = tier: count: {
