@@ -1091,3 +1091,80 @@ class BundledValidatorIsolationTest(unittest.TestCase):
             (root / "Dockerfile").write_text("FROM node:24-slim\n")
             process = self.run_embedded(command, root)
             self.assertNotEqual(process.returncode, 0)
+
+
+class ReleaseCommandSizeTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_container_release_commands_fit_exec_limits(self) -> None:
+        import yaml
+        from dataclasses import replace
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        for app in apps:
+            if app.release_kind != "container":
+                continue
+            with self.subTest(app=app.id):
+                apps_replaced = tuple(
+                    replace(a, woodpecker_repository_id=9000 + hash(a.id) % 1000)
+                    if a.id == app.id
+                    else a
+                    for a in apps
+                )
+                result = configuration(
+                    {
+                        "repo": {
+                            "id": 9000 + hash(app.id) % 1000,
+                            "owner": "JEFF7712",
+                            "name": app.repository.split("/")[1],
+                        },
+                        "pipeline": {
+                            "event": "push",
+                            "ref": f"refs/heads/{app.default_branch}",
+                            "commit": "e" * 40,
+                            "number": 11,
+                        },
+                    },
+                    apps_replaced,
+                )
+                self.assertEqual(len(result["configs"]), 2)
+                workflow = yaml.safe_load(result["configs"][1]["data"])
+                for step in workflow["steps"]:
+                    for command in step["commands"]:
+                        self.assertLess(
+                            len(command.encode()),
+                            65536,
+                            f"{app.id}/{step['name']} command too long",
+                        )
+
+    def test_embedded_container_payload_decodes_and_compiles(self) -> None:
+        import base64
+        import gzip
+        import yaml
+        from dataclasses import replace
+
+        apps = load_catalog(self.ROOT / "config/ci/applications.json")
+        app = next(a for a in apps if a.id == "pod-agent")
+        apps_replaced = tuple(
+            replace(a, woodpecker_repository_id=9199) if a.id == "pod-agent" else a
+            for a in apps
+        )
+        result = configuration(
+            {
+                "repo": {"id": 9199, "owner": "JEFF7712", "name": "pod-agent"},
+                "pipeline": {
+                    "event": "push",
+                    "ref": "refs/heads/main",
+                    "commit": "e" * 40,
+                    "number": 11,
+                },
+            },
+            apps_replaced,
+        )
+        workflow = yaml.safe_load(result["configs"][1]["data"])
+        command = workflow["steps"][1]["commands"][0]
+        payload = command.split("b64decode('", 1)[1].split("')", 1)[0]
+        source = gzip.decompress(base64.b64decode(payload))
+        namespace: dict = {"__name__": "test"}
+        compile(source, "<test-container-release>", "exec")
+        self.assertIn(b"def assemble", source)

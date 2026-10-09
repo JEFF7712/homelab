@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import json
 import re
 import shlex
@@ -364,6 +365,11 @@ def configuration(
         if app.release_kind == "static":
             release_source = Path(__file__).with_name("static_release.py").read_bytes()
             release_tag = "<server-owned-static-release>"
+            release_stub = (
+                "python -I -c \"import base64; exec(compile(base64.b64decode('{encoded}'), "
+                f"'{release_tag}', 'exec'))\""
+            )
+            release_payload = base64.b64encode(release_source).decode()
             release_args = [
                 "--base",
                 app.release_base_image,
@@ -379,6 +385,13 @@ def configuration(
                 Path(__file__).with_name("container_release.py").read_bytes()
             )
             release_tag = "<server-owned-container-release>"
+            release_stub = (
+                'python -I -c "import base64,gzip; exec(compile(gzip.decompress('
+                f"base64.b64decode('{{encoded}}')), '{release_tag}', 'exec'))\""
+            )
+            release_payload = base64.b64encode(
+                gzip.compress(release_source, mtime=0)
+            ).decode()
             release_args = [
                 "--base",
                 app.release_base_image,
@@ -411,8 +424,7 @@ def configuration(
                 "--forgejo-owner",
                 app.repository.split("/")[0],
             ]
-        encoded = base64.b64encode(release_source).decode()
-        command = f"python -I -c \"import base64; exec(compile(base64.b64decode('{encoded}'), '{release_tag}', 'exec'))\""
+        command = release_stub.format(encoded=release_payload)
         arguments = " ".join(shlex.quote(v) for v in release_args)
         assemble_name = (
             "assemble-static-image"
