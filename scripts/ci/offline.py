@@ -122,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
             "build-users-group =",
             "accept-flake-config = false",
             "require-sigs = true",
+            # Nix auto-detects isolation and otherwise disables the file cache too.
+            "substitute = true",
             "substituters = file:///inputs/cache",
             "trusted-public-keys = " + " ".join(specification["trusted_public_keys"]),
         ]
@@ -132,7 +134,6 @@ def main(argv: list[str] | None = None) -> int:
             *["test ! -e " + shlex.quote(path) for path in paths],
             "nix copy --from file:///inputs/cache " + " ".join(map(shlex.quote, paths)),
             "cd /source",
-            # --offline also disables file-cache substitution; networking is blocked by Podman.
             "nix develop 'path:.?dir=flake' -c bash -euo pipefail -c "
             + shlex.quote(
                 "just provision-check-deps; CI_TEST_REPORT=artifacts/ci/offline-tests.xml just check; just fmt-check"
