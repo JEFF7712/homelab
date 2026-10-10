@@ -1194,3 +1194,27 @@ class PublishUserTest(unittest.TestCase):
         tree: dict = {}
         release.unpack_wheel(output.getvalue(), tree, "3.12")
         self.assertIn("usr/local/share/man/man1/isympy.1", tree)
+
+
+class NonEmptySupplyTest(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_python_container_requires_supply(self) -> None:
+        import json
+
+        data = json.loads((self.ROOT / "config/ci/applications.json").read_text())
+        for item in data["applications"]:
+            if item["id"] == "solubility-gnn":
+                item["release_supply"] = []
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "applications.json"
+            path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "must pin retained supply"):
+                load_catalog(path)
+
+    def test_all_container_entries_carry_supply(self) -> None:
+        for app in load_catalog(self.ROOT / "config/ci/applications.json"):
+            if app.release_kind == "container":
+                self.assertTrue(
+                    app.release_supply, f"{app.id} carries no retained supply"
+                )
