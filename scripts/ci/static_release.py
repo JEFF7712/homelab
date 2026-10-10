@@ -64,7 +64,7 @@ class Registry:
         import time
 
         last_status = 0
-        for attempt in range(6):
+        for attempt in range(8):
             connection = http.client.HTTPSConnection("registry.rupan.dev", timeout=120)
             connection.sock = ssl.create_default_context().wrap_socket(
                 socket.create_connection(("10.0.30.20", 443), timeout=120),
@@ -80,7 +80,7 @@ class Registry:
                 if response.status in {401, 429} or 500 <= response.status <= 599:
                     last_status = response.status
                     response.read()
-                    time.sleep(min(2**attempt, 30) + (attempt % 3))
+                    time.sleep(min(2**attempt, 60) + (attempt % 5))
                     continue
                 if response.status not in {200, 201, 202}:
                     raise RuntimeError(
