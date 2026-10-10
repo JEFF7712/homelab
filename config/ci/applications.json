@@ -999,7 +999,8 @@
         "HOME": "/home/podagent",
         "CODEX_HOME": "/data/cliauth/codex",
         "CLAUDE_CONFIG_DIR": "/data/cliauth/claude",
-        "CURSOR_CONFIG_DIR": "/data/cliauth/cursor"
+        "CURSOR_CONFIG_DIR": "/data/cliauth/cursor",
+        "PYTHONPATH": "/app/src"
       },
       "release_workdir": "/data",
       "release_scripts": [
