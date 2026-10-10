@@ -979,6 +979,22 @@
           "sha256": "sha256:a967e7b1d8b4e47ee421d5433027880347952b0c0857abf880e2c942a4ec93b3",
           "kind": "file",
           "dest": "/opt/npm/claude/bin/claude.exe"
+        },
+        {
+          "package": "pod-agent-supply",
+          "version": "1",
+          "filename": "base-passwd",
+          "sha256": "sha256:0c2596ee97ee4bcb11ae7a958ad155242ca9da26910e89ec4785e5d34cdc85f5",
+          "kind": "file",
+          "dest": "/etc/passwd"
+        },
+        {
+          "package": "pod-agent-supply",
+          "version": "1",
+          "filename": "base-group",
+          "sha256": "sha256:e76ca63b00283b3615223b7d3fd9cccf01a23135492d577d69c9c984cff1f272",
+          "kind": "file",
+          "dest": "/etc/group"
         }
       ],
       "release_python": "3.12",
