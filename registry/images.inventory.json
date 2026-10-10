@@ -422,18 +422,23 @@
       "id": "first-party-apps-pod-agent-72a2e9fb895c",
       "kind": "first-party",
       "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/pod-agent",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/pod-agent",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
-        "reference": "registry.rupan.dev/apps/pod-agent@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
+        "digest": "sha256:99a7b45181200576ada08b7bce5df32cea2349b72313d262b37367d21f5976fc",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000020@sha256:99a7b45181200576ada08b7bce5df32cea2349b72313d262b37367d21f5976fc",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": null
-      }
+        "tag": "0.0.1000020"
+      },
+      "digest": "sha256:99a7b45181200576ada08b7bce5df32cea2349b72313d262b37367d21f5976fc",
+      "destination_tags": [
+        "0.0.1000020",
+        "retention-deployed-99a7b45181200576"
+      ]
     },
     {
       "consumers": [
@@ -614,18 +619,23 @@
       "id": "first-party-apps-solubility-gnn-82f91661a241",
       "kind": "first-party",
       "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/solubility-gnn",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/solubility-predictor",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
-        "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
+        "digest": "sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
+        "reference": "registry.rupan.dev/apps/solubility-gnn:0.0.1000022@sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
         "registry": "registry.rupan.dev",
         "repository": "apps/solubility-gnn",
-        "tag": null
-      }
+        "tag": "0.0.1000022"
+      },
+      "digest": "sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
+      "destination_tags": [
+        "0.0.1000022",
+        "retention-deployed-7a9561dbf2501a87"
+      ]
     },
     {
       "consumers": [
