@@ -25,7 +25,10 @@ FORGEJO_PORT = 3000
 MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 CONFIG = "application/vnd.oci.image.config.v1+json"
 LAYER = "application/vnd.oci.image.layer.v1.tar+gzip"
-MAX_BLOB = 512 * 1024 * 1024
+# Container supply layers bundle retained wheels, toolchains, and OS trees
+# (a full pod-agent supply layer is ~700 MiB gzipped); the bound stays far
+# below sandbox memory while admitting real application closures.
+MAX_BLOB = 2 * 1024 * 1024 * 1024
 CREATED = "1970-01-01T00:00:00Z"
 HISTORY = "server-owned container-assets-v1"
 
