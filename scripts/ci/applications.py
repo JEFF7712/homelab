@@ -119,7 +119,10 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             )
 
             check_files_manifest(json.dumps(app.release_files))
-            for entry in parse_manifests(json.dumps(app.release_supply)):
+            supply_entries = list(parse_manifests(json.dumps(app.release_supply)))
+            if app.validator == "python-service-v1" and not supply_entries:
+                raise ValueError("Python container releases must pin retained supply")
+            for entry in supply_entries:
                 check_supply_item(entry)
             check_scripts_manifest(json.dumps(app.release_scripts))
             if not re.fullmatch(r"3\.(1[0-9])", app.release_python):
