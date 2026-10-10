@@ -660,18 +660,20 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1791435600",
-        "retention-deployed-d8eb13487bfa610f"
+        "0.0.1000020",
+        "retention-deployed-99a7b45181200576"
       ],
-      "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
+      "digest": "sha256:99a7b45181200576ada08b7bce5df32cea2349b72313d262b37367d21f5976fc",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [],
+      "platforms": [
+        "linux/amd64"
+      ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/pod-agent",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/pod-agent",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -682,11 +684,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1791435600@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
+        "digest": "sha256:99a7b45181200576ada08b7bce5df32cea2349b72313d262b37367d21f5976fc",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000020@sha256:99a7b45181200576ada08b7bce5df32cea2349b72313d262b37367d21f5976fc",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1791435600"
+        "tag": "0.0.1000020"
       }
     },
     {
@@ -913,21 +915,20 @@
       ],
       "destination_repository": "apps/solubility-gnn",
       "destination_tags": [
-        "0.0.52",
-        "retention-deployed-37446e2f8a07bc10"
+        "0.0.1000022",
+        "retention-deployed-7a9561dbf2501a87"
       ],
-      "digest": "sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
+      "digest": "sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
       "id": "first-party-jeff7712-solubility-gnn-930147aee9bb",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/solubility-gnn",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/solubility-predictor",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -938,11 +939,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
-        "reference": "registry.rupan.dev/apps/solubility-gnn:0.0.52@sha256:37446e2f8a07bc10b6de41852bc8ae8d86f71a76349251a9b4849d5e3b73c7ea",
+        "digest": "sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
+        "reference": "registry.rupan.dev/apps/solubility-gnn:0.0.1000022@sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
         "registry": "registry.rupan.dev",
         "repository": "apps/solubility-gnn",
-        "tag": "0.0.52"
+        "tag": "0.0.1000022"
       }
     },
     {
