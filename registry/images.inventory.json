@@ -428,16 +428,16 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000038@sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515",
+        "digest": "sha256:1520f97e326e90d25955ede97f2bd1da252d135f3965b73d1215aa094f37185b",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000044@sha256:1520f97e326e90d25955ede97f2bd1da252d135f3965b73d1215aa094f37185b",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1000038"
+        "tag": "0.0.1000044"
       },
-      "digest": "sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515",
+      "digest": "sha256:1520f97e326e90d25955ede97f2bd1da252d135f3965b73d1215aa094f37185b",
       "destination_tags": [
-        "0.0.1000038",
-        "retention-deployed-7f0aade76a9c7a82"
+        "0.0.1000044",
+        "retention-deployed-1520f97e326e90d2"
       ]
     },
     {

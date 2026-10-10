@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bot
-          image: registry.rupan.dev/apps/pod-agent@sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pod-agent@sha256:1520f97e326e90d25955ede97f2bd1da252d135f3965b73d1215aa094f37185b  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           args:
             - discord-bot
