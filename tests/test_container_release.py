@@ -1168,3 +1168,29 @@ class ReleaseCommandSizeTest(unittest.TestCase):
         source = gzip.decompress(base64.b64decode(payload))
         compile(source, "<test-container-release>", "exec")
         self.assertIn(b"def assemble", source)
+
+
+class PublishUserTest(unittest.TestCase):
+    def test_publisher_identity_mapping(self) -> None:
+        from scripts.ci.container_release import publish_user
+
+        self.assertEqual(publish_user("apps/pod-agent"), "publisher-pod-agent")
+        self.assertEqual(
+            publish_user("apps/solubility-gnn"), "publisher-solubility-gnn"
+        )
+        with self.assertRaises(ValueError):
+            publish_user("apps/../secrets")
+        with self.assertRaises(ValueError):
+            publish_user("upstream/docker.io/library/python")
+
+    def test_wheel_data_section_maps_under_prefix(self) -> None:
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("sympy/__init__.py", "X = 1\n")
+            archive.writestr(
+                "sympy-1.14.dist-info/METADATA", "Metadata-Version: 2.1\nName: sympy\n"
+            )
+            archive.writestr("sympy-1.14.data/data/share/man/man1/isympy.1", "manual\n")
+        tree: dict = {}
+        release.unpack_wheel(output.getvalue(), tree, "3.12")
+        self.assertIn("usr/local/share/man/man1/isympy.1", tree)

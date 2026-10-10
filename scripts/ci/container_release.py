@@ -522,6 +522,8 @@ def unpack_wheel(data: bytes, tree: dict[str, tuple[bytes, int]], python: str) -
                         tree[f"{site}/{inner}"] = (content, 0o644)
                     elif section == "scripts":
                         tree[f"usr/local/bin/{inner}"] = (content, 0o755)
+                    elif section == "data":
+                        tree[f"usr/local/{inner}"] = (content, 0o644)
                     else:
                         raise ValueError(f"Wheel data section not supported: {section}")
                 else:
@@ -915,6 +917,19 @@ def publish(
     return digest(manifest_raw)
 
 
+def publish_user(repository: str) -> str:
+    """Zot publisher identity for an apps/ repository.
+
+    Container releases publish with the per-project publisher-<id>
+    identity (the only identity granted write access to apps/<id>),
+    unlike static releases which use their own forgejo-<id> identity.
+    """
+    name = repository.split("/")[1]
+    if not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+        raise ValueError("Invalid application repository")
+    return "publisher-" + name
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("operation", choices=["prepare", "assemble", "publish"])
@@ -982,8 +997,9 @@ def main() -> None:
                 forgejo_token,
             )
         else:
-            user = "forgejo-" + args.repository.split("/")[1]
-            registry = Registry(user, os.environ["REGISTRY_PASSWORD"])
+            registry = Registry(
+                publish_user(args.repository), os.environ["REGISTRY_PASSWORD"]
+            )
             publish(
                 release,
                 base_root,
