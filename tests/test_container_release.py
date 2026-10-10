@@ -1218,3 +1218,10 @@ class NonEmptySupplyTest(unittest.TestCase):
                 self.assertTrue(
                     app.release_supply, f"{app.id} carries no retained supply"
                 )
+
+
+class BlobBoundTest(unittest.TestCase):
+    def test_bound_admits_real_application_closures(self) -> None:
+        from scripts.ci import container_release as release
+
+        self.assertGreaterEqual(release.MAX_BLOB, 1500 * 1024 * 1024)
