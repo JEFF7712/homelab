@@ -1282,3 +1282,108 @@ class SupplyOrderTest(unittest.TestCase):
             [e["kind"] for e in sorted(entries, key=supply_order)],
             ["tree", "npm", "wheel", "file", "link"],
         )
+
+
+class TreeNormalizationTest(unittest.TestCase):
+    def test_dot_slash_prefixes_are_stripped(self) -> None:
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode="w:gz") as archive:
+            for name in ("./dotnet", "./packs/a.txt"):
+                info = tarfile.TarInfo(name)
+                payload = b"x"
+                info.size = len(payload)
+                info.mode = 0o755
+                info.mtime = 0
+                archive.addfile(info, io.BytesIO(payload))
+        tree: dict = {}
+        release.unpack_tree(output.getvalue(), tree, "/usr/share/dotnet")
+        self.assertIn("usr/share/dotnet/dotnet", tree)
+        self.assertIn("usr/share/dotnet/packs/a.txt", tree)
+        self.assertNotIn("usr/share/dotnet/./dotnet", tree)
+
+
+class RegistryRetryTest(unittest.TestCase):
+    def test_transient_401_is_retried_then_accepted(self) -> None:
+        from unittest.mock import patch
+
+        from scripts.ci import container_release as release
+
+        calls = {"count": 0}
+
+        class FakeResponse:
+            def __init__(self, status, body=b"{}"):
+                self.status = status
+                self._body = body
+                self.headers = {}
+
+            def read(self, *args):
+                return self._body
+
+            def items(self):
+                return []
+
+        class FakeConnection:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def request(self, *args, **kwargs):
+                calls["count"] += 1
+
+            def getresponse(self):
+                if calls["count"] < 3:
+                    return FakeResponse(401)
+                return FakeResponse(200)
+
+            def close(self):
+                pass
+
+        with (
+            patch("http.client.HTTPSConnection", FakeConnection),
+            patch("socket.create_connection", return_value=object()),
+            patch("ssl.create_default_context") as context,
+            patch("time.sleep") as slept,
+        ):
+            context.return_value.wrap_socket.return_value = object()
+            registry = release.Registry("user", "password")
+            status, _, _ = registry.request("GET", "/v2/apps/demo/manifests/x")
+            self.assertEqual(status, 200)
+            self.assertEqual(calls["count"], 3)
+            self.assertTrue(slept.called)
+
+    def test_persistent_401_eventually_raises(self) -> None:
+        from unittest.mock import patch
+
+        from scripts.ci import container_release as release
+
+        class FakeResponse:
+            status = 401
+
+            def read(self, *args):
+                return b"{}"
+
+            def items(self):
+                return []
+
+        class FakeConnection:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def request(self, *args, **kwargs):
+                pass
+
+            def getresponse(self):
+                return FakeResponse()
+
+            def close(self):
+                pass
+
+        with (
+            patch("http.client.HTTPSConnection", FakeConnection),
+            patch("socket.create_connection", return_value=object()),
+            patch("ssl.create_default_context") as context,
+            patch("time.sleep"),
+        ):
+            context.return_value.wrap_socket.return_value = object()
+            registry = release.Registry("user", "password")
+            with self.assertRaisesRegex(RuntimeError, "after retries"):
+                registry.request("GET", "/v2/apps/demo/manifests/x")
