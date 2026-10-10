@@ -1,3 +1,5 @@
+**NOTE - This repository is a mirror.** Active development happens on [Forgejo](https://git.rupan.dev/JEFF7712/homelab).
+
 # homelab
 
 Seven nodes of NixOS in a 10-inch rack, everything declared in code. See [HARDWARE.md](HARDWARE.md) for the full
