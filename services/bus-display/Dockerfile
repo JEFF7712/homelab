@@ -1,9 +1,15 @@
+# Sovereign build: digest-pinned local base, hermetic retained wheelhouse.
+# Local builds need wheelhouse/ populated first (retained in Forgejo
+# generic packages JEFF7712/bus-display-wheels v1; verify against the
+# manifest with scripts/fetch-wheels.sh if present).
 FROM registry.rupan.dev/upstream/docker.io/library/python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS runtime
 
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY wheelhouse /wheelhouse
+
+RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r /app/requirements.txt
 
 COPY gtfs_realtime_pb2.py /app/gtfs_realtime_pb2.py
 COPY trips_map.json /app/trips_map.json

@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/bus-display@sha256:fd2b167bd21fc3d63a68c0e25af0d56d77bcc2023cab04897f4daa290522e56b  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/bus-display@sha256:6da28826b8304ada63e75d866a233f6aff901cbce21c6c1ab58055865f55948d  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           env:
             - name: OUTLOOK_CALENDAR_URL_FILE
