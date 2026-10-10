@@ -320,10 +320,7 @@ def prepare(
             raise ValueError("Base blob size mismatch")
         store(root, data, item["mediaType"])
     stored_supply = []
-    for entry in sorted(
-        supply,
-        key=lambda e: (e.get("package", ""), e.get("filename", ""), e.get("path", "")),
-    ):
+    for entry in sorted(supply, key=supply_order):
         if entry["kind"] == "link":
             stored_supply.append(dict(entry))
             continue
@@ -383,13 +380,27 @@ def load_base(root: Path, base: str) -> tuple[dict[str, Any], dict[str, Any]]:
     return manifest, config
 
 
+def supply_order(entry: dict[str, Any]) -> tuple[int, str, str, str]:
+    """Deterministic supply processing order.
+
+    Archive kinds (wheel/npm/tree) unpack first; file entries apply after
+    them so retained files deterministically override tarball content
+    (for example a postinstall-equivalent native binary over a stub),
+    and link entries resolve last. Names break ties within a kind.
+    """
+    kind_rank = {"wheel": 0, "npm": 0, "tree": 0, "file": 1, "link": 2}
+    return (
+        kind_rank[entry["kind"]],
+        entry.get("package", ""),
+        entry.get("filename", ""),
+        entry.get("path", ""),
+    )
+
+
 def supply_identity(supply: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Canonical release identity for supply entries (preserves bins)."""
     identities = []
-    for entry in sorted(
-        supply,
-        key=lambda e: (e.get("package", ""), e.get("filename", ""), e.get("path", "")),
-    ):
+    for entry in sorted(supply, key=supply_order):
         identities.append({k: entry[k] for k in sorted(entry) if k != "stored"})
     return identities
 
@@ -600,8 +611,6 @@ def unpack_npm(
         target_path = prefix + target
         if target_path not in tree:
             raise ValueError(f"npm bin target missing from tarball: {target}")
-        data, _ = tree[target_path]
-        tree[target_path] = (data, 0o755)
         link = tarfile.TarInfo(f"usr/local/bin/{name}")
         link.type = tarfile.SYMTYPE
         link.linkname = f"/{prefix}{target}"
@@ -672,10 +681,8 @@ def collect_supply(
 ) -> bytes:
     tree: dict[str, tuple[bytes, int]] = {}
     links: dict[str, tarfile.TarInfo] = {}
-    for entry in sorted(
-        supply,
-        key=lambda e: (e.get("package", ""), e.get("filename", ""), e.get("path", "")),
-    ):
+    bin_targets: set[str] = set()
+    for entry in sorted(supply, key=supply_order):
         kind = entry["kind"]
         if kind == "link":
             info = tarfile.TarInfo(entry["path"].lstrip("/"))
@@ -691,6 +698,9 @@ def collect_supply(
             unpack_wheel(data, tree, python)
         elif kind == "npm":
             unpack_npm(data, tree, links, entry["dest"], entry.get("bins", {}))
+            prefix = entry["dest"].lstrip("/") + "/"
+            for target in entry.get("bins", {}).values():
+                bin_targets.add(prefix + target)
         elif kind == "tree":
             unpack_tree(data, tree, entry["dest"])
         elif kind == "file":
@@ -698,6 +708,11 @@ def collect_supply(
             tree[entry["dest"].lstrip("/")] = (data, mode)
         else:
             raise ValueError(f"Unsupported supply kind: {kind}")
+    for target_path in sorted(bin_targets):
+        if target_path not in tree:
+            raise ValueError(f"npm bin target missing from supply: {target_path}")
+        data, _ = tree[target_path]
+        tree[target_path] = (data, 0o755)
     for entry in sorted(scripts, key=lambda e: e["name"]):
         module_path = (
             "app"
