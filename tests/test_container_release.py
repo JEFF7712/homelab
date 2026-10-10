@@ -1225,3 +1225,60 @@ class BlobBoundTest(unittest.TestCase):
         from scripts.ci import container_release as release
 
         self.assertGreaterEqual(release.MAX_BLOB, 1500 * 1024 * 1024)
+
+
+class BinOverrideTest(unittest.TestCase):
+    def test_file_override_keeps_bin_executable(self) -> None:
+        import io
+        import tarfile
+
+        npm_blob = make_npm_tarball()
+        native = b"\x7fELF-native-binary"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "supply").mkdir()
+            (root / "supply" / "tool.tgz").write_bytes(npm_blob)
+            (root / "supply" / "tool-native").write_bytes(native)
+            supply = [
+                {
+                    "package": "p",
+                    "version": "1",
+                    "filename": "tool.tgz",
+                    "sha256": release.digest(npm_blob),
+                    "kind": "npm",
+                    "dest": "/opt/tool",
+                    "bins": {"tool": "bin/tool.js"},
+                },
+                {
+                    "package": "p",
+                    "version": "1",
+                    "filename": "tool-native",
+                    "sha256": release.digest(native),
+                    "kind": "file",
+                    "dest": "/opt/tool/bin/tool.js",
+                },
+            ]
+            layer = release.collect_supply(root, supply, [], set(), "3.12", 1000, 1000)
+            with tarfile.open(fileobj=io.BytesIO(layer), mode="r") as archive:
+                member = archive.getmember("opt/tool/bin/tool.js")
+                self.assertEqual(oct(member.mode & 0o777), "0o755")
+                self.assertEqual(archive.extractfile(member).read(), native)
+                link = archive.getmember("usr/local/bin/tool")
+                self.assertTrue(link.issym())
+
+
+class SupplyOrderTest(unittest.TestCase):
+    def test_files_override_archives_regardless_of_names(self) -> None:
+        from scripts.ci.container_release import supply_order
+
+        entries = [
+            {"kind": "file", "package": "a", "filename": "aaa"},
+            {"kind": "npm", "package": "a", "filename": "zzz.tgz"},
+            {"kind": "link", "path": "/x"},
+            {"kind": "wheel", "package": "a", "filename": "zzz.whl"},
+            {"kind": "tree", "package": "a", "filename": "mmm.tgz"},
+        ]
+        self.assertEqual(
+            [e["kind"] for e in sorted(entries, key=supply_order)],
+            ["tree", "npm", "wheel", "file", "link"],
+        )
