@@ -660,10 +660,10 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1791435600",
-        "retention-deployed-d8eb13487bfa610f"
+        "0.0.1000038",
+        "retention-deployed-7f0aade76a9c7a82"
       ],
-      "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
+      "digest": "sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -671,9 +671,9 @@
         "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/pod-agent",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/pod-agent",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -684,11 +684,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1791435600@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
+        "digest": "sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000038@sha256:7f0aade76a9c7a82c40d4167be6301ad813593963d7e719532af791de64b4515",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1791435600"
+        "tag": "0.0.1000038"
       }
     },
     {
