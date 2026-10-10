@@ -986,8 +986,7 @@
       "release_gid": 101,
       "release_user": "101:101",
       "release_entrypoint": [
-        "pod-agent",
-        "--help"
+        "pod-agent"
       ],
       "release_env": {
         "PYTHONDONTWRITEBYTECODE": "1",
