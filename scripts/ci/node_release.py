@@ -820,17 +820,17 @@ def publish(
     elif config["config"].get("User", "") not in {"101", "101:101", "nginx"}:
         raise ValueError("Static runtime must run as non-root nginx")
     layers = []
+    raws: list[bytes] = []
     if files:
         app_raw = collect_tree(source, files, uid, gid, absolute=False)
         layers.append(descriptor(gzip.compress(app_raw, mtime=0), LAYER))
+        raws.append(app_raw)
     out_raw = collect_tree(source, outputs, uid, gid, absolute=True)
     layers.append(descriptor(gzip.compress(out_raw, mtime=0), LAYER))
+    raws.append(out_raw)
     if manifest["layers"][len(original["layers"]) :] != layers:
         raise ValueError("Artifact layers do not match checked source and outputs")
-    for item, raw in zip(
-        layers,
-        ([app_raw] if files else []) + [out_raw],
-    ):
+    for item, raw in zip(layers, raws):
         if read_blob(root, item) != gzip.compress(raw, mtime=0):
             raise ValueError("Artifact layer bytes differ from build contract")
     tag = f"0.0.{1000000 + number}"
