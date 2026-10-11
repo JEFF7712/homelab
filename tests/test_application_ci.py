@@ -603,7 +603,7 @@ class NodeReleaseTest(unittest.TestCase):
                 "/inputs/node.tar.gz": bundle(broken),
                 "/inputs/node-musl.tar.gz": bundle(Path(sys.executable)),
             }
-            selected, label = select_toolchain_bin(workspace, supply)
+            selected, label, _libs = select_toolchain_bin(workspace, supply)
             self.assertTrue(
                 str(selected).endswith("toolchain-musl/toolchain-x/bin/node")
             )
