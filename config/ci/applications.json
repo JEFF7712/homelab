@@ -1739,6 +1739,14 @@
           "sha256": "sha256:03725bb43579819fe95d649aff5648943a882a0a91f2569694c746cc41ded289",
           "kind": "file",
           "dest": "/inputs/quartz-plugins.tar.gz"
+        },
+        {
+          "package": "quartz-supply",
+          "version": "1",
+          "filename": "quartz-fonts.tar.gz",
+          "sha256": "sha256:7c8614bf1040dfc27de0cba0f8dc334afb5b770ea9d5dd83bb998afda8b2b50c",
+          "kind": "file",
+          "dest": "/inputs/quartz-fonts.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1771,6 +1779,10 @@
         [
           "quartz-plugins.tar.gz",
           "quartz/.quartz"
+        ],
+        [
+          "quartz-fonts.tar.gz",
+          "quartz/.quartz-cache"
         ]
       ]
     },
