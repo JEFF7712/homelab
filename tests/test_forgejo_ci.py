@@ -209,6 +209,31 @@ class PolicyTest(unittest.TestCase):
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
+    def test_nixos_publish_is_manual_and_forgejo_sourced(self) -> None:
+        operation = self.catalog["nixos-publish"]
+        self.assertFalse(operation["automatic"])
+        self.assertTrue(operation["mutation"])
+        self.assertEqual(operation["group"], "nix-cache")
+        self.assertEqual(
+            operation["environment"]["ATTIC_TOKEN"],
+            {"from_secret": "attic_token"},
+        )
+        self.assertEqual(
+            operation["environment"]["FORGEJO_SOURCE_READ_TOKEN"],
+            {"from_secret": "forgejo_source_read_token"},
+        )
+        self.assertTrue(
+            all("nixos_publish.sh" in command for command in operation["commands"])
+        )
+        script = (ROOT / "scripts/ci/nixos_publish.sh").read_text()
+        for marker in [
+            "branches/main",
+            "rev-parse HEAD",
+            "does not match resolved tip",
+            'cache.sh "$work/nixos-config" "$target_set"',
+        ]:
+            self.assertIn(marker, script)
+
     def test_deployment_requires_fresh_current_main_and_operator(self) -> None:
         result = self.deployment()
         workflow = yaml.safe_load(result["configs"][0]["data"])
