@@ -14,6 +14,7 @@ from unittest.mock import patch
 import yaml
 
 from scripts.ci.applications import Application, configuration, load_catalog
+from scripts.ci.node_service import validate as validate_node
 from scripts.ci.policy import resolve_configuration
 from scripts.ci.static_site import validate
 
@@ -292,3 +293,303 @@ class StaticSiteTest(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             validate(self.root)
+
+
+class NodeServiceTest(unittest.TestCase):
+    BASE = (
+        "registry.rupan.dev/upstream/docker.io/library/node@sha256:"
+        + "ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1"
+    )
+
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        (self.root / "Dockerfile").write_text(f"FROM {self.BASE} AS runner\n")
+        (self.root / "package.json").write_text('{"name": "fixture"}\n')
+        (self.root / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
+
+    def test_compliant_source_passes(self) -> None:
+        validate_node(self.root)
+
+    def test_mirrored_prefix_bypass_is_rejected(self) -> None:
+        for base in (
+            "docker.io/registry.rupan.dev/upstream/library/node@sha256:" + "e" * 64,
+            "registry.rupan.dev.evil.example/upstream/library/node@sha256:" + "e" * 64,
+            "registry.rupan.dev/upstream/library/node:24-alpine",
+            "registry.rupan.dev/upstream/library/node@sha256:xyz",
+            "library/node@sha256:" + "e" * 64,
+        ):
+            with self.subTest(base=base):
+                (self.root / "Dockerfile").write_text(f"FROM {base}\n")
+                with self.assertRaises(ValueError):
+                    validate_node(self.root)
+
+    def test_hidden_supply_and_remote_installers_are_rejected(self) -> None:
+        cases = [
+            f"FROM {self.BASE}\nADD https://example.invalid/tool.tgz /tmp/tool.tgz\n",
+            f"FROM {self.BASE} AS base\nCOPY --from=docker.io/library/node@sha256:{'e' * 64} /x /y\n",
+            f"FROM {self.BASE}\nRUN --mount=type=gha,target=/root/.npm npm ci\n",
+            f"FROM {self.BASE}\nENV npm_config_registry=https://registry.npmjs.org\n",
+        ]
+        for body in cases:
+            with self.subTest(body=body.splitlines()[-1]):
+                (self.root / "Dockerfile").write_text(body)
+                with self.assertRaises(ValueError):
+                    validate_node(self.root)
+
+    def test_missing_source_contract_fails(self) -> None:
+        (self.root / "Dockerfile").unlink()
+        with self.assertRaises(ValueError):
+            validate_node(self.root)
+        (self.root / "Dockerfile").write_text(f"FROM {self.BASE}\n")
+        (self.root / "package-lock.json").unlink()
+        with self.assertRaises(ValueError):
+            validate_node(self.root)
+
+    def test_competing_delivery_authority_is_rejected(self) -> None:
+        workflows = self.root / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "ci.yml").write_text("name: CI\non: [push]\n")
+        validate_node(self.root)
+        for name, body in (
+            ("publish.yml", "run: crane push registry.rupan.dev/apps/fixture\n"),
+            ("cache.yml", "cache-to: type=gha,mode=max\n"),
+        ):
+            with self.subTest(name=name):
+                (workflows / name).write_text(body)
+                with self.assertRaises(ValueError):
+                    validate_node(self.root)
+                (workflows / name).unlink()
+        compose = self.root / "docker-compose.yml"
+        compose.write_text("services:\n  app:\n    image: ghcr.io/jeff7712/fixture\n")
+        with self.assertRaises(ValueError):
+            validate_node(self.root)
+
+    def test_embedded_node_validator_runs_without_checkout_imports(self) -> None:
+        app = replace(
+            load_catalog(ROOT / "config/ci/applications.json")[0],
+            id="node-fixture",
+            repository="JEFF7712/node-fixture",
+            woodpecker_repository_id=999,
+            validator="node-service-v1",
+            artifact_repository="apps/node-fixture",
+            deployment_path="gitops/websites/node-fixture",
+        )
+        request = {
+            "repo": {"id": 999, "owner": "JEFF7712", "name": "node-fixture"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "b" * 40,
+                "number": 1,
+            },
+        }
+        result = configuration(request, (app,))
+        command = yaml.safe_load(result["configs"][0]["data"])["steps"][0]["commands"][
+            0
+        ]
+        encoded = command.split("b64decode('", 1)[1].split("')", 1)[0]
+        validator = base64.b64decode(encoded).decode()
+        self.assertNotIn("scripts.ci.dockerfile_supply", validator)
+        (self.root / "scripts").mkdir()
+        (self.root / "scripts" / "ci").mkdir()
+        (self.root / "scripts" / "ci" / "dockerfile_supply.py").write_text(
+            "raise RuntimeError('repository module executed')"
+        )
+        process = subprocess.run(
+            [sys.executable, "-I", "-c", validator],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        (self.root / "package-lock.json").unlink()
+        process = subprocess.run(
+            [sys.executable, "-I", "-c", validator],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(process.returncode, 0)
+
+
+class NodeReleaseTest(unittest.TestCase):
+    NODE_BASE = (
+        "registry.rupan.dev/upstream/docker.io/library/node@sha256:"
+        + "ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1"
+    )
+    NGINX_BASE = (
+        "registry.rupan.dev/upstream/docker.io/library/nginx@sha256:"
+        + "5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de"
+    )
+
+    def supply(self) -> list[dict[str, object]]:
+        return [
+            {
+                "package": "fixture-supply",
+                "version": "1",
+                "filename": "node.tar.gz",
+                "sha256": "sha256:" + "a" * 64,
+                "kind": "file",
+                "dest": "/inputs/node.tar.gz",
+            },
+            {
+                "package": "fixture-supply",
+                "version": "1",
+                "filename": "npm-cache.tar.gz",
+                "sha256": "sha256:" + "b" * 64,
+                "kind": "file",
+                "dest": "/inputs/npm-cache.tar.gz",
+            },
+        ]
+
+    def node_app(self) -> Application:
+        base = load_catalog(ROOT / "config/ci/applications.json")
+        template = next(a for a in base if a.id == "pulse-site")
+        return replace(
+            template,
+            release_kind="node",
+            release_base_image=self.NODE_BASE,
+            release_files=[],
+            release_supply=self.supply(),
+            release_uid=1001,
+            release_gid=1001,
+            release_user="1001:1001",
+            release_entrypoint=["node", "server.js"],
+            release_env={"NODE_ENV": "production"},
+            release_workdir="/app",
+            node_manager="npm",
+            node_dir="",
+            node_build=["npm", "run", "build"],
+            node_outputs=[
+                [".next/standalone", "/app"],
+                [".next/static", "/app/.next/static"],
+                ["public", "/app/public"],
+            ],
+            node_runtime="node",
+        )
+
+    def load_with(self, app: Application) -> tuple[Application, ...]:
+        data = json.loads((ROOT / "config/ci/applications.json").read_text())
+        data["applications"] = [
+            {**a, **{}} for a in data["applications"] if a["id"] != app.id
+        ]
+        import dataclasses
+
+        data["applications"].append(dataclasses.asdict(app))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "applications.json"
+            path.write_text(json.dumps(data))
+            return load_catalog(path)
+
+    def test_node_release_catalog_validates(self) -> None:
+        apps = self.load_with(self.node_app())
+        self.assertEqual(apps[-1].release_kind, "node")
+
+    def test_node_release_contracts_fail_closed(self) -> None:
+        good = self.node_app()
+        cases = [
+            ("validator", "python-service-v1"),
+            ("node_manager", "bun"),
+            ("node_manager", ""),
+            ("node_dir", "/absolute"),
+            ("node_dir", "../escape"),
+            ("node_build", ["npm"]),
+            ("node_build", ["yarn", "run", "build"]),
+            ("node_build", ["npm", "run", "--registry=https://x.invalid"]),
+            ("node_outputs", []),
+            ("node_outputs", [["dist", "relative-dest"]]),
+            ("node_outputs", [["dist", "/etc/passwd"]]),
+            ("node_runtime", "deno"),
+            ("node_runtime", ""),
+            ("release_python", "3.12"),
+            ("release_scripts", [{"name": "x"}]),
+            ("release_entrypoint", []),
+            ("release_workdir", "relative"),
+            ("release_user", "1001:1002"),
+            ("release_uid", 0),
+            ("release_supply", []),
+        ]
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                bad = replace(good, **{field: value})
+                with self.assertRaises(ValueError):
+                    self.load_with(bad)
+
+    def test_static_node_release_keeps_base_runners(self) -> None:
+        app = replace(
+            self.node_app(),
+            release_base_image=self.NGINX_BASE,
+            release_entrypoint=[],
+            release_workdir="",
+            release_uid=101,
+            release_gid=101,
+            release_user="101:101",
+            node_build=["npm", "run", "docs:build"],
+            node_outputs=[["dist", "/usr/share/nginx/html"]],
+            node_runtime="static",
+        )
+        self.load_with(app)
+        with self.assertRaises(ValueError):
+            self.load_with(replace(app, release_entrypoint=["nginx"]))
+        with self.assertRaises(ValueError):
+            self.load_with(replace(app, release_workdir="/"))
+        with self.assertRaises(ValueError):
+            self.load_with(replace(app, release_base_image=self.NODE_BASE))
+
+    def test_node_fields_rejected_on_other_kinds(self) -> None:
+        base = load_catalog(ROOT / "config/ci/applications.json")
+        darkbit = next(a for a in base if a.id == "darkbit")
+        with self.assertRaises(ValueError):
+            self.load_with(replace(darkbit, node_manager="npm"))
+
+    def test_node_seeds_must_reference_retained_supply(self) -> None:
+        good = self.node_app()
+        plugins = dict(self.supply()[0])
+        plugins.update(filename="quartz-plugins.tar.gz", sha256="sha256:" + "c" * 64)
+        app = replace(
+            good,
+            release_supply=[*good.release_supply, plugins],
+            node_seeds=[["quartz-plugins.tar.gz", "quartz/.quartz"]],
+        )
+        self.load_with(app)
+        with self.assertRaises(ValueError):
+            self.load_with(replace(good, node_seeds=[["missing.tar.gz", "x"]]))
+        with self.assertRaises(ValueError):
+            self.load_with(replace(good, node_seeds=[["../escape.tar.gz", "x"]]))
+        with self.assertRaises(ValueError):
+            self.load_with(replace(app, node_seeds=[["quartz-plugins.tar.gz", "../x"]]))
+
+    def test_main_push_gets_node_release_workflow(self) -> None:
+        app = self.node_app()
+        request = {
+            "repo": {"id": 8, "owner": "JEFF7712", "name": "pulse"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "c" * 40,
+                "number": 7,
+            },
+        }
+        configs = configuration(request, (app,))["configs"]
+        self.assertEqual(len(configs), 2)
+        release = yaml.safe_load(configs[1]["data"])
+        self.assertEqual(release["depends_on"], ["application-validation"])
+        prepare, assemble, publish = release["steps"]
+        self.assertEqual(
+            prepare["environment"]["FORGEJO_TOKEN"]["from_secret"],
+            "supply_read_password",
+        )
+        self.assertEqual(assemble["name"], "assemble-node-image")
+        self.assertNotIn("environment", assemble)
+        self.assertEqual(
+            publish["environment"]["REGISTRY_PASSWORD"]["from_secret"],
+            "pulse-site_registry_password",
+        )
+        command = assemble["commands"][0]
+        self.assertIn("--manager npm", command)
+        self.assertIn("--runtime node", command)
+        pull_request = copy.deepcopy(request)
+        pull_request["pipeline"]["event"] = "pull_request"
+        self.assertEqual(len(configuration(pull_request, (app,))["configs"]), 1)
