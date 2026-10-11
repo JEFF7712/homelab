@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import copy
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -437,6 +438,14 @@ class NodeReleaseTest(unittest.TestCase):
             {
                 "package": "fixture-supply",
                 "version": "1",
+                "filename": "node-musl.tar.gz",
+                "sha256": "sha256:" + "c" * 64,
+                "kind": "file",
+                "dest": "/inputs/node-musl.tar.gz",
+            },
+            {
+                "package": "fixture-supply",
+                "version": "1",
                 "filename": "npm-cache.tar.gz",
                 "sha256": "sha256:" + "b" * 64,
                 "kind": "file",
@@ -560,6 +569,40 @@ class NodeReleaseTest(unittest.TestCase):
             self.load_with(replace(good, node_seeds=[["../escape.tar.gz", "x"]]))
         with self.assertRaises(ValueError):
             self.load_with(replace(app, node_seeds=[["quartz-plugins.tar.gz", "../x"]]))
+
+    def test_toolchain_selection_prefers_first_working_binary(self) -> None:
+        import io
+        import tarfile
+
+        from scripts.ci.node_release import select_toolchain_bin
+
+        def bundle(executable: Path) -> bytes:
+            output = io.BytesIO()
+            with tarfile.open(fileobj=output, mode="w:gz") as archive:
+                info = tarfile.TarInfo("toolchain-x/bin/node")
+                info.size = executable.stat().st_size
+                info.mode = 0o755
+                with executable.open("rb") as handle:
+                    archive.addfile(info, handle)
+            return output.getvalue()
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            broken = workspace / "broken.sh"
+            broken.write_text("#!/bin/sh\nexit 127\n")
+            broken.chmod(0o755)
+            supply = {
+                "/inputs/node.tar.gz": bundle(broken),
+                "/inputs/node-musl.tar.gz": bundle(Path(sys.executable)),
+            }
+            selected = select_toolchain_bin(workspace, supply)
+            self.assertTrue(
+                str(selected).endswith("toolchain-musl/toolchain-x/bin/node")
+            )
+            fresh = Path(tempfile.mkdtemp())
+            self.addCleanup(shutil.rmtree, fresh, True)
+            with self.assertRaises(ValueError):
+                select_toolchain_bin(fresh, {"/inputs/node.tar.gz": bundle(broken)})
 
     def test_main_push_gets_node_release_workflow(self) -> None:
         app = self.node_app()
