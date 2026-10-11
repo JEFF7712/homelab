@@ -1191,6 +1191,14 @@
           "sha256": "sha256:95ff208033a0f3bd4832e86ad7a530c895a22d243f84b8fe37936564bc1bdb60",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1262,6 +1270,14 @@
           "sha256": "sha256:6fa8d841892ff4257bdad379dc1e46fc759386cb010e109a6c9553ab53a19eb5",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1333,6 +1349,14 @@
           "sha256": "sha256:1d4dbf8e7ffc519f7b23d47e33474c3a3c0dadab71b02a7eb12b2358dbf9dbd2",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1404,6 +1428,14 @@
           "sha256": "sha256:d317539a3d2885fe367dacea9b1c7e1e1f38ac800f2ae9a9e9ee8f38f205b34f",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1459,6 +1491,14 @@
           "sha256": "sha256:f6d2f696e65332c638a7430edc6b9cfe65361922296c9c81618d2617dab661e7",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1534,6 +1574,14 @@
           "sha256": "sha256:a73ce118d1b17e057124705e26d67c708fd73cbef4ac6b92c67dd019a76756a8",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1676,6 +1724,14 @@
           "sha256": "sha256:8319b1f7d8a76dad042f759d955612cb810441424b0aeb17c2f0d2c37c0cf922",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1747,6 +1803,14 @@
           "sha256": "sha256:7c8614bf1040dfc27de0cba0f8dc334afb5b770ea9d5dd83bb998afda8b2b50c",
           "kind": "file",
           "dest": "/inputs/quartz-fonts.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
         }
       ],
       "release_scripts": [],

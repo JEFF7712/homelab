@@ -30,6 +30,11 @@ HISTORY = "server-owned node-assets-v1"
 # Build-only supply lives under this prefix and never ships in the image.
 INPUTS_PREFIX = "/inputs/"
 NODE_TARBALL_DEST = "/inputs/node.tar.gz"
+NODE_MUSL_TARBALL_DEST = "/inputs/node-musl.tar.gz"
+TOOLCHAIN_DESTS = (
+    (NODE_TARBALL_DEST, "toolchain", "glibc"),
+    (NODE_MUSL_TARBALL_DEST, "toolchain-musl", "musl"),
+)
 NPM_CACHE_DEST = "/inputs/npm-cache.tar.gz"
 # Container-absolute destinations permitted for build outputs.
 OUTPUT_PREFIXES = ("/app/", "/usr/share/nginx/html/", "/etc/nginx/")
@@ -519,6 +524,33 @@ def find_toolchain_bin(toolchain: Path) -> Path:
     return candidates[0]
 
 
+def select_toolchain_bin(workspace: Path, supply_files: dict[str, bytes]) -> Path:
+    """Extract retained toolchains and return the first that executes here.
+
+    The sandbox image determines libc (musl vs glibc); the catalog retains
+    both toolchains so the same release works on either without network.
+    Trial execution fails closed with a clear error when neither runs.
+    """
+    last_error = ""
+    for dest, dirname, label in TOOLCHAIN_DESTS:
+        if dest not in supply_files:
+            continue
+        toolchain = workspace / dirname
+        extract_tarball(supply_files[dest], toolchain, f"node toolchain ({label})")
+        candidate = find_toolchain_bin(toolchain)
+        try:
+            subprocess.run(
+                [str(candidate), "--version"], check=True, capture_output=True
+            )
+        except (OSError, subprocess.CalledProcessError) as error:
+            last_error = f"{label}: {error}"
+            print(f"+ {label} toolchain unusable here; trying next", flush=True)
+            continue
+        print(f"+ selected {label} toolchain {candidate}", flush=True)
+        return candidate
+    raise ValueError(f"No retained node toolchain executes here ({last_error})")
+
+
 def run_build(
     builddir: Path,
     toolchain_bin: Path,
@@ -655,9 +687,7 @@ def assemble(
         extract_tarball(by_filename[filename], target, f"seed {filename}", source)
         members = len(list(target.rglob("*")))
         print(f"Seeded {dest} from retained {filename} ({members} entries)")
-    toolchain = workspace / "toolchain"
-    extract_tarball(supply_files[NODE_TARBALL_DEST], toolchain, "node toolchain")
-    toolchain_bin = find_toolchain_bin(toolchain)
+    toolchain_bin = select_toolchain_bin(workspace, supply_files)
     print(
         f"+ build source={source} toolchain={toolchain_bin} "
         f"executable={os.access(toolchain_bin, os.X_OK)}",

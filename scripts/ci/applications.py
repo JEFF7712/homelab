@@ -197,10 +197,11 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 filenames.add(entry["filename"])
             if (
                 "/inputs/node.tar.gz" not in dests
+                or "/inputs/node-musl.tar.gz" not in dests
                 or "/inputs/npm-cache.tar.gz" not in dests
             ):
                 raise ValueError(
-                    "Node releases must retain the toolchain and npm cache"
+                    "Node releases must retain both toolchains and the npm cache"
                 )
             for filename, _dest in seed_pairs:
                 if filename not in filenames:
