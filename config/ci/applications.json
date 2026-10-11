@@ -1782,7 +1782,7 @@
         ],
         [
           "quartz-fonts.tar.gz",
-          "quartz/.quartz-cache"
+          "quartz/quartz/.quartz-cache"
         ]
       ]
     },
