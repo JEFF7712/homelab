@@ -33,6 +33,12 @@ class Application:
     release_entrypoint: list[Any]
     release_env: dict[str, Any]
     release_workdir: str
+    node_manager: str
+    node_dir: str
+    node_build: list[Any]
+    node_outputs: list[Any]
+    node_seeds: list[Any]
+    node_runtime: str
 
 
 def load_catalog(path: Path) -> tuple[Application, ...]:
@@ -71,6 +77,12 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 "release_entrypoint",
                 "release_env",
                 "release_workdir",
+                "node_manager",
+                "node_dir",
+                "node_build",
+                "node_outputs",
+                "node_seeds",
+                "node_runtime",
             }
         ):
             raise ValueError("Application catalog values must be nonempty strings")
@@ -104,7 +116,7 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             "static-site-v1": {"static"},
             "python-service-v1": {"container", "none"},
             "dotnet-service-v1": {"none"},
-            "node-service-v1": {"none"},
+            "node-service-v1": {"none", "node"},
             "nixos-config-v1": {"none"},
             "firmware-v1": {"none"},
         }[app.validator]
@@ -145,6 +157,84 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 raise ValueError("Release env must be a string mapping")
             if not app.release_workdir.startswith("/"):
                 raise ValueError("Release workdir must be absolute")
+        elif app.release_kind == "node":
+            from scripts.ci.node_release import (
+                check_build_manifest,
+                check_outputs_manifest,
+                check_seeds_manifest,
+            )
+            from scripts.ci.node_release import (
+                check_files_manifest as check_node_files,
+            )
+            from scripts.ci.node_release import (
+                check_supply_item as check_node_supply,
+            )
+            from scripts.ci.node_release import (
+                parse_manifests as parse_node_manifests,
+            )
+
+            if app.validator != "node-service-v1":
+                raise ValueError("Node releases require the node-service validator")
+            if app.node_manager != "npm":
+                raise ValueError("Node releases must pin the npm package manager")
+            if app.node_dir and (
+                app.node_dir.startswith("/")
+                or re.search(r"(^|/)\.\.(/|$)", app.node_dir)
+            ):
+                raise ValueError("Node build directory must be contained relative")
+            check_build_manifest(json.dumps(app.node_build))
+            check_outputs_manifest(json.dumps(app.node_outputs))
+            seed_pairs = check_seeds_manifest(json.dumps(app.node_seeds))
+            check_node_files(json.dumps(app.release_files))
+            supply_entries = list(parse_node_manifests(json.dumps(app.release_supply)))
+            if not supply_entries:
+                raise ValueError("Node releases must pin retained supply")
+            dests = set()
+            filenames = set()
+            for entry in supply_entries:
+                check_node_supply(entry)
+                dests.add(entry["dest"])
+                filenames.add(entry["filename"])
+            if (
+                "/inputs/node.tar.gz" not in dests
+                or "/inputs/npm-cache.tar.gz" not in dests
+            ):
+                raise ValueError(
+                    "Node releases must retain the toolchain and npm cache"
+                )
+            for filename, _dest in seed_pairs:
+                if filename not in filenames:
+                    raise ValueError(
+                        f"Seed references unretained supply file: {filename}"
+                    )
+            if app.release_python or app.release_scripts:
+                raise ValueError("Node releases must not carry Python fields")
+            for number, name in ((app.release_uid, "uid"), (app.release_gid, "gid")):
+                if type(number) is not int or not 0 < number < 60000:
+                    raise ValueError(f"Release {name} must be a nonzero id")
+            if app.release_user != f"{app.release_uid}:{app.release_gid}":
+                raise ValueError("Release user must match uid:gid")
+            if app.node_runtime not in {"node", "static"}:
+                raise ValueError("Node runtime must be node or static")
+            if app.node_runtime == "node":
+                if (
+                    not isinstance(app.release_entrypoint, list)
+                    or not app.release_entrypoint
+                    or not all(isinstance(p, str) and p for p in app.release_entrypoint)
+                ):
+                    raise ValueError("Node server releases need a nonempty entrypoint")
+                if not app.release_workdir.startswith("/"):
+                    raise ValueError("Node server releases need an absolute workdir")
+            else:
+                if app.release_entrypoint:
+                    raise ValueError("Static releases keep the base entrypoint")
+                if app.release_workdir:
+                    raise ValueError("Static releases keep the base workdir")
+            if not isinstance(app.release_env, dict) or not all(
+                isinstance(k, str) and isinstance(v, str)
+                for k, v in app.release_env.items()
+            ):
+                raise ValueError("Release env must be a string mapping")
         elif (
             any(
                 [
@@ -156,6 +246,12 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                     app.release_entrypoint,
                     app.release_env,
                     app.release_workdir,
+                    app.node_manager,
+                    app.node_dir,
+                    app.node_build,
+                    app.node_outputs,
+                    app.node_runtime,
+                    app.node_seeds,
                 ]
             )
             or app.release_uid != 0
@@ -168,14 +264,25 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         ):
             raise ValueError("Validation image must be an immutable local image")
         if not re.fullmatch(
-            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|library/nginx|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
+            r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|library/nginx|library/node|nginxinc/nginx-unprivileged)|ghcr\.io/linuxserver/baseimage-alpine)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.release_base_image,
         ):
             raise ValueError("Release base must be an immutable local image")
+        if app.release_kind == "node":
+            if (
+                app.node_runtime == "node"
+                and "/library/node" not in app.release_base_image
+            ):
+                raise ValueError("Node server releases require a node base image")
+            if app.node_runtime == "static" and (
+                "/library/nginx" not in app.release_base_image
+                and "/nginxinc/nginx-unprivileged" not in app.release_base_image
+            ):
+                raise ValueError("Static node releases require an nginx base image")
         if app.release_kind == "container":
             if app.artifact_repository != f"apps/{app.id}":
                 raise ValueError("Application artifact must match its identity")
-        elif app.release_kind == "static":
+        elif app.release_kind in {"static", "node"}:
             if app.artifact_repository != f"apps/{app.id}":
                 raise ValueError("Application artifact must match its identity")
         elif app.validator in {"nixos-config-v1", "firmware-v1"}:
@@ -348,7 +455,7 @@ def configuration(
     configs = [
         {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}
     ]
-    releasable = app.release_kind in {"static", "container"}
+    releasable = app.release_kind in {"static", "container", "node"}
     if (
         event == "push"
         and pipeline.get("ref") == f"refs/heads/{app.default_branch}"
@@ -382,6 +489,56 @@ def configuration(
                 app.artifact_repository,
                 "--number",
                 str(number),
+            ]
+        elif app.release_kind == "node":
+            release_source = Path(__file__).with_name("node_release.py").read_bytes()
+            release_tag = "<server-owned-node-release>"
+            release_stub = (
+                'python -I -c "import base64,gzip; exec(compile(gzip.decompress('
+                f"base64.b64decode('{{encoded}}')), '{release_tag}', 'exec'))\""
+            )
+            release_payload = base64.b64encode(
+                gzip.compress(release_source, mtime=0)
+            ).decode()
+            release_args = [
+                "--base",
+                app.release_base_image,
+                "--commit",
+                commit,
+                "--repository",
+                app.artifact_repository,
+                "--number",
+                str(number),
+                "--files",
+                json.dumps(app.release_files),
+                "--supply",
+                json.dumps(app.release_supply),
+                "--manager",
+                app.node_manager,
+                "--dir",
+                app.node_dir,
+                "--build",
+                json.dumps(app.node_build),
+                "--outputs",
+                json.dumps(app.node_outputs),
+                "--seeds",
+                json.dumps(app.node_seeds),
+                "--runtime",
+                app.node_runtime,
+                "--uid",
+                str(app.release_uid),
+                "--gid",
+                str(app.release_gid),
+                "--user",
+                app.release_user,
+                "--entrypoint",
+                json.dumps(app.release_entrypoint),
+                "--env",
+                json.dumps(app.release_env),
+                "--workdir",
+                app.release_workdir,
+                "--forgejo-owner",
+                app.repository.split("/")[0],
             ]
         else:
             release_source = (
@@ -429,15 +586,16 @@ def configuration(
             ]
         command = release_stub.format(encoded=release_payload)
         arguments = " ".join(shlex.quote(v) for v in release_args)
-        assemble_name = (
-            "assemble-static-image"
-            if app.release_kind == "static"
-            else "assemble-container-image"
-        )
+        if app.release_kind == "static":
+            assemble_name = "assemble-static-image"
+        elif app.release_kind == "node":
+            assemble_name = "assemble-node-image"
+        else:
+            assemble_name = "assemble-container-image"
         prepare_env: dict[str, Any] = {
             "REGISTRY_PASSWORD": {"from_secret": "registry_read_password"}
         }
-        if app.release_kind == "container":
+        if app.release_kind in {"container", "node"}:
             prepare_env["FORGEJO_TOKEN"] = {"from_secret": "supply_read_password"}
         release = {
             "when": [{"event": "push", "branch": app.default_branch}],

@@ -22,7 +22,13 @@
       "release_entrypoint": [],
       "release_env": {},
       "release_workdir": "",
-      "release_scripts": []
+      "release_scripts": [],
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "solubility-gnn",
@@ -482,7 +488,13 @@
         "PORT": "8080"
       },
       "release_workdir": "/app",
-      "release_scripts": []
+      "release_scripts": [],
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "pod-agent",
@@ -1026,7 +1038,13 @@
           "attr": "app",
           "syspath": "/app/src"
         }
-      ]
+      ],
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "bookshelf",
@@ -1049,7 +1067,13 @@
       "release_entrypoint": [],
       "release_env": {},
       "release_workdir": "",
-      "release_scripts": []
+      "release_scripts": [],
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "nixos-config",
@@ -1072,7 +1096,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "bus-route-display",
@@ -1095,7 +1125,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "apolline",
@@ -1118,7 +1154,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "rupan-dev",
@@ -1127,21 +1169,69 @@
       "default_branch": "main",
       "validator": "node-service-v1",
       "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
-      "release_base_image": "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
       "artifact_repository": "apps/rupan-dev",
       "deployment_path": "gitops/websites/rupan-dev",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "rupan-dev-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:95ff208033a0f3bd4832e86ad7a530c895a22d243f84b8fe37936564bc1bdb60",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
-      "release_entrypoint": [],
-      "release_env": {},
-      "release_workdir": ""
+      "release_uid": 1001,
+      "release_gid": 1001,
+      "release_user": "1001:1001",
+      "release_entrypoint": [
+        "node",
+        "server.js"
+      ],
+      "release_env": {
+        "NODE_ENV": "production",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "PORT": "3000",
+        "HOSTNAME": "0.0.0.0"
+      },
+      "release_workdir": "/app",
+      "node_manager": "npm",
+      "node_dir": "",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          ".next/standalone",
+          "/app"
+        ],
+        [
+          ".next/static",
+          "/app/.next/static"
+        ],
+        [
+          "public",
+          "/app/public"
+        ]
+      ],
+      "node_runtime": "node",
+      "node_seeds": []
     },
     {
       "id": "rupanism",
@@ -1150,21 +1240,69 @@
       "default_branch": "main",
       "validator": "node-service-v1",
       "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
-      "release_base_image": "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
       "artifact_repository": "apps/rupanism",
       "deployment_path": "gitops/websites/rupanism",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "rupanism-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:6fa8d841892ff4257bdad379dc1e46fc759386cb010e109a6c9553ab53a19eb5",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
-      "release_entrypoint": [],
-      "release_env": {},
-      "release_workdir": ""
+      "release_uid": 1001,
+      "release_gid": 1001,
+      "release_user": "1001:1001",
+      "release_entrypoint": [
+        "node",
+        "server.js"
+      ],
+      "release_env": {
+        "NODE_ENV": "production",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "PORT": "3000",
+        "HOSTNAME": "0.0.0.0"
+      },
+      "release_workdir": "/app",
+      "node_manager": "npm",
+      "node_dir": "",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          ".next/standalone",
+          "/app"
+        ],
+        [
+          ".next/static",
+          "/app/.next/static"
+        ],
+        [
+          "public",
+          "/app/public"
+        ]
+      ],
+      "node_runtime": "node",
+      "node_seeds": []
     },
     {
       "id": "ism",
@@ -1173,21 +1311,69 @@
       "default_branch": "main",
       "validator": "node-service-v1",
       "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
-      "release_base_image": "registry.rupan.dev/upstream/docker.io/nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
       "artifact_repository": "apps/ism",
       "deployment_path": "gitops/websites/ism",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "ism-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:1d4dbf8e7ffc519f7b23d47e33474c3a3c0dadab71b02a7eb12b2358dbf9dbd2",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
-      "release_entrypoint": [],
-      "release_env": {},
-      "release_workdir": ""
+      "release_uid": 1001,
+      "release_gid": 1001,
+      "release_user": "1001:1001",
+      "release_entrypoint": [
+        "node",
+        "server.js"
+      ],
+      "release_env": {
+        "NODE_ENV": "production",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "PORT": "3000",
+        "HOSTNAME": "0.0.0.0"
+      },
+      "release_workdir": "/app",
+      "node_manager": "npm",
+      "node_dir": "",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          ".next/standalone",
+          "/app"
+        ],
+        [
+          ".next/static",
+          "/app/.next/static"
+        ],
+        [
+          "public",
+          "/app/public"
+        ]
+      ],
+      "node_runtime": "node",
+      "node_seeds": []
     },
     {
       "id": "nix-agent-site",
@@ -1200,17 +1386,49 @@
       "artifact_repository": "apps/nix-agent-site",
       "deployment_path": "gitops/websites/nixagent",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "nix-agent-site-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:d317539a3d2885fe367dacea9b1c7e1e1f38ac800f2ae9a9e9ee8f38f205b34f",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
+      "release_uid": 101,
+      "release_gid": 101,
+      "release_user": "101:101",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "npm",
+      "node_dir": "site",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          "site/out",
+          "/usr/share/nginx/html"
+        ]
+      ],
+      "node_runtime": "static",
+      "node_seeds": []
     },
     {
       "id": "pulse-site",
@@ -1223,17 +1441,69 @@
       "artifact_repository": "apps/pulse-site",
       "deployment_path": "gitops/websites/pulse",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "pulse-site-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:f6d2f696e65332c638a7430edc6b9cfe65361922296c9c81618d2617dab661e7",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
+      "release_uid": 101,
+      "release_gid": 101,
+      "release_user": "101:101",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "npm",
+      "node_dir": "site/docs-app",
+      "node_build": [
+        "npm",
+        "run",
+        "docs:build"
+      ],
+      "node_outputs": [
+        [
+          "site/nginx.conf",
+          "/etc/nginx/nginx.conf"
+        ],
+        [
+          "site/index.html",
+          "/usr/share/nginx/html/index.html"
+        ],
+        [
+          "site/pulse-mark.svg",
+          "/usr/share/nginx/html/pulse-mark.svg"
+        ],
+        [
+          "scripts/install.sh",
+          "/usr/share/nginx/html/install.sh"
+        ],
+        [
+          "site/docs-app/docs/.vitepress/dist/favicon.ico",
+          "/usr/share/nginx/html/favicon.ico"
+        ],
+        [
+          "site/docs-app/docs/.vitepress/dist",
+          "/usr/share/nginx/html/docs"
+        ]
+      ],
+      "node_runtime": "static",
+      "node_seeds": []
     },
     {
       "id": "majorfinder",
@@ -1246,17 +1516,49 @@
       "artifact_repository": "apps/majorfinder",
       "deployment_path": "gitops/websites/majorfinder",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "majorfinder-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:a73ce118d1b17e057124705e26d67c708fd73cbef4ac6b92c67dd019a76756a8",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
+      "release_uid": 101,
+      "release_gid": 101,
+      "release_user": "101:101",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "npm",
+      "node_dir": "",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          "dist",
+          "/usr/share/nginx/html"
+        ]
+      ],
+      "node_runtime": "static",
+      "node_seeds": []
     },
     {
       "id": "photography",
@@ -1279,7 +1581,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "spatia-site",
@@ -1302,7 +1610,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "sovereign-site",
@@ -1325,7 +1639,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     },
     {
       "id": "distrojeff-site",
@@ -1338,17 +1658,49 @@
       "artifact_repository": "apps/distrojeff-site",
       "deployment_path": "gitops/websites/distrojeff",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "distrojeff-site-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:8319b1f7d8a76dad042f759d955612cb810441424b0aeb17c2f0d2c37c0cf922",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
+      "release_uid": 101,
+      "release_gid": 101,
+      "release_user": "101:101",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "npm",
+      "node_dir": "",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          "dist",
+          "/usr/share/nginx/html"
+        ]
+      ],
+      "node_runtime": "static",
+      "node_seeds": []
     },
     {
       "id": "quartz",
@@ -1361,17 +1713,78 @@
       "artifact_repository": "apps/quartz",
       "deployment_path": "gitops/obsidian",
       "state": "stateless",
-      "release_kind": "none",
+      "release_kind": "node",
       "release_files": [],
-      "release_supply": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "quartz-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:caa9e18075657fa4b2dd5c5e6d781891fd45cd5da2acc806b611b920b912694d",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "quartz-supply",
+          "version": "1",
+          "filename": "quartz-plugins.tar.gz",
+          "sha256": "sha256:03725bb43579819fe95d649aff5648943a882a0a91f2569694c746cc41ded289",
+          "kind": "file",
+          "dest": "/inputs/quartz-plugins.tar.gz"
+        },
+        {
+          "package": "quartz-supply",
+          "version": "1",
+          "filename": "quartz-fonts.tar.gz",
+          "sha256": "sha256:7c8614bf1040dfc27de0cba0f8dc334afb5b770ea9d5dd83bb998afda8b2b50c",
+          "kind": "file",
+          "dest": "/inputs/quartz-fonts.tar.gz"
+        }
+      ],
       "release_scripts": [],
       "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
+      "release_uid": 101,
+      "release_gid": 101,
+      "release_user": "101:101",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "npm",
+      "node_dir": "quartz",
+      "node_build": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "node_outputs": [
+        [
+          "quartz/public",
+          "/usr/share/nginx/html"
+        ],
+        [
+          "quartz/nginx.conf",
+          "/etc/nginx/conf.d/default.conf"
+        ]
+      ],
+      "node_runtime": "static",
+      "node_seeds": [
+        [
+          "quartz-plugins.tar.gz",
+          "quartz/.quartz"
+        ],
+        [
+          "quartz-fonts.tar.gz",
+          "quartz/quartz/.quartz-cache"
+        ]
+      ]
     },
     {
       "id": "cr-demo",
@@ -1394,7 +1807,13 @@
       "release_user": "",
       "release_entrypoint": [],
       "release_env": {},
-      "release_workdir": ""
+      "release_workdir": "",
+      "node_manager": "",
+      "node_dir": "",
+      "node_build": [],
+      "node_outputs": [],
+      "node_runtime": "",
+      "node_seeds": []
     }
   ]
 }
