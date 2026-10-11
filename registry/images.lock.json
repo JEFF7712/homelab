@@ -505,21 +505,20 @@
       ],
       "destination_repository": "apps/majorfinder",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-24714b06d817ce0e"
+        "0.0.1000009",
+        "retention-deployed-399a651b3cd32aba"
       ],
-      "digest": "sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189",
+      "digest": "sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
       "id": "first-party-jeff7712-majorfinder-5e85d8d2824c",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/majorfinder",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/majorfinder",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -532,9 +531,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/majorfinder",
-        "tag": "0.0.1000001",
-        "digest": "sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189",
-        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000001@sha256:24714b06d817ce0e0dedc6eb5a050c2d574ac715634e6a89185f4b4b85035189"
+        "tag": "0.0.1000009",
+        "digest": "sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
+        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000009@sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6"
       }
     },
     {
