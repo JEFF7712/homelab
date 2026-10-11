@@ -527,14 +527,19 @@ def find_toolchain_bin(toolchain: Path) -> Path:
 
 def select_toolchain_bin(
     workspace: Path, supply_files: dict[str, bytes]
-) -> tuple[Path, str]:
-    """Extract retained toolchains and return the first that executes here.
+) -> tuple[Path, str, Path | None]:
+    """Extract retained inputs and return the first toolchain that executes.
 
     The sandbox image determines libc (musl vs glibc); the catalog retains
     both toolchains so the same release works on either without network.
-    Trial execution fails closed with a clear error when neither runs.
-    Returns the node binary and its toolchain label.
+    Musl trials use the retained system libraries. Trial execution fails
+    closed with a clear error when neither toolchain runs. Returns the node
+    binary, its toolchain label, and the library directory (or None).
     """
+    lib_dir = None
+    if NODE_LIBS_DEST in supply_files:
+        lib_dir = workspace / "node-libs"
+        extract_tarball(supply_files[NODE_LIBS_DEST], lib_dir, "node system libraries")
     last_error = ""
     for dest, dirname, label in TOOLCHAIN_DESTS:
         if dest not in supply_files:
@@ -542,16 +547,22 @@ def select_toolchain_bin(
         toolchain = workspace / dirname
         extract_tarball(supply_files[dest], toolchain, f"node toolchain ({label})")
         candidate = find_toolchain_bin(toolchain)
+        trial_env = None
+        if label == "musl" and lib_dir is not None:
+            trial_env = dict(os.environ, LD_LIBRARY_PATH=str(lib_dir))
         try:
             subprocess.run(
-                [str(candidate), "--version"], check=True, capture_output=True
+                [str(candidate), "--version"],
+                check=True,
+                capture_output=True,
+                env=trial_env,
             )
         except (OSError, subprocess.CalledProcessError) as error:
             last_error = f"{label}: {error}"
             print(f"+ {label} toolchain unusable here; trying next", flush=True)
             continue
         print(f"+ selected {label} toolchain {candidate}", flush=True)
-        return candidate, label
+        return candidate, label, lib_dir
     raise ValueError(f"No retained node toolchain executes here ({last_error})")
 
 
@@ -697,16 +708,14 @@ def assemble(
         extract_tarball(by_filename[filename], target, f"seed {filename}", source)
         members = len(list(target.rglob("*")))
         print(f"Seeded {dest} from retained {filename} ({members} entries)")
-    toolchain_bin, toolchain_label = select_toolchain_bin(workspace, supply_files)
+    toolchain_bin, toolchain_label, lib_dir = select_toolchain_bin(
+        workspace, supply_files
+    )
     print(
         f"+ build source={source} toolchain={toolchain_bin} "
         f"executable={os.access(toolchain_bin, os.X_OK)}",
         flush=True,
     )
-    lib_dir = None
-    if NODE_LIBS_DEST in supply_files:
-        lib_dir = workspace / "node-libs"
-        extract_tarball(supply_files[NODE_LIBS_DEST], lib_dir, "node system libraries")
     cache_dir = workspace / "npm-cache"
     extract_tarball(supply_files[NPM_CACHE_DEST], cache_dir, "npm cache")
     home_dir = workspace / "home"
