@@ -446,6 +446,14 @@ class NodeReleaseTest(unittest.TestCase):
             {
                 "package": "fixture-supply",
                 "version": "1",
+                "filename": "node-libs.tar.gz",
+                "sha256": "sha256:" + "d" * 64,
+                "kind": "file",
+                "dest": "/inputs/node-libs.tar.gz",
+            },
+            {
+                "package": "fixture-supply",
+                "version": "1",
                 "filename": "npm-cache.tar.gz",
                 "sha256": "sha256:" + "b" * 64,
                 "kind": "file",
@@ -595,10 +603,11 @@ class NodeReleaseTest(unittest.TestCase):
                 "/inputs/node.tar.gz": bundle(broken),
                 "/inputs/node-musl.tar.gz": bundle(Path(sys.executable)),
             }
-            selected = select_toolchain_bin(workspace, supply)
+            selected, label = select_toolchain_bin(workspace, supply)
             self.assertTrue(
                 str(selected).endswith("toolchain-musl/toolchain-x/bin/node")
             )
+            self.assertEqual(label, "musl")
             fresh = Path(tempfile.mkdtemp())
             self.addCleanup(shutil.rmtree, fresh, True)
             with self.assertRaises(ValueError):

@@ -1199,6 +1199,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1278,6 +1286,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1357,6 +1373,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1436,6 +1460,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1499,6 +1531,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1582,6 +1622,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1732,6 +1780,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],
@@ -1811,6 +1867,14 @@
           "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
           "kind": "file",
           "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
         }
       ],
       "release_scripts": [],

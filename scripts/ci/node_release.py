@@ -31,6 +31,7 @@ HISTORY = "server-owned node-assets-v1"
 INPUTS_PREFIX = "/inputs/"
 NODE_TARBALL_DEST = "/inputs/node.tar.gz"
 NODE_MUSL_TARBALL_DEST = "/inputs/node-musl.tar.gz"
+NODE_LIBS_DEST = "/inputs/node-libs.tar.gz"
 TOOLCHAIN_DESTS = (
     (NODE_TARBALL_DEST, "toolchain", "glibc"),
     (NODE_MUSL_TARBALL_DEST, "toolchain-musl", "musl"),
@@ -524,12 +525,15 @@ def find_toolchain_bin(toolchain: Path) -> Path:
     return candidates[0]
 
 
-def select_toolchain_bin(workspace: Path, supply_files: dict[str, bytes]) -> Path:
+def select_toolchain_bin(
+    workspace: Path, supply_files: dict[str, bytes]
+) -> tuple[Path, str]:
     """Extract retained toolchains and return the first that executes here.
 
     The sandbox image determines libc (musl vs glibc); the catalog retains
     both toolchains so the same release works on either without network.
     Trial execution fails closed with a clear error when neither runs.
+    Returns the node binary and its toolchain label.
     """
     last_error = ""
     for dest, dirname, label in TOOLCHAIN_DESTS:
@@ -547,13 +551,15 @@ def select_toolchain_bin(workspace: Path, supply_files: dict[str, bytes]) -> Pat
             print(f"+ {label} toolchain unusable here; trying next", flush=True)
             continue
         print(f"+ selected {label} toolchain {candidate}", flush=True)
-        return candidate
+        return candidate, label
     raise ValueError(f"No retained node toolchain executes here ({last_error})")
 
 
 def run_build(
     builddir: Path,
     toolchain_bin: Path,
+    toolchain_label: str,
+    lib_dir: Path | None,
     cache_dir: Path,
     home_dir: Path,
     build: list[str],
@@ -579,6 +585,10 @@ def run_build(
             "HOME": str(home_dir),
         }
     )
+    if toolchain_label == "musl":
+        if lib_dir is None:
+            raise ValueError("Musl toolchain requires retained system libraries")
+        environment["LD_LIBRARY_PATH"] = str(lib_dir)
     environment.update(env)
     node = str(toolchain_bin)
     install = [
@@ -687,17 +697,30 @@ def assemble(
         extract_tarball(by_filename[filename], target, f"seed {filename}", source)
         members = len(list(target.rglob("*")))
         print(f"Seeded {dest} from retained {filename} ({members} entries)")
-    toolchain_bin = select_toolchain_bin(workspace, supply_files)
+    toolchain_bin, toolchain_label = select_toolchain_bin(workspace, supply_files)
     print(
         f"+ build source={source} toolchain={toolchain_bin} "
         f"executable={os.access(toolchain_bin, os.X_OK)}",
         flush=True,
     )
+    lib_dir = None
+    if NODE_LIBS_DEST in supply_files:
+        lib_dir = workspace / "node-libs"
+        extract_tarball(supply_files[NODE_LIBS_DEST], lib_dir, "node system libraries")
     cache_dir = workspace / "npm-cache"
     extract_tarball(supply_files[NPM_CACHE_DEST], cache_dir, "npm cache")
     home_dir = workspace / "home"
     home_dir.mkdir(exist_ok=True)
-    run_build(builddir, toolchain_bin, cache_dir, home_dir, build, env)
+    run_build(
+        builddir,
+        toolchain_bin,
+        toolchain_label,
+        lib_dir,
+        cache_dir,
+        home_dir,
+        build,
+        env,
+    )
     output.mkdir(parents=True, exist_ok=False)
     layers = []
     for item in manifest["layers"]:
