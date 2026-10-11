@@ -702,21 +702,20 @@
       ],
       "destination_repository": "apps/pulse-site",
       "destination_tags": [
-        "0.0.1000002",
-        "retention-deployed-6c1d62dc8c32a92d"
+        "0.0.1000026",
+        "retention-deployed-4ef2cc00e4b4f22d"
       ],
-      "digest": "sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2",
+      "digest": "sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
       "id": "first-party-jeff7712-pulse-site-2fd6c4414659",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/pulse-site",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/pulse",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -729,9 +728,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
-        "tag": "0.0.1000002",
-        "digest": "sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2",
-        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000002@sha256:6c1d62dc8c32a92dc7e6c65aa33fade8d2442823ca379e0296449d18824817c2"
+        "tag": "0.0.1000026",
+        "digest": "sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
+        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000026@sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466"
       }
     },
     {
