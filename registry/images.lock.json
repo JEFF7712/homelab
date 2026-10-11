@@ -301,21 +301,20 @@
       ],
       "destination_repository": "apps/distrojeff-site",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-968b62c24c6b4f4a"
+        "0.0.1000020",
+        "retention-deployed-96cfa29f813e29f3"
       ],
-      "digest": "sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40",
+      "digest": "sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
       "id": "first-party-jeff7712-distrojeff-site-01461f3c170c",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/distrojeff-site",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/distrojeff-site",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -328,9 +327,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/distrojeff-site",
-        "tag": "0.0.1000001",
-        "digest": "sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40",
-        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000001@sha256:968b62c24c6b4f4ab772aa5a700cc4854ec841f398c9b6b6069cf45ad74a7a40"
+        "tag": "0.0.1000020",
+        "digest": "sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
+        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000020@sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327"
       }
     },
     {
