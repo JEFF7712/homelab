@@ -645,3 +645,44 @@ class NodeReleaseTest(unittest.TestCase):
         pull_request = copy.deepcopy(request)
         pull_request["pipeline"]["event"] = "pull_request"
         self.assertEqual(len(configuration(pull_request, (app,))["configs"]), 1)
+
+    def test_build_drops_node_env_so_dev_dependencies_install(self) -> None:
+        from scripts.ci.node_release import run_build
+
+        with tempfile.TemporaryDirectory() as directory:
+            builddir = Path(directory)
+            toolchain = builddir / "toolchain"
+            (toolchain / "bin").mkdir(parents=True)
+            node = toolchain / "bin" / "node"
+            node.write_text("#!/bin/sh\n")
+            npm_cli = toolchain / "lib" / "node_modules" / "npm" / "bin"
+            npm_cli.mkdir(parents=True)
+            (npm_cli / "npm-cli.js").write_text("")
+            cache = builddir / "cache"
+            cache.mkdir()
+            home = builddir / "home"
+            home.mkdir()
+            calls = []
+
+            def fake_run(cmd, **kwargs):
+                calls.append((cmd, kwargs.get("env", {})))
+                result = unittest.mock.MagicMock()
+                result.returncode = 0
+                return result
+
+            with patch("scripts.ci.node_release.subprocess.run", side_effect=fake_run):
+                run_build(
+                    builddir,
+                    node,
+                    "glibc",
+                    None,
+                    cache,
+                    home,
+                    ["npm", "run", "build"],
+                    {"NODE_ENV": "production", "PORT": "3000"},
+                )
+        self.assertEqual(len(calls), 2)
+        for _cmd, env in calls:
+            self.assertNotIn("NODE_ENV", env)
+            self.assertEqual(env.get("PORT"), "3000")
+            self.assertIn("--offline", _cmd)

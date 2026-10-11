@@ -601,6 +601,12 @@ def run_build(
             raise ValueError("Musl toolchain requires retained system libraries")
         environment["LD_LIBRARY_PATH"] = str(lib_dir)
     environment.update(env)
+    # NODE_ENV=production tells npm to omit devDependencies, but the build
+    # needs them (typescript, tailwind, eslint configs). The image keeps the
+    # production value; only the build environment drops it, matching the
+    # Dockerfiles which install without NODE_ENV set.
+    build_env = dict(environment)
+    build_env.pop("NODE_ENV", None)
     node = str(toolchain_bin)
     install = [
         node,
@@ -611,12 +617,12 @@ def run_build(
         "--no-fund",
     ]
     print(f"+ {' '.join(install)} (cwd={builddir})", flush=True)
-    result = subprocess.run(install, cwd=builddir, env=environment)
+    result = subprocess.run(install, cwd=builddir, env=build_env)
     if result.returncode:
         raise ValueError(f"Offline dependency install failed ({result.returncode})")
     command = [node, str(npm_cli), *build[1:], "--offline", "--no-audit", "--no-fund"]
     print(f"+ {' '.join(command)} (cwd={builddir})", flush=True)
-    result = subprocess.run(command, cwd=builddir, env=environment)
+    result = subprocess.run(command, cwd=builddir, env=build_env)
     if result.returncode:
         raise ValueError(f"Offline build failed ({result.returncode})")
 
