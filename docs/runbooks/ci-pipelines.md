@@ -6,6 +6,17 @@ branch implementation. Live acceptance is tracked in
 
 ## Execution and authority
 
+The nixos-config GitHub mirror uses hosted runners for PR validation. Its
+homelab-04 runners are reserved for the `build-toplevel.yml` and `build-iso.yml`
+artifact workflows on `refs/heads/main`. The immutable
+`ACTIONS_RUNNER_HOOK_JOB_STARTED` script from
+`flake/modules/github-runner-nixos/job-guard.sh` rejects every other event,
+repository, ref, or workflow before job steps execute. This restriction belongs
+to the runner configuration because a fork can change workflow `runs-on` labels.
+Deploy `flake/modules/github-runner-nixos.nix` to homelab-04 before relying on
+the restriction. Its offline behavior tests are
+`tests/test_github_runner_nixos_guard.py`.
+
 All three agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
 have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
