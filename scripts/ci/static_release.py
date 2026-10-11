@@ -57,28 +57,44 @@ class Registry:
         }
         if body is not None:
             headers["Content-Type"] = media
-        connection = http.client.HTTPSConnection("registry.rupan.dev", timeout=120)
-        connection.sock = ssl.create_default_context().wrap_socket(
-            socket.create_connection(("10.0.30.20", 443), timeout=120),
-            server_hostname="registry.rupan.dev",
+        # The registry rate-limits authentication under burst load
+        # (failDelay); retry transient 401/429/5xx with bounded backoff.
+        # All retried requests are safe: reads, digest-addressed blob
+        # uploads, and idempotent manifest PUTs.
+        import time
+
+        last_status = 0
+        for attempt in range(8):
+            connection = http.client.HTTPSConnection("registry.rupan.dev", timeout=120)
+            connection.sock = ssl.create_default_context().wrap_socket(
+                socket.create_connection(("10.0.30.20", 443), timeout=120),
+                server_hostname="registry.rupan.dev",
+            )
+            parsed = urlsplit(url)
+            target = parsed.path + ("?" + parsed.query if parsed.query else "")
+            try:
+                connection.request(method, target, body=body, headers=headers)
+                response = connection.getresponse()
+                if response.status == 404:
+                    return 404, {}, b""
+                if response.status in {401, 429} or 500 <= response.status <= 599:
+                    last_status = response.status
+                    response.read()
+                    time.sleep(min(2**attempt, 60) + (attempt % 5))
+                    continue
+                if response.status not in {200, 201, 202}:
+                    raise RuntimeError(
+                        f"Registry {method} rejected with HTTP {response.status}"
+                    )
+                data = response.read(MAX_BLOB + 1)
+                if len(data) > MAX_BLOB:
+                    raise ValueError("Registry response exceeds input bound")
+                return response.status, dict(response.headers.items()), data
+            finally:
+                connection.close()
+        raise RuntimeError(
+            f"Registry {method} rejected with HTTP {last_status} after retries"
         )
-        parsed = urlsplit(url)
-        target = parsed.path + ("?" + parsed.query if parsed.query else "")
-        try:
-            connection.request(method, target, body=body, headers=headers)
-            response = connection.getresponse()
-            if response.status == 404:
-                return 404, {}, b""
-            if response.status not in {200, 201, 202}:
-                raise RuntimeError(
-                    f"Registry {method} rejected with HTTP {response.status}"
-                )
-            data = response.read(MAX_BLOB + 1)
-            if len(data) > MAX_BLOB:
-                raise ValueError("Registry response exceeds input bound")
-            return response.status, dict(response.headers.items()), data
-        finally:
-            connection.close()
 
     def get(self, repository: str, kind: str, reference: str) -> bytes:
         status, _, data = self.request("GET", f"/v2/{repository}/{kind}/{reference}")
