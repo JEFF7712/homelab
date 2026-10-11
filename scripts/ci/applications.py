@@ -216,6 +216,11 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 raise ValueError("Release user must match uid:gid")
             if app.node_runtime not in {"node", "static"}:
                 raise ValueError("Node runtime must be node or static")
+            if app.node_runtime == "static" and (app.release_uid, app.release_gid) != (
+                101,
+                101,
+            ):
+                raise ValueError("Static releases must run as 101:101")
             if app.node_runtime == "node":
                 if (
                     not isinstance(app.release_entrypoint, list)

@@ -611,23 +611,22 @@ def assemble(
         raise ValueError("Release user must be uid:gid")
     if not isinstance(env, dict):
         raise ValueError("Invalid release runtime configuration")
+    for number, name in ((uid, "uid"), (gid, "gid")):
+        if type(number) is not int or not 0 < number < 60000:
+            raise ValueError(f"Release {name} must be a nonzero id")
+    if user != f"{uid}:{gid}":
+        raise ValueError("Release user must match uid:gid")
+    if runtime == "static" and (uid, gid) != (101, 101):
+        raise ValueError("Static releases must run as 101:101")
+    source = source.resolve()
+    base_root = base_root.resolve()
     manifest, config = load_base(base_root, base)
     starting_user = base_user(config)
-    if starting_user in {"", "0", "0:0", "root"}:
-        if (
-            type(uid) is not int
-            or type(gid) is not int
-            or not 0 < uid < 60000
-            or not 0 < gid < 60000
-        ):
-            raise ValueError("Release uid/gid must be nonzero ids")
-        if user != f"{uid}:{gid}":
-            raise ValueError("Release user must match uid:gid")
-    elif user != starting_user and user != starting_user.split(":")[0]:
-        raise ValueError(
-            "Release user must match the non-root base user "
-            f"({starting_user}); use a root-starting base to set one"
-        )
+    if starting_user not in {"", "0", "0:0", "root"}:
+        if runtime == "node":
+            raise ValueError("Node server releases need a root-starting base")
+        if starting_user not in {"101", "101:101", "nginx"}:
+            raise ValueError("Static base must already run as non-root nginx")
     if node_dir and (
         node_dir.startswith("/") or re.search(r"(^|/)\.\.(/|$)", node_dir)
     ):
@@ -659,6 +658,11 @@ def assemble(
     toolchain = workspace / "toolchain"
     extract_tarball(supply_files[NODE_TARBALL_DEST], toolchain, "node toolchain")
     toolchain_bin = find_toolchain_bin(toolchain)
+    print(
+        f"+ build source={source} toolchain={toolchain_bin} "
+        f"executable={os.access(toolchain_bin, os.X_OK)}",
+        flush=True,
+    )
     cache_dir = workspace / "npm-cache"
     extract_tarball(supply_files[NPM_CACHE_DEST], cache_dir, "npm cache")
     home_dir = workspace / "home"
