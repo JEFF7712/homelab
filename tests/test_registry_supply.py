@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import unittest
 import urllib.error
+from contextlib import chdir, redirect_stdout
 from typing import Any
 from unittest import mock
 from unittest.mock import patch
@@ -2673,6 +2674,66 @@ class PromoteFirstPartyTests(unittest.TestCase):
         self.assertEqual(record["resolution"], {"status": "source-registry-verified"})
         self.assertEqual(validate_lock(lock), [])
 
+    def test_cli_promotion_preserves_observed_snapshot_until_flux_rollout(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64"), ("linux", "arm64")])
+        lock = first_party_lock(old)
+        stale = "sha256:" + "f" * 64
+        source = "ghcr.io/jeff7712/rupan-dev"
+        destination = "registry.rupan.dev/apps/rupan-dev"
+        client = PromoteFakeClient(
+            {
+                f"{source}:0.0.12": new,
+                f"{destination}:0.0.12": new,
+            },
+            {source: ["0.0.11", "0.0.12"]},
+        )
+        with tempfile.TemporaryDirectory() as directory, chdir(directory):
+            root = pathlib.Path(directory)
+            deployment = root / "gitops/websites/rupan-dev/deployment.yaml"
+            deployment.parent.mkdir(parents=True)
+            deployment.write_text(
+                f"image: {destination}@{lock['images'][0]['digest']}\n"
+            )
+            observed = root / "registry/observed-images.json"
+            observed.parent.mkdir(parents=True)
+            snapshot = {
+                "schema_version": 1,
+                "kind": "registry-observed-images",
+                "observed_at": "2026-10-06T00:00:00+00:00",
+                "coverage": ["live-workloads"],
+                "images": [
+                    {
+                        "reference": f"{destination}@{stale}",
+                        "consumers": ["rupan-dev/website-deploy/web"],
+                    }
+                ],
+            }
+            observed.write_text(json.dumps(snapshot))
+            lock_path = root / "registry/images.lock.json"
+            lock_path.write_text(json.dumps(lock))
+            inventory_path = root / "registry/images.inventory.json"
+            inventory_path.write_text("{}")
+            with (
+                patch("scripts.registry.cli._client", return_value=client),
+                redirect_stdout(io.StringIO()),
+            ):
+                result = main(
+                    [
+                        "--root",
+                        str(root),
+                        "promote",
+                        "--lock",
+                        str(lock_path),
+                        "--inventory",
+                        str(inventory_path),
+                        "--allow-observed-drift",
+                    ]
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(observed.read_text()), snapshot)
+            self.assertIn(digest(new), deployment.read_text())
+
     def test_migrates_up_to_date_record_to_local_source(self) -> None:
         raw = manifest()
         lock = first_party_lock(raw)
@@ -2941,6 +3002,30 @@ class PromoteFirstPartyTests(unittest.TestCase):
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(summary["skipped"], [])
         self.assertEqual(client.listed, [])
+
+    def test_exclude_filter_leaves_selected_records_unread(self) -> None:
+        raw = manifest()
+        lock = first_party_lock(raw)
+        client = PromoteFakeClient({}, {"ghcr.io/jeff7712/rupan-dev": ["0.0.12"]})
+        summary = promote_first_party_lock(client, lock, exclude={"apps/rupan-dev"})
+        self.assertEqual(summary["promoted"], [])
+        self.assertEqual(summary["skipped"], [])
+        self.assertEqual(client.listed, [])
+
+    def test_promotion_cli_accepts_observed_drift_transition(self) -> None:
+        from scripts.registry.cli import _parser
+
+        parsed = _parser().parse_args(
+            [
+                "promote",
+                "--lock",
+                "registry/images.lock.json",
+                "--inventory",
+                "registry/images.inventory.json",
+                "--allow-observed-drift",
+            ]
+        )
+        self.assertTrue(parsed.allow_observed_drift)
 
     def test_list_tags_reads_over_http_and_uses_the_source_credential(self) -> None:
         client = OciClient()

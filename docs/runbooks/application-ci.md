@@ -110,6 +110,15 @@ latest or deploys the cluster; a verified digest still needs a protected homelab
 promotion PR and Flux reconciliation. Release signing and SBOM enforcement
 remain separate unimplemented interfaces.
 
+The nix-agent site is the automatic-promotion exception. Main pushes still build
+and publish through the server-owned Node lane. The homelab maintenance pipeline
+runs every 30 minutes, checks its newest release tag, and proposes a digest-only
+promotion for `apps/nix-agent-site`, then merges the PR only after
+`ci/woodpecker/validation-v2` succeeds. The automation rejects changes outside
+the nix-agent lock record and deployment manifest. It preserves the live
+observation snapshot while Flux rolls out the desired digest. Other application
+promotions remain on the protected manual-review path.
+
 Provision the local publisher through the manual protected
 `provision-darkbit-publisher` homelab CI operation. It replaces only the Darkbit
 entry with its lock-derived policy and refuses any unrelated policy change, preserves
