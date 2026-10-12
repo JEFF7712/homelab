@@ -1,7 +1,7 @@
 # GitHub Actions self-hosted runners for the nixos-config repo CI.
 #
-# Two ephemeral runners on homelab-04 so check.yml's validate/profiles jobs run
-# concurrently. Ephemeral means every job starts from a clean work dir and
+# Two ephemeral runners on homelab-04 for trusted main-branch artifact builds.
+# PR validation runs on GitHub-hosted machines. Ephemeral means every job starts from a clean work dir and
 # re-registers; with `replace` a reboot reuses the same runner names instead
 # of orphaning entries in the GitHub UI.
 #
@@ -21,6 +21,9 @@
 let
   user = "github-runner-nixos";
   baseDir = "/persist/github-runner-nixos";
+  jobGuard = pkgs.writeShellScript "nixos-ci-job-guard.sh" (
+    builtins.readFile ./github-runner-nixos/job-guard.sh
+  );
   mkRunner = n: {
     enable = true;
     url = "https://github.com/JEFF7712/nixos-config";
@@ -34,6 +37,7 @@ let
     replace = true;
     inherit user;
     group = user;
+    extraEnvironment.ACTIONS_RUNNER_HOOK_JOB_STARTED = toString jobGuard;
     # Distinct work dirs: the module cleans workDir on every service start,
     # so the two instances must not share one.
     workDir = "${baseDir}/work-${toString n}";
