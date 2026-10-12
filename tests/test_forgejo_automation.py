@@ -41,7 +41,7 @@ class AutomationTest(unittest.TestCase):
                     "statuses": [
                         {
                             "context": "ci/woodpecker/validation-v2",
-                            "state": "success",
+                            "status": "success",
                             "updated_at": "2026-10-12T00:00:00Z",
                         }
                     ]
@@ -69,7 +69,7 @@ class AutomationTest(unittest.TestCase):
                         "statuses": [
                             {
                                 "context": "ci/woodpecker/validation-v2",
-                                "state": "failure",
+                                "status": "failure",
                                 "updated_at": "2026-10-12T00:00:00Z",
                             }
                         ]

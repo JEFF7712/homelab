@@ -96,13 +96,13 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
             if item.get("context") == REQUIRED_CONTEXT
         ]
         latest = max(matches, key=lambda item: item.get("updated_at", ""), default=None)
-        if latest and latest.get("state") == "success":
+        if latest and latest.get("status") == "success":
             _api(token, f"/pulls/{number}/merge", data={"Do": "merge"})
             print(
                 f"Required validation passed; merged nix-agent promotion PR #{number}"
             )
             return
-        if latest and latest.get("state") in {"failure", "error"}:
+        if latest and latest.get("status") in {"failure", "error"}:
             raise ValueError("Required homelab validation failed for promotion PR")
         time.sleep(15)
     raise TimeoutError("Timed out waiting for homelab validation on promotion PR")
