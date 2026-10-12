@@ -59,6 +59,16 @@
           Gateway = "10.0.30.1";
           VLAN = "netbird-vlan";
         };
+        routes = [
+          {
+            Destination = "172.31.10.2/32";
+            Gateway = "10.0.30.11";
+          }
+          {
+            Destination = "172.31.10.6/32";
+            Gateway = "10.0.30.11";
+          }
+        ];
         linkConfig.RequiredForOnline = "routable";
       };
       "60-netbird-policy" = {

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "network": "agent-workspaces",
+  "router_peer": "adguard-netbird-01",
+  "router": {
+    "metric": 9999,
+    "masquerade": true,
+    "enabled": true
+  },
+  "workspaces": [
+    {
+      "id": "rupan",
+      "address": "172.31.10.2/32",
+      "peer": "laptop-nixos",
+      "policy": "rupan-to-workspace",
+      "ports": ["22", "443"]
+    },
+    {
+      "id": "sam",
+      "address": "172.31.10.6/32",
+      "peer": "HPSPECTRE - Sam",
+      "policy": "sam-to-workspace",
+      "ports": ["22", "443"]
+    }
+  ]
+}
