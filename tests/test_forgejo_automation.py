@@ -40,8 +40,9 @@ class AutomationTest(unittest.TestCase):
             promote_commit,
             "_api",
             side_effect=[
+                {},
                 pull,
-                {"commit": {"id": "base-sha"}},
+                pull,
                 {
                     "statuses": [
                         {
@@ -55,7 +56,11 @@ class AutomationTest(unittest.TestCase):
             ],
         ) as api:
             promote_commit._auto_merge_pull("fixture-token", pull)
-        self.assertEqual(api.call_count, 4)
+        self.assertEqual(api.call_count, 5)
+        self.assertEqual(
+            api.call_args_list[0].args,
+            ("fixture-token", "/pulls/42/update?style=rebase"),
+        )
         self.assertEqual(
             api.call_args_list[-1].args,
             ("fixture-token", "/pulls/42/merge"),
@@ -73,8 +78,9 @@ class AutomationTest(unittest.TestCase):
                 promote_commit,
                 "_api",
                 side_effect=[
+                    {},
                     pull,
-                    {"commit": {"id": "base-sha"}},
+                    pull,
                     {
                         "statuses": [
                             {
@@ -89,7 +95,7 @@ class AutomationTest(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "validation failed"),
         ):
             promote_commit._auto_merge_pull("fixture-token", pull)
-        self.assertEqual(api.call_count, 3)
+        self.assertEqual(api.call_count, 4)
 
     def test_auto_merge_rebases_when_main_advances_and_waits_for_new_status(
         self,
@@ -104,17 +110,22 @@ class AutomationTest(unittest.TestCase):
             "head": {"sha": "rebased-sha"},
             "base": {"sha": "new-base"},
         }
+        advanced = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "new-base"},
+        }
         with (
             patch.object(
                 promote_commit,
                 "_api",
                 side_effect=[
+                    {},
                     pull,
-                    {"commit": {"id": "new-base"}},
+                    advanced,
                     {},
                     updated,
                     updated,
-                    {"commit": {"id": "new-base"}},
                     {
                         "statuses": [
                             {
@@ -130,7 +141,7 @@ class AutomationTest(unittest.TestCase):
         ):
             promote_commit._auto_merge_pull("fixture-token", pull)
         self.assertEqual(
-            api.call_args_list[2].args,
+            api.call_args_list[3].args,
             ("fixture-token", "/pulls/42/update?style=rebase"),
         )
         self.assertEqual(

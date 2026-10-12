@@ -85,16 +85,19 @@ def _assert_nix_agent_only(changed: list[str]) -> None:
 
 def _auto_merge_pull(token: str, pull: dict) -> None:
     number = int(pull["number"])
-    expected_sha = pull["head"]["sha"]
+    _api(token, f"/pulls/{number}/update?style=rebase", data={})
+    current = _api(token, f"/pulls/{number}")
+    expected_sha = current["head"]["sha"]
+    expected_base_sha = current["base"]["sha"]
     for _ in range(120):
         current = _api(token, f"/pulls/{number}")
         if current.get("head", {}).get("sha") != expected_sha:
             raise ValueError("Promotion PR head changed while awaiting validation")
-        main = _api(token, "/branches/main")
-        if current.get("base", {}).get("sha") != main.get("commit", {}).get("id"):
+        if current.get("base", {}).get("sha") != expected_base_sha:
             _api(token, f"/pulls/{number}/update?style=rebase", data={})
             updated = _api(token, f"/pulls/{number}")
             expected_sha = updated["head"]["sha"]
+            expected_base_sha = updated["base"]["sha"]
             time.sleep(15)
             continue
         status = _api(token, f"/commits/{expected_sha}/status")
@@ -113,7 +116,11 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
                     or b"head branch is behind the base branch" not in error.read()
                 ):
                     raise
-                time.sleep(1)
+                updated = _api(token, f"/pulls/{number}/update?style=rebase", data={})
+                updated = _api(token, f"/pulls/{number}")
+                expected_sha = updated["head"]["sha"]
+                expected_base_sha = updated["base"]["sha"]
+                time.sleep(15)
                 continue
             print(
                 f"Required validation passed; merged nix-agent promotion PR #{number}"
