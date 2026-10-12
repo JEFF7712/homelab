@@ -256,6 +256,7 @@
       "REGISTRY_NODE_PASSWORD_FILE": {"from_secret": "registry_node_password_file"},
       "REGISTRY_SOURCE_AUTH_FILE": {"from_secret": "registry_source_auth_file"},
       "FORGEJO_PUBLISH_TOKEN": {"from_secret": "forgejo_publish_token"},
+      "FORGEJO_SOURCE_READ_TOKEN": {"from_secret": "forgejo_source_read_token"},
       "CI_AUTO_MERGE_PROMOTION": "nix-agent-site"
     },
     "file_secrets": ["REGISTRY_NODE_PASSWORD_FILE", "REGISTRY_SOURCE_AUTH_FILE"],
