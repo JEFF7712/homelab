@@ -83,6 +83,16 @@ class AgentSessionTest(unittest.TestCase):
                 f"#!{sys.executable}\nimport json, os, sys\nprint(json.dumps({{'argv':sys.argv[1:], 'task':os.environ['AGENT_TASK_ID']}}))\n"
             )
             client.chmod(0o755)
+            nix = root / "bin/nix"
+            nix.write_text(
+                f"#!{sys.executable}\n"
+                "import os, sys\n"
+                "arguments = sys.argv[1:]\n"
+                "if arguments[:3] != ['develop', './flake', '-c']:\n"
+                "    raise SystemExit('agent launcher did not enter the pinned dev shell')\n"
+                "os.execvp(arguments[3], arguments[3:])\n"
+            )
+            nix.chmod(0o755)
             commit(root, "initial")
             create_task(root, "literal", creation_payload())
             result = subprocess.run(

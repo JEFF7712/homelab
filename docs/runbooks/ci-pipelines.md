@@ -110,6 +110,22 @@ validation. The catalog covers registry operations, publisher provisioning,
 registry platform and nodes, DNS, Zigbee, LedFx, NAS proof, OPNsense,
 Cloudflare, fleet, agent workspaces, Home Assistant, GitHub mirroring and cache.
 
+For NixOS fleet changes, use the `deploy-fleet-dry-run` operation first, then
+the dependent `deploy-fleet` operation only after reviewing the dry-run result
+and obtaining explicit deployment authorization. These catalog operations run
+the full configured fleet; the CI policy rejects per-run variable overrides,
+so they do not provide host-level target selection. The operation catalog
+enforces the prerequisite and consumes fresh validation for the same main
+revision. Apply operations expire after 24 hours. For a scoped deployment, use
+the fleet deployer's explicit `--target` option only when the task authorizes
+local deployment and the [NixOS host deployment runbook](nixos-host-deployment.md)
+allows it.
+
+For GitOps workloads, merging the authorized source change lets Flux reconcile
+the commit. Verify the relevant Flux Kustomization and the workload behavior
+after reconciliation. A successful CI operation or Flux reconciliation alone
+does not prove application acceptance.
+
 Validation and artifacts expire after 24 hours. Apply consumes the saved
 binary plan for the same SHA and validation parent. Dry-run prerequisites
 use completion receipts under that identity. The runner rejects stale main,
@@ -123,9 +139,12 @@ push and maintenance workflows receive their required secrets.
 
 ## Agent Forgejo access
 
-Agents open and merge Forgejo PRs with the `tea` CLI (in the dev shell) as a
-dedicated machine user, never as your personal account and never with a token
-committed to the repo. Branch protection (`config/ci/forgejo-protection.json`)
+Agents open Forgejo PRs with the `tea` CLI (in the dev shell) as the dedicated
+machine user, never as a personal account and never with a token committed to
+the repo. Publishing a branch, opening a PR, and merging it change shared
+repository state; each step requires explicit authorization from the task or
+operator. A merge can trigger Flux deployment. Branch protection
+(`config/ci/forgejo-protection.json`)
 applies to the machine user too: no direct pushes to main, merge requires a
 green `ci/woodpecker/validation-v2` status, so agents cannot land red code.
 
@@ -141,20 +160,23 @@ One-time setup, by a human in the Forgejo UI:
 3. On each machine agents run on: `tea login add --url http://git.internal:3000`,
    pasting the token when prompted. It lands in `~/.config/tea/config.yml`
    (mode 0600). Never copy that file into the repo or backups.
-4. Optional, to push branches as the machine user instead of a personal
-   account: generate a dedicated key per agent machine
+4. Required for agents that publish branches: generate a dedicated key per
+   agent machine
    (`ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_homelab_agent -N ''`),
    register its public key on the `homelab-agent` account in the Forgejo UI
    (Settings, SSH Keys; the API requires `write:user`, which the agent token
    deliberately lacks), and add a `git-agent` Host alias in `~/.ssh/config`
    with `IdentitiesOnly yes`. Push with
-   `git push git-agent:JEFF7712/homelab.git <branch>`. Without this step,
-   `git push origin` authenticates with the machine's default Forgejo key.
+   `git push git-agent:JEFF7712/homelab.git <branch>`. Verify the alias with
+   `git ls-remote git-agent:JEFF7712/homelab.git HEAD` before the first push.
+   Agent branches must use this identity; `origin` may authenticate as another
+   Forgejo account.
 
-Agent flow per change:
+Agent flow per change, after explicit authorization and successful preflight
+(see [the agent workflow guide](../agent-workflow.md#publishing-changes)):
 
 ```sh
-git push origin <branch>
+git push git-agent:JEFF7712/homelab.git HEAD
 just forgejo-pr "imperative title"   # opens the PR against main
 # wait for validation-v2 green in the Forgejo UI, then:
 just forgejo-merge <index>           # merges; prefer fast-forward so the

@@ -3,7 +3,7 @@ agent-context *args:
 
 [positional-arguments]
 agent-run id client *args:
-    python -m scripts.agent agent-run "$@"
+    nix develop ./flake -c python -m scripts.agent agent-run "$@"
 
 [positional-arguments]
 agent-verify *args:
@@ -193,12 +193,12 @@ ha-revert *args:
 jarvis-eval-live *args:
     python -m scripts.jarvis_eval {{args}}
 
-# Forgejo PR flow for agents. Requires one-time `tea login add` (see
-# docs/runbooks/ci-pipelines.md "Agent Forgejo access"). Merge only after
-# validation-v2 is green; prefer fast-forward so the Forgejo to GitLab
-# mirror stays clean.
+# Forgejo PR flow for agents. Requires `tea` login and the dedicated
+# git-agent SSH identity (see docs/runbooks/ci-pipelines.md). Publishing and
+# merging require explicit authorization. Merge only after validation-v2 is
+# green; prefer fast-forward so the Forgejo to GitLab mirror stays clean.
 forgejo-pr title target="main":
-    tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
+    nix develop ./flake -c tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
 
 forgejo-merge index:
-    tea pr merge --repo JEFF7712/homelab {{index}}
+    nix develop ./flake -c tea pr merge --repo JEFF7712/homelab {{index}}
