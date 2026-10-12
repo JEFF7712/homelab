@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/name: github-runner-rupanism
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -160,7 +160,7 @@ metadata:
     app.kubernetes.io/name: github-runner-apolline
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -462,7 +462,7 @@ metadata:
     app.kubernetes.io/name: github-runner-distrojeff
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -613,7 +613,7 @@ metadata:
     app.kubernetes.io/name: github-runner-nix-agent
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -915,7 +915,7 @@ metadata:
     app.kubernetes.io/name: github-runner-pulse
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -1217,7 +1217,7 @@ metadata:
     app.kubernetes.io/name: github-runner-spatia
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -1368,7 +1368,7 @@ metadata:
     app.kubernetes.io/name: github-runner-quartz
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -1519,7 +1519,7 @@ metadata:
     app.kubernetes.io/name: github-runner-majorfinder
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -1670,7 +1670,7 @@ metadata:
     app.kubernetes.io/name: github-runner-photography
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -1821,7 +1821,7 @@ metadata:
     app.kubernetes.io/name: github-runner-ism
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -1972,7 +1972,7 @@ metadata:
     app.kubernetes.io/name: github-runner-rupan-dev
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
@@ -2265,7 +2265,7 @@ metadata:
     app.kubernetes.io/name: github-runner-sovereign
     app.kubernetes.io/component: runner
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
