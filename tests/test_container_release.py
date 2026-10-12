@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import io
 import json
+import os
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -1228,6 +1230,33 @@ class BlobBoundTest(unittest.TestCase):
 
 
 class BinOverrideTest(unittest.TestCase):
+    def test_retained_system_binary_can_execute_from_assembled_layer(self) -> None:
+        payload = b"#!/bin/sh\nprintf 'retained-age\\n'\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "supply").mkdir()
+            (root / "supply" / "age-bin").write_bytes(payload)
+            supply = [
+                {
+                    "package": "p",
+                    "version": "1",
+                    "filename": "age-bin",
+                    "sha256": release.digest(payload),
+                    "kind": "file",
+                    "dest": destination,
+                }
+                for destination in ("/usr/bin/age", "/etc/age-policy")
+            ]
+            layer = release.collect_supply(root, supply, [], set(), "3.12", 101, 101)
+            output = root / "output"
+            with tarfile.open(fileobj=io.BytesIO(layer), mode="r") as archive:
+                archive.extractall(output, filter="data")
+            self.assertEqual(
+                subprocess.check_output([str(output / "usr/bin/age")]),
+                b"retained-age\n",
+            )
+            self.assertFalse(os.access(output / "etc/age-policy", os.X_OK))
+
     def test_file_override_keeps_bin_executable(self) -> None:
         import io
         import tarfile
