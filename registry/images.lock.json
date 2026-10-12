@@ -743,21 +743,20 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-785e71c0563aca7f"
+        "0.0.1000021",
+        "retention-deployed-e4ef61939a2c7ac8"
       ],
-      "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
+      "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/quartz",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/obsidian-vault",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -770,9 +769,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000001",
-        "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000001@sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a"
+        "tag": "0.0.1000021",
+        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad"
       }
     },
     {
@@ -786,21 +785,20 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-785e71c0563aca7f"
+        "0.0.1000021",
+        "retention-deployed-e4ef61939a2c7ac8"
       ],
-      "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
+      "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/quartz",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/obsidian-vault",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -813,9 +811,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000001",
-        "digest": "sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000001@sha256:785e71c0563aca7feb40b9579ac290ff53cdffad2a79a44ccab706d32e66493a"
+        "tag": "0.0.1000021",
+        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad"
       }
     },
     {
