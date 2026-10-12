@@ -422,21 +422,20 @@
       ],
       "destination_repository": "apps/ism",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-7f663f0b19b61cb6"
+        "0.0.1000008",
+        "retention-deployed-6a0003070b2b3c16"
       ],
-      "digest": "sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091",
+      "digest": "sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
       "id": "first-party-jeff7712-ism-17c0fc6856fb",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:docker.io/jeff7712/ism",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/ism",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -449,9 +448,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/ism",
-        "tag": "0.0.1000001",
-        "digest": "sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091",
-        "reference": "registry.rupan.dev/apps/ism:0.0.1000001@sha256:7f663f0b19b61cb6d4b2e4e932d1697f0773e4c203c6a09b9a474c19e4319091"
+        "tag": "0.0.1000008",
+        "digest": "sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
+        "reference": "registry.rupan.dev/apps/ism:0.0.1000008@sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b"
       }
     },
     {
@@ -546,21 +545,20 @@
       ],
       "destination_repository": "apps/nix-agent-site",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-8987116457555b4e"
+        "0.0.1000013",
+        "retention-deployed-e96ec28cc3b00fec"
       ],
-      "digest": "sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f",
+      "digest": "sha256:e96ec28cc3b00fecb4820cc4a277f2ba36a314c408c46ac966259904911f9651",
       "id": "first-party-jeff7712-nix-agent-site-6727a36d7b92",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/nix-agent-site",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/nix-agent",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -573,9 +571,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
-        "tag": "0.0.1000001",
-        "digest": "sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f",
-        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000001@sha256:8987116457555b4e4bd76a7e72db7083754e75b1c8cf1b8d26deae4b2d00066f"
+        "tag": "0.0.1000013",
+        "digest": "sha256:e96ec28cc3b00fecb4820cc4a277f2ba36a314c408c46ac966259904911f9651",
+        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000013@sha256:e96ec28cc3b00fecb4820cc4a277f2ba36a314c408c46ac966259904911f9651"
       }
     },
     {
@@ -869,21 +867,20 @@
       ],
       "destination_repository": "apps/rupanism",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-a982a71729eefa72"
+        "0.0.1000013",
+        "retention-deployed-b30755a294015a2f"
       ],
-      "digest": "sha256:a982a71729eefa72f974fa02e8a6ac90181c8def27c8455376f9ce130dc2fe23",
+      "digest": "sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
       "id": "first-party-jeff7712-rupanism-cb88e7bb7ba1",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/rupanism",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/rupanism",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -896,9 +893,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/rupanism",
-        "tag": "0.0.1000001",
-        "digest": "sha256:a982a71729eefa72f974fa02e8a6ac90181c8def27c8455376f9ce130dc2fe23",
-        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000001@sha256:a982a71729eefa72f974fa02e8a6ac90181c8def27c8455376f9ce130dc2fe23"
+        "tag": "0.0.1000013",
+        "digest": "sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
+        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000013@sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a"
       }
     },
     {
