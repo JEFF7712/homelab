@@ -231,6 +231,9 @@ Attic. The `forgejo_source_read_token` needs `read:repository` access to both
 `JEFF7712/homelab` and `JEFF7712/nixos-config`. Repository collaboration alone
 does not grant access through a token restricted to a different repository.
 The checkout uses a temporary Git askpass helper; credentials stay out of URLs.
+The retention collector includes recursively archived external inputs. Relative
+vendored inputs have no separate archive path and remain in the retained parent
+source; their external descendants are still collected.
 
 ## Policy deployment and recovery
 
