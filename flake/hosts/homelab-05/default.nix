@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
+let
+  vm = config.homelab.omarchyVm;
+  reservedCpu = 1 + (if vm.enable then vm.vcpus else 0);
+  reservedMemoryMiB = 2048 + (if vm.enable then vm.memoryMiB + 1024 else 0);
+in
 {
   imports = [
     ./hardware-configuration.nix
@@ -9,9 +14,12 @@
     ../../modules/kiosk.nix
     ../../modules/jarvis-spectrum.nix
     ../../modules/apollo-ble-bridge.nix
+    ../../modules/omarchy-vm.nix
   ];
 
   networking.hostName = "homelab-05";
+
+  homelab.omarchyVm.enable = true;
 
   homelab.disk.device = "/dev/disk/by-id/nvme-KXG70ZNV1T02_NVMe_KIOXIA_1024GB_42MFC3FQFTC5";
 
@@ -25,7 +33,7 @@
   };
 
   services.k3s.extraFlags = [
-    "--kubelet-arg=system-reserved=cpu=1,memory=2Gi"
+    "--kubelet-arg=system-reserved=cpu=${toString reservedCpu},memory=${toString reservedMemoryMiB}Mi"
     "--kubelet-arg=kube-reserved=cpu=500m,memory=1Gi"
   ];
 

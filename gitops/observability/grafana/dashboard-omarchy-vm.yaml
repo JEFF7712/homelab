@@ -1,0 +1,155 @@
+# yamllint disable rule:line-length
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-omarchy-vm
+  namespace: observability
+  labels:
+    grafana_dashboard: '1'
+data:
+  omarchy-akshath.json: "{\n  \"uid\": \"omarchy-akshath\",\n  \"title\": \"Akshath Omarchy VM\",\n  \"schemaVersion\": 39,\n\
+    \  \"version\": 1,\n  \"editable\": true,\n  \"tags\": [\n    \"vm\",\n    \"omarchy\",\n    \"capacity\"\n  ],\n  \"\
+    timezone\": \"browser\",\n  \"refresh\": \"30s\",\n  \"time\": {\n    \"from\": \"now-7d\",\n    \"to\": \"now\"\n  },\n\
+    \  \"panels\": [\n    {\n      \"id\": 1,\n      \"type\": \"timeseries\",\n      \"title\": \"Guest CPU utilization\"\
+    ,\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 0,\n        \"w\": 12,\n        \"h\": 8\n      },\n\
+    \      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"percentunit\",\n          \"min\": 0\n     \
+    \   },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\": \"\
+    table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\
+    \n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\":\
+    \ \"omarchy_vm:cpu_utilization:ratio5m\",\n          \"legendFormat\": \"{{vm}}\"\n        }\n      ]\n    },\n    {\n\
+    \      \"id\": 2,\n      \"type\": \"timeseries\",\n      \"title\": \"Guest RAM used (excludes reclaimable cache)\",\n\
+    \      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"gridPos\": {\n        \"x\": 12,\n        \"y\": 0,\n        \"w\": 12,\n        \"h\": 8\n      },\n\
+    \      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"percentunit\",\n          \"min\": 0\n     \
+    \   },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\": \"\
+    table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\
+    \n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\":\
+    \ \"omarchy_vm:memory_utilization:ratio\",\n          \"legendFormat\": \"{{vm}}\"\n        }\n      ]\n    },\n    {\n\
+    \      \"id\": 3,\n      \"type\": \"timeseries\",\n      \"title\": \"Guest available RAM\",\n      \"description\":\
+    \ \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n     \
+    \ \"gridPos\": {\n        \"x\": 0,\n        \"y\": 8,\n        \"w\": 12,\n        \"h\": 8\n      },\n      \"fieldConfig\"\
+    : {\n        \"defaults\": {\n          \"unit\": \"bytes\",\n          \"min\": 0\n        },\n        \"overrides\"\
+    : []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\": \"table\",\n          \"placement\"\
+    : \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\n          ]\n        }\n   \
+    \   },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\": \"node_memory_MemAvailable_bytes{job=\\\
+    \"omarchy-vm-guest\\\"}\",\n          \"legendFormat\": \"{{vm}}\"\n        }\n      ]\n    },\n    {\n      \"id\": 4,\n\
+    \      \"type\": \"timeseries\",\n      \"title\": \"Guest disk used\",\n      \"description\": \"\",\n      \"datasource\"\
+    : {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\"\
+    : 12,\n        \"y\": 8,\n        \"w\": 12,\n        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\"\
+    : {\n          \"unit\": \"percentunit\",\n          \"min\": 0\n        },\n        \"overrides\": []\n      },\n   \
+    \   \"options\": {\n        \"legend\": {\n          \"displayMode\": \"table\",\n          \"placement\": \"bottom\"\
+    ,\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\n          ]\n        }\n      },\n     \
+    \ \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\": \"1-node_filesystem_avail_bytes{job=\\\"\
+    omarchy-vm-guest\\\",mountpoint=\\\"/\\\"}/node_filesystem_size_bytes{job=\\\"omarchy-vm-guest\\\",mountpoint=\\\"/\\\"\
+    }\",\n          \"legendFormat\": \"{{vm}}\"\n        }\n      ]\n    },\n    {\n      \"id\": 5,\n      \"type\": \"\
+    timeseries\",\n      \"title\": \"Guest CPU: 7-day p95 and peak\",\n      \"description\": \"Use this alongside the peak\
+    \ and data coverage. p95 alone can hide short builds.\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n\
+    \        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 16,\n        \"w\"\
+    : 12,\n        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"percentunit\"\
+    ,\n          \"min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n\
+    \          \"displayMode\": \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\"\
+    ,\n            \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\"\
+    ,\n          \"expr\": \"quantile_over_time(0.95,omarchy_vm:cpu_utilization:ratio5m[7d])\",\n          \"legendFormat\"\
+    : \"{{vm}}\"\n        },\n        {\n          \"refId\": \"B\",\n          \"expr\": \"max_over_time(omarchy_vm:cpu_utilization:ratio5m[7d])\"\
+    ,\n          \"legendFormat\": \"{{vm}} peak\"\n        }\n      ]\n    },\n    {\n      \"id\": 6,\n      \"type\": \"\
+    timeseries\",\n      \"title\": \"Guest RAM: 7-day p95 and peak\",\n      \"description\": \"\",\n      \"datasource\"\
+    : {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\"\
+    : 12,\n        \"y\": 16,\n        \"w\": 12,\n        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\"\
+    : {\n          \"unit\": \"percentunit\",\n          \"min\": 0\n        },\n        \"overrides\": []\n      },\n   \
+    \   \"options\": {\n        \"legend\": {\n          \"displayMode\": \"table\",\n          \"placement\": \"bottom\"\
+    ,\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\n          ]\n        }\n      },\n     \
+    \ \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\": \"quantile_over_time(0.95,omarchy_vm:memory_utilization:ratio[7d])\"\
+    ,\n          \"legendFormat\": \"{{vm}}\"\n        },\n        {\n          \"refId\": \"B\",\n          \"expr\": \"\
+    max_over_time(omarchy_vm:memory_utilization:ratio[7d])\",\n          \"legendFormat\": \"{{vm}} peak\"\n        }\n  \
+    \    ]\n    },\n    {\n      \"id\": 7,\n      \"type\": \"timeseries\",\n      \"title\": \"Guest swap in/out\",\n  \
+    \    \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 24,\n        \"w\": 12,\n        \"h\": 8\n      },\n\
+    \      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"ops\",\n          \"min\": 0\n        },\n \
+    \       \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\": \"table\"\
+    ,\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\n \
+    \         ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\": \"\
+    rate(node_vmstat_pswpin{job=\\\"omarchy-vm-guest\\\"}[5m])\",\n          \"legendFormat\": \"swap-in pages/s\"\n     \
+    \   },\n        {\n          \"refId\": \"B\",\n          \"expr\": \"rate(node_vmstat_pswpout{job=\\\"omarchy-vm-guest\\\
+    \"}[5m])\",\n          \"legendFormat\": \"swap-out pages/s\"\n        }\n      ]\n    },\n    {\n      \"id\": 8,\n \
+    \     \"type\": \"timeseries\",\n      \"title\": \"QEMU CPU time throttled\",\n      \"description\": \"\",\n      \"\
+    datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n\
+    \        \"x\": 12,\n        \"y\": 24,\n        \"w\": 12,\n        \"h\": 8\n      },\n      \"fieldConfig\": {\n  \
+    \      \"defaults\": {\n          \"unit\": \"s\",\n          \"min\": 0\n        },\n        \"overrides\": []\n    \
+    \  },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\": \"table\",\n          \"placement\": \"\
+    bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\n          ]\n        }\n      },\n\
+    \      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\": \"rate(omarchy_vm_cpu_throttled_seconds_total{job=\\\
+    \"omarchy-vm-host\\\"}[5m])\",\n          \"legendFormat\": \"{{vm}} seconds/s\"\n        }\n      ]\n    },\n    {\n\
+    \      \"id\": 9,\n      \"type\": \"timeseries\",\n      \"title\": \"QEMU cgroup RAM (guest, host cache and emulator)\"\
+    ,\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 32,\n        \"w\": 12,\n        \"h\": 8\n      },\n\
+    \      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"bytes\",\n          \"min\": 0\n        },\n\
+    \        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\": \"table\"\
+    ,\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n            \"max\"\n \
+    \         ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"expr\": \"\
+    omarchy_vm_memory_current_bytes{job=\\\"omarchy-vm-host\\\"}\",\n          \"legendFormat\": \"{{vm}}\"\n        }\n\
+    \      ]\n    },\n    {\n      \"id\": 10,\n      \"type\": \"timeseries\",\n      \"title\": \"VM disk space consumed\
+    \ on host\",\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\"\
+    : \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 12,\n        \"y\": 32,\n        \"w\": 12,\n       \
+    \ \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"bytes\",\n          \"\
+    min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\"\
+    : \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n           \
+    \ \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"\
+    expr\": \"omarchy_vm_disk_host_allocated_bytes{job=\\\"omarchy-vm-host\\\"}\",\n          \"legendFormat\": \"{{vm}}\"\
+    \n        }\n      ]\n    },\n    {\n      \"id\": 11,\n      \"type\": \"timeseries\",\n      \"title\": \"QEMU memory\
+    \ and I/O pressure\",\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n    \
+    \    \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 40,\n        \"w\": 12,\n\
+    \        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"percentunit\",\n\
+    \          \"min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n\
+    \          \"displayMode\": \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\"\
+    ,\n            \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\"\
+    ,\n          \"expr\": \"rate(omarchy_vm_memory_pressure_some_seconds_total{job=\\\"omarchy-vm-host\\\"}[5m])\",\n   \
+    \       \"legendFormat\": \"memory stalled time\"\n        },\n        {\n          \"refId\": \"B\",\n          \"expr\"\
+    : \"rate(omarchy_vm_io_pressure_some_seconds_total{job=\\\"omarchy-vm-host\\\"}[5m])\",\n          \"legendFormat\": \"\
+    I/O stalled time\"\n        }\n      ]\n    },\n    {\n      \"id\": 12,\n      \"type\": \"timeseries\",\n      \"title\"\
+    : \"Host available RAM\",\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n\
+    \        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 12,\n        \"y\": 40,\n        \"w\"\
+    : 12,\n        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"bytes\",\n\
+    \          \"min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n\
+    \          \"displayMode\": \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\"\
+    ,\n            \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\"\
+    ,\n          \"expr\": \"node_memory_MemAvailable_bytes{job=\\\"node-exporter\\\",instance=~\\\"10.0.30.15:.*\\\"}\",\n\
+    \          \"legendFormat\": \"homelab-05\"\n        }\n      ]\n    },\n    {\n      \"id\": 13,\n      \"type\": \"\
+    timeseries\",\n      \"title\": \"VM/exporter availability\",\n      \"description\": \"\",\n      \"datasource\": {\n\
+    \        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 0,\n\
+    \        \"y\": 48,\n        \"w\": 12,\n        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n\
+    \          \"unit\": \"short\",\n          \"min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\"\
+    : {\n        \"legend\": {\n          \"displayMode\": \"table\",\n          \"placement\": \"bottom\",\n          \"\
+    calcs\": [\n            \"lastNotNull\",\n            \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"refId\": \"A\",\n          \"expr\": \"omarchy_vm_running{job=\\\"omarchy-vm-host\\\"}\",\n  \
+    \        \"legendFormat\": \"VM running\"\n        },\n        {\n          \"refId\": \"B\",\n          \"expr\": \"\
+    up{job=\\\"omarchy-vm-host\\\"}\",\n          \"legendFormat\": \"host exporter\"\n        },\n        {\n          \"\
+    refId\": \"C\",\n          \"expr\": \"up{job=\\\"omarchy-vm-guest\\\"}\",\n          \"legendFormat\": \"guest exporter\"\
+    \n        }\n      ]\n    },\n    {\n      \"id\": 14,\n      \"type\": \"timeseries\",\n      \"title\": \"Guest monitoring\
+    \ coverage over 7 days\",\n      \"description\": \"One sample per minute, 100% means a full seven-day window. Do not\
+    \ downsize based on a partial idle window.\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"\
+    uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 12,\n        \"y\": 48,\n        \"w\": 12,\n  \
+    \      \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"percentunit\",\n \
+    \         \"min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n \
+    \         \"displayMode\": \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\"\
+    ,\n            \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\"\
+    ,\n          \"expr\": \"count_over_time(omarchy_vm:cpu_utilization:ratio5m[7d])/10080\",\n          \"legendFormat\"\
+    : \"{{vm}}\"\n        }\n      ]\n    },\n    {\n      \"id\": 15,\n      \"type\": \"timeseries\",\n      \"title\":\
+    \ \"Allocated vCPUs\",\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n   \
+    \     \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 56,\n        \"w\": 12,\n\
+    \        \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"short\",\n     \
+    \     \"min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n     \
+    \     \"displayMode\": \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\"\
+    ,\n            \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\"\
+    ,\n          \"expr\": \"omarchy_vm_allocated_vcpus{job=\\\"omarchy-vm-host\\\"}\",\n          \"legendFormat\": \"{{vm}}\"\
+    \n        }\n      ]\n    },\n    {\n      \"id\": 16,\n      \"type\": \"timeseries\",\n      \"title\": \"Allocated\
+    \ guest RAM\",\n      \"description\": \"\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\"\
+    : \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 12,\n        \"y\": 56,\n        \"w\": 12,\n       \
+    \ \"h\": 8\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"bytes\",\n          \"\
+    min\": 0\n        },\n        \"overrides\": []\n      },\n      \"options\": {\n        \"legend\": {\n          \"displayMode\"\
+    : \"table\",\n          \"placement\": \"bottom\",\n          \"calcs\": [\n            \"lastNotNull\",\n           \
+    \ \"max\"\n          ]\n        }\n      },\n      \"targets\": [\n        {\n          \"refId\": \"A\",\n          \"\
+    expr\": \"omarchy_vm_allocated_memory_bytes{job=\\\"omarchy-vm-host\\\"}\",\n          \"legendFormat\": \"{{vm}}\"\n\
+    \        }\n      ]\n    }\n  ],\n  \"description\": \"4 vCPUs / 8 GiB RAM / 100 GiB disk initially. Review a representative\
+    \ week including browser and build peaks. No automatic resizing. Metrics use the existing Prometheus retention (7 days,\
+    \ additionally capped by retentionSize).\"\n}\n"

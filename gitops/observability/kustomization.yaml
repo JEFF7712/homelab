@@ -9,6 +9,7 @@ resources:
   - kube-prometheus-stack/gpu-rules.yaml
   - kube-prometheus-stack/jarvis-rules.yaml
   - kube-prometheus-stack/monero-rules.yaml
+  - kube-prometheus-stack/omarchy-vm-rules.yaml
   - loki/repository.yaml
   - loki/rules-configmap.yaml
   - loki/release.yaml
@@ -20,6 +21,7 @@ resources:
   - grafana/dashboard-gpu.yaml
   - grafana/dashboard-hosts.yaml
   - grafana/dashboard-zfs.yaml
+  - grafana/dashboard-omarchy-vm.yaml
   - ntfy/repository.yaml
   - ntfy/release.yaml
   - ntfy/pvc.yaml

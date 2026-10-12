@@ -1,0 +1,77 @@
+# yamllint disable rule:line-length
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: omarchy-vm
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: omarchy-vm
+      interval: 1m
+      rules:
+        - record: omarchy_vm:cpu_utilization:ratio5m
+          expr: 1 - avg by (vm, host) (rate(node_cpu_seconds_total{job="omarchy-vm-guest",mode="idle"}[5m]))
+        - record: omarchy_vm:memory_utilization:ratio
+          expr: 1 - node_memory_MemAvailable_bytes{job="omarchy-vm-guest"} / node_memory_MemTotal_bytes{job="omarchy-vm-guest"}
+        - alert: OmarchyVMExporterMissing
+          expr: absent(up{job="omarchy-vm-host",vm="akshath"}) or up{job="omarchy-vm-host",vm="akshath"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Akshath VM monitoring unavailable
+            description: Check omarchy-akshath-metrics.service on homelab-05. Missing data must not be treated as
+              idle capacity.
+        - alert: OmarchyVMStopped
+          expr: omarchy_vm_running{job="omarchy-vm-host"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Akshath VM is stopped
+            description: Check omarchy-akshath.service on {{ $labels.host }}.
+        - alert: OmarchyVMGuestMetricsUnavailable
+          expr: up{job="omarchy-vm-guest"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Akshath guest metrics unavailable
+            description: Check guest boot/network and prometheus-node-exporter.service. Host QEMU cgroup memory
+              is not guest memory demand.
+        - alert: OmarchyVMCPUSaturated
+          expr: omarchy_vm:cpu_utilization:ratio5m > 0.85
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: Akshath VM CPU utilization above 85%
+            description: Review CPU pressure, throttling and host headroom before increasing vCPUs.
+        - alert: OmarchyVMMemoryPressure
+          expr: omarchy_vm:memory_utilization:ratio > 0.85
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Akshath VM available RAM below 15%
+            description: Check browser/build concurrency, swap and memory pressure before allocating more RAM.
+        - alert: OmarchyVMOOMKilled
+          expr: increase(omarchy_vm_oom_kills_total{job="omarchy-vm-host"}[15m]) > 0
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: Akshath QEMU exceeded its host memory limit
+            description: Inspect the service and guest before restarting. The host limit includes 1 GiB QEMU overhead.
+        - alert: OmarchyVMDiskFilling
+          expr: 1 - node_filesystem_avail_bytes{job="omarchy-vm-guest",mountpoint="/"} / node_filesystem_size_bytes{job="omarchy-vm-guest",mountpoint="/"}
+            > 0.8
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Akshath guest disk above 80%
+            description: Review caches and snapshots. Grow the virtual disk and guest filesystem together; never
+              shrink a live qcow2.
