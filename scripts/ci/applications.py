@@ -115,14 +115,14 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
         expected_kinds = {
             "static-site-v1": {"static"},
             "python-service-v1": {"container", "none"},
-            "dotnet-service-v1": {"none"},
+            "dotnet-service-v1": {"none", "dotnet"},
             "node-service-v1": {"none", "node"},
             "nixos-config-v1": {"none"},
             "firmware-v1": {"none"},
         }[app.validator]
         if app.release_kind not in expected_kinds:
             raise ValueError("Release kind must match the validator contract")
-        if app.release_kind == "container":
+        if app.release_kind in {"container", "dotnet"}:
             from scripts.ci.container_release import (
                 check_files_manifest,
                 check_scripts_manifest,
@@ -157,6 +157,12 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 raise ValueError("Release env must be a string mapping")
             if not app.release_workdir.startswith("/"):
                 raise ValueError("Release workdir must be absolute")
+            if app.release_kind == "dotnet":
+                from scripts.ci.dotnet_release import FILES, check_contract
+
+                check_contract(supply_entries, app.validation_image)
+                if app.release_files != FILES or app.release_scripts:
+                    raise ValueError("Dotnet releases require compiler-owned outputs")
         elif app.release_kind == "node":
             from scripts.ci.node_release import (
                 check_build_manifest,
@@ -266,7 +272,11 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
             or app.release_gid != 0
         ):
             raise ValueError("Non-container releases must not carry container fields")
-        if not re.fullmatch(
+        retained_dotnet_sdk = app.release_kind == "dotnet" and re.fullmatch(
+            r"registry\.rupan\.dev/apps/dotnet-sdk-6@sha256:[a-f0-9]{64}",
+            app.validation_image,
+        )
+        if not retained_dotnet_sdk and not re.fullmatch(
             r"registry\.rupan\.dev/upstream/(docker\.io/(library/python|nginxinc/nginx-unprivileged|oven/bun|library/node|nixos/nix)|ghcr\.io/astral-sh/uv)[A-Za-z0-9_./-]*@sha256:[a-f0-9]{64}",
             app.validation_image,
         ):
@@ -463,7 +473,7 @@ def configuration(
     configs = [
         {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}
     ]
-    releasable = app.release_kind in {"static", "container", "node"}
+    releasable = app.release_kind in {"static", "container", "node", "dotnet"}
     if (
         event == "push"
         and pipeline.get("ref") == f"refs/heads/{app.default_branch}"
@@ -549,9 +559,14 @@ def configuration(
                 app.repository.split("/")[0],
             ]
         else:
-            release_source = (
-                Path(__file__).with_name("container_release.py").read_bytes()
-            )
+            if app.release_kind == "dotnet":
+                from scripts.ci.dotnet_release import bundled_source
+
+                release_source = bundled_source(Path(__file__).parent)
+            else:
+                release_source = (
+                    Path(__file__).with_name("container_release.py").read_bytes()
+                )
             release_tag = "<server-owned-container-release>"
             release_stub = (
                 'python -I -c "import base64,gzip; exec(compile(gzip.decompress('
@@ -592,6 +607,8 @@ def configuration(
                 "--forgejo-owner",
                 app.repository.split("/")[0],
             ]
+            if app.release_kind == "dotnet":
+                release_args.extend(["--build-image", app.validation_image])
         command = release_stub.format(encoded=release_payload)
         arguments = " ".join(shlex.quote(v) for v in release_args)
         if app.release_kind == "static":
@@ -603,7 +620,7 @@ def configuration(
         prepare_env: dict[str, Any] = {
             "REGISTRY_PASSWORD": {"from_secret": "registry_read_password"}
         }
-        if app.release_kind in {"container", "node"}:
+        if app.release_kind in {"container", "node", "dotnet"}:
             prepare_env["FORGEJO_TOKEN"] = {"from_secret": "supply_read_password"}
         release = {
             "when": [{"event": "push", "branch": app.default_branch}],
