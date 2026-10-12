@@ -29,8 +29,8 @@ with urllib.request.urlopen(request, timeout=60) as response:
 EOF
 )
 echo "nixos-config main tip: $tip"
-cat > "$work/askpass" <<'EOF'
-#!/usr/bin/env bash
+printf '#!%s\n' "$(command -v bash)" > "$work/askpass"
+cat >> "$work/askpass" <<'EOF'
 case "$1" in
   *Username*) printf '%s\n' homelab-ci-source ;;
   *Password*) printf '%s\n' "$FORGEJO_SOURCE_READ_TOKEN" ;;

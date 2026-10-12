@@ -28,7 +28,7 @@ class NixosPublishTests(unittest.TestCase):
             bin_dir = root / "bin"
             bin_dir.mkdir()
             python = bin_dir / "python3"
-            python.write_text(f"#!/bin/sh\nprintf '%s\\n' '{SHA}'\n")
+            python.write_text(f"#!{shutil.which('bash')}\nprintf '%s\\n' '{SHA}'\n")
             python.chmod(0o700)
             real_git = shutil.which("git")
             self.assertIsNotNone(real_git)
@@ -71,6 +71,7 @@ class NixosPublishTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
+            self.assertTrue((root / "clone").exists(), result.stderr)
             receipts = {
                 "clone": json.loads((root / "clone").read_text()),
                 "cache": (root / "cache").read_text()
