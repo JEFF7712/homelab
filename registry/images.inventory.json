@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-09T00:54:47+00:00",
+  "generated_at": "2026-10-12T02:47:53+00:00",
   "images": [
     {
       "consumers": [
@@ -2375,6 +2375,23 @@
         "registry": "docker.io",
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/platform/intel-gpu-plugin/daemonset.yaml:38"
+      ],
+      "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/intel/intel-gpu-plugin",
+      "id": "upstream-upstream-docker-io-intel-intel-gpu-plugin-b13b7e1d62bd",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+        "reference": "registry.rupan.dev/upstream/docker.io/intel/intel-gpu-plugin@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+        "registry": "registry.rupan.dev",
+        "repository": "upstream/docker.io/intel/intel-gpu-plugin",
+        "tag": null
       }
     }
   ],

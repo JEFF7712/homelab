@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-09T00:54:47+00:00",
+  "generated_at": "2026-10-12T02:47:53+00:00",
   "images": [
     {
       "authenticity": {
@@ -4840,6 +4840,40 @@
         "registry": "docker.io",
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/intel-gpu-plugin/daemonset.yaml:38"
+      ],
+      "destination_repository": "upstream/docker.io/intel/intel-gpu-plugin",
+      "destination_tags": [
+        "retention-deployed-004641b2547d58f1"
+      ],
+      "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+      "id": "upstream-intel-intel-gpu-plugin-70c51b4b6aac",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "platforms": [],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+        "reference": "docker.io/intel/intel-gpu-plugin@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+        "registry": "docker.io",
+        "repository": "intel/intel-gpu-plugin",
+        "tag": null
       }
     }
   ],
