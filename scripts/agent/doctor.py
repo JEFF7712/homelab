@@ -20,6 +20,7 @@ def run_doctor(root: Path) -> dict[str, Any]:
         "jq",
         "timeout",
         "nix",
+        "tea",
         "nixfmt",
         "ruff",
         "pyright",

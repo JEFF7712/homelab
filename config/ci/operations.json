@@ -1337,7 +1337,7 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deploy-fleet --dry-run ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
+      "just deploy-fleet --dry-run"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1390,7 +1390,7 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deploy-fleet ${DEPLOY_TARGETS:+--target $DEPLOY_TARGETS}"
+      "just deploy-fleet"
     ],
     "environment": {
       "HOSTS_KNOWN": {

@@ -26,6 +26,9 @@ cert-manager for internal TLS.
 
 ## How it's managed
 
-NixOS via flakes, firewall via OpenTofu plus a small reconciler, Kubernetes
-via Flux, all deployed through CI from the NAS. The repo is the source of
-truth; live state is verified, never hand-edited.
+NixOS via flakes and the fleet deployer, firewall via OpenTofu plus a small
+reconciler, and Kubernetes via Flux. Protected CI owns provider changes and
+approved fleet operations; Flux reconciles Kubernetes state from Forgejo. The
+repo is the source of truth; live state is verified, never hand-edited. See
+[AGENT_MAP.md](AGENT_MAP.md) for owning source, minimum checks, and runbooks
+before making or applying changes.
