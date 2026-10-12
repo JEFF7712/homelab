@@ -153,8 +153,8 @@ class AutomationTest(unittest.TestCase):
         previous = {
             "generated_at": "old",
             "images": [
-                {"destination_repository": "apps/nix-agent-site", "digest": "old"},
                 {"destination_repository": "apps/other", "digest": "same"},
+                {"destination_repository": "apps/nix-agent-site", "digest": "old"},
             ],
         }
         current = {
