@@ -17,6 +17,7 @@ in
   config = lib.mkIf cfg.enable {
     systemd.services.platform-backup = {
       description = "Back up Git, CI, state, and recovery credentials";
+      unitConfig.RequiresMountsFor = "/persist";
       path = [
         pkgs.restic
         pkgs.systemd
