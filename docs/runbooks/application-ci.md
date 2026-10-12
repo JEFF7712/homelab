@@ -222,3 +222,16 @@ reporting every targeted runner idle.
 Darkbit, Pod Agent, Soluble, Bookshelf and the NixOS host runners remain enabled
 pending separate owner verification. Restore a retired runner by reverting its
 replica count through a protected homelab PR and Flux.
+
+## Policy deployment and recovery
+
+The NixOS policy package includes the Node release implementation and validates
+workflow generation for every enrolled application during its build. The
+service uses immutable operation and application catalogs from that same
+configuration.
+
+After an emergency policy override, verify the rebuilt package, deploy the
+reviewed configuration and retire the override. Check the effective service
+command and `PYTHONPATH`: both must use the deployed Nix store inputs. An
+override under `/run/systemd/system` disappears on reboot and can retain an
+older operation catalog even while application code is updated separately.

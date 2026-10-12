@@ -23,7 +23,32 @@ let
     cp ${../../scripts/ci/firmware.py} $out/scripts/ci/firmware.py
     cp ${../../scripts/ci/dockerfile_supply.py} $out/scripts/ci/dockerfile_supply.py
     cp ${../../scripts/ci/container_release.py} $out/scripts/ci/container_release.py
+    cp ${../../scripts/ci/node_release.py} $out/scripts/ci/node_release.py
     touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
+    PYTHONPATH=$out ${python}/bin/python -c ${lib.escapeShellArg ''
+      from pathlib import Path
+      from scripts.ci.applications import load_catalog, configuration
+
+      applications = load_catalog(Path("${../../config/ci/applications.json}"))
+      for app in applications:
+          if app.woodpecker_repository_id is None:
+              continue
+          owner, name = app.repository.split("/")
+          request = {
+              "repo": {"id": app.woodpecker_repository_id, "owner": owner, "name": name},
+              "pipeline": {
+                  "event": "push",
+                  "ref": "refs/heads/" + app.default_branch,
+                  "commit": "0" * 40,
+                  "number": 1,
+                  "from_fork": False,
+              },
+          }
+          generated = configuration(request, applications)
+          assert generated["configs"], app.id
+          if app.release_kind != "none":
+              assert any(item["name"] == "application-release.yaml" for item in generated["configs"]), app.id
+    ''}
   '';
   agent = tier: count: {
     enable = true;
