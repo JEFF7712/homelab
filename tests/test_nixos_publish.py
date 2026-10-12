@@ -15,7 +15,7 @@ SHA = "a" * 40
 
 class NixosPublishTests(unittest.TestCase):
     def run_publish(
-        self, clone_sha: str
+        self, clone_sha: str, attic_token: str | None = "test-attic-token"
     ) -> tuple[subprocess.CompletedProcess[str], dict]:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -63,6 +63,10 @@ class NixosPublishTests(unittest.TestCase):
                 "GIT_CONFIG_GLOBAL": os.devnull,
                 "GIT_CONFIG_NOSYSTEM": "1",
             }
+            if attic_token is None:
+                env.pop("ATTIC_TOKEN", None)
+            else:
+                env["ATTIC_TOKEN"] = attic_token
             result = subprocess.run(
                 ["bash", str(scripts / "nixos_publish.sh")],
                 cwd=root,
@@ -71,9 +75,13 @@ class NixosPublishTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
-            self.assertTrue((root / "clone").exists(), result.stderr)
+            self.assertEqual(
+                (root / "clone").exists(), bool(attic_token), result.stderr
+            )
             receipts = {
-                "clone": json.loads((root / "clone").read_text()),
+                "clone": json.loads((root / "clone").read_text())
+                if (root / "clone").exists()
+                else None,
                 "cache": (root / "cache").read_text()
                 if (root / "cache").exists()
                 else None,
@@ -93,6 +101,16 @@ class NixosPublishTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("does not match resolved tip", result.stderr)
         self.assertIsNone(receipts["cache"])
+
+    def test_missing_or_empty_upload_token_fails_before_build(self) -> None:
+        for token in (None, ""):
+            with self.subTest(token=token):
+                result, receipts = self.run_publish(SHA, attic_token=token)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ATTIC_TOKEN is required for publication", result.stderr)
+                self.assertIsNone(receipts["clone"])
+                self.assertIsNone(receipts["cache"])
+                self.assertNotIn("published nixos-config", result.stdout)
 
 
 if __name__ == "__main__":
