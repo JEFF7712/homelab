@@ -560,6 +560,16 @@ class PolicyTest(unittest.TestCase):
             operation["environment"]["FORGEJO_SOURCE_READ_TOKEN"],
             {"from_secret": "forgejo_source_read_token"},
         )
+        self.assertEqual(operation["environment"]["TF_HTTP_USERNAME"], "deploy")
+        self.assertEqual(
+            operation["environment"]["TF_HTTP_PASSWORD"],
+            {"from_secret": "state_deploy_password"},
+        )
+        self.assertEqual(
+            operation["environment"]["STATE_CA_FILE"],
+            {"from_secret": "state_ca_file"},
+        )
+        self.assertIn("STATE_CA_FILE", operation["file_secrets"])
         self.assertEqual(
             operation["environment"]["CI_AUTO_MERGE_PROMOTION"], "nix-agent-site"
         )
