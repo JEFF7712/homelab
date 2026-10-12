@@ -7,10 +7,54 @@ from unittest.mock import patch
 
 from scripts.ci.platform_backup import (
     rotate_check_partition,
+    run_backup,
     run_maintenance,
     stop_active_services,
     verify_restored_backup,
 )
+
+
+class PlatformBackupStagingTests(unittest.TestCase):
+    @patch("scripts.ci.platform_backup.subprocess.run")
+    def test_snapshot_uses_persistent_storage_and_cleans_up(self, run):
+        with tempfile.TemporaryDirectory() as temporary:
+            persist = Path(temporary)
+            database = persist / "woodpecker/server-data/woodpecker.sqlite"
+            database.parent.mkdir(parents=True)
+            with sqlite3.connect(database) as connection:
+                connection.execute("CREATE TABLE evidence (value TEXT)")
+                connection.execute("INSERT INTO evidence VALUES ('retained')")
+
+            def verify_stage(command, *, cwd, check):
+                self.assertIn("backup", command)
+                self.assertTrue(check)
+                self.assertEqual(cwd.parent, persist / "platform-backup")
+                with sqlite3.connect(
+                    cwd / "woodpecker/server-data/woodpecker.sqlite"
+                ) as connection:
+                    self.assertEqual(
+                        connection.execute("SELECT value FROM evidence").fetchone(),
+                        ("retained",),
+                    )
+                self.assertEqual(cwd.stat().st_mode & 0o777, 0o700)
+
+            run.side_effect = verify_stage
+            run_backup("homelab-04", persist_root=persist)
+            run.assert_called_once()
+            self.assertEqual(list((persist / "platform-backup").iterdir()), [])
+
+    @patch("scripts.ci.platform_backup.subprocess.run")
+    def test_failed_upload_cleans_persistent_stage(self, run):
+        with tempfile.TemporaryDirectory() as temporary:
+            persist = Path(temporary)
+            database = persist / "woodpecker/server-data/woodpecker.sqlite"
+            database.parent.mkdir(parents=True)
+            with sqlite3.connect(database) as connection:
+                connection.execute("CREATE TABLE evidence (value TEXT)")
+            run.side_effect = subprocess.CalledProcessError(1, ["restic", "backup"])
+            with self.assertRaises(subprocess.CalledProcessError):
+                run_backup("homelab-04", persist_root=persist)
+            self.assertEqual(list((persist / "platform-backup").iterdir()), [])
 
 
 class PlatformBackupServiceTests(unittest.TestCase):
