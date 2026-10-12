@@ -823,21 +823,20 @@
       ],
       "destination_repository": "apps/rupan-dev",
       "destination_tags": [
-        "0.0.1000001",
-        "retention-deployed-665e49253074d6bc"
+        "0.0.1000017",
+        "retention-deployed-fdd4a9297cbc5b77"
       ],
-      "digest": "sha256:665e49253074d6bc0482e9a928b36030a61897b0e85c36c6b49ce5c87be9eef9",
+      "digest": "sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
       "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
-        "linux/amd64",
-        "unknown/unknown"
+        "linux/amd64"
       ],
       "producer": {
-        "location": "external-image-repository:ghcr.io/jeff7712/rupan-dev",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "JEFF7712/rupan.dev",
+        "owner": "JEFF7712",
+        "pipeline_status": "verified-woodpecker-release"
       },
       "referrers": {
         "required": [],
@@ -850,9 +849,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
-        "tag": "0.0.1000001",
-        "digest": "sha256:665e49253074d6bc0482e9a928b36030a61897b0e85c36c6b49ce5c87be9eef9",
-        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000001@sha256:665e49253074d6bc0482e9a928b36030a61897b0e85c36c6b49ce5c87be9eef9"
+        "tag": "0.0.1000017",
+        "digest": "sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
+        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000017@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8"
       }
     },
     {
