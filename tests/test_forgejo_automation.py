@@ -31,12 +31,17 @@ def embedded(filename: str, key: str) -> dict:
 
 class AutomationTest(unittest.TestCase):
     def test_auto_merge_waits_for_the_required_homelab_status(self) -> None:
-        pull = {"number": 42, "head": {"sha": SHA}}
+        pull = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "base-sha"},
+        }
         with patch.object(
             promote_commit,
             "_api",
             side_effect=[
                 pull,
+                {"commit": {"id": "base-sha"}},
                 {
                     "statuses": [
                         {
@@ -50,7 +55,7 @@ class AutomationTest(unittest.TestCase):
             ],
         ) as api:
             promote_commit._auto_merge_pull("fixture-token", pull)
-        self.assertEqual(api.call_count, 3)
+        self.assertEqual(api.call_count, 4)
         self.assertEqual(
             api.call_args_list[-1].args,
             ("fixture-token", "/pulls/42/merge"),
@@ -58,13 +63,18 @@ class AutomationTest(unittest.TestCase):
         self.assertEqual(api.call_args_list[-1].kwargs["data"], {"Do": "merge"})
 
     def test_auto_merge_rejects_a_failed_required_status(self) -> None:
-        pull = {"number": 42, "head": {"sha": SHA}}
+        pull = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "base-sha"},
+        }
         with (
             patch.object(
                 promote_commit,
                 "_api",
                 side_effect=[
                     pull,
+                    {"commit": {"id": "base-sha"}},
                     {
                         "statuses": [
                             {
@@ -79,7 +89,54 @@ class AutomationTest(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "validation failed"),
         ):
             promote_commit._auto_merge_pull("fixture-token", pull)
-        self.assertEqual(api.call_count, 2)
+        self.assertEqual(api.call_count, 3)
+
+    def test_auto_merge_rebases_when_main_advances_and_waits_for_new_status(
+        self,
+    ) -> None:
+        pull = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "old-base"},
+        }
+        updated = {
+            "number": 42,
+            "head": {"sha": "rebased-sha"},
+            "base": {"sha": "new-base"},
+        }
+        with (
+            patch.object(
+                promote_commit,
+                "_api",
+                side_effect=[
+                    pull,
+                    {"commit": {"id": "new-base"}},
+                    {},
+                    updated,
+                    updated,
+                    {"commit": {"id": "new-base"}},
+                    {
+                        "statuses": [
+                            {
+                                "context": promote_commit.REQUIRED_CONTEXT,
+                                "status": "success",
+                            }
+                        ]
+                    },
+                    {},
+                ],
+            ) as api,
+            patch.object(promote_commit.time, "sleep"),
+        ):
+            promote_commit._auto_merge_pull("fixture-token", pull)
+        self.assertEqual(
+            api.call_args_list[2].args,
+            ("fixture-token", "/pulls/42/update?style=rebase"),
+        )
+        self.assertEqual(
+            api.call_args_list[-1].args,
+            ("fixture-token", "/pulls/42/merge"),
+        )
 
     def test_auto_promotion_lock_scope_rejects_unrelated_records(self) -> None:
         previous = {

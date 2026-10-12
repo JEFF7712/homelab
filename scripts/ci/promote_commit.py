@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -89,6 +90,13 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
         current = _api(token, f"/pulls/{number}")
         if current.get("head", {}).get("sha") != expected_sha:
             raise ValueError("Promotion PR head changed while awaiting validation")
+        main = _api(token, "/branches/main")
+        if current.get("base", {}).get("sha") != main.get("commit", {}).get("id"):
+            _api(token, f"/pulls/{number}/update?style=rebase", data={})
+            updated = _api(token, f"/pulls/{number}")
+            expected_sha = updated["head"]["sha"]
+            time.sleep(15)
+            continue
         status = _api(token, f"/commits/{expected_sha}/status")
         matches = [
             item
@@ -97,7 +105,16 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
         ]
         latest = max(matches, key=lambda item: item.get("updated_at", ""), default=None)
         if latest and latest.get("status") == "success":
-            _api(token, f"/pulls/{number}/merge", data={"Do": "merge"})
+            try:
+                _api(token, f"/pulls/{number}/merge", data={"Do": "merge"})
+            except urllib.error.HTTPError as error:
+                if (
+                    error.code != 405
+                    or b"head branch is behind the base branch" not in error.read()
+                ):
+                    raise
+                time.sleep(1)
+                continue
             print(
                 f"Required validation passed; merged nix-agent promotion PR #{number}"
             )
