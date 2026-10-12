@@ -69,16 +69,22 @@ def _assert_nix_agent_only(changed: list[str]) -> None:
     ]
     if len(old_target) != 1 or len(new_target) != 1:
         raise ValueError("Automatic promotion requires one locked nix-agent image")
-    previous["images"] = [
-        item
-        for item in previous_images
-        if item.get("destination_repository") != "apps/nix-agent-site"
-    ]
-    current["images"] = [
-        item
-        for item in current_images
-        if item.get("destination_repository") != "apps/nix-agent-site"
-    ]
+    previous["images"] = sorted(
+        (
+            item
+            for item in previous_images
+            if item.get("destination_repository") != "apps/nix-agent-site"
+        ),
+        key=lambda item: json.dumps(item, sort_keys=True),
+    )
+    current["images"] = sorted(
+        (
+            item
+            for item in current_images
+            if item.get("destination_repository") != "apps/nix-agent-site"
+        ),
+        key=lambda item: json.dumps(item, sort_keys=True),
+    )
     if previous != current or old_target == new_target:
         raise ValueError("Automatic promotion changed unrelated lock policy")
 
