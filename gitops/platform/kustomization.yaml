@@ -8,6 +8,7 @@ resources:
   - reloader/release.yaml
   - nvidia-device-plugin/runtimeclass.yaml
   - nvidia-device-plugin/daemonset.yaml
+  - intel-gpu-plugin/daemonset.yaml
   - priorityclass.yaml
   - coredns-pdb.yaml
   - coredns-custom.yaml
