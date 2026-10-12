@@ -223,6 +223,15 @@ Darkbit, Pod Agent, Soluble, Bookshelf and the NixOS host runners remain enabled
 pending separate owner verification. Restore a retired runner by reverting its
 replica count through a protected homelab PR and Flux.
 
+## NixOS artifact publishing
+
+The manual `nixos-publish` operation resolves `JEFF7712/nixos-config/main`,
+verifies the cloned tip, and builds the laptop system and installer ISO for
+Attic. The `forgejo_source_read_token` needs `read:repository` access to both
+`JEFF7712/homelab` and `JEFF7712/nixos-config`. Repository collaboration alone
+does not grant access through a token restricted to a different repository.
+The checkout uses a temporary Git askpass helper; credentials stay out of URLs.
+
 ## Policy deployment and recovery
 
 The NixOS policy package includes the Node release implementation and validates
