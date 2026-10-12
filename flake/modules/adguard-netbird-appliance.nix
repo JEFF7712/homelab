@@ -34,7 +34,7 @@
         ip saddr { 10.0.30.14, 10.0.30.20 } tcp dport 22 accept
         ip saddr 10.0.30.0/24 tcp dport 53 accept
         ip saddr 10.0.30.0/24 udp dport 53 accept
-        ip saddr { 10.0.30.11, 10.0.30.12, 10.0.30.13, 10.0.30.14, 10.0.30.15 } tcp dport 1883 accept
+        ip saddr { 10.0.20.120, 10.0.30.11, 10.0.30.12, 10.0.30.13, 10.0.30.14, 10.0.30.15 } tcp dport 1883 accept
         ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept
         ip saddr 10.0.30.0/24 tcp dport 9100 accept
         iifname "wt0" tcp dport { 22, 53, 3000 } accept
