@@ -255,11 +255,18 @@
     "environment": {
       "REGISTRY_NODE_PASSWORD_FILE": {"from_secret": "registry_node_password_file"},
       "REGISTRY_SOURCE_AUTH_FILE": {"from_secret": "registry_source_auth_file"},
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {"from_secret": "state_deploy_password"},
+      "STATE_CA_FILE": {"from_secret": "state_ca_file"},
       "FORGEJO_PUBLISH_TOKEN": {"from_secret": "forgejo_publish_token"},
       "FORGEJO_SOURCE_READ_TOKEN": {"from_secret": "forgejo_source_read_token"},
       "CI_AUTO_MERGE_PROMOTION": "nix-agent-site"
     },
-    "file_secrets": ["REGISTRY_NODE_PASSWORD_FILE", "REGISTRY_SOURCE_AUTH_FILE"],
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "REGISTRY_SOURCE_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
     "group": "registry-content",
     "needs": [],
     "outputs": ["promote-report.json"],
