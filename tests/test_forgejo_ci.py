@@ -557,6 +557,10 @@ class PolicyTest(unittest.TestCase):
         operation = self.catalog["registry-promote-nix-agent"]
         self.assertTrue(operation["mutation"])
         self.assertEqual(
+            operation["environment"]["FORGEJO_SOURCE_READ_TOKEN"],
+            {"from_secret": "forgejo_source_read_token"},
+        )
+        self.assertEqual(
             operation["environment"]["CI_AUTO_MERGE_PROMOTION"], "nix-agent-site"
         )
         command = "\n".join(operation["commands"])
