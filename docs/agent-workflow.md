@@ -44,6 +44,12 @@ just forgejo-pr "imperative title"   # opens the PR against main
 just forgejo-merge <index>           # prefer fast-forward merges
 ```
 
+Use Forgejo's internal address from agent sessions: `http://git.internal:3000` for the web UI and `ssh://forgejo@git.internal:2222/<owner>/<repo>.git` for Git over SSH. The public `git.rupan.dev` hostname is protected by Cloudflare Access and can redirect an unauthenticated browser to the Access sign-in page. When that happens, switch to the internal address; the Forgejo web UI may still require its own login.
+
+The `tea` CLI uses the login saved in `~/.config/tea/config.yml`. Check `tea login list` for an entry whose URL is `http://git.internal:3000`; never print or copy the token from that file. If the login is missing, follow the one-time setup below. Use `tea pr create --repo <owner>/<repo> --base main --head <branch> --title "<title>"` for repositories other than `JEFF7712/homelab`; the `just forgejo-pr` recipe above is scoped to the homelab repository.
+
+For direct API access, send requests to `http://git.internal:3000/api/v1/...` with `Authorization: token <saved-token>`. Read the token programmatically from the `tea` login config and never print it or send it to the public host. Create a PR with `POST /api/v1/repos/<owner>/<repo>/pulls`, using `title`, `head`, `base`, and `body` fields.
+
 One-time setup (human, Forgejo UI): create `homelab-agent`, add it as collaborator with write access to `JEFF7712/homelab` only, generate its token with exactly `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`, then run `tea login add --url http://git.internal:3000` on each agent machine. Branch protection binds the machine user too: no direct pushes to main, and merges require a green `ci/woodpecker/validation-v2` status. Where the optional machine-user SSH key is registered (setup step 4 in [Agent Forgejo access](runbooks/ci-pipelines.md)), push with `git push git-agent:JEFF7712/homelab.git <branch>` so the push is also attributed to the machine user; otherwise `git push origin` uses the machine's default Forgejo identity. Full procedure and token rotation: [Agent Forgejo access](runbooks/ci-pipelines.md).
 
 ## Check mapping
