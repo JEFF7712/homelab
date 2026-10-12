@@ -13,6 +13,7 @@
               "readwrite homeassistant/#"
               "readwrite zigbee2mqtt/#"
               "readwrite roku/#"
+              "readwrite bus-display/#"
             ];
           };
           zigbee2mqtt = {
