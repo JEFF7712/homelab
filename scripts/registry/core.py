@@ -1688,6 +1688,7 @@ def promote_first_party_lock(
     lock: dict[str, Any],
     *,
     only: set[str] | None = None,
+    exclude: set[str] | None = None,
 ) -> dict[str, Any]:
     """Promote first-party lock records to newest producer tags.
 
@@ -1708,8 +1709,10 @@ def promote_first_party_lock(
     migrated: list[str] = []
     records: list[dict[str, Any]] = []
     for record in lock["images"]:
-        if record.get("kind") != "first-party" or (
-            only is not None and record.get("destination_repository") not in only
+        if (
+            record.get("kind") != "first-party"
+            or (only is not None and record.get("destination_repository") not in only)
+            or (exclude is not None and record.get("destination_repository") in exclude)
         ):
             records.append(record)
             continue

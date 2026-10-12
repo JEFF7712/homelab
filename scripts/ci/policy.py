@@ -324,6 +324,7 @@ def configuration(
                     "registry-drift-check",
                     "registry-retention-reconcile",
                     "registry-promote-first-party",
+                    "registry-promote-nix-agent",
                     "registry-resolve",
                     "registry-auth-consistency",
                     "registry-gc-fixture",

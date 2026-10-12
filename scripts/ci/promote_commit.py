@@ -3,10 +3,15 @@ import json
 import os
 import subprocess
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 from scripts.ci.operation import current_source
+
+FORGEJO_API = "http://git.internal:3000/api/v1/repos/JEFF7712/homelab"
+REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 
 
 def _change_key(path: str, data: bytes) -> bytes:
@@ -21,6 +26,112 @@ def _change_key(path: str, data: bytes) -> bytes:
     return data
 
 
+def _api(token: str, path: str, *, data: dict | None = None) -> dict:
+    payload = None if data is None else json.dumps(data).encode()
+    request = urllib.request.Request(
+        FORGEJO_API + path,
+        data=payload,
+        headers={
+            "Authorization": f"token {token}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response) if response.status != 204 else {}
+
+
+def _assert_nix_agent_only(changed: list[str]) -> None:
+    allowed = {
+        "registry/images.lock.json",
+        "gitops/websites/nixagent/deployment.yaml",
+    }
+    if set(changed) != allowed:
+        raise ValueError("Automatic promotion may change only the nix-agent digest")
+    previous = json.loads(
+        subprocess.check_output(
+            ["git", "show", "HEAD:registry/images.lock.json"], text=True
+        )
+    )
+    current = json.loads(Path("registry/images.lock.json").read_text())
+    previous.pop("generated_at", None)
+    current.pop("generated_at", None)
+    previous_images = previous.get("images", [])
+    current_images = current.get("images", [])
+    old_target = [
+        item
+        for item in previous_images
+        if item.get("destination_repository") == "apps/nix-agent-site"
+    ]
+    new_target = [
+        item
+        for item in current_images
+        if item.get("destination_repository") == "apps/nix-agent-site"
+    ]
+    if len(old_target) != 1 or len(new_target) != 1:
+        raise ValueError("Automatic promotion requires one locked nix-agent image")
+    previous["images"] = [
+        item
+        for item in previous_images
+        if item.get("destination_repository") != "apps/nix-agent-site"
+    ]
+    current["images"] = [
+        item
+        for item in current_images
+        if item.get("destination_repository") != "apps/nix-agent-site"
+    ]
+    if previous != current or old_target == new_target:
+        raise ValueError("Automatic promotion changed unrelated lock policy")
+
+
+def _auto_merge_pull(token: str, pull: dict) -> None:
+    number = int(pull["number"])
+    _api(token, f"/pulls/{number}/update?style=rebase", data={})
+    current = _api(token, f"/pulls/{number}")
+    expected_sha = current["head"]["sha"]
+    expected_base_sha = current["base"]["sha"]
+    for _ in range(120):
+        current = _api(token, f"/pulls/{number}")
+        if current.get("head", {}).get("sha") != expected_sha:
+            raise ValueError("Promotion PR head changed while awaiting validation")
+        if current.get("base", {}).get("sha") != expected_base_sha:
+            _api(token, f"/pulls/{number}/update?style=rebase", data={})
+            updated = _api(token, f"/pulls/{number}")
+            expected_sha = updated["head"]["sha"]
+            expected_base_sha = updated["base"]["sha"]
+            time.sleep(15)
+            continue
+        status = _api(token, f"/commits/{expected_sha}/status")
+        matches = [
+            item
+            for item in status.get("statuses", [])
+            if item.get("context") == REQUIRED_CONTEXT
+        ]
+        latest = max(matches, key=lambda item: item.get("updated_at", ""), default=None)
+        if latest and latest.get("status") == "success":
+            try:
+                _api(token, f"/pulls/{number}/merge", data={"Do": "merge"})
+            except urllib.error.HTTPError as error:
+                if (
+                    error.code != 405
+                    or b"head branch is behind the base branch" not in error.read()
+                ):
+                    raise
+                updated = _api(token, f"/pulls/{number}/update?style=rebase", data={})
+                updated = _api(token, f"/pulls/{number}")
+                expected_sha = updated["head"]["sha"]
+                expected_base_sha = updated["base"]["sha"]
+                time.sleep(15)
+                continue
+            print(
+                f"Required validation passed; merged nix-agent promotion PR #{number}"
+            )
+            return
+        if latest and latest.get("status") in {"failure", "error"}:
+            raise ValueError("Required homelab validation failed for promotion PR")
+        time.sleep(15)
+    raise TimeoutError("Timed out waiting for homelab validation on promotion PR")
+
+
 def main() -> None:
     current_source(dict(os.environ))
     changed = subprocess.check_output(
@@ -29,6 +140,9 @@ def main() -> None:
     ).splitlines()
     if not changed:
         return
+    auto_merge = os.environ.get("CI_AUTO_MERGE_PROMOTION") == "nix-agent-site"
+    if auto_merge:
+        _assert_nix_agent_only(changed)
     if any(not Path(path).is_file() for path in changed):
         raise ValueError("Promotion cannot delete files")
     content = b"".join(
@@ -66,6 +180,8 @@ def main() -> None:
         print(
             f"Promotion is already awaiting review: {existing['web_url' if recovery else 'html_url']}"
         )
+        if auto_merge:
+            _auto_merge_pull(token, existing)
         return
     subprocess.run(["git", "add", "--", *changed], check=True)
     subprocess.run(
@@ -130,6 +246,8 @@ def main() -> None:
     print(
         f"Promotion is ready for review: {pull['web_url' if recovery else 'html_url']}"
     )
+    if auto_merge:
+        _auto_merge_pull(token, pull)
 
 
 if __name__ == "__main__":

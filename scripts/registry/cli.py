@@ -31,7 +31,6 @@ from .core import (
     render_node_config,
     resolve_inventory,
     rewrite_consumer_digests,
-    rewrite_observed_digests,
     verify_lock,
 )
 
@@ -70,6 +69,17 @@ def _parser() -> argparse.ArgumentParser:
         action="append",
         default=None,
         help="limit promotion to destination repositories (repeatable)",
+    )
+    promote.add_argument(
+        "--exclude",
+        action="append",
+        default=None,
+        help="exclude destination repositories from promotion (repeatable)",
+    )
+    promote.add_argument(
+        "--allow-observed-drift",
+        action="store_true",
+        help="allow runtime observations to lag desired digests until Flux rolls out",
     )
     promote.add_argument(
         "--dry-run",
@@ -295,11 +305,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "promote":
             lock = load_lock(args.lock)
+            report = {"drift": []}
             client = _client(args)
             summary = promote_first_party_lock(
                 client,
                 lock,
                 only=set(args.only) if args.only else None,
+                exclude=set(args.exclude) if args.exclude else None,
             )
             if not args.dry_run and (summary["promoted"] or summary["migrated"]):
                 atomic_write_json(args.lock, lock)
@@ -312,20 +324,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         previous_digest=item["previous_digest"],
                         digest=item["digest"],
                     )
-                    rewrite_observed_digests(
-                        args.root,
-                        destination_registry=lock["destination_registry"],
-                        destination_repository=item["destination_repository"],
-                        previous_digest=item["previous_digest"],
-                        digest=item["digest"],
-                    )
                 atomic_write_json(args.inventory, discover_inventory(args.root))
                 report = check_consumers(args.root, lock)
-                previous = {item["previous_digest"] for item in summary["promoted"]}
-                errors = (
-                    filter_transient_observed_errors(report["drift"], previous)
-                    + report["errors"]
-                )
+                errors = report["errors"]
+                if not args.allow_observed_drift:
+                    previous = {item["previous_digest"] for item in summary["promoted"]}
+                    errors = (
+                        filter_transient_observed_errors(report["drift"], previous)
+                        + errors
+                    )
                 if errors:
                     raise RegistryError(
                         "promoted consumers failed policy check: "
@@ -344,6 +351,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "promoted": summary["promoted"],
                     "skipped": summary["skipped"],
                     "migrated": summary["migrated"],
+                    "observed_drift": report["drift"] if summary["promoted"] else [],
                 }
             )
             return 0
