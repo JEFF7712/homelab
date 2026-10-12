@@ -1,0 +1,1512 @@
+{
+ "package": "JEFF7712/bookshelf-nuget",
+ "version": "1",
+ "source_commit": "98a5a1d23ad2d0ce3bc291afea1624d27934787b",
+ "files": {
+  "AutoFixture.4.17.0.nupkg": {
+   "file": "AutoFixture.4.17.0.nupkg",
+   "sha256": "90cda7dca759d9c380a353857a476b70e12d09b3bc907d2db2729f8dc4996f0e",
+   "size": 697413
+  },
+  "BouncyCastle.Cryptography.2.4.0.nupkg": {
+   "file": "BouncyCastle.Cryptography.2.4.0.nupkg",
+   "sha256": "0e80d9356b5833ed0e2c872538467eb637065f2986957bddbead9930f9a20090",
+   "size": 14609432
+  },
+  "Castle.Core.4.4.1.nupkg": {
+   "file": "Castle.Core.4.4.1.nupkg",
+   "sha256": "278352f29f4aa9bb8b97a24c98dc29b6c7dc707dfb4df84084fc17da6550b28d",
+   "size": 919111
+  },
+  "Dapper.2.0.151.nupkg": {
+   "file": "Dapper.2.0.151.nupkg",
+   "sha256": "99c4382c9917676c8f0839fd8cf6c2d2e9ea13e52668977834c3abf3b68594db",
+   "size": 387047
+  },
+  "Diacritical.Net.1.0.4.nupkg": {
+   "file": "Diacritical.Net.1.0.4.nupkg",
+   "sha256": "ac1625e83cfbbd11cfc7fb57009f2bba90151d4062959fd69c913dd94ac781ef",
+   "size": 17756
+  },
+  "DryIoc.Microsoft.DependencyInjection.6.2.0.nupkg": {
+   "file": "DryIoc.Microsoft.DependencyInjection.6.2.0.nupkg",
+   "sha256": "0b4e81d2d8f7a859155462f49127e57fcf00b38b7d4d16b0ffef8dd3965acf47",
+   "size": 66560
+  },
+  "DryIoc.dll.5.4.3.nupkg": {
+   "file": "DryIoc.dll.5.4.3.nupkg",
+   "sha256": "aa4dec522890bb84f17641b822c7bc4a7e61de4579a7ac3ab7dc0cc3975273de",
+   "size": 2062640
+  },
+  "Dynamitey.2.0.9.136.nupkg": {
+   "file": "Dynamitey.2.0.9.136.nupkg",
+   "sha256": "c11bca4d6e168acce26668252cea9b51756ff693e1f4c985ec74bf85ca23edf3",
+   "size": 193087
+  },
+  "Equ.2.3.0.nupkg": {
+   "file": "Equ.2.3.0.nupkg",
+   "sha256": "2cc1910b53eae917623e7c811230cfd7203b81eb07c6b5cf5dadf9de918696ac",
+   "size": 29412
+  },
+  "Fare.2.1.1.nupkg": {
+   "file": "Fare.2.1.1.nupkg",
+   "sha256": "9fd5f7184daab13db0a660f2983d40c8261c3a863f734fadf9a2162e26924fbd",
+   "size": 79715
+  },
+  "FluentAssertions.5.10.3.nupkg": {
+   "file": "FluentAssertions.5.10.3.nupkg",
+   "sha256": "4e135336864a7b9872013a284850830889953394cd3b22a726ce4c81d398f564",
+   "size": 2116115
+  },
+  "FluentValidation.9.5.4.nupkg": {
+   "file": "FluentValidation.9.5.4.nupkg",
+   "sha256": "86d2fc29b8c1b76ae7fb2fa7508738955072a5692c43e86c44ec4c043ce2e485",
+   "size": 534454
+  },
+  "IPAddressRange.6.1.0.nupkg": {
+   "file": "IPAddressRange.6.1.0.nupkg",
+   "sha256": "16f81e87a5fafd7b51b94eabc22ff7f2d05131c5e0425aa32c2973b08fe2010e",
+   "size": 107627
+  },
+  "Ical.Net.4.3.1.nupkg": {
+   "file": "Ical.Net.4.3.1.nupkg",
+   "sha256": "8e9a21bc289405eeb50373be049c02aac3d6fb78d4b7870a782a996ffd1cc343",
+   "size": 353140
+  },
+  "ImpromptuInterface.7.0.1.nupkg": {
+   "file": "ImpromptuInterface.7.0.1.nupkg",
+   "sha256": "eb5298e47dd6fec197d76cb4a1110f5fb5b6d9526890bf54dd52693875b9d2cf",
+   "size": 69700
+  },
+  "LazyCache.2.4.0.nupkg": {
+   "file": "LazyCache.2.4.0.nupkg",
+   "sha256": "4c9a742bb3f75548d00d80f228bd1db6703a95a1ff10f86910ea4d240349ffe4",
+   "size": 27153
+  },
+  "MailKit.4.8.0.nupkg": {
+   "file": "MailKit.4.8.0.nupkg",
+   "sha256": "38dbeb54ec23c7236b21033c14ccd3e662f3954e7a29cf283b09337a03408973",
+   "size": 5745458
+  },
+  "Microsoft.AspNetCore.App.Runtime.linux-musl-arm64.6.0.36.nupkg": {
+   "file": "Microsoft.AspNetCore.App.Runtime.linux-musl-arm64.6.0.36.nupkg",
+   "sha256": "a3c67c2b39cf636350c15adc79856322add53f639109fa799a4307b0d613981a",
+   "size": 9908639
+  },
+  "Microsoft.AspNetCore.App.Runtime.linux-musl-x64.6.0.36.nupkg": {
+   "file": "Microsoft.AspNetCore.App.Runtime.linux-musl-x64.6.0.36.nupkg",
+   "sha256": "fc548f4ca7fdcb40ba8930f5691aef3c3c9098fa98c89a32150be1b4fa561484",
+   "size": 10260530
+  },
+  "Microsoft.AspNetCore.App.Runtime.linux-x64.6.0.36.nupkg": {
+   "file": "Microsoft.AspNetCore.App.Runtime.linux-x64.6.0.36.nupkg",
+   "sha256": "cd4b15229578f35bcc2c05da2c4114a44300f7f7f51c63a7bda4276967739726",
+   "size": 10259224
+  },
+  "Microsoft.AspNetCore.Http.Connections.Client.6.0.35.nupkg": {
+   "file": "Microsoft.AspNetCore.Http.Connections.Client.6.0.35.nupkg",
+   "sha256": "8b45227ed7b09e39258c6daa762aa7457d86deb8874780e04b484f41966204d5",
+   "size": 236366
+  },
+  "Microsoft.AspNetCore.SignalR.Client.6.0.35.nupkg": {
+   "file": "Microsoft.AspNetCore.SignalR.Client.6.0.35.nupkg",
+   "sha256": "ff674fb61625ce6a3c1b5a6f64ae119a24d4dd0ad38def2b4427cf065ae985ea",
+   "size": 76952
+  },
+  "Microsoft.AspNetCore.SignalR.Client.Core.6.0.35.nupkg": {
+   "file": "Microsoft.AspNetCore.SignalR.Client.Core.6.0.35.nupkg",
+   "sha256": "e076c8efdb8f39e4f053966ff147f1403fe552065b0f202d4280fc4259a5d975",
+   "size": 308762
+  },
+  "Microsoft.Bcl.AsyncInterfaces.6.0.0.nupkg": {
+   "file": "Microsoft.Bcl.AsyncInterfaces.6.0.0.nupkg",
+   "sha256": "e3df87fe2170a7e01f0880af59caa8f6eb380b3c40a4f282dfb43912aaf0f895",
+   "size": 76354
+  },
+  "Microsoft.Bcl.AsyncInterfaces.7.0.0.nupkg": {
+   "file": "Microsoft.Bcl.AsyncInterfaces.7.0.0.nupkg",
+   "sha256": "d5ed37d44dba8ab688aae9fce1a7747c2211e0c259d61710a38c8537e07b51f1",
+   "size": 95839
+  },
+  "Microsoft.Bcl.TimeProvider.8.0.0.nupkg": {
+   "file": "Microsoft.Bcl.TimeProvider.8.0.0.nupkg",
+   "sha256": "7c1bc34970d22183334daf3e03ef7c2aa8445d83fa135ef02e8f943709727f85",
+   "size": 105522
+  },
+  "Microsoft.Build.Tasks.Git.1.1.1.nupkg": {
+   "file": "Microsoft.Build.Tasks.Git.1.1.1.nupkg",
+   "sha256": "3c7c479ac0adcbc4a2e5d0944128b3787909ac76bdfa3da746c83a4b3fb965ad",
+   "size": 479497
+  },
+  "Microsoft.CSharp.4.4.1.nupkg": {
+   "file": "Microsoft.CSharp.4.4.1.nupkg",
+   "sha256": "eff82c407580b855ab715a5585aac049334bf8cbe5e86c3e000c38d64d0ccd7c",
+   "size": 654902
+  },
+  "Microsoft.CSharp.4.5.0.nupkg": {
+   "file": "Microsoft.CSharp.4.5.0.nupkg",
+   "sha256": "740863fc28171b9548cb6768a75c69954b0b8deeee04f163c5ab33f6b7452206",
+   "size": 627579
+  },
+  "Microsoft.CodeCoverage.17.10.0.nupkg": {
+   "file": "Microsoft.CodeCoverage.17.10.0.nupkg",
+   "sha256": "c90170a950a146d211a5bb6426bf76247da2f8eef19fdd4d19b6209cab3c1b68",
+   "size": 8906478
+  },
+  "Microsoft.Data.SqlClient.2.1.7.nupkg": {
+   "file": "Microsoft.Data.SqlClient.2.1.7.nupkg",
+   "sha256": "809ac59954b1f974f486b96d38393f4caeccc91e58036adf758580454bfcf483",
+   "size": 11217732
+  },
+  "Microsoft.Data.SqlClient.SNI.runtime.2.1.1.nupkg": {
+   "file": "Microsoft.Data.SqlClient.SNI.runtime.2.1.1.nupkg",
+   "sha256": "f983256eeedd704bccf76898b0b7a224a23118fde82b4796b09e960a97d40430",
+   "size": 936673
+  },
+  "Microsoft.Extensions.Caching.Abstractions.2.1.0.nupkg": {
+   "file": "Microsoft.Extensions.Caching.Abstractions.2.1.0.nupkg",
+   "sha256": "9319566274354662eb41d16bde52f633bf222e7f03df42b48853ce9d2db53b01",
+   "size": 40973
+  },
+  "Microsoft.Extensions.Caching.Abstractions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Caching.Abstractions.6.0.0.nupkg",
+   "sha256": "686a75a9c2f585599bf87a825ab6a8dd85573a91b28832450f3d93774703c362",
+   "size": 70395
+  },
+  "Microsoft.Extensions.Caching.Memory.6.0.2.nupkg": {
+   "file": "Microsoft.Extensions.Caching.Memory.6.0.2.nupkg",
+   "sha256": "16842e42122ea7e4e9f98bc2ad8db8ebef510df8aaefac5797dd9ba2d2c9c3c0",
+   "size": 94189
+  },
+  "Microsoft.Extensions.Configuration.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.6.0.0.nupkg",
+   "sha256": "4883bf43e383d9b1be434128397460258cd93216a11970c6d5f5d99f4554befd",
+   "size": 80536
+  },
+  "Microsoft.Extensions.Configuration.6.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.6.0.1.nupkg",
+   "sha256": "bf9e4f0144719d219881bbfdc7ee3fa4c788e751f6ee29117c706e501f8de671",
+   "size": 83275
+  },
+  "Microsoft.Extensions.Configuration.Abstractions.2.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.Abstractions.2.0.1.nupkg",
+   "sha256": "5175b33854f495cd89b6ddf3349e31084bf42c244f9d60a74a81d03b6b379198",
+   "size": 24978
+  },
+  "Microsoft.Extensions.Configuration.Abstractions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.Abstractions.6.0.0.nupkg",
+   "sha256": "12f83e6278f64146ba1b3fb3a85f9b5327c60f41c8e40d9f1e6c591176e7dc70",
+   "size": 67830
+  },
+  "Microsoft.Extensions.Configuration.Binder.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.Binder.6.0.0.nupkg",
+   "sha256": "ecd65c2a4897592ba1855700fdf5c73d8ffad9a194c8cb117621e6f757160b96",
+   "size": 75963
+  },
+  "Microsoft.Extensions.Configuration.CommandLine.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.CommandLine.6.0.0.nupkg",
+   "sha256": "8c50023ea2ef1a8d787a0e06de157f51863f77d8b784d2af80bfb79e70c664c1",
+   "size": 65652
+  },
+  "Microsoft.Extensions.Configuration.EnvironmentVariables.6.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.EnvironmentVariables.6.0.1.nupkg",
+   "sha256": "87443b089ff1aed69a56cde001d5bdf9380c67c6e29507ceab634a76bfc3b79b",
+   "size": 59015
+  },
+  "Microsoft.Extensions.Configuration.FileExtensions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.FileExtensions.6.0.0.nupkg",
+   "sha256": "3cb9d26b424c7c30bad8e4eff2c2f440525b00d13b4129c9f7def2485052d60a",
+   "size": 67697
+  },
+  "Microsoft.Extensions.Configuration.Json.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.Json.6.0.0.nupkg",
+   "sha256": "a30ccb95a9a1216584a15da8ba6031bf81b7225633606683b1ed0655bf2ed4b0",
+   "size": 80823
+  },
+  "Microsoft.Extensions.Configuration.UserSecrets.6.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Configuration.UserSecrets.6.0.1.nupkg",
+   "sha256": "6136ea2449733c27e9875371caad8f50657995263919715db21a4a38f76f4d39",
+   "size": 65771
+  },
+  "Microsoft.Extensions.DependencyInjection.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.DependencyInjection.6.0.0.nupkg",
+   "sha256": "819b8c6ae9cc255cafbdea6eccda1d18f45ce9ea8a1fffdb92cdfde7b75890f2",
+   "size": 208004
+  },
+  "Microsoft.Extensions.DependencyInjection.6.0.1.nupkg": {
+   "file": "Microsoft.Extensions.DependencyInjection.6.0.1.nupkg",
+   "sha256": "57e0ae943a14dcd5d69f91231fae09843550d21f9ebf9056f794fedae2f5854e",
+   "size": 214896
+  },
+  "Microsoft.Extensions.DependencyInjection.Abstractions.2.0.0.nupkg": {
+   "file": "Microsoft.Extensions.DependencyInjection.Abstractions.2.0.0.nupkg",
+   "sha256": "1f5ac49eafef7915af9a9f2a994b2b42440871594a8a550dce698ab3127499df",
+   "size": 33013
+  },
+  "Microsoft.Extensions.DependencyInjection.Abstractions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.DependencyInjection.Abstractions.6.0.0.nupkg",
+   "sha256": "49991ed2334a22a26fbee91db5af8c808946b2b3f611d3e4912f257cb83b26ee",
+   "size": 149541
+  },
+  "Microsoft.Extensions.DependencyInjection.Abstractions.7.0.0.nupkg": {
+   "file": "Microsoft.Extensions.DependencyInjection.Abstractions.7.0.0.nupkg",
+   "sha256": "e7996c6b641d5f50899f54e95b5bd39e4bdb197282784f4fd0ee80916e3d2da0",
+   "size": 197491
+  },
+  "Microsoft.Extensions.FileProviders.Abstractions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.FileProviders.Abstractions.6.0.0.nupkg",
+   "sha256": "b818d68c72845e367d7c37c5c4c8cea2ede585f4cd86cd723be7b77e95ab78b9",
+   "size": 76397
+  },
+  "Microsoft.Extensions.FileProviders.Physical.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.FileProviders.Physical.6.0.0.nupkg",
+   "sha256": "e410103aa9da11733662376b9ab0a29d705e67914ac425ad79b11731dc1c6cc6",
+   "size": 114993
+  },
+  "Microsoft.Extensions.FileSystemGlobbing.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.FileSystemGlobbing.6.0.0.nupkg",
+   "sha256": "4405878e491fbc6a63738f50d2425b6725e053a504abf109d23e79eec8f6fe25",
+   "size": 113999
+  },
+  "Microsoft.Extensions.Hosting.6.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Hosting.6.0.1.nupkg",
+   "sha256": "2f9ec1fe60319332bb4048a95742ad1f3c4cb6cc4467e6b815d1649ffdff5c86",
+   "size": 165239
+  },
+  "Microsoft.Extensions.Hosting.Abstractions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Hosting.Abstractions.6.0.0.nupkg",
+   "sha256": "92c20f3ba4617db631fe2decbb8277b038682fe4c39c84cab2022912a9e992d7",
+   "size": 93746
+  },
+  "Microsoft.Extensions.Hosting.WindowsServices.6.0.2.nupkg": {
+   "file": "Microsoft.Extensions.Hosting.WindowsServices.6.0.2.nupkg",
+   "sha256": "8602f27629e719fa2b133476482abae7af085a18e72285fcbf247767cc512318",
+   "size": 87274
+  },
+  "Microsoft.Extensions.Logging.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.6.0.0.nupkg",
+   "sha256": "f16b1929119f5d6e4cb1790c98d55feac96b930f9c474d3973390e3f6294a939",
+   "size": 111767
+  },
+  "Microsoft.Extensions.Logging.Abstractions.2.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Logging.Abstractions.2.0.1.nupkg",
+   "sha256": "27f3703c6556b62369c073fd334b4347578d51c162cffaf54a7e6fdb1b84d2d0",
+   "size": 36890
+  },
+  "Microsoft.Extensions.Logging.Abstractions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.Abstractions.6.0.0.nupkg",
+   "sha256": "40da9c437c7e30e2bb9576d6902cd23966bfd90c9835b74cfce1046d6375e52c",
+   "size": 458701
+  },
+  "Microsoft.Extensions.Logging.Abstractions.6.0.4.nupkg": {
+   "file": "Microsoft.Extensions.Logging.Abstractions.6.0.4.nupkg",
+   "sha256": "966ba9809b3d3cdce931f7b52dcc58f74dd2e8bc22691f199be74e2bb25a4d5e",
+   "size": 502478
+  },
+  "Microsoft.Extensions.Logging.Configuration.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.Configuration.6.0.0.nupkg",
+   "sha256": "21e30ecdaef5503cec108548958b88d1160a93e77e54e0bacc2a98090b3a9d5e",
+   "size": 70360
+  },
+  "Microsoft.Extensions.Logging.Console.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.Console.6.0.0.nupkg",
+   "sha256": "2d0c3f9da8e160376fb6bb28807110b9ef94fbff9825c83204ffb7313258038d",
+   "size": 161802
+  },
+  "Microsoft.Extensions.Logging.Debug.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.Debug.6.0.0.nupkg",
+   "sha256": "9307a4a3bd56eff8480143b765861b35792c54b823f30ac3374dbc42d84c142b",
+   "size": 57923
+  },
+  "Microsoft.Extensions.Logging.EventLog.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.EventLog.6.0.0.nupkg",
+   "sha256": "d415d08f0ff249699d74067bf5bbf73a1982e123d31bc3c7c933a5acd1146f48",
+   "size": 66314
+  },
+  "Microsoft.Extensions.Logging.EventSource.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Logging.EventSource.6.0.0.nupkg",
+   "sha256": "8f605e827d7e5e86bef723e8402e9be9a3e6508a41ae39131908518587c96832",
+   "size": 125795
+  },
+  "Microsoft.Extensions.Options.2.0.1.nupkg": {
+   "file": "Microsoft.Extensions.Options.2.0.1.nupkg",
+   "sha256": "85b7bedd85e5490deeac25f5d43d8c2199755eb5afafe9a69c173f6e3e77cdf6",
+   "size": 28252
+  },
+  "Microsoft.Extensions.Options.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Options.6.0.0.nupkg",
+   "sha256": "0f19c48068825e992bc459315ed397ab06a202da088c0f1549258272c5b41701",
+   "size": 140038
+  },
+  "Microsoft.Extensions.Options.ConfigurationExtensions.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Options.ConfigurationExtensions.6.0.0.nupkg",
+   "sha256": "6aed18d7770693f75014abaf480e4d9cfffef9b12b4e4d28393960987748d8cc",
+   "size": 67326
+  },
+  "Microsoft.Extensions.Primitives.2.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Primitives.2.0.0.nupkg",
+   "sha256": "ab8e0bb4cbf2344292be0111bc0f81adab0a6a93fdd9273dd50478bb64c9f7f6",
+   "size": 32468
+  },
+  "Microsoft.Extensions.Primitives.2.1.0.nupkg": {
+   "file": "Microsoft.Extensions.Primitives.2.1.0.nupkg",
+   "sha256": "ab5a039ea7d08a22a0ce5bff5831e03464e559f9be7e4b98d51eadea1aff2fe5",
+   "size": 46654
+  },
+  "Microsoft.Extensions.Primitives.6.0.0.nupkg": {
+   "file": "Microsoft.Extensions.Primitives.6.0.0.nupkg",
+   "sha256": "020bf2b2cce9435d40893049164bd2cbc267c085938f5e4f7de93b4fb4e151ce",
+   "size": 144250
+  },
+  "Microsoft.Identity.Client.4.21.1.nupkg": {
+   "file": "Microsoft.Identity.Client.4.21.1.nupkg",
+   "sha256": "43e77542e2e68c8a0d18d5319b9196cd023886d8623faa82125d03ebf08c9f85",
+   "size": 7815337
+  },
+  "Microsoft.IdentityModel.JsonWebTokens.6.8.0.nupkg": {
+   "file": "Microsoft.IdentityModel.JsonWebTokens.6.8.0.nupkg",
+   "sha256": "e260a6b37bf59249d70a0469e754a5b94172da8ec1a8708c7c63301e6945ae89",
+   "size": 117922
+  },
+  "Microsoft.IdentityModel.Logging.6.8.0.nupkg": {
+   "file": "Microsoft.IdentityModel.Logging.6.8.0.nupkg",
+   "sha256": "c378cfd13003dc3d872d6958d267860e66d5ecde6473612bda77d89aeab44c9a",
+   "size": 65464
+  },
+  "Microsoft.IdentityModel.Protocols.6.8.0.nupkg": {
+   "file": "Microsoft.IdentityModel.Protocols.6.8.0.nupkg",
+   "sha256": "a3311a25881ab2b86ae454b2ce3bfb19d3a265a263810891ef2aa785c43f817c",
+   "size": 79005
+  },
+  "Microsoft.IdentityModel.Protocols.OpenIdConnect.6.8.0.nupkg": {
+   "file": "Microsoft.IdentityModel.Protocols.OpenIdConnect.6.8.0.nupkg",
+   "sha256": "4a53678910df5770abeb6fc00640e437e921c88ae1afd73cfcf79e95916ba4be",
+   "size": 128760
+  },
+  "Microsoft.IdentityModel.Tokens.6.8.0.nupkg": {
+   "file": "Microsoft.IdentityModel.Tokens.6.8.0.nupkg",
+   "sha256": "349b08bd6270ad5ad09dd8470e95dfede4b51abffedae6bd9e45b98af590c856",
+   "size": 1017291
+  },
+  "Microsoft.NET.Test.Sdk.17.10.0.nupkg": {
+   "file": "Microsoft.NET.Test.Sdk.17.10.0.nupkg",
+   "sha256": "ae41c8a81da6aae35717cf5705316950bdb3e66b234c1b0e7328d2042877e88d",
+   "size": 34302
+  },
+  "Microsoft.NETCore.App.Host.linux-musl-arm64.6.0.36.nupkg": {
+   "file": "Microsoft.NETCore.App.Host.linux-musl-arm64.6.0.36.nupkg",
+   "sha256": "e77931981a4b2d55a9743ac7efd212e8715f9bdf8c994aa302a58e8b75500bb6",
+   "size": 4531573
+  },
+  "Microsoft.NETCore.App.Host.linux-musl-x64.6.0.36.nupkg": {
+   "file": "Microsoft.NETCore.App.Host.linux-musl-x64.6.0.36.nupkg",
+   "sha256": "ffef67c50ec75a910a6bd451a17815e2d39f75d39c820c5035df92ae80f60692",
+   "size": 4916101
+  },
+  "Microsoft.NETCore.App.Host.linux-x64.6.0.36.nupkg": {
+   "file": "Microsoft.NETCore.App.Host.linux-x64.6.0.36.nupkg",
+   "sha256": "545443cf1ecb26ebc8e72cca7469b0ff7d4d6156f01d63ca42fb9e42de71735d",
+   "size": 5010054
+  },
+  "Microsoft.NETCore.App.Runtime.linux-musl-arm64.6.0.36.nupkg": {
+   "file": "Microsoft.NETCore.App.Runtime.linux-musl-arm64.6.0.36.nupkg",
+   "sha256": "e73053a9d2abcb6cf8222c215f355087604feb09ead1af31e4c49b1cc56f0b30",
+   "size": 33249968
+  },
+  "Microsoft.NETCore.App.Runtime.linux-musl-x64.6.0.36.nupkg": {
+   "file": "Microsoft.NETCore.App.Runtime.linux-musl-x64.6.0.36.nupkg",
+   "sha256": "87c4b31a429539c112d5f36266eb4f7423a829a27e6d1755b973b4456e96483f",
+   "size": 32859396
+  },
+  "Microsoft.NETCore.App.Runtime.linux-x64.6.0.36.nupkg": {
+   "file": "Microsoft.NETCore.App.Runtime.linux-x64.6.0.36.nupkg",
+   "sha256": "53cc09dac9d20c5a9e0200d52d78e79e289d0bb0abe5a275fe1fc1312972bb47",
+   "size": 33278558
+  },
+  "Microsoft.NETCore.Platforms.1.1.0.nupkg": {
+   "file": "Microsoft.NETCore.Platforms.1.1.0.nupkg",
+   "sha256": "15e338d24b5c39b4099389cc612841eb51ff13c07bb4829f97d39b27420e7023",
+   "size": 17960
+  },
+  "Microsoft.NETCore.Platforms.3.1.0.nupkg": {
+   "file": "Microsoft.NETCore.Platforms.3.1.0.nupkg",
+   "sha256": "727ca0762b6c11a53ce9b9d8b48b6134cca6007a9a4ffb1ff468f2921cea81bd",
+   "size": 29544
+  },
+  "Microsoft.NETCore.Platforms.5.0.0.nupkg": {
+   "file": "Microsoft.NETCore.Platforms.5.0.0.nupkg",
+   "sha256": "2c8720d52b437102cf380069e0945722cf37eddef3d226bafbefb7485de39757",
+   "size": 39826
+  },
+  "Microsoft.NETCore.Targets.1.1.0.nupkg": {
+   "file": "Microsoft.NETCore.Targets.1.1.0.nupkg",
+   "sha256": "d00a90da0312f22365624ac3f81c6d220edc5cc9ebf71647b4a02e3786e37da4",
+   "size": 18162
+  },
+  "Microsoft.NETCore.Targets.1.1.3.nupkg": {
+   "file": "Microsoft.NETCore.Targets.1.1.3.nupkg",
+   "sha256": "58bb1fd4db947d15b2afb0bb465f638ae6bd8f18a69d5bf3cba9e4d83d9b5517",
+   "size": 31152
+  },
+  "Microsoft.OpenApi.1.6.14.nupkg": {
+   "file": "Microsoft.OpenApi.1.6.14.nupkg",
+   "sha256": "75225489cda8acf19f61582da3d0e27917246ed2e93f2c47b5ff91276b6628f3",
+   "size": 198693
+  },
+  "Microsoft.SourceLink.Common.1.1.1.nupkg": {
+   "file": "Microsoft.SourceLink.Common.1.1.1.nupkg",
+   "sha256": "6f815a3459de0d50dbbc9557d623728612d3ae7c547e79b2ca9789af8ec66d76",
+   "size": 271934
+  },
+  "Microsoft.SourceLink.GitHub.1.1.1.nupkg": {
+   "file": "Microsoft.SourceLink.GitHub.1.1.1.nupkg",
+   "sha256": "de173dca6e5178e369d34aee08a8a8fca6b58185e8fe30e5507b5f2b5c193e25",
+   "size": 285433
+  },
+  "Microsoft.TestPlatform.ObjectModel.16.9.1.nupkg": {
+   "file": "Microsoft.TestPlatform.ObjectModel.16.9.1.nupkg",
+   "sha256": "2d924b4d65360ce9ee06237f83e4beaf01b6fc126d2ab8f274a9e3dee8e9f7c5",
+   "size": 2224712
+  },
+  "Microsoft.TestPlatform.TestHost.17.10.0.nupkg": {
+   "file": "Microsoft.TestPlatform.TestHost.17.10.0.nupkg",
+   "sha256": "fb2ccfdc563a5a83a8b12a589c1eddb992e138f519310632f3327577743884ae",
+   "size": 2879677
+  },
+  "Microsoft.Win32.Primitives.4.3.0.nupkg": {
+   "file": "Microsoft.Win32.Primitives.4.3.0.nupkg",
+   "sha256": "98134398f5cd4d6e785cb9cf014c0146f90839114ceff8f40f42364b240f0c48",
+   "size": 63333
+  },
+  "Microsoft.Win32.Registry.4.7.0.nupkg": {
+   "file": "Microsoft.Win32.Registry.4.7.0.nupkg",
+   "sha256": "fa3582c11a94fc9fe32dd40a0c59bddd67c80eb0cc5cc27df3851ebda40ca22f",
+   "size": 378359
+  },
+  "Microsoft.Win32.Registry.5.0.0.nupkg": {
+   "file": "Microsoft.Win32.Registry.5.0.0.nupkg",
+   "sha256": "f64ca53c67ca65ce7cc85a8d29aefbb2da2672836731e1115e8cd62730dc5080",
+   "size": 354731
+  },
+  "Microsoft.Win32.SystemEvents.4.7.0.nupkg": {
+   "file": "Microsoft.Win32.SystemEvents.4.7.0.nupkg",
+   "sha256": "187c670f53e56f7d862565564afd18e752a0b656fe71d2a03985416194a0545e",
+   "size": 148460
+  },
+  "Microsoft.Win32.SystemEvents.6.0.0.nupkg": {
+   "file": "Microsoft.Win32.SystemEvents.6.0.0.nupkg",
+   "sha256": "37d11565b979c35567332c065f26955b34fd961f3889a277683e3c848064d730",
+   "size": 157768
+  },
+  "MimeKit.4.8.0.nupkg": {
+   "file": "MimeKit.4.8.0.nupkg",
+   "sha256": "e04079e24b415eeab9411203f62f04ec5cd4ed8653138c301fedb2afb8af8bf4",
+   "size": 6834349
+  },
+  "Mono.Nat.3.0.1.nupkg": {
+   "file": "Mono.Nat.3.0.1.nupkg",
+   "sha256": "006ef2cdcb97a0f14c06d25f5996ce670c7ded331e988d7a1e13fda87962c3f7",
+   "size": 78045
+  },
+  "Mono.Posix.NETStandard.5.20.1.34-servarr22.nupkg": {
+   "file": "Mono.Posix.NETStandard.5.20.1.34-servarr22.nupkg",
+   "sha256": "bef59a9514d33e5977bf0ea794fe3f7ee8ee9ef3385215d3d7e1a1dfe9977ea2",
+   "size": 2614353
+  },
+  "MonoTorrent.2.0.7.nupkg": {
+   "file": "MonoTorrent.2.0.7.nupkg",
+   "sha256": "5da15e2b7a2b9ef61e2cbd58b91eb46239defe120e81bd28ad0e1db99d80160c",
+   "size": 295766
+  },
+  "Moq.4.17.2.nupkg": {
+   "file": "Moq.4.17.2.nupkg",
+   "sha256": "121803242a31ec27b21b3a1742767d0d1447d481442ed48d71ae81e8a552e9fc",
+   "size": 585504
+  },
+  "NBuilder.6.1.0.nupkg": {
+   "file": "NBuilder.6.1.0.nupkg",
+   "sha256": "dc4ba50ee608523b363f228954bccc80cafda292e293c03cbf784c675d2a119f",
+   "size": 96176
+  },
+  "NETStandard.Library.1.6.1.nupkg": {
+   "file": "NETStandard.Library.1.6.1.nupkg",
+   "sha256": "88d6a7d62c7b46d9dc1960bd023019dac93bd03a313ac9843a0435d1f5e6e0fc",
+   "size": 17360
+  },
+  "NETStandard.Library.2.0.0.nupkg": {
+   "file": "NETStandard.Library.2.0.0.nupkg",
+   "sha256": "3e9edf47295a8bc26b1353bef5319f20426b00e9a75932512d613ea8905a84ad",
+   "size": 3143842
+  },
+  "NLog.5.1.4.nupkg": {
+   "file": "NLog.5.1.4.nupkg",
+   "sha256": "4230b86144adc919e8b63fe4aa2a8cc955e7e70bae5ddce13f09af96201b7884",
+   "size": 2770920
+  },
+  "NLog.Extensions.Logging.5.2.3.nupkg": {
+   "file": "NLog.Extensions.Logging.5.2.3.nupkg",
+   "sha256": "8253e1ca055c4a3859aee3d03aec781eb19b7c069d979b2b9c64c74268927f5c",
+   "size": 206118
+  },
+  "NLog.Targets.Syslog.7.0.0.nupkg": {
+   "file": "NLog.Targets.Syslog.7.0.0.nupkg",
+   "sha256": "632e9112dd54c64745cfeb706b4cc9566eb7e581dc87b07ab7d3e38f91595197",
+   "size": 476606
+  },
+  "NUnit.3.14.0.nupkg": {
+   "file": "NUnit.3.14.0.nupkg",
+   "sha256": "0ae3ffab91e8bcf59f016dc2b72fd0c518bb5698f2909dd30cbab94c4348e8a6",
+   "size": 1318234
+  },
+  "NUnit3TestAdapter.4.2.1.nupkg": {
+   "file": "NUnit3TestAdapter.4.2.1.nupkg",
+   "sha256": "83bde2df2aabd0a9c2d1eb4a700c3d0a607a645005be9c599fcf2cd6096c343e",
+   "size": 480179
+  },
+  "Newtonsoft.Json.13.0.3.nupkg": {
+   "file": "Newtonsoft.Json.13.0.3.nupkg",
+   "sha256": "872fc189e638ab1056555b03aaa38f68bcb54286e221aa646eb1129babf63c77",
+   "size": 2441966
+  },
+  "NodaTime.3.2.0.nupkg": {
+   "file": "NodaTime.3.2.0.nupkg",
+   "sha256": "92de7d31613398c141829c39b4e3e5718c1929eef85a403d379820acb4b7b543",
+   "size": 1159845
+  },
+  "Npgsql.7.0.10.nupkg": {
+   "file": "Npgsql.7.0.10.nupkg",
+   "sha256": "e635f3ad06ac339a6d3ef7d44f60566951f24eb8ed6b520486bb8804716089ed",
+   "size": 3155473
+  },
+  "NunitXml.TestLogger.3.0.117.nupkg": {
+   "file": "NunitXml.TestLogger.3.0.117.nupkg",
+   "sha256": "b81b17658b87f6c604ba0915bf1f1c9060606c66080d81de0d5b1148767749fa",
+   "size": 74799
+  },
+  "PdfSharpCore.1.3.65.nupkg": {
+   "file": "PdfSharpCore.1.3.65.nupkg",
+   "sha256": "4eea4e19345658af1b3af4763eed82fb575f59b106da81a4715e922a49c9a2af",
+   "size": 1337233
+  },
+  "Polly.8.5.2.nupkg": {
+   "file": "Polly.8.5.2.nupkg",
+   "sha256": "22b374e9d74e209d1562e55e7dedcbbdf5b4917db4013450904060f420689910",
+   "size": 786174
+  },
+  "Polly.Contrib.WaitAndRetry.1.1.1.nupkg": {
+   "file": "Polly.Contrib.WaitAndRetry.1.1.1.nupkg",
+   "sha256": "22727c21702c643011e01fd8cd60ae11645affa5dfe68074e3d5095244cea128",
+   "size": 52358
+  },
+  "Polly.Core.8.5.2.nupkg": {
+   "file": "Polly.Core.8.5.2.nupkg",
+   "sha256": "3c0c2c5aaac289e09fffb63cedf57b5cc2a8698d9a6c240db48fb8a32c8c89f9",
+   "size": 859906
+  },
+  "RestSharp.106.15.0.nupkg": {
+   "file": "RestSharp.106.15.0.nupkg",
+   "sha256": "f140a15f1cfb010990a68a334817f007a3559addbeb8970df131fb46d55f4fbc",
+   "size": 221908
+  },
+  "RestSharp.Serializers.SystemTextJson.106.15.0.nupkg": {
+   "file": "RestSharp.Serializers.SystemTextJson.106.15.0.nupkg",
+   "sha256": "023dd1a3c7641d74eb6363a9c97110d2f213ab3d48b6f411a43138d12ddfafb5",
+   "size": 28075
+  },
+  "ReusableTasks.2.0.0.nupkg": {
+   "file": "ReusableTasks.2.0.0.nupkg",
+   "sha256": "4a358a09e66d2e4a436333ee847209b8b1e3cc03058e6f632526f4896c324f61",
+   "size": 38836
+  },
+  "Selenium.Support.3.141.0.nupkg": {
+   "file": "Selenium.Support.3.141.0.nupkg",
+   "sha256": "2b7ecece30da300194b4c1824035d2dd61a0a35e51820506fa32c583ddfa1cbf",
+   "size": 155529
+  },
+  "Selenium.WebDriver.3.141.0.nupkg": {
+   "file": "Selenium.WebDriver.3.141.0.nupkg",
+   "sha256": "b826a4517e80370206ae8cac173ea9236fe5a66ff2df4c7bedd01f6b3efce025",
+   "size": 4321149
+  },
+  "Selenium.WebDriver.ChromeDriver.134.0.6998.16500.nupkg": {
+   "file": "Selenium.WebDriver.ChromeDriver.134.0.6998.16500.nupkg",
+   "sha256": "ac52a2960b973fa7a55f911189fe0ca88458e86b3f5179ec98179576ac9696a1",
+   "size": 34555580
+  },
+  "Servarr.FluentMigrator.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.3.3.2.9.nupkg",
+   "sha256": "bc911c6f6bb16ce028601f278853be7f765eafb88d91fc7a905f0d364223cbd3",
+   "size": 194870
+  },
+  "Servarr.FluentMigrator.Abstractions.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Abstractions.3.3.2.9.nupkg",
+   "sha256": "958ace68a6dd0e4c6ca6c00e8671e3ed0c10b51dedcb2ec6cb62bff606820698",
+   "size": 447495
+  },
+  "Servarr.FluentMigrator.Extensions.Oracle.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Extensions.Oracle.3.3.2.9.nupkg",
+   "sha256": "d2f1f2178f09afd656680f28406a0a0165a875d2ca7ffdd58baf06849eae9b93",
+   "size": 24643
+  },
+  "Servarr.FluentMigrator.Extensions.Postgres.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Extensions.Postgres.3.3.2.9.nupkg",
+   "sha256": "0f402e60782fb3cfeb00b947a0c8f92822e1a69f38619ee76ade18dbbb0c0d6f",
+   "size": 102668
+  },
+  "Servarr.FluentMigrator.Extensions.SqlAnywhere.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Extensions.SqlAnywhere.3.3.2.9.nupkg",
+   "sha256": "8b6a3cda6afc70d5673facabcb308aa55961be5092ba0a61a080a8ac3891e7d7",
+   "size": 27994
+  },
+  "Servarr.FluentMigrator.Extensions.SqlServer.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Extensions.SqlServer.3.3.2.9.nupkg",
+   "sha256": "1f0d421d9e597b090b296a511f8d8d9b8ac1bf7dda14518f0613d99f50e34113",
+   "size": 50477
+  },
+  "Servarr.FluentMigrator.Runner.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.3.3.2.9.nupkg",
+   "sha256": "928cdaef36e94cba731449e5acb915c4f5524a065c0fd6c4099b855450d91508",
+   "size": 298982
+  },
+  "Servarr.FluentMigrator.Runner.Core.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Core.3.3.2.9.nupkg",
+   "sha256": "c0bc0721e26b9ff7377ca646ff105fd16c5ed02fd8170e2e0cbe680c7823c3a7",
+   "size": 470877
+  },
+  "Servarr.FluentMigrator.Runner.Db2.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Db2.3.3.2.9.nupkg",
+   "sha256": "7222ed0cf7381ffdc909adbbb2c741323361c665baa6894847281ab8ad026bc6",
+   "size": 78827
+  },
+  "Servarr.FluentMigrator.Runner.Firebird.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Firebird.3.3.2.9.nupkg",
+   "sha256": "acb36361ed2c7925a3dd816f69a4e80876661f18b64dec6eee2e0d5bfce0bb1d",
+   "size": 150677
+  },
+  "Servarr.FluentMigrator.Runner.Hana.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Hana.3.3.2.9.nupkg",
+   "sha256": "ec29a7da4c1da16c17fb234243a18f2022da3d54823c06eb68b8ff187017d181",
+   "size": 60030
+  },
+  "Servarr.FluentMigrator.Runner.MySql.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.MySql.3.3.2.9.nupkg",
+   "sha256": "318e06f92159aa64127956a59d454dcf940fd415381effc248e76ba6ccf5efd9",
+   "size": 64984
+  },
+  "Servarr.FluentMigrator.Runner.Oracle.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Oracle.3.3.2.9.nupkg",
+   "sha256": "e06cbfae1686618870b4acb0bb10391024499183eee5c852e08abdb217f82778",
+   "size": 116705
+  },
+  "Servarr.FluentMigrator.Runner.Postgres.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Postgres.3.3.2.9.nupkg",
+   "sha256": "31a66351910daddcb31434d57097c3878c48bdb13b9bc84b0f6b14ad9860479e",
+   "size": 111686
+  },
+  "Servarr.FluentMigrator.Runner.Redshift.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.Redshift.3.3.2.9.nupkg",
+   "sha256": "8e7286cdcfec690f20ed79ea87fa84f1d8afb51d73dada400b5eadea6229c0f0",
+   "size": 65998
+  },
+  "Servarr.FluentMigrator.Runner.SQLite.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.SQLite.3.3.2.9.nupkg",
+   "sha256": "75f4620614f493085c5b273621bdab6f3663e1994f7d6234bb6085f1096303a4",
+   "size": 59921
+  },
+  "Servarr.FluentMigrator.Runner.SqlAnywhere.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.SqlAnywhere.3.3.2.9.nupkg",
+   "sha256": "a99ded051a7cb648739fc74213dd0b92a839953f109d9569f2122e96949aeebb",
+   "size": 78315
+  },
+  "Servarr.FluentMigrator.Runner.SqlServer.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.SqlServer.3.3.2.9.nupkg",
+   "sha256": "98321f513df90aa1146dff39f21aed244d04eb953b6499728286401e2d8795ff",
+   "size": 139665
+  },
+  "Servarr.FluentMigrator.Runner.SqlServerCe.3.3.2.9.nupkg": {
+   "file": "Servarr.FluentMigrator.Runner.SqlServerCe.3.3.2.9.nupkg",
+   "sha256": "931dd98cb8f5cf3ff56ee896ac024fb81e465c2a21a67b69ab86a4e561b5491e",
+   "size": 2641544
+  },
+  "SharpZipLib.1.4.2.nupkg": {
+   "file": "SharpZipLib.1.4.2.nupkg",
+   "sha256": "fe0895aa2930a2b1b65caa9f37db8bca35125ebdf9cc1b99d855f6afc5ff5946",
+   "size": 741182
+  },
+  "SixLabors.Fonts.1.0.0-beta17.nupkg": {
+   "file": "SixLabors.Fonts.1.0.0-beta17.nupkg",
+   "sha256": "2a71ddb859f987f9ad1c2a4214a83e648662e9f2a3cf61f6b2a4c8cf05c2a8e2",
+   "size": 718474
+  },
+  "SixLabors.Fonts.1.0.0.nupkg": {
+   "file": "SixLabors.Fonts.1.0.0.nupkg",
+   "sha256": "93201071964e743e742e8ee5ef3f2a9c531eac98e5015eba1cd06aec123a4cd3",
+   "size": 1018176
+  },
+  "SixLabors.ImageSharp.3.1.11.nupkg": {
+   "file": "SixLabors.ImageSharp.3.1.11.nupkg",
+   "sha256": "325445fb74867da85bb01d6964628c3abb1f502c7ffe10a8ec40ab5ebd370e90",
+   "size": 1046551
+  },
+  "StyleCop.Analyzers.1.1.118.nupkg": {
+   "file": "StyleCop.Analyzers.1.1.118.nupkg",
+   "sha256": "0a30b57f9cf4b0fd7917a15e5ea2033ad64b1ea8239904f3a6c22b464c574442",
+   "size": 377566
+  },
+  "Swashbuckle.AspNetCore.Annotations.6.6.2.nupkg": {
+   "file": "Swashbuckle.AspNetCore.Annotations.6.6.2.nupkg",
+   "sha256": "88bed3711172ee0e8407cbac5802f074e11a8aa2ec0f46fe45791ea47938dfea",
+   "size": 165180
+  },
+  "Swashbuckle.AspNetCore.Swagger.6.6.2.nupkg": {
+   "file": "Swashbuckle.AspNetCore.Swagger.6.6.2.nupkg",
+   "sha256": "1ea3261cc6576079513284f7bc8645f22c216267e49d09a2dcdf159b27f02349",
+   "size": 145037
+  },
+  "Swashbuckle.AspNetCore.SwaggerGen.6.6.2.nupkg": {
+   "file": "Swashbuckle.AspNetCore.SwaggerGen.6.6.2.nupkg",
+   "sha256": "926f9b3684436a41016b67488edc4ad15e9856f9bd844a5d8bcc5643c4c98a02",
+   "size": 490029
+  },
+  "System.AppContext.4.3.0.nupkg": {
+   "file": "System.AppContext.4.3.0.nupkg",
+   "sha256": "ca0f792cd40ec05940d6d5b15dd42457226a4f8027a0373e0029ab36fcc68998",
+   "size": 147030
+  },
+  "System.Buffers.4.3.0.nupkg": {
+   "file": "System.Buffers.4.3.0.nupkg",
+   "sha256": "5ea6566f829dd38f7ad21e14f6c7a2be32ac78603f60422976995f1d81d0f639",
+   "size": 35171
+  },
+  "System.Buffers.4.6.0.nupkg": {
+   "file": "System.Buffers.4.6.0.nupkg",
+   "sha256": "736425805075e8895f066b3960bb1308543f41e2a84baa61d5af6675192afc97",
+   "size": 67596
+  },
+  "System.Collections.4.3.0.nupkg": {
+   "file": "System.Collections.4.3.0.nupkg",
+   "sha256": "69f63b554b43eb0ff9998aab71ef2442bbc321f4b61970c834387bdc88f124a7",
+   "size": 810001
+  },
+  "System.Collections.Concurrent.4.3.0.nupkg": {
+   "file": "System.Collections.Concurrent.4.3.0.nupkg",
+   "sha256": "28c6390df2670de22c6b5dc3a6abf237c36445e644300167966360955a052172",
+   "size": 502676
+  },
+  "System.ComponentModel.4.3.0.nupkg": {
+   "file": "System.ComponentModel.4.3.0.nupkg",
+   "sha256": "8b4d2eba330ee091032043ca2e674b637409eaf752a70e8687da0ece41580625",
+   "size": 95320
+  },
+  "System.ComponentModel.Annotations.4.3.0.nupkg": {
+   "file": "System.ComponentModel.Annotations.4.3.0.nupkg",
+   "sha256": "cd0551bba4a72d2eda29eb436b1be8ef300758b381ecafe6b60b3fb9a42d62a9",
+   "size": 610033
+  },
+  "System.ComponentModel.Annotations.4.4.1.nupkg": {
+   "file": "System.ComponentModel.Annotations.4.4.1.nupkg",
+   "sha256": "f0d674b563ea4587f7a2f927e0e41aa46b077ac78460a83dd67a99014df786b4",
+   "size": 676599
+  },
+  "System.Configuration.ConfigurationManager.4.7.0.nupkg": {
+   "file": "System.Configuration.ConfigurationManager.4.7.0.nupkg",
+   "sha256": "ad88e9fd499a808e1950b535a1c89afc0897c4b34bf2e84c57c2c11784055b5d",
+   "size": 431122
+  },
+  "System.Configuration.ConfigurationManager.6.0.1.nupkg": {
+   "file": "System.Configuration.ConfigurationManager.6.0.1.nupkg",
+   "sha256": "53fd07c9e90064ae726b654d7c60351deb90c890a1a1aa9ca08bf9ef12e9ccb4",
+   "size": 452632
+  },
+  "System.Console.4.3.0.nupkg": {
+   "file": "System.Console.4.3.0.nupkg",
+   "sha256": "5e1dcf3c166bd290db0da2bc0041db746cfb78f2ba622d59c91588d4933a99ba",
+   "size": 102397
+  },
+  "System.Data.SQLite.Core.Servarr.1.0.115.5-18.nupkg": {
+   "file": "System.Data.SQLite.Core.Servarr.1.0.115.5-18.nupkg",
+   "sha256": "1fa42f28d2a45ba3f01f00d601455e5e5ab3f5f2531302004b762d71b3b0a537",
+   "size": 6789369
+  },
+  "System.Diagnostics.Debug.4.3.0.nupkg": {
+   "file": "System.Diagnostics.Debug.4.3.0.nupkg",
+   "sha256": "7e403bf528cf6d27a211cadb6d4b1bef4bbd07bc2a6ec74cf6cd4b9e82a3d203",
+   "size": 149774
+  },
+  "System.Diagnostics.DiagnosticSource.4.3.0.nupkg": {
+   "file": "System.Diagnostics.DiagnosticSource.4.3.0.nupkg",
+   "sha256": "3852516f4ca07a9d19df20c12f002033f4e47ece09083b6c361c031fd71dd57c",
+   "size": 120125
+  },
+  "System.Diagnostics.DiagnosticSource.4.7.0.nupkg": {
+   "file": "System.Diagnostics.DiagnosticSource.4.7.0.nupkg",
+   "sha256": "c122533632467046b4b4ead75c718d5648cfa413e72cb3fb64aa50f45bd92033",
+   "size": 175600
+  },
+  "System.Diagnostics.DiagnosticSource.6.0.0.nupkg": {
+   "file": "System.Diagnostics.DiagnosticSource.6.0.0.nupkg",
+   "sha256": "458f6e5923dd2b67e04b0963d4e1c1181568dd9bc642004937302c4b93863167",
+   "size": 374970
+  },
+  "System.Diagnostics.EventLog.6.0.0.nupkg": {
+   "file": "System.Diagnostics.EventLog.6.0.0.nupkg",
+   "sha256": "cd45c842d00529b89430a0ab5f33b898e4c3e44529859ce084160a5e9ae8c123",
+   "size": 296510
+  },
+  "System.Diagnostics.Tools.4.3.0.nupkg": {
+   "file": "System.Diagnostics.Tools.4.3.0.nupkg",
+   "sha256": "8153afd522ba0297b415084256534e77d72f40a06f331457f4ad093d58bcc346",
+   "size": 67227
+  },
+  "System.Diagnostics.Tracing.4.3.0.nupkg": {
+   "file": "System.Diagnostics.Tracing.4.3.0.nupkg",
+   "sha256": "8421136691c719584f62f6f80b47e1e33b3ef33bf818fa22c5a8242d98e96bd4",
+   "size": 581864
+  },
+  "System.Drawing.Common.4.7.0.nupkg": {
+   "file": "System.Drawing.Common.4.7.0.nupkg",
+   "sha256": "0f7a86fb101eefc9591ef95ca3d8072b64c400cdfbd24d3d73af92422f3bdc79",
+   "size": 1241693
+  },
+  "System.Drawing.Common.6.0.0.nupkg": {
+   "file": "System.Drawing.Common.6.0.0.nupkg",
+   "sha256": "ffd11a01b11e3a310b452319688992d4ef059947bc8f85ae154c3554eacfc80a",
+   "size": 1114589
+  },
+  "System.Formats.Asn1.8.0.1.nupkg": {
+   "file": "System.Formats.Asn1.8.0.1.nupkg",
+   "sha256": "99acbf5a0f9eb269b5375e244131b81123018be19028fa7466bac1a3fa3a3973",
+   "size": 328435
+  },
+  "System.Globalization.4.3.0.nupkg": {
+   "file": "System.Globalization.4.3.0.nupkg",
+   "sha256": "71a2f4a51985484b1aa1e65e58de414d0b46ac0b5a40fc058bc60e64f646e6b2",
+   "size": 589136
+  },
+  "System.Globalization.Calendars.4.3.0.nupkg": {
+   "file": "System.Globalization.Calendars.4.3.0.nupkg",
+   "sha256": "b8d383d043951609d2d9f30abcc884b48f5a3b0d34f8f7f2fc7faab9c01094f7",
+   "size": 177689
+  },
+  "System.Globalization.Extensions.4.3.0.nupkg": {
+   "file": "System.Globalization.Extensions.4.3.0.nupkg",
+   "sha256": "9a6256036ed3d06455b853fdfec8fee13ad1e06256af33489363c3adbafb4509",
+   "size": 142949
+  },
+  "System.IO.4.3.0.nupkg": {
+   "file": "System.IO.4.3.0.nupkg",
+   "sha256": "aeeca74077a414fe703eb0e257284d891217799fc8f4da632b9a54f873c38916",
+   "size": 703652
+  },
+  "System.IO.Abstractions.17.0.24.nupkg": {
+   "file": "System.IO.Abstractions.17.0.24.nupkg",
+   "sha256": "6eb12ea4019412ee9777088661cde10377fa9ea7852c3207b7896ebce69ab946",
+   "size": 372554
+  },
+  "System.IO.Abstractions.TestingHelpers.17.0.24.nupkg": {
+   "file": "System.IO.Abstractions.TestingHelpers.17.0.24.nupkg",
+   "sha256": "b2d27b9794b650db3a4d4fc54c8e9b123b645c76ad798e7aaa5a87214dd28417",
+   "size": 269253
+  },
+  "System.IO.Compression.4.3.0.nupkg": {
+   "file": "System.IO.Compression.4.3.0.nupkg",
+   "sha256": "7f93eb4254208f95e3d999c7c575bc5e23a2bda06f7ea0daa3d49be805629f20",
+   "size": 485197
+  },
+  "System.IO.Compression.ZipFile.4.3.0.nupkg": {
+   "file": "System.IO.Compression.ZipFile.4.3.0.nupkg",
+   "sha256": "59097e2605acf8669131e89a8531546eb8655c81daa737294c55db46f02dbefb",
+   "size": 113746
+  },
+  "System.IO.FileSystem.4.3.0.nupkg": {
+   "file": "System.IO.FileSystem.4.3.0.nupkg",
+   "sha256": "bcd2189ef95acae563d167d17d82a90eb843a6d961a75a4df026269557764d7c",
+   "size": 274316
+  },
+  "System.IO.FileSystem.AccessControl.5.0.0.nupkg": {
+   "file": "System.IO.FileSystem.AccessControl.5.0.0.nupkg",
+   "sha256": "73d3250ca25f8fadd846f97b6eb44136ce7da25ae66cbf86d40ea84d2f32b447",
+   "size": 309442
+  },
+  "System.IO.FileSystem.Primitives.4.3.0.nupkg": {
+   "file": "System.IO.FileSystem.Primitives.4.3.0.nupkg",
+   "sha256": "2cc9df83c5706afb3d70c9eaf67347f085ad02d49f934fc5cb8b3846df6bd648",
+   "size": 94996
+  },
+  "System.IdentityModel.Tokens.Jwt.6.8.0.nupkg": {
+   "file": "System.IdentityModel.Tokens.Jwt.6.8.0.nupkg",
+   "sha256": "55e889fa24d9d2baa965d1af801bb9a6338a72ad983014cd751985539e770cc8",
+   "size": 147970
+  },
+  "System.Linq.4.3.0.nupkg": {
+   "file": "System.Linq.4.3.0.nupkg",
+   "sha256": "479ba248bde5e9add7ad74922fa8f3faafcf732550cc4001ca2b9764d4aa0ff0",
+   "size": 512550
+  },
+  "System.Linq.Expressions.4.3.0.nupkg": {
+   "file": "System.Linq.Expressions.4.3.0.nupkg",
+   "sha256": "fb7a6f85963bae2a7c1c26df7542f38e50bd14f645a58a10c6191cb859b6c24f",
+   "size": 1928029
+  },
+  "System.Memory.4.6.2.nupkg": {
+   "file": "System.Memory.4.6.2.nupkg",
+   "sha256": "2aeed0a13300c2469682d9acd27d5863199666a42ddf5484245db9f964d63dde",
+   "size": 192937
+  },
+  "System.Net.Http.4.3.0.nupkg": {
+   "file": "System.Net.Http.4.3.0.nupkg",
+   "sha256": "528041ed63c3a760677bf7f0c4a1749c4f20ac9e85cd3317753fe37eca618fc4",
+   "size": 1371903
+  },
+  "System.Net.NameResolution.4.3.0.nupkg": {
+   "file": "System.Net.NameResolution.4.3.0.nupkg",
+   "sha256": "7866700811315ac9e2ad6047ca9dac492497a7a83b23abf9dea366c0f82d2797",
+   "size": 177639
+  },
+  "System.Net.Primitives.4.3.0.nupkg": {
+   "file": "System.Net.Primitives.4.3.0.nupkg",
+   "sha256": "318ed9eaf3ad14c6c429a2d6f6739265e023716a700ad74eeff5b59a41990731",
+   "size": 769347
+  },
+  "System.Net.Sockets.4.3.0.nupkg": {
+   "file": "System.Net.Sockets.4.3.0.nupkg",
+   "sha256": "8a5eddaf9553fd058383fd1cba1fb812cdaef0b63fffeaaa898f416666314aeb",
+   "size": 135695
+  },
+  "System.ObjectModel.4.3.0.nupkg": {
+   "file": "System.ObjectModel.4.3.0.nupkg",
+   "sha256": "82d9919163f62b0af79c7b43874c98b5c7b7f33d70ac6cdbe9f8e6e2ff3037a4",
+   "size": 321655
+  },
+  "System.Private.Uri.4.3.0.nupkg": {
+   "file": "System.Private.Uri.4.3.0.nupkg",
+   "sha256": "7d57e07283f8015375139c0765b28120e3d867fc4179221db0d17e6ddba42113",
+   "size": 16869
+  },
+  "System.Private.Uri.4.3.2.nupkg": {
+   "file": "System.Private.Uri.4.3.2.nupkg",
+   "sha256": "8c1dbe5b7b5343a0fd5c7cb9b0414c01acc87b57eeda3ac43543b471be3c3a05",
+   "size": 26095
+  },
+  "System.Reflection.4.3.0.nupkg": {
+   "file": "System.Reflection.4.3.0.nupkg",
+   "sha256": "35049946964bbed3d60e5be6308746c5c56ec949f0f76654468d215ec12c8576",
+   "size": 700821
+  },
+  "System.Reflection.Emit.4.3.0.nupkg": {
+   "file": "System.Reflection.Emit.4.3.0.nupkg",
+   "sha256": "e4b8640e6872d85912c6e95747e6ec4ed333754dd5cb2b99cecc69eff0f0c885",
+   "size": 219534
+  },
+  "System.Reflection.Emit.ILGeneration.4.3.0.nupkg": {
+   "file": "System.Reflection.Emit.ILGeneration.4.3.0.nupkg",
+   "sha256": "98a4649c41cd96ce20911c2b1208b7f41faf49a033fc6b772002ed4bdf313670",
+   "size": 124567
+  },
+  "System.Reflection.Emit.Lightweight.4.3.0.nupkg": {
+   "file": "System.Reflection.Emit.Lightweight.4.3.0.nupkg",
+   "sha256": "acac786bdc9929c6a39684991ebe02293549e958e1f799e2fb3b333f15a38762",
+   "size": 84426
+  },
+  "System.Reflection.Extensions.4.3.0.nupkg": {
+   "file": "System.Reflection.Extensions.4.3.0.nupkg",
+   "sha256": "98c38263351e9e3778ad621fabbcc85fd3c5624fdd694c85d00f25d616f27409",
+   "size": 99740
+  },
+  "System.Reflection.Primitives.4.3.0.nupkg": {
+   "file": "System.Reflection.Primitives.4.3.0.nupkg",
+   "sha256": "e68830581e2f9504e5de38e4d718e7886da8cdb1488d94cbf6e834bac650b813",
+   "size": 281679
+  },
+  "System.Reflection.TypeExtensions.4.3.0.nupkg": {
+   "file": "System.Reflection.TypeExtensions.4.3.0.nupkg",
+   "sha256": "e14e3f5cd4009dd7604081c826adcfd93f3484dd283dd536b827a086c0d35a78",
+   "size": 187842
+  },
+  "System.Reflection.TypeExtensions.4.7.0.nupkg": {
+   "file": "System.Reflection.TypeExtensions.4.7.0.nupkg",
+   "sha256": "184b42197c2d3a79187a3495f937e5f83ab21aae634d4695c8bf5e32ea4c1c13",
+   "size": 249287
+  },
+  "System.Resources.Extensions.6.0.0.nupkg": {
+   "file": "System.Resources.Extensions.6.0.0.nupkg",
+   "sha256": "fc411d78dbe9f45acb7959e6a30cc793a9e7d0a98f7fa2fd3e873b97f47de3c0",
+   "size": 127618
+  },
+  "System.Resources.ResourceManager.4.3.0.nupkg": {
+   "file": "System.Resources.ResourceManager.4.3.0.nupkg",
+   "sha256": "89d88e0fddf16dbadbc304a70f898e440f51622fc3fd4e3c79152c9ff5a7586a",
+   "size": 85908
+  },
+  "System.Runtime.4.3.0.nupkg": {
+   "file": "System.Runtime.4.3.0.nupkg",
+   "sha256": "e75f35dd65e9048b2e03a7d4b44e57691423716750dbf966128909b7deeed118",
+   "size": 7263712
+  },
+  "System.Runtime.Caching.4.7.0.nupkg": {
+   "file": "System.Runtime.Caching.4.7.0.nupkg",
+   "sha256": "fe4032d8848ee9816c74888248ad79f754191748e7da3fc0201f94da9d04bbaf",
+   "size": 145794
+  },
+  "System.Runtime.CompilerServices.Unsafe.4.4.0.nupkg": {
+   "file": "System.Runtime.CompilerServices.Unsafe.4.4.0.nupkg",
+   "sha256": "49e4c8e3ec9544ed929802a03ab3278b8d3bd0e0fe3a8f0bd5888455e283ca28",
+   "size": 71546
+  },
+  "System.Runtime.CompilerServices.Unsafe.4.5.0.nupkg": {
+   "file": "System.Runtime.CompilerServices.Unsafe.4.5.0.nupkg",
+   "sha256": "83d8c8750b57480858f9ecd0b583601c4528411dc7cf39c7b3724ccc3f5b8a9e",
+   "size": 103605
+  },
+  "System.Runtime.CompilerServices.Unsafe.6.0.0.nupkg": {
+   "file": "System.Runtime.CompilerServices.Unsafe.6.0.0.nupkg",
+   "sha256": "6c41b53e70e9eee298cff3a02ce5acdd15b04125589be0273f0566026720a762",
+   "size": 84343
+  },
+  "System.Runtime.Extensions.4.3.0.nupkg": {
+   "file": "System.Runtime.Extensions.4.3.0.nupkg",
+   "sha256": "c0b0c79a8cebf38bf55b6cd8096631c63d0547424360749545a46e0e6d1b77fa",
+   "size": 1060357
+  },
+  "System.Runtime.Handles.4.3.0.nupkg": {
+   "file": "System.Runtime.Handles.4.3.0.nupkg",
+   "sha256": "289e5a5e81a9079e98ebe89ea4191da71fc07da243022b71e2fae42ea47b826b",
+   "size": 54854
+  },
+  "System.Runtime.InteropServices.4.3.0.nupkg": {
+   "file": "System.Runtime.InteropServices.4.3.0.nupkg",
+   "sha256": "f2c0c7f965097c247eedee277e97ed8fffa5b2d122662c56501b9e476ce61e02",
+   "size": 2597020
+  },
+  "System.Runtime.InteropServices.RuntimeInformation.4.3.0.nupkg": {
+   "file": "System.Runtime.InteropServices.RuntimeInformation.4.3.0.nupkg",
+   "sha256": "318a65ebf6720ba8639b359121efa20e895d38c5b599f6f05ec76e0275c82860",
+   "size": 179546
+  },
+  "System.Runtime.Loader.4.3.0.nupkg": {
+   "file": "System.Runtime.Loader.4.3.0.nupkg",
+   "sha256": "b321b519316361bc17d78e810ff2fbb79e63f8366aa470dceb3dbc91d48dcf1d",
+   "size": 48094
+  },
+  "System.Runtime.Numerics.4.3.0.nupkg": {
+   "file": "System.Runtime.Numerics.4.3.0.nupkg",
+   "sha256": "3f98c70a031b80531888e36fce668a15e3aa7002033eefd4f1b395acd3d82aa7",
+   "size": 283763
+  },
+  "System.Security.AccessControl.4.7.0.nupkg": {
+   "file": "System.Security.AccessControl.4.7.0.nupkg",
+   "sha256": "ffd6423c81cb761ceaece5b850aa93b11d0ef778e31dde81446d524708071358",
+   "size": 604403
+  },
+  "System.Security.AccessControl.5.0.0.nupkg": {
+   "file": "System.Security.AccessControl.5.0.0.nupkg",
+   "sha256": "b9e486f989fcd9ebf1c86067138f4de03fa780e0c35e0a2b9e506d4373a6c39e",
+   "size": 621573
+  },
+  "System.Security.AccessControl.6.0.0.nupkg": {
+   "file": "System.Security.AccessControl.6.0.0.nupkg",
+   "sha256": "a8ec961016cdaf7123c92f9eb451bcff331bb8f8c0f8ef9d8bbd7b24ff42c728",
+   "size": 322676
+  },
+  "System.Security.Cryptography.Algorithms.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.Algorithms.4.3.0.nupkg",
+   "sha256": "b4026f35295ccd8049dc4776e007b6edae79b6afe7e03ddfb9b35077070a580f",
+   "size": 402204
+  },
+  "System.Security.Cryptography.Cng.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.Cng.4.3.0.nupkg",
+   "sha256": "bb5eefcbac0d86aa24f754ab54b9e8d8cd44ccb1d99ba54c71af39c5b54286cc",
+   "size": 290620
+  },
+  "System.Security.Cryptography.Cng.4.5.0.nupkg": {
+   "file": "System.Security.Cryptography.Cng.4.5.0.nupkg",
+   "sha256": "f659516c4718d5f1d8b939f7bc665a0b1b05c5202a5e5e1b0c0e91cfd6f4a4de",
+   "size": 650063
+  },
+  "System.Security.Cryptography.Csp.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.Csp.4.3.0.nupkg",
+   "sha256": "a1e7dd4d4fd9d8f594f6795ab7cba24431aafcf199a123d182430bd75a66bcf4",
+   "size": 117553
+  },
+  "System.Security.Cryptography.Encoding.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.Encoding.4.3.0.nupkg",
+   "sha256": "62e81ef3d37a33e35c6e572f5cc7b21d9ea46437f006fdcb3cc0e217c1e126cb",
+   "size": 144382
+  },
+  "System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "0cbf83dac73626b422078a007148204c5c83f30dda2c48c97e877924f7be3b3e",
+   "size": 71949
+  },
+  "System.Security.Cryptography.Pkcs.8.0.0.nupkg": {
+   "file": "System.Security.Cryptography.Pkcs.8.0.0.nupkg",
+   "sha256": "caa7c821e65c86c208d8a75cc49c80a59373c4cfd52a49e3b36e600d69707812",
+   "size": 1076987
+  },
+  "System.Security.Cryptography.Primitives.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.Primitives.4.3.0.nupkg",
+   "sha256": "7e7162ec1dd29d58f96be05b8179db8e718dbd6ac2114e87a7fc23b235b3df5f",
+   "size": 81382
+  },
+  "System.Security.Cryptography.ProtectedData.4.7.0.nupkg": {
+   "file": "System.Security.Cryptography.ProtectedData.4.7.0.nupkg",
+   "sha256": "7597ece6adc88f55b578909f623c48da8fb8d5a4a2169680ba0a681026823ae8",
+   "size": 174838
+  },
+  "System.Security.Cryptography.ProtectedData.6.0.0.nupkg": {
+   "file": "System.Security.Cryptography.ProtectedData.6.0.0.nupkg",
+   "sha256": "5a2f48f4d6d99694035e04bb2a5d3a44817163ff7aef84bb84a898c3911a6d16",
+   "size": 126768
+  },
+  "System.Security.Cryptography.X509Certificates.4.3.0.nupkg": {
+   "file": "System.Security.Cryptography.X509Certificates.4.3.0.nupkg",
+   "sha256": "306dd5fe8c03876ef718250fb061ab68dc1a56973276ea65dc4b4f5e3e93546d",
+   "size": 706727
+  },
+  "System.Security.Permissions.4.7.0.nupkg": {
+   "file": "System.Security.Permissions.4.7.0.nupkg",
+   "sha256": "04681730b522e6bc559a60a18c885c5d4c62b098ef94d4e85e5c9a21b531c38d",
+   "size": 540570
+  },
+  "System.Security.Permissions.6.0.0.nupkg": {
+   "file": "System.Security.Permissions.6.0.0.nupkg",
+   "sha256": "fcc32fb4558637fbce41f8d774e85eb7582c9cc821ea58790c21e2995b27544b",
+   "size": 240029
+  },
+  "System.Security.Principal.Windows.4.3.0.nupkg": {
+   "file": "System.Security.Principal.Windows.4.3.0.nupkg",
+   "sha256": "99b74b554704c1eefca7766707a8d8b22ccd12ac4c682016237b4440d8514001",
+   "size": 220931
+  },
+  "System.Security.Principal.Windows.4.7.0.nupkg": {
+   "file": "System.Security.Principal.Windows.4.7.0.nupkg",
+   "sha256": "ad604cd94f0aab7ac475a6b530f65260e3a46ed306816c81f223eba48aa6a6a8",
+   "size": 511086
+  },
+  "System.Security.Principal.Windows.5.0.0.nupkg": {
+   "file": "System.Security.Principal.Windows.5.0.0.nupkg",
+   "sha256": "081390c25f6f78592b28ada853c24514488a221fe9f9a24efaaf5373643ff3d6",
+   "size": 535022
+  },
+  "System.ServiceProcess.ServiceController.6.0.1.nupkg": {
+   "file": "System.ServiceProcess.ServiceController.6.0.1.nupkg",
+   "sha256": "6587feee59fa225ad26479e816f672a28b5132c2ea71469976e26787a9b3db96",
+   "size": 263235
+  },
+  "System.Text.Encoding.4.3.0.nupkg": {
+   "file": "System.Text.Encoding.4.3.0.nupkg",
+   "sha256": "19cb475462d901afebaa404d86c0469ec89674acafe950ee6d8a4692e3a404b8",
+   "size": 327281
+  },
+  "System.Text.Encoding.CodePages.6.0.0.nupkg": {
+   "file": "System.Text.Encoding.CodePages.6.0.0.nupkg",
+   "sha256": "9c673603a5d89f0a8672af2b7e04d18c6afebe8212c4d7bfefa9362b7e9ca23e",
+   "size": 4242377
+  },
+  "System.Text.Encoding.Extensions.4.3.0.nupkg": {
+   "file": "System.Text.Encoding.Extensions.4.3.0.nupkg",
+   "sha256": "bee7c75e0f1000ac4796e8cf1c772bb46c00a859ac083e872a37c30221f20187",
+   "size": 244195
+  },
+  "System.Text.Encodings.Web.6.0.0.nupkg": {
+   "file": "System.Text.Encodings.Web.6.0.0.nupkg",
+   "sha256": "51e9831c61684081bb39b430465ba155fe8082d42291f1c4a0f2c2ea06c5c91a",
+   "size": 235525
+  },
+  "System.Text.Json.6.0.0.nupkg": {
+   "file": "System.Text.Json.6.0.0.nupkg",
+   "sha256": "f4013fe5db380ea11f6f497edbb7c205349e6027515a1c61d81860f082af22ea",
+   "size": 1228529
+  },
+  "System.Text.Json.6.0.10.nupkg": {
+   "file": "System.Text.Json.6.0.10.nupkg",
+   "sha256": "5228d88747711631629cc3d24c9a1bf7aa1a464366f96b1afbb15f83a9919ec7",
+   "size": 1399358
+  },
+  "System.Text.RegularExpressions.4.3.0.nupkg": {
+   "file": "System.Text.RegularExpressions.4.3.0.nupkg",
+   "sha256": "54b0a4d43d6470ddb06c07b777461033f3ea0ac3c73aeaa5058d72776628f8ad",
+   "size": 530523
+  },
+  "System.Threading.4.3.0.nupkg": {
+   "file": "System.Threading.4.3.0.nupkg",
+   "sha256": "643437751e29cd5c266aa060e2169c65a55e9d0ff7c8017fb95ec15d95e38967",
+   "size": 708088
+  },
+  "System.Threading.Tasks.4.3.0.nupkg": {
+   "file": "System.Threading.Tasks.4.3.0.nupkg",
+   "sha256": "679ad77c9d445e9dc6df620a646899ea4a0c8d1bb49fc0b5346af0a5d21e9f8c",
+   "size": 840017
+  },
+  "System.Threading.Tasks.Extensions.4.3.0.nupkg": {
+   "file": "System.Threading.Tasks.Extensions.4.3.0.nupkg",
+   "sha256": "5f6850e63f9fc5c9a79bcf0b7bf9126af8e218e9a472e98119364a04bbe8acf7",
+   "size": 52499
+  },
+  "System.Threading.Tasks.Extensions.4.5.4.nupkg": {
+   "file": "System.Threading.Tasks.Extensions.4.5.4.nupkg",
+   "sha256": "a304a963cc0796c5179f9c6b7d8022bbce3b2fa7c029eb6196f631f7b462d678",
+   "size": 89582
+  },
+  "System.Threading.ThreadPool.4.3.0.nupkg": {
+   "file": "System.Threading.ThreadPool.4.3.0.nupkg",
+   "sha256": "c16d1076fb2c46868e7d02dacd31929f0613bab13847c1710f1ef4a5890bfa08",
+   "size": 89926
+  },
+  "System.Threading.Timer.4.3.0.nupkg": {
+   "file": "System.Threading.Timer.4.3.0.nupkg",
+   "sha256": "a6686c96685084fdf64d66c1ce82132d9e01a0e441a98936e4e59baeed38a7db",
+   "size": 77054
+  },
+  "System.ValueTuple.4.4.0.nupkg": {
+   "file": "System.ValueTuple.4.4.0.nupkg",
+   "sha256": "2eaa48ddb49a5ea54fa9f11d7ec584daa5fdb73155e953d4eb1e00fdf573cdf3",
+   "size": 222120
+  },
+  "System.ValueTuple.4.6.1.nupkg": {
+   "file": "System.ValueTuple.4.6.1.nupkg",
+   "sha256": "1dbf3b30f70d747411951103cc510a53c66ab4a376e9b8f20228a62669ba2d62",
+   "size": 87142
+  },
+  "System.Windows.Extensions.4.7.0.nupkg": {
+   "file": "System.Windows.Extensions.4.7.0.nupkg",
+   "sha256": "c96f86bd0ada9d179aa8fc39645bfe9928c1c90e72d6944b974e492047f7b585",
+   "size": 96529
+  },
+  "System.Windows.Extensions.6.0.0.nupkg": {
+   "file": "System.Windows.Extensions.6.0.0.nupkg",
+   "sha256": "37eaa0d44e850c9f40f4be74c2656ddf13d057c671946d71797805bb13bec9f3",
+   "size": 113560
+  },
+  "System.Xml.ReaderWriter.4.3.0.nupkg": {
+   "file": "System.Xml.ReaderWriter.4.3.0.nupkg",
+   "sha256": "410f0a814d25bb817952787e4db79c84efffcda00667831f82f5bbd829f58730",
+   "size": 1388897
+  },
+  "System.Xml.XDocument.4.3.0.nupkg": {
+   "file": "System.Xml.XDocument.4.3.0.nupkg",
+   "sha256": "ad6b5d72672e12534e4b309e85f9722b01e40d1a623a1249b3c09e4349750822",
+   "size": 591350
+  },
+  "TagLibSharp-Lidarr.2.2.0.19.nupkg": {
+   "file": "TagLibSharp-Lidarr.2.2.0.19.nupkg",
+   "sha256": "4606511a1dcf04584bdc705943fa76356cb833548d7d2d0bb7f5d8d3e6838c96",
+   "size": 994209
+  },
+  "coverlet.collector.3.0.4-preview.27.ge7cb7c3b40.nupkg": {
+   "file": "coverlet.collector.3.0.4-preview.27.ge7cb7c3b40.nupkg",
+   "sha256": "5228856bf19f2dfde070a6f56ad033e60c11d2c200eec0351852926e4eac2203",
+   "size": 25297
+  },
+  "runtime.any.System.Collections.4.3.0.nupkg": {
+   "file": "runtime.any.System.Collections.4.3.0.nupkg",
+   "sha256": "e0f199ab25a167afc709317629d743b1b9934e3c6cda85bbf587e46deac3652f",
+   "size": 107990
+  },
+  "runtime.any.System.Diagnostics.Tools.4.3.0.nupkg": {
+   "file": "runtime.any.System.Diagnostics.Tools.4.3.0.nupkg",
+   "sha256": "f322ca16ddb04319047fb7cd7f307e70f5028d89f6a9ba8d810d7e11e63687f2",
+   "size": 43707
+  },
+  "runtime.any.System.Diagnostics.Tracing.4.3.0.nupkg": {
+   "file": "runtime.any.System.Diagnostics.Tracing.4.3.0.nupkg",
+   "sha256": "76c9932c6bedf07a9190358ff222955c9092f9a900cc43465ca3d5d7c5b64602",
+   "size": 49844
+  },
+  "runtime.any.System.Globalization.4.3.0.nupkg": {
+   "file": "runtime.any.System.Globalization.4.3.0.nupkg",
+   "sha256": "3da8884d3148d857cfca54c493b0f0cdf29e880fe0fdaa28494d690dc77058b5",
+   "size": 43718
+  },
+  "runtime.any.System.Globalization.Calendars.4.3.0.nupkg": {
+   "file": "runtime.any.System.Globalization.Calendars.4.3.0.nupkg",
+   "sha256": "018877f6d81725516ef1a2e2f58ff8acaf3258c6b36b84b879ac637dcb8410be",
+   "size": 43456
+  },
+  "runtime.any.System.IO.4.3.0.nupkg": {
+   "file": "runtime.any.System.IO.4.3.0.nupkg",
+   "sha256": "bde8fbc92461caf337a5887f21331d0b6e62bd277458b64068841b623ffa1d51",
+   "size": 54553
+  },
+  "runtime.any.System.Reflection.4.3.0.nupkg": {
+   "file": "runtime.any.System.Reflection.4.3.0.nupkg",
+   "sha256": "9ece9ffbe95203e6e2d715e0996d4991615bd8d68c0fec3e60d4df32fc808909",
+   "size": 43499
+  },
+  "runtime.any.System.Reflection.Extensions.4.3.0.nupkg": {
+   "file": "runtime.any.System.Reflection.Extensions.4.3.0.nupkg",
+   "sha256": "63602784e709c09558bfb469e89cfa99ad1fa484c5a895bef2bb30d74e8ad97f",
+   "size": 44123
+  },
+  "runtime.any.System.Reflection.Primitives.4.3.0.nupkg": {
+   "file": "runtime.any.System.Reflection.Primitives.4.3.0.nupkg",
+   "sha256": "2e43d7b620d033705c7589009b9b9234e8b3dee178278e6aa719f96818aa3574",
+   "size": 43106
+  },
+  "runtime.any.System.Resources.ResourceManager.4.3.0.nupkg": {
+   "file": "runtime.any.System.Resources.ResourceManager.4.3.0.nupkg",
+   "sha256": "f44be7999b252e02cb849d34a3931668fb894256d415c505f22b4640d564710e",
+   "size": 42939
+  },
+  "runtime.any.System.Runtime.4.3.0.nupkg": {
+   "file": "runtime.any.System.Runtime.4.3.0.nupkg",
+   "sha256": "ab084d5c1689d43b4392e45a7201f09d998e675bbdabb37c8f471638b60e10b3",
+   "size": 55302
+  },
+  "runtime.any.System.Runtime.Handles.4.3.0.nupkg": {
+   "file": "runtime.any.System.Runtime.Handles.4.3.0.nupkg",
+   "sha256": "3d04400b09d252ec6057248ed7ce342afa820bd17c888f624f3c4d5b445c052e",
+   "size": 30945
+  },
+  "runtime.any.System.Runtime.InteropServices.4.3.0.nupkg": {
+   "file": "runtime.any.System.Runtime.InteropServices.4.3.0.nupkg",
+   "sha256": "29ac393e72d8222a966eca05dd5289872ee9929a06b14c27e190c22ac71b6f30",
+   "size": 71496
+  },
+  "runtime.any.System.Text.Encoding.4.3.0.nupkg": {
+   "file": "runtime.any.System.Text.Encoding.4.3.0.nupkg",
+   "sha256": "435f01f6adba324599c7af1ec547d04f7d3ed0f1a6a4594381a1744e7688182b",
+   "size": 43396
+  },
+  "runtime.any.System.Text.Encoding.Extensions.4.3.0.nupkg": {
+   "file": "runtime.any.System.Text.Encoding.Extensions.4.3.0.nupkg",
+   "sha256": "e8c623d1198b878115a8cb4efcc46a062d073a7e621b8c7d2629a008227e1053",
+   "size": 43296
+  },
+  "runtime.any.System.Threading.Tasks.4.3.0.nupkg": {
+   "file": "runtime.any.System.Threading.Tasks.4.3.0.nupkg",
+   "sha256": "6a074e334357ba97c76ca010cd04fc5e06c8f41f2154487e6bfdafa9e1dcb60e",
+   "size": 47940
+  },
+  "runtime.any.System.Threading.Timer.4.3.0.nupkg": {
+   "file": "runtime.any.System.Threading.Timer.4.3.0.nupkg",
+   "sha256": "0601f15c221b89c559b6980c8a64978b18450b757ea79383a9e9630e33bc842b",
+   "size": 43098
+  },
+  "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "2d750f2d7dc3271b14d4f7775308ced4f3bd34cd9e94d1035debb632efef369b",
+   "size": 44390
+  },
+  "runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "a9e4aa69423cd3e96ac3930ae2f32998ed0265aaab99892dc29e8bfaf4006f42",
+   "size": 42827
+  },
+  "runtime.fedora.24-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.fedora.24-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "4ab1ea4fdc2b081b3120b5ad68980629de8e766c66f3f321eca8740949195730",
+   "size": 42833
+  },
+  "runtime.native.System.4.3.0.nupkg": {
+   "file": "runtime.native.System.4.3.0.nupkg",
+   "sha256": "64165aa1d9e3bcb5c04d6a575da90581ccba3fe82386c8455e6825acbe710f96",
+   "size": 16854
+  },
+  "runtime.native.System.IO.Compression.4.3.0.nupkg": {
+   "file": "runtime.native.System.IO.Compression.4.3.0.nupkg",
+   "sha256": "0d69d7b38be52a853a5b1c6f080ad326ea55eac5f78816d987c49ba9f1da71ef",
+   "size": 16918
+  },
+  "runtime.native.System.Net.Http.4.3.0.nupkg": {
+   "file": "runtime.native.System.Net.Http.4.3.0.nupkg",
+   "sha256": "739e7a3f285e470a588707818d27c8c04c991e701407c8d68a8c8a11ca7fd9d8",
+   "size": 16894
+  },
+  "runtime.native.System.Security.Cryptography.Apple.4.3.0.nupkg": {
+   "file": "runtime.native.System.Security.Cryptography.Apple.4.3.0.nupkg",
+   "sha256": "d88841bf48baa5370ecabf05148c9f3c469a087526259f036302d4c09fb9c1ac",
+   "size": 16967
+  },
+  "runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "272d352a1b5c0a5db08cca59587f97ddf8477159fe4b296558563ccd6973ffa2",
+   "size": 17048
+  },
+  "runtime.opensuse.13.2-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.opensuse.13.2-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "c32bf4d20765a9ff1c93111d57b13e425f61248a0f726604bb27966f93b3de63",
+   "size": 44200
+  },
+  "runtime.opensuse.42.1-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.opensuse.42.1-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "ce2f9be2c085ac0f500624860c3ef13d5dbbaf78871a557df60a725548d199ce",
+   "size": 44118
+  },
+  "runtime.osx.10.10-x64.runtime.native.System.Security.Cryptography.Apple.4.3.0.nupkg": {
+   "file": "runtime.osx.10.10-x64.runtime.native.System.Security.Cryptography.Apple.4.3.0.nupkg",
+   "sha256": "b1eae477803b17a79c88f88f26d532272c73740b6ea4471621943d9e9b44cc83",
+   "size": 19581
+  },
+  "runtime.osx.10.10-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.osx.10.10-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "8326d053a98f81a595deb046d9d6c7ead4f7b41abc9a0cdedcf44e76cb969d7d",
+   "size": 37682
+  },
+  "runtime.rhel.7-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.rhel.7-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "56c3fbd8656f7969c652f4bfbe33902efd54f341f62bc9d9e1f0c0988eb51e6e",
+   "size": 42668
+  },
+  "runtime.ubuntu.14.04-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.ubuntu.14.04-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "e322866bf22b3422ae437cda0f320b74d3c3df66cd772eb1af981d2628321798",
+   "size": 43118
+  },
+  "runtime.ubuntu.16.04-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.ubuntu.16.04-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "1e674986146c895a0e382714bc0c1d8e93118b2b92c1d72012fda3f61c62f997",
+   "size": 42901
+  },
+  "runtime.ubuntu.16.10-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg": {
+   "file": "runtime.ubuntu.16.10-x64.runtime.native.System.Security.Cryptography.OpenSsl.4.3.0.nupkg",
+   "sha256": "a551542ae3cf231d1e7502a3cd1a27df32aaf338731c4ce4a3f95cd3557f8ddc",
+   "size": 42939
+  },
+  "runtime.unix.Microsoft.Win32.Primitives.4.3.0.nupkg": {
+   "file": "runtime.unix.Microsoft.Win32.Primitives.4.3.0.nupkg",
+   "sha256": "2d96f6de5457cebdbab514b9680d31c81d3c27189b94f0e803b1c1be7e9ac178",
+   "size": 31929
+  },
+  "runtime.unix.System.Console.4.3.0.nupkg": {
+   "file": "runtime.unix.System.Console.4.3.0.nupkg",
+   "sha256": "00791d292853447b6da9f3239a2fa53e94ee0ab339bddfd6472e8a6ed89ed7dd",
+   "size": 62174
+  },
+  "runtime.unix.System.Diagnostics.Debug.4.3.0.nupkg": {
+   "file": "runtime.unix.System.Diagnostics.Debug.4.3.0.nupkg",
+   "sha256": "45ea1acec71f6c61fe47ab3a8e4839b0810758d12f8c4a07b48b0c6e973bfad2",
+   "size": 38808
+  },
+  "runtime.unix.System.IO.FileSystem.4.3.0.nupkg": {
+   "file": "runtime.unix.System.IO.FileSystem.4.3.0.nupkg",
+   "sha256": "3dfe26465e980cadb1d8a321d16772360bf455435d48a5432e51eaa3379ccb92",
+   "size": 62460
+  },
+  "runtime.unix.System.Net.Primitives.4.3.0.nupkg": {
+   "file": "runtime.unix.System.Net.Primitives.4.3.0.nupkg",
+   "sha256": "a4727e23a8b5e8c57a9bbeee8530ba18f63a8d6191784dd248fddf541e7db62d",
+   "size": 125060
+  },
+  "runtime.unix.System.Net.Sockets.4.3.0.nupkg": {
+   "file": "runtime.unix.System.Net.Sockets.4.3.0.nupkg",
+   "sha256": "22f80e780d89b818ca979c805468cf60c3c3cecf6985bdca00db3de47f6fd70e",
+   "size": 105673
+  },
+  "runtime.unix.System.Private.Uri.4.3.0.nupkg": {
+   "file": "runtime.unix.System.Private.Uri.4.3.0.nupkg",
+   "sha256": "739b575a113f7d86c9565f6b5ecd2e1e1de94ec838e180f5749bf2380d16a0cb",
+   "size": 75969
+  },
+  "runtime.unix.System.Private.Uri.4.3.2.nupkg": {
+   "file": "runtime.unix.System.Private.Uri.4.3.2.nupkg",
+   "sha256": "62b5cf6711a47cfcd02fbc92ee677df639f091ba3f84aab604ade90769abdda5",
+   "size": 85378
+  },
+  "runtime.unix.System.Runtime.Extensions.4.3.0.nupkg": {
+   "file": "runtime.unix.System.Runtime.Extensions.4.3.0.nupkg",
+   "sha256": "97c4bd82de9d937a981ba1d8a271ed76562d04ac8f6f6f6e43a3438e6aeddd5e",
+   "size": 54075
+  }
+ }
+}

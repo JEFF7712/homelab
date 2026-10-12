@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+nuget-feed/
+yarn-mirror/
+node_modules/
+_output/
