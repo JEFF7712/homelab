@@ -70,8 +70,6 @@ spec:
               mountPath: /tmp
             - name: run
               mountPath: /run
-            - name: dri
-              mountPath: /dev/dri
           startupProbe:
             httpGet:
               path: /health
@@ -99,9 +97,14 @@ spec:
             requests:
               cpu: "1"
               memory: 2Gi
+              # Intel UHD 770 via the intel-gpu-plugin DaemonSet. The plugin
+              # injects the i915 device nodes, so no /dev/dri hostPath mount
+              # (which the device cgroup blocks without privileged).
+              gpu.intel.com/i915: "1"
             limits:
               cpu: "4"
               memory: 8Gi
+              gpu.intel.com/i915: "1"
       volumes:
         - name: config
           persistentVolumeClaim:
@@ -113,9 +116,6 @@ spec:
           emptyDir: {}
         - name: run
           emptyDir: {}
-        - name: dri
-          hostPath:
-            path: /dev/dri
 ---
 apiVersion: v1
 kind: Service
