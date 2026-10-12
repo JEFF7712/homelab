@@ -56,6 +56,19 @@ spec:
         retention: 7d
         retentionSize: 9GB
         additionalScrapeConfigs:
+          - job_name: omarchy-vm-host
+            static_configs:
+              - targets: [10.0.30.15:9126]
+                labels:
+                  vm: akshath
+                  host: homelab-05
+          - job_name: omarchy-vm-guest
+            metrics_path: /guest-metrics
+            static_configs:
+              - targets: [10.0.30.15:9126]
+                labels:
+                  vm: akshath
+                  host: homelab-05
           - job_name: nas-01-node
             static_configs:
               - targets:
