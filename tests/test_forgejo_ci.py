@@ -551,6 +551,30 @@ class PolicyTest(unittest.TestCase):
             )
             self.assertNotIn("plan -out", "\n".join(self.catalog[name]["commands"]))
 
+    def test_nix_agent_promotion_is_scoped_and_auto_merges_after_required_ci(
+        self,
+    ) -> None:
+        operation = self.catalog["registry-promote-nix-agent"]
+        self.assertTrue(operation["mutation"])
+        self.assertEqual(
+            operation["environment"]["CI_AUTO_MERGE_PROMOTION"], "nix-agent-site"
+        )
+        command = "\n".join(operation["commands"])
+        self.assertIn("--only apps/nix-agent-site", command)
+        self.assertIn("--allow-observed-drift", command)
+        self.assertIn("just check-registry", command)
+
+        self.request["pipeline"].update(
+            event="cron",
+            ref="refs/heads/main",
+            cron="maintenance",
+            from_fork=False,
+        )
+        result = configuration(self.request, self.catalog, current=SHA)
+        workflows = {item["name"] for item in result["configs"]}
+        self.assertIn("registry-promote-nix-agent.yaml", workflows)
+        self.assertIn("registry-promote-first-party.yaml", workflows)
+
     def test_signatures_bind_body_target_and_freshness(self) -> None:
         private = Ed25519PrivateKey.generate()
         public = private.public_key().public_bytes(

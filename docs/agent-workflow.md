@@ -5,10 +5,10 @@ The shared CLI is `python -m scripts.agent`; `just` provides stable recipes. Sta
 ## Commands
 
 - `just agent-context [--json] [--task ID]`: bounded startup packet. `AGENT_TASK_ID` is a session-scoped alternative. Without either, active tasks are listed and none is selected.
-- `just agent-run ID CLIENT [-- CLIENT_ARGS...]`: validate an active or blocked task, then launch `codex`, `claude`, `cursor` (the `agent` executable), `opencode`, `antigravity` (the `agy` executable), or `muse` with session-scoped `AGENT_TASK_ID`. Client arguments are forwarded literally and its exit status is preserved. It does not create a shared active-task pointer.
+- `just agent-run ID CLIENT [-- CLIENT_ARGS...]`: validate an active or blocked task, then launch `codex`, `claude`, `cursor` (the `agent` executable), `opencode`, `antigravity` (the `agy` executable), or `muse` inside the pinned `nix develop ./flake` environment with session-scoped `AGENT_TASK_ID`. Client arguments are forwarded literally and its exit status is preserved. It does not create a shared active-task pointer.
 - `just agent-verify [--json] [--task ID] [--record] -- COMMAND...`: run the command with unique output/report evidence, verification time, and before/after source fingerprints. Preserve a positive command exit status; return nonzero if a passing command changed source during execution. `--record` appends the verification to the explicitly selected or inherited task using revision conflict detection. Reports survive a checkpoint conflict. Without `--record`, the task is not modified.
 - `just agent-smoke ID CLIENT [--timeout SECONDS]`: explicitly exercise the installed client with one verification command that exits 7. Record actual hook receipts and failure evidence. Codex/OpenCode/Cursor use configured providers; Claude uses a loopback API fixture to exercise its real hook engine without provider inference. Default total client budget is 120 seconds. This is an opt-in integration probe, excluded from startup and routine offline tests.
-- `just doctor [--json]`: local tools, paths, nested flake, adapter JSON/TOML syntax, and credential references. It never reads credential values. Adapter presence and valid syntax do not prove that a client loaded the hooks.
+- `just doctor [--json]`: local tools (including `tea` for Forgejo work), paths, nested flake, adapter JSON/TOML syntax, and credential references. It never reads credential values. Adapter presence and valid syntax do not prove that a client loaded the hooks.
 - `just check-changed [BASE] [--json] [--select-only]`: includes staged, unstaged, renamed, deleted, untracked, and merge-base changes, explains routing, and executes selected checks unless `--select-only` is used. Text output lists the selected checks with reasons, then per-check exit codes with evidence paths. `--json` reports the same selection and results as structured data (`--select-only` reports the selection without executing it).
 - `just check`: full offline validation. Run `just provision-check-deps` once when pinned provider or schema caches are absent.
 - `just fmt` and `just fmt-check`: apply or verify repository formatting. Validation and formatting run through these `just` recipes; `python -m scripts.agent` exposes only the context, doctor, task, check-selection, and status commands listed by its `--help`.
@@ -35,16 +35,52 @@ Verification records contain command, exit code, time, source fingerprint, evide
 
 ## Publishing changes
 
-Forgejo is the primary Git host. Agents publish as the dedicated machine user `homelab-agent` with the `tea` CLI in the pinned dev shell, never a personal account:
+Forgejo is the primary Git host. Publishing a branch or opening/merging a PR changes shared repository state, so do it only when the task explicitly authorizes that step. Agents use the dedicated machine user `homelab-agent`, never a personal account. Before publishing, run the checks below from the pinned dev shell. They are read-only and separate Forgejo API access from Git SSH access:
 
 ```sh
-git push origin <branch>
-just forgejo-pr "imperative title"   # opens the PR against main
-# wait for ci/woodpecker/validation-v2 to turn green, then:
-just forgejo-merge <index>           # prefer fast-forward merges
+nix develop ./flake -c tea --version
+nix develop ./flake -c tea login list
+nix develop ./flake -c tea pulls list --repo JEFF7712/homelab --limit 1
+nix develop ./flake -c git ls-remote git-agent:JEFF7712/homelab.git HEAD
 ```
 
-One-time setup (human, Forgejo UI): create `homelab-agent`, add it as collaborator with write access to `JEFF7712/homelab` only, generate its token with exactly `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`, then run `tea login add --url http://git.internal:3000` on each agent machine. Branch protection binds the machine user too: no direct pushes to main, and merges require a green `ci/woodpecker/validation-v2` status. Where the optional machine-user SSH key is registered (setup step 4 in [Agent Forgejo access](runbooks/ci-pipelines.md)), push with `git push git-agent:JEFF7712/homelab.git <branch>` so the push is also attributed to the machine user; otherwise `git push origin` uses the machine's default Forgejo identity. Full procedure and token rotation: [Agent Forgejo access](runbooks/ci-pipelines.md).
+`tea login list` must show the `homelab-agent` login at `http://git.internal:3000`, and the PR-list command must succeed. `git ls-remote` checks the dedicated machine-user SSH path. A passing API check does not prove that Git can push, and a passing SSH check does not prove that `tea` can create a PR. Never print or copy `~/.config/tea/config.yml`; it contains the token.
+
+One-time setup (human, Forgejo UI): create `homelab-agent`, add it as collaborator with write access to `JEFF7712/homelab` only, generate its token with exactly `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`, then run `tea login add --url http://git.internal:3000` on each agent machine. Register a dedicated SSH key for each agent machine and configure the `git-agent` alias as described in [Agent Forgejo access](runbooks/ci-pipelines.md). Agents must push with `git push git-agent:JEFF7712/homelab.git <branch>` so the branch is owned by the machine account. Do not use `origin` to publish agent branches because it may authenticate as a different account. Branch protection prevents direct pushes to main and requires a green `ci/woodpecker/validation-v2` status before merging.
+
+Troubleshoot by the failing step:
+
+- `tea: command not found`: enter `nix develop ./flake`; `tea` is provided by the pinned dev shell.
+- `tea pulls list` cannot authenticate or returns 403: check that `tea login list` has the expected URL and machine user. The human owner must provision or rotate the scoped token using the setup above. Do not ask for or print token contents.
+- `git ls-remote git-agent:JEFF7712/homelab.git HEAD` fails: fix network/DNS or provision the dedicated SSH identity using the setup above. This is independent of `tea` login.
+- Branch push is denied: confirm the `git-agent` alias and machine-user collaborator access, and check that the branch is not protected. Do not fall back to a personal identity.
+- PR creation says the head branch is missing: push the current branch first, then retry. The PR head must be the branch containing the reviewed commit.
+- PR is open but cannot merge: inspect `ci/woodpecker/validation-v2` in Forgejo and resolve or wait for that status. Do not bypass branch protection.
+
+After authorization and passing preflight, commit and push the reviewed branch, then open its PR:
+
+```sh
+git push git-agent:JEFF7712/homelab.git HEAD
+just forgejo-pr "imperative title"   # opens the PR against main
+```
+
+Use Forgejo's internal address from agent sessions: `http://git.internal:3000` for the web UI and `ssh://forgejo@git.internal:2222/<owner>/<repo>.git` for Git over SSH. The public `git.rupan.dev` hostname is protected by Cloudflare Access and can redirect an unauthenticated browser to the Access sign-in page. When that happens, switch to the internal address; the Forgejo web UI may still require its own login.
+
+The `tea` CLI uses the login saved in `~/.config/tea/config.yml`. Check `tea login list` for an entry whose URL is `http://git.internal:3000`; never print or copy the token from that file. If the login is missing, follow the one-time setup above. Use `tea pr create --repo <owner>/<repo> --base main --head <branch> --title "<title>"` for repositories other than `JEFF7712/homelab`; the `just forgejo-pr` recipe above is scoped to the homelab repository.
+
+For direct API access, send requests to `http://git.internal:3000/api/v1/...` with `Authorization: token <saved-token>`. Read the token programmatically from the `tea` login config and never print it or send it to the public host. Create a PR with `POST /api/v1/repos/<owner>/<repo>/pulls`, using `title`, `head`, `base`, and `body` fields.
+
+Wait for `ci/woodpecker/validation-v2` to turn green. Merge only when merge is explicitly authorized, and prefer fast-forward so the Forgejo to GitLab mirror stays clean:
+
+```sh
+just forgejo-merge <index>
+```
+
+## Applying and deploying changes
+
+For every change, find its owning source and minimum checks in [`AGENT_MAP.md`](../AGENT_MAP.md), then read the linked subsystem runbook before applying it. A PR merge can itself deploy a change when Flux or another reconciler watches the merged source. Treat that merge as a deployment: it needs explicit authorization when the change affects shared infrastructure. Direct apply commands also need explicit authorization and must follow the owner runbook.
+
+Before an authorized apply, confirm the target identity, inspect the plan or rendered desired state, and identify the recovery action from the runbook. After applying, collect fresh runtime evidence for the changed behavior and recovery path where applicable. Report source validation, apply result, live acceptance, and recovery evidence as separate outcomes; a successful build or green CI status alone does not prove deployment.
 
 ## Check mapping
 

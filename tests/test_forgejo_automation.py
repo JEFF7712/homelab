@@ -30,6 +30,165 @@ def embedded(filename: str, key: str) -> dict:
 
 
 class AutomationTest(unittest.TestCase):
+    def test_auto_merge_waits_for_the_required_homelab_status(self) -> None:
+        pull = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "base-sha"},
+        }
+        with patch.object(
+            promote_commit,
+            "_api",
+            side_effect=[
+                {},
+                pull,
+                pull,
+                {
+                    "statuses": [
+                        {
+                            "context": "ci/woodpecker/validation-v2",
+                            "status": "success",
+                            "updated_at": "2026-10-12T00:00:00Z",
+                        }
+                    ]
+                },
+                {},
+            ],
+        ) as api:
+            promote_commit._auto_merge_pull("fixture-token", pull)
+        self.assertEqual(api.call_count, 5)
+        self.assertEqual(
+            api.call_args_list[0].args,
+            ("fixture-token", "/pulls/42/update?style=rebase"),
+        )
+        self.assertEqual(
+            api.call_args_list[-1].args,
+            ("fixture-token", "/pulls/42/merge"),
+        )
+        self.assertEqual(api.call_args_list[-1].kwargs["data"], {"Do": "merge"})
+
+    def test_auto_merge_rejects_a_failed_required_status(self) -> None:
+        pull = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "base-sha"},
+        }
+        with (
+            patch.object(
+                promote_commit,
+                "_api",
+                side_effect=[
+                    {},
+                    pull,
+                    pull,
+                    {
+                        "statuses": [
+                            {
+                                "context": "ci/woodpecker/validation-v2",
+                                "status": "failure",
+                                "updated_at": "2026-10-12T00:00:00Z",
+                            }
+                        ]
+                    },
+                ],
+            ) as api,
+            self.assertRaisesRegex(ValueError, "validation failed"),
+        ):
+            promote_commit._auto_merge_pull("fixture-token", pull)
+        self.assertEqual(api.call_count, 4)
+
+    def test_auto_merge_rebases_when_main_advances_and_waits_for_new_status(
+        self,
+    ) -> None:
+        pull = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "old-base"},
+        }
+        updated = {
+            "number": 42,
+            "head": {"sha": "rebased-sha"},
+            "base": {"sha": "new-base"},
+        }
+        advanced = {
+            "number": 42,
+            "head": {"sha": SHA},
+            "base": {"sha": "new-base"},
+        }
+        with (
+            patch.object(
+                promote_commit,
+                "_api",
+                side_effect=[
+                    {},
+                    pull,
+                    advanced,
+                    {},
+                    updated,
+                    updated,
+                    {
+                        "statuses": [
+                            {
+                                "context": promote_commit.REQUIRED_CONTEXT,
+                                "status": "success",
+                            }
+                        ]
+                    },
+                    {},
+                ],
+            ) as api,
+            patch.object(promote_commit.time, "sleep"),
+        ):
+            promote_commit._auto_merge_pull("fixture-token", pull)
+        self.assertEqual(
+            api.call_args_list[3].args,
+            ("fixture-token", "/pulls/42/update?style=rebase"),
+        )
+        self.assertEqual(
+            api.call_args_list[-1].args,
+            ("fixture-token", "/pulls/42/merge"),
+        )
+
+    def test_auto_promotion_lock_scope_rejects_unrelated_records(self) -> None:
+        previous = {
+            "generated_at": "old",
+            "images": [
+                {"destination_repository": "apps/nix-agent-site", "digest": "old"},
+                {"destination_repository": "apps/other", "digest": "same"},
+            ],
+        }
+        current = {
+            "generated_at": "new",
+            "images": [
+                {"destination_repository": "apps/nix-agent-site", "digest": "new"},
+                {"destination_repository": "apps/other", "digest": "same"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory, chdir(directory):
+            path = Path("registry/images.lock.json")
+            path.parent.mkdir()
+            path.write_text(json.dumps(current))
+            with patch.object(
+                promote_commit.subprocess,
+                "check_output",
+                return_value=json.dumps(previous),
+            ):
+                promote_commit._assert_nix_agent_only(
+                    [
+                        "registry/images.lock.json",
+                        "gitops/websites/nixagent/deployment.yaml",
+                    ]
+                )
+                current["images"][1]["digest"] = "changed"
+                path.write_text(json.dumps(current))
+                with self.assertRaisesRegex(ValueError, "unrelated lock policy"):
+                    promote_commit._assert_nix_agent_only(
+                        [
+                            "registry/images.lock.json",
+                            "gitops/websites/nixagent/deployment.yaml",
+                        ]
+                    )
+
     def test_promotions_use_review_branches_and_correct_forge_credentials(self) -> None:
         for recovery in [False, True]:
             with tempfile.TemporaryDirectory() as directory, chdir(directory):

@@ -18,7 +18,8 @@ just check-changed
 
 - **Primary Git Remote (`origin`):** `ssh://forgejo@git.internal:2222/JEFF7712/homelab.git`
   - Self-hosted Forgejo instance running on `nas-01` (`10.0.30.20:3000`).
-  - Developers push exclusively to `origin`.
+  - `origin` is the canonical read/fetch remote. Agents publish branches through
+    the dedicated `git-agent` SSH alias documented in [Agent Forgejo access](ci-pipelines.md).
   - The normal-push recovery mirror verifies GitLab heads and tags every five minutes.
 - **CI System:** Woodpecker CI (`http://ci.internal:8000`) on `homelab-04`.
 - **GitOps:** Flux CD on `homelab-01` reconciles from Forgejo with sub-second webhook notifications.
@@ -153,5 +154,5 @@ and that the destination is an XFS mount. A missing or incorrect mount fails
 the job before backup contents can be modified.
 
 Core root datasets and both boot partitions retain their required behavior.
-Direct `nixos-rebuild` commands bypass the fleet storage check; use the fleet
-deployment entry point for NAS changes.
+Direct `nixos-rebuild` commands bypass the fleet storage check; use the
+[NixOS host deployment runbook](nixos-host-deployment.md) for NAS changes.

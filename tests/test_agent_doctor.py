@@ -52,6 +52,7 @@ class AgentDoctorTest(unittest.TestCase):
             "command:jq",
             "command:node",
             "command:timeout",
+            "command:tea",
             "adapter:.codex/hooks.json",
             "adapter:opencode.json",
             "adapter:.mcp.json",

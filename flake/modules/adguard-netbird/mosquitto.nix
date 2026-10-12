@@ -29,6 +29,13 @@
               "readwrite roku/#"
             ];
           };
+          bus-display = {
+            passwordFile = "/persist/secrets/mosquitto-bus-display-password";
+            acl = [
+              "readwrite bus-display/#"
+              "write homeassistant/light/bus_display/config"
+            ];
+          };
         };
       }
     ];
@@ -38,5 +45,6 @@
     "/persist/secrets/mosquitto-home-assistant-password"
     "/persist/secrets/mosquitto-zigbee2mqtt-password"
     "/persist/secrets/mosquitto-roku-bridge-password"
+    "/persist/secrets/mosquitto-bus-display-password"
   ];
 }

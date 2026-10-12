@@ -29,11 +29,18 @@ with urllib.request.urlopen(request, timeout=60) as response:
 EOF
 )
 echo "nixos-config main tip: $tip"
-export GIT_CONFIG_COUNT=1
-export GIT_CONFIG_KEY_0="url.https://git.rupan.dev/.insteadOf"
-export GIT_CONFIG_VALUE_0="https://homelab-ci-source:${FORGEJO_SOURCE_READ_TOKEN}@git.rupan.dev/"
-git clone --branch main --depth 50 "https://git.rupan.dev/$owner_repo.git" "$work/nixos-config"
-unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+printf '#!%s\n' "$(command -v bash)" > "$work/askpass"
+cat >> "$work/askpass" <<'EOF'
+case "$1" in
+  *Username*) printf '%s\n' homelab-ci-source ;;
+  *Password*) printf '%s\n' "$FORGEJO_SOURCE_READ_TOKEN" ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod 700 "$work/askpass"
+GIT_ASKPASS="$work/askpass" GIT_TERMINAL_PROMPT=0 \
+  git -c credential.helper= clone --branch main --depth 50 \
+  "https://git.rupan.dev/$owner_repo.git" "$work/nixos-config"
 actual=$(git -C "$work/nixos-config" rev-parse HEAD)
 if [[ "$actual" != "$tip" ]]; then
   echo "Cloned tree $actual does not match resolved tip $tip" >&2

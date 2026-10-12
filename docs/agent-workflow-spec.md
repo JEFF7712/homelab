@@ -1,6 +1,7 @@
 # Agent Workflow and Context Continuity Specification
 
-Status: implementation specification, not a description of completed capabilities.
+Status: historical implementation specification. For current commands and
+behavior, use [`docs/agent-workflow.md`](agent-workflow.md) and the source code.
 Date: 2026-09-05.
 
 ## Objective and Scope

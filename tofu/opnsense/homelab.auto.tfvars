@@ -140,6 +140,13 @@ dhcpv4_reservations = {
     mac_address = "7c:67:ab:16:23:b7"
     subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
   }
+  bus_display = {
+    description = "Waveshare bus departure display"
+    hostname    = "bus-display"
+    ip_address  = "10.0.20.120"
+    mac_address = "14:c1:9f:59:cd:60"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
 }
 
 firewall_aliases = {
@@ -285,6 +292,22 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.20.0/24", port = "" }
       destination = { net = "10.0.40.0/24", port = "" }
+    }
+  }
+  clients-allow-bus-display-mqtt = {
+    description = "Allow bus display to MQTT broker"
+    enabled     = true
+    sequence    = 209
+    interface   = { interface = ["opt1"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "10.0.20.120/32", port = "" }
+      destination = { net = "10.0.30.10/32", port = "1883" }
     }
   }
   clients-allow-govee-responses = {
