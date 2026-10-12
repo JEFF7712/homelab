@@ -11,14 +11,16 @@ def source_paths(archive: object) -> list[str]:
     def collect(entry: object, name: str) -> None:
         if not isinstance(entry, dict):
             raise ValueError(f"Flake archive entry {name} must be an object")
-        path = entry.get("path")
-        if (
-            not isinstance(path, str)
-            or Path(path).parent != Path("/nix/store")
-            or any(character.isspace() for character in path)
-        ):
-            raise ValueError(f"Flake archive entry {name} has no valid store path")
-        paths.add(path)
+        # Relative inputs are contained in their parent source and have no path.
+        if "path" in entry or name == "root" or "inputs" not in entry:
+            path = entry.get("path")
+            if (
+                not isinstance(path, str)
+                or Path(path).parent != Path("/nix/store")
+                or any(character.isspace() for character in path)
+            ):
+                raise ValueError(f"Flake archive entry {name} has no valid store path")
+            paths.add(path)
         inputs = entry.get("inputs", {})
         if not isinstance(inputs, dict):
             raise ValueError(f"Flake archive entry {name} has invalid inputs")

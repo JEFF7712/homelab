@@ -14,6 +14,23 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CacheSourcesTest(unittest.TestCase):
+    def test_relative_inputs_keep_parent_and_external_descendants(self) -> None:
+        archive = {
+            "path": "/nix/store/root-source",
+            "inputs": {
+                "intentd": {
+                    "inputs": {
+                        "nested-relative": {"inputs": {}},
+                        "external": {"path": "/nix/store/external-source"},
+                    },
+                },
+            },
+        }
+        self.assertEqual(
+            source_paths(archive),
+            ["/nix/store/external-source", "/nix/store/root-source"],
+        )
+
     def test_recursive_sources_are_deduplicated_and_sorted(self) -> None:
         archive = {
             "path": "/nix/store/root-source",
@@ -42,6 +59,12 @@ class CacheSourcesTest(unittest.TestCase):
             {"path": "/nix/store/source\n/nix/store/other"},
             {"path": "/nix/store/source", "inputs": []},
             {"path": "/nix/store/source", "inputs": {"missing": {}}},
+            {"inputs": {}},
+            {"path": "/nix/store/source", "inputs": {"bad": {"inputs": []}}},
+            {
+                "path": "/nix/store/source",
+                "inputs": {"bad": {"path": None, "inputs": {}}},
+            },
         ):
             with self.subTest(archive=archive), self.assertRaises(ValueError):
                 source_paths(archive)
