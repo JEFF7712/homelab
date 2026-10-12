@@ -113,10 +113,10 @@ def run_maintenance(host: str, partition_state_file: Path | None = None) -> None
 
 
 def run_backup(host: str, persist_root: Path = Path("/persist")) -> None:
-    backup_base = Path("/var/lib/platform-backup")
-    temp_dir = str(backup_base) if backup_base.is_dir() else None
+    backup_base = persist_root / "platform-backup"
+    backup_base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
-        prefix="platform-backup-", dir=temp_dir
+        prefix="platform-backup-", dir=backup_base
     ) as temporary:
         stage = Path(temporary)
         datasets: list[str] = []
