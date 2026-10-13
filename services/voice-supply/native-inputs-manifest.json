@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "package": "JEFF7712/nemotron-build-inputs",
+  "version": "20261013",
+  "archives": [
+    {
+      "filename": "nemotron-build-sdk.nar.gz",
+      "size": 2708879345,
+      "sha256": "e8f05c32881d7a89c033b2edd13450b080d449294b065bc4e51080c6a031dfdd",
+      "files": [
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part000",
+          "size": 419430400,
+          "sha256": "ddbaafca0f83f2117f706b4aae71db03f95a89be4f8b657e035eff0d9d93620d"
+        },
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part001",
+          "size": 419430400,
+          "sha256": "d31c35f454da4005de68d4e920b768b59ddb8915665867c934431ef3e2649544"
+        },
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part002",
+          "size": 419430400,
+          "sha256": "f721f264037e2a8f6e735d3c8ab4b84c36e74321df7ece91a80d8de23a87624e"
+        },
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part003",
+          "size": 419430400,
+          "sha256": "11a381b7a7b1bc65516737354d1df47248d08579fc628b067ca09a6511d75b71"
+        },
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part004",
+          "size": 419430400,
+          "sha256": "ef7f189eccad763dade3bc719773a8d281804283f41a2de8c0f488bc0fc3750c"
+        },
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part005",
+          "size": 419430400,
+          "sha256": "89f1611b122cf4d94a8dffad90a7bb3c703e5603c49cffe683e8792238bcf344"
+        },
+        {
+          "filename": "nemotron-build-sdk.nar.gz.part006",
+          "size": 192296945,
+          "sha256": "f56b68d7ca48fe581d9f1e4c59934b234e8f3de6a3abcd726b85449662d573c1"
+        }
+      ]
+    },
+    {
+      "filename": "nemotron-source.tar.gz",
+      "size": 4370463,
+      "sha256": "032b09469b47c59eefb64070f75d4f9cd9a22f28ef6d2ef6c9c5ca5ad87f2290",
+      "files": [
+        {
+          "filename": "nemotron-source.tar.gz.part000",
+          "size": 4370463,
+          "sha256": "032b09469b47c59eefb64070f75d4f9cd9a22f28ef6d2ef6c9c5ca5ad87f2290"
+        }
+      ]
+    }
+  ]
+}

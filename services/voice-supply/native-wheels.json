@@ -1,0 +1,22 @@
+[
+  {
+    "filename": "numpy-1.26.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "sha256": "675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed",
+    "bytes": 17950613
+  },
+  {
+    "filename": "sherpa_onnx-1.13.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "sha256": "6949773017647febc0c3696dffb2c67dd3febd4737b87e3dd135a42773704a06",
+    "bytes": 4400575
+  },
+  {
+    "filename": "sherpa_onnx_core-1.13.8-py3-none-manylinux2014_x86_64.whl",
+    "sha256": "4da90acf435373d7b2ba9cc0be806e7e274d28f63f5780880b5dea6721626e36",
+    "bytes": 10642497
+  },
+  {
+    "filename": "wyoming-1.10.2-py3-none-any.whl",
+    "sha256": "08aec17ccad4d72fc3f919ab741beacf3f23a1df24c8b9a317ebc6e02d2b227c",
+    "bytes": 44869
+  }
+]

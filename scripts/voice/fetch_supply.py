@@ -58,6 +58,9 @@ def fetch(manifest_path: Path, destination: Path, token: str) -> None:
                 size += count
         if size != archive["size"] or combined.hexdigest() != archive["sha256"]:
             raise ValueError("Retained archive mismatch: " + archive["filename"])
+        if archive["filename"].endswith(".nar.gz"):
+            print("Verified Nix export " + archive["filename"])
+            continue
         with tarfile.open(joined, "r:*") as incoming:
             incoming.extractall(destination, filter="data")
         print("Verified and extracted " + archive["filename"])
