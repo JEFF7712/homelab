@@ -1,6 +1,7 @@
 {
   "allow_pr": true,
   "allow_deploy": true,
+  "timeout": 180,
   "trusted": {"network": false, "volumes": false, "security": false},
   "config_extension_endpoint": "",
   "config_extension_exclusive": false,
