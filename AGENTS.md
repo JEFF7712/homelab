@@ -70,6 +70,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/postgres-disaster-recovery.md` — Postgres backup and restore.
 - `docs/runbooks/agent-workspaces.md` — multiuser agent workspace operations.
 - `docs/runbooks/arr-credentials.md` — media download-chain credential sync (qBittorrent password, *arr/Seerr API keys) and rotation.
+- `docs/runbooks/netbird.md` — NetBird dashboard/config API for agents: `NETBIRD_API_KEY` storage in SOPS, read-only usage, and rotation. Required reading before calling the NetBird Management API or changing peers, routes, or policies.
 - `docs/runbooks/home-assistant-automation-best-practices.md` — HA automation conventions.
 
 ### Gotchas (code-level pitfalls)

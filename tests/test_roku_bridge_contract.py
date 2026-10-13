@@ -31,12 +31,13 @@ class RokuBridgeContractTests(unittest.TestCase):
             mosquitto,
         )
 
-    def test_home_assistant_may_command_roku_topics(self) -> None:
+    def test_home_assistant_may_command_device_topics(self) -> None:
         mosquitto = MOSQUITTO.read_text()
 
         ha_start = mosquitto.index('"home-assistant" = {')
         ha_block = mosquitto[ha_start : mosquitto.index("};", ha_start)]
         self.assertIn('"readwrite roku/#"', ha_block)
+        self.assertIn('"readwrite bus-display/#"', ha_block)
 
     def test_bridge_runs_as_own_user_with_staged_secrets(self) -> None:
         bridge = BRIDGE.read_text()

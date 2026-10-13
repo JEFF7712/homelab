@@ -1,15 +1,15 @@
 alias: "Bedroom: Evening Lights On"
 description: >-
-  Restore the snapshot taken by "Bedroom: Lights Off" so the lamps and plugs
-  return to their exact prior brightness and color, but only when everything
-  is currently off. When anything is already on (e.g. a scene was just
-  activated) the stale snapshot is skipped and everything is simply turned
-  on, so All On never turns lights off. The restored lamps are marked
-  manually controlled so Adaptive Lighting (including sleep mode) leaves them
-  alone until the next off/on cycle. Falls back to plain turn_on (brightness
-  and color temperature owned by Adaptive Lighting) when no snapshot exists
-  yet, e.g. after a restart. Sets the auto-on flag so the lighting
-  director knows sunrise may turn these off again.
+  Restore the snapshot taken by "Bedroom: Lights Off" so the lamps, plugs,
+  and bus display return to their exact prior state, but only when
+  everything is currently off. When anything is already on (e.g. a scene
+  was just activated) the stale snapshot is skipped and everything is
+  simply turned on, so All On never turns lights off. The restored lamps
+  are marked manually controlled so Adaptive Lighting (including sleep
+  mode) leaves them alone until the next off/on cycle. Falls back to plain
+  turn_on (brightness and color temperature owned by Adaptive Lighting)
+  when no snapshot exists yet, e.g. after a restart. Sets the auto-on flag
+  so the lighting director knows sunrise may turn these off again.
 sequence:
   - action: input_boolean.turn_on
     target:
@@ -20,8 +20,8 @@ sequence:
       - condition: template
         value_template: >-
           {{ expand('light.desk_lamp_desk_lamp', 'light.floor_lamp_floor_lamp',
-          'light.light_strip_light_strip', 'switch.bedroom_window_plug',
-          'switch.bedroom_mushroom_plug')
+          'light.light_strip_light_strip', 'light.bus_display',
+          'switch.bedroom_window_plug', 'switch.bedroom_mushroom_plug')
           | selectattr('state', 'eq', 'on') | list | count == 0 }}
     then:
       - action: adaptive_lighting.set_manual_control
@@ -47,4 +47,5 @@ sequence:
             - light.desk_lamp_desk_lamp
             - light.floor_lamp_floor_lamp
             - light.light_strip_light_strip
+            - light.bus_display
 mode: single
