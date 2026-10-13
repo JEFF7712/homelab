@@ -263,7 +263,9 @@ spec:
         server:
           root_url: https://grafana.rupan.dev
         auth.anonymous:
-          enabled: false
+          enabled: true
+          org_name: Main Org.
+          org_role: Viewer
         auth.generic_oauth:
           enabled: true
           name: Cloudflare Access
