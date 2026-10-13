@@ -723,7 +723,11 @@ def collect_supply(
         elif kind == "tree":
             unpack_tree(data, tree, entry["dest"])
         elif kind == "file":
-            mode = 0o755 if entry["dest"].startswith("/usr/local/bin/") else 0o644
+            mode = (
+                0o755
+                if entry["dest"].startswith(("/usr/bin/", "/usr/local/bin/"))
+                else 0o644
+            )
             tree[entry["dest"].lstrip("/")] = (data, mode)
         else:
             raise ValueError(f"Unsupported supply kind: {kind}")

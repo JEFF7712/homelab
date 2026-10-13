@@ -30,6 +30,20 @@ def embedded(filename: str, key: str) -> dict:
 
 
 class AutomationTest(unittest.TestCase):
+    def test_api_accepts_an_empty_success_response(self) -> None:
+        response = Mock()
+        response.status = 200
+        response.read.return_value = b""
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        with patch.object(
+            promote_commit.urllib.request, "urlopen", return_value=response
+        ):
+            result = promote_commit._api(
+                "fixture-token", "/pulls/42/update?style=rebase", data={}
+            )
+        self.assertEqual(result, {})
+
     def test_auto_merge_waits_for_the_required_homelab_status(self) -> None:
         pull = {
             "number": 42,
@@ -153,8 +167,8 @@ class AutomationTest(unittest.TestCase):
         previous = {
             "generated_at": "old",
             "images": [
-                {"destination_repository": "apps/nix-agent-site", "digest": "old"},
                 {"destination_repository": "apps/other", "digest": "same"},
+                {"destination_repository": "apps/nix-agent-site", "digest": "old"},
             ],
         }
         current = {

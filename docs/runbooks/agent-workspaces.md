@@ -24,6 +24,20 @@ It accepts only a domain whose UUID, manifest hash, receipt, and disks agree. It
 
 The host modules are enabled on `homelab-01`. Kubernetes reserves 2 CPUs and 10 GiB of memory for the host and cluster. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 9 GiB memory pressure threshold, and has a 10 GiB hard memory limit. The versioned inventory remains empty, so no user is enrolled and no persistent workspace VM is defined.
 
+For recovery of the previously accepted `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-01/default.nix` contains only their existing network settings under `recoveryManifest`. This recovery input creates host bridges and filtering rules but does not provision guests, add enrollment records, or grant HA access. The saved XML and disks under `/persist/agent-workspaces/` remain the guest source of truth. Keep this input limited to those existing guests and remove it only after an independently accepted replacement or decommissioning; the backup restore and HA capability gates remain open.
+
+Each recovery guest is narrowly routed: `adguard-netbird-01` has host routes to `172.31.10.2/32` and `172.31.10.6/32` via `homelab-01`, and the host permits that router as an ingress source. NetBird grants each workspace only to its owner's specific peer on TCP 22 and 443. The account configuration is reconciled from `config/netbird/agent-workspaces.json`.
+
+For LAN access, use the host as an SSH jump:
+
+```sh
+ssh -J rupan@10.0.30.11 developer@172.31.10.2
+```
+
+Use the workspace owner's existing SSH key for each guest. A different owner's key must remain rejected. NetBird access uses per-peer resource policies; do not grant the VM subnet to a broad peer group.
+
+Reconcile the NetBird resource and peer policies with `just netbird-agent-workspaces` to preview or `just netbird-agent-workspaces --apply` to apply. The command reads `/run/user/<uid>/netbird-api-token`; keep that file mode `0600` and never pass the token as an argument.
+
 Live acceptance is recorded in [the acceptance record](../agent-tasks/agent-workspace-live-acceptance.md). The single-guest run proves boot, whole-domain CPU limiting, guest memory enforcement, public and container egress, selected deny rules, active and persistent XML verification, and bounded fail-closed firewall shutdown behavior. The hardened two-guest run proves bidirectional cross-workspace denial and sustained CPU, disk, and network pressure while etcd, PostgreSQL, and Home Assistant remained healthy. Both runs exercised deployed revision `914629e8ffd1df8516c9661c6f12476fcb288e53`. The remaining identity, browser, credential, restore, and HA capability gates still block enrollment.
 
 Before enrollment, complete and record these checks against one deployed revision:

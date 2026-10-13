@@ -161,6 +161,9 @@ workspace-provision id *args:
 workspace-deprovision id *args:
     python -m scripts.agent_workspaces --manifest config/agent-workspaces/workspaces.json deprovision {{id}} {{args}}
 
+netbird-agent-workspaces *args:
+    nix develop ./flake -c python scripts/netbird_agent_workspaces.py {{args}}
+
 ha-inventory *args:
     python -m scripts.home_assistant inventory {{args}}
 

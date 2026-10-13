@@ -6,6 +6,7 @@
 set -euo pipefail
 
 : "${FORGEJO_SOURCE_READ_TOKEN:?FORGEJO_SOURCE_READ_TOKEN is required}"
+: "${ATTIC_TOKEN:?ATTIC_TOKEN is required for publication}"
 forgejo="${FORGEJO_URL:-http://10.0.30.20:3000}"
 owner_repo="${NIXOS_REPOSITORY:-JEFF7712/nixos-config}"
 target_set="${NIXOS_TARGET_SET:-nixos-laptop}"

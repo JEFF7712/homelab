@@ -1,12 +1,13 @@
 alias: "Bedroom: Lights Off"
 description: >-
-  Snapshot current bedroom plug and lamp state, then turn everything off
-  and release Adaptive Lighting manual control so the next turn-on is
-  adapted again. "Bedroom: Evening Lights On" restores this snapshot. The
-  snapshot is only taken when something is on, so pressing Off twice (or an
-  automation firing while already off) cannot overwrite a good snapshot with
-  an all-off one that would make the next All On do nothing. Clears the
-  auto-on flag so sunrise leaves manually turned-on lights alone.
+  Snapshot current bedroom plug, lamp, and bus display state, then turn
+  everything off and release Adaptive Lighting manual control so the next
+  turn-on is adapted again. "Bedroom: Evening Lights On" restores this
+  snapshot. The snapshot is only taken when something is on, so pressing
+  Off twice (or an automation firing while already off) cannot overwrite a
+  good snapshot with an all-off one that would make the next All On do
+  nothing. Clears the auto-on flag so sunrise leaves manually turned-on
+  lights alone.
 sequence:
   - action: input_boolean.turn_off
     target:
@@ -15,8 +16,8 @@ sequence:
       - condition: template
         value_template: >-
           {{ expand('light.desk_lamp_desk_lamp', 'light.floor_lamp_floor_lamp',
-          'light.light_strip_light_strip', 'switch.bedroom_window_plug',
-          'switch.bedroom_mushroom_plug')
+          'light.light_strip_light_strip', 'light.bus_display',
+          'switch.bedroom_window_plug', 'switch.bedroom_mushroom_plug')
           | selectattr('state', 'eq', 'on') | list | count > 0 }}
     then:
       - action: scene.create
@@ -26,6 +27,7 @@ sequence:
             - light.desk_lamp_desk_lamp
             - light.floor_lamp_floor_lamp
             - light.light_strip_light_strip
+            - light.bus_display
             - switch.bedroom_window_plug
             - switch.bedroom_mushroom_plug
   - action: switch.turn_off
@@ -39,6 +41,7 @@ sequence:
         - light.desk_lamp_desk_lamp
         - light.floor_lamp_floor_lamp
         - light.light_strip_light_strip
+        - light.bus_display
   - action: adaptive_lighting.set_manual_control
     data:
       entity_id: switch.adaptive_lighting_all_dimmable_lights
