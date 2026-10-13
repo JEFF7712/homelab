@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bridge
-          image: registry.rupan.dev/apps/jarvis-nemotron@sha256:206f9fbb4fcd13278561ceb3a162a86064a165e37cd538a8c24e5cab0c5e978d
+          image: registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc
           args:
             - "--port"
             - "10300"
