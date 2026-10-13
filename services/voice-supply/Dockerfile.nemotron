@@ -1,0 +1,41 @@
+FROM registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58 AS uv
+FROM registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c AS build
+COPY sdk.nar.gz /inputs/sdk.nar.gz
+RUN gzip -dc /inputs/sdk.nar.gz | nix-store --import
+COPY native-source.tar.gz /inputs/native-source.tar.gz
+RUN mkdir -p /source && tar -xzf /inputs/native-source.tar.gz -C /source
+COPY --from=uv /usr/local/bin/uv /usr/local/bin/uv
+COPY wheels /inputs/wheels
+COPY wheel-inputs.txt /inputs/wheel-inputs.txt
+RUN nix --extra-experimental-features 'nix-command flakes' --option flake-registry '' develop /nix/store/4ac6v7gk3lawms1ir849p9fkq4g3w55l-nix-shell-env --offline --ignore-environment -c bash -ec '\
+    cd /source && bash scripts/apply-ggml-patches.sh && \
+    cmake -S . -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/opt/nemo -DCMAKE_INSTALL_LIBDIR=lib64 \
+      -DCMAKE_INSTALL_RPATH=/opt/nemo/lib64 -DGGML_CUDA=ON \
+      -DCMAKE_CUDA_ARCHITECTURES=75 -DGGML_NATIVE=OFF -DGGML_CUDA_NCCL=OFF \
+      -DNEMO_SPEECH_GGML_PATCHED=ON -DNEMO_SPEECH_BUILD_ASR=ON \
+      -DNEMO_SPEECH_BUILD_DIAR=OFF -DNEMO_SPEECH_BUILD_TTS=OFF \
+      -DNEMO_SPEECH_BUILD_NMT=OFF -DNEMO_SPEECH_BUILD_CLI=OFF \
+      -DNEMO_SPEECH_BUILD_TESTS=OFF -DBUILD_TESTING=OFF && \
+    cmake --build /build --parallel 2 && cmake --install /build'
+RUN UV_PYTHON_DOWNLOADS=never uv venv --python /nix/store/9ka5lknbqqg6nzs3zp6qyncf1k3ayz97-python3-3.12.14/bin/python3 /opt/venv && \
+    UV_PYTHON_DOWNLOADS=never uv pip install --python /opt/venv/bin/python \
+      --no-index --no-deps --require-hashes -r /inputs/wheel-inputs.txt
+FROM registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
+COPY --from=build /nix/store /nix/store
+COPY --from=build /opt/nemo /opt/nemo
+COPY --from=build /opt/venv /opt/venv
+COPY bridge.py proxy.py verify_contract.py /app/
+ENV PATH=/opt/venv/bin:/usr/bin:/bin \
+    LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/nvidia/lib:/usr/lib/x86_64-linux-gnu:/opt/nemo/lib64:/nix/store/45qdamf3d261xiy6810dr0llrfl0k150-gcc-14.4.0-lib/lib:/nix/store/b2kyqjnd18jp3warmd21qw4izfd86jw9-zlib-ng-2.3.3/lib:/nix/store/l3p6y554mkxi4vipnnp8809kxj0g1lyv-zlib-1.3.2/lib:/nix/store/sisak1z6r7jgi56j75nbzdzjhi4x26h4-gcc-14.4.0-libgcc/lib:/nix/store/xcwclh5qgw2x6qc39x6ixara06xczzlw-zstd-1.5.7/lib \
+    NEMO_LIB=/opt/nemo/lib64/libnemo_speech_asr_c.so \
+    PYTHONUNBUFFERED=1
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.source=https://git.rupan.dev/JEFF7712/homelab \
+      org.opencontainers.image.revision=$SOURCE_REVISION \
+      io.rupan.native-sdk-profile=/nix/store/4ac6v7gk3lawms1ir849p9fkq4g3w55l-nix-shell-env
+WORKDIR /app
+USER 1000:1000
+EXPOSE 10300 9100
+ENTRYPOINT ["/opt/venv/bin/python", "/app/bridge.py"]
+CMD []

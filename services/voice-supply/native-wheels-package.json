@@ -1,0 +1,18 @@
+{
+  "package": "JEFF7712/nemotron-runtime-wheels",
+  "version": "20261013",
+  "archives": [
+    {
+      "filename": "native-wheels.tar.gz",
+      "size": 32710722,
+      "sha256": "d06a2034adcaeaf9661c0e649004c8abf374a3b3337dce4800e3e583367ea715",
+      "files": [
+        {
+          "filename": "native-wheels.tar.gz.part000",
+          "size": 32710722,
+          "sha256": "d06a2034adcaeaf9661c0e649004c8abf374a3b3337dce4800e3e583367ea715"
+        }
+      ]
+    }
+  ]
+}
