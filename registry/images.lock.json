@@ -2637,7 +2637,7 @@
         "status": "unsupported"
       },
       "consumers": [
-        "gitops/automation/renovate-agent.yaml:131",
+        "gitops/automation/renovate-dashboard.yaml:27",
         "gitops/voice/stt-groq.yaml:264",
         "observed:rendered/automation/renovate-agent-init"
       ],
@@ -3512,6 +3512,7 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/automation/renovate-agent.yaml:23",
         "observed:automation/renovate-gitlab-29812680-2p7bs/renovate"
       ],
       "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
