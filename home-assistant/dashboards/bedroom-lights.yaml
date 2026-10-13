@@ -201,6 +201,14 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - type: custom:mushroom-light-card
+            entity: light.bus_display
+            name: Bus Display
+            fill_container: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
       - cards:
           - type: heading
             heading: Scenes
