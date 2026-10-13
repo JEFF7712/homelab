@@ -456,11 +456,23 @@ def collect_files(source: Path, entries: list[Any], uid: int, gid: int) -> bytes
                 if not child.is_file():
                     raise ValueError(f"Release path is not a regular file: {child}")
                 relative = child.relative_to(path).as_posix()
-                collected.append((f"{base}/{relative}", child.read_bytes(), 0o644))
+                collected.append(
+                    (
+                        f"{base}/{relative}",
+                        child.read_bytes(),
+                        0o755 if child.stat().st_mode & 0o111 else 0o644,
+                    )
+                )
         elif path.is_file():
             if dest.endswith("/"):
                 raise ValueError(f"File dest must not end with /: {dest}")
-            collected.append((dest, path.read_bytes(), 0o644))
+            collected.append(
+                (
+                    dest,
+                    path.read_bytes(),
+                    0o755 if path.stat().st_mode & 0o111 else 0o644,
+                )
+            )
         else:
             raise ValueError(f"Release file is missing: {src}")
     total = sum(len(data) for _, data, _ in collected)
