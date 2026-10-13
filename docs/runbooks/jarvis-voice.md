@@ -50,13 +50,19 @@ historical and is not the accepted release recipe. Publish only with the
 It compares existing policy before mutation and retains protected rollback
 files on the NAS. Keep `REGISTRY_HTPASSWD_FILE` synchronized after provisioning.
 
-The 2026-10-13 release is `offline-20261013-950c451`, built from Forgejo
+The 2026-10-13 candidate is `offline-20261013-950c451`, built from Forgejo
 `950c45139d49d1c7b6372973d8d85ffa48031c10`. Cold compilation produced library
 SHA-256 `9e1326253bb97fc89a922bc8fc85b6973db79f330de9f2e8b8cc0df823741192`.
 Runtime packaging reused that verified compiler layer after an explicit UV
 path correction; it does not constitute a second complete uncached build.
 The packaged image passed ABI checks, speaker-ID model/profile loading and a
-GPU corpus with two distinct utterances and silence, all without networking.
+GPU corpus with two distinct utterances and silence under Docker CDI, all
+without networking. Its k3s rollout failed because the legacy NVIDIA runtime
+loaded a remaining CUDA driver stub. The production pin was restored to
+`3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc`.
+The candidate and its archive are retained for diagnosis, not accepted deployment
+or rollback artifacts. A corrected image requires a k3s runtime probe before
+another promotion; Docker CDI acceptance does not cover that integration.
 The original ambiguous "Independent model recovery succeeds." recording is
 retained as a diagnostic: both old and new images hear "Moldova" instead of
 "model". No recognition labels were rewritten to match observed output.

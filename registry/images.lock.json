@@ -128,7 +128,7 @@
     },
     {
       "authenticity": {
-        "reason": "Retained pinned inputs, source-bound offline compilation and GPU corpus verification; no image signature policy declared",
+        "reason": "Pinned source and local GPU verification; no registry signature policy declared",
         "status": "unsupported"
       },
       "consumers": [
@@ -136,17 +136,17 @@
       ],
       "destination_repository": "apps/jarvis-nemotron",
       "destination_tags": [
-        "offline-20261013-950c451"
+        "native-07003daa"
       ],
-      "digest": "sha256:206f9fbb4fcd13278561ceb3a162a86064a165e37cd538a8c24e5cab0c5e978d",
+      "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
       "id": "first-party-jarvis-nemotron",
       "kind": "first-party",
-      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
       "platforms": [
         "linux/amd64"
       ],
       "producer": {
-        "location": "services/voice-supply/Dockerfile.nemotron",
+        "location": "gitops/voice/nemotron-bridge/Dockerfile",
         "owner": "JEFF7712/homelab",
         "pipeline_status": "verified-local-gpu-build"
       },
@@ -159,11 +159,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:206f9fbb4fcd13278561ceb3a162a86064a165e37cd538a8c24e5cab0c5e978d",
-        "reference": "registry.rupan.dev/apps/jarvis-nemotron:offline-20261013-950c451@sha256:206f9fbb4fcd13278561ceb3a162a86064a165e37cd538a8c24e5cab0c5e978d",
+        "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+        "reference": "registry.rupan.dev/apps/jarvis-nemotron:native-07003daa@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
         "registry": "registry.rupan.dev",
         "repository": "apps/jarvis-nemotron",
-        "tag": "offline-20261013-950c451"
+        "tag": "native-07003daa"
       }
     },
     {
