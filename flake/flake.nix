@@ -90,6 +90,25 @@
       {
         formatter = pkgs.nixfmt;
 
+        devShells.voice-asr =
+          let
+            gpuPkgs = import nixpkgs {
+              inherit system;
+              config.allowUnfree = true;
+            };
+          in
+          gpuPkgs.mkShell.override { stdenv = gpuPkgs.cudaPackages.backendStdenv; } {
+            packages = with gpuPkgs; [
+              cmake
+              ninja
+              pkg-config
+              sentencepiece
+              cudaPackages.cudatoolkit
+              python312
+              git
+            ];
+          };
+
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             age
