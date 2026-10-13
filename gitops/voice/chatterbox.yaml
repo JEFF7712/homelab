@@ -77,8 +77,12 @@ spec:
                 --require-hashes -r /supply/requirements.txt
               REPO_CACHE=/models/hub/models--ResembleAI--chatterbox-turbo
               SNAPSHOT_DIR="$REPO_CACHE/snapshots/749d1c1a46eb10492095d68fbcf55691ccf137cd"
-              test -s "$SNAPSHOT_DIR/model.safetensors"
-              test -s "$SNAPSHOT_DIR/config.json"
+              for file in conds.pt ve.safetensors s3gen.safetensors \
+                s3gen_meanflow.safetensors t3_turbo_v1.safetensors \
+                tokenizer_config.json special_tokens_map.json added_tokens.json \
+                merges.txt vocab.json; do
+                test -s "$SNAPSHOT_DIR/$file"
+              done
               test "$(cat "$REPO_CACHE/refs/main")" = "749d1c1a46eb10492095d68fbcf55691ccf137cd"
               mkdir -p /runtime/cache/torch \
                 /runtime/cache/triton /runtime/cache/xdg /runtime/cache/numba
