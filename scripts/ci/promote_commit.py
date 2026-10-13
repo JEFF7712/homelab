@@ -37,7 +37,8 @@ def _api(token: str, path: str, *, data: dict | None = None) -> dict:
         },
     )
     with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response) if response.status != 204 else {}
+        body = response.read()
+        return json.loads(body) if body else {}
 
 
 def _assert_nix_agent_only(changed: list[str]) -> None:
