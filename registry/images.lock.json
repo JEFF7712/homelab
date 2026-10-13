@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-12T02:47:53+00:00",
+  "generated_at": "2026-10-13T06:14:36+00:00",
   "images": [
     {
       "authenticity": {
@@ -50,6 +50,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/arr.yaml:257"
+      ],
+      "destination_repository": "apps/lidarr-extended",
+      "destination_tags": [
+        "0.1.0",
+        "retention-deployed-8d5da9f7ebb46e6d"
+      ],
+      "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+      "id": "first-party-apps-lidarr-extended-c59cbeca30f2",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "external-image-repository:registry.rupan.dev/apps/lidarr-extended",
+        "owner": "jeff7712",
+        "pipeline_status": "unverified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+        "reference": "registry.rupan.dev/apps/lidarr-extended:0.1.0@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/lidarr-extended",
+        "tag": "0.1.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/websites/sovereign/deployment.yaml:26"
       ],
       "destination_repository": "apps/sovereign-site",
@@ -78,11 +119,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3",
+        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.1000005@sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3",
         "registry": "registry.rupan.dev",
         "repository": "apps/sovereign-site",
-        "tag": "0.0.1000005",
-        "digest": "sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3",
-        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.1000005@sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3"
+        "tag": "0.0.1000005"
       }
     },
     {
@@ -159,11 +200,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45",
+        "reference": "registry.rupan.dev/apps/apolline:0.0.1000005@sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45",
         "registry": "registry.rupan.dev",
         "repository": "apps/apolline",
-        "tag": "0.0.1000005",
-        "digest": "sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45",
-        "reference": "registry.rupan.dev/apps/apolline:0.0.1000005@sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45"
+        "tag": "0.0.1000005"
       }
     },
     {
@@ -239,11 +280,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363",
+        "reference": "registry.rupan.dev/apps/cr-demo:0.0.1000001@sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363",
         "registry": "registry.rupan.dev",
         "repository": "apps/cr-demo",
-        "tag": "0.0.1000001",
-        "digest": "sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363",
-        "reference": "registry.rupan.dev/apps/cr-demo:0.0.1000001@sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363"
+        "tag": "0.0.1000001"
       }
     },
     {
@@ -322,11 +363,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
+        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000020@sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
         "registry": "registry.rupan.dev",
         "repository": "apps/distrojeff-site",
-        "tag": "0.0.1000020",
-        "digest": "sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
-        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000020@sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327"
+        "tag": "0.0.1000020"
       }
     },
     {
@@ -443,52 +484,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
+        "reference": "registry.rupan.dev/apps/ism:0.0.1000008@sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
         "registry": "registry.rupan.dev",
         "repository": "apps/ism",
-        "tag": "0.0.1000008",
-        "digest": "sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
-        "reference": "registry.rupan.dev/apps/ism:0.0.1000008@sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/media/arr.yaml:257"
-      ],
-      "destination_repository": "apps/lidarr-extended",
-      "destination_tags": [
-        "0.1.0",
-        "retention-deployed-8d5da9f7ebb46e6d"
-      ],
-      "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
-      "id": "first-party-apps-lidarr-extended-c59cbeca30f2",
-      "kind": "first-party",
-      "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/lidarr-extended",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
-      },
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
-        "reference": "registry.rupan.dev/apps/lidarr-extended:0.1.0@sha256:8d5da9f7ebb46e6d28da2ae904d3ecf18de11c8395e03bf56a802464cd110385",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/lidarr-extended",
-        "tag": "0.1.0"
+        "tag": "0.0.1000008"
       }
     },
     {
@@ -525,11 +525,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
+        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000009@sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
         "registry": "registry.rupan.dev",
         "repository": "apps/majorfinder",
-        "tag": "0.0.1000009",
-        "digest": "sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
-        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000009@sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6"
+        "tag": "0.0.1000009"
       }
     },
     {
@@ -542,16 +542,14 @@
       ],
       "destination_repository": "apps/nix-agent-site",
       "destination_tags": [
-        "0.0.1000013",
-        "retention-deployed-e96ec28cc3b00fec"
+        "0.0.1000017",
+        "retention-deployed-6883ec3c88fc9292"
       ],
-      "digest": "sha256:e96ec28cc3b00fecb4820cc4a277f2ba36a314c408c46ac966259904911f9651",
+      "digest": "sha256:6883ec3c88fc929204f22aea7680eb1bbdfe282d38a86abad720ff1365a0524d",
       "id": "first-party-jeff7712-nix-agent-site-6727a36d7b92",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "location": "JEFF7712/nix-agent",
         "owner": "JEFF7712",
@@ -566,11 +564,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:6883ec3c88fc929204f22aea7680eb1bbdfe282d38a86abad720ff1365a0524d",
+        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000017@sha256:6883ec3c88fc929204f22aea7680eb1bbdfe282d38a86abad720ff1365a0524d",
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
-        "tag": "0.0.1000013",
-        "digest": "sha256:e96ec28cc3b00fecb4820cc4a277f2ba36a314c408c46ac966259904911f9651",
-        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000013@sha256:e96ec28cc3b00fecb4820cc4a277f2ba36a314c408c46ac966259904911f9651"
+        "tag": "0.0.1000017"
       }
     },
     {
@@ -607,11 +605,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5",
+        "reference": "registry.rupan.dev/apps/photography:0.0.1000005@sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5",
         "registry": "registry.rupan.dev",
         "repository": "apps/photography",
-        "tag": "0.0.1000005",
-        "digest": "sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5",
-        "reference": "registry.rupan.dev/apps/photography:0.0.1000005@sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5"
+        "tag": "0.0.1000005"
       }
     },
     {
@@ -653,10 +651,10 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1000056",
-        "retention-deployed-19eeeb1010841039"
+        "0.0.1000060",
+        "retention-deployed-a67755b6b71aaa89"
       ],
-      "digest": "sha256:19eeeb1010841039581d7c8b9b3ec5026b695294254d6661e3414a3c879febe3",
+      "digest": "sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -677,11 +675,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:19eeeb1010841039581d7c8b9b3ec5026b695294254d6661e3414a3c879febe3",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000056@sha256:19eeeb1010841039581d7c8b9b3ec5026b695294254d6661e3414a3c879febe3",
+        "digest": "sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000060@sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1000056"
+        "tag": "0.0.1000060"
       }
     },
     {
@@ -719,11 +717,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
+        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000026@sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
-        "tag": "0.0.1000026",
-        "digest": "sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
-        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000026@sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466"
+        "tag": "0.0.1000026"
       }
     },
     {
@@ -761,11 +759,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000021",
-        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad"
+        "tag": "0.0.1000021"
       }
     },
     {
@@ -803,11 +801,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000021",
-        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad"
+        "tag": "0.0.1000021"
       }
     },
     {
@@ -844,11 +842,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
+        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000017@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
-        "tag": "0.0.1000017",
-        "digest": "sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
-        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000017@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8"
+        "tag": "0.0.1000017"
       }
     },
     {
@@ -885,11 +883,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
+        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000013@sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupanism",
-        "tag": "0.0.1000013",
-        "digest": "sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
-        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000013@sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a"
+        "tag": "0.0.1000013"
       }
     },
     {
@@ -968,11 +966,11 @@
       },
       "retention_class": "deployed",
       "source": {
+        "digest": "sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3",
+        "reference": "registry.rupan.dev/apps/spatia-site:0.0.1000005@sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3",
         "registry": "registry.rupan.dev",
         "repository": "apps/spatia-site",
-        "tag": "0.0.1000005",
-        "digest": "sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3",
-        "reference": "registry.rupan.dev/apps/spatia-site:0.0.1000005@sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3"
+        "tag": "0.0.1000005"
       }
     },
     {
@@ -1832,6 +1830,40 @@
         "registry": "ghcr.io",
         "repository": "immich-app/immich-server",
         "tag": "v3.1.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/intel-gpu-plugin/daemonset.yaml:38"
+      ],
+      "destination_repository": "upstream/docker.io/intel/intel-gpu-plugin",
+      "destination_tags": [
+        "retention-deployed-004641b2547d58f1"
+      ],
+      "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+      "id": "upstream-intel-intel-gpu-plugin-70c51b4b6aac",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "platforms": [],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+        "reference": "docker.io/intel/intel-gpu-plugin@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
+        "registry": "docker.io",
+        "repository": "intel/intel-gpu-plugin",
+        "tag": null
       }
     },
     {
@@ -4840,40 +4872,6 @@
         "registry": "docker.io",
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/platform/intel-gpu-plugin/daemonset.yaml:38"
-      ],
-      "destination_repository": "upstream/docker.io/intel/intel-gpu-plugin",
-      "destination_tags": [
-        "retention-deployed-004641b2547d58f1"
-      ],
-      "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
-      "id": "upstream-intel-intel-gpu-plugin-70c51b4b6aac",
-      "kind": "upstream",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
-        "reference": "docker.io/intel/intel-gpu-plugin@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33",
-        "registry": "docker.io",
-        "repository": "intel/intel-gpu-plugin",
-        "tag": null
       }
     }
   ],
