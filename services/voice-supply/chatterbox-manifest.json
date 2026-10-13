@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "package": "JEFF7712/chatterbox-runtime-supply",
+  "version": "20261013",
+  "archives": [
+    {
+      "filename": "chatterbox-wheels.tar",
+      "size": 3332065280,
+      "sha256": "bc1c8981b8ffbc16293a17f50bd90a023eed2b5614fa0a7c8e7ed96d5532f4b9",
+      "files": [
+        {
+          "filename": "chatterbox-wheels.tar.part000",
+          "size": 419430400,
+          "sha256": "a2f731f9bd9e168a889705f5391e261808e065d49032d87219f7e5733eeff761"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part001",
+          "size": 419430400,
+          "sha256": "5ee0705b08880ea597d4e88e9cd81c08fca6e21e957d93411490b425c6095003"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part002",
+          "size": 419430400,
+          "sha256": "539fce7a3b98902328eb58cad14ffede1484f7ecb4311ca9b139ecb7e78d76e0"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part003",
+          "size": 419430400,
+          "sha256": "9be701481ae4cdc0e2e8fa7d111d1c13018d871d4b9e92bc18fa98592a7b80ec"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part004",
+          "size": 419430400,
+          "sha256": "0f4117765706d91d5e7932e78d2e7694d2c9eb6e1ff08a31915e7fc9cf683dfb"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part005",
+          "size": 419430400,
+          "sha256": "c5f3a6abd28962e328659ebed0b367468c42b6413fc6a3d5ff8094bbf7da8ca5"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part006",
+          "size": 419430400,
+          "sha256": "45f2669cd2563caa41c28d7aff6dec48509821c47b8ae5f711fed04e4b3ab9f5"
+        },
+        {
+          "filename": "chatterbox-wheels.tar.part007",
+          "size": 396052480,
+          "sha256": "a37869c422503ee38b9dd7c3516dbd678ce7b3b3e5bfcda772e779cfd9d05513"
+        }
+      ]
+    }
+  ]
+}

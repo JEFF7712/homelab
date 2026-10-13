@@ -71,47 +71,27 @@ spec:
             - -ec
             - |
               if [ ! -x /runtime/venv/bin/python ]; then
-                uv venv --python 3.12 /runtime/venv
+                uv venv --python /usr/local/bin/python3.12 /runtime/venv
               fi
-              # Pinned package (verified 2026-09-21): pulls torch 2.6 cu126
-              # (~5 GB with CUDA libs) into /runtime on first start.
-              uv pip install --python /runtime/venv/bin/python 'chatterbox-tts==0.1.7'
+              uv pip install --python /runtime/venv/bin/python --no-index --no-deps \
+                --require-hashes -r /supply/requirements.txt
               REPO_CACHE=/models/hub/models--ResembleAI--chatterbox-turbo
               SNAPSHOT_DIR="$REPO_CACHE/snapshots/749d1c1a46eb10492095d68fbcf55691ccf137cd"
-              if [ ! -f "$SNAPSHOT_DIR/model.safetensors" ] || [ ! -f "$SNAPSHOT_DIR/config.json" ]; then
-                HF_HOME=/models /runtime/venv/bin/python -c '
-              from huggingface_hub import snapshot_download
-              snapshot_download(
-                  repo_id="ResembleAI/chatterbox-turbo",
-                  revision="749d1c1a46eb10492095d68fbcf55691ccf137cd",
-                  allow_patterns=["*.safetensors", "*.json", "*.txt", "*.pt", "*.model"],
-              )
-              '
-              fi
-              # Pinned-revision downloads leave no refs/main, which offline
-              # from_pretrained needs to resolve the repo id. Point it at
-              # the pinned commit whose content was just verified.
-              mkdir -p "$REPO_CACHE/refs"
-              # No trailing newline: hub compares the ref bytes verbatim
-              # against snapshot dir names.
-              printf %s "749d1c1a46eb10492095d68fbcf55691ccf137cd" \
-                > "$REPO_CACHE/refs/main"
-              mkdir -p "$MODEL_DIR"
-              touch "$MODEL_DIR/.complete"
+              test -s "$SNAPSHOT_DIR/model.safetensors"
+              test -s "$SNAPSHOT_DIR/config.json"
+              test "$(cat "$REPO_CACHE/refs/main")" = "749d1c1a46eb10492095d68fbcf55691ccf137cd"
               mkdir -p /runtime/cache/torch \
                 /runtime/cache/triton /runtime/cache/xdg /runtime/cache/numba
           env:
-            - name: MODEL_DIR
-              value: /models/chatterbox-turbo-749d1c1
-            - name: UV_PROJECT_ENVIRONMENT
-              value: /runtime/venv
             - name: UV_CACHE_DIR
               value: /runtime/cache
-            - name: UV_PYTHON_INSTALL_DIR
-              value: /runtime/python
             - name: UV_LINK_MODE
               value: copy
-            - name: HF_HUB_DISABLE_XET
+            - name: UV_PYTHON_DOWNLOADS
+              value: never
+            - name: UV_OFFLINE
+              value: "1"
+            - name: HF_HUB_OFFLINE
               value: "1"
           resources:
             requests:
@@ -136,6 +116,9 @@ spec:
               mountPath: /runtime
             - name: tmp
               mountPath: /tmp
+            - name: supply
+              mountPath: /supply
+              readOnly: true
       containers:
         - name: chatterbox
           image: registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58  # yamllint disable-line rule:line-length
@@ -246,6 +229,10 @@ spec:
           hostPath:
             path: /persist/voice-models/chatterbox/voices
             type: DirectoryOrCreate
+        - name: supply
+          hostPath:
+            path: /persist/voice-models/chatterbox/supply-20261013
+            type: Directory
         - name: tmp
           emptyDir: {}
 ---
