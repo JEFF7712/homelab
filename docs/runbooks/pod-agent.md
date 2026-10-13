@@ -39,6 +39,31 @@ registry digest. Tags roll forward via the
 
 ## One-time setup (owner / privileged CI only)
 
+### Backup encryption key rotation
+
+1. Verify a fresh backup and an isolated restore with the current identity.
+   Check that the deployed age executable is executable before changing keys.
+2. Retain the old identity in private recovery custody (directory mode 0700,
+   file mode 0600). Historical snapshots still need it. Keep the previous
+   encrypted secret revision with the recovery source bundle.
+3. Generate a new age identity into a mode-0600 file. Update only
+   `POD_AGENT_BACKUP_IDENTITY_FILE` and `POD_AGENT_BACKUP_RECIPIENTS` in
+   `gitops/secrets/homelab-values.sops.yaml` with `sops set --value-stdin`.
+   Pass values through protected stdin, never command arguments or logs.
+4. Validate and merge the encrypted change. Wait for Flux and both
+   `pod-agent-env` and `pod-agent-age` ExternalSecrets to refresh. Existing
+   running containers keep their environment; start a fresh backup Job after
+   the two Secret values agree.
+5. Verify that the new snapshot decrypts with the new identity, passes SQLite
+   integrity checks, and retains the required application state. Confirm a
+   historical snapshot still decrypts with the retained old identity.
+6. Update the laptop backup identity and its recipient override in
+   `~/.config/pod-agent/backup.env` together while its backup service is idle.
+   Keep that file private and preserve unrelated settings.
+
+Key rotation protects future snapshots. It does not undo disclosure of an
+old identity or change the encryption of existing snapshots.
+
 ### 1. Encrypted secret values
 
 Add each value below to `gitops/secrets/homelab-values.sops.yaml` using SOPS.
