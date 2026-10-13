@@ -1,3 +1,7 @@
+# Legacy pipeline definition. Normal CI and operations run on Forgejo /
+# Woodpecker from config/ci/operations.json; this file is retained only as
+# reference for the GitLab disaster-recovery lane (config/ci/gitlab-dr.yml)
+# and must not be treated as a scheduler for ordinary work.
 image: nixos/nix:latest@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
 
 default:

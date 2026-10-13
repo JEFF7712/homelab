@@ -208,11 +208,14 @@ For existing local upstream mirrors, it verifies the local manifest digest
 before falling back to the upstream registry, while preserving the canonical
 upstream identity in the candidate. Docker Hub reads use `registry-1.docker.io`;
 OCI credentials are selected for the requested registry.
-After review, `registry_update_import`
+After review, the Woodpecker `registry-update-import` operation
 copies and verifies only the candidate's upstream records under the serialized
 content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
-Git commit only after that job succeeds.
+Git commit only after that operation succeeds. Registry operations run on
+Woodpecker in the normal path; the like-named GitLab jobs in the legacy
+`.gitlab-ci.yml` are retained only for the disaster-recovery lane and are
+not a scheduler for ordinary work (see docs/runbooks/ci-pipelines.md).
 
 The CI lock gate validates the lock before inspecting the live cluster. A
 rollout can briefly leave old pods running after the new digest is committed,
@@ -220,15 +223,17 @@ so the gate refreshes and checks live policy up to ten times, with 20 seconds
 between failures. Invalid locks fail immediately; policy that does not converge
 still fails with the check's exit status.
 
-`registry_lock_import` is deliberately manual and must stay that way. The
+`registry-update-import` is deliberately manual and must stay that way. The
 candidate is a proposal: importing it before the reviewed commit that pins it
 would place content in the registry that nothing references, which the
 collector then removes, and it would drop the human checkpoint on an
-upstream change. `registry_lock_import` is the opposite case and runs nightly.
-It
+upstream change. The Woodpecker `registry-lock-import` operation is the
+opposite case: it runs on the maintenance cron and on any main push that
+changes the lock or inventory (when the push diff cannot be read, it runs
+anyway). It
 re-imports the lock that is already committed and reviewed, so no decision is
 involved; it exists to heal a partial import or a manifest the collector took.
-The two jobs look interchangeable and are not.
+The two operations look interchangeable and are not.
 
 ### Semantic upstream version discovery & non-automerge policy
 
@@ -341,6 +346,12 @@ job does rather than by which stage it sits in:
 - `registry_lock_import` depends only on `registry_lock`, the lock it
   re-imports.
 - The retention reconciler has `needs: []` and is fully ungated.
+
+On Woodpecker, the equivalent operations in config/ci/operations.json carry
+the same split: every registry operation depends on the successful
+validation-v2 workflow for its exact commit rather than on a stage, and
+registry-lock-import additionally runs unattended on lock-changing pushes
+and the maintenance cron because it only restores the reviewed lock.
 
 The ungated jobs are the ones that restore an invariant rather than change
 anything. A gate that paused them would let retention tags lapse, or leave a
