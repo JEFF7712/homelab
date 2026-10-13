@@ -36,13 +36,36 @@ and `/opt/nemo/lib64`; do not mount host libraries or a code ConfigMap over
 these paths. Model weights, speaker profiles, and the speaker-ID model remain
 external read-only inputs. Keep the image's entrypoint and library search path.
 
-The build source is `gitops/voice/nemotron-bridge/Dockerfile`, with NVIDIA's
-NeMo-Speech.cpp commit pinned in that file. Publish only with the
+The current build source is `services/voice-supply/Dockerfile.nemotron` and
+`scripts/voice/build_image.py`. NeMo and ggml revisions, the complete Nix SDK
+and Python wheels are pinned by the manifests in `services/voice-supply/`.
+The build is operator-driven from protected Forgejo source; Woodpecker validates
+source but does not automatically release this image. Follow
+`services/voice-supply/README.md` to reconstruct inputs and build offline.
+The older network-fetching Dockerfile in `gitops/voice/nemotron-bridge/` is
+historical and is not the accepted release recipe. Publish only with the
 `publisher-jarvis-nemotron` identity. The protected file variable
 `REGISTRY_JARVIS_PUBLISHER_AUTH_FILE` supplies that identity; the manual
 `provision_jarvis_publisher` CI job provisions its initial policy and credential.
 It compares existing policy before mutation and retains protected rollback
 files on the NAS. Keep `REGISTRY_HTPASSWD_FILE` synchronized after provisioning.
+
+The 2026-10-13 release is `offline-20261013-950c451`, built from Forgejo
+`950c45139d49d1c7b6372973d8d85ffa48031c10`. Cold compilation produced library
+SHA-256 `9e1326253bb97fc89a922bc8fc85b6973db79f330de9f2e8b8cc0df823741192`.
+Runtime packaging reused that verified compiler layer after an explicit UV
+path correction; it does not constitute a second complete uncached build.
+The packaged image passed ABI checks, speaker-ID model/profile loading and a
+GPU corpus with two distinct utterances and silence, all without networking.
+The original ambiguous "Independent model recovery succeeds." recording is
+retained as a diagnostic: both old and new images hear "Moldova" instead of
+"model". No recognition labels were rewritten to match observed output.
+
+Publication and recovery receipts are retained under
+`/home/rupan/sovereign-recovery/voice/2026-10-13`. Both release and previous
+production digests have immutable retention tags. The canonical NAS password
+file was repaired to match the existing working protected CI credential;
+neither the live verifier nor access-control policy changed.
 
 Read back the destination manifest digest before changing the consumer and
 registry lock. A local Docker image ID is not the published manifest digest.
