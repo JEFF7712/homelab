@@ -37,6 +37,7 @@
   homelab.s3.enable = true;
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;
+  homelab.platformBackup.bookshelfConfigPath = "/tank/cluster/media-bookshelf-config-pvc-ba9f64f7-e62f-4d69-9f48-a0715b54d396";
   homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {

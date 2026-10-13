@@ -13,11 +13,19 @@ let
   '';
 in
 {
-  options.homelab.platformBackup.enable = lib.mkEnableOption "Consistent platform snapshots to encrypted offsite Restic";
+  options.homelab.platformBackup = {
+    enable = lib.mkEnableOption "Consistent platform snapshots to encrypted offsite Restic";
+    bookshelfConfigPath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "NAS cluster PVC directory containing Bookshelf configuration and SQLite state";
+    };
+  };
   config = lib.mkIf cfg.enable {
     systemd.services.platform-backup = {
       description = "Back up Git, CI, state, and recovery credentials";
-      unitConfig.RequiresMountsFor = "/persist";
+      unitConfig.RequiresMountsFor =
+        "/persist" + lib.optionalString (cfg.bookshelfConfigPath != "") " /tank/cluster";
       path = [
         pkgs.restic
         pkgs.systemd
@@ -27,7 +35,11 @@ in
       environment.XDG_CACHE_HOME = "/var/cache/platform-backup";
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode backup";
+        ExecStart =
+          "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode backup"
+          + lib.optionalString (
+            cfg.bookshelfConfigPath != ""
+          ) " --bookshelf-config ${lib.escapeShellArg cfg.bookshelfConfigPath}";
         EnvironmentFile = "/persist/platform-backup.env";
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
