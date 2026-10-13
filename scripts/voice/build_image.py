@@ -25,6 +25,7 @@ def verify_file(path: Path, expected: str) -> None:
 def source_revision(source: Path) -> str:
     paths = [
         "scripts/voice/build_image.py",
+        "scripts/voice/runtime_files.py",
         "services/voice-supply/Dockerfile.nemotron",
         "services/voice-supply/native-sdk-manifest.json",
         "services/voice-supply/native-source-manifest.json",
@@ -89,6 +90,9 @@ def build(inputs: Path, tag: str, reuse_build_cache: bool = False) -> None:
             )
         shutil.copyfile(manifests / "Dockerfile.nemotron", context / "Dockerfile")
         shutil.copyfile(
+            source / "scripts/voice/runtime_files.py", context / "runtime_files.py"
+        )
+        shutil.copyfile(
             manifests / "native-sdk-manifest.json", context / "native-sdk-manifest.json"
         )
         subprocess.run(
@@ -96,6 +100,9 @@ def build(inputs: Path, tag: str, reuse_build_cache: bool = False) -> None:
                 "docker",
                 "build",
                 "--network=none",
+                "--memory=8g",
+                "--cpu-period=100000",
+                "--cpu-quota=200000",
                 *([] if reuse_build_cache else ["--no-cache"]),
                 "--pull=false",
                 "--build-arg",
