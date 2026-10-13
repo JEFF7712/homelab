@@ -5,6 +5,7 @@
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
     ../../modules/k3s-registry-client.nix
+    ../../modules/kiosk.nix
     ../../modules/monero.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
@@ -14,6 +15,13 @@
   ];
 
   networking.hostName = "homelab-04";
+
+  homelab.kiosk = {
+    enable = true;
+    url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
+    drmDevice = "/dev/dri/card1";
+    scaleFactor = "1.0";
+  };
 
   homelab.woodpecker.enable = true;
   homelab.platformBackup.enable = true;
