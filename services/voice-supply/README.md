@@ -47,6 +47,10 @@ The helper requires committed, unchanged image source, verifies every input
 hash, and builds with no network or Docker layer cache. The recipe imports
 the retained SDK, compiles for the homelab-04 GPU architecture and installs
 Python packages without an index. It labels the result with the source SHA.
+Runtime packaging removes the SDK's NVIDIA driver link stubs; real GPU checks
+use the host driver. `--reuse-build-cache` is an explicit debugging option for
+resuming packaging after a recorded cold compilation. It does not establish
+a new cold build proof. The default remains an uncached build.
 
 The 2026-10-13 recovery drill compiled the native library in a fresh Nix image,
 verified its ABI, and recognized "Local recovery verification." from the

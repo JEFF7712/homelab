@@ -49,7 +49,7 @@ def source_revision(source: Path) -> str:
     ).strip()
 
 
-def build(inputs: Path, tag: str) -> None:
+def build(inputs: Path, tag: str, reuse_build_cache: bool = False) -> None:
     source = Path(__file__).resolve().parents[2]
     revision = source_revision(source)
     manifests = source / "services/voice-supply"
@@ -88,12 +88,15 @@ def build(inputs: Path, tag: str) -> None:
                 source / "gitops/voice/nemotron-bridge" / name, context / name
             )
         shutil.copyfile(manifests / "Dockerfile.nemotron", context / "Dockerfile")
+        shutil.copyfile(
+            manifests / "native-sdk-manifest.json", context / "native-sdk-manifest.json"
+        )
         subprocess.run(
             [
                 "docker",
                 "build",
                 "--network=none",
-                "--no-cache",
+                *([] if reuse_build_cache else ["--no-cache"]),
                 "--pull=false",
                 "--build-arg",
                 "SOURCE_REVISION=" + revision,
@@ -110,8 +113,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("inputs", type=Path)
     parser.add_argument("tag")
+    parser.add_argument("--reuse-build-cache", action="store_true")
     args = parser.parse_args()
-    build(args.inputs.resolve(), args.tag)
+    build(args.inputs.resolve(), args.tag, args.reuse_build_cache)
 
 
 if __name__ == "__main__":
