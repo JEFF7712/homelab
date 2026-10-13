@@ -4,10 +4,11 @@ description: >-
   Ramp bedroom lamps from 1 to 30 percent warm over the 20 minutes before
   the earlier of the Bedroom Wake Time helper and the phone's next alarm.
   Adaptive Lighting is paused during the fade so its interval adaptation
-  does not fight the ramp, then restored when the fade ends. Plugs come on
-  at fade start. Brightness is computed from elapsed time each minute, so a
-  restart mid-fade resumes at the correct level instead of restarting or
-  stalling. Unknown or malformed times fall back safely to no fade.
+  does not fight the ramp, then restored when the fade ends. Plugs and the
+  bus display come on at fade start. Brightness is computed from elapsed
+  time each minute, so a restart mid-fade resumes at the correct level
+  instead of restarting or stalling. Unknown or malformed times fall back
+  safely to no fade.
 triggers:
   - trigger: time_pattern
     minutes: "/1"
@@ -60,6 +61,9 @@ actions:
               entity_id:
                 - switch.bedroom_window_plug
                 - switch.bedroom_mushroom_plug
+          - action: light.turn_on
+            target:
+              entity_id: light.bus_display
           - action: light.turn_on
             target:
               entity_id:

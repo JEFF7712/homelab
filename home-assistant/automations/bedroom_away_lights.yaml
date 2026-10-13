@@ -1,10 +1,10 @@
 id: bedroom_away_lights
 alias: "Bedroom: Lights Off While Away"
 description: >-
-  Rupan bedroom only. Snapshot and switch bedroom lights off when Rupan
-  leaves, keep them off while Rupan is away, restore the snapshot on return.
-  Adaptive Lighting is re-enabled on leave so a paused morning fade cannot
-  leave adaptation off all day.
+  Rupan bedroom only. Snapshot and switch bedroom lights and the bus
+  display off when Rupan leaves, keep them off while Rupan is away, restore
+  the snapshot on return. Adaptive Lighting is re-enabled on leave so a
+  paused morning fade cannot leave adaptation off all day.
 triggers:
   - trigger: state
     entity_id: person.rupan_sunderapandyan
@@ -22,6 +22,7 @@ triggers:
       - light.desk_lamp_desk_lamp
       - light.floor_lamp_floor_lamp
       - light.light_strip_light_strip
+      - light.bus_display
     from: "off"
     to: "on"
     id: "enforced"
@@ -41,6 +42,7 @@ actions:
                 - light.desk_lamp_desk_lamp
                 - light.floor_lamp_floor_lamp
                 - light.light_strip_light_strip
+                - light.bus_display
           - action: script.bedroom_lights_off
           - action: switch.turn_on
             target:
