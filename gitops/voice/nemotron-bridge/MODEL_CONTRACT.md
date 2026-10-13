@@ -44,12 +44,16 @@ Return code contract:
 
 ## Packaging and Build Verification
 
-The Dockerfile compiles the actual upstream runtime with CUDA for SM75 (T1000),
-installs its dependent libraries, and packages the bridge and speaker-ID module.
-Python versions are direct dependency pins, not a complete transitive lock.
-The build runs `verify_contract.py --abi-only`: library loading with NVIDIA's driver link stub, exported symbols,
-and Python imports. The driver stub is mounted only for that build step and is
-absent from the runtime image; runtime checks require the real NVIDIA driver. This does not claim speech accuracy or model inference.
+`services/voice-supply/Dockerfile.nemotron` compiles the pinned upstream runtime
+with CUDA for SM75 (T1000), installs its dependent libraries, and packages the
+bridge and speaker-ID module. `scripts/voice/build_image.py` verifies the retained
+SDK, source archives and all four Python wheels before building with networking
+disabled. Their exact versions and hashes are in `services/voice-supply/`.
+The older Dockerfile beside this document is a historical network-fetching recipe.
+
+Compilation, ABI checks and packaged-image inference have separate receipts.
+The runtime image removes SDK driver stub outputs and uses the real NVIDIA
+driver for GPU verification. ABI/import checks alone do not establish recognition.
 
 Recognition verification is separate and requires a mounted model and labeled
 WAV manifest. Run `verify_contract.py --manifest /corpus/manifest.json` with

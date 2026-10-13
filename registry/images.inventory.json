@@ -247,24 +247,23 @@
     },
     {
       "consumers": [
-        "gitops/voice/stt-nemotron.yaml:30",
-        "observed:voice/wyoming-nemotron-65cfd79974-b7nnj/bridge"
+        "gitops/voice/stt-nemotron.yaml:30"
       ],
       "destination_repository": "apps/jarvis-nemotron",
       "id": "first-party-apps-jarvis-nemotron-ef31d4b1ea0d",
       "kind": "first-party",
       "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/jarvis-nemotron",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "services/voice-supply/Dockerfile.nemotron",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-local-gpu-build"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
-        "reference": "registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+        "digest": "sha256:206f9fbb4fcd13278561ceb3a162a86064a165e37cd538a8c24e5cab0c5e978d",
+        "reference": "registry.rupan.dev/apps/jarvis-nemotron:offline-20261013-950c451@sha256:206f9fbb4fcd13278561ceb3a162a86064a165e37cd538a8c24e5cab0c5e978d",
         "registry": "registry.rupan.dev",
         "repository": "apps/jarvis-nemotron",
-        "tag": null
+        "tag": "offline-20261013-950c451"
       }
     },
     {
