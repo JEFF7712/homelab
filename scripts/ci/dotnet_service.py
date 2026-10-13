@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from scripts.ci.dockerfile_supply import (
@@ -15,7 +16,14 @@ def validate(root: Path) -> None:
     if not dockerfile.is_file():
         raise ValueError("Dotnet service requires docker/Dockerfile")
     text = dockerfile.read_text(encoding="utf-8")
-    supply = parse_dockerfile(dockerfile)
+    sdk_bases = tuple(
+        re.findall(
+            r"^\s*FROM\s+(registry\.rupan\.dev/apps/dotnet-sdk-6@sha256:[0-9a-f]{64})(?:\s+AS\s+[A-Za-z0-9_.-]+)?\s*$",
+            text,
+            re.MULTILINE | re.IGNORECASE,
+        )
+    )
+    supply = parse_dockerfile(dockerfile, additional_bases=sdk_bases)
     if not supply.bases:
         raise ValueError("Dockerfile declares no base image")
     check_copy_sources(supply)

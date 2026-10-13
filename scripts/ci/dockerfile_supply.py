@@ -38,7 +38,7 @@ def _join_continuations(text: str) -> list[str]:
     return lines
 
 
-def parse_dockerfile(path: Path) -> Supply:
+def parse_dockerfile(path: Path, additional_bases: tuple[str, ...] = ()) -> Supply:
     """Parse a Dockerfile, rejecting constructs that hide supply.
 
     Raises ValueError on line continuations inside comments, JSON-array
@@ -71,7 +71,7 @@ def parse_dockerfile(path: Path) -> Supply:
                 position += 1
             if not image:
                 raise ValueError(f"Unparseable FROM directive: {line}")
-            if not LOCAL_IMAGE.fullmatch(image):
+            if not LOCAL_IMAGE.fullmatch(image) and image not in additional_bases:
                 raise ValueError(
                     "Base image must be a digest-pinned local upstream mirror "
                     f"registry.rupan.dev/upstream/<path>@sha256:<digest>: {line}"

@@ -753,14 +753,28 @@ class ContainerEmissionTest(unittest.TestCase):
         result = configuration(request, apps)
         self.assertEqual(len(result["configs"]), 1)
 
-    def test_dotnet_push_gets_no_release(self) -> None:
+    def test_dotnet_push_gets_compiler_owned_release(self) -> None:
         apps = self.enabled(13, "JEFF7712/bookshelf")
         result = configuration(
             self.request(13, "JEFF7712", "bookshelf", "refs/heads/develop"),
             apps,
         )
-        self.assertEqual(len(result["configs"]), 1)
+        self.assertEqual(len(result["configs"]), 2)
         self.assertEqual(result["configs"][0]["name"], "application-validation.yaml")
+        release = yaml.safe_load(result["configs"][1]["data"])
+        steps = release["steps"]
+        self.assertEqual(len(steps), 3)
+        self.assertIn("--build-image", steps[1]["commands"][0])
+        self.assertNotIn("environment", steps[1])
+        self.assertTrue(
+            all("apps/dotnet-sdk-6@sha256:" in step["image"] for step in steps)
+        )
+
+    def test_dotnet_pull_request_cannot_publish(self) -> None:
+        apps = self.enabled(13, "JEFF7712/bookshelf")
+        request = self.request(13, "JEFF7712", "bookshelf", "refs/pull/4/head")
+        request["pipeline"]["event"] = "pull_request"
+        self.assertEqual(len(configuration(request, apps)["configs"]), 1)
 
     def test_unenrolled_python_repo_is_rejected_without_api(self) -> None:
         apps = self.catalog()
@@ -782,7 +796,7 @@ class ContainerEmissionTest(unittest.TestCase):
         self.assertEqual(apps["solubility-gnn"].release_kind, "container")
         self.assertEqual(apps["pod-agent"].release_kind, "container")
         self.assertEqual(apps["pod-agent"].release_user, "101:101")
-        self.assertEqual(apps["bookshelf"].release_kind, "none")
+        self.assertEqual(apps["bookshelf"].release_kind, "dotnet")
         self.assertEqual(apps["darkbit"].release_kind, "static")
 
 
