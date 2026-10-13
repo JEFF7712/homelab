@@ -20,7 +20,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: renovate-major-reviewer
-            image: registry.rupan.dev/apps/homelab-renovate-agent@sha256:128f085244a15c4fe45fe176be6bad3a112ba13f3fce3173825a9cb3bc4fea58  # yamllint disable-line rule:line-length
+            image: registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130  # yamllint disable-line rule:line-length
             resources:
               requests:
                 cpu: 250m
@@ -28,7 +28,7 @@ spec:
               limits:
                 memory: 2Gi
             command:
-            - python
+            - python3
             - /config/renovate-agent.py
             securityContext:
               allowPrivilegeEscalation: false
