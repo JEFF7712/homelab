@@ -2,6 +2,7 @@ import sqlite3
 import subprocess
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,9 +10,72 @@ from scripts.ci.platform_backup import (
     rotate_check_partition,
     run_backup,
     run_maintenance,
+    snapshot_sqlite_tree,
     stop_active_services,
     verify_restored_backup,
 )
+
+
+class BookshelfStateBackupTests(unittest.TestCase):
+    def test_wal_commits_survive_without_stale_sidecars_or_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            connections = []
+            try:
+                for name in ("readarr.db", "cache.db", "logs.db"):
+                    connection = sqlite3.connect(source / name)
+                    connections.append(connection)
+                    connection.execute("PRAGMA journal_mode=WAL")
+                    connection.execute("CREATE TABLE evidence(value TEXT)")
+                    connection.execute(
+                        "INSERT INTO evidence VALUES ('committed-in-wal')"
+                    )
+                    connection.commit()
+                (source / "config.xml").write_text("<Config/>")
+                (source / "readarr.pid").write_text("123")
+                target = root / "restore"
+                snapshot_sqlite_tree(source, target)
+                for name in ("readarr.db", "cache.db", "logs.db"):
+                    self.assertFalse((target / (name + "-wal")).exists())
+                    self.assertFalse((target / (name + "-shm")).exists())
+                    with closing(sqlite3.connect(target / name)) as restored:
+                        self.assertEqual(
+                            restored.execute("PRAGMA integrity_check").fetchone(),
+                            ("ok",),
+                        )
+                        self.assertEqual(
+                            restored.execute("SELECT value FROM evidence").fetchone(),
+                            ("committed-in-wal",),
+                        )
+                self.assertTrue((target / "config.xml").is_file())
+                self.assertFalse((target / "readarr.pid").exists())
+            finally:
+                for connection in connections:
+                    connection.close()
+
+    def test_state_cannot_escape_through_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "readarr.db").symlink_to(root / "outside.db")
+            with self.assertRaisesRegex(ValueError, "symlinks"):
+                snapshot_sqlite_tree(source, root / "backup")
+
+    def test_missing_authoritative_state_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, "missing readarr.db"):
+                snapshot_sqlite_tree(root, root / "backup")
+
+    def test_nfs_backup_rejects_wrong_host_or_escaping_path(self) -> None:
+        with self.assertRaisesRegex(ValueError, "nas-01"):
+            run_backup("homelab-04", bookshelf_config=Path("/tank/cluster/books"))
+        for path in ("/tank/cluster/../persist", "/persist/forgejo", "/tank/cluster"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                run_backup("nas-01", bookshelf_config=Path(path))
 
 
 class PlatformBackupStagingTests(unittest.TestCase):
