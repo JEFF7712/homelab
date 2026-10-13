@@ -24,6 +24,7 @@ let
     cp ${../../scripts/ci/dockerfile_supply.py} $out/scripts/ci/dockerfile_supply.py
     cp ${../../scripts/ci/container_release.py} $out/scripts/ci/container_release.py
     cp ${../../scripts/ci/node_release.py} $out/scripts/ci/node_release.py
+    cp ${../../scripts/ci/dotnet_release.py} $out/scripts/ci/dotnet_release.py
     touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
     PYTHONPATH=$out ${python}/bin/python -c ${lib.escapeShellArg ''
       from pathlib import Path

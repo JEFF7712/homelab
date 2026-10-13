@@ -1052,21 +1052,84 @@
       "woodpecker_repository_id": 20,
       "default_branch": "develop",
       "validator": "dotnet-service-v1",
-      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "validation_image": "registry.rupan.dev/apps/dotnet-sdk-6@sha256:6115544bac6ed4ed8863e3270e088588397eec549ebe78ae8980699727c0eb94",
       "release_base_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
       "artifact_repository": "apps/bookshelf",
       "deployment_path": "gitops/media",
       "state": "stateful",
-      "release_kind": "none",
-      "release_files": [],
-      "release_supply": [],
-      "release_python": "",
-      "release_uid": 0,
-      "release_gid": 0,
-      "release_user": "",
-      "release_entrypoint": [],
-      "release_env": {},
-      "release_workdir": "",
+      "release_kind": "dotnet",
+      "release_files": [
+        [
+          "runtime/bin",
+          "app/bin"
+        ],
+        [
+          "runtime/dotnet",
+          "app/dotnet"
+        ],
+        [
+          "runtime/.sovereign-build.json",
+          "app/.sovereign-build.json"
+        ]
+      ],
+      "release_supply": [
+        {
+          "package": "bookshelf-build",
+          "version": "1",
+          "filename": "nuget-supply.tar.gz",
+          "sha256": "sha256:02c7d082f8d7c56a30ad08559914d2c8d1050974ff8a8cea34a6ff928fd7fb8a",
+          "kind": "file",
+          "dest": "/inputs/nuget-supply.tar.gz"
+        },
+        {
+          "package": "bookshelf-build",
+          "version": "1",
+          "filename": "yarn-supply.tar.gz",
+          "sha256": "sha256:b442ffb5527ab01147271547297304929a8ee3adc4c4690c05d3f75b32529c6a",
+          "kind": "file",
+          "dest": "/inputs/yarn-supply.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "bookshelf-build",
+          "version": "1",
+          "filename": "yarn-cli.tgz",
+          "sha256": "sha256:c17d3797fb9a9115bf375e31bfd30058cac6bc9c3b8807a3d8cb2094794b51ca",
+          "kind": "file",
+          "dest": "/inputs/yarn-cli.tgz"
+        },
+        {
+          "package": "bookshelf-build",
+          "version": "1",
+          "filename": "libsqlite3.so.0",
+          "sha256": "sha256:2e6eef9a727f081f0d453b4e5e6cbd8b9ef8b6f86cbf7681cbad444d3b0b55c8",
+          "kind": "file",
+          "dest": "/usr/lib/x86_64-linux-gnu/libsqlite3.so.0"
+        }
+      ],
+      "release_python": "3.12",
+      "release_uid": 1000,
+      "release_gid": 1000,
+      "release_user": "1000:1000",
+      "release_entrypoint": [
+        "/app/dotnet/dotnet",
+        "/app/bin/Readarr.dll",
+        "-nobrowser",
+        "-data=/config"
+      ],
+      "release_env": {
+        "DOTNET_ROOT": "/app/dotnet",
+        "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT": "1",
+        "HOME": "/tmp"
+      },
+      "release_workdir": "/app/bin",
       "release_scripts": [],
       "node_manager": "",
       "node_dir": "",
