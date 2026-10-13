@@ -59,3 +59,8 @@ A clean container build of Forgejo source
 inputs mounted. The resulting runtime started as uid 1000 on the pinned
 Python runtime base and returned HTTP 200 with networking disabled. This
 build proof does not establish a deployed CI release or state recovery.
+
+The server-owned compiler supplies the verified source commit explicitly and
+disables SourceLink repository probing. The retained SourceLink 1.1.1 Git
+reader cannot parse Woodpecker's repository-format-1 parent clone. Source
+provenance remains in the image labels and retained build receipt.
