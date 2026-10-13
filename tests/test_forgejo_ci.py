@@ -192,6 +192,7 @@ class PolicyTest(unittest.TestCase):
                 "cloudflare-plan.yaml",
                 "sync-to-github.yaml",
                 "cache-publish.yaml",
+                "registry-lock-import.yaml",
             ],
         )
         for item in result["configs"][1:]:
@@ -233,6 +234,39 @@ class PolicyTest(unittest.TestCase):
             'cache.sh "$work/nixos-config" "$target_set"',
         ]:
             self.assertIn(marker, script)
+
+    def test_push_lock_import_requires_lock_change_or_unknown_diff(self) -> None:
+        names = [
+            item["name"]
+            for item in configuration(
+                self.request, self.catalog, current=SHA, changed_files=("docs/x.md",)
+            )["configs"]
+        ]
+        self.assertNotIn("registry-lock-import.yaml", names)
+        for changed in [
+            ("registry/images.lock.json",),
+            ("registry/images.inventory.json",),
+            None,
+        ]:
+            names = [
+                item["name"]
+                for item in configuration(
+                    self.request, self.catalog, current=SHA, changed_files=changed
+                )["configs"]
+            ]
+            self.assertIn("registry-lock-import.yaml", names)
+
+    def test_maintenance_cron_imports_the_committed_lock(self) -> None:
+        self.request["pipeline"].update(event="cron", cron="maintenance")
+        result = configuration(self.request, self.catalog, current=SHA)
+        item = next(
+            item
+            for item in result["configs"]
+            if item["name"] == "registry-lock-import.yaml"
+        )
+        workflow = yaml.safe_load(item["data"])
+        self.assertEqual(workflow["depends_on"], [VALIDATION])
+        self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
 
     def test_deployment_requires_fresh_current_main_and_operator(self) -> None:
         result = self.deployment()
