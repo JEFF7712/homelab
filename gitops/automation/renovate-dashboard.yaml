@@ -24,7 +24,7 @@ spec:
       containers:
       - name: dashboard
         command: [python, /config/dashboard.py]
-        image: registry.rupan.dev/apps/homelab-renovate-dashboard@sha256:dc947a8226bcdb112cc2bf9e119c67fcd3f63168b7234eb1e060618613d490e3  # yamllint disable-line rule:line-length
+        image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
         resources:
           requests:
             cpu: 50m

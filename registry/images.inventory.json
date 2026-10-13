@@ -183,7 +183,6 @@
     },
     {
       "consumers": [
-        "gitops/automation/renovate-agent.yaml:23",
         "observed:automation/cronjob-renovate-major-reviewer/renovate-major-reviewer"
       ],
       "destination_repository": "apps/homelab-renovate-agent",
@@ -205,7 +204,6 @@
     },
     {
       "consumers": [
-        "gitops/automation/renovate-dashboard.yaml:27",
         "observed:automation/renovate-dashboard-849659dcdc-8pt59/dashboard"
       ],
       "destination_repository": "apps/homelab-renovate-dashboard",
@@ -1402,7 +1400,7 @@
     },
     {
       "consumers": [
-        "gitops/automation/renovate-agent.yaml:131",
+        "gitops/automation/renovate-dashboard.yaml:27",
         "gitops/media/arr-queue-hygiene.yaml:270",
         "gitops/media/arr-secret-sync.yaml:261",
         "gitops/media/soularr.yaml:185",
@@ -2393,6 +2391,23 @@
         "repository": "upstream/docker.io/intel/intel-gpu-plugin",
         "tag": null
       }
+    },
+    {
+      "id": "upstream-upstream-ghcr-io-renovatebot-renovate-b14d3a2c9ccf",
+      "kind": "upstream",
+      "source": {
+        "registry": "registry.rupan.dev",
+        "repository": "upstream/ghcr.io/renovatebot/renovate",
+        "tag": null,
+        "digest": "sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130",
+        "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130"
+      },
+      "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate",
+      "consumers": [
+        "gitops/automation/renovate-agent.yaml:23"
+      ],
+      "producer": null,
+      "retention_class": "deployed"
     }
   ],
   "kind": "registry-inventory",
