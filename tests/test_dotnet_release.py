@@ -30,6 +30,31 @@ def supply() -> list[dict]:
 
 
 class DotnetReleaseTests(unittest.TestCase):
+    def test_build_copy_excludes_private_clone_metadata_and_prior_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "README.md").write_text("application source")
+            pack = source / ".git/objects/pack"
+            pack.mkdir(parents=True)
+            private = pack / "pack.promisor"
+            private.write_text("clone metadata")
+            private.chmod(0)
+            previous = source / ".sovereign/build"
+            previous.mkdir(parents=True)
+            (previous / "prior-output").write_text("prior build")
+            try:
+                release.copy_build_source(source, root / "build-source")
+                self.assertEqual(
+                    (root / "build-source/README.md").read_text(), "application source"
+                )
+                self.assertFalse((root / "build-source/.git").exists())
+                self.assertFalse((root / "build-source/.sovereign").exists())
+                self.assertTrue(private.exists())
+            finally:
+                private.chmod(0o600)
+
     def test_missing_retained_feed_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "retain NuGet"):
             release.check_contract(supply()[1:], SDK)
