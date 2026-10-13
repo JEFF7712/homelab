@@ -172,6 +172,44 @@ def find_reusable_validation(
     return None
 
 
+REGISTRY_LOCK_PATHS = frozenset(
+    {"registry/images.inventory.json", "registry/images.lock.json"}
+)
+
+
+def push_changed_files(request: dict[str, Any]) -> tuple[str, ...] | None:
+    """Files changed by a main push, or None when the diff cannot be read.
+
+    The base is the pushed commit's first parent, so a merge commit diffs
+    against the previous main tip and a fast-forward diffs its own commit.
+    """
+    pipeline = request["pipeline"]
+    commit = pipeline.get("commit", "")
+    token = request.get("netrc", {}).get("password", "")
+    if not token or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        return None
+    try:
+        info = api(
+            f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/commits/{commit}",
+            token,
+        )
+        parents = info.get("parents") or []
+        if not parents:
+            return None
+        compare = api(
+            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/compare/"
+            f"{parents[0]['id']}...{commit}",
+            token,
+        )
+    except Exception:
+        return None
+    return tuple(
+        entry["filename"]
+        for entry in compare.get("files") or []
+        if isinstance(entry, dict) and isinstance(entry.get("filename"), str)
+    )
+
+
 def configuration(
     request: dict[str, Any],
     operations: dict[str, Any],
@@ -180,6 +218,7 @@ def configuration(
     now: int | None = None,
     reusable: dict[str, Any] | None = None,
     merge_base: str = "",
+    changed_files: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -315,12 +354,24 @@ def configuration(
                     "cache-publish",
                 ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
+                # A committed lock asserts its content is in the registry;
+                # nothing else fetches it, so the push that changes the lock
+                # must import it. An unreadable diff imports anyway: healing
+                # a lock that is already right is cheaper than a workload
+                # stuck in ImagePullBackOff.
+                if changed_files is None or REGISTRY_LOCK_PATHS.intersection(
+                    changed_files
+                ):
+                    operation_workflow(
+                        "registry-lock-import", "${CI_PIPELINE_NUMBER}", [VALIDATION]
+                    )
             elif event == "cron" and pipeline.get("cron") == "maintenance":
                 # The watchdog reports missing or stuck validation, so it
                 # runs ungated: depending on validation would silence exactly
                 # the outage it watches for.
                 operation_workflow("webhook-watchdog", "${CI_PIPELINE_NUMBER}", [])
                 for target in [
+                    "registry-lock-import",
                     "registry-drift-check",
                     "registry-retention-reconcile",
                     "registry-promote-first-party",
@@ -395,6 +446,12 @@ def resolve_configuration(
         )
     reusable = None
     merge_base = ""
+    changed_files = None
+    if (
+        request["pipeline"].get("event") == "push"
+        and request["pipeline"].get("ref") == "refs/heads/main"
+    ):
+        changed_files = push_changed_files(request)
     if request["pipeline"].get("ref") == "refs/heads/main":
         credentials = request["netrc"]
         tip = api(
@@ -423,7 +480,13 @@ def resolve_configuration(
                 except Exception:
                     pass
     return configuration(
-        request, operations, parent, current, reusable=reusable, merge_base=merge_base
+        request,
+        operations,
+        parent,
+        current,
+        reusable=reusable,
+        merge_base=merge_base,
+        changed_files=changed_files,
     )
 
 

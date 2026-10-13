@@ -88,7 +88,12 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   report resource usage and execution times under `[EXECUTION BREAKDOWN]`.
 
 A current main push additionally runs opnsense-plan, cloudflare-plan, and
-sync-to-github and cache-publish after validation. The maintenance cron runs registry drift,
+sync-to-github and cache-publish after validation. A push that changes
+registry/images.lock.json or registry/images.inventory.json also runs
+registry-lock-import after validation, so a reviewed lock entry is copied
+into the registry by the same pipeline that lands it; when the push diff
+cannot be read, the import runs anyway. The maintenance cron runs registry
+lock import, registry drift,
 retention reconciliation, and first-party promotion. Promotion creates a PR.
 The cron also runs the webhook watchdog ungated: it fails when a recent
 push or pull request has no validation status past the grace period or a
