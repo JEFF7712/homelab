@@ -20,6 +20,23 @@ def snapshot_database(source: Path, target: Path) -> None:
                 raise ValueError(f"Invalid SQLite backup: {source.name}")
 
 
+def snapshot_sqlite_tree(source: Path, target: Path) -> None:
+    if source.is_symlink() or any(path.is_symlink() for path in source.rglob("*")):
+        raise ValueError("Application state must not contain symlinks")
+    for name in ("readarr.db", "cache.db", "logs.db", "config.xml"):
+        if not (source / name).is_file():
+            raise ValueError(f"Bookshelf state is missing {name}")
+    shutil.copytree(source, target)
+    for database in list(target.rglob("*.db")):
+        replacement = database.with_name(database.name + ".snapshot")
+        snapshot_database(database, replacement)
+        replacement.replace(database)
+        for suffix in ("-wal", "-shm"):
+            database.with_name(database.name + suffix).unlink(missing_ok=True)
+    for pid in target.rglob("*.pid"):
+        pid.unlink()
+
+
 def stop_active_services(services: list[str], stopped: list[str]) -> None:
     for service in services:
         status = subprocess.run(
@@ -112,7 +129,20 @@ def run_maintenance(host: str, partition_state_file: Path | None = None) -> None
     )
 
 
-def run_backup(host: str, persist_root: Path = Path("/persist")) -> None:
+def run_backup(
+    host: str,
+    persist_root: Path = Path("/persist"),
+    bookshelf_config: Path | None = None,
+) -> None:
+    bookshelf_relative: Path | None = None
+    if bookshelf_config is not None:
+        if host != "nas-01":
+            raise ValueError("Bookshelf NFS state backup must run on nas-01")
+        bookshelf_relative = bookshelf_config.relative_to("/tank/cluster")
+        if len(bookshelf_relative.parts) != 1 or bookshelf_relative.name in {".", ".."}:
+            raise ValueError(
+                "Bookshelf configuration must name one cluster PVC directory"
+            )
     backup_base = persist_root / "platform-backup"
     backup_base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -128,7 +158,10 @@ def run_backup(host: str, persist_root: Path = Path("/persist")) -> None:
                 suffix = "platform-backup-" + datetime.datetime.now(
                     datetime.UTC
                 ).strftime("%Y%m%dT%H%M%S")
-                for dataset in ["zroot/persist", "tank/forgejo", "tank/s3"]:
+                selected_datasets = ["zroot/persist", "tank/forgejo", "tank/s3"]
+                if bookshelf_relative is not None:
+                    selected_datasets.append("tank/cluster")
+                for dataset in selected_datasets:
                     snapshot = dataset + "@" + suffix
                     subprocess.run(["zfs", "snapshot", snapshot], check=True)
                     snapshots.append(snapshot)
@@ -148,6 +181,14 @@ def run_backup(host: str, persist_root: Path = Path("/persist")) -> None:
 
                 for dataset in ["tank/forgejo", "tank/s3"]:
                     datasets.append("/" + dataset + "/.zfs/snapshot/" + suffix)
+
+                if bookshelf_relative is not None:
+                    snapshot_sqlite_tree(
+                        Path("/tank/cluster/.zfs/snapshot")
+                        / suffix
+                        / bookshelf_relative,
+                        stage / "applications/bookshelf",
+                    )
 
                 snapshot_database(
                     persist_root / "tofu-state/state.sqlite",
@@ -202,6 +243,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", choices=["nas-01", "homelab-04"], required=True)
     parser.add_argument(
+        "--bookshelf-config",
+        type=Path,
+        default=None,
+    )
+    parser.add_argument(
         "--mode",
         choices=["backup", "maintenance", "verify-restore"],
         default="backup",
@@ -215,7 +261,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "backup":
-        run_backup(args.host)
+        run_backup(args.host, bookshelf_config=args.bookshelf_config)
     elif args.mode == "maintenance":
         run_maintenance(args.host)
     elif args.mode == "verify-restore":
