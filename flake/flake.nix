@@ -158,21 +158,20 @@
 
         checks.agent-workspace-network =
           let
-            evaluated = nixpkgs.lib.nixosSystem {
-              inherit system;
-              modules = [
-                ./modules/agent-workspace-network.nix
-                {
-                  system.stateVersion = "26.05";
-                  networking.hostName = "homelab-01";
-                  networking.useNetworkd = true;
-                  services.agent-workspace-network.enable = true;
-                }
-              ];
-            };
+            host = self.nixosConfigurations.homelab-01.config;
+            policy = host.networking.nftables.tables.agent-workspaces.content;
+            bridges = builtins.attrNames host.systemd.network.netdevs;
           in
           pkgs.runCommand "agent-workspace-network-evaluation" { } ''
-            test ${nixpkgs.lib.escapeShellArg (builtins.toJSON (builtins.attrNames evaluated.config.networking.nftables.tables))} = '["agent-workspaces"]'
+            test ${nixpkgs.lib.escapeShellArg (builtins.toJSON bridges)} = '["40-rupan","40-sam"]'
+            ${
+              if nixpkgs.lib.hasInfix "aw-rupan-br" policy && nixpkgs.lib.hasInfix "aw-sam-br" policy then
+                "true"
+              else
+                "false"
+            }
+            ${if !(nixpkgs.lib.hasInfix "dport 443" policy) then "true" else "false"}
+            ${if !(nixpkgs.lib.hasInfix "dport 123" policy) then "true" else "false"}
             touch $out
           '';
 
