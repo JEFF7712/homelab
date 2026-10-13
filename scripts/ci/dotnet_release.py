@@ -84,6 +84,12 @@ def runtime_supply(supply: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [item for item in supply if item["dest"] not in INPUTS]
 
 
+def copy_build_source(source: Path, destination: Path) -> None:
+    shutil.copytree(
+        source, destination, ignore=shutil.ignore_patterns(".git", ".sovereign")
+    )
+
+
 def build(
     source: Path,
     base: Path,
@@ -104,7 +110,7 @@ def build(
         if item["dest"] in INPUTS:
             unpack(data, inputs / INPUTS[item["dest"]])
     work = output / "source"
-    shutil.copytree(source, work, ignore=shutil.ignore_patterns(".sovereign"))
+    copy_build_source(source, work)
     for lock in work.rglob("packages.lock.json"):
         lock.unlink()
     nodes = list((inputs / "node").glob("*/bin/node"))
