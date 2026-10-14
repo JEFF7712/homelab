@@ -52,6 +52,34 @@ use the host driver. `--reuse-build-cache` is an explicit debugging option for
 resuming packaging after a recorded cold compilation. It does not establish
 a new cold build proof. The default remains an uncached build.
 
+## Protected native CI operation
+
+`native-asr-publish` is a manual Woodpecker operation in the protected homelab
+repository, triggered from successful validation of current main. The trusted
+deploy coordinator uses the existing fleet SSH identity. Application pipelines
+do not receive its SSH or publisher credentials. The builder clones the exact
+approved source, downloads retained packages with read-only credentials, checks
+the model hash and compiles in a fresh container with networking disabled.
+Build containers have no host Docker socket or credential mounts. Compilation
+is limited to two CPUs and 8 GiB.
+
+Docker GPU checks run before publishing a `candidate-ci-*` tag. The coordinator
+then runs the same corpus in an isolated k3s Job using the production NVIDIA
+runtime. Only successful completion creates the final `0.0.N` release tag and
+retention tag. Flux promotion requires a separate protected PR. The operation
+receipt and k3s proof log are stored by the existing state gateway.
+
+The short k3s probe shares the homelab-04 GPU with the primary recognizer, as the
+operator's Docker acceptance tests do. It has no Kubernetes API token, reads
+only the model and its own retained corpus, and never sends Home Assistant
+requests. Failed probes remain for diagnosis and expire after one hour.
+
+The first Docker-verified candidate from 2026-10-13 failed under k3s because
+cudart also carried driver stubs outside the SDK's dedicated `-stubs` outputs.
+The production pin was rolled back. Runtime packaging now removes every SDK
+`libcuda.so*` entry, including merged symlinks, while retaining `libcudart.so`.
+Docker CDI verification alone does not establish k3s runtime acceptance.
+
 The 2026-10-13 recovery drill compiled the native library in a fresh Nix image,
 verified its ABI, and recognized "Local recovery verification." from the
 independently restored model with networking disabled. This evidence covers

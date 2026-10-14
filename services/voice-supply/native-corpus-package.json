@@ -1,0 +1,18 @@
+{
+  "package": "JEFF7712/native-asr-corpus",
+  "version": "20261013",
+  "archives": [
+    {
+      "filename": "native-corpus.tar.gz",
+      "size": 171660,
+      "sha256": "6492991a13fd20e2e8edfa0e57c738c2644e107b56440dcccd5a47ad4d9ad2ce",
+      "files": [
+        {
+          "filename": "native-corpus.tar.gz.part000",
+          "size": 171660,
+          "sha256": "6492991a13fd20e2e8edfa0e57c738c2644e107b56440dcccd5a47ad4d9ad2ce"
+        }
+      ]
+    }
+  ]
+}
