@@ -247,24 +247,23 @@
     },
     {
       "consumers": [
-        "gitops/voice/stt-nemotron.yaml:30",
-        "observed:voice/wyoming-nemotron-65cfd79974-b7nnj/bridge"
+        "gitops/voice/stt-nemotron.yaml:30"
       ],
       "destination_repository": "apps/jarvis-nemotron",
       "id": "first-party-apps-jarvis-nemotron-ef31d4b1ea0d",
       "kind": "first-party",
       "producer": {
-        "location": "external-image-repository:registry.rupan.dev/apps/jarvis-nemotron",
-        "owner": "jeff7712",
-        "pipeline_status": "unverified"
+        "location": "scripts/ci/native_release.py",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-cold-build-operator-publish"
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
-        "reference": "registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+        "digest": "sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d",
+        "reference": "registry.rupan.dev/apps/jarvis-nemotron:0.0.1001700@sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d",
         "registry": "registry.rupan.dev",
         "repository": "apps/jarvis-nemotron",
-        "tag": null
+        "tag": "0.0.1001700"
       }
     },
     {
@@ -2502,14 +2501,6 @@
       "consumer": "gitops/websites/ism/deployment.yaml:23,observed:ism/website-deploy-7c6b4ff486-ftnbj/web",
       "id": "producer:first-party-apps-ism-5d717b905674",
       "input": "registry.rupan.dev/apps/ism@sha256:d8048bd8942e5ac931f87586672204f33ca58b0b7b54beaf13f561ff31e0f227",
-      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
-    },
-    {
-      "blocking": false,
-      "class": "producer-pipeline",
-      "consumer": "gitops/voice/stt-nemotron.yaml:30,observed:voice/wyoming-nemotron-65cfd79974-b7nnj/bridge",
-      "id": "producer:first-party-apps-jarvis-nemotron-ef31d4b1ea0d",
-      "input": "registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {

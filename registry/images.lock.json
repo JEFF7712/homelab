@@ -136,19 +136,20 @@
       ],
       "destination_repository": "apps/jarvis-nemotron",
       "destination_tags": [
-        "native-07003daa"
+        "0.0.1001700",
+        "retention-deployed-1133a10e4cea066a"
       ],
-      "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+      "digest": "sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d",
       "id": "first-party-jarvis-nemotron",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
         "linux/amd64"
       ],
       "producer": {
-        "location": "gitops/voice/nemotron-bridge/Dockerfile",
+        "location": "scripts/ci/native_release.py",
         "owner": "JEFF7712/homelab",
-        "pipeline_status": "verified-local-gpu-build"
+        "pipeline_status": "verified-cold-build-operator-publish"
       },
       "referrers": {
         "required": [],
@@ -159,11 +160,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
-        "reference": "registry.rupan.dev/apps/jarvis-nemotron:native-07003daa@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc",
+        "digest": "sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d",
+        "reference": "registry.rupan.dev/apps/jarvis-nemotron:0.0.1001700@sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d",
         "registry": "registry.rupan.dev",
         "repository": "apps/jarvis-nemotron",
-        "tag": "native-07003daa"
+        "tag": "0.0.1001700"
       }
     },
     {
