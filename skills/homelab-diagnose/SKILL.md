@@ -21,6 +21,7 @@ Triage ladder for the k3s cluster (Flux-reconciled, `gitops/clusters/homelab-01/
 - Never raw-TCP-probe the voice satellite port 6053: `linux-voice-assistant` uses the single-client ESPHome native protocol, and any unauthenticated probe overwrites satellite state and breaks the HA connection on close. Liveness is a `pgrep` exec check by design. See `docs/runbooks/jarvis-voice.md` ("Satellite health").
 - Stale admission-error pods and failed `HelmRelease` rollouts (observed on Grafana) are usually Flux ordering or webhook issues, not chart bugs.
 - `loki-chunks-cache` requests look alarming (observed 9.8Gi) but are requests, not usage; check actual usage before resizing.
+- Registry imports: the GitLab importer lane can be dead twice over (DR-gated `CI_DR_ACTIVE`, stale runners) and its stored passwords can diverge from the NAS htpasswd. Probe a credential first: 404 means auth works and the repo is absent, 401 means the credential is stale. Rotate the htpasswd entry on nas-01 and sync the GitLab variable, per `docs/runbooks/local-registry.md`.
 
 ## Reply shape
 
