@@ -85,6 +85,12 @@ The production pin was rolled back. Runtime packaging now removes every SDK
 `libcuda.so*` entry, including merged symlinks, while retaining `libcudart.so`.
 Docker CDI verification alone does not establish k3s runtime acceptance.
 
+The legacy k3s runtime injects the host driver into its original Nix store
+paths. Mount the host's `/run/opengl-driver/lib` read-only at `/host-driver`,
+which the image includes in `LD_LIBRARY_PATH`. The proof Job and production
+Deployment require the same mount. Do not mount it over `/run/opengl-driver`
+inside the container: the NVIDIA hook writes its own links there.
+
 The 2026-10-13 recovery drill compiled the native library in a fresh Nix image,
 verified its ABI, and recognized "Local recovery verification." from the
 independently restored model with networking disabled. This evidence covers

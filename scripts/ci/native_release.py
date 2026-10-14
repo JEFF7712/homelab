@@ -413,6 +413,11 @@ def proof_job(request: dict[str, Any], digest: str) -> dict[str, Any]:
                                     "readOnly": True,
                                 },
                                 {"name": "temporary", "mountPath": "/tmp"},
+                                {
+                                    "name": "host-driver",
+                                    "mountPath": "/host-driver",
+                                    "readOnly": True,
+                                },
                             ],
                         }
                     ],
@@ -426,6 +431,13 @@ def proof_job(request: dict[str, Any], digest: str) -> dict[str, Any]:
                             "hostPath": {"path": corpus, "type": "Directory"},
                         },
                         {"name": "temporary", "emptyDir": {"sizeLimit": "256Mi"}},
+                        {
+                            "name": "host-driver",
+                            "hostPath": {
+                                "path": "/run/opengl-driver/lib",
+                                "type": "Directory",
+                            },
+                        },
                     ],
                 }
             },
