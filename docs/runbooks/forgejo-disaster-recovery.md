@@ -1,5 +1,10 @@
 # Forgejo deployment and disaster recovery
 
+For loss of the NAS and cluster without public services, use the
+[independent platform recovery plan](sovereign-platform-recovery.md). The GitLab
+failover below assumes surviving NAS state and external GitLab access; it does
+not establish independent bootstrap recovery.
+
 ## Completion boundary
 
 Source checks do not establish live acceptance. Publication, API changes,
