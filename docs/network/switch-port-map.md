@@ -7,16 +7,17 @@ trusted-client, and cluster worker access. VLAN 99 never reaches the OPNsense LA
 
 ## Upstairs TL-SG108E
 
-Management: `10.0.10.2/24`, gateway `10.0.10.1`.
+Management: `10.0.10.2/24`, gateway `10.0.10.1`. Configure through port 8
+so the management connection stays on VLAN 10.
 
 | Port | Role | Untagged VLAN | Tagged VLANs | PVID |
 |---|---|---:|---|---:|
-| 1 | OPNsense WAN NIC | 99 | | 99 |
-| 2 | OPNsense LAN NIC | | 10, 20, 30, 40, 50, 60 | 1 |
-| 3 | Downstairs wall trunk | | 10, 20, 30, 99 | 1 |
-| 4 | Unmanaged cluster access switch | 30 | | 30 |
-| 5 | NAS (`nas-01`) | 30 | | 30 |
-| 6 | AdGuard and NetBird appliance | 30 | 60 | 30 |
+| 1 | Unmanaged cluster access switch | 30 | | 30 |
+| 2 | OPNsense WAN NIC (see WAN/LAN note) | 99 | | 99 |
+| 3 | OPNsense LAN NIC (see WAN/LAN note) | | 10, 20, 30, 40, 50, 60 | 1 |
+| 4 | Downstairs wall trunk | | 10, 20, 30, 99 | 1 |
+| 5 | AdGuard and NetBird appliance | 30 | 60 | 30 |
+| 6 | NAS (`nas-01`) | 30 | | 30 |
 | 7 | Upstairs TP-Link RE505X AP | 20 | | 20 |
 | 8 | Management access | 10 | | 10 |
 
@@ -24,8 +25,51 @@ The hardware-reserved default VLAN 1 remains untagged on every port in this
 switch firmware. Only trunk ports use PVID 1. No access port carries
 production traffic in VLAN 1.
 
-The unmanaged cluster switch uses a single uplink on port 4. Its attached HP
+The unmanaged cluster switch uses a single uplink on port 1. Its attached HP
 Mini and two CLI ar9070 nodes share VLAN 30 and that one gigabit uplink.
+
+### 802.1Q VLAN membership (upstairs)
+
+Enter on the switch's 802.1Q VLAN page. For each listed VLAN, set all other
+ports to Not Member, removing their old memberships.
+
+| VLAN | Tagged ports | Untagged ports |
+|---|---|---|
+| 10 | 3, 4 | 8 |
+| 20 | 3, 4 | 7 |
+| 30 | 3, 4 | 1, 5, 6 |
+| 40 | 3 | None |
+| 50 | 3 | None |
+| 60 | 3, 5 | None |
+| 99 | 4 | 2 |
+
+### PVID settings (upstairs)
+
+Enter on the switch's 802.1Q VLAN PVID Settings page, then click Apply.
+PVID assigns incoming untagged traffic to a VLAN. Tagged traffic keeps its
+VLAN ID, so trunk ports use PVID 1 while carrying the tagged VLANs above.
+Changing VLAN membership alone does not set PVID.
+
+| Port | PVID |
+|---|---:|
+| 1 | 30 |
+| 2 | 99 |
+| 3 | 1 |
+| 4 | 1 |
+| 5 | 30 |
+| 6 | 30 |
+| 7 | 20 |
+| 8 | 10 |
+
+### OPNsense WAN/LAN identification
+
+Ports 2 and 3 assume port 2 is WAN and port 3 is LAN. If they are reversed,
+swap only those two rows (including tagged/untagged membership and PVID).
+Identify them before applying: open OPNsense Interfaces -> Assignments to see
+which physical interface is assigned to WAN, then Interfaces -> Overview for
+link status. Briefly unplug the cable from switch port 2 and see which
+physical interface loses link, then reconnect it. If access disappears,
+reconnect and use the local OPNsense console to check instead.
 
 ## Downstairs managed switch
 
