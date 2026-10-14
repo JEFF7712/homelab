@@ -10,8 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.ci.native_release import (
-    check_request,
     call_builder,
+    check_request,
     coordinate,
     finalize,
     kubernetes_probe,
