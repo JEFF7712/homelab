@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bridge
-          image: registry.rupan.dev/apps/jarvis-nemotron@sha256:3e26b17743cd934ea7b9aea6b3d2c7fc04c809a75f223d60bf2b2fad835fe8fc
+          image: registry.rupan.dev/apps/jarvis-nemotron@sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d
           args:
             - "--port"
             - "10300"
@@ -80,6 +80,9 @@ spec:
               memory: 4Gi
               nvidia.com/gpu: "1"
           volumeMounts:
+            - name: host-driver
+              mountPath: /host-driver
+              readOnly: true
             - name: voice-id-profiles
               mountPath: /etc/voice-id
               readOnly: true
@@ -90,6 +93,10 @@ spec:
               mountPath: /data
               readOnly: true
       volumes:
+        - name: host-driver
+          hostPath:
+            path: /run/opengl-driver/lib
+            type: Directory
         - name: voice-id-profiles
           secret:
             secretName: voice-id-profiles

@@ -39,9 +39,12 @@ external read-only inputs. Keep the image's entrypoint and library search path.
 The current build source is `services/voice-supply/Dockerfile.nemotron` and
 `scripts/voice/build_image.py`. NeMo and ggml revisions, the complete Nix SDK
 and Python wheels are pinned by the manifests in `services/voice-supply/`.
-The build is operator-driven from protected Forgejo source; Woodpecker validates
-source but does not automatically release this image. Follow
-`services/voice-supply/README.md` to reconstruct inputs and build offline.
+Run the protected manual `native-asr-publish` Woodpecker operation from successful
+validation of current main. It builds from retained inputs without networking or
+build cache, checks a Docker GPU corpus, and publishes a candidate. A k3s GPU Job
+using the production NVIDIA runtime must pass before final release tagging.
+Promotion remains a separate protected GitOps PR. Follow
+`services/voice-supply/README.md` for the retained inputs and offline build recipe.
 The older network-fetching Dockerfile in `gitops/voice/nemotron-bridge/` is
 historical and is not the accepted release recipe. Publish only with the
 `publisher-jarvis-nemotron` identity. The protected file variable
@@ -50,7 +53,20 @@ historical and is not the accepted release recipe. Publish only with the
 It compares existing policy before mutation and retains protected rollback
 files on the NAS. Keep `REGISTRY_HTPASSWD_FILE` synchronized after provisioning.
 
-The 2026-10-13 candidate is `offline-20261013-950c451`, built from Forgejo
+The accepted 2026-10-14 release is `0.0.1001700`, digest
+`sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d`,
+from Forgejo source `abd32b8d5e40271e46487774fcff41f50b1b212c`.
+Pipeline 1700 completed cold offline compilation and Docker GPU verification,
+then failed on a registry layer commit response timeout. An operator retried
+publication of the existing image without rebuilding. The resulting exact digest
+passed `voice/native-asr-proof-1700` under k3s before the final release and
+retention tags were created. Pipeline 1700 remains failed; this release has an
+explicit operator continuation, not a successful automatic publication receipt.
+The publication receipt and complete build and k3s proof logs are retained in
+`native-publication-1700.json`, `native-build-1700.log`, and
+`native-k3s-proof-1700.log` in the recovery directory below.
+
+The rejected 2026-10-13 candidate is `offline-20261013-950c451`, built from Forgejo
 `950c45139d49d1c7b6372973d8d85ffa48031c10`. Cold compilation produced library
 SHA-256 `9e1326253bb97fc89a922bc8fc85b6973db79f330de9f2e8b8cc0df823741192`.
 Runtime packaging reused that verified compiler layer after an explicit UV
@@ -63,6 +79,12 @@ loaded a remaining CUDA driver stub. The production pin was restored to
 The candidate and its archive are retained for diagnosis, not accepted deployment
 or rollback artifacts. A corrected image requires a k3s runtime probe before
 another promotion; Docker CDI acceptance does not cover that integration.
+The legacy runtime injects the real driver into its original Nix store path.
+The Nix-based image searches `/host-driver`, a read-only mount of the host's
+`/run/opengl-driver/lib`. Keep this mount in both the release proof Job and
+production Deployment. Mounting it over `/run/opengl-driver` inside the container
+conflicts with links created by the NVIDIA hook. The isolated
+`native-asr-driver-fix2-1689` Job verified this contract with actual GPU recognition.
 The original ambiguous "Independent model recovery succeeds." recording is
 retained as a diagnostic: both old and new images hear "Moldova" instead of
 "model". No recognition labels were rewritten to match observed output.
