@@ -11,6 +11,8 @@ from unittest.mock import patch
 from scripts.ci.native_release import (
     check_request,
     coordinate,
+    finalize,
+    kubernetes_probe,
     proof_job,
     published_receipt,
 )
@@ -45,6 +47,38 @@ class Response(io.BytesIO):
 
 
 class NativeReleaseTests(unittest.TestCase):
+    def test_kubernetes_probe_reaches_authoritative_control_plane(self) -> None:
+        with (
+            patch.dict(os.environ, {"NIX_SSHOPTS": "-o BatchMode=yes"}),
+            patch("scripts.ci.native_release.subprocess.run") as run,
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "scripts.ci.native_release.Path",
+                side_effect=lambda p: Path(directory) / p,
+            ),
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = b"proof passed"
+            kubernetes_probe(request(), "sha256:" + "b" * 64)
+            self.assertEqual(run.call_count, 3)
+            for call in run.call_args_list:
+                self.assertIn("rupan@10.0.30.11", call.args[0])
+
+    def test_finalization_rejects_corrupted_manifest_before_tag_write(self) -> None:
+        value = {**request(), "digest": "sha256:" + "b" * 64}
+        with (
+            patch(
+                "scripts.ci.native_release.published_receipt",
+                return_value={"digest": value["digest"]},
+            ),
+            patch(
+                "urllib.request.urlopen", return_value=Response(b"corrupted")
+            ) as opened,
+        ):
+            with self.assertRaisesRegex(ValueError, "accepted manifest digest"):
+                finalize(value)
+            self.assertEqual(opened.call_count, 1)
+
     def test_invalid_source_and_pipeline_cannot_select_remote_paths(self) -> None:
         for field, bad in (("sha", "../escape"), ("number", True), ("parent", -1)):
             value = request()

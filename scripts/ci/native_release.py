@@ -417,7 +417,7 @@ def proof_job(request: dict[str, Any], digest: str) -> dict[str, Any]:
 def kubernetes_probe(request: dict[str, Any], digest: str) -> None:
     job = proof_job(request, digest)
     name = job["metadata"]["name"]
-    ssh = ["ssh", *shlex.split(os.environ["NIX_SSHOPTS"]), "rupan@10.0.30.10"]
+    ssh = ["ssh", *shlex.split(os.environ["NIX_SSHOPTS"]), "rupan@10.0.30.11"]
     result = subprocess.run(
         [*ssh, "sudo -n k3s kubectl create -f -"],
         input=json.dumps(job),
@@ -470,6 +470,8 @@ def finalize(request: dict[str, Any]) -> dict[str, Any]:
         urllib.request.Request(base + request["digest"], headers=headers), timeout=60
     ) as response:
         raw = response.read()
+    if "sha256:" + hashlib.sha256(raw).hexdigest() != request["digest"]:
+        raise ValueError("Native accepted manifest digest mismatch")
     manifest = json.loads(raw)
     with urllib.request.urlopen(
         urllib.request.Request(
