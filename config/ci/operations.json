@@ -253,13 +253,25 @@
       "python -m scripts.ci.promote_commit"
     ],
     "environment": {
-      "REGISTRY_NODE_PASSWORD_FILE": {"from_secret": "registry_node_password_file"},
-      "REGISTRY_SOURCE_AUTH_FILE": {"from_secret": "registry_source_auth_file"},
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "REGISTRY_SOURCE_AUTH_FILE": {
+        "from_secret": "registry_source_auth_file"
+      },
       "TF_HTTP_USERNAME": "deploy",
-      "TF_HTTP_PASSWORD": {"from_secret": "state_deploy_password"},
-      "STATE_CA_FILE": {"from_secret": "state_ca_file"},
-      "FORGEJO_PUBLISH_TOKEN": {"from_secret": "forgejo_publish_token"},
-      "FORGEJO_SOURCE_READ_TOKEN": {"from_secret": "forgejo_source_read_token"},
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
       "CI_AUTO_MERGE_PROMOTION": "nix-agent-site"
     },
     "file_secrets": [
@@ -269,7 +281,9 @@
     ],
     "group": "registry-content",
     "needs": [],
-    "outputs": ["promote-report.json"],
+    "outputs": [
+      "promote-report.json"
+    ],
     "legacy_job": "registry_promote_nix_agent",
     "automatic": false,
     "mutation": true,
@@ -1822,6 +1836,54 @@
     "needs": [],
     "outputs": [],
     "legacy_job": "build-toplevel/build-iso",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "native-asr-publish": {
+    "commands": [
+      "export NIX_SSHOPTS=\"-i $SSH_DEPLOY_KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOSTS_KNOWN -o StrictHostKeyChecking=yes -o BatchMode=yes\"",
+      "python -m scripts.ci.native_release coordinate"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PACKAGE_TOKEN": {
+        "from_secret": "supply_read_password"
+      },
+      "REGISTRY_READ_PASSWORD": {
+        "from_secret": "registry_read_password"
+      },
+      "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_jarvis_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_JARVIS_PUBLISHER_AUTH_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [
+      "artifacts/native-asr/"
+    ],
+    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""

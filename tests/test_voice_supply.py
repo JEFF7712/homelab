@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from scripts.voice.build_image import source_revision
 from scripts.voice.fetch_supply import fetch
+from scripts.voice.runtime_files import remove_driver_stubs
 
 
 class VoiceSupplyTests(unittest.TestCase):
@@ -100,6 +101,7 @@ class VoiceSupplyTests(unittest.TestCase):
             git("init", "-q")
             paths = (
                 "scripts/voice/build_image.py",
+                "scripts/voice/runtime_files.py",
                 "services/voice-supply/Dockerfile.nemotron",
                 "services/voice-supply/native-sdk-manifest.json",
                 "services/voice-supply/native-source-manifest.json",
@@ -125,6 +127,25 @@ class VoiceSupplyTests(unittest.TestCase):
                 "fixture",
             )
             self.assertEqual(source_revision(root), git("rev-parse", "HEAD").strip())
-            (root / paths[1]).write_text("modified\n")
+            (root / "services/voice-supply/Dockerfile.nemotron").write_text(
+                "modified\n"
+            )
             with self.assertRaisesRegex(ValueError, "uncommitted"):
                 source_revision(root)
+
+    def test_driver_stubs_removed_from_cudart_and_merged_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = Path(directory)
+            actual = store / "cuda-cudart/lib/stubs"
+            merged = store / "cuda-merged/lib/stubs"
+            actual.mkdir(parents=True)
+            merged.mkdir(parents=True)
+            (actual / "libcuda.so").write_bytes(b"driver stub")
+            (actual / "libcuda.so.1").symlink_to("libcuda.so")
+            (merged / "libcuda.so").symlink_to(actual / "libcuda.so")
+            (merged / "libcuda.so.1").symlink_to(actual / "libcuda.so.1")
+            runtime = store / "cuda-cudart/lib/libcudart.so"
+            runtime.write_bytes(b"CUDA runtime")
+            self.assertEqual(remove_driver_stubs(store), 4)
+            self.assertEqual(list(store.rglob("libcuda.so*")), [])
+            self.assertEqual(runtime.read_bytes(), b"CUDA runtime")
