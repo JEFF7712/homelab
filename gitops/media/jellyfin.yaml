@@ -28,6 +28,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
           - 303
+          - 26
         seccompProfile:
           type: RuntimeDefault
       initContainers:
@@ -47,7 +48,6 @@ spec:
         - name: jellyfin
           image: registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f  # yamllint disable-line rule:line-length
           securityContext:
-            allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
           env:
             - name: PUID
@@ -97,14 +97,12 @@ spec:
             requests:
               cpu: "1"
               memory: 2Gi
-              # Intel UHD 770 via the intel-gpu-plugin DaemonSet. The plugin
-              # injects the i915 device nodes, so no /dev/dri hostPath mount
-              # (which the device cgroup blocks without privileged).
-              gpu.intel.com/i915: "1"
+              nvidia.com/gpu: "1"
+              ephemeral-storage: 1Gi
             limits:
               cpu: "4"
               memory: 8Gi
-              gpu.intel.com/i915: "1"
+              nvidia.com/gpu: "1"
       volumes:
         - name: config
           persistentVolumeClaim:
@@ -115,7 +113,11 @@ spec:
         - name: tmp
           emptyDir: {}
         - name: run
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: dri
+          hostPath:
+            path: /dev/dri
 ---
 apiVersion: v1
 kind: Service

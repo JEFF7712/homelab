@@ -110,6 +110,11 @@ in
     systemd.tmpfiles.rules = [
       "d /persist/woodpecker 0750 woodpecker woodpecker -"
       "d /persist/woodpecker/server-data 0700 woodpecker woodpecker -"
+      "d /persist/woodpecker/manual-backups 0700 root root -"
+      # Manual pre-enroll sqlite copies must not accumulate in /root, which
+      # is tmpfs: 2.6G of them caused the 2026-10-09 homelab-04 DiskPressure
+      # outage. Stage intentional copies under /persist/woodpecker/manual-backups.
+      "r /root/woodpecker.sqlite.before-enroll-*"
       "z /persist/woodpecker/server.env 0600 root root -"
       "z /persist/woodpecker/clone.env 0600 root root -"
       "z /persist/woodpecker/agent.env 0600 root root -"

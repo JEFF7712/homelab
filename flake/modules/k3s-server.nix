@@ -206,7 +206,7 @@ in
           "--kubelet-arg=container-log-max-files=5"
           "--kubelet-arg=image-gc-high-threshold=70"
           "--kubelet-arg=image-gc-low-threshold=60"
-          "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<10%,imagefs.available<10%"
+          "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<2Gi,imagefs.available<15Gi"
         ]
         ++ lib.optionals (cfg.role == "server") [
           "--etcd-snapshot-dir=/persist/etcd-snapshots"
@@ -412,6 +412,11 @@ in
         "/etc/rancher/node"
         "/var/lib/nixos"
         "/var/lib/rancher/k3s"
+        # Kubelet root must live on disk, not the 4G tmpfs /. With it on
+        # tmpfs, nodefs capacity is 4Gi and a single multi-GB write to
+        # /root or /tmp (2026-10-09 woodpecker backups on homelab-04)
+        # triggers DiskPressure evictions of every pinned pod.
+        "/var/lib/kubelet"
         "/var/lib/systemd"
       ];
       files = [ "/etc/machine-id" ];

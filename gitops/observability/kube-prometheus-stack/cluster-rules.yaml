@@ -64,6 +64,18 @@ spec:
             summary: "Node root filesystem is below 5% free"
             description: "Root filesystem on {{ $labels.instance }} has less than 5% disk space remaining."
 
+        - alert: KubeNodeDiskPressure
+          expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node {{ $labels.node }} is under disk pressure"
+            description: >-
+              Kubelet on {{ $labels.node }} reports DiskPressure: ephemeral-storage
+              is exhausted and pinned pods will be evicted. Uses API-server state so it
+              still fires when node-exporter itself has been evicted (2026-10-09 homelab-04).
+
         - alert: KubePodCrashLooping
           expr: rate(kube_pod_container_status_restarts_total[15m]) * 60 > 0.2
           for: 10m

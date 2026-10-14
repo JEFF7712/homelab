@@ -2,11 +2,11 @@
 
 ## Agent Operating Contract
 
-Complete authorized work through verification. Inspect `git status`, applicable instructions, and affected code first. Preserve unrelated changes. Define observable acceptance criteria before editing; plan only multistep work. Resolve routine choices autonomously. Explain material architecture tradeoffs before implementation. Obtain authorization before publishing or changing shared infrastructure.
+Complete authorized work through verification. Inspect `git status`, applicable instructions, and affected code first. Preserve unrelated changes; multiple agents often work concurrently, so isolate tasks in dedicated Git worktrees (`.worktrees/` is git-ignored) to avoid dirty checkout, branch, or index collisions. Define observable acceptance criteria before editing; plan only multistep work. Resolve routine choices autonomously. Explain material architecture tradeoffs before implementation. Obtain authorization before publishing or changing shared infrastructure.
 
 ## Workflow Entry Points
 
-Start with `just agent-context`, then use `AGENT_MAP.md` to find the owning source. Track work with `just task-new <id>`, `just task-resume <id>`, `just task-checkpoint <id>`, and `just task-export <id>`. Use `just check-changed` for scoped validation, `just check` for the full offline gate, and `just fmt-check` before handoff. Diagnose the local setup with `just doctor`. Run live diagnostics explicitly with `just status cluster` or `just status network`.
+Start with `just agent-context`, then use `AGENT_MAP.md` to find the owning source. When multiple agents or tasks are in progress, create an isolated worktree (`git worktree add .worktrees/<id> -b <branch>`) so branch switching, uncommitted changes, and verification fingerprints do not collide. Track work with `just task-new <id>`, `just task-resume <id>`, `just task-checkpoint <id>`, and `just task-export <id>`. Use `just check-changed` for scoped validation, `just check` for the full offline gate, and `just fmt-check` before handoff. Diagnose the local setup with `just doctor`. Run live diagnostics explicitly with `just status cluster` or `just status network`.
 
 Launch fresh clients with `just agent-run <id> <client>` to inherit task selection. Supported clients and native plugin setup are listed in `docs/agent-workflow.md`. Use `just agent-verify --json --record --task <id> -- <command>` to record source-bound verification. Task records and evidence under `.agent-state/` are local and ignored. Export reviewed handoffs with `just task-export <id>` and transfer uncommitted patches separately. Do not auto-stage files. Full command contracts and schemas are in `docs/agent-workflow.md`.
 
@@ -90,7 +90,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 
 ## Collaboration and Completion
 
-When delegating, assign disjoint file ownership and acceptance criteria; integrate serially and verify combined results. Keep commits atomic with imperative, scoped subjects. Never bypass hooks. Review the final diff for accidental changes and secrets.
+When multiple agents work concurrently, isolate tasks in dedicated Git worktrees instead of modifying a shared working tree with unrelated changes. When delegating, assign disjoint file ownership and acceptance criteria; integrate serially and verify combined results. Keep commits atomic with imperative, scoped subjects. Never bypass hooks. Review the final diff for accidental changes and secrets.
 
 Handoffs and merge requests state changes, verification results, and limitations. Verify delegated work independently.
 
