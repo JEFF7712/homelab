@@ -1,4 +1,4 @@
-# Jellyfin on NVIDIA NVENC (homelab-04/05 T1000/T600). Restored to 1
+# Jellyfin on Intel Quick Sync (homelab-04 UHD 770). Restored to 1
 # replica with explicit requests/limits: the old AMD deployment had no
 # limits and was implicated in the 2026-05-25 worker OOM, after which it
 # was left scaled to 0.
@@ -48,6 +48,7 @@ spec:
         - name: jellyfin
           image: registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f  # yamllint disable-line rule:line-length
           securityContext:
+            allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
           env:
             - name: PUID
@@ -97,12 +98,15 @@ spec:
             requests:
               cpu: "1"
               memory: 2Gi
-              nvidia.com/gpu: "1"
+              # Intel UHD 770 via the intel-gpu-plugin DaemonSet. The plugin
+              # injects the i915 device nodes, so no /dev/dri hostPath mount
+              # (which the device cgroup blocks without privileged).
+              gpu.intel.com/i915: "1"
               ephemeral-storage: 1Gi
             limits:
               cpu: "4"
               memory: 8Gi
-              nvidia.com/gpu: "1"
+              gpu.intel.com/i915: "1"
       volumes:
         - name: config
           persistentVolumeClaim:
