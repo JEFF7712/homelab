@@ -132,6 +132,17 @@ class NativeReleaseTests(unittest.TestCase):
         spec = job["spec"]["template"]["spec"]
         self.assertEqual(spec["runtimeClassName"], "nvidia")
         self.assertFalse(spec["automountServiceAccountToken"])
+        driver = next(v for v in spec["volumes"] if v["name"] == "host-driver")
+        self.assertEqual(
+            driver["hostPath"], {"path": "/run/opengl-driver/lib", "type": "Directory"}
+        )
+        mount = next(
+            v
+            for v in spec["containers"][0]["volumeMounts"]
+            if v["name"] == "host-driver"
+        )
+        self.assertEqual(mount["mountPath"], "/host-driver")
+        self.assertTrue(mount["readOnly"])
         self.assertEqual(
             spec["containers"][0]["image"],
             "registry.rupan.dev/apps/jarvis-nemotron@sha256:" + "b" * 64,
