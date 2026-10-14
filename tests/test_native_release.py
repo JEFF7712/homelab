@@ -3,12 +3,14 @@ import hashlib
 import io
 import json
 import os
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from scripts.ci.native_release import (
+    call_builder,
     check_request,
     coordinate,
     finalize,
@@ -47,6 +49,37 @@ class Response(io.BytesIO):
 
 
 class NativeReleaseTests(unittest.TestCase):
+    def test_builder_uses_pinned_nas_relay_and_keeps_secrets_on_stdin(self) -> None:
+        value = request()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "NIX_SSHOPTS": "-i '/protected/fleet key' -o StrictHostKeyChecking=yes"
+                },
+            ),
+            patch("scripts.ci.native_release.subprocess.run") as run,
+        ):
+            run.return_value.returncode = 0
+            run.return_value.stdout = json.dumps(
+                {"source_revision": value["sha"], "pipeline": value["number"]}
+            )
+            call_builder(value, "remote")
+            command = run.call_args.args[0]
+            proxy = next(
+                x.removeprefix("ProxyCommand=")
+                for x in command
+                if x.startswith("ProxyCommand=")
+            )
+            relay = shlex.split(proxy)
+            self.assertIn("/protected/fleet key", relay)
+            self.assertIn("StrictHostKeyChecking=yes", relay)
+            self.assertIn("ConnectTimeout=10", command)
+            self.assertEqual(relay[-3:], ["-W", "%h:%p", "rupan@10.0.30.20"])
+            self.assertIn("rupan@10.0.30.14", command)
+            self.assertNotIn(value["source_token"], " ".join(command))
+            self.assertEqual(json.loads(run.call_args.kwargs["input"]), value)
+
     def test_kubernetes_probe_reaches_authoritative_control_plane(self) -> None:
         with (
             patch.dict(os.environ, {"NIX_SSHOPTS": "-o BatchMode=yes"}),

@@ -298,6 +298,25 @@ def remote(request: dict[str, Any]) -> dict[str, Any]:
             return receipt
 
 
+def ssh_command(target: str, relay: bool = False) -> list[str]:
+    options = [
+        *shlex.split(os.environ["NIX_SSHOPTS"]),
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "ConnectionAttempts=1",
+        "-o",
+        "ServerAliveInterval=15",
+        "-o",
+        "ServerAliveCountMax=3",
+    ]
+    command = ["ssh", *options]
+    if relay:
+        proxy = shlex.join(["ssh", *options, "-W", "%h:%p", "rupan@10.0.30.20"])
+        command.extend(["-o", "ProxyCommand=" + proxy])
+    return [*command, target]
+
+
 def call_builder(request: dict[str, Any], mode: str) -> dict[str, Any]:
     check_request(request)
     program = base64.b64encode(Path(__file__).read_bytes()).decode()
@@ -312,7 +331,7 @@ def call_builder(request: dict[str, Any], mode: str) -> dict[str, Any]:
         + shlex.quote(code)
     )
     result = subprocess.run(
-        ["ssh", *shlex.split(os.environ["NIX_SSHOPTS"]), BUILDER, bootstrap],
+        [*ssh_command(BUILDER, relay=True), bootstrap],
         input=json.dumps(request),
         capture_output=True,
         text=True,
@@ -417,7 +436,7 @@ def proof_job(request: dict[str, Any], digest: str) -> dict[str, Any]:
 def kubernetes_probe(request: dict[str, Any], digest: str) -> None:
     job = proof_job(request, digest)
     name = job["metadata"]["name"]
-    ssh = ["ssh", *shlex.split(os.environ["NIX_SSHOPTS"]), "rupan@10.0.30.11"]
+    ssh = ssh_command("rupan@10.0.30.11")
     result = subprocess.run(
         [*ssh, "sudo -n k3s kubectl create -f -"],
         input=json.dumps(job),

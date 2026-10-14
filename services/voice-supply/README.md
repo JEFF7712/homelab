@@ -63,6 +63,11 @@ the model hash and compiles in a fresh container with networking disabled.
 Build containers have no host Docker socket or credential mounts. Compilation
 is limited to two CPUs and 8 GiB.
 
+The coordinator reaches its own build host through the NAS SSH relay because
+the host firewall excludes Docker bridge sources. Both SSH hops use the same
+protected identity and pinned known-hosts file without agent forwarding.
+Connection and keepalive timeouts bound unavailable-host failures.
+
 Docker GPU checks run before publishing a `candidate-ci-*` tag. The coordinator
 then runs the same corpus in an isolated k3s Job using the production NVIDIA
 runtime. Only successful completion creates the final `0.0.N` release tag and
