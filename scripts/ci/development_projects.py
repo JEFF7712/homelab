@@ -10,7 +10,7 @@ import yaml
 
 UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
 
-SUPPORTED_KINDS = frozenset({"python-uv-v1", "none"})
+SUPPORTED_KINDS = frozenset({"python-uv-v1", "python-test-v1", "none"})
 ALLOWED_EVENTS = frozenset(
     {"push", "pull_request", "manual", "pull_request_closed", "pull_request_metadata"}
 )
@@ -75,8 +75,17 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
             raise ValueError(f"Duplicate repository '{repo}' in projects manifest")
         repositories.add(repo)
 
-        # Production applications already-primary on Forgejo are handled by applications.json
-        if state == "already-primary":
+        kind = ci.get("kind", "none")
+        tier = ci.get("tier", "sandbox")
+
+        project_type = item.get("project_type")
+        if project_type is not None:
+            if project_type != "development":
+                continue
+        elif state == "already-primary" and kind not in {
+            "python-uv-v1",
+            "python-test-v1",
+        }:
             continue
 
         if (
@@ -84,9 +93,6 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
             or repo == "JEFF7712/homelab"
         ):
             raise ValueError(f"Invalid repository identity '{repo}'")
-
-        kind = ci.get("kind", "none")
-        tier = ci.get("tier", "sandbox")
 
         if tier not in {"sandbox", "none"}:
             raise ValueError(
@@ -187,7 +193,14 @@ def configuration(
             ]
         }
 
-    if project.kind == "python-uv-v1":
+    if project.kind in {"python-uv-v1", "python-test-v1"}:
+        if project.kind == "python-uv-v1":
+            step_name = "python-uv-test"
+            commands = ["uv run --frozen pytest tests/"]
+        else:
+            step_name = "python-test"
+            commands = ["uv run --with pytest pytest tests/"]
+
         workflow = {
             "when": [{"event": event}],
             "labels": {
@@ -197,11 +210,9 @@ def configuration(
             },
             "steps": [
                 {
-                    "name": "python-uv-test",
+                    "name": step_name,
                     "image": UV_VALIDATION_IMAGE,
-                    "commands": [
-                        "uv run --frozen pytest tests/",
-                    ],
+                    "commands": commands,
                 }
             ],
         }

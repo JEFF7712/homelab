@@ -53,6 +53,20 @@ class DevelopmentCatalogTest(unittest.TestCase):
             f"{UV_VALIDATION_IMAGE} not found in registry/images.lock.json",
         )
 
+    def test_project_type_development_remains_enrolled_when_state_changes(self) -> None:
+        test_data = copy.deepcopy(self.data)
+        for p in test_data["projects"]:
+            if p["name"] == "autocompress":
+                p["project_type"] = "development"
+                p["state"] = "already-primary"
+                p["migration_status"] = "complete"
+                break
+        self.path.write_text(json.dumps(test_data))
+        loaded = load_development_projects(self.path)
+        autocompress = next((p for p in loaded if p.name == "autocompress"), None)
+        self.assertIsNotNone(autocompress)
+        self.assertEqual(autocompress.state, "already-primary")
+
     def test_invalid_manifest_fails_closed(self) -> None:
         # 1. Invalid schema version
         bad_version = copy.deepcopy(self.data)
@@ -174,6 +188,38 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         self.assertNotIn("secrets", step)
         self.assertNotIn("volumes", step)
         self.assertNotIn("privileged", step)
+
+    def test_push_event_generates_generic_python_validation(self) -> None:
+        cctop = DevelopmentProject(
+            name="cctop",
+            repository="JEFF7712/cctop",
+            woodpecker_repository_id=25,
+            default_branch="main",
+            kind="python-test-v1",
+            tier="sandbox",
+            visibility="private",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 25, "owner": "JEFF7712", "name": "cctop"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "b" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (cctop,))
+        configs = result.get("configs", [])
+        self.assertEqual(len(configs), 1)
+        workflow = yaml.safe_load(configs[0]["data"])
+        self.assertEqual(workflow["when"], [{"event": "push"}])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        steps = workflow.get("steps", [])
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["name"], "python-test")
+        self.assertEqual(steps[0]["commands"], ["uv run --with pytest pytest tests/"])
 
     def test_pull_request_event_generates_validation(self) -> None:
         self.request["pipeline"]["event"] = "pull_request"
