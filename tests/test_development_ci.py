@@ -10,7 +10,10 @@ import yaml
 
 from scripts.ci.applications import Application
 from scripts.ci.development_projects import (
+    CUDA_VALIDATION_IMAGE,
+    GCC_VALIDATION_IMAGE,
     NODE_VALIDATION_IMAGE,
+    TINYGO_VALIDATION_IMAGE,
     UV_VALIDATION_IMAGE,
     DevelopmentProject,
     load_development_projects,
@@ -421,6 +424,158 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         self.assertEqual(
             step["commands"],
             ["npm ci", "npx tsc --noEmit", "npm run build"],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
+
+    def test_c_compile_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="neuralnet-in-c",
+            repository="JEFF7712/neuralnet-in-c",
+            woodpecker_repository_id=33,
+            default_branch="main",
+            kind="c-compile-v1",
+            tier="sandbox",
+            visibility="public",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 33, "owner": "JEFF7712", "name": "neuralnet-in-c"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "1" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "c-compile")
+        self.assertEqual(step["image"], GCC_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            [
+                "gcc -std=c17 -Wall -Wextra -pedantic mnist.c tensor.c nn.c arena.c -o mnist -lm"
+            ],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
+
+    def test_go_tinygo_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="NaviSync",
+            repository="JEFF7712/NaviSync",
+            woodpecker_repository_id=34,
+            default_branch="main",
+            kind="go-tinygo-v1",
+            tier="sandbox",
+            visibility="public",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 34, "owner": "JEFF7712", "name": "NaviSync"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "2" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "go-tinygo-build")
+        self.assertEqual(step["image"], TINYGO_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            ["go mod tidy", "make build"],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
+
+    def test_cmake_cpp_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="md-engine",
+            repository="JEFF7712/md-engine",
+            woodpecker_repository_id=35,
+            default_branch="main",
+            kind="cmake-cpp-v1",
+            tier="sandbox",
+            visibility="public",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 35, "owner": "JEFF7712", "name": "md-engine"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "3" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "cmake-build")
+        self.assertEqual(step["image"], CUDA_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            [
+                'cmake -B build -DCMAKE_CXX_FLAGS="-I/usr/local/cuda/include"',
+                "cmake --build build",
+            ],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
+
+    def test_cuda_cmake_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="md-engine",
+            repository="JEFF7712/md-engine",
+            woodpecker_repository_id=35,
+            default_branch="main",
+            kind="cuda-cmake-v1",
+            tier="sandbox",
+            visibility="public",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 35, "owner": "JEFF7712", "name": "md-engine"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "4" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "cmake-build")
+        self.assertEqual(step["image"], CUDA_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            [
+                'cmake -B build -DCMAKE_CXX_FLAGS="-I/usr/local/cuda/include"',
+                "cmake --build build",
+            ],
         )
         self.assertNotIn("environment", step)
         self.assertNotIn("secrets", step)

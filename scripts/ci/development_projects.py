@@ -10,6 +10,9 @@ import yaml
 
 UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
 NODE_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20"
+GCC_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/library/gcc@sha256:a689e29bc3adf4663ef9a141d23081252764d1319c63f591a027bd6fd676f4c1"
+TINYGO_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/tinygo/tinygo@sha256:5ae115628bd9201dc019ed60756f72f71cb36e3960dace48fa71bbbbfc2913a9"
+CUDA_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/nvidia/cuda@sha256:553412f87cc757a932712f2a1dfb8cafdada576806d388bae524654b5d51f8ee"
 
 SUPPORTED_KINDS = frozenset(
     {
@@ -19,6 +22,10 @@ SUPPORTED_KINDS = frozenset(
         "node-lint-build-v1",
         "node-vitest-v1",
         "node-build-v1",
+        "c-compile-v1",
+        "go-tinygo-v1",
+        "cmake-cpp-v1",
+        "cuda-cmake-v1",
         "none",
     }
 )
@@ -94,11 +101,7 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
         if project_type is not None:
             if project_type != "development":
                 continue
-        elif state == "already-primary" and kind not in {
-            "python-uv-v1",
-            "python-test-v1",
-            "python-syntax-v1",
-        }:
+        elif state == "already-primary" and kind not in (SUPPORTED_KINDS - {"none"}):
             continue
 
         test_path = ci.get("test_path", "tests/")
@@ -290,6 +293,89 @@ def configuration(
                     "name": step_name,
                     "image": NODE_VALIDATION_IMAGE,
                     "commands": commands,
+                }
+            ],
+        }
+        return {
+            "configs": [
+                {
+                    "name": "development-validation.yaml",
+                    "data": yaml.safe_dump(workflow, sort_keys=False),
+                }
+            ]
+        }
+
+    if project.kind == "c-compile-v1":
+        workflow = {
+            "when": [{"event": event}],
+            "labels": {
+                "tier": "sandbox",
+                "type": "docker",
+                "platform": "linux/amd64",
+            },
+            "steps": [
+                {
+                    "name": "c-compile",
+                    "image": GCC_VALIDATION_IMAGE,
+                    "commands": [
+                        "gcc -std=c17 -Wall -Wextra -pedantic mnist.c tensor.c nn.c arena.c -o mnist -lm"
+                    ],
+                }
+            ],
+        }
+        return {
+            "configs": [
+                {
+                    "name": "development-validation.yaml",
+                    "data": yaml.safe_dump(workflow, sort_keys=False),
+                }
+            ]
+        }
+
+    if project.kind == "go-tinygo-v1":
+        workflow = {
+            "when": [{"event": event}],
+            "labels": {
+                "tier": "sandbox",
+                "type": "docker",
+                "platform": "linux/amd64",
+            },
+            "steps": [
+                {
+                    "name": "go-tinygo-build",
+                    "image": TINYGO_VALIDATION_IMAGE,
+                    "commands": [
+                        "go mod tidy",
+                        "make build",
+                    ],
+                }
+            ],
+        }
+        return {
+            "configs": [
+                {
+                    "name": "development-validation.yaml",
+                    "data": yaml.safe_dump(workflow, sort_keys=False),
+                }
+            ]
+        }
+
+    if project.kind in {"cmake-cpp-v1", "cuda-cmake-v1"}:
+        workflow = {
+            "when": [{"event": event}],
+            "labels": {
+                "tier": "sandbox",
+                "type": "docker",
+                "platform": "linux/amd64",
+            },
+            "steps": [
+                {
+                    "name": "cmake-build",
+                    "image": CUDA_VALIDATION_IMAGE,
+                    "commands": [
+                        'cmake -B build -DCMAKE_CXX_FLAGS="-I/usr/local/cuda/include"',
+                        "cmake --build build",
+                    ],
                 }
             ],
         }
