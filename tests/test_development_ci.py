@@ -10,6 +10,7 @@ import yaml
 
 from scripts.ci.applications import Application
 from scripts.ci.development_projects import (
+    NODE_VALIDATION_IMAGE,
     UV_VALIDATION_IMAGE,
     DevelopmentProject,
     load_development_projects,
@@ -51,6 +52,17 @@ class DevelopmentCatalogTest(unittest.TestCase):
                 for record in lock["images"]
             ),
             f"{UV_VALIDATION_IMAGE} not found in registry/images.lock.json",
+        )
+
+    def test_node_validation_image_is_pinned_in_registry_lock(self) -> None:
+        lock = json.loads((ROOT / "registry/images.lock.json").read_text())
+        self.assertTrue(
+            any(
+                NODE_VALIDATION_IMAGE
+                == f"{lock['destination_registry']}/{record['destination_repository']}@{record['digest']}"
+                for record in lock["images"]
+            ),
+            f"{NODE_VALIDATION_IMAGE} not found in registry/images.lock.json",
         )
 
     def test_project_type_development_remains_enrolled_when_state_changes(self) -> None:
@@ -306,6 +318,114 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
                 self.assertEqual(result["configs"][0]["name"], "pr-lifecycle.yaml")
                 workflow = yaml.safe_load(result["configs"][0]["data"])
                 self.assertEqual(workflow["labels"]["tier"], "sandbox")
+
+    def test_node_lint_build_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="apptlyAI-web",
+            repository="JEFF7712/apptlyAI-web",
+            woodpecker_repository_id=30,
+            default_branch="main",
+            kind="node-lint-build-v1",
+            tier="sandbox",
+            visibility="private",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 30, "owner": "JEFF7712", "name": "apptlyAI-web"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "e" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "node-lint-build")
+        self.assertEqual(step["image"], NODE_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            ["npm ci", "npm run lint", "npx tsc --noEmit", "npm run build"],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
+
+    def test_node_vitest_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="spotify-clone-temp-name",
+            repository="JEFF7712/spotify-clone-temp-name",
+            woodpecker_repository_id=31,
+            default_branch="main",
+            kind="node-vitest-v1",
+            tier="sandbox",
+            visibility="private",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 31, "owner": "JEFF7712", "name": "spotify-clone-temp-name"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "f" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "node-vitest-build")
+        self.assertEqual(step["image"], NODE_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            ["npm ci", "npm run lint", "npm test", "npx tsc --noEmit", "npm run build"],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
+
+    def test_node_build_pipeline_generation(self) -> None:
+        proj = DevelopmentProject(
+            name="apptlyAI",
+            repository="JEFF7712/apptlyAI",
+            woodpecker_repository_id=32,
+            default_branch="main",
+            kind="node-build-v1",
+            tier="sandbox",
+            visibility="private",
+            state="migrate",
+        )
+        req = {
+            "repo": {"id": 32, "owner": "JEFF7712", "name": "apptlyAI"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "0" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (proj,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        step = workflow["steps"][0]
+        self.assertEqual(step["name"], "node-build")
+        self.assertEqual(step["image"], NODE_VALIDATION_IMAGE)
+        self.assertEqual(
+            step["commands"],
+            ["npm ci", "npx tsc --noEmit", "npm run build"],
+        )
+        self.assertNotIn("environment", step)
+        self.assertNotIn("secrets", step)
+        self.assertNotIn("volumes", step)
+        self.assertNotIn("privileged", step)
 
 
 class NegativeSecurityTest(unittest.TestCase):

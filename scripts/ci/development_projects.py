@@ -9,9 +9,18 @@ from typing import Any
 import yaml
 
 UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
+NODE_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20"
 
 SUPPORTED_KINDS = frozenset(
-    {"python-uv-v1", "python-test-v1", "python-syntax-v1", "none"}
+    {
+        "python-uv-v1",
+        "python-test-v1",
+        "python-syntax-v1",
+        "node-lint-build-v1",
+        "node-vitest-v1",
+        "node-build-v1",
+        "none",
+    }
 )
 ALLOWED_EVENTS = frozenset(
     {"push", "pull_request", "manual", "pull_request_closed", "pull_request_metadata"}
@@ -230,6 +239,56 @@ def configuration(
                 {
                     "name": step_name,
                     "image": UV_VALIDATION_IMAGE,
+                    "commands": commands,
+                }
+            ],
+        }
+        return {
+            "configs": [
+                {
+                    "name": "development-validation.yaml",
+                    "data": yaml.safe_dump(workflow, sort_keys=False),
+                }
+            ]
+        }
+
+    if project.kind in {"node-lint-build-v1", "node-vitest-v1", "node-build-v1"}:
+        if project.kind == "node-lint-build-v1":
+            step_name = "node-lint-build"
+            commands = [
+                "npm ci",
+                "npm run lint",
+                "npx tsc --noEmit",
+                "npm run build",
+            ]
+        elif project.kind == "node-vitest-v1":
+            step_name = "node-vitest-build"
+            commands = [
+                "npm ci",
+                "npm run lint",
+                "npm test",
+                "npx tsc --noEmit",
+                "npm run build",
+            ]
+        else:
+            step_name = "node-build"
+            commands = [
+                "npm ci",
+                "npx tsc --noEmit",
+                "npm run build",
+            ]
+
+        workflow = {
+            "when": [{"event": event}],
+            "labels": {
+                "tier": "sandbox",
+                "type": "docker",
+                "platform": "linux/amd64",
+            },
+            "steps": [
+                {
+                    "name": step_name,
+                    "image": NODE_VALIDATION_IMAGE,
                     "commands": commands,
                 }
             ],
