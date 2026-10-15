@@ -10,7 +10,9 @@ import yaml
 
 UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
 
-SUPPORTED_KINDS = frozenset({"python-uv-v1", "python-test-v1", "none"})
+SUPPORTED_KINDS = frozenset(
+    {"python-uv-v1", "python-test-v1", "python-syntax-v1", "none"}
+)
 ALLOWED_EVENTS = frozenset(
     {"push", "pull_request", "manual", "pull_request_closed", "pull_request_metadata"}
 )
@@ -27,6 +29,7 @@ class DevelopmentProject:
     tier: str
     visibility: str
     state: str
+    test_path: str = "tests/"
 
 
 def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
@@ -47,7 +50,7 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
 
     for item in data["projects"]:
         if not isinstance(item, dict):
-            raise ValueError("Development project entry must be a dictionary")
+            raise TypeError("Development project entry must be a dictionary")
 
         name = item.get("name")
         repo = item.get("forgejo_repo") or item.get("repository")
@@ -85,8 +88,17 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
         elif state == "already-primary" and kind not in {
             "python-uv-v1",
             "python-test-v1",
+            "python-syntax-v1",
         }:
             continue
+
+        test_path = ci.get("test_path", "tests/")
+        if (
+            not isinstance(test_path, str)
+            or not re.fullmatch(r"[A-Za-z0-9_\-./]+", test_path)
+            or ".." in test_path
+        ):
+            raise ValueError(f"Invalid test_path '{test_path}' for project '{name}'")
 
         if (
             not re.fullmatch(r"[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+", repo)
@@ -100,7 +112,7 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
             )
 
         if kind not in SUPPORTED_KINDS:
-            # During migration, only python-uv-v1 and none are active for development projects
+            # During migration, only supported kinds are active for development projects
             pass
 
         if enrollment is not None:
@@ -124,6 +136,7 @@ def load_development_projects(path: Path) -> tuple[DevelopmentProject, ...]:
                 tier=tier,
                 visibility=visibility,
                 state=state,
+                test_path=test_path,
             )
         )
 
@@ -193,13 +206,18 @@ def configuration(
             ]
         }
 
-    if project.kind in {"python-uv-v1", "python-test-v1"}:
+    if project.kind in {"python-uv-v1", "python-test-v1", "python-syntax-v1"}:
         if project.kind == "python-uv-v1":
             step_name = "python-uv-test"
-            commands = ["uv run --frozen pytest tests/"]
-        else:
+            commands = [f"uv run --frozen --all-groups pytest {project.test_path}"]
+        elif project.kind == "python-test-v1":
             step_name = "python-test"
-            commands = ["uv run --with pytest pytest tests/"]
+            commands = [
+                f"uv run --with pytest --with pyyaml pytest {project.test_path}"
+            ]
+        else:
+            step_name = "python-syntax-check"
+            commands = ["python3 -m compileall -q ."]
 
         workflow = {
             "when": [{"event": event}],
