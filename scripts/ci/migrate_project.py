@@ -99,14 +99,14 @@ def save_manifest(manifest_path: Path, data: dict[str, Any]) -> None:
 def find_project(manifest_data: dict[str, Any], identifier: str) -> ProjectEntry:
     ident_lower = identifier.lower().strip()
     for item in manifest_data.get("projects", []):
-        name = item.get("name", "")
-        f_repo = item.get("forgejo_repo", "")
-        g_repo = item.get("github_repo", "")
-        if ident_lower in (
-            name.lower(),
-            f_repo.lower(),
-            g_repo.lower(),
-        ) or ident_lower == name.lower().replace("-", "_"):
+        name = item.get("name") or ""
+        f_repo = item.get("forgejo_repo") or ""
+        g_repo = item.get("github_repo") or ""
+        matches = {name.lower(), f_repo.lower(), g_repo.lower()}
+        if name:
+            matches.add(name.lower().replace("-", "_"))
+        matches.discard("")
+        if ident_lower in matches:
             local_path = (
                 Path(item["local_path"]).expanduser().resolve()
                 if item.get("local_path")
@@ -173,9 +173,9 @@ print(f'{header}.{payload}.{sig}')
         "-o",
         "ConnectTimeout=5",
         "homelab-04",
-        f"sudo /nix/store/7vlwcwfrd7ywsrr7y6rif7jq0biziyhq-python3-3.13.15-env/bin/python -c {json.dumps(py_code)}",
+        "sudo /nix/store/7vlwcwfrd7ywsrr7y6rif7jq0biziyhq-python3-3.13.15-env/bin/python -",
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    res = subprocess.run(cmd, input=py_code, capture_output=True, text=True, check=True)
     jwt_token = res.stdout.strip()
     if not jwt_token or len(jwt_token) < 30:
         raise RuntimeError("Failed to generate Woodpecker JWT token")
@@ -456,8 +456,10 @@ con.commit()
             "-o",
             "BatchMode=yes",
             "homelab-04",
-            f"sudo /nix/store/7vlwcwfrd7ywsrr7y6rif7jq0biziyhq-python3-3.13.15-env/bin/python -c {json.dumps(py_code)}",
+            "sudo /nix/store/7vlwcwfrd7ywsrr7y6rif7jq0biziyhq-python3-3.13.15-env/bin/python -",
         ],
+        input=py_code,
+        text=True,
         check=True,
     )
 
@@ -709,20 +711,44 @@ def stage_verify_pipeline(
         return True
 
     logger.info(f"[{project.name}] Checking Woodpecker pipelines for repo {wp_id}...")
-    for _ in range(30):
+    triggered = False
+    for i in range(60):
         pipelines = (
             woodpecker_request(f"repos/{wp_id}/pipelines", woodpecker_token) or []
         )
-        if pipelines:
-            latest = pipelines[0]
+        branch_pipelines = [
+            p
+            for p in pipelines
+            if p.get("event") in {"push", "manual"}
+            and (
+                p.get("branch") == project.default_branch
+                or p.get("ref") == f"refs/heads/{project.default_branch}"
+            )
+        ]
+        if branch_pipelines:
+            latest = branch_pipelines[0]
             status = latest.get("status")
             p_num = latest.get("number")
-            logger.info(f"[{project.name}] Pipeline #{p_num} status: {status}")
+            logger.info(
+                f"[{project.name}] Branch pipeline #{p_num} ({latest.get('event')}) status: {status}"
+            )
             if status == "success":
                 return True
             if status in {"failure", "error", "killed"}:
-                logger.error(f"[{project.name}] Pipeline #{p_num} ended in {status}")
+                logger.error(
+                    f"[{project.name}] Branch pipeline #{p_num} ended in {status}"
+                )
                 return False
+        elif i >= 4 and not triggered:
+            logger.info(
+                f"[{project.name}] No branch pipeline detected yet; triggering manual run for branch '{project.default_branch}'..."
+            )
+            woodpecker_request(
+                f"repos/{wp_id}/pipelines?branch={project.default_branch}",
+                woodpecker_token,
+                method="POST",
+            )
+            triggered = True
         time.sleep(3)
 
     logger.warning(f"[{project.name}] Pipeline wait timed out")
@@ -756,10 +782,7 @@ def migrate_project(
     # 2. Forgejo Repo & Collaborator
     forgejo_id = stage_forgejo_repo(project, forgejo_token, dry_run)
 
-    # 3. Ref transfer
-    stage_transfer_refs(project, head_tip, dry_run)
-
-    # 4. Woodpecker Enrollment
+    # 3. Woodpecker Enrollment
     wp_id = stage_woodpecker_enrollment(project, forgejo_id, woodpecker_token, dry_run)
 
     # Update manifest in-memory
@@ -777,6 +800,18 @@ def migrate_project(
     if not dry_run:
         save_manifest(manifest_path, manifest_data)
         logger.info(f"[{project.name}] Updated manifest {manifest_path}")
+        logger.info(f"[{project.name}] Deploying updated policy to homelab-04...")
+        subprocess.run(
+            [sys.executable, "-m", "scripts.deploy_fleet", "--target", "homelab-04"],
+            check=True,
+        )
+    else:
+        logger.info(
+            f"[{project.name}] [DRY RUN] Would update manifest with woodpecker_repo_id={wp_id} and deploy homelab-04"
+        )
+
+    # 4. Ref transfer (triggers webhook if enrolled)
+    stage_transfer_refs(project, head_tip, dry_run)
 
     # 5. GitHub Push Mirror
     stage_github_mirror(project, forgejo_token, github_token, head_tip, dry_run)
