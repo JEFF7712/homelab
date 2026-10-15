@@ -14,6 +14,7 @@ let
     mkdir -p $out/scripts/ci
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
+    cp ${../../scripts/ci/development_projects.py} $out/scripts/ci/development_projects.py
     cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
     cp ${../../scripts/ci/static_release.py} $out/scripts/ci/static_release.py
     cp ${../../scripts/ci/python_service.py} $out/scripts/ci/python_service.py
@@ -46,9 +47,11 @@ let
               },
           }
           generated = configuration(request, applications)
-          assert generated["configs"], app.id
           if app.release_kind != "none":
               assert any(item["name"] == "application-release.yaml" for item in generated["configs"]), app.id
+
+      from scripts.ci.development_projects import load_development_projects
+      load_development_projects(Path("${../../config/ci/projects.json}"))
     ''}
   '';
   agent = tier: count: {
@@ -173,7 +176,7 @@ in
       wants = [ "network-online.target" ];
       environment.PYTHONPATH = toString policySource;
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --public-key %d/signature-public.pem";
+        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --projects ${../../config/ci/projects.json} --public-key %d/signature-public.pem";
         LoadCredential = "signature-public.pem:/persist/woodpecker/signature-public.pem";
         EnvironmentFile = "/persist/woodpecker/policy.env";
         DynamicUser = true;

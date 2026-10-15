@@ -116,9 +116,9 @@ in
           REQUIRE_SIGNIN_VIEW = true;
         };
         mirror = {
-          ENABLED = false;
+          ENABLED = true;
           MIN_INTERVAL = "5m";
-          DEFAULT_INTERVAL = "30m";
+          DEFAULT_INTERVAL = "1h";
         };
         webhook = {
           ALLOWED_HOST_LIST = "ci.internal,flux-wh-33b0c8004348.rupan.dev,*.internal,10.0.0.0/8,192.168.0.0/16";
