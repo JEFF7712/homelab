@@ -436,7 +436,8 @@
         "kind": "node-service-v1",
         "tier": "deploy"
       },
-      "woodpecker_repository_id": 7
+      "woodpecker_repository_id": 7,
+      "github_mirror": true
     },
     {
       "name": "nixos-assets",
