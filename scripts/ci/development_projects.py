@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:79c6f4776b851471cc73b7d21d0cc834bb94383c292e83640d27eff512864df7"
+UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
 
 SUPPORTED_KINDS = frozenset({"python-uv-v1", "none"})
 ALLOWED_EVENTS = frozenset(
