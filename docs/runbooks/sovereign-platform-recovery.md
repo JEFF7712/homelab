@@ -265,6 +265,44 @@ Execute the remaining work serially:
    Reuse the measured recipe for application scaffolds; do not add a new portal
    or orchestration service to make the first recovery possible.
 
-The next task is pack assembly and completeness verification. This document
-authorizes no claim that the independent drill, ISO boot, full etcd restoration
-or every application recovery has already passed.
+## Local checkpoint assembly, 2026-10-14
+
+The Darkbit checkpoint is staged at
+`/home/rupan/sovereign-recovery/platform/2026-10-14-darkbit`. Its `manifest.json`
+inventories retained files by size and SHA-256; `audit.json` distinguishes byte
+integrity from missing recovery requirements. Run `./VERIFY.sh` to repeat the
+audit using the retained Python tool closure. Exit 2 means requirements remain
+unmet, even when every listed file is intact. The standalone implementation is
+`scripts/recovery_pack.py`; it also checks complete OCI descriptor graphs.
+
+The checkpoint retains homelab source at `b847786`, both Darkbit source
+identities above, the deployed image, complete bootstrap OCI graphs, Cilium
+1.20.1, pinned flake sources, an installer, and exports of the running NAS/runner
+and recovery-tool Nix closures. The three system/tool exports were imported
+into separate empty relocated stores and their reference paths checked. That
+tests portable store import, not independent boot or host activation.
+
+The NAS Restic snapshot `2d3a5c9d` (2026-10-14 17:04:38 UTC) and runner snapshot
+`6e7cc56e` (17:00:16 UTC) were exported from R2 into locally age-encrypted tar
+archives. Complete decryption, gzip/tar traversal and SQLite integrity checks
+passed for `forgejo.db`, NAS `state.sqlite` and `woodpecker.sqlite`. NAS package files and Garage
+metadata/data are present. This is archive verification, not restored-service
+acceptance. Snapshot source refs differ from the newer retained source bundle;
+`receipts/checkpoint-source-map.json` records both. The snapshots are not atomic.
+
+Encrypted escrow includes NAS credentials/trust material, Flux Git/SOPS secrets
+and node registry-read configuration. The recovered cluster age identity was
+tested against the retained SOPS source. The operator's archive-decryption
+identity remains outside the checkpoint. Do not commit escrow or decrypted
+payloads to Git. The checkpoint README describes private extraction and the
+retained-tool import entry point.
+
+The operator explicitly chose local staging for now. A second independent copy
+is deferred. Installer boot, an isolated restore overlay, replacement-host
+qualification and full dependency review still require evidence. Captured
+running-host profiles retain production addresses, mounts and automation;
+never activate them directly in a drill. Check the local audit for the current
+CI-cache result and missing requirements before proceeding to gate 1.
+
+No independent platform restore, full etcd restoration or universal application
+recovery is claimed. Bookshelf remains deferred.
