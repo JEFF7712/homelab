@@ -71,7 +71,7 @@
       "github_repo": "JEFF7712/apptlyAI",
       "forgejo_repo": "JEFF7712/apptlyAI",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -80,14 +80,18 @@
         "kind": "node-build-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 32,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "apptlyAI-web",
       "github_repo": "JEFF7712/apptlyAI-web",
       "forgejo_repo": "JEFF7712/apptlyAI-web",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -96,7 +100,11 @@
         "kind": "node-lint-build-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 30,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "autocompress",
@@ -704,7 +712,7 @@
       "github_repo": "JEFF7712/spotify-clone-temp-name",
       "forgejo_repo": "JEFF7712/spotify-clone-temp-name",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -713,7 +721,11 @@
         "kind": "node-vitest-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 31,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "terax-flake",
