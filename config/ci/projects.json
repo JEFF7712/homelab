@@ -38,8 +38,8 @@
       "name": "NaviSync",
       "github_repo": "JEFF7712/NaviSync",
       "forgejo_repo": "JEFF7712/NaviSync",
-      "visibility": "public",
-      "state": "migrate",
+      "visibility": "private",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -48,7 +48,11 @@
         "kind": "go-tinygo-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 34,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "apolline-site",
@@ -342,8 +346,8 @@
       "name": "md-engine",
       "github_repo": "JEFF7712/md-engine",
       "forgejo_repo": "JEFF7712/md-engine",
-      "visibility": "public",
-      "state": "migrate",
+      "visibility": "private",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -352,7 +356,11 @@
         "kind": "cmake-cpp-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 35,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "musicthing",
@@ -394,8 +402,8 @@
       "name": "neuralnet-in-c",
       "github_repo": "JEFF7712/neuralnet-in-c",
       "forgejo_repo": "JEFF7712/neuralnet-in-c",
-      "visibility": "public",
-      "state": "migrate",
+      "visibility": "private",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -404,7 +412,11 @@
         "kind": "c-compile-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 33,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "nix-agent",
