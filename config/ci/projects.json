@@ -119,7 +119,7 @@
       "github_repo": "JEFF7712/bayesian-reaction-optimization-engine",
       "forgejo_repo": "JEFF7712/bayesian-reaction-optimization-engine",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -128,7 +128,11 @@
         "kind": "python-syntax-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 28,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "bookshelf",
@@ -346,8 +350,8 @@
       "name": "musicthing",
       "github_repo": "JEFF7712/musicthing",
       "forgejo_repo": "JEFF7712/musicthing",
-      "visibility": "public",
-      "state": "migrate",
+      "visibility": "private",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -356,7 +360,11 @@
         "kind": "python-syntax-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 29,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "navispot",
@@ -507,7 +515,7 @@
       "github_repo": "JEFF7712/predmarkbot",
       "forgejo_repo": "JEFF7712/predmarkbot",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -517,7 +525,11 @@
         "tier": "sandbox",
         "test_path": "tests/unit/"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 27,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "pulse",
@@ -560,7 +572,7 @@
       "github_repo": "JEFF7712/roku-bulb-local",
       "forgejo_repo": "JEFF7712/roku-bulb-local",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -569,7 +581,11 @@
         "kind": "python-test-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 26,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "rupan.dev",
