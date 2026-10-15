@@ -36,7 +36,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: web
-          image: registry.rupan.dev/apps/nix-agent-site@sha256:f1b12b7072e529fa56ac71c38b1dbaabf7de0f5c0fe74f1765a30924f499c7d4  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/nix-agent-site@sha256:05ba238fd80fd9fa49b3afa807567db2cce748e2e82695c3335c4ebea06a9038  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
