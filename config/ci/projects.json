@@ -115,7 +115,7 @@
       "github_repo": "JEFF7712/autocompress",
       "forgejo_repo": "JEFF7712/autocompress",
       "visibility": "private",
-      "state": "migrate",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -124,7 +124,11 @@
         "kind": "python-uv-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": 23
+      "woodpecker_repository_id": 23,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "bayesian-reaction-optimization-engine",
