@@ -306,3 +306,98 @@ CI-cache result and missing requirements before proceeding to gate 1.
 
 No independent platform restore, full etcd restoration or universal application
 recovery is claimed. Bookshelf remains deferred.
+
+## Installer and isolation qualification, 2026-10-15 UTC
+
+Evidence is staged separately from the immutable checkpoint at
+`/home/rupan/sovereign-recovery/platform/darkbit-host-20261014-002`.
+`configuration.json` records the actual VM command and declared survivor,
+`hypervisor-network.json` records the enforced boundary, and
+`guest-evidence/qualification.json` records the guest checks. The original
+checkpoint and its signed readiness report were not modified.
+
+The retained ISO booted through SeaBIOS/ISOLINUX on the surviving laptop using
+KVM, two vCPUs, 6 GiB RAM and a new 96 GiB virtual scratch disk. No host block
+device, host Nix store, SSH agent or decryption identity was exposed. The only
+shared filesystem was the read-only checkpoint. This proves legacy BIOS boot
+in this VM, not UEFI, physical replacement hardware or an installed disk OS.
+The ISO reached a usable console on kernel `6.18.52`. Its Xen guest agent failed
+on KVM because no Xen bus exists, so initial unit health was **degraded**.
+
+`scripts/recovery_host.py` starts QEMU paused inside a new user/network
+namespace, refusing the original namespace, external interfaces or usable
+routes. The kernel's IPv6 reject-only loopback entries are allowed. Host-side
+NAS, control-plane, public and IPv6 connection attempts failed before QEMU
+started. The guest uses restricted user networking on `192.0.2.0/24`, with IPv6
+forwarding disabled and no host forwards. Control uses filesystem Unix sockets.
+Isolation is structural: the outer namespace has no external interface or
+route, rather than relying on guest firewall drop counters. Guest OUTPUT was
+ACCEPT, and explicit IPv4/IPv6 default routes were added for the negative tests.
+NAS, cluster, pod/service, WAN, synthetic gateway and public DNS probes failed.
+
+The optical image legitimately already contains some matching tool paths.
+To exclude their reuse, the export was imported into a separate, initially
+empty store on the scratch disk. Chroot execution failed with ENOENT before
+import. All 469 reference paths then passed validity and content verification.
+Python, Git, age, SOPS, Nix and Podman version commands ran inside that chroot.
+Its runtime needed a newly created guest `/dev/null` and a temporary guest
+`proc` mount, both recorded interventions. No host store was accessible from
+the chroot. This does not establish a configured Nix build daemon or working
+container executor. SOPS' version command attempted its optional upstream
+update check, failed under isolation and still returned successfully.
+
+The guest also served one actual qualification DNS/HTTPS endpoint at
+`qualification.recovery.test` / `192.0.2.15`. A fresh drill-only CA authenticated
+HTTPS; unknown CA and wrong-hostname probes failed. Unknown external DNS names
+were refused. OpenSSL came from the retained installer's store. This endpoint
+is an isolation check, not a restored Darkbit application or production TLS.
+
+### Repeat the qualification
+
+Run the launcher from a checkout containing these scripts. The surviving
+hypervisor needs Linux user/network namespaces, KVM, Python, SSH signature
+verification and the already imported retained QEMU closure. Use an independently
+trusted signer file, not a trust key taken solely from the checkpoint.
+
+```fish
+set checkpoint /home/rupan/sovereign-recovery/platform/2026-10-14-darkbit
+set drill /home/rupan/sovereign-recovery/platform/darkbit-host-(date -u +%Y%m%dT%H%M%SZ)
+python -m scripts.recovery_host prepare $drill --checkpoint $checkpoint --trusted-signers /home/rupan/.local/state/homelab-recovery/allowed-signers
+python -m scripts.recovery_host start $drill
+python -m scripts.recovery_host console $drill --resume
+```
+
+At the serial ISOLINUX menu, press Tab and append
+`console=ttyS0,115200n8 systemd.unit=multi-user.target plymouth.enable=0` before
+booting. Log in through the installer console and use its passwordless sudo.
+Mount the `checkpoint` 9p tag read-only at `/recovery-media`. Verify the signer
+fingerprint against independent custody, then verify the manifest signature
+and tool archive hash before importing anything.
+
+Inside this VM only, inspect the block devices and verify the blank virtual
+disk matches the launch record before formatting and mounting it at `/scratch`.
+Create an empty `/scratch/retained-root`; prove a retained tool cannot execute
+there, then import the tool NAR using
+`nix-store --store 'local?root=/scratch/retained-root' --import` and record the
+pipeline exit status in `/scratch/import.exit`. Transfer the reviewed
+`scripts/recovery_guest.py` into the guest, verify its source hash, and run it
+with the retained installer's interpreter (present in its store but not on PATH):
+
+```sh
+/nix/store/d64q19q1xjdwfhqx6czvrjgrhq0n3lcc-python3-3.14.7/bin/python3 /scratch/recovery_guest.py --output /scratch/qualification.json
+```
+
+It checks the cold store, read-only
+media, negative routes and local DNS/TLS without decrypting platform secrets.
+The probe removes its temporary routes, proc mount, services and CA files.
+
+Export the receipt, selected logs and exact probe source before teardown.
+Sync and unmount the scratch disk, disconnect the console with Ctrl-], then
+use `python -m scripts.recovery_host stop $drill`. Retain the disk and failed
+attempts until their evidence has been reviewed.
+
+This qualification does not authorize starting captured production profiles.
+The next prerequisite is a reviewed, retained pilot-only service/cluster/CI
+restore overlay and dependency closure. The second copy remains deferred.
+Forgejo, Zot, Woodpecker, Kubernetes, Darkbit release/promotion/rollback and
+full-platform RTO remain untested in the recovered environment.
