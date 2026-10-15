@@ -77,7 +77,7 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/apptlyAI/apptlyAI",
       "ci": {
-        "kind": "node-test-v1",
+        "kind": "node-build-v1",
         "tier": "sandbox"
       },
       "woodpecker_repository_id": null
@@ -93,7 +93,7 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/apptlyAI/product-showcase",
       "ci": {
-        "kind": "node-test-v1",
+        "kind": "node-lint-build-v1",
         "tier": "sandbox"
       },
       "woodpecker_repository_id": null
