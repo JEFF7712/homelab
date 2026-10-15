@@ -166,8 +166,8 @@
       "name": "cctop",
       "github_repo": "JEFF7712/cctop",
       "forgejo_repo": "JEFF7712/cctop",
-      "visibility": "public",
-      "state": "migrate",
+      "visibility": "private",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -176,7 +176,11 @@
         "kind": "python-test-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 25,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "claude-tutor",
@@ -534,8 +538,8 @@
       "name": "resume-agent",
       "github_repo": "JEFF7712/resume-agent",
       "forgejo_repo": "JEFF7712/resume-agent",
-      "visibility": "public",
-      "state": "migrate",
+      "visibility": "private",
+      "state": "already-primary",
       "is_fork": false,
       "is_archived": false,
       "default_branch": "main",
@@ -544,7 +548,11 @@
         "kind": "python-test-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": null
+      "woodpecker_repository_id": 24,
+      "project_type": "development",
+      "migration_status": "complete",
+      "git_primary": "forgejo",
+      "github_mirror": true
     },
     {
       "name": "roku-bulb-local",
