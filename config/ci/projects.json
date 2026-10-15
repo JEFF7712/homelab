@@ -1,0 +1,726 @@
+{
+  "schema_version": 1,
+  "total_projects": 45,
+  "projects": [
+    {
+      "name": "JEFF7712",
+      "github_repo": "JEFF7712/JEFF7712",
+      "forgejo_repo": "JEFF7712/JEFF7712",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/JEFF7712",
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "Linux-dotfiles",
+      "github_repo": "JEFF7712/Linux-dotfiles",
+      "forgejo_repo": "JEFF7712/Linux-dotfiles",
+      "visibility": "public",
+      "state": "archived",
+      "is_fork": false,
+      "is_archived": true,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "NaviSync",
+      "github_repo": "JEFF7712/NaviSync",
+      "forgejo_repo": "JEFF7712/NaviSync",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/NaviSync",
+      "ci": {
+        "kind": "go-tinygo-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "apolline-site",
+      "github_repo": "JEFF7712/apolline-site",
+      "forgejo_repo": "JEFF7712/apolline-site",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/businesses/apolline/apolline-site",
+      "ci": {
+        "kind": "static-site-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 3
+    },
+    {
+      "name": "apptlyAI",
+      "github_repo": "JEFF7712/apptlyAI",
+      "forgejo_repo": "JEFF7712/apptlyAI",
+      "visibility": "private",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/apptlyAI/apptlyAI",
+      "ci": {
+        "kind": "node-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "apptlyAI-web",
+      "github_repo": "JEFF7712/apptlyAI-web",
+      "forgejo_repo": "JEFF7712/apptlyAI-web",
+      "visibility": "private",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/apptlyAI/product-showcase",
+      "ci": {
+        "kind": "node-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "autocompress",
+      "github_repo": "JEFF7712/autocompress",
+      "forgejo_repo": "JEFF7712/autocompress",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/autocompress",
+      "ci": {
+        "kind": "python-uv-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "bayesian-reaction-optimization-engine",
+      "github_repo": "JEFF7712/bayesian-reaction-optimization-engine",
+      "forgejo_repo": "JEFF7712/bayesian-reaction-optimization-engine",
+      "visibility": "private",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/old/bayesian-reaction-optimization-engine",
+      "ci": {
+        "kind": "python-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "bookshelf",
+      "github_repo": "JEFF7712/bookshelf",
+      "forgejo_repo": "JEFF7712/bookshelf",
+      "visibility": "public",
+      "state": "already-primary",
+      "is_fork": true,
+      "is_archived": false,
+      "default_branch": "develop",
+      "local_path": null,
+      "ci": {
+        "kind": "dotnet-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 20
+    },
+    {
+      "name": "bus-route-display",
+      "github_repo": null,
+      "forgejo_repo": "JEFF7712/bus-route-display",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/bus-route-display",
+      "ci": {
+        "kind": "firmware-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": 22
+    },
+    {
+      "name": "cctop",
+      "github_repo": "JEFF7712/cctop",
+      "forgejo_repo": "JEFF7712/cctop",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/compchem/tools/cctop",
+      "ci": {
+        "kind": "python-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "claude-tutor",
+      "github_repo": "JEFF7712/claude-tutor",
+      "forgejo_repo": "JEFF7712/claude-tutor",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "cr-demo",
+      "github_repo": null,
+      "forgejo_repo": "JEFF7712/cr-demo",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/sites/cr-demo",
+      "ci": {
+        "kind": "static-site-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 15
+    },
+    {
+      "name": "darkbit-site",
+      "github_repo": "JEFF7712/darkbit-site",
+      "forgejo_repo": "JEFF7712/darkbit-site",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/businesses/darkbit/darkbit-site",
+      "ci": {
+        "kind": "static-site-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 2
+    },
+    {
+      "name": "distrojeff-site",
+      "github_repo": "JEFF7712/distrojeff-site",
+      "forgejo_repo": "JEFF7712/distrojeff-site",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/businesses/distrojeff/distrojeff-site",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 13
+    },
+    {
+      "name": "homelab",
+      "github_repo": "JEFF7712/homelab",
+      "forgejo_repo": "JEFF7712/homelab",
+      "visibility": "public",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/homelab",
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "homelab-old",
+      "github_repo": "JEFF7712/homelab-old",
+      "forgejo_repo": "JEFF7712/homelab-old",
+      "visibility": "public",
+      "state": "archived",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "homelab-old2",
+      "github_repo": "JEFF7712/homelab-old2",
+      "forgejo_repo": "JEFF7712/homelab-old2",
+      "visibility": "public",
+      "state": "archived",
+      "is_fork": false,
+      "is_archived": true,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "ism",
+      "github_repo": "JEFF7712/ism",
+      "forgejo_repo": "JEFF7712/ism",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/sites/isms",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 6
+    },
+    {
+      "name": "majorfinder",
+      "github_repo": "JEFF7712/majorfinder",
+      "forgejo_repo": "JEFF7712/majorfinder",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/majorfinder",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 9
+    },
+    {
+      "name": "md-engine",
+      "github_repo": "JEFF7712/md-engine",
+      "forgejo_repo": "JEFF7712/md-engine",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/old/md-engine",
+      "ci": {
+        "kind": "cmake-cpp-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "musicthing",
+      "github_repo": "JEFF7712/musicthing",
+      "forgejo_repo": "JEFF7712/musicthing",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/music-ai",
+      "ci": {
+        "kind": "python-uv-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "navispot",
+      "github_repo": "JEFF7712/navispot",
+      "forgejo_repo": "JEFF7712/navispot",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": true,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/navispot",
+      "ci": {
+        "kind": "node-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "neuralnet-in-c",
+      "github_repo": "JEFF7712/neuralnet-in-c",
+      "forgejo_repo": "JEFF7712/neuralnet-in-c",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/neuralnet",
+      "ci": {
+        "kind": "c-compile-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "nix-agent",
+      "github_repo": "JEFF7712/nix-agent",
+      "forgejo_repo": "JEFF7712/nix-agent",
+      "visibility": "public",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/nix-agent",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 7
+    },
+    {
+      "name": "nixos-assets",
+      "github_repo": "JEFF7712/nixos-assets",
+      "forgejo_repo": "JEFF7712/nixos-assets",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "nixos-config",
+      "github_repo": "JEFF7712/nixos-config",
+      "forgejo_repo": "JEFF7712/nixos-config",
+      "visibility": "public",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/nixos",
+      "ci": {
+        "kind": "nixos-config-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": 21
+    },
+    {
+      "name": "obsidian-vault",
+      "github_repo": "JEFF7712/obsidian-vault",
+      "forgejo_repo": "JEFF7712/obsidian-vault",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/obsidian",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 14
+    },
+    {
+      "name": "parameter-golf",
+      "github_repo": "JEFF7712/parameter-golf",
+      "forgejo_repo": "JEFF7712/parameter-golf",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": true,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "photos",
+      "github_repo": "JEFF7712/photos",
+      "forgejo_repo": "JEFF7712/photos",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/photography",
+      "ci": {
+        "kind": "static-site-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 10
+    },
+    {
+      "name": "pod-agent",
+      "github_repo": "JEFF7712/pod-agent",
+      "forgejo_repo": "JEFF7712/pod-agent",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/businesses/pod-agent",
+      "ci": {
+        "kind": "python-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 19
+    },
+    {
+      "name": "predmarkbot",
+      "github_repo": "JEFF7712/predmarkbot",
+      "forgejo_repo": "JEFF7712/predmarkbot",
+      "visibility": "private",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/predmarkbot",
+      "ci": {
+        "kind": "python-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "pulse",
+      "github_repo": "JEFF7712/pulse",
+      "forgejo_repo": "JEFF7712/pulse",
+      "visibility": "public",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/pulse",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 8
+    },
+    {
+      "name": "resume-agent",
+      "github_repo": "JEFF7712/resume-agent",
+      "forgejo_repo": "JEFF7712/resume-agent",
+      "visibility": "public",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/resume-agent",
+      "ci": {
+        "kind": "python-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "roku-bulb-local",
+      "github_repo": "JEFF7712/roku-bulb-local",
+      "forgejo_repo": "JEFF7712/roku-bulb-local",
+      "visibility": "private",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/roku-bulb-local",
+      "ci": {
+        "kind": "python-test-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "rupan.dev",
+      "github_repo": "JEFF7712/rupan.dev",
+      "forgejo_repo": "JEFF7712/rupan.dev",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/sites/rupan.dev",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 4
+    },
+    {
+      "name": "rupanism",
+      "github_repo": "JEFF7712/rupanism",
+      "forgejo_repo": "JEFF7712/rupanism",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/sites/rupanism",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 5
+    },
+    {
+      "name": "rupans-ai-plugins",
+      "github_repo": "JEFF7712/rupans-ai-plugins",
+      "forgejo_repo": "JEFF7712/rupans-ai-plugins",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "shell",
+      "github_repo": "JEFF7712/shell",
+      "forgejo_repo": "JEFF7712/shell",
+      "visibility": "private",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "solubility-predictor",
+      "github_repo": "JEFF7712/solubility-predictor",
+      "forgejo_repo": "JEFF7712/solubility-predictor",
+      "visibility": "public",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/old/soluble",
+      "ci": {
+        "kind": "python-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 18
+    },
+    {
+      "name": "sovereign",
+      "github_repo": "JEFF7712/sovereign",
+      "forgejo_repo": "JEFF7712/sovereign",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/sovereign",
+      "ci": {
+        "kind": "static-site-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 12
+    },
+    {
+      "name": "spatia",
+      "github_repo": "JEFF7712/spatia",
+      "forgejo_repo": "JEFF7712/spatia",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/spatia",
+      "ci": {
+        "kind": "static-site-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 11
+    },
+    {
+      "name": "spotify-clone-temp-name",
+      "github_repo": "JEFF7712/spotify-clone-temp-name",
+      "forgejo_repo": "JEFF7712/spotify-clone-temp-name",
+      "visibility": "private",
+      "state": "migrate",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/spotify-clone",
+      "ci": {
+        "kind": "node-vitest-v1",
+        "tier": "sandbox"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "terax-flake",
+      "github_repo": "JEFF7712/terax-flake",
+      "forgejo_repo": "JEFF7712/terax-flake",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    },
+    {
+      "name": "vault-mind",
+      "github_repo": "JEFF7712/vault-mind",
+      "forgejo_repo": "JEFF7712/vault-mind",
+      "visibility": "public",
+      "state": "special",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": null,
+      "ci": {
+        "kind": "none",
+        "tier": "none"
+      },
+      "woodpecker_repository_id": null
+    }
+  ]
+}

@@ -18,6 +18,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from scripts.ci.applications import Application, load_catalog
 from scripts.ci.applications import configuration as application_configuration
+from scripts.ci.development_projects import (
+    DevelopmentProject,
+    load_development_projects,
+)
+from scripts.ci.development_projects import configuration as development_configuration
 
 IMAGE = "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
@@ -427,6 +432,7 @@ def resolve_configuration(
     request: dict[str, Any],
     operations: dict[str, Any],
     applications: tuple[Application, ...],
+    development_projects: tuple[DevelopmentProject, ...] = (),
 ) -> dict[str, Any]:
     repo = request["repo"]
     if not (
@@ -435,7 +441,15 @@ def resolve_configuration(
         and repo.get("owner", repo.get("namespace")) == "JEFF7712"
         and repo.get("name") == "homelab"
     ):
-        return application_configuration(request, applications)
+        try:
+            return application_configuration(request, applications)
+        except ValueError as err:
+            if (
+                str(err) == "Application repository is not enrolled"
+                and development_projects
+            ):
+                return development_configuration(request, development_projects)
+            raise
     parent = None
     current = ""
     if request["pipeline"]["event"] == "deployment":
@@ -494,10 +508,21 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog", type=Path, required=True)
     parser.add_argument("--applications", type=Path, required=True)
+    parser.add_argument("--projects", type=Path, required=False, default=None)
     parser.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     catalog = json.loads(args.catalog.read_text())
     applications = load_catalog(args.applications)
+    projects_path = args.projects
+    if projects_path is None:
+        candidate = args.applications.with_name("projects.json")
+        if candidate.is_file():
+            projects_path = candidate
+    development_projects = (
+        load_development_projects(projects_path)
+        if projects_path and projects_path.is_file()
+        else ()
+    )
     key = args.public_key.read_bytes()
 
     class Handler(BaseHTTPRequestHandler):
@@ -512,7 +537,9 @@ def main() -> None:
                 body = self.rfile.read(length)
                 verify_request(self.headers, body, key, int(time.time()))
                 request = json.loads(body)
-                result = resolve_configuration(request, catalog, applications)
+                result = resolve_configuration(
+                    request, catalog, applications, development_projects
+                )
             except Exception:
                 # Never include a request body, netrc, or API exception in responses or logs.
                 self.send_error(403, "CI policy rejected request")
