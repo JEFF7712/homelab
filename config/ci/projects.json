@@ -71,46 +71,6 @@
       "woodpecker_repository_id": 3
     },
     {
-      "name": "apptlyAI",
-      "github_repo": "JEFF7712/apptlyAI",
-      "forgejo_repo": "JEFF7712/apptlyAI",
-      "visibility": "private",
-      "state": "already-primary",
-      "is_fork": false,
-      "is_archived": false,
-      "default_branch": "main",
-      "local_path": "/home/rupan/projects/apptlyAI/apptlyAI",
-      "ci": {
-        "kind": "node-build-v1",
-        "tier": "sandbox"
-      },
-      "woodpecker_repository_id": 32,
-      "project_type": "development",
-      "migration_status": "complete",
-      "git_primary": "forgejo",
-      "github_mirror": true
-    },
-    {
-      "name": "apptlyAI-web",
-      "github_repo": "JEFF7712/apptlyAI-web",
-      "forgejo_repo": "JEFF7712/apptlyAI-web",
-      "visibility": "private",
-      "state": "already-primary",
-      "is_fork": false,
-      "is_archived": false,
-      "default_branch": "main",
-      "local_path": "/home/rupan/projects/apptlyAI/product-showcase",
-      "ci": {
-        "kind": "node-lint-build-v1",
-        "tier": "sandbox"
-      },
-      "woodpecker_repository_id": 30,
-      "project_type": "development",
-      "migration_status": "complete",
-      "git_primary": "forgejo",
-      "github_mirror": true
-    },
-    {
       "name": "autocompress",
       "github_repo": "JEFF7712/autocompress",
       "forgejo_repo": "JEFF7712/autocompress",
