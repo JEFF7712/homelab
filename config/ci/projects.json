@@ -102,7 +102,7 @@
       "name": "autocompress",
       "github_repo": "JEFF7712/autocompress",
       "forgejo_repo": "JEFF7712/autocompress",
-      "visibility": "public",
+      "visibility": "private",
       "state": "migrate",
       "is_fork": false,
       "is_archived": false,
