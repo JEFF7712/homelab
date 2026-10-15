@@ -125,7 +125,7 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/old/bayesian-reaction-optimization-engine",
       "ci": {
-        "kind": "python-test-v1",
+        "kind": "python-syntax-v1",
         "tier": "sandbox"
       },
       "woodpecker_repository_id": null
@@ -353,7 +353,7 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/music-ai",
       "ci": {
-        "kind": "python-uv-v1",
+        "kind": "python-syntax-v1",
         "tier": "sandbox"
       },
       "woodpecker_repository_id": null
@@ -513,8 +513,9 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/predmarkbot",
       "ci": {
-        "kind": "python-test-v1",
-        "tier": "sandbox"
+        "kind": "python-uv-v1",
+        "tier": "sandbox",
+        "test_path": "tests/unit/"
       },
       "woodpecker_repository_id": null
     },

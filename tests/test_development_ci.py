@@ -181,7 +181,9 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         step = steps[0]
         self.assertEqual(step["name"], "python-uv-test")
         self.assertEqual(step["image"], UV_VALIDATION_IMAGE)
-        self.assertEqual(step["commands"], ["uv run --frozen pytest tests/"])
+        self.assertEqual(
+            step["commands"], ["uv run --frozen --all-groups pytest tests/"]
+        )
 
         # Isolation checks: no credentials, host sockets, or privileged attributes
         self.assertNotIn("environment", step)
@@ -219,7 +221,74 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         steps = workflow.get("steps", [])
         self.assertEqual(len(steps), 1)
         self.assertEqual(steps[0]["name"], "python-test")
-        self.assertEqual(steps[0]["commands"], ["uv run --with pytest pytest tests/"])
+        self.assertEqual(
+            steps[0]["commands"], ["uv run --with pytest --with pyyaml pytest tests/"]
+        )
+
+    def test_push_event_generates_python_syntax_validation(self) -> None:
+        bayesian = DevelopmentProject(
+            name="bayesian-reaction-optimization-engine",
+            repository="JEFF7712/bayesian-reaction-optimization-engine",
+            woodpecker_repository_id=27,
+            default_branch="main",
+            kind="python-syntax-v1",
+            tier="sandbox",
+            visibility="private",
+            state="migrate",
+        )
+        req = {
+            "repo": {
+                "id": 27,
+                "owner": "JEFF7712",
+                "name": "bayesian-reaction-optimization-engine",
+            },
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "c" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (bayesian,))
+        configs = result.get("configs", [])
+        self.assertEqual(len(configs), 1)
+        workflow = yaml.safe_load(configs[0]["data"])
+        self.assertEqual(workflow["when"], [{"event": "push"}])
+        self.assertEqual(workflow["labels"]["tier"], "sandbox")
+        steps = workflow.get("steps", [])
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["name"], "python-syntax-check")
+        self.assertEqual(steps[0]["commands"], ["python3 -m compileall -q ."])
+
+    def test_custom_test_path_in_pipeline(self) -> None:
+        predmarkbot = DevelopmentProject(
+            name="predmarkbot",
+            repository="JEFF7712/predmarkbot",
+            woodpecker_repository_id=26,
+            default_branch="main",
+            kind="python-uv-v1",
+            tier="sandbox",
+            visibility="private",
+            state="migrate",
+            test_path="tests/unit/",
+        )
+        req = {
+            "repo": {"id": 26, "owner": "JEFF7712", "name": "predmarkbot"},
+            "pipeline": {
+                "event": "push",
+                "ref": "refs/heads/main",
+                "commit": "d" * 40,
+                "number": 1,
+                "from_fork": False,
+            },
+        }
+        result = development_configuration(req, (predmarkbot,))
+        workflow = yaml.safe_load(result["configs"][0]["data"])
+        self.assertEqual(
+            workflow["steps"][0]["commands"],
+            ["uv run --frozen --all-groups pytest tests/unit/"],
+        )
 
     def test_pull_request_event_generates_validation(self) -> None:
         self.request["pipeline"]["event"] = "pull_request"
