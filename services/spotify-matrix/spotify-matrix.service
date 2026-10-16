@@ -1,0 +1,14 @@
+[Unit]
+Description=Spotify album art on the Pico W matrix
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rupan/homelab/services/spotify-matrix
+ExecStart=/etc/profiles/per-user/rupan/bin/uv run --frozen python -u spotify_matrix_streamer.py --transport tcp --fps 20
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=5
+UMask=0077
+
+[Install]
+WantedBy=default.target

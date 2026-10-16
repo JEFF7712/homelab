@@ -63,6 +63,13 @@ dhcpv4_subnets = {
 }
 
 dhcpv4_reservations = {
+  spotify_matrix = {
+    description = "Pico W Spotify matrix"
+    hostname    = "spotify-matrix"
+    ip_address  = "10.0.20.136"
+    mac_address = "28:cd:c1:0d:31:05"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
   laptop_nixos = {
     description = "Rupan's NixOS laptop"
     hostname    = "laptop-nixos"
@@ -150,6 +157,13 @@ dhcpv4_reservations = {
 }
 
 firewall_aliases = {
+  spotify_matrix_senders = {
+    name        = "spotify_matrix_senders"
+    type        = "host"
+    content     = ["10.0.30.11", "10.0.30.12", "10.0.30.13", "10.0.30.14", "10.0.30.15"]
+    description = "Kubernetes nodes permitted to stream to the Pico matrix"
+    enabled     = true
+  }
   iot_bambu_a1 = {
     name        = "iot_bambu_a1"
     type        = "host"
@@ -694,10 +708,26 @@ firewall_filters = {
       destination = { net = "iot_tuya_sw02", port = "6668" }
     }
   }
+  infrastructure-allow-spotify-matrix = {
+    description = "Allow Kubernetes nodes to Pico W matrix TCP receiver"
+    enabled     = true
+    sequence    = 319
+    interface   = { interface = ["opt3"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "spotify_matrix_senders", port = "" }
+      destination = { net = "10.0.20.136/32", port = "9999" }
+    }
+  }
   infrastructure-block-private = {
     description = "Block infrastructure from initiating to other private VLANs"
     enabled     = true
-    sequence    = 319
+    sequence    = 320
     interface   = { interface = ["opt3"] }
     filter = {
       action      = "block"

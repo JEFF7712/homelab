@@ -1,0 +1,16 @@
+[project]
+name = "spotify-matrix-streamer"
+version = "0.1.0"
+description = "Streams spinning Spotify album art over USB or TCP to a Pico W HUB75 RGB matrix"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26.0",
+    "pillow>=10.2.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "pyserial>=3.5",
+    "websockets>=17.1,<18",
+]
+
+[project.scripts]
+spotify-matrix = "spotify_matrix_streamer:main"

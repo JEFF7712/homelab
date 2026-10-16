@@ -1,0 +1,49 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: renderer
+  namespace: spotify-matrix
+spec:
+  endpointSelector:
+    matchLabels:
+      app: spotify-matrix
+  ingress: []
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8123"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: home-assistant
+      toPorts:
+        - ports:
+            - port: "8123"
+              protocol: TCP
+    - toCIDR:
+        - 10.0.20.136/32
+      toPorts:
+        - ports:
+            - port: "9999"
+              protocol: TCP
+    - toFQDNs:
+        - matchPattern: "*.scdn.co"
+        - matchPattern: "*.spotifycdn.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP

@@ -19,6 +19,7 @@ resources:
   - platform.yaml
   - pod-agent.yaml
   - secrets.yaml
+  - spotify-matrix.yaml
   - storage.yaml
   - voice.yaml
   - websites.yaml
