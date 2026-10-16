@@ -1,11 +1,11 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: spotify-matrix
+  name: led-matrix
   namespace: flux-system
 spec:
   interval: 10m0s
-  path: ./gitops/spotify-matrix
+  path: ./gitops/led-matrix
   prune: true
   sourceRef:
     kind: GitRepository

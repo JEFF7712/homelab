@@ -8,7 +8,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
@@ -20,15 +20,7 @@ from websockets.exceptions import WebSocketException
 from websockets.sync.client import connect
 from websockets.sync.connection import Connection
 
-
-@dataclass(frozen=True)
-class PlaybackState:
-    available: bool = False
-    playing: bool = False
-    title: str = ""
-    artist: str = ""
-    artwork_url: str = ""
-    updated_at: float = 0
+from modes.base import HAState, PlaybackState
 
 
 class HomeAssistantSource:
@@ -37,8 +29,13 @@ class HomeAssistantSource:
         base_url: str,
         token: str,
         entity: str,
+        power_entity: str | None = None,
+        mode_entity: str | None = None,
+        brightness_entity: str | None = None,
+        weather_entity: str | None = None,
         stale_after: float = 120,
         on_update: Callable[[PlaybackState], None] | None = None,
+        on_hub_update: Callable[[HAState], None] | None = None,
     ) -> None:
         parsed = urlsplit(base_url)
         if (
@@ -66,10 +63,17 @@ class HomeAssistantSource:
         )
         self.token = token
         self.entity = entity
+        self.power_entity = power_entity
+        self.mode_entity = mode_entity
+        self.brightness_entity = brightness_entity
+        self.weather_entity = weather_entity
         self.stale_after = stale_after
         self.on_update = on_update
+        self.on_hub_update = on_hub_update
         self._state = PlaybackState()
+        self._hub_state = HAState()
         self._compact: dict[str, Any] = {}
+        self._compact_by_entity: dict[str, dict[str, Any]] = {}
         self._connected = False
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -139,38 +143,141 @@ class HomeAssistantSource:
             except Exception:
                 pass
 
+    def hub_state(self) -> HAState:
+        with self._lock:
+            return replace(self._hub_state, connected=self._connected)
+
+    def _apply_hub_entity(self, entity_id: str, compact: dict[str, Any] | None) -> None:
+        with self._lock:
+            state_val = compact.get("s") if compact else None
+            attrs = compact.get("a", {}) if compact else {}
+
+            power = self._hub_state.power
+            mode = self._hub_state.mode
+            brightness = self._hub_state.brightness
+            weather_temp = self._hub_state.weather_temp
+            weather_condition = self._hub_state.weather_condition
+            weather_unit = self._hub_state.weather_unit
+
+            if entity_id == self.power_entity:
+                power = (state_val != "off") if state_val is not None else True
+            elif entity_id == self.mode_entity:
+                mode = (
+                    str(state_val)
+                    if state_val and state_val not in ("unavailable", "unknown")
+                    else "Auto"
+                )
+            elif entity_id == self.brightness_entity:
+                if state_val is not None:
+                    try:
+                        b = float(state_val)
+                        if b > 1.0:
+                            b = b / 100.0
+                        brightness = max(0.05, min(1.0, b))
+                    except (ValueError, TypeError):
+                        pass
+            elif entity_id == self.weather_entity:
+                if state_val and state_val not in ("unavailable", "unknown"):
+                    weather_condition = str(state_val)
+                if attrs:
+                    if "temperature" in attrs:
+                        try:
+                            weather_temp = float(attrs["temperature"])
+                        except (ValueError, TypeError):
+                            pass
+                    if "temperature_unit" in attrs:
+                        weather_unit = str(attrs["temperature_unit"])
+
+            new_hub_state = HAState(
+                connected=self._connected,
+                power=power,
+                mode=mode,
+                brightness=brightness,
+                weather_temp=weather_temp,
+                weather_condition=weather_condition,
+                weather_unit=weather_unit,
+            )
+            changed = new_hub_state != self._hub_state
+            self._hub_state = new_hub_state
+
+        if changed and self.on_hub_update:
+            try:
+                self.on_hub_update(new_hub_state)
+            except Exception:
+                pass
+
     def handle_event(self, message: dict[str, Any]) -> None:
         if message.get("type") == "event" and message.get("id") == 1:
             event = message.get("event", {})
-            if self.entity in event.get("r", []):
-                self._compact = {}
-                self.apply_state(None)
-                return
-            if self.entity in event.get("a", {}):
-                self._compact = event["a"][self.entity]
-            elif self.entity in event.get("c", {}):
-                diff = event["c"][self.entity]
-                additions = diff.get("+", {})
-                if "lc" in additions and "lu" not in additions:
-                    self._compact.pop("lu", None)
-                for key, value in additions.items():
+            hub_entities = {
+                e
+                for e in [
+                    self.power_entity,
+                    self.mode_entity,
+                    self.brightness_entity,
+                    self.weather_entity,
+                ]
+                if e
+            }
+
+            removed = set(event.get("r", []))
+            if removed:
+                for ent in removed:
+                    self._compact_by_entity.pop(ent, None)
+                    if ent == self.entity:
+                        self._compact = {}
+                        self.apply_state(None)
+                    elif ent in hub_entities:
+                        self._apply_hub_entity(ent, None)
+
+            additions = event.get("a", {})
+            for ent, val in additions.items():
+                self._compact_by_entity[ent] = val
+                if ent == self.entity:
+                    self._compact = val
+                    timestamp = val.get("lu", val.get("lc", 0))
+                    self.apply_state(
+                        {
+                            "entity_id": self.entity,
+                            "state": val.get("s"),
+                            "attributes": dict(val.get("a", {})),
+                            "last_updated": datetime.fromtimestamp(
+                                timestamp, UTC
+                            ).isoformat(),
+                        }
+                    )
+                elif ent in hub_entities:
+                    self._apply_hub_entity(ent, val)
+
+            changes = event.get("c", {})
+            for ent, diff in changes.items():
+                compact = self._compact_by_entity.setdefault(ent, {})
+                diff_additions = diff.get("+", {})
+                if "lc" in diff_additions and "lu" not in diff_additions:
+                    compact.pop("lu", None)
+                for key, value in diff_additions.items():
                     if key == "a":
-                        self._compact.setdefault("a", {}).update(value)
+                        compact.setdefault("a", {}).update(value)
                     else:
-                        self._compact[key] = value
+                        compact[key] = value
                 for key in diff.get("-", {}).get("a", []):
-                    self._compact.get("a", {}).pop(key, None)
-            else:
-                return
-            timestamp = self._compact.get("lu", self._compact.get("lc", 0))
-            self.apply_state(
-                {
-                    "entity_id": self.entity,
-                    "state": self._compact.get("s"),
-                    "attributes": dict(self._compact.get("a", {})),
-                    "last_updated": datetime.fromtimestamp(timestamp, UTC).isoformat(),
-                }
-            )
+                    compact.get("a", {}).pop(key, None)
+
+                if ent == self.entity:
+                    self._compact = compact
+                    timestamp = compact.get("lu", compact.get("lc", 0))
+                    self.apply_state(
+                        {
+                            "entity_id": self.entity,
+                            "state": compact.get("s"),
+                            "attributes": dict(compact.get("a", {})),
+                            "last_updated": datetime.fromtimestamp(
+                                timestamp, UTC
+                            ).isoformat(),
+                        }
+                    )
+                elif ent in hub_entities:
+                    self._apply_hub_entity(ent, compact)
 
     def _session(self, socket: Connection) -> None:
         if json.loads(socket.recv(timeout=10)).get("type") != "auth_required":
@@ -178,12 +285,23 @@ class HomeAssistantSource:
         socket.send(json.dumps({"type": "auth", "access_token": self.token}))
         if json.loads(socket.recv(timeout=10)).get("type") != "auth_ok":
             raise PermissionError("HA authentication failed")
+        entity_ids = [
+            e
+            for e in [
+                self.entity,
+                self.power_entity,
+                self.mode_entity,
+                self.brightness_entity,
+                self.weather_entity,
+            ]
+            if e
+        ]
         socket.send(
             json.dumps(
                 {
                     "id": 1,
                     "type": "subscribe_entities",
-                    "entity_ids": [self.entity],
+                    "entity_ids": entity_ids,
                 }
             )
         )
@@ -194,11 +312,13 @@ class HomeAssistantSource:
             or not response.get("success")
         ):
             raise PermissionError("HA entity subscription failed")
+        self._compact_by_entity = {}
         self._compact = {}
         self.apply_state(None)
         with self._lock:
             self._connected = True
-        print(f"[HA] Subscribed to {self.entity}", flush=True)
+            self._hub_state = replace(self._hub_state, connected=True)
+        print(f"[HA] Subscribed to {', '.join(entity_ids)}", flush=True)
         last_ping = time.monotonic()
         pending_ping = None
         ping_id = 2
@@ -253,6 +373,7 @@ class HomeAssistantSource:
                 self._socket = None
                 with self._lock:
                     self._connected = False
+                    self._hub_state = replace(self._hub_state, connected=False)
             if time.monotonic() - connected_at > 30:
                 retry = 1.0
             if self._stop.wait(retry):
@@ -465,6 +586,17 @@ class HybridPlaybackSource:
             return self.ha_source.snapshot()
         return spotify_state
 
+    def hub_state(self) -> HAState:
+        return self.ha_source.hub_state()
+
+    @property
+    def on_hub_update(self) -> Callable[[HAState], None] | None:
+        return self.ha_source.on_hub_update
+
+    @on_hub_update.setter
+    def on_hub_update(self, cb: Callable[[HAState], None] | None) -> None:
+        self.ha_source.on_hub_update = cb
+
     def fetch_artwork(self, picture: str) -> Image.Image:
         return self.ha_source.fetch_artwork(picture)
 
@@ -495,7 +627,9 @@ class HybridPlaybackSource:
                 # If recently active (within active_window), poll at playing rate so resume is immediate
                 if now - self._last_active_at < self.active_window:
                     return self.poll_interval_playing
-                return min(self.poll_interval_idle, max(2.5, self.poll_interval_playing * 2.0))
+                return min(
+                    self.poll_interval_idle, max(2.5, self.poll_interval_playing * 2.0)
+                )
             else:
                 if now - self._last_active_at < 60.0:
                     return min(2.5, self.poll_interval_idle)

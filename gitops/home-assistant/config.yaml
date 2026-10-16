@@ -206,6 +206,34 @@ data:
               color_name: "{{ jarvis_general_color }}"
         speech:
           text: "Done."
+    input_boolean:
+      bedroom_matrix_power:
+        name: Bedroom Matrix Display
+        icon: mdi:led-strip-variant
+        initial: true
+
+    input_select:
+      bedroom_matrix_mode:
+        name: Bedroom Matrix Mode
+        icon: mdi:view-dashboard-outline
+        options:
+          - "Auto"
+          - "Spotify"
+          - "Clock & Weather"
+          - "Night Clock"
+          - "Off"
+        initial: "Auto"
+
+    input_number:
+      bedroom_matrix_brightness:
+        name: Bedroom Matrix Brightness
+        icon: mdi:brightness-6
+        min: 5
+        max: 100
+        step: 5
+        unit_of_measurement: "%"
+        initial: 70
+
     light:
       - platform: group
         name: Kitchen Lights

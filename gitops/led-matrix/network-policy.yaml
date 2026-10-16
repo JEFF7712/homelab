@@ -2,11 +2,11 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: renderer
-  namespace: spotify-matrix
+  namespace: led-matrix
 spec:
   endpointSelector:
     matchLabels:
-      app: spotify-matrix
+      app: led-matrix
   ingress: []
   egress:
     - toEndpoints:
