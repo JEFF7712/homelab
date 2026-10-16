@@ -425,10 +425,45 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         }
         delay = hybrid._poll_once()
 
-        self.assertEqual(delay, 2.25)  # paused delay
+        self.assertEqual(delay, 1.0)  # active paused delay matches playing rate for fast resume
         self.assertEqual(hybrid.active_provider, "spotify")
         self.assertEqual(hybrid.snapshot().title, "Recovered Spotify")
         self.assertFalse(hybrid.snapshot().playing)
+
+        # After active_window expires, paused polling backs off to conserve quota
+        hybrid._last_active_at = time.monotonic() - 200.0
+        backed_off_delay = hybrid._poll_once()
+        self.assertEqual(backed_off_delay, 2.5)
+
+    def test_hybrid_source_paused_and_idle_intervals(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        spotify_mock = Mock()
+
+        # Explicit paused interval override
+        hybrid = HybridPlaybackSource(
+            ha_mock,
+            spotify_mock,
+            poll_interval_playing=1.0,
+            poll_interval_paused=0.8,
+            poll_interval_idle=4.0,
+        )
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": False,
+            "item": {"name": "Track", "artists": [], "album": {"images": []}},
+        }
+        delay = hybrid._poll_once()
+        self.assertEqual(delay, 0.8)
+
+        # 204 idle response recently active vs long idle
+        spotify_mock.get_currently_playing.return_value = None
+        hybrid._last_active_at = time.monotonic() - 10.0
+        recent_idle_delay = hybrid._poll_once()
+        self.assertEqual(recent_idle_delay, 2.5)
+
+        hybrid._last_active_at = time.monotonic() - 100.0
+        long_idle_delay = hybrid._poll_once()
+        self.assertEqual(long_idle_delay, 4.0)
 
     def test_hybrid_source_falls_back_on_quota_and_network_error(self) -> None:
         ha_mock = Mock(spec=HomeAssistantSource)
