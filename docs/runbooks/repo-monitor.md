@@ -29,8 +29,8 @@ GitHub API, and the Woodpecker health endpoint, and it never mutates remote stat
   monitoring error.
 - CI verdicts are read from Forgejo commit statuses with a `ci/woodpecker/` context
   prefix, because Forgejo is the authoritative aggregator that Woodpecker reports into.
-  This keeps the monitor on the existing Forgejo read token instead of needing a
-  Woodpecker API token. The expected context per repository is
+  This keeps the monitor on the Forgejo token instead of needing a Woodpecker API token.
+  The expected context per repository is
   `ci/woodpecker/development-validation` for development projects,
   `ci/woodpecker/application-validation` for application projects, and
   `ci/woodpecker/validation-v2` for the `homelab` repository. The expected context must
@@ -86,12 +86,27 @@ Nix store.
 
 | Host | Path | Mode | Required content |
 | --- | --- | --- | --- |
-| `homelab-04` | `/persist/repo-monitor.env` | `0600`, root | `FORGEJO_READ_TOKEN` (Forgejo read token) and `GITHUB_TOKEN` (GitHub token with public-repo read scope) |
+| `homelab-04` | `/persist/repo-monitor.env` | `0600`, root | `FORGEJO_READ_TOKEN` (read-only token for the `repo-monitor` account) and `GITHUB_TOKEN` (GitHub token with public-repo read scope) |
 
-`FORGEJO_READ_TOKEN` is the same class of read-only Forgejo token the reconcilers and
-mirror automation use; the monitor only calls read endpoints with it. `GITHUB_TOKEN`
-raises the GitHub API rate limit and allows reads of private mirrors; a token with
-public-repo read scope is sufficient when every mirror is public.
+`FORGEJO_READ_TOKEN` must belong to a dedicated `repo-monitor` Forgejo account, not the
+clone token the reconcilers use. Forgejo's push-mirror endpoint
+(`GET /repos/{owner}/{repo}/push_mirrors`) requires repository-admin permission that a
+plain read collaborator does not have, so the monitor cannot verify push-mirror state with
+the clone token (it answers `403`). Grant `repo-monitor` repository-admin collaborator
+access on every push-mirrored repository, then mint its token with only the
+`read:repository` scope so the credential stays read-only even where the account is a
+repository admin. On `nas-01`:
+
+```sh
+forgejo -w /persist/forgejo admin user create --username repo-monitor \
+  --email repo-monitor@homelab.local --random-password --must-change-password=false
+forgejo -w /persist/forgejo admin user generate-access-token \
+  --username repo-monitor --token-name repo-monitor-read --scopes read:repository --raw
+```
+
+The token needs no Woodpecker scope: CI verdicts come from Forgejo commit statuses.
+`GITHUB_TOKEN` raises the GitHub API rate limit and allows reads of private mirrors; a
+token with public-repo read scope is sufficient when every mirror is public.
 
 Thresholds are set declaratively in `flake/hosts/homelab-04/default.nix` (see
 `homelab.repoMonitor`), not in the environment file. The service environment accepts:
@@ -181,6 +196,13 @@ follows the host deployment path; the scrape job, rules, and dashboard follow Fl
 - `state="error"` everywhere: the dependency is unreachable or the token is rejected.
   Fix the dependency or credential; there is no repository fault to chase. A single
   `state="error"` series means that one repository's check could not be verified.
+- `state="error"` on every push mirror while the append mirror is healthy: the token can
+  reach the API but cannot read push-mirror state (`403`). Confirm the `repo-monitor`
+  account is a repository-admin collaborator on the mirrored repositories. A plain read
+  collaborator cannot see `push_mirrors`.
+- `state="error"` on CI-only repositories while mirrors are healthy: the token cannot see
+  those repositories (`404`). Grant the `repo-monitor` account collaborator access to
+  every monitored repository, not just the mirrored ones.
 - A single `repo_mirror_divergent` or `RepoCiValidationMissing`: inspect that repository
   on Forgejo. For divergence, do not force-push; investigate the mirror history by hand.
 - `RepoMirrorPushFailed` or `state="fault"`: the Forgejo push-mirror job itself is
