@@ -119,12 +119,13 @@
       "is_fork": true,
       "is_archived": false,
       "default_branch": "develop",
-      "local_path": null,
+      "local_path": "/home/rupan/projects/bookshelf",
       "ci": {
         "kind": "dotnet-service-v1",
         "tier": "deploy"
       },
-      "woodpecker_repository_id": 20
+      "woodpecker_repository_id": 20,
+      "github_mirror": true
     },
     {
       "name": "bus-route-display",
@@ -429,7 +430,8 @@
         "kind": "nixos-config-v1",
         "tier": "sandbox"
       },
-      "woodpecker_repository_id": 21
+      "woodpecker_repository_id": 21,
+      "github_mirror": true
     },
     {
       "name": "obsidian-vault",
@@ -530,7 +532,8 @@
         "kind": "node-service-v1",
         "tier": "deploy"
       },
-      "woodpecker_repository_id": 8
+      "woodpecker_repository_id": 8,
+      "github_mirror": true
     },
     {
       "name": "resume-agent",
@@ -650,7 +653,8 @@
         "kind": "python-service-v1",
         "tier": "deploy"
       },
-      "woodpecker_repository_id": 18
+      "woodpecker_repository_id": 18,
+      "github_mirror": true
     },
     {
       "name": "sovereign",
