@@ -5,6 +5,12 @@
 # Upstream: intel/intel-gpu-plugin:0.37.1, adapted with kube-system namespace,
 # system-node-critical priority, and an explicit homelab-04 nodeSelector
 # (upstream selects all amd64 nodes; this cluster has no NFD labels).
+# A registration-watchdog sidecar restarts the plugin when its device-plugin
+# socket disappears. Kubelet deletes that socket on restart, and the plugin's
+# fsnotify re-registration is unreliable, which silently drops i915 from the
+# node and stops Quick Sync workloads (e.g. Jellyfin) from scheduling. The
+# sidecar shares the pod PID namespace and signals the plugin, which kubelet
+# then restarts and re-registers.
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -27,6 +33,7 @@ spec:
         app.kubernetes.io/name: intel-gpu-plugin
     spec:
       automountServiceAccountToken: false
+      shareProcessNamespace: true
       priorityClassName: system-node-critical
       tolerations:
         - key: CriticalAddonsOnly
@@ -71,6 +78,41 @@ spec:
               mountPath: /var/lib/kubelet/device-plugins
             - name: cdipath
               mountPath: /var/run/cdi
+        - name: registration-watchdog
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              sock=/var/lib/kubelet/device-plugins/gpu.intel.com-i915.sock
+              while [ ! -S "$sock" ]; do sleep 2; done
+              echo "armed; watching $sock"
+              while true; do
+                while [ -S "$sock" ]; do sleep 5; done
+                echo "registration socket removed; restarting intel-gpu-plugin"
+                pkill -TERM -f '^/usr/local/bin/intel_gpu_device_plugin$' || true
+                while [ ! -S "$sock" ]; do sleep 2; done
+                echo "re-armed; watching $sock"
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+              readOnly: true
       volumes:
         - name: devfs
           hostPath:
