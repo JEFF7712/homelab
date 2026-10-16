@@ -6,6 +6,11 @@
 }:
 let
   cfg = config.homelab.kiosk;
+  # First view is the boot URL; when more than one view is set the rotation
+  # service advances the single Chromium through the rest over DevTools.
+  bootUrl = if cfg.views == [ ] then cfg.url else (lib.head cfg.views).url;
+  rotate = builtins.length cfg.views > 1;
+  viewsFile = pkgs.writeText "kiosk-views.json" (builtins.toJSON cfg.views);
   kioskBrowser = pkgs.writeShellScript "kiosk-browser" ''
     ${lib.concatMapStringsSep "\n" (
       output: "${pkgs.wlr-randr}/bin/wlr-randr --output ${output} --off || true"
@@ -23,7 +28,7 @@ let
       --remote-debugging-port=9222 \
       --remote-allow-origins=* \
       --force-device-scale-factor=${cfg.scaleFactor} \
-      --app="${cfg.url}"
+      --app="${bootUrl}"
   '';
 in
 {
@@ -33,7 +38,36 @@ in
     url = lib.mkOption {
       type = lib.types.str;
       default = "http://10.0.40.12/d/efa86fd1d0c121a26444b636a3f509a8?kiosk";
-      description = "URL to display on the kiosk screen";
+      description = "URL to display on the kiosk screen. Ignored when 'views' is non-empty.";
+    };
+
+    views = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.submodule {
+          options = {
+            url = lib.mkOption {
+              type = lib.types.str;
+              description = "URL shown for this view.";
+            };
+            duration = lib.mkOption {
+              type = lib.types.ints.positive;
+              default = 60;
+              description = "Seconds to keep this view on screen before advancing.";
+            };
+            css = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "CSS injected after each navigation, for example to hide the site's own navigation chrome.";
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = ''
+        Ordered views to rotate through on the kiosk display. When two or more
+        are set, the kiosk opens the first and cycles the rest on a timer; when
+        empty, the single 'url' is shown with no rotation.
+      '';
     };
 
     drmDevice = lib.mkOption {
@@ -113,6 +147,25 @@ in
         Restart = "always";
         RestartSec = "3s";
       };
+    };
+
+    # Cycle the single Chromium through cfg.views over its DevTools port. Only
+    # meaningful with more than one view; a single view needs no driver.
+    systemd.services."kiosk-rotate" = lib.mkIf rotate {
+      description = "Rotate the kiosk display through its configured views";
+      after = [ "cage-tty1.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        User = cfg.user;
+        Restart = "always";
+        RestartSec = "10s";
+      };
+      path = [ pkgs.python3 ];
+      script = ''
+        exec ${pkgs.python3}/bin/python3 ${./kiosk-rotate.py} \
+          --cdp http://127.0.0.1:9222 \
+          --views-file ${viewsFile}
+      '';
     };
 
     systemd.services."kiosk-ha-token-seed" = lib.mkIf (cfg.haTokenFile != null) {
