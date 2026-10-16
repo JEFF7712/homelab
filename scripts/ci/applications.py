@@ -366,9 +366,16 @@ def configuration(
         "manual",
         "pull_request_closed",
         "pull_request_metadata",
+        "tag",
+        "release",
     }:
         raise ValueError("Unsupported application event")
-    lifecycle = event in {"pull_request_closed", "pull_request_metadata"}
+    lifecycle = event in {
+        "pull_request_closed",
+        "pull_request_metadata",
+        "tag",
+        "release",
+    }
     validator_files = {
         "static-site-v1": "static_site.py",
         "python-service-v1": "python_service.py",
