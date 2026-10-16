@@ -46,6 +46,7 @@ MIRROR_HEALTHY = "healthy"
 MIRROR_LAGGING = "lagging"
 MIRROR_DIVERGENT = "divergent"
 MIRROR_MISMATCH = "mismatch"
+MIRROR_FAULT = "fault"
 MIRROR_ERROR = "error"
 
 # CI states.
@@ -162,6 +163,7 @@ class MirrorResult:
     divergent: bool
     last_verified: float
     detail: str = ""
+    push_error: str | None = None
 
 
 @dataclass
@@ -418,7 +420,6 @@ def classify_mirror_state(
     *,
     compare_status: str | None,
     mismatched_refs: int,
-    mirror_error: str | None,
     lag_seconds: float,
     grace_seconds: float,
 ) -> str:
@@ -426,11 +427,10 @@ def classify_mirror_state(
         return MIRROR_DIVERGENT
     if mismatched_refs > 0:
         return MIRROR_MISMATCH
-    if mirror_error:
-        return MIRROR_ERROR
     if compare_status == "identical":
         return MIRROR_HEALTHY
-    # Forgejo is ahead of GitHub: expected asynchronous lag.
+    # Forgejo is ahead of GitHub (compare "ahead") or the head is not on GitHub
+    # yet (compare 404): expected asynchronous lag, bounded by the grace period.
     if lag_seconds > grace_seconds:
         return MIRROR_LAGGING
     return MIRROR_HEALTHY
@@ -452,6 +452,7 @@ def check_mirror(
         mismatched: int = 0,
         verified: bool = True,
         detail: str = "",
+        push_error: str | None = None,
     ) -> MirrorResult:
         return MirrorResult(
             repository=repository,
@@ -463,6 +464,7 @@ def check_mirror(
             divergent=state == MIRROR_DIVERGENT,
             last_verified=now if verified else 0.0,
             detail=detail,
+            push_error=push_error,
         )
 
     try:
@@ -489,36 +491,63 @@ def check_mirror(
         compare_status = "identical"
     else:
         try:
+            # compare(base=github_sha, head=forgejo_sha): "ahead" means the
+            # Forgejo head is ahead of GitHub (GitHub is behind), "behind" means
+            # GitHub carries commits Forgejo does not.
             compare_status = github_compare(
                 client, github_repository, github_sha, forgejo_sha
             )
         except FetchError as error:
-            return result(
-                MIRROR_ERROR, verified=False, detail=f"github compare: {error.kind}"
-            )
+            if error.kind == "not_found":
+                # GitHub does not contain the Forgejo head commit at all: the
+                # mirror has not received it yet. That is lag, not a broken
+                # check, so fall through to lag classification.
+                compare_status = None
+            else:
+                return result(
+                    MIRROR_ERROR, verified=False, detail=f"github compare: {error.kind}"
+                )
 
     if mode == "append":
-        # GitHub-only commits are expected; healthy iff Forgejo is contained.
-        if compare_status in ("identical", "ahead"):
+        # The CI-driven mirror appends GitHub-only commits, so the Forgejo head
+        # is expected to be an ancestor of the GitHub head. GitHub compare
+        # reports that ancestor relationship as the Forgejo head being "behind"
+        # the GitHub head.
+        if compare_status == "diverged":
+            return result(MIRROR_DIVERGENT, lag=lag, detail="compare diverged")
+        if compare_status in ("identical", "behind"):
             return result(MIRROR_HEALTHY, lag=lag)
-        return result(MIRROR_DIVERGENT, lag=lag, detail=f"compare {compare_status}")
+        # "ahead" or missing head: GitHub has not received the Forgejo head yet.
+        if lag > settings.mirror_grace_seconds:
+            return result(
+                MIRROR_LAGGING, lag=lag, detail="github has not received the head"
+            )
+        return result(MIRROR_HEALTHY, lag=lag)
 
     forgejo_tags = _tags(client, repository, github=False)
     github_tags = _tags(client, github_repository, github=True)
     mismatched = sum(
         1 for name, sha in forgejo_tags.items() if github_tags.get(name) != sha
     )
-    mirror_error = _push_mirror_error(
+    push_error = _push_mirror_error(
         client, repository, f"github.com/{github_repository}"
     )
+    if push_error:
+        # Verified fault: Forgejo itself reports the push mirror is failing.
+        return result(
+            MIRROR_FAULT,
+            lag=lag,
+            mismatched=mismatched,
+            detail=push_error,
+            push_error=push_error,
+        )
     state = classify_mirror_state(
         compare_status=compare_status,
         mismatched_refs=mismatched,
-        mirror_error=mirror_error,
         lag_seconds=lag,
         grace_seconds=settings.mirror_grace_seconds,
     )
-    return result(state, lag=lag, mismatched=mismatched, detail=mirror_error or "")
+    return result(state, lag=lag, mismatched=mismatched)
 
 
 def expected_context(project: Project, applications: frozenset[str]) -> str:
@@ -582,9 +611,9 @@ def check_ci(
         and str(item.get("context", "")).startswith(WOODPECKER_CONTEXT_PREFIX)
     ]
     if context != WOODPECKER_CONTEXT_PREFIX:
-        exact = [item for item in relevant if item.get("context") == context]
-        if exact:
-            relevant = exact
+        # A specific context is expected; an unrelated Woodpecker workflow (for
+        # example a release pipeline) must not stand in for it.
+        relevant = [item for item in relevant if item.get("context") == context]
     relevant.sort(key=lambda item: str(item.get("created_at") or ""))
 
     head_age = max(0.0, now - pushed) if pushed else 0.0
@@ -700,7 +729,7 @@ class Collector:
             ),
             probe_service(
                 "woodpecker",
-                f"{base.woodpecker_base_url.rstrip('/')}/api/healthz",
+                f"{base.woodpecker_base_url.rstrip('/')}/healthz",
                 timeout=base.request_timeout_seconds,
             ),
             self._github_probe(),
@@ -805,16 +834,31 @@ class Collector:
 
         snapshot.mirrors.sort(key=lambda item: item.repository)
         snapshot.ci.sort(key=lambda item: item.repository)
+        # Unverifiable repository checks (permission failures, compare errors,
+        # unreachable API during a per-repository call) are monitoring failures
+        # just like a service probe failure: they must stop the collection from
+        # counting as successful so they cannot hide behind healthy services.
+        mirror_errors = sum(
+            1 for item in snapshot.mirrors if item.state == MIRROR_ERROR
+        )
+        ci_errors = sum(1 for item in snapshot.ci if item.state == CI_ERROR)
+        if mirror_errors:
+            self.errors["mirror"] = self.errors.get("mirror", 0) + mirror_errors
+        if ci_errors:
+            self.errors["ci"] = self.errors.get("ci", 0) + ci_errors
         snapshot.errors = dict(self.errors)
         snapshot.github_rate_remaining = self.github_rate_remaining
         snapshot.github_rate_exhausted = any(
             service.detail == "rate_limit" for service in snapshot.services
         )
         snapshot.finished_at = time.time()
-        # Collection succeeds when every dependency answered and credentials
-        # were accepted; GitHub rate limiting degrades detail, not success.
-        snapshot.success = all(
-            service.up and service.credential_ok for service in snapshot.services
+        # Collection succeeds when every dependency answered, every credential
+        # was accepted, and every repository check was verifiable. GitHub rate
+        # limiting degrades detail, not success.
+        snapshot.success = (
+            all(service.up and service.credential_ok for service in snapshot.services)
+            and mirror_errors == 0
+            and ci_errors == 0
         )
         return snapshot
 
@@ -945,6 +989,18 @@ def render(snapshot: Snapshot, previous_success: float, last_duration: float) ->
             "repo_mirror_divergent",
             1 if mirror.divergent else 0,
             {"repository": mirror.repository},
+        )
+
+    meta(
+        "repo_mirror_push_error",
+        "gauge",
+        "1 when Forgejo reports the push mirror itself is failing.",
+    )
+    for mirror in snapshot.mirrors:
+        emit(
+            "repo_mirror_push_error",
+            1 if (mirror.push_error or mirror.state == MIRROR_FAULT) else 0,
+            {"repository": mirror.repository, "mode": mirror.mode},
         )
 
     meta(

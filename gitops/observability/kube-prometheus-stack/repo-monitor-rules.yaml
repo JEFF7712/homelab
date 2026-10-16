@@ -20,8 +20,11 @@ spec:
             summary: "Repository monitor has stopped collecting successfully"
             description: >-
               repo-monitor on {{ $labels.host }} has not completed a successful
-              collection cycle in over 30 minutes. Check the service, its
-              credentials, and Prometheus scraping of {{ $labels.instance }}.
+              collection cycle in over 30 minutes. A cycle fails when a service
+              or credential is unavailable or when an individual repository
+              check cannot be verified. Check the service, its credentials,
+              per-repository errors, and Prometheus scraping of
+              {{ $labels.instance }}.
 
         - alert: RepoMonitorForgejoDown
           expr: repo_service_up{service="forgejo"} == 0
@@ -90,6 +93,18 @@ spec:
               The GitHub mirror of {{ $labels.repository }} has a history that
               is not a clean mirror of Forgejo. Inspect the Forgejo push mirror
               status and do not force-push; investigate manually.
+
+        - alert: RepoMirrorPushFailed
+          expr: repo_mirror_push_error == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Forgejo push mirror failing for {{ $labels.repository }}"
+            description: >-
+              Forgejo reports the {{ $labels.mode }} push mirror of
+              {{ $labels.repository }} in a failed state. Inspect the mirror job
+              on Forgejo and the remote (GitHub) credentials.
 
         - alert: RepoMirrorLagging
           expr: repo_mirror_state{state="lagging"} == 1

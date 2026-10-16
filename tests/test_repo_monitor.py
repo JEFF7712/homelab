@@ -149,7 +149,7 @@ def statuses(repo: str, sha: str, items: list):
 
 def service_routes(net, *, forgejo=200, woodpecker=200, remaining=4999):
     net.add(lambda u: u.endswith("/api/v1/version"), text(forgejo, '{"version":"1.0"}'))
-    net.add(lambda u: u.endswith("/api/healthz"), text(woodpecker, "OK"))
+    net.add(lambda u: u.endswith("/healthz"), text(woodpecker, "OK"))
     net.add(
         lambda u: u.endswith("/rate_limit"),
         ok({"resources": {"core": {"remaining": remaining}}}),
@@ -158,6 +158,11 @@ def service_routes(net, *, forgejo=200, woodpecker=200, remaining=4999):
     net.add_fallback(lambda u: "/tags" in u, ok([]))
     net.add_fallback(lambda u: "/statuses" in u, ok([]))
     return net
+
+
+def healthy_project_routes(net, repo, now, *, sha="sha-ok", pushed_offset=60):
+    net.add(*forgejo_branch(repo, sha, now - pushed_offset))
+    net.add(*github_branch(repo, sha))
 
 
 def project(
@@ -335,13 +340,54 @@ class MirrorTests(PatchedNetwork):
             "push",
             self.now,
         )
-        self.assertEqual(result.state, rm.MIRROR_ERROR)
-        self.assertEqual(result.detail, "remote rejected")
+        self.assertEqual(result.state, rm.MIRROR_FAULT)
+        self.assertEqual(result.push_error, "remote rejected")
+        self.assertFalse(result.divergent)
 
-    def test_append_mode_ancestor_is_healthy(self):
+    def test_missing_github_commit_is_lag_not_error(self):
+        settings = Settings(retries=0, mirror_grace_seconds=120)
+        self.net.add(*forgejo_branch("JEFF7712/alpha", "aaa", self.now - 7200))
+        self.net.add(*github_branch("JEFF7712/alpha", "bbb"))
+        self.net.add(
+            lambda u: is_github(u) and "/repos/JEFF7712/alpha/compare/" in u,
+            text(404, "{}"),
+        )
+        result = rm.check_mirror(
+            rm.Client(settings),
+            settings,
+            "JEFF7712/alpha",
+            "JEFF7712/alpha",
+            "main",
+            "push",
+            self.now,
+        )
+        self.assertEqual(result.state, rm.MIRROR_LAGGING)
+        self.assertTrue(result.last_verified > 0)
+
+    def test_missing_github_commit_within_grace_is_healthy(self):
+        self.net.add(*forgejo_branch("JEFF7712/alpha", "aaa", self.now - 60))
+        self.net.add(*github_branch("JEFF7712/alpha", "bbb"))
+        self.net.add(
+            lambda u: is_github(u) and "/repos/JEFF7712/alpha/compare/" in u,
+            text(404, "{}"),
+        )
+        result = rm.check_mirror(
+            rm.Client(self.settings),
+            self.settings,
+            "JEFF7712/alpha",
+            "JEFF7712/alpha",
+            "main",
+            "push",
+            self.now,
+        )
+        self.assertEqual(result.state, rm.MIRROR_HEALTHY)
+
+    def test_append_mode_github_descendant_is_healthy(self):
+        # GitHub carries Forgejo's head plus GitHub-only commits: compare reports
+        # the Forgejo head as "behind" the GitHub head.
         self.net.add(*forgejo_branch("JEFF7712/homelab", "aaa", self.now - 30))
         self.net.add(*github_branch("JEFF7712/homelab", "bbb"))
-        self.net.add(*github_compare("JEFF7712/homelab", "ahead"))
+        self.net.add(*github_compare("JEFF7712/homelab", "behind"))
         result = rm.check_mirror(
             rm.Client(self.settings),
             self.settings,
@@ -352,6 +398,23 @@ class MirrorTests(PatchedNetwork):
             self.now,
         )
         self.assertEqual(result.state, rm.MIRROR_HEALTHY)
+
+    def test_append_mode_github_behind_is_lagging(self):
+        settings = Settings(retries=0, mirror_grace_seconds=120)
+        self.net.add(*forgejo_branch("JEFF7712/homelab", "aaa", self.now - 7200))
+        self.net.add(*github_branch("JEFF7712/homelab", "bbb"))
+        self.net.add(*github_compare("JEFF7712/homelab", "ahead"))
+        result = rm.check_mirror(
+            rm.Client(settings),
+            settings,
+            "JEFF7712/homelab",
+            "JEFF7712/homelab",
+            "main",
+            "append",
+            self.now,
+        )
+        self.assertEqual(result.state, rm.MIRROR_LAGGING)
+        self.assertNotEqual(result.state, rm.MIRROR_DIVERGENT)
 
     def test_append_mode_identical_is_healthy(self):
         self.net.add(*forgejo_branch("JEFF7712/homelab", "aaa", self.now - 30))
@@ -486,6 +549,51 @@ class CiTests(PatchedNetwork):
         )
         self.assertEqual(result.state, rm.CI_ERROR)
 
+    def test_unrelated_context_does_not_hide_missing_validation(self):
+        self.net.add(*forgejo_branch("JEFF7712/alpha", "sha1", self.now - 3600))
+        self.net.add(
+            *statuses(
+                "JEFF7712/alpha",
+                "sha1",
+                [
+                    {
+                        "context": "ci/woodpecker/release-validation",
+                        "status": "success",
+                        "created_at": iso(self.now - 600),
+                    }
+                ],
+            )
+        )
+        result = rm.check_ci(
+            rm.Client(self.settings), self.settings, project(), frozenset(), self.now
+        )
+        self.assertEqual(result.state, rm.CI_MISSING)
+        self.assertTrue(result.missing_validation)
+
+    def test_unknown_project_type_accepts_any_woodpecker_context(self):
+        self.net.add(*forgejo_branch("JEFF7712/other", "sha1", self.now - 3600))
+        self.net.add(
+            *statuses(
+                "JEFF7712/other",
+                "sha1",
+                [
+                    {
+                        "context": "ci/woodpecker/anything",
+                        "status": "success",
+                        "created_at": iso(self.now - 600),
+                    }
+                ],
+            )
+        )
+        result = rm.check_ci(
+            rm.Client(self.settings),
+            self.settings,
+            project(name="other", forgejo_repo="JEFF7712/other", project_type=None),
+            frozenset(),
+            self.now,
+        )
+        self.assertEqual(result.state, rm.CI_SUCCESS)
+
     def test_contexts(self):
         self.assertEqual(
             rm.expected_context(project(name="homelab"), frozenset()),
@@ -558,6 +666,16 @@ class ClientTests(PatchedNetwork):
 
 
 class ServiceTests(PatchedNetwork):
+    def setUp(self):
+        super().setUp()
+        healthy_project_routes(self.net, "JEFF7712/alpha", self.now)
+
+    def test_woodpecker_probe_uses_health_endpoint(self):
+        collector = rm.Collector(self.settings, (), frozenset())
+        collector.run()
+        self.assertIn("http://ci.internal:8000/healthz", self.net.calls)
+        self.assertNotIn("http://ci.internal:8000/api/healthz", self.net.calls)
+
     def test_forgejo_down_fails_collection(self):
         self.net.override(lambda u: u.endswith("/api/v1/version"), text(500, "boom"))
         collector = rm.Collector(self.settings, (project(),), frozenset())
@@ -607,6 +725,40 @@ class ServiceTests(PatchedNetwork):
         self.assertTrue(github.up)
         self.assertEqual(github.detail, "rate_limit")
         self.assertTrue(snapshot.success)
+
+    def test_repo_check_failure_fails_collection(self):
+        self.net.override(
+            lambda u: is_forgejo(u) and "/repos/JEFF7712/alpha/branches/" in u,
+            text(403, "forbidden"),
+        )
+        collector = rm.Collector(self.settings, (project(),), frozenset())
+        snapshot = collector.run()
+        self.assertEqual(snapshot.mirrors[0].state, rm.MIRROR_ERROR)
+        self.assertFalse(snapshot.success)
+        self.assertEqual(snapshot.errors.get("mirror"), 1)
+
+    def test_verified_push_error_alerts_without_failing_collection(self):
+        self.net.add(
+            *push_mirrors(
+                "JEFF7712/alpha",
+                remote="https://github.com/JEFF7712/alpha.git",
+                error="remote rejected",
+            )
+        )
+        collector = rm.Collector(self.settings, (project(),), frozenset())
+        snapshot = collector.run()
+        self.assertEqual(snapshot.mirrors[0].state, rm.MIRROR_FAULT)
+        self.assertTrue(snapshot.success)
+        samples = parse_metrics(rm.render(snapshot, 0.0, 0.0))
+        self.assertEqual(
+            samples[
+                (
+                    "repo_mirror_push_error",
+                    (("repository", "JEFF7712/alpha"), ("mode", "push")),
+                )
+            ],
+            1.0,
+        )
 
     def test_collector_selects_expected_targets(self):
         projects = (
@@ -835,20 +987,23 @@ class EndToEndTests(PatchedNetwork):
                 return ok({"commit": {"sha": f"sha-{repo}"}})
             if is_github(url) and "/compare/" in url:
                 return ok({"status": "identical"})
-            if url.endswith("/api/healthz"):
+            if url.endswith("/healthz"):
                 return text(200, "OK")
             if url.endswith("/rate_limit"):
                 return ok({"resources": {"core": {"remaining": 4999}}})
-            if is_forgejo(url) and "/branches/" in url:
-                return text(200, "{}")
             if "/statuses" in url:
                 return ok(
                     [
                         {
-                            "context": rm.HOMELAB_CONTEXT,
+                            "context": context,
                             "status": "success",
                             "created_at": iso(now - 60),
                         }
+                        for context in (
+                            rm.DEVELOPMENT_CONTEXT,
+                            rm.APPLICATION_CONTEXT,
+                            rm.HOMELAB_CONTEXT,
+                        )
                     ]
                 )
             if "/push_mirrors" in url:
