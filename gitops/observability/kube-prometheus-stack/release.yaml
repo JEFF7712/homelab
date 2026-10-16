@@ -93,6 +93,13 @@ spec:
                   - 10.0.30.14:9101
                 labels:
                   host: homelab-04
+          - job_name: repo-monitor
+            scrape_interval: 5m
+            static_configs:
+              - targets:
+                  - 10.0.30.14:9110
+                labels:
+                  host: homelab-04
           - job_name: nvidia-gpu
             static_configs:
               - targets:

@@ -1,0 +1,141 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: repo-monitor
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: repo-monitor.rules
+      rules:
+        - alert: RepoMonitorStalled
+          expr: >-
+            repo_monitor_last_success_timestamp_seconds > 0
+            and time() - repo_monitor_last_success_timestamp_seconds > 1800
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Repository monitor has stopped collecting successfully"
+            description: >-
+              repo-monitor on {{ $labels.host }} has not completed a successful
+              collection cycle in over 30 minutes. Check the service, its
+              credentials, and Prometheus scraping of {{ $labels.instance }}.
+
+        - alert: RepoMonitorForgejoDown
+          expr: repo_service_up{service="forgejo"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Forgejo API is unreachable"
+            description: >-
+              repo-monitor could not reach the Forgejo API. Mirror and CI checks
+              are unknown, not unhealthy. Verify Forgejo on nas-01.
+
+        - alert: RepoMonitorWoodpeckerDown
+          expr: repo_service_up{service="woodpecker"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Woodpecker API is unreachable"
+            description: >-
+              repo-monitor could not reach the Woodpecker health endpoint.
+              Verify the Woodpecker server on homelab-04.
+
+        - alert: RepoMonitorGithubUnreachable
+          expr: repo_service_up{service="github"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GitHub API is unreachable from the repository monitor"
+            description: >-
+              repo-monitor could not reach api.github.com. Mirror checks against
+              GitHub are degraded. Verify egress and GitHub status.
+
+        - alert: RepoMonitorCredentialInvalid
+          expr: repo_service_credential_ok == 0
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Repository monitor credential rejected for {{ $labels.service }}"
+            description: >-
+              The configured read token for {{ $labels.service }} was rejected.
+              This is a monitoring error, not a repository fault. Rotate or
+              correct the credential in /persist/repo-monitor.env.
+
+        - alert: RepoMonitorGithubRateLimited
+          expr: repo_monitor_github_rate_limited == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Repository monitor is GitHub rate limited"
+            description: >-
+              The GitHub API rate limit is exhausted, so mirror results are
+              incomplete. This is a monitoring error, not a mirror fault.
+
+        - alert: RepoMirrorDiverged
+          expr: repo_mirror_divergent == 1
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "GitHub mirror diverged for {{ $labels.repository }}"
+            description: >-
+              The GitHub mirror of {{ $labels.repository }} has a history that
+              is not a clean mirror of Forgejo. Inspect the Forgejo push mirror
+              status and do not force-push; investigate manually.
+
+        - alert: RepoMirrorLagging
+          expr: repo_mirror_state{state="lagging"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GitHub mirror is behind for {{ $labels.repository }}"
+            description: >-
+              The GitHub mirror of {{ $labels.repository }} has remained behind
+              the Forgejo head beyond the allowed grace period. Check the Forgejo
+              push-mirror job and its last error.
+
+        - alert: RepoMirrorRefsMismatched
+          expr: repo_mirror_mismatched_refs > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GitHub mirror refs differ for {{ $labels.repository }}"
+            description: >-
+              {{ $labels.repository }} has branch or tag refs on Forgejo that
+              are missing or different on GitHub. Confirm the mirror is still
+              configured for the expected refs.
+
+        - alert: RepoCiValidationMissing
+          expr: repo_ci_missing_validation == 1
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No CI validation for a recent push to {{ $labels.repository }}"
+            description: >-
+              A recent push to {{ $labels.repository }} has no Woodpecker
+              validation status past the grace period. This usually means the
+              Forgejo-to-Woodpecker webhook did not deliver or the repository is
+              not enrolled.
+
+        - alert: RepoCiPipelineStuck
+          expr: repo_ci_stuck == 1
+          for: 20m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CI pipeline stuck for {{ $labels.repository }}"
+            description: >-
+              A Woodpecker validation for {{ $labels.repository }} has been
+              pending or running past the stuck threshold. Inspect the
+              Woodpecker queue and agent capacity on homelab-04.

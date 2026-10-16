@@ -12,6 +12,7 @@
     ../../modules/woodpecker.nix
     ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
+    ../../modules/repo-monitor.nix
   ];
 
   networking.hostName = "homelab-04";
@@ -25,6 +26,19 @@
 
   homelab.woodpecker.enable = true;
   homelab.platformBackup.enable = true;
+
+  # CI-driven mirror: the homelab GitHub branch carries GitHub-only commits,
+  # so only ancestry of the Forgejo head is verified, not SHA equality.
+  homelab.repoMonitor = {
+    enable = true;
+    specialMirrors = [
+      {
+        repository = "JEFF7712/homelab";
+        githubRepository = "JEFF7712/homelab";
+        defaultBranch = "main";
+      }
+    ];
+  };
 
   homelab.monero.enable = true;
 
