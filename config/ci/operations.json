@@ -1157,7 +1157,10 @@
       "tofu -chdir=tofu/opnsense init -reconfigure",
       "tofu -chdir=tofu/opnsense show -json desired.tfplan > /tmp/desired.json && python -m opnsense_reconciler.check_plan --plan /tmp/desired.json --expect-uri \"$OPNSENSE_URI\"",
       "test \"$(python -c 'import json;print(json.load(open(\"artifacts/opnsense/inventory.json\"))[\"assignment_api_available\"])')\" = True",
+      "python -m opnsense_reconciler.agent_acl plan --output artifacts/opnsense/agent-acl-plan.json",
       "tofu -chdir=tofu/opnsense apply desired.tfplan",
+      "python -m opnsense_reconciler.agent_acl apply --plan artifacts/opnsense/agent-acl-plan.json --output artifacts/opnsense/agent-acl-apply.json",
+      "python -m opnsense_reconciler.agent_acl check --output artifacts/opnsense/agent-acl-check.json",
       "python -m opnsense_reconciler.reconcile --assignments opnsense_reconciler/assignments.json --inventory artifacts/opnsense/inventory.json --kea-interfaces opnsense_reconciler/kea-interfaces.json --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json --bgp-neighbors opnsense_reconciler/bgp-neighbors.json --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json --unbound-acls opnsense_reconciler/unbound-acls.json --unbound-host-overrides opnsense_reconciler/unbound-host-overrides.json",
       "python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
     ],
@@ -1191,17 +1194,25 @@
       "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
+      },
+      "OPNSENSE_ACL_SSH_KEY": {
+        "from_secret": "opnsense_acl_ssh_key"
       }
     },
     "file_secrets": [
       "OPNSENSE_CA_FILE",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "OPNSENSE_ACL_SSH_KEY"
     ],
     "group": "opnsense-control-plane",
     "needs": [
       "opnsense-plan"
     ],
-    "outputs": [],
+    "outputs": [
+      "artifacts/opnsense/agent-acl-plan.json",
+      "artifacts/opnsense/agent-acl-apply.json",
+      "artifacts/opnsense/agent-acl-check.json"
+    ],
     "legacy_job": "opnsense_apply",
     "automatic": false,
     "mutation": true,

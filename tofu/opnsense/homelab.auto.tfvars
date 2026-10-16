@@ -518,6 +518,22 @@ firewall_filters = {
       destination = { net = "10.0.10.1", port = "443" }
     }
   }
+  infrastructure-allow-opnsense-acl-ssh = {
+    description = "Allow the CI deployment host to reconcile the OPNsense agent ACL"
+    enabled     = true
+    sequence    = 306
+    interface   = { interface = ["opt3"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = true
+      source      = { net = "10.0.30.14/32", port = "" }
+      destination = { net = "192.168.1.1/32", port = "22" }
+    }
+  }
   infrastructure-allow-load-balancers = {
     description = "Allow infrastructure to Kubernetes service VIPs"
     enabled     = true

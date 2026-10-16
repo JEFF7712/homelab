@@ -1,3 +1,4 @@
+import json
 import subprocess
 import tempfile
 import unittest
@@ -17,7 +18,7 @@ class AgentStatusTest(unittest.TestCase):
         self.assertEqual(targets["opnsense_ca_variable"], "OPNSENSE_CA_FILE")
         self.assertEqual(
             targets["opnsense_credential_variables"],
-            ["OPNSENSE_API_KEY", "OPNSENSE_API_SECRET"],
+            ["OPNSENSE_READONLY_API_KEY", "OPNSENSE_READONLY_API_SECRET"],
         )
 
     def test_unknown_probe_is_nonhealthy_and_bounded(self) -> None:
@@ -52,6 +53,72 @@ class AgentStatusTest(unittest.TestCase):
             content = path.read_text()
         self.assertNotIn("secret", content)
         self.assertIn("[REDACTED]", content)
+
+    def test_network_includes_worker_result_within_remaining_budget(self) -> None:
+        calls = []
+
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            calls.append((argv, kwargs["timeout"]))
+            output = (
+                json.dumps({"status": "pass", "detail": "BGP diagnostics passed"})
+                if "scripts.agent.opnsense_status" in argv
+                else "ping passed"
+            )
+            return subprocess.CompletedProcess(argv, 0, output, "")
+
+        payload = status_payload(ROOT, "network", runner=runner)
+        self.assertEqual(payload["status"], "pass")
+        self.assertEqual(payload["probes"][-1]["name"], "bgp")
+        self.assertEqual(payload["probes"][-1]["detail"], "BGP diagnostics passed")
+        self.assertIn("scripts.agent.opnsense_status", calls[-1][0])
+        self.assertGreater(calls[-1][1], 0)
+        self.assertLessEqual(calls[-1][1], 30)
+
+    def test_unavailable_credentials_prevent_network_success(self) -> None:
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if "scripts.agent.opnsense_status" in argv:
+                return subprocess.CompletedProcess(
+                    argv,
+                    1,
+                    json.dumps(
+                        {"status": "unavailable", "detail": "credentials unavailable"}
+                    ),
+                    "",
+                )
+            return subprocess.CompletedProcess(argv, 0, "ok", "")
+
+        payload = status_payload(ROOT, "network", runner=runner)
+        self.assertEqual(payload["status"], "incomplete")
+        self.assertEqual(payload["probes"][-1]["status"], "unavailable")
+
+    def test_network_does_not_start_worker_after_total_timeout(self) -> None:
+        calls = []
+        payload = status_payload(
+            ROOT,
+            "network",
+            total_timeout=0,
+            runner=lambda *args, **kwargs: calls.append(args),
+        )
+        self.assertEqual(calls, [])
+        self.assertEqual(payload["status"], "incomplete")
+        self.assertEqual(payload["probes"][-1]["detail"], "total timeout")
+
+    def test_worker_timeout_prevents_network_success(self) -> None:
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if "scripts.agent.opnsense_status" in argv:
+                raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+            return subprocess.CompletedProcess(argv, 0, "ok", "")
+
+        payload = status_payload(ROOT, "network", runner=runner)
+        self.assertEqual(payload["status"], "incomplete")
+        self.assertEqual(payload["probes"][-1]["status"], "failed")
+        self.assertEqual(payload["probes"][-1]["detail"], "timeout")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,9 @@
 
 Run after an FRR configuration apply and before migrating application traffic.
 
+For a dedicated agent API identity restricted to BGP diagnostic reads, use
+the [read-only agent access runbook](opnsense-agent-access.md).
+
 1. Confirm FRR service status is running.
 2. Confirm every Cilium peer is established with the expected ASN.
 3. Confirm the canary Cilium LoadBalancer `/32` is present in the IPv4 BGP RIB.
