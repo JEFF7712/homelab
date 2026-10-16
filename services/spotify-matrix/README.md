@@ -5,8 +5,8 @@ Streams the current Spotify album art rendered as a rotating vinyl disc to a Ras
 ## Home Assistant source (preferred)
 
 `ha_matrix_streamer.py` follows the existing `media_player.spotify_rupan` entity
-through Home Assistant's WebSocket API. It reads that entity's cached state once
-per connection, subscribes to its state changes, and downloads artwork in a
+through Home Assistant's WebSocket API. It receives that entity's cached state and subsequent compact changes through
+`subscribe_entities`, using a dedicated read-only account, and downloads artwork in a
 background worker with an eight-image cache. Rendering and acknowledged TCP
 delivery run independently at 20 FPS.
 

@@ -8,7 +8,7 @@ import time
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -62,6 +62,7 @@ class HomeAssistantSource:
         self.entity = entity
         self.stale_after = stale_after
         self._state = PlaybackState()
+        self._compact: dict[str, Any] = {}
         self._connected = False
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -120,9 +121,36 @@ class HomeAssistantSource:
 
     def handle_event(self, message: dict[str, Any]) -> None:
         if message.get("type") == "event" and message.get("id") == 1:
-            trigger = message.get("event", {}).get("variables", {}).get("trigger", {})
-            if trigger.get("entity_id") == self.entity:
-                self.apply_state(trigger.get("to_state"))
+            event = message.get("event", {})
+            if self.entity in event.get("r", []):
+                self._compact = {}
+                self.apply_state(None)
+                return
+            if self.entity in event.get("a", {}):
+                self._compact = event["a"][self.entity]
+            elif self.entity in event.get("c", {}):
+                diff = event["c"][self.entity]
+                additions = diff.get("+", {})
+                if "lc" in additions and "lu" not in additions:
+                    self._compact.pop("lu", None)
+                for key, value in additions.items():
+                    if key == "a":
+                        self._compact.setdefault("a", {}).update(value)
+                    else:
+                        self._compact[key] = value
+                for key in diff.get("-", {}).get("a", []):
+                    self._compact.get("a", {}).pop(key, None)
+            else:
+                return
+            timestamp = self._compact.get("lu", self._compact.get("lc", 0))
+            self.apply_state(
+                {
+                    "entity_id": self.entity,
+                    "state": self._compact.get("s"),
+                    "attributes": dict(self._compact.get("a", {})),
+                    "last_updated": datetime.fromtimestamp(timestamp, UTC).isoformat(),
+                }
+            )
 
     def _session(self, socket: Connection) -> None:
         if json.loads(socket.recv(timeout=10)).get("type") != "auth_required":
@@ -134,8 +162,8 @@ class HomeAssistantSource:
             json.dumps(
                 {
                     "id": 1,
-                    "type": "subscribe_trigger",
-                    "trigger": {"platform": "state", "entity_id": self.entity},
+                    "type": "subscribe_entities",
+                    "entity_ids": [self.entity],
                 }
             )
         )
@@ -146,20 +174,8 @@ class HomeAssistantSource:
             or not response.get("success")
         ):
             raise PermissionError("HA entity subscription failed")
-        response_http = requests.get(
-            f"{self.base_url}/api/states/{self.entity}",
-            headers={"Authorization": f"Bearer {self.token}"},
-            timeout=10,
-            allow_redirects=False,
-        )
-        if response_http.status_code == 404:
-            self.apply_state(None)
-        elif response_http.status_code == 200:
-            self.apply_state(response_http.json())
-        else:
-            raise ConnectionError(
-                f"HA cached state returned HTTP {response_http.status_code}"
-            )
+        self._compact = {}
+        self.apply_state(None)
         with self._lock:
             self._connected = True
         print(f"[HA] Subscribed to {self.entity}", flush=True)

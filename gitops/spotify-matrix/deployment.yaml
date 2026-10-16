@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb
+            registry.rupan.dev/apps/spotify-matrix@sha256:43372a340ac7bdc271d44b4892736e427df43a090d7469ed483e653d09461a72
           args:
             - --ha-url
             - http://home-assistant.home-assistant.svc.cluster.local:8123

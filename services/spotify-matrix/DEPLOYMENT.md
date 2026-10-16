@@ -26,19 +26,18 @@ ordinary HA pod. This permits port 8123 on cluster nodes, rather than arbitrary
 node ports. The policy needs live cluster qualification; local Docker testing
 does not exercise Cilium or Kubernetes service routing.
 
-## Before publication and rollout
+## Publication and rollout
 
 Repository `AGENTS.md` requires authorization before publishing or changing
 shared infrastructure. The local build and qualification do not constitute a
-deployment. After approval:
+deployment. Deployment was authorized on 2026-10-16:
 
 1. Review the OPNsense CI plan and apply the prepared DHCP reservation for
    `28:cd:c1:0d:31:05` at `10.0.20.136`. Confirm the reservation and renewal.
    During preparation the Pico moved from `.131` to `.136`; USB console status,
    ARP, and its `R565` TCP handshake confirmed the new address. The renderer
-   and Cilium policy explicitly use `.136`. A local default still set to `.131`
-   must be overridden when using the HA CLI outside Kubernetes.
-2. Provision a dedicated non-admin HA account and long-lived token for the
+   and Cilium policy explicitly use `.136`. The HA CLI default also uses `.136`.
+2. Provision a dedicated local-only read-only HA account and long-lived token for the
    renderer. HA long-lived tokens are account credentials, not entity-scoped
    capabilities. Keep the token out of chat, shell arguments, image layers,
    plaintext Git, and logs. The operator token used for local qualification is
@@ -48,8 +47,8 @@ deployment. After approval:
 4. Provision the project-specific `publisher-spotify-matrix` registry identity
    using `docs/runbooks/local-registry.md`. The candidate lock entry prepares
    its repository-specific access policy. Do not reuse another application's
-   publisher credential. Existing local registry credentials returned HTTP 401
-   during preparation, so authenticated publication remains unverified.
+   publisher credential. A new scoped publisher was provisioned with protected rollback files,
+   preserving all unrelated live registry users and policy entries.
 5. Publish the qualified image and both lock-listed tags to
    `registry.rupan.dev/apps/spotify-matrix`. Verify the remote manifest digest
    equals the Deployment pin and record publication evidence in the lock.
@@ -57,8 +56,8 @@ deployment. After approval:
    Keep all other senders stopped, including laptop test services and USB CDC
    data clients. The Pico prioritizes an open USB data connection over TCP.
 
-The candidate image is currently local to the laptop Docker daemon. A local
-image tag or lock entry does not make the image available to cluster nodes.
+The image must be published and its remote digest verified before cluster
+rollout. A local tag alone does not make it available to cluster nodes.
 Token rotation requires restarting the renderer after ESO updates the mounted
 Secret, because the process reads its HA credential at startup.
 
@@ -93,7 +92,7 @@ Deployment, inventory, and lock to its actual manifest digest before publication
 
 ## Acceptance and recovery
 
-On 2026-10-16, the final local container delivered 1,294 acknowledged frames
+On 2026-10-16, the initial local container delivered 1,294 acknowledged frames
 over 65.02 seconds at 19.90 FPS, with zero failed frames or HA reconnects.
 Maximum render-to-ack time was 85.0 ms. Real HA metadata and artwork loaded;
 readiness passed with UID 1000, a read-only filesystem, and dropped capabilities.
@@ -101,6 +100,14 @@ This qualifies image manifest
 `sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb`
 on the laptop against the live Pico at `.136`. Frame spacing can vary with Wi-Fi.
 All qualification containers were stopped and removed afterward.
+
+The renderer uses `subscribe_entities` with an explicit entity list. The
+initial cached state and later compact deltas arrive on the same subscription,
+avoiding a state-read race and requiring only read permission. The earlier
+`subscribe_trigger` draft required HA administrator access and was replaced
+before deployment. Attribute removals clear stale artwork. The replacement
+container delivered 1,287 acknowledged frames in 65.03 seconds at 19.79 FPS
+with zero frame failures or HA reconnects using the dedicated read-only account.
 
 Offline tests exercise HA event filtering, heartbeat traffic, disconnect and
 resubscribe behavior, stale metadata, bounded artwork caching, credential

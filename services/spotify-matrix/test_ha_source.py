@@ -28,6 +28,14 @@ def state(title: str = "First", playback: str = "playing", age: float = 0) -> di
     }
 
 
+def compact(value: dict) -> dict:
+    return {
+        "s": value["state"],
+        "a": value["attributes"],
+        "lc": datetime.fromisoformat(value["last_updated"]).timestamp(),
+    }
+
+
 def wait_until(predicate, seconds: float = 4) -> None:
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
@@ -38,6 +46,45 @@ def wait_until(predicate, seconds: float = 4) -> None:
 
 
 class HomeAssistantTests(unittest.TestCase):
+    def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
+        source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
+        source._connected = True
+        initial = state()
+        source.handle_event(
+            {"id": 1, "type": "event", "event": {"a": {ENTITY: compact(initial)}}}
+        )
+        updated = time.time() + 1
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        ENTITY: {
+                            "+": {
+                                "s": "paused",
+                                "lc": updated,
+                                "a": {"media_title": "Next"},
+                            },
+                            "-": {"a": ["entity_picture"]},
+                        }
+                    }
+                },
+            }
+        )
+        current = source.snapshot()
+        self.assertEqual(current.title, "Next")
+        self.assertEqual(current.artist, "Artist")
+        self.assertEqual(current.artwork_url, "")
+        self.assertAlmostEqual(current.updated_at, updated, delta=0.000001)
+        self.assertFalse(current.playing)
+        source.handle_event(
+            {"id": 1, "type": "event", "event": {"r": ["media_player.other"]}}
+        )
+        self.assertTrue(source.snapshot().available)
+        source.handle_event({"id": 1, "type": "event", "event": {"r": [ENTITY]}})
+        self.assertFalse(source.snapshot().available)
+
     def test_stale_playing_state_idles_but_paused_art_is_retained(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
         source._connected = True
@@ -81,12 +128,21 @@ class HomeAssistantTests(unittest.TestCase):
                 subscription = json.loads(socket.recv(timeout=3))
                 if subscription != {
                     "id": 1,
-                    "type": "subscribe_trigger",
-                    "trigger": {"platform": "state", "entity_id": ENTITY},
+                    "type": "subscribe_entities",
+                    "entity_ids": [ENTITY],
                 }:
                     raise AssertionError("Unexpected command or entity subscription")
                 commands.append(subscription["type"])
                 socket.send(json.dumps({"id": 1, "type": "result", "success": True}))
+                socket.send(
+                    json.dumps(
+                        {
+                            "id": 1,
+                            "type": "event",
+                            "event": {"a": {ENTITY: compact(cached[0])}},
+                        }
+                    )
+                )
                 connections.append(socket)
                 while True:
                     command = json.loads(socket.recv())
@@ -129,14 +185,7 @@ class HomeAssistantTests(unittest.TestCase):
                             {
                                 "id": 1,
                                 "type": "event",
-                                "event": {
-                                    "variables": {
-                                        "trigger": {
-                                            "entity_id": ENTITY,
-                                            "to_state": update,
-                                        }
-                                    }
-                                },
+                                "event": {"a": {ENTITY: compact(update)}},
                             }
                         )
                     )
@@ -151,10 +200,8 @@ class HomeAssistantTests(unittest.TestCase):
                             and source.snapshot().available
                         )
                     )
-                    self.assertEqual(commands, ["auth", "subscribe_trigger"] * 2)
-                    self.assertEqual(request.call_count, 2)
-                    for call in request.call_args_list:
-                        self.assertEqual(call.args[0], base + "/api/states/" + ENTITY)
+                    self.assertEqual(commands, ["auth", "subscribe_entities"] * 2)
+                    self.assertEqual(request.call_count, 0)
                     self.assertEqual(fixture_errors, [])
                 finally:
                     source.close()

@@ -4885,32 +4885,32 @@
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
         "ha-reviewed",
-        "retention-candidate-519fb77a8ebb14a5"
+        "retention-candidate-43372a340ac7bdc2"
       ],
-      "digest": "sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb",
+      "digest": "sha256:43372a340ac7bdc271d44b4892736e427df43a090d7469ed483e653d09461a72",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
         "location": "services/spotify-matrix/Dockerfile",
-        "pipeline_status": "verified-local-build-unpublished"
+        "pipeline_status": "verified-local-build-published"
       },
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
         "tag": "ha-reviewed",
-        "digest": "sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb"
+        "digest": "sha256:43372a340ac7bdc271d44b4892736e427df43a090d7469ed483e653d09461a72",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:43372a340ac7bdc271d44b4892736e427df43a090d7469ed483e653d09461a72"
       },
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
         "linux/amd64"
       ],
       "resolution": {
-        "status": "local-build-verified-publication-pending"
+        "status": "source-registry-verified"
       },
       "authenticity": {
         "status": "unsupported",
-        "reason": "Local candidate build; registry publication has not been authorized or verified"
+        "reason": "No signature verification policy declared; local OCI bytes and registry origin digest verified"
       },
       "referrers": {
         "required": [],

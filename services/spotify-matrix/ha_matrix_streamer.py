@@ -31,7 +31,7 @@ def main() -> None:
         required=not bool(os.getenv("HASS_TOKEN_FILE")),
     )
     parser.add_argument("--entity", default="media_player.spotify_rupan")
-    parser.add_argument("--pico-ip", default="10.0.20.131")
+    parser.add_argument("--pico-ip", default="10.0.20.136")
     parser.add_argument("--port", type=int, default=9999)
     parser.add_argument("--fps", type=float, default=20)
     parser.add_argument("--rotation-speed", type=float, default=45)
