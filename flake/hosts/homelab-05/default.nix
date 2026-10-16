@@ -19,6 +19,24 @@ in
 
   networking.hostName = "homelab-05";
 
+  # The e1000e transmit queue hung on 2026-10-16 and never recovered.
+  systemd.network.links."10-onboard-ethernet" = {
+    matchConfig = {
+      Path = "pci-0000:00:1f.6";
+      Driver = "e1000e";
+    };
+    linkConfig = {
+      Name = "enp0s31f6";
+      TCPSegmentationOffload = false;
+      TCP6SegmentationOffload = false;
+      GenericSegmentationOffload = false;
+    };
+    extraConfig = ''
+      [EnergyEfficientEthernet]
+      Enable=no
+    '';
+  };
+
   homelab.omarchyVm.enable = true;
 
   homelab.disk.device = "/dev/disk/by-id/nvme-KXG70ZNV1T02_NVMe_KIOXIA_1024GB_42MFC3FQFTC5";
