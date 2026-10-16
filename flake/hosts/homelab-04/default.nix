@@ -12,6 +12,7 @@
     ../../modules/woodpecker.nix
     ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
+    ../../modules/repo-monitor.nix
   ];
 
   networking.hostName = "homelab-04";
@@ -21,10 +22,39 @@
     url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
+    views = [
+      {
+        url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
+        duration = 60;
+      }
+      {
+        url = "http://10.0.40.13:8123/3d-printing";
+        duration = 60;
+        # Home Assistant renders its own sidebar and top bar; strip them so the
+        # dashboard fills the panel like the Grafana view does.
+        css = ''
+          ha-sidebar, .header, ha-top-app-bar, ha-menu-button { display: none !important; }
+          #view { padding-top: 0 !important; margin-left: 0 !important; }
+        '';
+      }
+    ];
   };
 
   homelab.woodpecker.enable = true;
   homelab.platformBackup.enable = true;
+
+  # CI-driven mirror: the homelab GitHub branch carries GitHub-only commits,
+  # so only ancestry of the Forgejo head is verified, not SHA equality.
+  homelab.repoMonitor = {
+    enable = true;
+    specialMirrors = [
+      {
+        repository = "JEFF7712/homelab";
+        githubRepository = "JEFF7712/homelab";
+        defaultBranch = "main";
+      }
+    ];
+  };
 
   homelab.monero.enable = true;
 

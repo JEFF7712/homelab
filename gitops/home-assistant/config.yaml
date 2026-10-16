@@ -12,8 +12,10 @@ data:
         - type: homeassistant
         - type: trusted_networks
           trusted_networks:
+            - 10.0.30.14/32
             - 10.0.30.15/32
           trusted_users:
+            10.0.30.14: 8415ac1522be4ac5a1a5460a40e5127f
             10.0.30.15: 8415ac1522be4ac5a1a5460a40e5127f
           allow_bypass_login: true
     frontend:

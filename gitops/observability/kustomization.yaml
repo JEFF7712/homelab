@@ -10,6 +10,7 @@ resources:
   - kube-prometheus-stack/jarvis-rules.yaml
   - kube-prometheus-stack/monero-rules.yaml
   - kube-prometheus-stack/omarchy-vm-rules.yaml
+  - kube-prometheus-stack/repo-monitor-rules.yaml
   - loki/repository.yaml
   - loki/rules-configmap.yaml
   - loki/release.yaml
@@ -20,6 +21,7 @@ resources:
   - grafana/dashboard-jarvis.yaml
   - grafana/dashboard-gpu.yaml
   - grafana/dashboard-hosts.yaml
+  - grafana/dashboard-repository-health.yaml
   - grafana/dashboard-zfs.yaml
   - grafana/dashboard-omarchy-vm.yaml
   - ntfy/repository.yaml
