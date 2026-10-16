@@ -6,6 +6,7 @@ import json
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -32,7 +33,12 @@ class PlaybackState:
 
 class HomeAssistantSource:
     def __init__(
-        self, base_url: str, token: str, entity: str, stale_after: float = 120
+        self,
+        base_url: str,
+        token: str,
+        entity: str,
+        stale_after: float = 120,
+        on_update: Callable[[PlaybackState], None] | None = None,
     ) -> None:
         parsed = urlsplit(base_url)
         if (
@@ -61,6 +67,7 @@ class HomeAssistantSource:
         self.token = token
         self.entity = entity
         self.stale_after = stale_after
+        self.on_update = on_update
         self._state = PlaybackState()
         self._compact: dict[str, Any] = {}
         self._connected = False
@@ -99,6 +106,11 @@ class HomeAssistantSource:
         if value is None:
             with self._lock:
                 self._state = PlaybackState()
+            if self.on_update:
+                try:
+                    self.on_update(PlaybackState())
+                except Exception:
+                    pass
             return
         if value.get("entity_id") != self.entity:
             return
@@ -118,6 +130,14 @@ class HomeAssistantSource:
         with self._lock:
             if updated_at >= self._state.updated_at:
                 self._state = state
+                notify = True
+            else:
+                notify = False
+        if notify and self.on_update:
+            try:
+                self.on_update(state)
+            except Exception:
+                pass
 
     def handle_event(self, message: dict[str, Any]) -> None:
         if message.get("type") == "event" and message.get("id") == 1:
@@ -316,3 +336,187 @@ class ArtworkCache:
 
     def close(self) -> None:
         self._executor.shutdown(wait=True, cancel_futures=True)
+
+
+def parse_spotify_state(
+    data: dict[str, Any] | None, now: float | None = None
+) -> PlaybackState:
+    timestamp = time.time() if now is None else now
+    if not data:
+        return PlaybackState(
+            available=False,
+            playing=False,
+            title="",
+            artist="",
+            artwork_url="",
+            updated_at=timestamp,
+        )
+    is_playing = bool(data.get("is_playing", False))
+    item = data.get("item")
+    if not item:
+        return PlaybackState(
+            available=False,
+            playing=is_playing,
+            title="",
+            artist="",
+            artwork_url="",
+            updated_at=timestamp,
+        )
+    title = str(item.get("name") or "")
+    if "artists" in item:
+        artist = ", ".join(
+            str(a.get("name") or "") for a in item.get("artists", []) if a.get("name")
+        )
+    elif "show" in item:
+        artist = str(item.get("show", {}).get("name") or "")
+    else:
+        artist = ""
+    images = item.get("album", {}).get("images") or item.get("images") or []
+    artwork_url = str(images[0].get("url") or "") if images else ""
+    return PlaybackState(
+        available=True,
+        playing=is_playing,
+        title=title,
+        artist=artist,
+        artwork_url=artwork_url,
+        updated_at=timestamp,
+    )
+
+
+class HybridPlaybackSource:
+    def __init__(
+        self,
+        ha_source: HomeAssistantSource,
+        spotify_client: Any,
+        poll_interval_playing: float = 1.5,
+        poll_interval_idle: float = 5.0,
+        quota_cooldown: float = 3600.0,
+        error_cooldown: float = 15.0,
+    ) -> None:
+        self.ha_source = ha_source
+        self.spotify_client = spotify_client
+        self.poll_interval_playing = poll_interval_playing
+        self.poll_interval_idle = poll_interval_idle
+        self.quota_cooldown = quota_cooldown
+        self.error_cooldown = error_cooldown
+
+        self._spotify_state = PlaybackState()
+        self._spotify_available = False
+        self._fallback_until = 0.0
+        self._fallback_reason = ""
+        self._active_provider = "home_assistant"
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._wake_event = threading.Event()
+        self._thread = threading.Thread(
+            target=self._poll_loop, daemon=True, name="spotify-poll"
+        )
+
+        # Wake poller on Home Assistant state updates
+        self.ha_source.on_update = self._on_ha_update
+
+    def _on_ha_update(self, _state: PlaybackState) -> None:
+        self._wake_event.set()
+
+    def start(self) -> None:
+        self.ha_source.start()
+        self._thread.start()
+
+    def close(self) -> None:
+        self._stop.set()
+        self._wake_event.set()
+        self._thread.join(timeout=10)
+        self.ha_source.close()
+
+    @property
+    def connected(self) -> bool:
+        with self._lock:
+            spotify_ok = self._spotify_available
+        return spotify_ok or self.ha_source.connected
+
+    @property
+    def active_provider(self) -> str:
+        now = time.monotonic()
+        with self._lock:
+            if now < self._fallback_until or not self._spotify_available:
+                return "home_assistant"
+            return "spotify"
+
+    def _switch_provider(self, new_provider: str, reason: str = "") -> None:
+        if self._active_provider != new_provider:
+            self._active_provider = new_provider
+            extra = f" ({reason})" if reason else ""
+            print(
+                f"[Hybrid] Switched active provider to {new_provider.upper()}{extra}",
+                flush=True,
+            )
+
+    def snapshot(self) -> PlaybackState:
+        now = time.monotonic()
+        with self._lock:
+            use_ha = now < self._fallback_until or not self._spotify_available
+            spotify_state = self._spotify_state
+        if use_ha:
+            return self.ha_source.snapshot()
+        return spotify_state
+
+    def fetch_artwork(self, picture: str) -> Image.Image:
+        return self.ha_source.fetch_artwork(picture)
+
+    def _poll_once(self) -> float:
+        """Poll Spotify once and return the delay until the next poll."""
+        from spotify_matrix_streamer import SpotifyQuotaExceeded, SpotifyRateLimited
+
+        try:
+            data = self.spotify_client.get_currently_playing(
+                retry_auth=True,
+                raise_on_rate_limit=True,
+                raise_on_error=True,
+            )
+            new_state = parse_spotify_state(data)
+            with self._lock:
+                self._spotify_state = new_state
+                self._spotify_available = True
+                self._switch_provider("spotify")
+            if new_state.playing:
+                return self.poll_interval_playing
+            elif new_state.available:
+                return max(2.0, self.poll_interval_playing * 1.5)
+            else:
+                return self.poll_interval_idle
+        except SpotifyRateLimited as error:
+            retry = max(error.retry_after, 1.0)
+            with self._lock:
+                self._fallback_until = time.monotonic() + retry
+                self._fallback_reason = f"rate limited ({retry:g}s)"
+                self._spotify_available = False
+                self._switch_provider("home_assistant", self._fallback_reason)
+            return retry
+        except SpotifyQuotaExceeded:
+            with self._lock:
+                self._fallback_until = time.monotonic() + self.quota_cooldown
+                self._fallback_reason = "quota exceeded"
+                self._spotify_available = False
+                self._switch_provider("home_assistant", self._fallback_reason)
+            return self.quota_cooldown
+        except Exception as error:
+            with self._lock:
+                self._fallback_until = time.monotonic() + self.error_cooldown
+                self._fallback_reason = f"error ({type(error).__name__}: {error})"
+                self._spotify_available = False
+                self._switch_provider("home_assistant", self._fallback_reason)
+            return self.error_cooldown
+
+    def _poll_loop(self) -> None:
+        while not self._stop.is_set():
+            now = time.monotonic()
+            with self._lock:
+                fallback_left = max(0.0, self._fallback_until - now)
+            if fallback_left > 0:
+                self._wake_event.wait(timeout=min(fallback_left, 1.0))
+                self._wake_event.clear()
+                continue
+
+            delay = self._poll_once()
+            self._wake_event.wait(timeout=delay)
+            self._wake_event.clear()

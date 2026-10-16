@@ -10,7 +10,14 @@ from PIL import Image
 from websockets.exceptions import ConnectionClosed
 from websockets.sync.server import serve
 
-from ha_source import ArtworkCache, HomeAssistantSource
+from ha_source import (
+    ArtworkCache,
+    HomeAssistantSource,
+    HybridPlaybackSource,
+    PlaybackState,
+    parse_spotify_state,
+)
+from spotify_matrix_streamer import SpotifyQuotaExceeded, SpotifyRateLimited
 
 ENTITY = "media_player.spotify_rupan"
 
@@ -282,6 +289,195 @@ class HomeAssistantTests(unittest.TestCase):
         finally:
             release.set()
             cache.close()
+
+
+class HybridPlaybackSourceTests(unittest.TestCase):
+    def test_parse_spotify_state_extracts_track_details_and_playback_state(
+        self,
+    ) -> None:
+        empty = parse_spotify_state(None, now=100.0)
+        self.assertFalse(empty.available)
+        self.assertFalse(empty.playing)
+        self.assertEqual(empty.title, "")
+        self.assertEqual(empty.updated_at, 100.0)
+
+        playing_track = {
+            "is_playing": True,
+            "item": {
+                "name": "Bohemian Rhapsody",
+                "artists": [{"name": "Queen"}],
+                "album": {
+                    "images": [{"url": "https://i.scdn.co/image/art1", "width": 640}]
+                },
+            },
+        }
+        parsed = parse_spotify_state(playing_track, now=200.0)
+        self.assertTrue(parsed.available)
+        self.assertTrue(parsed.playing)
+        self.assertEqual(parsed.title, "Bohemian Rhapsody")
+        self.assertEqual(parsed.artist, "Queen")
+        self.assertEqual(parsed.artwork_url, "https://i.scdn.co/image/art1")
+        self.assertEqual(parsed.updated_at, 200.0)
+
+        paused_track = {
+            "is_playing": False,
+            "item": {
+                "name": "Under Pressure",
+                "artists": [{"name": "Queen"}, {"name": "David Bowie"}],
+                "album": {
+                    "images": [{"url": "https://i.scdn.co/image/art2", "width": 640}]
+                },
+            },
+        }
+        parsed_paused = parse_spotify_state(paused_track, now=300.0)
+        self.assertTrue(parsed_paused.available)
+        self.assertFalse(parsed_paused.playing)
+        self.assertEqual(parsed_paused.title, "Under Pressure")
+        self.assertEqual(parsed_paused.artist, "Queen, David Bowie")
+
+        episode = {
+            "is_playing": True,
+            "item": {
+                "name": "Episode 1",
+                "show": {"name": "Podcast Show"},
+                "images": [{"url": "https://i.scdn.co/image/ep1"}],
+            },
+        }
+        parsed_ep = parse_spotify_state(episode, now=400.0)
+        self.assertTrue(parsed_ep.available)
+        self.assertTrue(parsed_ep.playing)
+        self.assertEqual(parsed_ep.title, "Episode 1")
+        self.assertEqual(parsed_ep.artist, "Podcast Show")
+        self.assertEqual(parsed_ep.artwork_url, "https://i.scdn.co/image/ep1")
+
+    def test_hybrid_source_prefers_spotify_when_available(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        ha_mock.snapshot.return_value = PlaybackState(
+            available=True, playing=True, title="HA Song", artist="HA Artist"
+        )
+        spotify_mock = Mock()
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": True,
+            "item": {
+                "name": "Spotify Song",
+                "artists": [{"name": "Spotify Artist"}],
+                "album": {"images": [{"url": "https://i.scdn.co/image/spot"}]},
+            },
+        }
+
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock, poll_interval_playing=1.5)
+        # Before first poll, falls back to HA
+        self.assertEqual(hybrid.active_provider, "home_assistant")
+        self.assertEqual(hybrid.snapshot().title, "HA Song")
+
+        # After one successful poll, Spotify is active
+        delay = hybrid._poll_once()
+        self.assertEqual(delay, 1.5)
+        self.assertEqual(hybrid.active_provider, "spotify")
+        self.assertEqual(hybrid.snapshot().title, "Spotify Song")
+        self.assertEqual(hybrid.snapshot().artist, "Spotify Artist")
+        self.assertTrue(hybrid.snapshot().playing)
+        self.assertTrue(hybrid.connected)
+
+    def test_hybrid_source_falls_back_to_ha_on_rate_limit(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        ha_mock.snapshot.return_value = PlaybackState(
+            available=True, playing=False, title="HA Fallback Track"
+        )
+        spotify_mock = Mock()
+        spotify_mock.get_currently_playing.side_effect = SpotifyRateLimited(
+            retry_after=45.0
+        )
+
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock)
+        delay = hybrid._poll_once()
+
+        self.assertEqual(delay, 45.0)
+        self.assertEqual(hybrid.active_provider, "home_assistant")
+        self.assertEqual(hybrid.snapshot().title, "HA Fallback Track")
+        self.assertGreater(hybrid._fallback_until, time.monotonic() + 40.0)
+
+    def test_hybrid_source_recovers_to_spotify_after_fallback(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        ha_mock.snapshot.return_value = PlaybackState(available=True, title="HA Track")
+        spotify_mock = Mock()
+        spotify_mock.get_currently_playing.side_effect = SpotifyRateLimited(
+            retry_after=60.0
+        )
+
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock)
+        hybrid._poll_once()
+        self.assertEqual(hybrid.active_provider, "home_assistant")
+
+        # Simulate fallback expiration and successful Spotify poll
+        hybrid._fallback_until = 0.0
+        spotify_mock.get_currently_playing.side_effect = None
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": False,
+            "item": {
+                "name": "Recovered Spotify",
+                "artists": [{"name": "Artist"}],
+                "album": {"images": []},
+            },
+        }
+        delay = hybrid._poll_once()
+
+        self.assertEqual(delay, 2.25)  # paused delay
+        self.assertEqual(hybrid.active_provider, "spotify")
+        self.assertEqual(hybrid.snapshot().title, "Recovered Spotify")
+        self.assertFalse(hybrid.snapshot().playing)
+
+    def test_hybrid_source_falls_back_on_quota_and_network_error(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        ha_mock.snapshot.return_value = PlaybackState(available=True, title="HA Safety")
+        spotify_mock = Mock()
+
+        hybrid = HybridPlaybackSource(
+            ha_mock, spotify_mock, quota_cooldown=1800.0, error_cooldown=10.0
+        )
+
+        # Quota exceeded
+        spotify_mock.get_currently_playing.side_effect = SpotifyQuotaExceeded("Quota")
+        delay = hybrid._poll_once()
+        self.assertEqual(delay, 1800.0)
+        self.assertEqual(hybrid.active_provider, "home_assistant")
+        self.assertEqual(hybrid.snapshot().title, "HA Safety")
+
+        # Network error
+        hybrid._fallback_until = 0.0
+        import requests
+
+        spotify_mock.get_currently_playing.side_effect = requests.ConnectionError(
+            "DNS failure"
+        )
+        delay = hybrid._poll_once()
+        self.assertEqual(delay, 10.0)
+        self.assertEqual(hybrid.active_provider, "home_assistant")
+        self.assertEqual(hybrid.snapshot().title, "HA Safety")
+
+    def test_hybrid_source_delegates_artwork_fetch(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        dummy_img = Image.new("RGB", (16, 16), "blue")
+        ha_mock.fetch_artwork.return_value = dummy_img
+        spotify_mock = Mock()
+
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock)
+        img = hybrid.fetch_artwork("https://i.scdn.co/image/art")
+        ha_mock.fetch_artwork.assert_called_once_with("https://i.scdn.co/image/art")
+        self.assertEqual(img, dummy_img)
+
+    def test_ha_update_triggers_wake_event(self) -> None:
+        ha_source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
+        spotify_mock = Mock()
+        hybrid = HybridPlaybackSource(ha_source, spotify_mock)
+
+        self.assertFalse(hybrid._wake_event.is_set())
+        ha_source.apply_state(state("Waking track"))
+        self.assertTrue(hybrid._wake_event.is_set())
 
 
 if __name__ == "__main__":

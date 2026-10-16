@@ -1,8 +1,10 @@
 # Homelab deployment
 
-The prepared pipeline is HA cached playback state and WebSocket events, local
-Pillow rendering, and acknowledged TCP frames to Pico W `10.0.20.136:9999`.
-It runs without the laptop once deployed. The renderer has no Spotify API fallback.
+The hybrid pipeline uses Spotify Web API polling as the primary low-latency source
+(~1.5s interval while playing) for sub-second responsiveness when pausing/skipping,
+with Home Assistant WebSocket events as a seamless fallback if Spotify encounters
+rate limits (HTTP 429) or quota errors. Frames render via local Pillow and stream
+acknowledged TCP frames to Pico W `10.0.20.136:9999`.
 
 ## Resources
 
@@ -12,13 +14,15 @@ It runs without the laptop once deployed. The renderer has no Spotify API fallba
 - One renderer, with `Recreate` updates to avoid competing Pico connections.
 - Non-root UID/GID 1000, read-only root filesystem, no Linux capabilities or
   Kubernetes API token, and a 16 MiB memory-backed temporary directory.
-- ExternalSecret `spotify-matrix-ha`, reading `SPOTIFY_MATRIX_HA_TOKEN` from
+- ExternalSecret `spotify-matrix-ha`, reading `SPOTIFY_MATRIX_HA_TOKEN`,
+  `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_REFRESH_TOKEN` from
   the existing SOPS-backed `homelab-values` store. The token mounts read-only
-  at `/run/secrets/ha/token`. No credential value is included in this change.
-- Readiness checks HA connectivity and recent Pico acknowledgements. Liveness
+  at `/run/secrets/ha/token` and Spotify credentials are provided as environment variables.
+- Readiness checks HA/Spotify connectivity and recent Pico acknowledgements. Liveness
   checks the render loop's health-file timestamp. Idle playback remains ready.
-- Cilium policy allows DNS, HA TCP 8123, the Pico's TCP 9999, and HTTPS artwork
-  from `*.scdn.co` and `*.spotifycdn.com`. No ingress is required.
+- Cilium policy allows DNS, HA TCP 8123, the Pico's TCP 9999, HTTPS artwork
+  from `*.scdn.co` and `*.spotifycdn.com`, and Spotify endpoints `api.spotify.com`
+  and `accounts.spotify.com`. No ingress is required.
 - Flux depends on HA, ESO, and secrets. The image is pinned to the locally built
   manifest digest and registered as an unpublished candidate in the registry lock.
 

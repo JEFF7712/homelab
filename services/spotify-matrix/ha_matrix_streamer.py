@@ -1,4 +1,4 @@
-"""Render Home Assistant playback events to a Pico, without Spotify API polling."""
+"""Render Spotify playback with low-latency Spotify API polling and HA fallback."""
 
 from __future__ import annotations
 
@@ -10,8 +10,9 @@ import threading
 import time
 from pathlib import Path
 
-from ha_source import ArtworkCache, HomeAssistantSource
+from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
 from spotify_matrix_streamer import (
+    SpotifyClient,
     TCPMatrixStreamer,
     render_idle,
     render_record,
@@ -31,6 +32,28 @@ def main() -> None:
         required=not bool(os.getenv("HASS_TOKEN_FILE")),
     )
     parser.add_argument("--entity", default="media_player.spotify_rupan")
+    parser.add_argument("--spotify-client-id", default=os.getenv("SPOTIFY_CLIENT_ID"))
+    parser.add_argument(
+        "--spotify-client-secret", default=os.getenv("SPOTIFY_CLIENT_SECRET")
+    )
+    parser.add_argument(
+        "--spotify-refresh-token", default=os.getenv("SPOTIFY_REFRESH_TOKEN")
+    )
+    parser.add_argument(
+        "--spotify-poll-interval",
+        type=float,
+        default=float(os.getenv("SPOTIFY_POLL_INTERVAL", "1.5")),
+    )
+    parser.add_argument(
+        "--spotify-token-cache",
+        type=Path,
+        default=Path(
+            os.getenv(
+                "SPOTIFY_TOKEN_CACHE",
+                str(Path.home() / ".cache" / "spotify_matrix_token.json"),
+            )
+        ),
+    )
     parser.add_argument("--pico-ip", default="10.0.20.136")
     parser.add_argument("--port", type=int, default=9999)
     parser.add_argument("--fps", type=float, default=20)
@@ -46,13 +69,43 @@ def main() -> None:
         or not 0 <= args.brightness <= 1
         or args.stale_after <= 0
         or (args.duration is not None and args.duration <= 0)
+        or args.spotify_poll_interval <= 0
     ):
-        parser.error("Invalid FPS, brightness, stale timeout, or duration")
+        parser.error(
+            "Invalid FPS, brightness, stale timeout, poll interval, or duration"
+        )
     try:
         token = args.ha_token_file.read_text().strip()
-        source = HomeAssistantSource(args.ha_url, token, args.entity, args.stale_after)
+        ha_source = HomeAssistantSource(
+            args.ha_url, token, args.entity, args.stale_after
+        )
     except (OSError, ValueError) as error:
         parser.error(f"Cannot configure HA source ({type(error).__name__})")
+
+    if args.spotify_client_id and args.spotify_client_secret:
+        spotify_client = SpotifyClient(
+            client_id=args.spotify_client_id,
+            client_secret=args.spotify_client_secret,
+            redirect_uri="http://127.0.0.1:8888/callback",
+            token_cache=args.spotify_token_cache,
+            refresh_token=args.spotify_refresh_token,
+        )
+        source: HomeAssistantSource | HybridPlaybackSource = HybridPlaybackSource(
+            ha_source=ha_source,
+            spotify_client=spotify_client,
+            poll_interval_playing=args.spotify_poll_interval,
+        )
+        print(
+            f"Playback source: Hybrid (Spotify API primary at {args.spotify_poll_interval:g}s + HA fallback)",
+            flush=True,
+        )
+    else:
+        source = ha_source
+        print(
+            f"Playback source: Home Assistant events only ({args.entity})",
+            flush=True,
+        )
+
     cache = ArtworkCache(source)
     streamer = TCPMatrixStreamer(args.pico_ip, args.port)
     stop = threading.Event()
@@ -64,7 +117,7 @@ def main() -> None:
     max_frame_ms = 0.0
     last_title = ""
     print(
-        f"HA event source: {args.entity}; target {args.pico_ip}:{args.port}; {args.fps:g} FPS",
+        f"Target Pico: {args.pico_ip}:{args.port}; {args.fps:g} FPS",
         flush=True,
     )
     source.start()
@@ -78,7 +131,8 @@ def main() -> None:
             if state.available and state.playing:
                 angle = (angle + (tick - last_tick) * args.rotation_speed) % 360
             if state.title != last_title:
-                print(f"[HA] Track: {state.title} | {state.artist}", flush=True)
+                provider = getattr(source, "active_provider", "ha").upper()
+                print(f"[{provider}] Track: {state.title} | {state.artist}", flush=True)
                 last_title = state.title
             frame = render_record(art, angle) if art is not None else render_idle()
             if streamer.send_frame(frame, brightness=args.brightness):
@@ -95,6 +149,9 @@ def main() -> None:
                             "artwork_ready": art is not None,
                             "frames": streamer.frames,
                             "failures": streamer.failures,
+                            "provider": getattr(
+                                source, "active_provider", "home_assistant"
+                            ),
                         }
                     ),
                 )
@@ -104,19 +161,19 @@ def main() -> None:
     finally:
         elapsed = time.monotonic() - started
         entity_available = source.snapshot().available
-        ha_connected = source.connected
+        source_connected = source.connected
         streamer.close()
         source.close()
         cache.close()
         stats = {
-            "source": "home_assistant",
+            "source": getattr(source, "active_provider", "home_assistant"),
             "seconds": elapsed,
             "acknowledged_frames": streamer.frames,
             "failures": streamer.failures,
             "displayed_fps": streamer.frames / elapsed,
             "max_frame_ms": max_frame_ms,
             "entity_available": entity_available,
-            "ha_connected": ha_connected,
+            "connected": source_connected,
         }
         if args.stats_file:
             write_private_file(args.stats_file, json.dumps(stats, indent=2) + "\n")
