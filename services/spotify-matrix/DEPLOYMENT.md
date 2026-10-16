@@ -4,9 +4,11 @@ The prepared pipeline is HA cached playback state and WebSocket events, local
 Pillow rendering, and acknowledged TCP frames to Pico W `10.0.20.136:9999`.
 It runs without the laptop once deployed. The renderer has no Spotify API fallback.
 
-## Prepared resources
+## Resources
 
 - Namespace `spotify-matrix` with restricted pod security.
+- OPNsense reserves `.136` and permits only the five Kubernetes node addresses
+  to reach the Pico on TCP 9999, before the existing private-VLAN deny rule.
 - One renderer, with `Recreate` updates to avoid competing Pico connections.
 - Non-root UID/GID 1000, read-only root filesystem, no Linux capabilities or
   Kubernetes API token, and a 16 MiB memory-backed temporary directory.

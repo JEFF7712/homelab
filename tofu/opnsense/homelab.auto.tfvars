@@ -157,6 +157,13 @@ dhcpv4_reservations = {
 }
 
 firewall_aliases = {
+  spotify_matrix_senders = {
+    name        = "spotify_matrix_senders"
+    type        = "host"
+    content     = ["10.0.30.11", "10.0.30.12", "10.0.30.13", "10.0.30.14", "10.0.30.15"]
+    description = "Kubernetes nodes permitted to stream to the Pico matrix"
+    enabled     = true
+  }
   iot_bambu_a1 = {
     name        = "iot_bambu_a1"
     type        = "host"
@@ -699,6 +706,22 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.30.0/24", port = "" }
       destination = { net = "iot_tuya_sw02", port = "6668" }
+    }
+  }
+  infrastructure-allow-spotify-matrix = {
+    description = "Allow Kubernetes nodes to Pico W matrix TCP receiver"
+    enabled     = true
+    sequence    = 318
+    interface   = { interface = ["opt3"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "TCP"
+      quick       = true
+      log         = false
+      source      = { net = "spotify_matrix_senders", port = "" }
+      destination = { net = "10.0.20.136/32", port = "9999" }
     }
   }
   infrastructure-block-private = {
