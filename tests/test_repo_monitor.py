@@ -344,6 +344,40 @@ class MirrorTests(PatchedNetwork):
         self.assertEqual(result.push_error, "remote rejected")
         self.assertFalse(result.divergent)
 
+    def test_push_mirror_api_failure_is_unverifiable(self):
+        self.net.add(*forgejo_branch("JEFF7712/alpha", "aaa", self.now - 10))
+        self.net.add(*github_branch("JEFF7712/alpha", "aaa"))
+        self.net.add(
+            lambda u: is_forgejo(u) and "/push_mirrors" in u, text(403, "forbidden")
+        )
+        result = rm.check_mirror(
+            rm.Client(self.settings),
+            self.settings,
+            "JEFF7712/alpha",
+            "JEFF7712/alpha",
+            "main",
+            "push",
+            self.now,
+        )
+        self.assertEqual(result.state, rm.MIRROR_ERROR)
+        self.assertEqual(result.error_kind, "auth")
+        self.assertEqual(result.last_verified, 0.0)
+
+    def test_push_mirror_404_is_not_an_error(self):
+        self.net.add(*forgejo_branch("JEFF7712/alpha", "aaa", self.now - 10))
+        self.net.add(*github_branch("JEFF7712/alpha", "aaa"))
+        self.net.add(lambda u: is_forgejo(u) and "/push_mirrors" in u, text(404, "{}"))
+        result = rm.check_mirror(
+            rm.Client(self.settings),
+            self.settings,
+            "JEFF7712/alpha",
+            "JEFF7712/alpha",
+            "main",
+            "push",
+            self.now,
+        )
+        self.assertEqual(result.state, rm.MIRROR_HEALTHY)
+
     def test_missing_github_commit_is_lag_not_error(self):
         settings = Settings(retries=0, mirror_grace_seconds=120)
         self.net.add(*forgejo_branch("JEFF7712/alpha", "aaa", self.now - 7200))
@@ -737,6 +771,33 @@ class ServiceTests(PatchedNetwork):
         self.assertFalse(snapshot.success)
         self.assertEqual(snapshot.errors.get("mirror"), 1)
 
+    def test_push_mirror_api_failure_fails_collection(self):
+        self.net.override(
+            lambda u: is_forgejo(u) and "/push_mirrors" in u, text(403, "forbidden")
+        )
+        collector = rm.Collector(self.settings, (project(),), frozenset())
+        snapshot = collector.run()
+        self.assertEqual(snapshot.mirrors[0].state, rm.MIRROR_ERROR)
+        self.assertEqual(snapshot.mirrors[0].error_kind, "auth")
+        self.assertFalse(snapshot.success)
+        self.assertEqual(snapshot.errors.get("mirror"), 1)
+
+    def test_github_rate_limit_on_repo_checks_degrades_without_failing(self):
+        self.net.override(
+            lambda u: is_github(u) and "/branches/" in u, text(429, "rate limited")
+        )
+        self.net.override(
+            lambda u: u.endswith("/rate_limit"),
+            ok({"resources": {"core": {"remaining": 0}}}),
+        )
+        collector = rm.Collector(self.settings, (project(),), frozenset())
+        snapshot = collector.run()
+        self.assertEqual(snapshot.mirrors[0].state, rm.MIRROR_ERROR)
+        self.assertEqual(snapshot.mirrors[0].error_kind, "rate_limit")
+        self.assertTrue(snapshot.success)
+        self.assertTrue(snapshot.github_rate_exhausted)
+        self.assertNotIn("mirror", snapshot.errors)
+
     def test_verified_push_error_alerts_without_failing_collection(self):
         self.net.add(
             *push_mirrors(
@@ -865,6 +926,21 @@ class ManifestTests(unittest.TestCase):
 
 
 class RenderTests(unittest.TestCase):
+    def test_render_exposes_start_timestamp(self):
+        snapshot = rm.Snapshot(started_at=0.0, finished_at=0.0, success=False)
+        body = rm.render(snapshot, 0.0, 0.0, 1234.0)
+        samples = parse_metrics(body)
+        self.assertEqual(samples[("repo_monitor_start_timestamp_seconds", ())], 1234.0)
+        self.assertEqual(
+            samples[("repo_monitor_last_success_timestamp_seconds", ())], 0.0
+        )
+
+    def test_monitor_state_records_start_time(self):
+        state = rm.MonitorState(
+            rm.Settings(), rm.Collector(rm.Settings(), (), frozenset())
+        )
+        self.assertGreater(state.started, 0.0)
+
     def test_render_exposes_consistent_metrics(self):
         snapshot = rm.Snapshot(
             started_at=100.0,

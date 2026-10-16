@@ -53,11 +53,15 @@ checks to accommodate this repository; keep it isolated to the `append` entry.
 A failed API call (Forgejo, GitHub, or Woodpecker unreachable, or a rejected token) is a
 monitoring error, not a repository fault. The monitor emits `state="error"` for that
 repository. A per-repository check that cannot be verified (a permission failure on one
-repository, or a compare error) is treated the same way: it counts toward
-`repo_monitor_check_errors_total` and fails the collection, so it cannot hide behind
-healthy service probes. In both cases the single signal is `RepoMonitorStalled`
-(collection has stopped succeeding) plus the matching service-down alert, and no
-per-repository mirror or CI fault fires. Only a successful collection can raise a mirror
+repository, a compare error, or a `push_mirrors` call that fails with anything other than
+`404`) is treated the same way: it counts toward `repo_monitor_check_errors_total` and
+fails the collection, so it cannot hide behind healthy service probes. A `404` on
+`push_mirrors` means no mirror is configured and is ignored. In both cases the single
+signal is `RepoMonitorStalled` (collection has stopped succeeding) plus the matching
+service-down alert, and no per-repository mirror or CI fault fires. `RepoMonitorStalled`
+also fires when the process has never completed a successful collection since it started
+(`repo_monitor_last_success_timestamp_seconds` stays `0`), bounded by
+`repo_monitor_start_timestamp_seconds`. Only a successful collection can raise a mirror
 or CI fault. This separation is deliberate: never page on a fault the monitor could not
 actually verify.
 
@@ -70,7 +74,9 @@ verifiable).
 GitHub rate limiting degrades detail without failing collection. It sets
 `repo_monitor_github_rate_limited`, reports `repo_service_credential_ok` as true, and
 keeps `snapshot.success` true, because the credential is valid and the condition is
-transient. Only a rejected credential, an unreachable service, or an unverifiable
+transient. This includes repository checks: a rate-limited mirror check reports
+`state="error"` with a `rate_limit` classification but is not counted as a collection
+error. Only a rejected credential, an unreachable service, or an unverifiable
 repository check fails a collection.
 
 ## Required runtime material
@@ -103,7 +109,8 @@ Thresholds are set declaratively in `flake/hosts/homelab-04/default.nix` (see
 | Metric | Type | Meaning |
 | --- | --- | --- |
 | `repo_monitor_up` | gauge | `1` when the process is serving |
-| `repo_monitor_last_success_timestamp_seconds` | gauge | Unix time of the last successful collection |
+| `repo_monitor_last_success_timestamp_seconds` | gauge | Unix time of the last successful collection (`0` until the first success) |
+| `repo_monitor_start_timestamp_seconds` | gauge | Unix time the process started |
 | `repo_monitor_collection_age_seconds` | gauge | Age of the current collection |
 | `repo_monitor_projects_total` | gauge | Repositories in the manifest |
 | `repo_monitor_mirrors_total` | gauge | Mirror targets checked (17 today: 16 push mirrors plus the `homelab` append mirror) |
@@ -132,7 +139,7 @@ Alerts live in `gitops/observability/kube-prometheus-stack/repo-monitor-rules.ya
 
 | Alert | Severity | Fires when |
 | --- | --- | --- |
-| `RepoMonitorStalled` | critical | No successful collection in over 30 minutes |
+| `RepoMonitorStalled` | critical | No successful collection in over 30 minutes, or none since startup |
 | `RepoMonitorForgejoDown` | critical | Forgejo API unreachable |
 | `RepoMonitorWoodpeckerDown` | critical | Woodpecker health endpoint unreachable |
 | `RepoMonitorGithubUnreachable` | warning | GitHub API unreachable |
@@ -193,7 +200,9 @@ bash scripts/checks/gitops.sh
 
 `tests/test_repo_monitor.py` covers healthy and lagging mirrors, divergence, ref
 mismatch, a missing GitHub head commit within and past grace, the `homelab` append mirror
-(both directions), a verified push-mirror failure, CI success, failure, stuck, missing,
-and inactive states, exact-context matching, GitHub rate limiting, service, credential,
-and per-repository check failures, malformed manifests, the client retry paths, and an
-end-to-end `--once` run against the real manifest with the network seam replaced.
+(both directions), a verified push-mirror failure, an unverifiable `push_mirrors` call,
+CI success, failure, stuck, missing, and inactive states, exact-context matching, GitHub
+rate limiting on both the probe and repository checks, service, credential, and
+per-repository check failures, malformed manifests, the client retry paths, the rendered
+start timestamp, and an end-to-end `--once` run against the real manifest with the
+network seam replaced.

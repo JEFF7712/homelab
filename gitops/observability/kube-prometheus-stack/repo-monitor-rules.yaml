@@ -11,8 +11,10 @@ spec:
       rules:
         - alert: RepoMonitorStalled
           expr: >-
-            repo_monitor_last_success_timestamp_seconds > 0
-            and time() - repo_monitor_last_success_timestamp_seconds > 1800
+            (repo_monitor_last_success_timestamp_seconds > 0
+            and time() - repo_monitor_last_success_timestamp_seconds > 1800)
+            or (repo_monitor_last_success_timestamp_seconds == 0
+            and time() - repo_monitor_start_timestamp_seconds > 1800)
           for: 15m
           labels:
             severity: critical
@@ -20,11 +22,11 @@ spec:
             summary: "Repository monitor has stopped collecting successfully"
             description: >-
               repo-monitor on {{ $labels.host }} has not completed a successful
-              collection cycle in over 30 minutes. A cycle fails when a service
-              or credential is unavailable or when an individual repository
-              check cannot be verified. Check the service, its credentials,
-              per-repository errors, and Prometheus scraping of
-              {{ $labels.instance }}.
+              collection cycle in over 30 minutes (or has never succeeded since
+              starting). A cycle fails when a service or credential is
+              unavailable or when an individual repository check cannot be
+              verified. Check the service, its credentials, per-repository
+              errors, and Prometheus scraping of {{ $labels.instance }}.
 
         - alert: RepoMonitorForgejoDown
           expr: repo_service_up{service="forgejo"} == 0

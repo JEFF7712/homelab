@@ -164,6 +164,7 @@ class MirrorResult:
     last_verified: float
     detail: str = ""
     push_error: str | None = None
+    error_kind: str = ""
 
 
 @dataclass
@@ -401,8 +402,13 @@ def _tags(client: Client, repo: str, *, github: bool) -> dict[str, str]:
 def _push_mirror_error(client: Client, repo: str, remote_suffix: str) -> str | None:
     try:
         mirrors = client.forgejo(f"repos/{repo}/push_mirrors")
-    except FetchError:
-        return None
+    except FetchError as error:
+        if error.kind == "not_found":
+            # No push-mirror endpoint or no mirrors configured: nothing to report.
+            return None
+        # Any other failure (auth, server, decode) means the push-mirror state
+        # could not be verified and must not be silently accepted as healthy.
+        raise
     if not isinstance(mirrors, list):
         return None
     for mirror in mirrors:
@@ -453,6 +459,7 @@ def check_mirror(
         verified: bool = True,
         detail: str = "",
         push_error: str | None = None,
+        error_kind: str = "",
     ) -> MirrorResult:
         return MirrorResult(
             repository=repository,
@@ -465,12 +472,18 @@ def check_mirror(
             last_verified=now if verified else 0.0,
             detail=detail,
             push_error=push_error,
+            error_kind=error_kind,
         )
 
     try:
         forgejo_sha, forgejo_date = forgejo_head(client, repository, default_branch)
     except FetchError as error:
-        return result(MIRROR_ERROR, verified=False, detail=f"forgejo: {error.kind}")
+        return result(
+            MIRROR_ERROR,
+            verified=False,
+            detail=f"forgejo: {error.kind}",
+            error_kind=error.kind,
+        )
     if forgejo_sha is None:
         return result(
             MIRROR_ERROR, verified=False, detail="forgejo default branch missing"
@@ -479,7 +492,12 @@ def check_mirror(
     try:
         github_sha = github_branch_sha(client, github_repository, default_branch)
     except FetchError as error:
-        return result(MIRROR_ERROR, verified=False, detail=f"github: {error.kind}")
+        return result(
+            MIRROR_ERROR,
+            verified=False,
+            detail=f"github: {error.kind}",
+            error_kind=error.kind,
+        )
     if github_sha is None:
         return result(
             MIRROR_MISMATCH, mismatched=1, detail="github default branch missing"
@@ -505,7 +523,10 @@ def check_mirror(
                 compare_status = None
             else:
                 return result(
-                    MIRROR_ERROR, verified=False, detail=f"github compare: {error.kind}"
+                    MIRROR_ERROR,
+                    verified=False,
+                    detail=f"github compare: {error.kind}",
+                    error_kind=error.kind,
                 )
 
     if mode == "append":
@@ -524,14 +545,30 @@ def check_mirror(
             )
         return result(MIRROR_HEALTHY, lag=lag)
 
-    forgejo_tags = _tags(client, repository, github=False)
-    github_tags = _tags(client, github_repository, github=True)
+    try:
+        forgejo_tags = _tags(client, repository, github=False)
+        github_tags = _tags(client, github_repository, github=True)
+    except FetchError as error:
+        return result(
+            MIRROR_ERROR,
+            verified=False,
+            detail=f"tags: {error.kind}",
+            error_kind=error.kind,
+        )
     mismatched = sum(
         1 for name, sha in forgejo_tags.items() if github_tags.get(name) != sha
     )
-    push_error = _push_mirror_error(
-        client, repository, f"github.com/{github_repository}"
-    )
+    try:
+        push_error = _push_mirror_error(
+            client, repository, f"github.com/{github_repository}"
+        )
+    except FetchError as error:
+        return result(
+            MIRROR_ERROR,
+            verified=False,
+            detail=f"push_mirrors: {error.kind}",
+            error_kind=error.kind,
+        )
     if push_error:
         # Verified fault: Forgejo itself reports the push mirror is failing.
         return result(
@@ -838,9 +875,18 @@ class Collector:
         # unreachable API during a per-repository call) are monitoring failures
         # just like a service probe failure: they must stop the collection from
         # counting as successful so they cannot hide behind healthy services.
-        mirror_errors = sum(
-            1 for item in snapshot.mirrors if item.state == MIRROR_ERROR
-        )
+        # GitHub rate limiting is the exception: it degrades per-repository
+        # detail (the checks report state=error) but must not fail collection,
+        # so it is counted separately and folded into the rate-limit signal.
+        mirror_errors = 0
+        mirror_rate_limited = 0
+        for item in snapshot.mirrors:
+            if item.state != MIRROR_ERROR:
+                continue
+            if item.error_kind == "rate_limit":
+                mirror_rate_limited += 1
+            else:
+                mirror_errors += 1
         ci_errors = sum(1 for item in snapshot.ci if item.state == CI_ERROR)
         if mirror_errors:
             self.errors["mirror"] = self.errors.get("mirror", 0) + mirror_errors
@@ -848,7 +894,7 @@ class Collector:
             self.errors["ci"] = self.errors.get("ci", 0) + ci_errors
         snapshot.errors = dict(self.errors)
         snapshot.github_rate_remaining = self.github_rate_remaining
-        snapshot.github_rate_exhausted = any(
+        snapshot.github_rate_exhausted = mirror_rate_limited > 0 or any(
             service.detail == "rate_limit" for service in snapshot.services
         )
         snapshot.finished_at = time.time()
@@ -863,7 +909,12 @@ class Collector:
         return snapshot
 
 
-def render(snapshot: Snapshot, previous_success: float, last_duration: float) -> str:
+def render(
+    snapshot: Snapshot,
+    previous_success: float,
+    last_duration: float,
+    start_timestamp: float = 0.0,
+) -> str:
     lines: list[str] = []
     now = time.time()
 
@@ -887,6 +938,13 @@ def render(snapshot: Snapshot, previous_success: float, last_duration: float) ->
         "Unix time of the last successful collection cycle.",
     )
     emit("repo_monitor_last_success_timestamp_seconds", previous_success)
+
+    meta(
+        "repo_monitor_start_timestamp_seconds",
+        "gauge",
+        "Unix time the monitor process started.",
+    )
+    emit("repo_monitor_start_timestamp_seconds", start_timestamp)
 
     meta(
         "repo_monitor_last_run_duration_seconds",
@@ -1116,6 +1174,7 @@ class MonitorState:
         self.snapshot = Snapshot(started_at=0.0, finished_at=0.0, success=False)
         self.last_success = 0.0
         self.last_duration = 0.0
+        self.started = time.time()
 
     def poll_once(self) -> Snapshot:
         snapshot = self.collector.run()
@@ -1128,7 +1187,9 @@ class MonitorState:
 
     def render(self) -> str:
         with self.lock:
-            return render(self.snapshot, self.last_success, self.last_duration)
+            return render(
+                self.snapshot, self.last_success, self.last_duration, self.started
+            )
 
     def serve_forever(self) -> None:
         while True:
