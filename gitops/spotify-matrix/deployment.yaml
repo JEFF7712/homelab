@@ -30,7 +30,7 @@ spec:
             registry.rupan.dev/apps/spotify-matrix@sha256:43372a340ac7bdc271d44b4892736e427df43a090d7469ed483e653d09461a72
           args:
             - --ha-url
-            - http://home-assistant.home-assistant.svc.cluster.local:8123
+            - http://10.0.40.13:8123
             - --ha-token-file
             - /run/secrets/ha/token
             - --entity
