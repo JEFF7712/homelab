@@ -181,8 +181,7 @@ class ApplicationPolicyTest(unittest.TestCase):
         for change in (
             {"event": "deployment"},
             {"event": "cron"},
-            {"event": "tag"},
-            {"event": "release"},
+            {"event": "unknown"},
             {"deploy_to": "deploy-fleet"},
             {"deploy": True},
             {"variables": {"CI_OPERATION": "deploy-fleet"}},
@@ -195,13 +194,63 @@ class ApplicationPolicyTest(unittest.TestCase):
                 api.assert_not_called()
 
     def test_lifecycle_events_do_not_overwrite_required_status(self) -> None:
-        self.request["pipeline"]["event"] = "pull_request_closed"
-        result = configuration(self.request, (self.app,))
-        self.assertEqual(result["configs"][0]["name"], "application-lifecycle.yaml")
-        self.assertEqual(
-            yaml.safe_load(result["configs"][0]["data"])["steps"][0]["commands"],
-            ["true"],
-        )
+        for event in ("pull_request_closed", "pull_request_metadata", "tag", "release"):
+            for validator in (
+                "static-site-v1",
+                "python-service-v1",
+                "dotnet-service-v1",
+                "node-service-v1",
+                "nixos-config-v1",
+                "firmware-v1",
+            ):
+                with self.subTest(event=event, validator=validator):
+                    self.request["pipeline"].update(
+                        event=event, ref="refs/tags/v0.13.0"
+                    )
+                    self.request["configs"] = [
+                        {"commands": ["steal-credentials"], "privileged": True}
+                    ]
+                    app = replace(self.app, validator=validator)
+                    with patch("scripts.ci.policy.api") as api:
+                        result = resolve_configuration(
+                            self.request, {"deploy-fleet": {}}, (app,)
+                        )
+                        api.assert_not_called()
+                    self.assertEqual(len(result["configs"]), 1)
+                    self.assertEqual(
+                        result["configs"][0]["name"], "application-lifecycle.yaml"
+                    )
+                    self.assertEqual(
+                        yaml.safe_load(result["configs"][0]["data"]),
+                        {
+                            "when": [{"event": event}],
+                            "labels": {"tier": "sandbox", "type": "docker"},
+                            "steps": [
+                                {
+                                    "name": "application-lifecycle",
+                                    "image": app.validation_image,
+                                    "commands": ["true"],
+                                }
+                            ],
+                        },
+                    )
+
+    def test_release_lifecycle_cannot_request_operations_or_overrides(self) -> None:
+        for event in ("tag", "release"):
+            for override in (
+                {"deploy_to": "deploy-fleet"},
+                {"deploy": True},
+                {"variables": {"CI_OPERATION": "deploy-fleet"}},
+            ):
+                request = copy.deepcopy(self.request)
+                request["pipeline"].update(event=event, **override)
+                with self.subTest(event=event, override=override):
+                    with patch("scripts.ci.policy.api") as api:
+                        with self.assertRaisesRegex(ValueError, "cannot request"):
+                            resolve_configuration(
+                                request, {"deploy-fleet": {}}, (self.app,)
+                            )
+                        api.assert_not_called()
 
     def test_embedded_validator_runs_without_importing_checkout_modules(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

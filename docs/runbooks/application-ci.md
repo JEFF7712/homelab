@@ -25,8 +25,10 @@ without executing application scripts or installing dependencies. Checkout still
 uses the server's existing read-only clone identity. Verify that identity has
 only the intended repository read access before live enrollment.
 
-Push, PR and manual events validate. PR metadata/closure events have a separate
-lifecycle workflow. Tags, releases, cron and deployment events are rejected.
+Push, PR and manual events validate. PR metadata/closure, tag and release events
+run a separate no-op lifecycle workflow without validation or publication
+credentials. Image publication remains restricted to default-branch pushes after
+validation. Cron and deployment events are rejected.
 Application variable overrides and operation requests are rejected before
 homelab API lookups. Repository-selected workflow commands are ignored.
 
