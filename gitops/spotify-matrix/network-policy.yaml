@@ -16,10 +16,9 @@ spec:
       toPorts:
         - ports:
             - port: "53"
-              protocol: ANY
-          rules:
-            dns:
-              - matchPattern: "*"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
     - toEntities:
         - host
         - remote-node
@@ -40,11 +39,8 @@ spec:
         - ports:
             - port: "9999"
               protocol: TCP
-    - toFQDNs:
-        - matchPattern: "*.scdn.co"
-        - matchPattern: "*.spotifycdn.com"
-        - matchName: "api.spotify.com"
-        - matchName: "accounts.spotify.com"
+    - toEntities:
+        - world
       toPorts:
         - ports:
             - port: "443"
