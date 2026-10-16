@@ -519,6 +519,38 @@ class ContainerReleaseTest(unittest.TestCase):
                 "/app",
             )
 
+    def test_collected_application_tree_preserves_executables_without_special_bits(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            (source / "runtime").mkdir(parents=True)
+            executable = source / "runtime/dotnet"
+            executable.write_text("#!/bin/sh\nexit 0\n")
+            try:
+                executable.chmod(0o4755)
+            except PermissionError:
+                executable.chmod(0o755)
+            data = source / "runtime/data.json"
+            data.write_text("{}")
+            data.chmod(0o600)
+            raw = release.collect_files(
+                source, [["runtime", "app/runtime"]], 1000, 1000
+            )
+            target = root / "restored"
+            target.mkdir()
+            with tarfile.open(fileobj=io.BytesIO(raw), mode="r") as archive:
+                self.assertEqual(archive.getmember("app/runtime/dotnet").mode, 0o755)
+                self.assertEqual(archive.getmember("app/runtime/data.json").mode, 0o644)
+                archive.extractall(target, filter="data")
+            self.assertEqual(
+                subprocess.run(
+                    [str(target / "app/runtime/dotnet")], check=False
+                ).returncode,
+                0,
+            )
+
     def test_missing_release_file_fails(self) -> None:
         with self.assertRaises(ValueError):
             release.assemble(
