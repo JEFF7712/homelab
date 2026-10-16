@@ -711,7 +711,7 @@ firewall_filters = {
   infrastructure-allow-spotify-matrix = {
     description = "Allow Kubernetes nodes to Pico W matrix TCP receiver"
     enabled     = true
-    sequence    = 318
+    sequence    = 319
     interface   = { interface = ["opt3"] }
     filter = {
       action      = "pass"
@@ -727,7 +727,7 @@ firewall_filters = {
   infrastructure-block-private = {
     description = "Block infrastructure from initiating to other private VLANs"
     enabled     = true
-    sequence    = 319
+    sequence    = 320
     interface   = { interface = ["opt3"] }
     filter = {
       action      = "block"
