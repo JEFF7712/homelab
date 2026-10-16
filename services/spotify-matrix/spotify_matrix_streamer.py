@@ -311,17 +311,34 @@ class SpotifyQuotaExceeded(RuntimeError):
     pass
 
 
+class SpotifyRateLimited(RuntimeError):
+    def __init__(self, retry_after: float = 60.0) -> None:
+        super().__init__(f"Rate limited; retry after {retry_after:g} seconds")
+        self.retry_after = retry_after
+
+
 class SpotifyClient:
     def __init__(
-        self, client_id: str, client_secret: str, redirect_uri: str, token_cache: Path
+        self,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
+        token_cache: Path,
+        refresh_token: str | None = None,
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self.token_cache = token_cache
+        self.refresh_token = refresh_token or os.environ.get("SPOTIFY_REFRESH_TOKEN")
         self.token = self._load_token()
 
-    def get_currently_playing(self, retry_auth: bool = True) -> dict[str, Any] | None:
+    def get_currently_playing(
+        self,
+        retry_auth: bool = True,
+        raise_on_rate_limit: bool = False,
+        raise_on_error: bool = False,
+    ) -> dict[str, Any] | None:
         token = self._valid_access_token()
         headers = {"Authorization": f"Bearer {token}"}
         try:
@@ -335,7 +352,11 @@ class SpotifyClient:
                 return None
             if resp.status_code == 401 and retry_auth:
                 self._refresh_token()
-                return self.get_currently_playing(retry_auth=False)
+                return self.get_currently_playing(
+                    retry_auth=False,
+                    raise_on_rate_limit=raise_on_rate_limit,
+                    raise_on_error=raise_on_error,
+                )
             if resp.status_code == 429:
                 try:
                     reason = resp.json().get("error", {}).get("reason")
@@ -349,6 +370,8 @@ class SpotifyClient:
                     retry = int(resp.headers.get("Retry-After", "60"))
                 except ValueError:
                     retry = 60
+                if raise_on_rate_limit:
+                    raise SpotifyRateLimited(retry_after=float(max(retry, 1)))
                 print(
                     f"[Spotify] Rate limited; waiting at least {max(retry, 1)} seconds",
                     flush=True,
@@ -357,18 +380,19 @@ class SpotifyClient:
                 return None
             resp.raise_for_status()
             return resp.json()
-        except SpotifyQuotaExceeded:
+        except (SpotifyQuotaExceeded, SpotifyRateLimited):
             raise
         except Exception as e:
+            if raise_on_error:
+                raise
             print(f"[Spotify] Request error: {e}")
             return None
 
     def _valid_access_token(self) -> str:
         if not self.token:
-            # Check environment variable SPOTIFY_REFRESH_TOKEN
-            env_refresh = os.environ.get("SPOTIFY_REFRESH_TOKEN")
-            if env_refresh:
-                self.token = {"refresh_token": env_refresh, "expires_at": 0}
+            refresh = self.refresh_token or os.environ.get("SPOTIFY_REFRESH_TOKEN")
+            if refresh:
+                self.token = {"refresh_token": refresh, "expires_at": 0}
             else:
                 self.token = self._authorize()
 
@@ -388,12 +412,11 @@ class SpotifyClient:
     def _save_token(self, token: dict[str, Any]) -> None:
         self.token_cache.parent.mkdir(parents=True, exist_ok=True)
         token["expires_at"] = time.time() + int(token.get("expires_in", 3600)) - 60
-        if (
-            self.token
-            and "refresh_token" in self.token
-            and "refresh_token" not in token
-        ):
-            token["refresh_token"] = self.token["refresh_token"]
+        if "refresh_token" not in token:
+            if self.token and "refresh_token" in self.token:
+                token["refresh_token"] = self.token["refresh_token"]
+            elif self.refresh_token:
+                token["refresh_token"] = self.refresh_token
         write_private_file(self.token_cache, json.dumps(token, indent=2) + "\n")
         self.token = token
 
@@ -401,7 +424,7 @@ class SpotifyClient:
         refresh_token = (
             self.token.get("refresh_token")
             if self.token
-            else os.environ.get("SPOTIFY_REFRESH_TOKEN")
+            else (self.refresh_token or os.environ.get("SPOTIFY_REFRESH_TOKEN"))
         )
         if not refresh_token:
             self.token = self._authorize()

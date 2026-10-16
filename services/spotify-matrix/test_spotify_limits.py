@@ -62,6 +62,38 @@ class SpotifyLimitTests(unittest.TestCase):
                 self.assertEqual(request.call_count, 2)
                 refresh.assert_called_once()
 
+    def test_rate_limit_can_raise_exception(self) -> None:
+        from spotify_matrix_streamer import SpotifyRateLimited
+
+        response = Mock(status_code=429, headers={"Retry-After": "45"})
+        response.json.return_value = {"error": {"message": "Too many requests"}}
+        with (
+            tempfile.TemporaryDirectory() as root,
+            patch(
+                "spotify_matrix_streamer.requests.get", return_value=response
+            ) as request,
+            patch("spotify_matrix_streamer.time.sleep") as sleep,
+        ):
+            with self.assertRaises(SpotifyRateLimited) as ctx:
+                self.client(root).get_currently_playing(raise_on_rate_limit=True)
+            self.assertEqual(ctx.exception.retry_after, 45.0)
+            self.assertEqual(request.call_count, 1)
+            sleep.assert_not_called()
+
+    def test_request_error_can_raise_exception(self) -> None:
+        import requests
+
+        with (
+            tempfile.TemporaryDirectory() as root,
+            patch(
+                "spotify_matrix_streamer.requests.get",
+                side_effect=requests.ConnectionError("Connection refused"),
+            ) as request,
+        ):
+            with self.assertRaises(requests.ConnectionError):
+                self.client(root).get_currently_playing(raise_on_error=True)
+            self.assertEqual(request.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

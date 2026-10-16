@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:43372a340ac7bdc271d44b4892736e427df43a090d7469ed483e653d09461a72
+            registry.rupan.dev/apps/spotify-matrix@sha256:ca8798c483c1608222527f83ff7fa97a3d7193f0e82a3c0a8fb517cf868ff466
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -41,6 +41,22 @@ spec:
             - "20"
             - --health-file
             - /tmp/health.json
+          env:
+            - name: SPOTIFY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: spotify-matrix-ha
+                  key: spotify-client-id
+            - name: SPOTIFY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: spotify-matrix-ha
+                  key: spotify-client-secret
+            - name: SPOTIFY_REFRESH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: spotify-matrix-ha
+                  key: spotify-refresh-token
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

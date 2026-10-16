@@ -43,6 +43,8 @@ spec:
     - toFQDNs:
         - matchPattern: "*.scdn.co"
         - matchPattern: "*.spotifycdn.com"
+        - matchName: "api.spotify.com"
+        - matchName: "accounts.spotify.com"
       toPorts:
         - ports:
             - port: "443"
