@@ -115,6 +115,15 @@ validation. The catalog covers registry operations, publisher provisioning,
 registry platform and nodes, DNS, Zigbee, LedFx, NAS proof, OPNsense,
 Cloudflare, fleet, agent workspaces, Home Assistant, GitHub mirroring and cache.
 
+The custom OPNsense agent ACL is reconciled by `opnsense-apply`. It plans
+file and cache drift before firewall mutation, then converges and verifies
+the ACL through a dedicated `opnsense_acl_ssh_key` file secret available only
+to that protected deployment operation. The router host key is pinned in
+source. Provision the SSH credential and activate the updated immutable
+Woodpecker catalog before requesting this operation. See
+[OPNsense agent access](opnsense-agent-access.md) for provisioning, recovery,
+and the distinction between this deployment authority and agent read access.
+
 For NixOS fleet changes, use the `deploy-fleet-dry-run` operation first, then
 the dependent `deploy-fleet` operation only after reviewing the dry-run result
 and obtaining explicit deployment authorization. These catalog operations run

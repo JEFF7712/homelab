@@ -135,6 +135,7 @@
             (import ../nix/ci-providers.nix { inherit pkgs; })
             oras
             patchelf
+            php
             prometheus.cli
             pyright
             qemu_kvm
@@ -167,6 +168,7 @@
                 pkgs.libvirt
                 pkgs.nodejs
                 pkgs.patchelf
+                pkgs.php
                 python
               ];
             }

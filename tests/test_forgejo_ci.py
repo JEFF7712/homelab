@@ -235,6 +235,43 @@ class PolicyTest(unittest.TestCase):
         ]:
             self.assertIn(marker, script)
 
+    def test_acl_ssh_authority_is_exclusive_to_approved_opnsense_deployment(
+        self,
+    ) -> None:
+        apply = self.catalog["opnsense-apply"]
+        self.assertTrue(apply["mutation"])
+        self.assertFalse(apply["automatic"])
+        self.assertIn("OPNSENSE_ACL_SSH_KEY", apply["file_secrets"])
+        for name, operation in self.catalog.items():
+            if name != "opnsense-apply":
+                self.assertNotIn("OPNSENSE_ACL_SSH_KEY", operation["environment"])
+        result = self.deployment()
+        workflow = next(
+            yaml.safe_load(item["data"])
+            for item in result["configs"]
+            if item["name"] == "opnsense-apply.yaml"
+        )
+        self.assertEqual(workflow["labels"]["tier"], "deploy")
+        self.assertEqual(
+            workflow["steps"][0]["environment"]["OPNSENSE_ACL_SSH_KEY"],
+            {"from_secret": "opnsense_acl_ssh_key"},
+        )
+        commands = apply["commands"]
+        plan = next(
+            i for i, command in enumerate(commands) if "agent_acl plan " in command
+        )
+        converge = next(
+            i for i, command in enumerate(commands) if "agent_acl apply " in command
+        )
+        check = next(
+            i for i, command in enumerate(commands) if "agent_acl check " in command
+        )
+        self.assertLess(plan, converge)
+        self.assertLess(converge, check)
+        self.assertLess(
+            plan, commands.index("tofu -chdir=tofu/opnsense apply desired.tfplan")
+        )
+
     def test_push_lock_import_requires_lock_change_or_unknown_diff(self) -> None:
         names = [
             item["name"]

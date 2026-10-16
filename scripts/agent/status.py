@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -30,8 +32,8 @@ def configured_targets(root: Path) -> dict[str, Any]:
         "kubeconfig": "$KUBECONFIG or kubectl default resolution",
         "opnsense_ca_variable": "OPNSENSE_CA_FILE",
         "opnsense_credential_variables": [
-            "OPNSENSE_API_KEY",
-            "OPNSENSE_API_SECRET",
+            "OPNSENSE_READONLY_API_KEY",
+            "OPNSENSE_READONLY_API_SECRET",
         ],
     }
 
@@ -118,13 +120,47 @@ def status_payload(
             )
             probe["name"] = name
             probes.append(probe)
-        probes.append(
-            {
-                "name": "bgp",
-                "status": "unavailable",
-                "detail": "read-only OPNsense credentials are not available to this local command",
-            }
-        )
+        remaining = total_timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            probes.append(
+                {"name": "bgp", "status": "failed", "detail": "total timeout"}
+            )
+        elif not targets["opnsense"]:
+            probes.append(
+                {
+                    "name": "bgp",
+                    "status": "unavailable",
+                    "detail": "OPNsense target is not configured",
+                }
+            )
+        else:
+            probe = _run(
+                runner,
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.agent.opnsense_status",
+                    "--root",
+                    str(root),
+                    "--url",
+                    targets["opnsense"],
+                ],
+                remaining,
+            )
+            try:
+                observation = json.loads(probe["detail"])
+                if not isinstance(observation, dict) or observation.get(
+                    "status"
+                ) not in {"pass", "failed", "unavailable"}:
+                    raise ValueError("invalid diagnostic result")
+                probe.update(observation)
+            except (ValueError, TypeError):
+                if probe["status"] == "pass":
+                    probe.update(
+                        status="failed", detail="invalid OPNsense diagnostic result"
+                    )
+            probe["name"] = "bgp"
+            probes.append(probe)
     complete = probes and all(item["status"] == "pass" for item in probes)
     return {
         "schema_version": 1,

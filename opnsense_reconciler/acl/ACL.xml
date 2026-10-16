@@ -1,0 +1,9 @@
+<acl>
+  <page-homelab-agent-bgp-readonly>
+    <name>Homelab: Read-only BGP diagnostics</name>
+    <patterns>
+      <pattern>api/quagga/diagnostics/bgpsummary</pattern>
+      <pattern>api/quagga/diagnostics/search_bgproute4</pattern>
+    </patterns>
+  </page-homelab-agent-bgp-readonly>
+</acl>
