@@ -7,3 +7,5 @@
 !spotify_matrix_streamer.py
 !ha_source.py
 !ha_matrix_streamer.py
+!modes/
+!modes/**

@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spotify-matrix
-  namespace: spotify-matrix
+  name: led-matrix
+  namespace: led-matrix
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: spotify-matrix
+      app: led-matrix
   template:
     metadata:
       labels:
-        app: spotify-matrix
+        app: led-matrix
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 20
@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:262d7e2cb49ec62c599d623f083496b911467919eb9358eb36f12421e9afc309
+            registry.rupan.dev/apps/spotify-matrix@sha256:2fdbe854a4b793ac13897e88e9290df8ec306158f841548f5ff0a021ce563986
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -35,6 +35,14 @@ spec:
             - /run/secrets/ha/token
             - --entity
             - media_player.spotify_rupan
+            - --power-entity
+            - input_boolean.bedroom_matrix_power
+            - --mode-entity
+            - input_select.bedroom_matrix_mode
+            - --brightness-entity
+            - input_number.bedroom_matrix_brightness
+            - --weather-entity
+            - weather.forecast_home
             - --pico-ip
             - 10.0.20.136
             - --fps
@@ -45,17 +53,17 @@ spec:
             - name: SPOTIFY_CLIENT_ID
               valueFrom:
                 secretKeyRef:
-                  name: spotify-matrix-ha
+                  name: led-matrix-secrets
                   key: spotify-client-id
             - name: SPOTIFY_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: spotify-matrix-ha
+                  name: led-matrix-secrets
                   key: spotify-client-secret
             - name: SPOTIFY_REFRESH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: spotify-matrix-ha
+                  name: led-matrix-secrets
                   key: spotify-refresh-token
           securityContext:
             allowPrivilegeEscalation: false
@@ -102,7 +110,7 @@ spec:
       volumes:
         - name: ha-token
           secret:
-            secretName: spotify-matrix-ha
+            secretName: led-matrix-secrets
             defaultMode: 0440
         - name: tmp
           emptyDir:

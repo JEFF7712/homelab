@@ -425,7 +425,9 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         }
         delay = hybrid._poll_once()
 
-        self.assertEqual(delay, 1.0)  # active paused delay matches playing rate for fast resume
+        self.assertEqual(
+            delay, 1.0
+        )  # active paused delay matches playing rate for fast resume
         self.assertEqual(hybrid.active_provider, "spotify")
         self.assertEqual(hybrid.snapshot().title, "Recovered Spotify")
         self.assertFalse(hybrid.snapshot().playing)
@@ -513,6 +515,184 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         self.assertFalse(hybrid._wake_event.is_set())
         ha_source.apply_state(state("Waking track"))
         self.assertTrue(hybrid._wake_event.is_set())
+
+    def test_hybrid_source_delegates_hub_state(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        from modes.base import HAState
+
+        dummy_state = HAState(power=True, mode="Night Clock", brightness=0.4)
+        ha_mock.hub_state.return_value = dummy_state
+        hybrid = HybridPlaybackSource(ha_mock, Mock())
+        self.assertEqual(hybrid.hub_state(), dummy_state)
+
+
+class HubModeAndRendererTests(unittest.TestCase):
+    def test_hub_state_multi_entity_parsing_and_deltas(self) -> None:
+        source = HomeAssistantSource(
+            base_url="http://127.0.0.1:8123",
+            token="test-token",
+            entity=ENTITY,
+            power_entity="input_boolean.bedroom_matrix_power",
+            mode_entity="input_select.bedroom_matrix_mode",
+            brightness_entity="input_number.bedroom_matrix_brightness",
+            weather_entity="weather.forecast_home",
+        )
+        source._connected = True
+
+        # Initial compact snapshot with all hub entities
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "a": {
+                        "input_boolean.bedroom_matrix_power": {"s": "on"},
+                        "input_select.bedroom_matrix_mode": {"s": "Clock & Weather"},
+                        "input_number.bedroom_matrix_brightness": {"s": "65"},
+                        "weather.forecast_home": {
+                            "s": "sunny",
+                            "a": {"temperature": 75.5, "temperature_unit": "°F"},
+                        },
+                    }
+                },
+            }
+        )
+
+        hub = source.hub_state()
+        self.assertTrue(hub.power)
+        self.assertEqual(hub.mode, "Clock & Weather")
+        self.assertAlmostEqual(hub.brightness, 0.65, places=2)
+        self.assertEqual(hub.weather_condition, "sunny")
+        self.assertAlmostEqual(hub.weather_temp, 75.5, places=1)
+        self.assertEqual(hub.weather_unit, "°F")
+
+        # Delta event: power turned off, mode changed to Night Clock
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        "input_boolean.bedroom_matrix_power": {"+": {"s": "off"}},
+                        "input_select.bedroom_matrix_mode": {"+": {"s": "Night Clock"}},
+                        "weather.forecast_home": {
+                            "+": {
+                                "s": "rainy",
+                                "a": {"temperature": 62.0},
+                            }
+                        },
+                    }
+                },
+            }
+        )
+
+        updated_hub = source.hub_state()
+        self.assertFalse(updated_hub.power)
+        self.assertEqual(updated_hub.mode, "Night Clock")
+        self.assertEqual(updated_hub.weather_condition, "rainy")
+        self.assertAlmostEqual(updated_hub.weather_temp, 62.0, places=1)
+
+    def test_hub_state_brightness_clamping_and_scaling(self) -> None:
+        source = HomeAssistantSource(
+            base_url="http://127.0.0.1:8123",
+            token="test-token",
+            entity=ENTITY,
+            brightness_entity="input_number.bedroom_matrix_brightness",
+        )
+        # 100% -> 1.0
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "a": {"input_number.bedroom_matrix_brightness": {"s": "100"}}
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().brightness, 1.0)
+
+        # 0.40 -> 0.40
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        "input_number.bedroom_matrix_brightness": {"+": {"s": "0.40"}}
+                    }
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().brightness, 0.40)
+
+        # Low bound clamp (5% -> 0.05)
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {"input_number.bedroom_matrix_brightness": {"+": {"s": "2"}}}
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().brightness, 0.05)
+
+    def test_mode_renderers_render_valid_frames(self) -> None:
+        from modes import (
+            BlankRenderer,
+            ClockWeatherRenderer,
+            NightClockRenderer,
+            SpotifyVinylRenderer,
+        )
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Auto",
+            brightness=0.7,
+            weather_temp=68.0,
+            weather_condition="partlycloudy",
+        )
+        spotify_state = PlaybackState(
+            available=True,
+            playing=True,
+            title="Song",
+            artist="Artist",
+        )
+        dummy_art = Image.new("RGB", (64, 64), (100, 150, 200))
+        ctx = RenderContext(
+            tick=100.0,
+            dt=0.05,
+            ha_state=ha_state,
+            spotify_state=spotify_state,
+            spotify_art=dummy_art,
+            brightness=0.7,
+            rotation_speed=45.0,
+        )
+
+        # 1. Blank
+        blank_frame = BlankRenderer().render(ctx, size=64)
+        self.assertEqual(blank_frame.size, (64, 64))
+        self.assertEqual(blank_frame.mode, "RGB")
+        self.assertEqual(blank_frame.getpixel((0, 0)), (0, 0, 0))
+
+        # 2. Spotify Vinyl
+        vinyl = SpotifyVinylRenderer()
+        frame1 = vinyl.render(ctx, size=64)
+        self.assertEqual(frame1.size, (64, 64))
+        self.assertEqual(frame1.mode, "RGB")
+        self.assertGreater(vinyl.angle, 0.0)
+
+        # 3. Clock & Weather
+        cw_frame = ClockWeatherRenderer().render(ctx, size=64)
+        self.assertEqual(cw_frame.size, (64, 64))
+        self.assertEqual(cw_frame.mode, "RGB")
+
+        # 4. Night Clock
+        nc_frame = NightClockRenderer().render(ctx, size=64)
+        self.assertEqual(nc_frame.size, (64, 64))
+        self.assertEqual(nc_frame.mode, "RGB")
 
 
 if __name__ == "__main__":

@@ -11,11 +11,16 @@ import time
 from pathlib import Path
 
 from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
+from modes import (
+    BlankRenderer,
+    ClockWeatherRenderer,
+    NightClockRenderer,
+    SpotifyVinylRenderer,
+)
+from modes.base import RenderContext
 from spotify_matrix_streamer import (
     SpotifyClient,
     TCPMatrixStreamer,
-    render_idle,
-    render_record,
     write_private_file,
 )
 
@@ -31,7 +36,28 @@ def main() -> None:
         type=Path,
         required=not bool(os.getenv("HASS_TOKEN_FILE")),
     )
-    parser.add_argument("--entity", default="media_player.spotify_rupan")
+    parser.add_argument(
+        "--entity",
+        default=os.getenv("SPOTIFY_ENTITY", "media_player.spotify_rupan"),
+    )
+    parser.add_argument(
+        "--power-entity",
+        default=os.getenv("POWER_ENTITY", "input_boolean.bedroom_matrix_power"),
+    )
+    parser.add_argument(
+        "--mode-entity",
+        default=os.getenv("MODE_ENTITY", "input_select.bedroom_matrix_mode"),
+    )
+    parser.add_argument(
+        "--brightness-entity",
+        default=os.getenv(
+            "BRIGHTNESS_ENTITY", "input_number.bedroom_matrix_brightness"
+        ),
+    )
+    parser.add_argument(
+        "--weather-entity",
+        default=os.getenv("WEATHER_ENTITY", "weather.forecast_home"),
+    )
     parser.add_argument("--spotify-client-id", default=os.getenv("SPOTIFY_CLIENT_ID"))
     parser.add_argument(
         "--spotify-client-secret", default=os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -86,7 +112,14 @@ def main() -> None:
     try:
         token = args.ha_token_file.read_text().strip()
         ha_source = HomeAssistantSource(
-            args.ha_url, token, args.entity, args.stale_after
+            base_url=args.ha_url,
+            token=token,
+            entity=args.entity,
+            power_entity=args.power_entity,
+            mode_entity=args.mode_entity,
+            brightness_entity=args.brightness_entity,
+            weather_entity=args.weather_entity,
+            stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
         parser.error(f"Cannot configure HA source ({type(error).__name__})")
@@ -121,17 +154,25 @@ def main() -> None:
             flush=True,
         )
 
+    renderers = {
+        "Off": BlankRenderer(),
+        "Spotify": SpotifyVinylRenderer(),
+        "Clock & Weather": ClockWeatherRenderer(),
+        "Night Clock": NightClockRenderer(),
+    }
+
     cache = ArtworkCache(source)
     streamer = TCPMatrixStreamer(args.pico_ip, args.port)
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
-    angle = 0.0
     started = last_tick = time.monotonic()
     last_ack = last_health = 0.0
     max_frame_ms = 0.0
     last_title = ""
     last_playing: bool | None = None
+    last_mode: str | None = None
+    last_power: bool | None = None
     print(
         f"Target Pico: {args.pico_ip}:{args.port}; {args.fps:g} FPS",
         flush=True,
@@ -140,25 +181,73 @@ def main() -> None:
     try:
         while not stop.is_set():
             tick = time.monotonic()
+            dt = tick - last_tick
             if args.duration and tick - started >= args.duration:
                 break
-            state = source.snapshot()
-            art = cache.get(state.artwork_url if state.available else "")
-            if state.available and state.playing:
-                angle = (angle + (tick - last_tick) * args.rotation_speed) % 360
-            if state.title != last_title:
-                provider = getattr(source, "active_provider", "ha").upper()
-                print(f"[{provider}] Track: {state.title} | {state.artist}", flush=True)
-                last_title = state.title
-            if state.playing != last_playing and state.available:
-                status_str = "Playing" if state.playing else "Paused"
-                provider = getattr(source, "active_provider", "ha").upper()
-                print(f"[{provider}] Playback: {status_str}", flush=True)
-                last_playing = state.playing
-            frame = render_record(art, angle) if art is not None else render_idle()
-            if streamer.send_frame(frame, brightness=args.brightness):
+
+            spotify_state = source.snapshot()
+            ha_state = source.hub_state()
+
+            art = cache.get(
+                spotify_state.artwork_url if spotify_state.available else ""
+            )
+
+            # Determine active mode
+            if not ha_state.power or ha_state.mode == "Off":
+                active_mode = "Off"
+            elif ha_state.mode == "Auto":
+                if spotify_state.available and spotify_state.playing:
+                    active_mode = "Spotify"
+                else:
+                    active_mode = "Clock & Weather"
+            else:
+                active_mode = ha_state.mode
+
+            if ha_state.power != last_power:
+                power_str = "ON" if ha_state.power else "OFF"
+                print(f"[Hub] Power: {power_str}", flush=True)
+                last_power = ha_state.power
+
+            if active_mode != last_mode:
+                print(f"[Hub] Mode: {active_mode} (HA: {ha_state.mode})", flush=True)
+                last_mode = active_mode
+
+            if active_mode == "Spotify":
+                if spotify_state.title != last_title:
+                    provider = getattr(source, "active_provider", "ha").upper()
+                    print(
+                        f"[{provider}] Track: {spotify_state.title} | {spotify_state.artist}",
+                        flush=True,
+                    )
+                    last_title = spotify_state.title
+                if spotify_state.playing != last_playing and spotify_state.available:
+                    status_str = "Playing" if spotify_state.playing else "Paused"
+                    provider = getattr(source, "active_provider", "ha").upper()
+                    print(f"[{provider}] Playback: {status_str}", flush=True)
+                    last_playing = spotify_state.playing
+
+            renderer = renderers.get(active_mode, renderers["Clock & Weather"])
+            brightness = (
+                ha_state.brightness
+                if ha_state.brightness is not None
+                else args.brightness
+            )
+            ctx = RenderContext(
+                tick=tick,
+                dt=dt,
+                ha_state=ha_state,
+                spotify_state=spotify_state,
+                spotify_art=art,
+                brightness=brightness,
+                rotation_speed=args.rotation_speed,
+            )
+            frame = renderer.render(ctx, size=64)
+
+            effective_brightness = 0.0 if active_mode == "Off" else brightness
+            if streamer.send_frame(frame, brightness=effective_brightness):
                 last_ack = time.monotonic()
             max_frame_ms = max(max_frame_ms, (time.monotonic() - tick) * 1000)
+
             if args.health_file and tick - last_health >= 2:
                 write_private_file(
                     args.health_file,
@@ -166,7 +255,10 @@ def main() -> None:
                         {
                             "updated_at": time.time(),
                             "ready": source.connected and last_ack > tick - 10,
-                            "metadata_available": state.available,
+                            "mode": active_mode,
+                            "power": ha_state.power,
+                            "brightness": brightness,
+                            "metadata_available": spotify_state.available,
                             "artwork_ready": art is not None,
                             "frames": streamer.frames,
                             "failures": streamer.failures,
@@ -181,7 +273,8 @@ def main() -> None:
             stop.wait(max(0, 1 / args.fps - (time.monotonic() - tick)))
     finally:
         elapsed = time.monotonic() - started
-        entity_available = source.snapshot().available
+        spotify_state = source.snapshot()
+        ha_state = source.hub_state()
         source_connected = source.connected
         streamer.close()
         source.close()
@@ -191,10 +284,13 @@ def main() -> None:
             "seconds": elapsed,
             "acknowledged_frames": streamer.frames,
             "failures": streamer.failures,
-            "displayed_fps": streamer.frames / elapsed,
+            "displayed_fps": streamer.frames / elapsed if elapsed > 0 else 0,
             "max_frame_ms": max_frame_ms,
-            "entity_available": entity_available,
+            "entity_available": spotify_state.available,
             "connected": source_connected,
+            "mode": last_mode,
+            "power": ha_state.power,
+            "brightness": ha_state.brightness,
         }
         if args.stats_file:
             write_private_file(args.stats_file, json.dumps(stats, indent=2) + "\n")

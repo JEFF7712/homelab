@@ -2412,26 +2412,26 @@
       "id": "first-party-apps-spotify-matrix",
       "kind": "first-party",
       "consumers": [
-        "gitops/spotify-matrix/deployment.yaml:29"
+        "gitops/led-matrix/deployment.yaml:29"
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
         "ha-reviewed",
-        "retention-candidate-262d7e2cb49ec62c"
+        "retention-candidate-2fdbe854a4b793ac"
       ],
-      "digest": "sha256:262d7e2cb49ec62c599d623f083496b911467919eb9358eb36f12421e9afc309",
+      "digest": "sha256:2fdbe854a4b793ac13897e88e9290df8ec306158f841548f5ff0a021ce563986",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
-        "location": "services/spotify-matrix/Dockerfile",
+        "location": "services/led-matrix/Dockerfile",
         "pipeline_status": "verified-local-build-published"
       },
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
         "tag": "ha-reviewed",
-        "digest": "sha256:262d7e2cb49ec62c599d623f083496b911467919eb9358eb36f12421e9afc309",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:262d7e2cb49ec62c599d623f083496b911467919eb9358eb36f12421e9afc309"
+        "digest": "sha256:2fdbe854a4b793ac13897e88e9290df8ec306158f841548f5ff0a021ce563986",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:2fdbe854a4b793ac13897e88e9290df8ec306158f841548f5ff0a021ce563986"
       }
     }
   ],
