@@ -42,7 +42,12 @@ def main() -> None:
     parser.add_argument(
         "--spotify-poll-interval",
         type=float,
-        default=float(os.getenv("SPOTIFY_POLL_INTERVAL", "1.5")),
+        default=float(os.getenv("SPOTIFY_POLL_INTERVAL", "1.0")),
+    )
+    parser.add_argument(
+        "--spotify-poll-interval-paused",
+        type=float,
+        default=float(os.getenv("SPOTIFY_POLL_INTERVAL_PAUSED", "0")) or None,
     )
     parser.add_argument(
         "--spotify-token-cache",
@@ -70,6 +75,10 @@ def main() -> None:
         or args.stale_after <= 0
         or (args.duration is not None and args.duration <= 0)
         or args.spotify_poll_interval <= 0
+        or (
+            args.spotify_poll_interval_paused is not None
+            and args.spotify_poll_interval_paused <= 0
+        )
     ):
         parser.error(
             "Invalid FPS, brightness, stale timeout, poll interval, or duration"
@@ -94,9 +103,15 @@ def main() -> None:
             ha_source=ha_source,
             spotify_client=spotify_client,
             poll_interval_playing=args.spotify_poll_interval,
+            poll_interval_paused=args.spotify_poll_interval_paused,
+        )
+        paused_info = (
+            f"; paused: {args.spotify_poll_interval_paused:g}s"
+            if args.spotify_poll_interval_paused
+            else ""
         )
         print(
-            f"Playback source: Hybrid (Spotify API primary at {args.spotify_poll_interval:g}s + HA fallback)",
+            f"Playback source: Hybrid (Spotify API primary at {args.spotify_poll_interval:g}s{paused_info} + HA fallback)",
             flush=True,
         )
     else:
@@ -116,6 +131,7 @@ def main() -> None:
     last_ack = last_health = 0.0
     max_frame_ms = 0.0
     last_title = ""
+    last_playing: bool | None = None
     print(
         f"Target Pico: {args.pico_ip}:{args.port}; {args.fps:g} FPS",
         flush=True,
@@ -134,6 +150,11 @@ def main() -> None:
                 provider = getattr(source, "active_provider", "ha").upper()
                 print(f"[{provider}] Track: {state.title} | {state.artist}", flush=True)
                 last_title = state.title
+            if state.playing != last_playing and state.available:
+                status_str = "Playing" if state.playing else "Paused"
+                provider = getattr(source, "active_provider", "ha").upper()
+                print(f"[{provider}] Playback: {status_str}", flush=True)
+                last_playing = state.playing
             frame = render_record(art, angle) if art is not None else render_idle()
             if streamer.send_frame(frame, brightness=args.brightness):
                 last_ack = time.monotonic()

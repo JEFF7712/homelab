@@ -298,7 +298,7 @@ class HomeAssistantSource:
 
 
 class ArtworkCache:
-    def __init__(self, source: HomeAssistantSource) -> None:
+    def __init__(self, source: HomeAssistantSource | HybridPlaybackSource) -> None:
         self.source = source
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="artwork")
         self._future: Future[Image.Image] | None = None
@@ -388,20 +388,25 @@ class HybridPlaybackSource:
         self,
         ha_source: HomeAssistantSource,
         spotify_client: Any,
-        poll_interval_playing: float = 1.5,
+        poll_interval_playing: float = 1.0,
+        poll_interval_paused: float | None = None,
         poll_interval_idle: float = 5.0,
         quota_cooldown: float = 3600.0,
         error_cooldown: float = 15.0,
+        active_window: float = 180.0,
     ) -> None:
         self.ha_source = ha_source
         self.spotify_client = spotify_client
         self.poll_interval_playing = poll_interval_playing
+        self.poll_interval_paused = poll_interval_paused
         self.poll_interval_idle = poll_interval_idle
         self.quota_cooldown = quota_cooldown
         self.error_cooldown = error_cooldown
+        self.active_window = active_window
 
         self._spotify_state = PlaybackState()
         self._spotify_available = False
+        self._last_active_at = time.monotonic()
         self._fallback_until = 0.0
         self._fallback_reason = ""
         self._active_provider = "home_assistant"
@@ -474,15 +479,26 @@ class HybridPlaybackSource:
                 raise_on_error=True,
             )
             new_state = parse_spotify_state(data)
+            now = time.monotonic()
             with self._lock:
                 self._spotify_state = new_state
                 self._spotify_available = True
                 self._switch_provider("spotify")
+                if new_state.playing:
+                    self._last_active_at = now
+
             if new_state.playing:
                 return self.poll_interval_playing
             elif new_state.available:
-                return max(2.0, self.poll_interval_playing * 1.5)
+                if self.poll_interval_paused is not None:
+                    return self.poll_interval_paused
+                # If recently active (within active_window), poll at playing rate so resume is immediate
+                if now - self._last_active_at < self.active_window:
+                    return self.poll_interval_playing
+                return min(self.poll_interval_idle, max(2.5, self.poll_interval_playing * 2.0))
             else:
+                if now - self._last_active_at < 60.0:
+                    return min(2.5, self.poll_interval_idle)
                 return self.poll_interval_idle
         except SpotifyRateLimited as error:
             retry = max(error.retry_after, 1.0)
