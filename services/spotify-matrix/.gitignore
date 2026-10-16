@@ -1,0 +1,5 @@
+.venv/
+wheelhouse/
+.env
+*.oci.tar
+build-metadata.json

@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!wheelhouse/
+!wheelhouse/*.whl
+!spotify_matrix_streamer.py
+!ha_source.py
+!ha_matrix_streamer.py

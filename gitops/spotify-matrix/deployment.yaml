@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spotify-matrix
+  namespace: spotify-matrix
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: spotify-matrix
+  template:
+    metadata:
+      labels:
+        app: spotify-matrix
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: renderer
+          image: >-
+            registry.rupan.dev/apps/spotify-matrix@sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb
+          args:
+            - --ha-url
+            - http://home-assistant.home-assistant.svc.cluster.local:8123
+            - --ha-token-file
+            - /run/secrets/ha/token
+            - --entity
+            - media_player.spotify_rupan
+            - --pico-ip
+            - 10.0.20.136
+            - --fps
+            - "20"
+            - --health-file
+            - /tmp/health.json
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          volumeMounts:
+            - name: ha-token
+              mountPath: /run/secrets/ha
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - >-
+                  import json,time;
+                  s=json.load(open('/tmp/health.json'));
+                  assert time.time()-s['updated_at']<15
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - >-
+                  import json,time;
+                  s=json.load(open('/tmp/health.json'));
+                  assert time.time()-s['updated_at']<15 and s['ready']
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+      volumes:
+        - name: ha-token
+          secret:
+            secretName: spotify-matrix-ha
+            defaultMode: 0440
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi

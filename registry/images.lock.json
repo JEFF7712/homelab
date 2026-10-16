@@ -4875,6 +4875,47 @@
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
       }
+    },
+    {
+      "id": "first-party-apps-spotify-matrix",
+      "kind": "first-party",
+      "consumers": [
+        "gitops/spotify-matrix/deployment.yaml:29"
+      ],
+      "destination_repository": "apps/spotify-matrix",
+      "destination_tags": [
+        "ha-reviewed",
+        "retention-candidate-519fb77a8ebb14a5"
+      ],
+      "digest": "sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb",
+      "retention_class": "candidate",
+      "producer": {
+        "owner": "JEFF7712/homelab",
+        "location": "services/spotify-matrix/Dockerfile",
+        "pipeline_status": "verified-local-build-unpublished"
+      },
+      "source": {
+        "registry": "registry.rupan.dev",
+        "repository": "apps/spotify-matrix",
+        "tag": "ha-reviewed",
+        "digest": "sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:519fb77a8ebb14a5efc2ce66136c5cecd684c7fb6ccb76e3d3df16065f5b90fb"
+      },
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "resolution": {
+        "status": "local-build-verified-publication-pending"
+      },
+      "authenticity": {
+        "status": "unsupported",
+        "reason": "Local candidate build; registry publication has not been authorized or verified"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      }
     }
   ],
   "kind": "registry-image-lock",

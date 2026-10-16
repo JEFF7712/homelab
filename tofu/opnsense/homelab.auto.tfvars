@@ -63,6 +63,13 @@ dhcpv4_subnets = {
 }
 
 dhcpv4_reservations = {
+  spotify_matrix = {
+    description = "Pico W Spotify matrix"
+    hostname    = "spotify-matrix"
+    ip_address  = "10.0.20.136"
+    mac_address = "28:cd:c1:0d:31:05"
+    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
+  }
   laptop_nixos = {
     description = "Rupan's NixOS laptop"
     hostname    = "laptop-nixos"
