@@ -28,6 +28,11 @@ ordinary HA pod. This permits port 8123 on cluster nodes, rather than arbitrary
 node ports. The policy needs live cluster qualification; local Docker testing
 does not exercise Cilium or Kubernetes service routing.
 
+The renderer connects to HA's existing BGP service VIP `10.0.40.13:8123`.
+The first rollout found DNS requests stalled at the node's transparent DNS
+proxy. Using the stable service VIP avoids that dependency for HA metadata and
+its relative artwork proxy URLs, while retaining HA backend failover.
+
 ## Publication and rollout
 
 Repository `AGENTS.md` requires authorization before publishing or changing
