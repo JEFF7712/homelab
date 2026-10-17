@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:dc14b0fcb0c75b1d5441354a3e220f6448f923c4b5610f5914b3816f7465f0cb
+            registry.rupan.dev/apps/spotify-matrix@sha256:d37a5014c74c3216e3991875bb05875075b835d8939926d19d0db1fa4c851f05
           args:
             - --ha-url
             - http://10.0.40.13:8123

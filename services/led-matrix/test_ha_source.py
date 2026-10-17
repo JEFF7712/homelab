@@ -934,6 +934,153 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(len(game.grid), 21)
         self.assertTrue(all(game.grid[y][x] == 1 for x in range(21) for y in (0, 20)))
 
+    def test_multiplayer_tron_event_queue(self) -> None:
+        from modes.multiplayer import Tron2P
+
+        tron = Tron2P(solo_vs_ai=False)
+        tron.reset()
+        tron.round_delay = 0.0
+
+        # Initial direction is right
+        self.assertEqual(tron.p1_dir, "right")
+
+        # Discrete tap "down" in p1_events
+        tron.update(0.1, set(), set(), p1_events=["down"])
+        self.assertEqual(tron.p1_dir, "down")
+
+        # Next discrete tap "left" in p1_events (should turn left, not stuck in up or down)
+        tron.update(0.1, set(), set(), p1_events=["left"])
+        self.assertEqual(tron.p1_dir, "left")
+
+        # Next discrete tap "up" in p1_events
+        tron.update(0.1, set(), set(), p1_events=["up"])
+        self.assertEqual(tron.p1_dir, "up")
+
+        # Instant 180 reverse attempt ("down") should be rejected
+        tron.update(0.1, set(), set(), p1_events=["down"])
+        self.assertEqual(tron.p1_dir, "up")
+
+    def test_interactive_snake(self) -> None:
+        from modes.multiplayer import InteractiveSnake
+
+        snake = InteractiveSnake()
+        snake.reset()
+        self.assertFalse(snake.is_game_over())
+        self.assertEqual(snake.score, 0)
+        self.assertEqual(len(snake.snake), 4)
+
+        # Steer down
+        snake.update(0.1, set(), set(), p1_events=["down"])
+        self.assertEqual(snake.current_dir, "down")
+
+        # Steer left
+        snake.update(0.1, set(), set(), p1_events=["left"])
+        self.assertEqual(snake.current_dir, "left")
+
+        # Render
+        img = Image.new("RGB", (64, 64))
+        draw = ImageDraw.Draw(img)
+        snake.render(draw)
+        self.assertEqual(img.size, (64, 64))
+
+        # Status text
+        status = snake.get_status_text()
+        self.assertIn("SCORE:", status)
+
+    def test_interactive_breakout(self) -> None:
+        from modes.multiplayer import InteractiveBreakout
+
+        game = InteractiveBreakout()
+        game.reset()
+        self.assertFalse(game.is_game_over())
+        self.assertEqual(game.lives, 3)
+
+        # Move paddle left
+        orig_x = game.paddle_x
+        game.update(0.1, {"left"}, set())
+        self.assertLess(game.paddle_x, orig_x)
+
+        # Move paddle right
+        orig_x = game.paddle_x
+        game.update(0.1, {"right"}, set())
+        self.assertGreater(game.paddle_x, orig_x)
+
+        # Render
+        img = Image.new("RGB", (64, 64))
+        draw = ImageDraw.Draw(img)
+        game.render(draw)
+        self.assertEqual(img.size, (64, 64))
+
+    def test_interactive_tetris(self) -> None:
+        from modes.multiplayer import InteractiveTetris
+
+        game = InteractiveTetris()
+        game.reset()
+        self.assertFalse(game.is_game_over())
+
+        # Move piece left
+        orig_px = game.piece_x
+        game.update(0.01, set(), set(), p1_events=["left"])
+        self.assertLessEqual(game.piece_x, orig_px)
+
+        # Rotate piece
+        game.update(0.01, set(), set(), p1_events=["rotate"])
+
+        # Hard drop
+        game.update(0.01, set(), set(), p1_events=["hard_drop"])
+        self.assertGreater(game.score, 0)
+
+        # Render
+        img = Image.new("RGB", (64, 64))
+        draw = ImageDraw.Draw(img)
+        game.render(draw)
+        self.assertEqual(img.size, (64, 64))
+
+    def test_carousel_and_menu_navigation(self) -> None:
+        from modes.multiplayer import CarouselRenderer, LobbyRenderer
+        from web_controller.server import MultiplayerHub
+
+        hub = MultiplayerHub()
+        carousel = CarouselRenderer(hub)
+        lobby = LobbyRenderer(hub)
+
+        # Initial game index 0 (pong)
+        self.assertEqual(hub.selected_game_index, 0)
+        self.assertEqual(hub.selected_game, "pong")
+
+        # Navigate next -> tron
+        hub.navigate_menu("next")
+        self.assertEqual(hub.selected_game_index, 1)
+        self.assertEqual(hub.selected_game, "tron")
+
+        # Navigate prev -> pong
+        hub.navigate_menu("prev")
+        self.assertEqual(hub.selected_game_index, 0)
+        self.assertEqual(hub.selected_game, "pong")
+
+        # Update carousel animation
+        carousel.update(0.1)
+
+        # Render carousel
+        img = Image.new("RGB", (64, 64))
+        draw = ImageDraw.Draw(img)
+        carousel.render(draw)
+        self.assertEqual(img.size, (64, 64))
+
+        # When no players connected, lobby renders QR code
+        self.assertFalse(hub.p1_connected)
+        lobby.render_lobby(draw)
+
+        # When P1 connects, lobby renders Carousel wheel
+        hub.p1_ws = object()  # dummy connection
+        self.assertTrue(hub.p1_connected)
+        lobby.render_lobby(draw)
+
+        # Toggle QR forced
+        hub.toggle_matrix_qr()
+        self.assertEqual(hub.matrix_view, "qr")
+        lobby.render_lobby(draw)
+
 
 if __name__ == "__main__":
     unittest.main()

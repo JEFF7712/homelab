@@ -3,7 +3,9 @@
 import asyncio
 import json
 import logging
-from typing import Any, Callable
+from collections import deque
+from collections.abc import Callable
+from typing import Any
 
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.datastructures import Headers
@@ -12,6 +14,44 @@ from websockets.http11 import Response
 from .controller_html import CONTROLLER_HTML
 
 logger = logging.getLogger("web_controller")
+
+GAMES_CONFIG = [
+    {
+        "id": "pong",
+        "name": "PONG 2P",
+        "badge": "1P / 2P",
+        "desc": "Classic arcade table tennis battle",
+        "supports_2p": True,
+    },
+    {
+        "id": "tron",
+        "name": "TRON CYCLES",
+        "badge": "1P / 2P",
+        "desc": "High-speed light trail survival arena",
+        "supports_2p": True,
+    },
+    {
+        "id": "snake",
+        "name": "SNAKE",
+        "badge": "1P SOLO",
+        "desc": "Eat glowing apples, grow longer, don't crash",
+        "supports_2p": False,
+    },
+    {
+        "id": "breakout",
+        "name": "BREAKOUT",
+        "badge": "1P SOLO",
+        "desc": "Smash all bricks with bouncing ball physics",
+        "supports_2p": False,
+    },
+    {
+        "id": "tetris",
+        "name": "TETRIS",
+        "badge": "1P SOLO",
+        "desc": "Classic falling block puzzle line clearing",
+        "supports_2p": False,
+    },
+]
 
 
 class MultiplayerHub:
@@ -24,18 +64,25 @@ class MultiplayerHub:
 
         self.phase: str = "lobby"  # 'lobby', 'countdown', 'playing', 'gameover'
         self.countdown_remaining: float = 0.0
-        self.selected_game: str = "pong"
+        self.selected_game_index: int = 0
+        self.selected_game: str = GAMES_CONFIG[0]["id"]
         self.solo_vs_ai: bool = False
+        self.matrix_view: str = "auto"  # 'auto', 'carousel', 'qr'
 
         # Active input state per player (keys currently held down)
         self.p1_inputs: set[str] = set()
         self.p2_inputs: set[str] = set()
+
+        # Discrete key tap events for step/grid/turn based games & menu navigation
+        self.p1_events: deque[str] = deque(maxlen=10)
+        self.p2_events: deque[str] = deque(maxlen=10)
 
         self.loop: asyncio.AbstractEventLoop | None = None
 
         # Callbacks for game lifecycle
         self.on_start_game: Callable[[str, bool], None] | None = None
         self.on_rematch: Callable[[], None] | None = None
+        self.on_menu_exit: Callable[[], None] | None = None
 
     @property
     def p1_connected(self) -> bool:
@@ -52,7 +99,10 @@ class MultiplayerHub:
             "p2_connected": self.p2_connected or self.solo_vs_ai,
             "phase": self.phase,
             "selected_game": self.selected_game,
+            "selected_game_index": self.selected_game_index,
+            "games": GAMES_CONFIG,
             "solo_vs_ai": self.solo_vs_ai,
+            "matrix_view": self.matrix_view,
         }
 
     async def broadcast(self, data: dict[str, Any]) -> None:
@@ -78,7 +128,6 @@ class MultiplayerHub:
             except Exception:
                 pass
 
-
     def register_client(self, ws: ServerConnection) -> int:
         """Assign client to Player 1, Player 2, or Spectator (0)."""
         addr = getattr(ws, "remote_address", "unknown")
@@ -95,34 +144,85 @@ class MultiplayerHub:
             logger.info("Spectator connected from %s", addr)
             return 0
 
-
     def unregister_client(self, ws: ServerConnection) -> None:
         if self.p1_ws == ws:
             self.p1_ws = None
             self.p1_inputs.clear()
+            self.p1_events.clear()
             logger.info("Player 1 disconnected")
         elif self.p2_ws == ws:
             self.p2_ws = None
             self.p2_inputs.clear()
+            self.p2_events.clear()
             logger.info("Player 2 disconnected")
         else:
             self.spectators.discard(ws)
 
         # If in game and a required player leaves, revert to lobby
-        if self.phase in ("countdown", "playing"):
-            if not self.p1_connected or (not self.solo_vs_ai and not self.p2_connected):
-                self.phase = "lobby"
+        if self.phase in ("countdown", "playing") and (
+            not self.p1_connected or (not self.solo_vs_ai and not self.p2_connected)
+        ):
+            self.phase = "lobby"
 
     def handle_input(self, player: int, action: str, state: str) -> None:
         target_inputs = self.p1_inputs if player == 1 else self.p2_inputs
+        target_events = self.p1_events if player == 1 else self.p2_events
         if state == "down":
             target_inputs.add(action)
+            target_events.append(action)
         elif state == "up":
             target_inputs.discard(action)
+
+    def consume_events(self, player: int) -> list[str]:
+        target_events = self.p1_events if player == 1 else self.p2_events
+        events = list(target_events)
+        target_events.clear()
+        return events
+
+    def clear_inputs(self) -> None:
+        self.p1_inputs.clear()
+        self.p2_inputs.clear()
+        self.p1_events.clear()
+        self.p2_events.clear()
+
+    def navigate_menu(self, direction: str) -> None:
+        if direction in ("left", "prev"):
+            self.selected_game_index = (self.selected_game_index - 1) % len(GAMES_CONFIG)
+        elif direction in ("right", "next"):
+            self.selected_game_index = (self.selected_game_index + 1) % len(GAMES_CONFIG)
+        self.selected_game = GAMES_CONFIG[self.selected_game_index]["id"]
+        if not GAMES_CONFIG[self.selected_game_index]["supports_2p"]:
+            self.solo_vs_ai = True
+        self.broadcast_sync(self.get_lobby_state())
+
+    def set_selected_game(self, game_id: str) -> None:
+        for idx, g in enumerate(GAMES_CONFIG):
+            if g["id"] == game_id:
+                self.selected_game_index = idx
+                self.selected_game = game_id
+                if not g["supports_2p"]:
+                    self.solo_vs_ai = True
+                break
+        self.broadcast_sync(self.get_lobby_state())
+
+    def toggle_matrix_qr(self) -> None:
+        if self.matrix_view == "qr":
+            self.matrix_view = "carousel"
+        else:
+            self.matrix_view = "qr"
+        self.broadcast_sync(self.get_lobby_state())
+
+    def exit_to_menu(self) -> None:
+        self.phase = "lobby"
+        self.clear_inputs()
+        if self.on_menu_exit:
+            self.on_menu_exit()
+        self.broadcast_sync(self.get_lobby_state())
 
     def trigger_game_start(self, game: str, solo: bool) -> None:
         self.selected_game = game
         self.solo_vs_ai = solo
+        self.clear_inputs()
         self.phase = "countdown"
         self.countdown_remaining = 3.0
         if self.on_start_game:
@@ -165,7 +265,11 @@ class WebControllerServer:
 
             # If a game is already running, notify the newly connected player
             if self.hub.phase == "playing":
-                await ws.send(json.dumps({"type": "game_start", "game": self.hub.selected_game}))
+                await ws.send(json.dumps({
+                    "type": "game_start",
+                    "game": self.hub.selected_game,
+                    "solo": self.hub.solo_vs_ai,
+                }))
 
             # 3. Handle incoming client messages
             async for raw_msg in ws:
@@ -179,9 +283,17 @@ class WebControllerServer:
                     action = data.get("action", "")
                     state = data.get("state", "down")
                     self.hub.handle_input(role, action, state)
+                elif msg_type == "menu_nav" and role in (1, 2):
+                    self.hub.navigate_menu(data.get("dir", "next"))
+                elif msg_type == "select_game" and role in (1, 2):
+                    self.hub.set_selected_game(data.get("game", "pong"))
+                elif msg_type == "toggle_qr":
+                    self.hub.toggle_matrix_qr()
+                elif msg_type == "menu_exit":
+                    self.hub.exit_to_menu()
                 elif msg_type == "start_game" and role in (1, 2):
-                    game = data.get("game", "pong")
-                    solo = bool(data.get("solo", False))
+                    game = data.get("game", self.hub.selected_game)
+                    solo = bool(data.get("solo", self.hub.solo_vs_ai))
                     self.hub.trigger_game_start(game, solo)
                     await self.hub.broadcast({
                         "type": "game_start",

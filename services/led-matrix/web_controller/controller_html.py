@@ -7,12 +7,12 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a12">
+<meta name="theme-color" content="#0a0a14">
 <title>LED Matrix Arcade</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   body {
-    background-color: #080810;
+    background-color: #070711;
     color: #e0e0ff;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
     height: 100vh;
@@ -23,106 +23,211 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     touch-action: none;
   }
   header {
-    background: #101020;
-    border-bottom: 2px solid #202038;
-    padding: 12px 16px;
+    background: #0f1020;
+    border-bottom: 2px solid #1f2038;
+    padding: 10px 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    z-index: 50;
   }
-  .title { font-weight: 800; font-size: 14px; letter-spacing: 1px; color: #8888aa; }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-menu-exit {
+    background: #1c1c32;
+    border: 1px solid #353555;
+    color: #a0a0cc;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: none;
+  }
+  .btn-menu-exit:active { background: #282845; color: #fff; }
+  .title { font-weight: 800; font-size: 13px; letter-spacing: 1px; color: #7878a0; }
   .badge {
     padding: 4px 10px;
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   .badge-p1 { background: rgba(0, 229, 255, 0.2); color: #00e5ff; border: 1px solid #00e5ff; }
   .badge-p2 { background: rgba(255, 145, 0, 0.2); color: #ff9100; border: 1px solid #ff9100; }
-  .badge-spec { background: #252535; color: #8888aa; border: 1px solid #404055; }
+  .badge-spec { background: #222234; color: #7878a0; border: 1px solid #383850; }
 
   #main-view {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    padding: 12px;
     justify-content: center;
     align-items: center;
     position: relative;
+    overflow: hidden;
   }
 
-  /* Lobby view */
-  .lobby-card {
-    background: #121222;
-    border: 2px solid #2a2a44;
-    border-radius: 16px;
-    padding: 24px;
-    width: 100%;
-    max-width: 360px;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  }
-  .lobby-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
-  .lobby-subtitle { font-size: 14px; color: #8888aa; margin-bottom: 20px; }
-  .player-slots {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-  .slot {
-    flex: 1;
-    padding: 12px 8px;
-    border-radius: 10px;
-    background: #18182c;
-    border: 1px dashed #353555;
-    font-size: 13px;
-    font-weight: 700;
-  }
-  .slot.connected.p1 { border: 1px solid #00e5ff; background: rgba(0, 229, 255, 0.1); color: #00e5ff; }
-  .slot.connected.p2 { border: 1px solid #ff9100; background: rgba(255, 145, 0, 0.1); color: #ff9100; }
-
-  .game-select {
+  /* Carousel Wheel Menu View */
+  #menu-view {
     display: flex;
     flex-direction: column;
-    gap: 10px;
     width: 100%;
-    margin-bottom: 20px;
+    max-width: 380px;
+    height: 100%;
+    justify-content: space-between;
+    padding: 8px 0;
   }
-  .btn-game {
-    background: #1c1c34;
-    border: 2px solid #35355a;
-    color: #fff;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 16px;
+  .menu-card {
+    background: #101222;
+    border: 2px solid #282c48;
+    border-radius: 18px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    margin-bottom: 8px;
+  }
+  .menu-banner-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .matrix-hint {
+    font-size: 11px;
+    color: #00e5ff;
+    letter-spacing: 1px;
     font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s ease;
   }
-  .btn-game.active {
-    border-color: #00e5ff;
+  .game-badge {
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
     background: rgba(0, 229, 255, 0.15);
     color: #00e5ff;
+    border: 1px solid #00e5ff;
   }
-  .btn-start {
-    background: linear-gradient(135deg, #00e5ff, #0088cc);
-    color: #000;
-    font-size: 18px;
+  .game-title-lg {
+    font-size: 26px;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 1px;
+    margin: 4px 0;
+  }
+  .game-desc {
+    font-size: 13px;
+    color: #8c8caa;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .btn-nav {
+    flex: 1;
+    background: #17182c;
+    border: 2px solid #303356;
+    color: #00e5ff;
+    font-size: 16px;
     font-weight: 800;
-    padding: 16px;
+    padding: 14px 10px;
+    border-radius: 14px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.1s ease;
+  }
+  .btn-nav:active {
+    background: #252848;
+    border-color: #00e5ff;
+    transform: scale(0.97);
+  }
+
+  .mode-toggle-box {
+    background: #0d0e1a;
+    border: 1px solid #23253c;
     border-radius: 12px;
+    padding: 6px;
+    display: flex;
+    gap: 6px;
+    margin: 10px 0;
+  }
+  .btn-mode {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #777799;
+    padding: 8px 4px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .btn-mode.active {
+    background: #1f223d;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  .btn-play-action {
+    background: linear-gradient(135deg, #00e5ff, #0077cc);
+    color: #000;
+    font-size: 20px;
+    font-weight: 900;
+    padding: 16px;
+    border-radius: 14px;
     border: none;
     width: 100%;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 229, 255, 0.4);
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4);
+    touch-action: manipulation;
   }
-  .btn-start:disabled {
-    background: #252535;
+  .btn-play-action:active { transform: scale(0.98); }
+  .btn-play-action:disabled {
+    background: #202234;
     color: #555577;
     box-shadow: none;
     cursor: not-allowed;
+  }
+
+  .lobby-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .btn-sub-action {
+    flex: 1;
+    background: #141424;
+    border: 1px solid #2a2a44;
+    color: #8888aa;
+    padding: 8px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-sub-action:active { background: #222238; color: #fff; }
+
+  /* Generic Game HUD Header */
+  .game-hud {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 800;
+    padding: 6px 0 12px 0;
+    letter-spacing: 1.5px;
+    color: #ffffff;
+    width: 100%;
   }
 
   /* Pong View */
@@ -133,176 +238,404 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     flex-direction: column;
     gap: 12px;
   }
-  .pong-header {
-    text-align: center;
-    font-size: 20px;
-    font-weight: 800;
-    padding: 8px 0;
-    letter-spacing: 2px;
-  }
-  .btn-pong-up, .btn-pong-down {
+  .btn-pong {
     flex: 1;
-    border-radius: 16px;
-    border: 3px solid #303055;
-    background: #141428;
+    border-radius: 18px;
+    border: 3px solid #303358;
+    background: #131428;
     color: #fff;
     font-size: 32px;
-    font-weight: 800;
+    font-weight: 900;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     touch-action: none;
   }
-  .btn-pong-up:active, .btn-pong-up.touch-active { background: #25254d; border-color: #00e5ff; color: #00e5ff; }
-  .btn-pong-down:active, .btn-pong-down.touch-active { background: #25254d; border-color: #00e5ff; color: #00e5ff; }
-  body.p2-mode .btn-pong-up:active, body.p2-mode .btn-pong-up.touch-active { border-color: #ff9100; color: #ff9100; }
-  body.p2-mode .btn-pong-down:active, body.p2-mode .btn-pong-down.touch-active { border-color: #ff9100; color: #ff9100; }
+  .btn-pong:active, .btn-pong.touch-active {
+    background: #23254c;
+    border-color: #00e5ff;
+    color: #00e5ff;
+  }
+  body.p2-mode .btn-pong:active, body.p2-mode .btn-pong.touch-active {
+    border-color: #ff9100;
+    color: #ff9100;
+  }
 
-  /* Tron View */
-  #tron-view {
+  /* D-pad Views (Tron & Snake) */
+  #tron-view, #snake-view {
     display: none;
     width: 100%;
     height: 100%;
     flex-direction: column;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
   }
+  .dpad-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
   .dpad {
-    width: 280px;
-    height: 280px;
+    width: min(320px, 85vw);
+    height: min(320px, 85vw);
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     grid-template-rows: 1fr 1fr 1fr;
-    gap: 8px;
+    gap: 10px;
   }
   .dpad-btn {
-    background: #141428;
-    border: 3px solid #303055;
-    border-radius: 16px;
+    background: #14152a;
+    border: 3px solid #2d3154;
+    border-radius: 18px;
     color: #fff;
-    font-size: 28px;
-    font-weight: 800;
+    font-size: 32px;
+    font-weight: 900;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     touch-action: none;
   }
-  .dpad-btn:active, .dpad-btn.touch-active { background: #25254d; border-color: #00e5ff; color: #00e5ff; }
-  body.p2-mode .dpad-btn:active, body.p2-mode .dpad-btn.touch-active { border-color: #ff9100; color: #ff9100; }
+  .dpad-btn:active, .dpad-btn.touch-active {
+    background: #252852;
+    border-color: #00e5ff;
+    color: #00e5ff;
+  }
+  body.p2-mode .dpad-btn:active, body.p2-mode .dpad-btn.touch-active {
+    border-color: #ff9100;
+    color: #ff9100;
+  }
   .dpad-up    { grid-column: 2; grid-row: 1; }
   .dpad-left  { grid-column: 1; grid-row: 2; }
   .dpad-right { grid-column: 3; grid-row: 2; }
   .dpad-down  { grid-column: 2; grid-row: 3; }
-  .dpad-center { grid-column: 2; grid-row: 2; background: #0c0c16; border-color: #202035; border-radius: 50%; }
+  .dpad-center {
+    grid-column: 2;
+    grid-row: 2;
+    background: #0d0e1b;
+    border: 2px solid #202238;
+    border-radius: 50%;
+  }
 
-  /* Banner overlay */
+  /* Breakout View */
+  #breakout-view {
+    display: none;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .breakout-controls {
+    flex: 1;
+    display: flex;
+    gap: 14px;
+    width: 100%;
+  }
+  .btn-paddle {
+    flex: 1;
+    border-radius: 20px;
+    border: 3px solid #303358;
+    background: #14152a;
+    color: #fff;
+    font-size: 26px;
+    font-weight: 900;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: none;
+    gap: 8px;
+  }
+  .btn-paddle span { font-size: 13px; font-weight: 700; color: #8888bb; }
+  .btn-paddle:active, .btn-paddle.touch-active {
+    background: #252852;
+    border-color: #00e5ff;
+    color: #00e5ff;
+  }
+
+  /* Tetris View */
+  #tetris-view {
+    display: none;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .tetris-controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    justify-content: center;
+    width: 100%;
+    max-width: 380px;
+  }
+  .tetris-row {
+    display: flex;
+    gap: 12px;
+    height: 90px;
+  }
+  .btn-tetris {
+    flex: 1;
+    background: #14152a;
+    border: 3px solid #303358;
+    border-radius: 16px;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 900;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: none;
+    gap: 4px;
+  }
+  .btn-tetris span { font-size: 11px; font-weight: 700; color: #8888bb; }
+  .btn-tetris.action-rot {
+    background: #191b36;
+    border-color: #7b42f6;
+    color: #d1b3ff;
+  }
+  .btn-tetris.action-drop {
+    background: #1c152a;
+    border-color: #f6427b;
+    color: #ffb3d1;
+  }
+  .btn-tetris:active, .btn-tetris.touch-active {
+    background: #252852;
+    border-color: #00e5ff;
+    color: #00e5ff;
+  }
+
+  /* Game Over Banner Overlay */
   #banner {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(10, 10, 20, 0.95);
-    border: 2px solid #00e5ff;
-    border-radius: 16px;
-    padding: 24px 32px;
+    background: rgba(10, 11, 22, 0.96);
+    border: 3px solid #00e5ff;
+    border-radius: 20px;
+    padding: 24px 28px;
     text-align: center;
     display: none;
     z-index: 100;
+    width: 90%;
+    max-width: 340px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
   }
   #banner.p2-border { border-color: #ff9100; }
-  #banner-text { font-size: 26px; font-weight: 900; margin-bottom: 16px; }
+  #banner-title { font-size: 28px; font-weight: 900; margin-bottom: 8px; color: #fff; }
+  #banner-score { font-size: 15px; color: #00e5ff; margin-bottom: 20px; font-weight: 700; }
+  .banner-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
   .btn-rematch {
     background: #00e5ff;
     color: #000;
-    font-size: 16px;
-    font-weight: 800;
-    padding: 12px 24px;
-    border-radius: 10px;
+    font-size: 17px;
+    font-weight: 900;
+    padding: 14px;
+    border-radius: 12px;
     border: none;
+    cursor: pointer;
+  }
+  .btn-back-menu {
+    background: #1e2034;
+    border: 1px solid #353856;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px;
+    border-radius: 12px;
     cursor: pointer;
   }
 </style>
 </head>
 <body>
 <header>
-  <div class="title">LED MATRIX ARCADE</div>
+  <div class="header-left">
+    <button class="btn-menu-exit" id="btn-header-menu">⌂ MENU</button>
+    <div class="title">LED MATRIX ARCADE</div>
+  </div>
   <div id="player-badge" class="badge badge-spec">Connecting...</div>
 </header>
 
 <div id="main-view">
-  <!-- Lobby View -->
-  <div id="lobby-view" class="lobby-card">
-    <div class="lobby-title">BATTLE LOBBY</div>
-    <div class="lobby-subtitle" id="lobby-sub">Connecting to matrix...</div>
+  <!-- Carousel Menu View -->
+  <div id="menu-view">
+    <div class="menu-card">
+      <div class="menu-banner-top">
+        <span class="matrix-hint">◀ MATRIX CAROUSEL ▶</span>
+        <span class="game-badge" id="menu-game-badge">1P / 2P</span>
+      </div>
+      <div class="game-title-lg" id="menu-game-title">PONG 2P</div>
+      <div class="game-desc" id="menu-game-desc">Classic arcade table tennis battle</div>
 
-    <div class="player-slots">
-      <div id="slot-p1" class="slot">P1: WAITING</div>
-      <div id="slot-p2" class="slot">P2: WAITING</div>
+      <!-- Left / Right Carousel Controls -->
+      <div class="nav-row">
+        <button class="btn-nav" id="btn-nav-prev">◀ PREV</button>
+        <button class="btn-nav" id="btn-nav-next">NEXT ▶</button>
+      </div>
     </div>
 
-    <div class="game-select">
-      <button class="btn-game active" data-game="pong" id="opt-pong">🏓 2P PONG</button>
-      <button class="btn-game" data-game="tron" id="opt-tron">🏍️ TRON CYCLES</button>
+    <!-- Mode Selector (For games supporting 2P) -->
+    <div class="mode-toggle-box" id="mode-box">
+      <button class="btn-mode active" id="btn-mode-2p">2-PLAYER BATTLE</button>
+      <button class="btn-mode" id="btn-mode-1p">PLAY SOLO VS AI</button>
     </div>
 
-    <button id="btn-start" class="btn-start" disabled>WAITING FOR PLAYERS...</button>
-    <div style="margin-top: 14px;">
-      <button id="btn-solo" style="background: none; border: 1px solid #444; color: #888; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">
-        PLAY SOLO VS AI
-      </button>
+    <!-- Start / Play Action -->
+    <button id="btn-start" class="btn-play-action">▶ START GAME</button>
+
+    <!-- Sub Actions: Toggle Matrix QR & Info -->
+    <div class="lobby-footer">
+      <button class="btn-sub-action" id="btn-toggle-qr">Toggle QR on Matrix</button>
+      <button class="btn-sub-action" id="btn-p2-status">P2: Waiting...</button>
     </div>
   </div>
 
   <!-- Pong View -->
   <div id="pong-view">
-    <div class="pong-header" id="pong-score">P1: 0  |  P2: 0</div>
-    <button class="btn-pong-up" id="btn-pong-up">▲ UP</button>
-    <button class="btn-pong-down" id="btn-pong-down">▼ DOWN</button>
+    <div class="game-hud" id="pong-hud">P1: 0  |  P2: 0</div>
+    <button class="btn-pong" data-action="up">▲ PADDLE UP</button>
+    <button class="btn-pong" data-action="down">▼ PADDLE DOWN</button>
   </div>
 
   <!-- Tron View -->
   <div id="tron-view">
-    <div class="pong-header" id="tron-score">ROUND 1</div>
-    <div class="dpad">
-      <button class="dpad-btn dpad-up" data-dir="up">▲</button>
-      <button class="dpad-btn dpad-left" data-dir="left">◀</button>
-      <div class="dpad-center"></div>
-      <button class="dpad-btn dpad-right" data-dir="right">▶</button>
-      <button class="dpad-btn dpad-down" data-dir="down">▼</button>
+    <div class="game-hud" id="tron-hud">ROUND 1</div>
+    <div class="dpad-container">
+      <div class="dpad">
+        <button class="dpad-btn dpad-up" data-action="up">▲</button>
+        <button class="dpad-btn dpad-left" data-action="left">◀</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-right" data-action="right">▶</button>
+        <button class="dpad-btn dpad-down" data-action="down">▼</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snake View -->
+  <div id="snake-view">
+    <div class="game-hud" id="snake-hud">SCORE: 0</div>
+    <div class="dpad-container">
+      <div class="dpad">
+        <button class="dpad-btn dpad-up" data-action="up">▲</button>
+        <button class="dpad-btn dpad-left" data-action="left">◀</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-right" data-action="right">▶</button>
+        <button class="dpad-btn dpad-down" data-action="down">▼</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breakout View -->
+  <div id="breakout-view">
+    <div class="game-hud" id="breakout-hud">SCORE: 0 | LIVES: ♥♥♥</div>
+    <div class="breakout-controls">
+      <button class="btn-paddle" data-action="left">
+        ◀
+        <span>LEFT</span>
+      </button>
+      <button class="btn-paddle" data-action="right">
+        ▶
+        <span>RIGHT</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tetris View -->
+  <div id="tetris-view">
+    <div class="game-hud" id="tetris-hud">SCORE: 0 | LINES: 0</div>
+    <div class="tetris-controls">
+      <div class="tetris-row">
+        <button class="btn-tetris action-rot" data-action="rotate">
+          ⟳
+          <span>ROTATE</span>
+        </button>
+        <button class="btn-tetris action-drop" data-action="drop">
+          ⏬
+          <span>HARD DROP</span>
+        </button>
+      </div>
+      <div class="tetris-row">
+        <button class="btn-tetris" data-action="left">
+          ◀
+          <span>LEFT</span>
+        </button>
+        <button class="btn-tetris" data-action="down">
+          ▼
+          <span>SOFT DROP</span>
+        </button>
+        <button class="btn-tetris" data-action="right">
+          ▶
+          <span>RIGHT</span>
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- Game Over Banner -->
   <div id="banner">
-    <div id="banner-text">P1 WINS!</div>
-    <button class="btn-rematch" id="btn-rematch">REMATCH</button>
+    <div id="banner-title">GAME OVER</div>
+    <div id="banner-score"></div>
+    <div class="banner-buttons">
+      <button class="btn-rematch" id="btn-banner-rematch">REMATCH</button>
+      <button class="btn-back-menu" id="btn-banner-menu">BACK TO MENU</button>
+    </div>
   </div>
 </div>
 
 <script>
 (function() {
   let ws = null;
-  let playerRole = null; // 1, 2, or null
-  let selectedGame = 'pong';
-  let activeState = 'lobby'; // lobby, playing, gameover
+  let playerRole = null; // 1, 2, or 0
+  let currentLobbyState = null;
+  let selectedModeSolo = false;
 
   const badge = document.getElementById('player-badge');
-  const lobbyView = document.getElementById('lobby-view');
+  const btnHeaderMenu = document.getElementById('btn-header-menu');
+
+  const menuView = document.getElementById('menu-view');
   const pongView = document.getElementById('pong-view');
   const tronView = document.getElementById('tron-view');
+  const snakeView = document.getElementById('snake-view');
+  const breakoutView = document.getElementById('breakout-view');
+  const tetrisView = document.getElementById('tetris-view');
+  const allViews = [menuView, pongView, tronView, snakeView, breakoutView, tetrisView];
+
   const banner = document.getElementById('banner');
-  const bannerText = document.getElementById('banner-text');
-  const slotP1 = document.getElementById('slot-p1');
-  const slotP2 = document.getElementById('slot-p2');
+  const bannerTitle = document.getElementById('banner-title');
+  const bannerScore = document.getElementById('banner-score');
+
+  const menuGameBadge = document.getElementById('menu-game-badge');
+  const menuGameTitle = document.getElementById('menu-game-title');
+  const menuGameDesc = document.getElementById('menu-game-desc');
+  const modeBox = document.getElementById('mode-box');
+  const btnMode2p = document.getElementById('btn-mode-2p');
+  const btnMode1p = document.getElementById('btn-mode-1p');
   const btnStart = document.getElementById('btn-start');
-  const btnSolo = document.getElementById('btn-solo');
-  const lobbySub = document.getElementById('lobby-sub');
+  const btnP2Status = document.getElementById('btn-p2-status');
+  const btnToggleQr = document.getElementById('btn-toggle-qr');
 
   function vibrate(ms) {
     if (navigator.vibrate) {
       try { navigator.vibrate(ms); } catch (e) {}
+    }
+  }
+
+  function send(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
     }
   }
 
@@ -331,12 +664,6 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     };
   }
 
-  function send(data) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
-    }
-  }
-
   function handleMessage(msg) {
     if (msg.type === 'assign') {
       playerRole = msg.player;
@@ -353,158 +680,251 @@ CONTROLLER_HTML = """<!DOCTYPE html>
         badge.textContent = 'SPECTATOR';
       }
     } else if (msg.type === 'lobby_state') {
-      updateLobby(msg);
+      currentLobbyState = msg;
+      if (msg.phase === 'lobby') {
+        showView('menu');
+      }
+      updateMenuUI(msg);
     } else if (msg.type === 'game_start') {
       launchGame(msg.game);
     } else if (msg.type === 'game_update') {
-      updateGameUI(msg);
+      updateGameHUD(msg);
     } else if (msg.type === 'game_over') {
       showGameOver(msg);
     }
   }
 
-  function updateLobby(data) {
-    if (data.p1_connected) {
-      slotP1.className = 'slot connected p1';
-      slotP1.textContent = 'P1: READY';
-    } else {
-      slotP1.className = 'slot';
-      slotP1.textContent = 'P1: WAITING';
-    }
+  function showView(viewName) {
+    allViews.forEach(v => v.style.display = 'none');
+    banner.style.display = 'none';
 
-    if (data.p2_connected) {
-      slotP2.className = 'slot connected p2';
-      slotP2.textContent = 'P2: READY';
+    if (viewName === 'menu') {
+      menuView.style.display = 'flex';
+      btnHeaderMenu.style.display = 'none';
     } else {
-      slotP2.className = 'slot';
-      slotP2.textContent = 'P2: WAITING';
+      btnHeaderMenu.style.display = 'block';
+      if (viewName === 'pong') pongView.style.display = 'flex';
+      else if (viewName === 'tron') tronView.style.display = 'flex';
+      else if (viewName === 'snake') snakeView.style.display = 'flex';
+      else if (viewName === 'breakout') breakoutView.style.display = 'flex';
+      else if (viewName === 'tetris') tetrisView.style.display = 'flex';
     }
+  }
 
-    if (playerRole === 1) {
-      if (data.p2_connected) {
-        lobbySub.textContent = 'Player 2 joined! Ready to start.';
-        btnStart.disabled = false;
-        btnStart.textContent = 'START BATTLE';
+  function updateMenuUI(state) {
+    const games = state.games || [];
+    const currGame = games[state.selected_game_index] || {
+      id: state.selected_game,
+      name: state.selected_game.toUpperCase(),
+      badge: '1P / 2P',
+      desc: '',
+      supports_2p: true,
+    };
+
+    menuGameTitle.textContent = currGame.name;
+    menuGameBadge.textContent = currGame.badge;
+    menuGameDesc.textContent = currGame.desc;
+
+    // Toggle 2P vs Solo mode buttons
+    if (currGame.supports_2p) {
+      modeBox.style.display = 'flex';
+      if (selectedModeSolo) {
+        btnMode1p.classList.add('active');
+        btnMode2p.classList.remove('active');
       } else {
-        lobbySub.textContent = 'Scan QR code on second phone...';
-        btnStart.disabled = true;
-        btnStart.textContent = 'WAITING FOR PLAYER 2...';
+        btnMode2p.classList.add('active');
+        btnMode1p.classList.remove('active');
+      }
+    } else {
+      modeBox.style.display = 'none';
+      selectedModeSolo = true;
+    }
+
+    // P2 connection badge
+    if (state.p2_connected) {
+      btnP2Status.textContent = 'P2: READY';
+      btnP2Status.style.color = '#ff9100';
+    } else {
+      btnP2Status.textContent = 'P2: WAITING...';
+      btnP2Status.style.color = '#8888aa';
+    }
+
+    // Start button state
+    if (playerRole === 1) {
+      btnStart.disabled = false;
+      if (currGame.supports_2p && !selectedModeSolo && !state.p2_connected) {
+        btnStart.textContent = 'WAITING FOR P2 (OR PLAY SOLO)';
+      } else {
+        btnStart.textContent = '▶ START GAME';
       }
     } else if (playerRole === 2) {
-      lobbySub.textContent = 'Waiting for Player 1 to start...';
       btnStart.disabled = true;
-      btnStart.textContent = 'READY (WAITING FOR P1)';
+      btnStart.textContent = 'WAITING FOR P1 TO START';
     } else {
-      lobbySub.textContent = 'Lobby is full. Spectating.';
       btnStart.disabled = true;
+      btnStart.textContent = 'SPECTATING';
     }
   }
 
   function launchGame(game) {
-    activeState = 'playing';
-    lobbyView.style.display = 'none';
-    banner.style.display = 'none';
-
-    if (game === 'pong') {
-      pongView.style.display = 'flex';
-      tronView.style.display = 'none';
-    } else if (game === 'tron') {
-      tronView.style.display = 'flex';
-      pongView.style.display = 'none';
-    }
-    vibrate(50);
+    showView(game);
+    vibrate(40);
   }
 
-  function updateGameUI(msg) {
+  function updateGameHUD(msg) {
     if (msg.score_text) {
-      const pongScore = document.getElementById('pong-score');
-      const tronScore = document.getElementById('tron-score');
-      if (pongScore) pongScore.textContent = msg.score_text;
-      if (tronScore) tronScore.textContent = msg.score_text;
+      const el = document.getElementById(`${currentLobbyState?.selected_game || 'pong'}-hud`);
+      if (el) el.textContent = msg.score_text;
     }
   }
 
   function showGameOver(msg) {
-    activeState = 'gameover';
     banner.style.display = 'block';
-    bannerText.textContent = msg.winner_text || 'GAME OVER';
+    bannerTitle.textContent = msg.winner_text || 'GAME OVER';
+    bannerScore.textContent = msg.score_text || '';
     if (msg.winner === playerRole) {
-      bannerText.textContent += ' 🏆';
+      bannerTitle.textContent += ' 🏆';
       vibrate([40, 60, 40, 60, 80]);
     } else {
-      vibrate(100);
+      vibrate(120);
     }
   }
 
-  // Bind Lobby Controls
-  document.querySelectorAll('.btn-game').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.btn-game').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      selectedGame = btn.dataset.game;
-      vibrate(15);
-    });
+  // Bind Carousel Navigation
+  document.getElementById('btn-nav-prev').addEventListener('click', () => {
+    send({ type: 'menu_nav', dir: 'prev' });
+    vibrate(15);
+  });
+  document.getElementById('btn-nav-next').addEventListener('click', () => {
+    send({ type: 'menu_nav', dir: 'next' });
+    vibrate(15);
   });
 
+  // Mode Selection
+  btnMode2p.addEventListener('click', () => {
+    selectedModeSolo = false;
+    btnMode2p.classList.add('active');
+    btnMode1p.classList.remove('active');
+    updateMenuUI(currentLobbyState);
+    vibrate(15);
+  });
+  btnMode1p.addEventListener('click', () => {
+    selectedModeSolo = true;
+    btnMode1p.classList.add('active');
+    btnMode2p.classList.remove('active');
+    updateMenuUI(currentLobbyState);
+    vibrate(15);
+  });
+
+  // Start & Rematch
   btnStart.addEventListener('click', () => {
-    send({ type: 'start_game', game: selectedGame, solo: false });
-    vibrate(25);
+    const game = currentLobbyState?.selected_game || 'pong';
+    send({ type: 'start_game', game: game, solo: selectedModeSolo });
+    vibrate(30);
   });
 
-  btnSolo.addEventListener('click', () => {
-    send({ type: 'start_game', game: selectedGame, solo: true });
-    vibrate(25);
-  });
-
-  document.getElementById('btn-rematch').addEventListener('click', () => {
+  document.getElementById('btn-banner-rematch').addEventListener('click', () => {
     banner.style.display = 'none';
     send({ type: 'rematch' });
+    vibrate(25);
+  });
+
+  // Menu Exit
+  btnHeaderMenu.addEventListener('click', () => {
+    send({ type: 'menu_exit' });
+    showView('menu');
+    vibrate(20);
+  });
+  document.getElementById('btn-banner-menu').addEventListener('click', () => {
+    send({ type: 'menu_exit' });
+    showView('menu');
     vibrate(20);
   });
 
-  // Touch Handling for Pong
-  function attachTouch(btn, action) {
-    const startHandler = (e) => {
+  btnToggleQr.addEventListener('click', () => {
+    send({ type: 'toggle_qr' });
+    vibrate(15);
+  });
+
+  // Unified Touch & Input Event Handlers
+  function bindControllerButton(btn) {
+    const action = btn.dataset.action;
+    if (!action) return;
+
+    const onDown = (e) => {
       e.preventDefault();
       btn.classList.add('touch-active');
       send({ type: 'input', action: action, state: 'down' });
       vibrate(15);
     };
-    const endHandler = (e) => {
+
+    const onUp = (e) => {
       e.preventDefault();
       btn.classList.remove('touch-active');
       send({ type: 'input', action: action, state: 'up' });
     };
 
-    btn.addEventListener('touchstart', startHandler, { passive: false });
-    btn.addEventListener('touchend', endHandler, { passive: false });
-    btn.addEventListener('touchcancel', endHandler, { passive: false });
-    btn.addEventListener('mousedown', startHandler);
-    btn.addEventListener('mouseup', endHandler);
-    btn.addEventListener('mouseleave', endHandler);
+    btn.addEventListener('touchstart', onDown, { passive: false });
+    btn.addEventListener('touchend', onUp, { passive: false });
+    btn.addEventListener('touchcancel', onUp, { passive: false });
+    btn.addEventListener('mousedown', onDown);
+    btn.addEventListener('mouseup', onUp);
+    btn.addEventListener('mouseleave', onUp);
   }
 
-  attachTouch(document.getElementById('btn-pong-up'), 'up');
-  attachTouch(document.getElementById('btn-pong-down'), 'down');
+  document.querySelectorAll('[data-action]').forEach(bindControllerButton);
 
-  // Touch Handling for Tron
-  document.querySelectorAll('.dpad-btn').forEach(btn => {
-    const dir = btn.dataset.dir;
-    const startHandler = (e) => {
-      e.preventDefault();
-      btn.classList.add('touch-active');
-      send({ type: 'input', action: dir, state: 'down' });
-      vibrate(15);
-    };
-    const endHandler = (e) => {
-      e.preventDefault();
-      btn.classList.remove('touch-active');
-    };
-    btn.addEventListener('touchstart', startHandler, { passive: false });
-    btn.addEventListener('touchend', endHandler, { passive: false });
-    btn.addEventListener('touchcancel', endHandler, { passive: false });
-    btn.addEventListener('mousedown', startHandler);
-    btn.addEventListener('mouseup', endHandler);
+  // Keyboard controls for desktop browser pair programming / testing
+  const KEY_MAP = {
+    'ArrowUp': 'up',
+    'KeyW': 'up',
+    'ArrowDown': 'down',
+    'KeyS': 'down',
+    'ArrowLeft': 'left',
+    'KeyA': 'left',
+    'ArrowRight': 'right',
+    'KeyD': 'right',
+    'Space': 'drop',
+    'KeyR': 'rotate',
+  };
+
+  const activeHeldKeys = new Set();
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const action = KEY_MAP[e.code];
+
+    // Menu navigation on keyboard
+    if (menuView.style.display !== 'none') {
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        send({ type: 'menu_nav', dir: 'prev' });
+        return;
+      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        send({ type: 'menu_nav', dir: 'next' });
+        return;
+      } else if (e.code === 'Enter' || e.code === 'Space') {
+        btnStart.click();
+        return;
+      }
+    }
+
+    if (e.code === 'Escape') {
+      send({ type: 'menu_exit' });
+      showView('menu');
+      return;
+    }
+
+    if (action && !activeHeldKeys.has(action)) {
+      activeHeldKeys.add(action);
+      send({ type: 'input', action: action, state: 'down' });
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const action = KEY_MAP[e.code];
+    if (action) {
+      activeHeldKeys.delete(action);
+      send({ type: 'input', action: action, state: 'up' });
+    }
   });
 
   connect();

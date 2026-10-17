@@ -2,10 +2,11 @@
 
 import math
 import random
-from typing import List, Tuple
-from PIL import ImageDraw
 
+from PIL import ImageDraw
 from web_controller.server import MultiplayerHub
+
+from .carousel import CarouselRenderer
 
 # Fixed 25x25 QR Code matrix for "https://arcade.rupan.dev"
 QR_ROWS_25x25 = [
@@ -38,15 +39,17 @@ QR_ROWS_25x25 = [
 
 
 class LobbyRenderer:
-    """Renders QR code, connection status, countdowns, and gameover states."""
+    """Renders QR code, carousel game selection, countdowns, and gameover states."""
 
     def __init__(self, hub: MultiplayerHub) -> None:
         self.hub = hub
+        self.carousel = CarouselRenderer(hub)
         self.blink_timer = 0.0
-        self.particles: List[Tuple[float, float, float, float, Tuple[int, int, int], float]] = []
+        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
 
     def update(self, dt: float) -> None:
         self.blink_timer = (self.blink_timer + dt) % 2.0
+        self.carousel.update(dt)
 
         # Update sparkles
         new_p = []
@@ -57,6 +60,22 @@ class LobbyRenderer:
         self.particles = new_p
 
     def render_lobby(self, draw: ImageDraw.ImageDraw) -> None:
+        """Render either the Carousel menu or the scannable QR code."""
+        show_qr = False
+        if self.hub.matrix_view == "qr":
+            show_qr = True
+        elif self.hub.matrix_view == "carousel":
+            show_qr = False
+        else:
+            # Auto: show QR if nobody is connected; show Carousel once P1 connects!
+            show_qr = not self.hub.p1_connected
+
+        if show_qr:
+            self.render_qr(draw)
+        else:
+            self.carousel.render(draw)
+
+    def render_qr(self, draw: ImageDraw.ImageDraw) -> None:
         """Render high-contrast scannable QR code and player indicators."""
         # 1. White quiet zone rectangle in center
         draw.rectangle([4, 4, 59, 59], fill=(255, 255, 255))
@@ -100,7 +119,6 @@ class LobbyRenderer:
 
         # Big countdown number
         color = (0, 229, 255) if count % 2 == 1 else (255, 145, 0)
-        num_str = str(count) if count > 0 else "GO!"
 
         # Draw centered box
         draw.rectangle([12, 16, 51, 47], outline=color, width=2)
@@ -115,8 +133,8 @@ class LobbyRenderer:
             # "GO"
             self._draw_go(draw, 20, 24, (255, 255, 255))
 
-    def render_game_over(self, draw: ImageDraw.ImageDraw, winner: int) -> None:
-        """Render victory screen with winner color banner and celebratory sparks."""
+    def render_game_over(self, draw: ImageDraw.ImageDraw, winner: int, is_solo: bool = False, score_text: str = "") -> None:
+        """Render victory or game-over screen with celebratory sparks."""
         draw.rectangle([0, 0, 63, 63], fill=(5, 5, 12))
 
         # Periodically spawn confetti
@@ -139,13 +157,15 @@ class LobbyRenderer:
         col = (0, 229, 255) if winner == 1 else (255, 145, 0)
         draw.rectangle([6, 18, 57, 45], fill=(12, 12, 24), outline=col, width=2)
 
-        # Draw "P1 WIN" or "P2 WIN"
-        if winner == 1:
+        # Draw "GAME OVER" or "P1 WIN" or "P2 WIN"
+        if is_solo:
+            draw.text((10, 26), "GAME OVER", fill=(255, 80, 80))
+        elif winner == 1:
             self._draw_p1_win(draw, 14, 26, col)
         else:
             self._draw_p2_win(draw, 14, 26, col)
 
-    def _draw_big_3(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: Tuple[int, int, int]) -> None:
+    def _draw_big_3(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         bitmap = [
             "11111111",
             "00000011",
@@ -157,7 +177,7 @@ class LobbyRenderer:
         ]
         self._render_bitmap(draw, bitmap, x, y, col, scale=2)
 
-    def _draw_big_2(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: Tuple[int, int, int]) -> None:
+    def _draw_big_2(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         bitmap = [
             "11111111",
             "00000011",
@@ -169,7 +189,7 @@ class LobbyRenderer:
         ]
         self._render_bitmap(draw, bitmap, x, y, col, scale=2)
 
-    def _draw_big_1(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: Tuple[int, int, int]) -> None:
+    def _draw_big_1(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         bitmap = [
             "001100",
             "011100",
@@ -181,17 +201,17 @@ class LobbyRenderer:
         ]
         self._render_bitmap(draw, bitmap, x, y, col, scale=2)
 
-    def _draw_go(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: Tuple[int, int, int]) -> None:
+    def _draw_go(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         # G O
         draw.text((x, y), "GO!", fill=col)
 
-    def _draw_p1_win(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: Tuple[int, int, int]) -> None:
+    def _draw_p1_win(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         draw.text((x, y), "P1 WINS!", fill=col)
 
-    def _draw_p2_win(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: Tuple[int, int, int]) -> None:
+    def _draw_p2_win(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         draw.text((x, y), "P2 WINS!", fill=col)
 
-    def _render_bitmap(self, draw: ImageDraw.ImageDraw, bitmap: list[str], x: int, y: int, col: Tuple[int, int, int], scale: int = 1) -> None:
+    def _render_bitmap(self, draw: ImageDraw.ImageDraw, bitmap: list[str], x: int, y: int, col: tuple[int, int, int], scale: int = 1) -> None:
         for r, row in enumerate(bitmap):
             for c, val in enumerate(row):
                 if val == "1":

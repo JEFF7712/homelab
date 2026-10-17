@@ -2,14 +2,22 @@
 
 from .arcade_renderer import MultiplayerArcadeRenderer
 from .base import MultiplayerGame
+from .breakout_game import InteractiveBreakout
+from .carousel import CarouselRenderer
 from .lobby import LobbyRenderer
 from .pong_2p import Pong2P
+from .snake_game import InteractiveSnake
+from .tetris_game import InteractiveTetris
 from .tron_2p import Tron2P
 
 __all__ = [
+    "CarouselRenderer",
+    "InteractiveBreakout",
+    "InteractiveSnake",
+    "InteractiveTetris",
+    "LobbyRenderer",
     "MultiplayerArcadeRenderer",
     "MultiplayerGame",
-    "LobbyRenderer",
     "Pong2P",
     "Tron2P",
 ]

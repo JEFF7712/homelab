@@ -1,7 +1,7 @@
 """Two-Player Tron Light Cycles for 64x64 LED Matrix."""
 
 import random
-from typing import List, Tuple
+
 import numpy as np
 from PIL import ImageDraw
 
@@ -47,7 +47,7 @@ class Tron2P(MultiplayerGame):
         self.step_interval = 0.075  # seconds per step (~13 moves/sec)
         self.round_delay = 0.0
 
-        self.particles: List[Tuple[float, float, float, float, Tuple[int, int, int], float]] = []
+        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
 
         self.reset()
 
@@ -70,6 +70,8 @@ class Tron2P(MultiplayerGame):
         self.p2_pos = (47, 32)
         self.p1_dir = "right"
         self.p2_dir = "left"
+        self.p1_next_dir = "right"
+        self.p2_next_dir = "left"
 
         self.grid[self.p1_pos[1], self.p1_pos[0]] = 1
         self.grid[self.p2_pos[1], self.p2_pos[0]] = 2
@@ -79,7 +81,14 @@ class Tron2P(MultiplayerGame):
         self.step_timer = 0.0
         self.round_delay = 1.0  # 1s ready pause
 
-    def update(self, dt: float, p1_inputs: set[str], p2_inputs: set[str]) -> None:
+    def update(
+        self,
+        dt: float,
+        p1_inputs: set[str],
+        p2_inputs: set[str],
+        p1_events: list[str] | None = None,
+        p2_events: list[str] | None = None,
+    ) -> None:
         # Update particles
         new_particles = []
         for px, py, pvx, pvy, color, life in self.particles:
@@ -104,19 +113,31 @@ class Tron2P(MultiplayerGame):
                     self.reset_round()
             return
 
-        # Handle direction changes (prevent 180 reverses)
-        for direction in ("up", "down", "left", "right"):
-            if direction in p1_inputs and OPPOSITE[direction] != self.p1_dir:
-                self.p1_dir = direction
-                break
+        # P1 direction changes: check discrete buffered events first, then held inputs
+        if p1_events:
+            for ev in p1_events:
+                if ev in DIR_VECTORS and OPPOSITE[ev] != self.p1_dir:
+                    self.p1_next_dir = ev
+                    break
+        else:
+            for direction in ("up", "down", "left", "right"):
+                if direction in p1_inputs and OPPOSITE[direction] != self.p1_dir and direction != self.p1_dir:
+                    self.p1_next_dir = direction
+                    break
 
         if self.solo_vs_ai:
             self._update_ai_dir()
         else:
-            for direction in ("up", "down", "left", "right"):
-                if direction in p2_inputs and OPPOSITE[direction] != self.p2_dir:
-                    self.p2_dir = direction
-                    break
+            if p2_events:
+                for ev in p2_events:
+                    if ev in DIR_VECTORS and OPPOSITE[ev] != self.p2_dir:
+                        self.p2_next_dir = ev
+                        break
+            else:
+                for direction in ("up", "down", "left", "right"):
+                    if direction in p2_inputs and OPPOSITE[direction] != self.p2_dir and direction != self.p2_dir:
+                        self.p2_next_dir = direction
+                        break
 
         self.step_timer += dt
         if self.step_timer >= self.step_interval:
@@ -141,15 +162,21 @@ class Tron2P(MultiplayerGame):
         if not safe_dirs:
             return  # Trapped
 
-        if self.p2_dir in safe_dirs and (0 < front_x < 63 and 0 < front_y < 63 and self.grid[front_y, front_x] == 0):
-            # 85% chance to maintain current direction if safe
-            if random.random() < 0.85:
-                return
+        if (
+            self.p2_dir in safe_dirs
+            and (0 < front_x < 63 and 0 < front_y < 63 and self.grid[front_y, front_x] == 0)
+            and random.random() < 0.85
+        ):
+            self.p2_next_dir = self.p2_dir
+            return
 
         # Pick random safe direction
-        self.p2_dir = random.choice(safe_dirs)
+        self.p2_next_dir = random.choice(safe_dirs)
 
     def _step_cycles(self) -> None:
+        self.p1_dir = self.p1_next_dir
+        self.p2_dir = self.p2_next_dir
+
         p1_dx, p1_dy = DIR_VECTORS[self.p1_dir]
         p2_dx, p2_dy = DIR_VECTORS[self.p2_dir]
 
@@ -197,7 +224,7 @@ class Tron2P(MultiplayerGame):
             self.grid[self.p1_pos[1], self.p1_pos[0]] = 1
             self.grid[self.p2_pos[1], self.p2_pos[0]] = 2
 
-    def _explode(self, x: int, y: int, color: Tuple[int, int, int]) -> None:
+    def _explode(self, x: int, y: int, color: tuple[int, int, int]) -> None:
         for _ in range(24):
             speed = random.uniform(20.0, 70.0)
             pvx = speed * random.uniform(-1.0, 1.0)

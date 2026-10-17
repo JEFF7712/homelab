@@ -1,7 +1,7 @@
 """Two-Player Competitive Pong for 64x64 LED Matrix."""
 
 import random
-from typing import List, Tuple
+
 from PIL import ImageDraw
 
 from .base import MultiplayerGame
@@ -42,8 +42,8 @@ class Pong2P(MultiplayerGame):
         self.ball_vy = 18.0
 
         self.serve_delay = 0.8
-        self.particles: List[Tuple[float, float, float, float, Tuple[int, int, int], float]] = []
-        self.trail: List[Tuple[float, float]] = []
+        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
+        self.trail: list[tuple[float, float]] = []
 
         self.reset()
 
@@ -66,7 +66,14 @@ class Pong2P(MultiplayerGame):
         self.serve_delay = 0.8
         self.trail.clear()
 
-    def update(self, dt: float, p1_inputs: set[str], p2_inputs: set[str]) -> None:
+    def update(
+        self,
+        dt: float,
+        p1_inputs: set[str],
+        p2_inputs: set[str],
+        p1_events: list[str] | None = None,
+        p2_events: list[str] | None = None,
+    ) -> None:
         # Update sparks
         new_particles = []
         for px, py, pvx, pvy, color, life in self.particles:
@@ -167,9 +174,8 @@ class Pong2P(MultiplayerGame):
             else:
                 self.reset_ball(serving_to=2)
 
-    def _spawn_sparks(self, x: float, y: float, color: Tuple[int, int, int], count: int) -> None:
+    def _spawn_sparks(self, x: float, y: float, color: tuple[int, int, int], count: int) -> None:
         for _ in range(count):
-            angle = random.uniform(0, 6.283)
             speed = random.uniform(15.0, 50.0)
             pvx = speed * random.uniform(-1.0, 1.0)
             pvy = speed * random.uniform(-1.0, 1.0)
@@ -208,7 +214,7 @@ class Pong2P(MultiplayerGame):
             if 0 <= px < 64 and 0 <= py < 64:
                 draw.point((int(px), int(py)), fill=color)
 
-    def _draw_digit(self, draw: ImageDraw.ImageDraw, val: int, x: int, y: int, color: Tuple[int, int, int]) -> None:
+    def _draw_digit(self, draw: ImageDraw.ImageDraw, val: int, x: int, y: int, color: tuple[int, int, int]) -> None:
         grid = NUMS.get(val, NUMS[0])
         for r, row in enumerate(grid):
             for c, char in enumerate(row):
