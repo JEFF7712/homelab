@@ -15,6 +15,7 @@ from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
     NightClockRenderer,
+    RetroArcadeRenderer,
     SpotifyVinylRenderer,
 )
 from modes.base import RenderContext
@@ -159,6 +160,7 @@ def main() -> None:
         "Spotify": SpotifyVinylRenderer(),
         "Clock & Weather": ClockWeatherRenderer(),
         "Night Clock": NightClockRenderer(),
+        "Retro Arcade": RetroArcadeRenderer(),
     }
 
     cache = ArtworkCache(source)
