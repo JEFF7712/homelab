@@ -6,7 +6,7 @@ import time
 from typing import Optional
 from PIL import Image, ImageDraw
 
-from modes.base import ModeRenderer
+from modes.base import ModeRenderer, RenderContext
 from web_controller.server import MultiplayerHub
 from .base import MultiplayerGame
 from .lobby import LobbyRenderer
@@ -47,12 +47,16 @@ class MultiplayerArcadeRenderer(ModeRenderer):
     def reset(self) -> None:
         self.last_update = time.time()
 
-    def render(self) -> Image.Image:
-        now = time.time()
-        dt = min(0.1, max(0.001, now - self.last_update))
-        self.last_update = now
+    def render(self, ctx: Optional[RenderContext] = None, size: int = 64) -> Image.Image:
+        if ctx is not None:
+            dt = ctx.dt
+            self.last_update = time.time()
+        else:
+            now = time.time()
+            dt = min(0.1, max(0.001, now - self.last_update))
+            self.last_update = now
 
-        image = Image.new("RGB", (64, 64), (0, 0, 0))
+        image = Image.new("RGB", (size, size), (0, 0, 0))
         draw = ImageDraw.Draw(image)
 
         self.lobby.update(dt)

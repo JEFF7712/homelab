@@ -843,6 +843,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(img.size, (64, 64))
 
     def test_multiplayer_arcade_renderer_phases(self) -> None:
+        from modes.base import HAState, PlaybackState, RenderContext
         from modes.multiplayer import MultiplayerArcadeRenderer
         from web_controller import MultiplayerHub
 
@@ -866,6 +867,17 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(hub.phase, "playing")
         img_play = renderer.render()
         self.assertEqual(img_play.size, (64, 64))
+
+        # 4. Render with RenderContext and explicit size
+        ctx = RenderContext(
+            tick=time.monotonic(),
+            dt=0.05,
+            ha_state=HAState(connected=True, power=True, mode="2-Player Arcade"),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        img_ctx = renderer.render(ctx, size=64)
+        self.assertEqual(img_ctx.size, (64, 64))
 
     def test_web_controller_http_endpoints(self) -> None:
         from web_controller.server import MultiplayerHub, WebControllerServer
