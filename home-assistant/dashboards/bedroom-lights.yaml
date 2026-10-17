@@ -398,3 +398,23 @@ views:
                     entity_id: input_select.bedroom_matrix_mode
                   data:
                     option: 2-Player Arcade
+              - type: action
+                name: Visualizer
+                icon: mdi:sine-wave
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Visualizer
+              - type: action
+                name: LedFx
+                icon: mdi:music-note-outline
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: LedFx

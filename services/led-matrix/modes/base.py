@@ -17,6 +17,7 @@ class HAState:
     weather_temp: float = 72.0
     weather_condition: str = "sunny"
     weather_unit: str = "°F"
+    music_mode: bool = False
 
 
 @dataclass(frozen=True)

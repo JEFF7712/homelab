@@ -33,6 +33,7 @@ class HomeAssistantSource:
         mode_entity: str | None = None,
         brightness_entity: str | None = None,
         weather_entity: str | None = None,
+        music_mode_entity: str | None = None,
         stale_after: float = 120,
         on_update: Callable[[PlaybackState], None] | None = None,
         on_hub_update: Callable[[HAState], None] | None = None,
@@ -67,6 +68,7 @@ class HomeAssistantSource:
         self.mode_entity = mode_entity
         self.brightness_entity = brightness_entity
         self.weather_entity = weather_entity
+        self.music_mode_entity = music_mode_entity
         self.stale_after = stale_after
         self.on_update = on_update
         self.on_hub_update = on_hub_update
@@ -158,6 +160,7 @@ class HomeAssistantSource:
             weather_temp = self._hub_state.weather_temp
             weather_condition = self._hub_state.weather_condition
             weather_unit = self._hub_state.weather_unit
+            music_mode = self._hub_state.music_mode
 
             if entity_id == self.power_entity:
                 power = (state_val != "off") if state_val is not None else True
@@ -167,6 +170,8 @@ class HomeAssistantSource:
                     if state_val and state_val not in ("unavailable", "unknown")
                     else "Auto"
                 )
+            elif entity_id == self.music_mode_entity:
+                music_mode = (state_val == "on")
             elif entity_id == self.brightness_entity:
                 if state_val is not None:
                     try:
@@ -196,6 +201,7 @@ class HomeAssistantSource:
                 weather_temp=weather_temp,
                 weather_condition=weather_condition,
                 weather_unit=weather_unit,
+                music_mode=music_mode,
             )
             changed = new_hub_state != self._hub_state
             self._hub_state = new_hub_state
@@ -216,6 +222,7 @@ class HomeAssistantSource:
                     self.mode_entity,
                     self.brightness_entity,
                     self.weather_entity,
+                    self.music_mode_entity,
                 ]
                 if e
             }
@@ -293,6 +300,7 @@ class HomeAssistantSource:
                 self.mode_entity,
                 self.brightness_entity,
                 self.weather_entity,
+                self.music_mode_entity,
             ]
             if e
         ]

@@ -222,6 +222,8 @@ data:
           - "Retro Arcade"
           - "Game of Life"
           - "2-Player Arcade"
+          - "Visualizer"
+          - "LedFx"
         initial: "Auto"
 
     input_number:
