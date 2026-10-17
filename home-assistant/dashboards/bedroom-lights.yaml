@@ -346,7 +346,7 @@ views:
                     option: Night Clock
               - type: action
                 name: Arcade
-                icon: mdi:gamepad-variant-outline
+                icon: mdi:robot
                 tap_action:
                   action: perform-action
                   perform_action: input_select.select_option
