@@ -306,9 +306,9 @@ views:
             primary: 2-Player Arcade
             secondary: >
               {% if is_state('input_select.bedroom_matrix_mode', '2-Player Arcade') %}
-                Active (Phone Controller)
+                Active • Hold to open arcade.rupan.dev
               {% else %}
-                Tap to switch to phone controller mode
+                Tap to switch • Hold to open arcade.rupan.dev
               {% endif %}
             icon: mdi:controller
             icon_color: >
@@ -398,6 +398,12 @@ views:
                     entity_id: input_select.bedroom_matrix_mode
                   data:
                     option: 2-Player Arcade
+              - type: action
+                name: Controller
+                icon: mdi:open-in-new
+                tap_action:
+                  action: url
+                  url_path: https://arcade.rupan.dev
               - type: action
                 name: Visualizer
                 icon: mdi:sine-wave
