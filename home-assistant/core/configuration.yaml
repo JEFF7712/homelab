@@ -214,6 +214,7 @@ input_select:
       - "Spotify"
       - "Clock & Weather"
       - "Night Clock"
+      - "Retro Arcade"
     initial: "Auto"
 
 input_number:

@@ -6,10 +6,6 @@ from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import Mock, patch
 
-from PIL import Image
-from websockets.exceptions import ConnectionClosed
-from websockets.sync.server import serve
-
 from ha_source import (
     ArtworkCache,
     HomeAssistantSource,
@@ -17,7 +13,10 @@ from ha_source import (
     PlaybackState,
     parse_spotify_state,
 )
+from PIL import Image, ImageDraw
 from spotify_matrix_streamer import SpotifyQuotaExceeded, SpotifyRateLimited
+from websockets.exceptions import ConnectionClosed
+from websockets.sync.server import serve
 
 ENTITY = "media_player.spotify_rupan"
 
@@ -693,6 +692,39 @@ class HubModeAndRendererTests(unittest.TestCase):
         nc_frame = NightClockRenderer().render(ctx, size=64)
         self.assertEqual(nc_frame.size, (64, 64))
         self.assertEqual(nc_frame.mode, "RGB")
+
+        # 5. Retro Arcade
+        from modes import RetroArcadeRenderer
+
+        arcade = RetroArcadeRenderer(cycle_interval=2.0)
+        self.assertEqual(arcade.current_game.name, "PONG AI")
+        a_frame1 = arcade.render(ctx, size=64)
+        self.assertEqual(a_frame1.size, (64, 64))
+        self.assertEqual(a_frame1.mode, "RGB")
+
+        # Advance past cycle_interval -> rotates to next game (Snake)
+        ctx_adv = RenderContext(
+            tick=103.0,
+            dt=2.5,
+            ha_state=ha_state,
+            spotify_state=spotify_state,
+            spotify_art=dummy_art,
+        )
+        a_frame2 = arcade.render(ctx_adv, size=64)
+        self.assertEqual(arcade.current_game.name, "SNAKE AI")
+        self.assertEqual(a_frame2.size, (64, 64))
+
+        # Test individual arcade games
+        from modes.arcade import BreakoutGame, LifeGame, PongGame, SnakeGame
+
+        for game in [PongGame(), SnakeGame(), BreakoutGame(), LifeGame()]:
+            game.reset()
+            game.update(0.05)
+            img = Image.new("RGB", (64, 64))
+            draw = ImageDraw.Draw(img)
+            game.draw(img, draw, size=64)
+            self.assertEqual(img.size, (64, 64))
+            self.assertEqual(img.mode, "RGB")
 
 
 if __name__ == "__main__":

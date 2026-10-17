@@ -1,5 +1,6 @@
 """Display mode renderers for LED matrix."""
 
+from modes.arcade import RetroArcadeRenderer
 from modes.base import HAState, ModeRenderer, PlaybackState, RenderContext
 from modes.blank import BlankRenderer
 from modes.clock_weather import ClockWeatherRenderer
@@ -14,5 +15,6 @@ __all__ = [
     "NightClockRenderer",
     "PlaybackState",
     "RenderContext",
+    "RetroArcadeRenderer",
     "SpotifyVinylRenderer",
 ]
