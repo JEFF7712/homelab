@@ -90,7 +90,9 @@ Cloudflare Access public bypass configured.
 44. `bookshelf.rupan.dev -> http://bookshelf.media:80`
 45. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
 46. `git.rupan.dev -> http://forgejo.cloudflare:3000`
-47. `http_status:404`
+47. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
+48. `http_status:404`
+
 
 Removed 2026-09-15 (v72):
 - `*.rupan.dev -> https://10.0.20.180:443` (defunct Talos Traefik VIP; caused grafana outage, then 404s for unmatched hosts after grafana fix)

@@ -100,4 +100,6 @@ data:
         service: http://pod-agent-dashboard.pod-agent:80
       - hostname: git.rupan.dev
         service: http://forgejo.cloudflare:3000
+      - hostname: arcade.rupan.dev
+        service: http://led-matrix.led-matrix:8000
       - service: http_status:404

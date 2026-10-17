@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:b48156fe7a851a4032e3d90a211a3823bbcb30f298933b7f39186997573de952
+            registry.rupan.dev/apps/spotify-matrix@sha256:2cedd4103e9b344a369162c4b52af1f0ed987f4ac6b7027e1d1a09cf4e24d773
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -47,8 +47,14 @@ spec:
             - 10.0.20.136
             - --fps
             - "20"
+            - --web-port
+            - "8000"
             - --health-file
             - /tmp/health.json
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
           env:
             - name: SPOTIFY_CLIENT_ID
               valueFrom:

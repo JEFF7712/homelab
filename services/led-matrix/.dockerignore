@@ -9,3 +9,5 @@
 !ha_matrix_streamer.py
 !modes/
 !modes/**
+!web_controller/
+!web_controller/**

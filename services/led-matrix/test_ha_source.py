@@ -744,6 +744,143 @@ class HubModeAndRendererTests(unittest.TestCase):
         for brick in game.bricks:
             self.assertGreaterEqual(brick.y, 12)
 
+    def test_multiplayer_hub_and_roles(self) -> None:
+        from web_controller import MultiplayerHub
+
+        hub = MultiplayerHub()
+        self.assertFalse(hub.p1_connected)
+        self.assertFalse(hub.p2_connected)
+        self.assertEqual(hub.get_lobby_state()["phase"], "lobby")
+
+        dummy_ws1 = object()
+        dummy_ws2 = object()
+        dummy_ws3 = object()
+
+        r1 = hub.register_client(dummy_ws1)  # type: ignore
+        self.assertEqual(r1, 1)
+        self.assertTrue(hub.p1_connected)
+
+        r2 = hub.register_client(dummy_ws2)  # type: ignore
+        self.assertEqual(r2, 2)
+        self.assertTrue(hub.p2_connected)
+
+        r3 = hub.register_client(dummy_ws3)  # type: ignore
+        self.assertEqual(r3, 0)  # Spectator
+
+        # Test input handling
+        hub.handle_input(1, "up", "down")
+        self.assertIn("up", hub.p1_inputs)
+        hub.handle_input(1, "up", "up")
+        self.assertNotIn("up", hub.p1_inputs)
+
+        # Test unregister
+        hub.unregister_client(dummy_ws2)  # type: ignore
+        self.assertFalse(hub.p2_connected)
+        hub.unregister_client(dummy_ws1)  # type: ignore
+        self.assertFalse(hub.p1_connected)
+
+    def test_multiplayer_pong(self) -> None:
+        from modes.multiplayer import Pong2P
+
+        pong = Pong2P(solo_vs_ai=False)
+        pong.reset()
+        self.assertFalse(pong.is_game_over())
+        self.assertEqual(pong.winner, 0)
+
+        # Move P1 up and P2 down
+        p1_orig = pong.p1_y
+        p2_orig = pong.p2_y
+        pong.update(0.1, {"up"}, {"down"})
+        self.assertLess(pong.p1_y, p1_orig)
+        self.assertGreater(pong.p2_y, p2_orig)
+
+        # Render frame
+        img = Image.new("RGB", (64, 64))
+        draw = ImageDraw.Draw(img)
+        pong.render(draw)
+        self.assertEqual(img.size, (64, 64))
+
+        # Test AI mode
+        pong_ai = Pong2P(solo_vs_ai=True)
+        pong_ai.ball_y = 50.0
+        pong_ai.p2_y = 10.0
+        pong_ai.update(0.1, set(), set())
+        self.assertGreater(pong_ai.p2_y, 10.0)
+
+    def test_multiplayer_tron(self) -> None:
+        from modes.multiplayer import Tron2P
+
+        tron = Tron2P(solo_vs_ai=False)
+        tron.reset()
+        tron.round_delay = 0.0
+        self.assertFalse(tron.is_game_over())
+        self.assertEqual(tron.current_round, 1)
+
+        # Steer P1 down
+        tron.update(0.1, {"down"}, set())
+        self.assertEqual(tron.p1_dir, "down")
+
+        # Reverse lock (cannot instantly steer up)
+        tron.update(0.1, {"up"}, set())
+        self.assertEqual(tron.p1_dir, "down")
+
+        # Render frame
+        img = Image.new("RGB", (64, 64))
+        draw = ImageDraw.Draw(img)
+        tron.render(draw)
+        self.assertEqual(img.size, (64, 64))
+
+    def test_multiplayer_arcade_renderer_phases(self) -> None:
+        from modes.multiplayer import MultiplayerArcadeRenderer
+        from web_controller import MultiplayerHub
+
+        hub = MultiplayerHub()
+        renderer = MultiplayerArcadeRenderer(hub)
+
+        # 1. Lobby Phase
+        self.assertEqual(hub.phase, "lobby")
+        img_lobby = renderer.render()
+        self.assertEqual(img_lobby.size, (64, 64))
+
+        # 2. Start Countdown
+        hub.trigger_game_start("pong", solo=False)
+        self.assertEqual(hub.phase, "countdown")
+        img_cd = renderer.render()
+        self.assertEqual(img_cd.size, (64, 64))
+
+        # 3. Fast-forward countdown into Playing phase
+        hub.countdown_remaining = 0.001
+        renderer.render()
+        self.assertEqual(hub.phase, "playing")
+        img_play = renderer.render()
+        self.assertEqual(img_play.size, (64, 64))
+
+    def test_web_controller_http_endpoints(self) -> None:
+        from web_controller.server import MultiplayerHub, WebControllerServer
+
+        hub = MultiplayerHub()
+        server = WebControllerServer(hub)
+
+        class DummyConnection:
+            def respond(self, status, message, headers=None, body=b""):
+                return {"status": status, "body": body}
+
+        class DummyRequest:
+            def __init__(self, path: str):
+                self.path = path
+
+        conn = DummyConnection()
+        resp_root = server.process_request(conn, DummyRequest("/"))  # type: ignore
+        self.assertEqual(resp_root["status"], 200)
+        self.assertIn(b"LED MATRIX ARCADE", resp_root["body"])
+
+        resp_health = server.process_request(conn, DummyRequest("/health"))  # type: ignore
+        self.assertEqual(resp_health["status"], 200)
+        self.assertIn(b"healthy", resp_health["body"])
+
+        resp_ws = server.process_request(conn, DummyRequest("/ws"))  # type: ignore
+        self.assertIsNone(resp_ws)  # Upgrade to WebSocket
+
 
 if __name__ == "__main__":
     unittest.main()
