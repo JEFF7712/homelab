@@ -1,4 +1,4 @@
-"""Hypnotic Conway's Game of Life simulation with phosphor decay trails on 64x64."""
+"""Standalone Conway's Game of Life renderer with phosphor decay trails."""
 
 from __future__ import annotations
 
@@ -6,18 +6,18 @@ import random
 from collections import deque
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
-from .base import ArcadeGame
+from modes.base import ModeRenderer, RenderContext
 
 
-class LifeGame(ArcadeGame):
-    name = "GAME OF LIFE"
+class LifeRenderer(ModeRenderer):
+    """Hypnotic Conway's Game of Life with phosphor decay trails on 64x64."""
 
     def __init__(self, size: int = 64) -> None:
         self.size = size
         self.grid = np.zeros((size, size), dtype=bool)
-        self.decay = np.zeros((size, size), dtype=np.int8)  # 0..4 decay trail
+        self.decay = np.zeros((size, size), dtype=np.int8)  # 0..3 decay trail
         self.step_timer = 0.0
         self.step_interval = 0.09  # ~11 gen/sec
         self.stagnant_history: deque[int] = deque(maxlen=24)
@@ -77,10 +77,9 @@ class LifeGame(ArcadeGame):
                 self._inject_glider(random.randint(4, 55), random.randint(4, 55))
             self.stagnant_history.clear()
 
-    def draw(
-        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
-    ) -> None:
-        # Build RGB image using NumPy
+    def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
+        self.update(ctx.dt)
+
         img_array = np.zeros((self.size, self.size, 3), dtype=np.uint8)
 
         # Dark background
@@ -97,5 +96,4 @@ class LifeGame(ArcadeGame):
         # Living cells: Bright Neon Emerald / Cyan
         img_array[self.grid] = [0, 240, 140]
 
-        life_img = Image.fromarray(img_array, mode="RGB")
-        frame.paste(life_img, (0, 0))
+        return Image.fromarray(img_array, mode="RGB")

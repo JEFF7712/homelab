@@ -53,7 +53,7 @@ class BreakoutGame(ArcadeGame):
     def reset(self) -> None:
         self.paddle_x = 32.0
         self.ball_x = 32.0
-        self.ball_y = 38.0
+        self.ball_y = 41.0
         self.ball_vx = random.choice([-32.0, 32.0])
         self.ball_vy = -36.0
         self.sparks.clear()
@@ -71,7 +71,8 @@ class BreakoutGame(ArcadeGame):
         ]
         bw, bh = 7, 2
         for r_idx, color in enumerate(row_colors):
-            y = 7 + r_idx * 3
+            # Start below the top HUD band that holds the score
+            y = 13 + r_idx * 3
             for c_idx in range(8):
                 x = 2 + c_idx * (bw + 1)
                 self.bricks.append(Brick(x=x, y=y, w=bw, h=bh, color=color))
@@ -108,7 +109,7 @@ class BreakoutGame(ArcadeGame):
         elif self.ball_y >= 63:
             # Ball lost: reset ball & paddle
             self.ball_x = 32.0
-            self.ball_y = 35.0
+            self.ball_y = 41.0
             self.ball_vx = random.choice([-32.0, 32.0])
             self.ball_vy = -36.0
 
@@ -162,17 +163,13 @@ class BreakoutGame(ArcadeGame):
 
         if all_cleared:
             self._init_bricks()
-            self.ball_y = 35.0
+            self.ball_y = 41.0
             self.ball_vy = -36.0
 
     def draw(
         self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
     ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(4, 6, 12))
-
-        # Score in top right
-        score_str = f"{self.score}"
-        draw.text((size - 18, 0), score_str, fill=(180, 200, 240), font=self.font)
 
         # Draw Bricks
         for b in self.bricks:
@@ -203,3 +200,17 @@ class BreakoutGame(ArcadeGame):
         bx = int(self.ball_x)
         by = int(self.ball_y)
         draw.rectangle([(bx, by), (bx + 1, by + 1)], fill=(255, 255, 240))
+
+        # Score HUD drawn last so bricks, sparks, and the ball never cover it
+        self._draw_score(draw, size)
+
+    def _draw_score(self, draw: ImageDraw.ImageDraw, size: int) -> None:
+        score_str = f"{self.score}"
+        left, top, right, bottom = draw.textbbox((0, 0), score_str, font=self.font)
+        text_w = right - left
+        text_h = bottom - top
+        x = size - text_w - 2
+        y = 1
+        # Opaque backing keeps the score legible over the playfield
+        draw.rectangle([(x - 2, 0), (size - 1, y + text_h)], fill=(4, 6, 12))
+        draw.text((x - left, y - top), score_str, fill=(255, 230, 120), font=self.font)

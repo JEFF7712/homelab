@@ -14,6 +14,7 @@ from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
 from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
+    LifeRenderer,
     NightClockRenderer,
     RetroArcadeRenderer,
     SpotifyVinylRenderer,
@@ -161,6 +162,7 @@ def main() -> None:
         "Clock & Weather": ClockWeatherRenderer(),
         "Night Clock": NightClockRenderer(),
         "Retro Arcade": RetroArcadeRenderer(),
+        "Game of Life": LifeRenderer(),
     }
 
     cache = ArtworkCache(source)

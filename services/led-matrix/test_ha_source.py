@@ -701,6 +701,8 @@ class HubModeAndRendererTests(unittest.TestCase):
         a_frame1 = arcade.render(ctx, size=64)
         self.assertEqual(a_frame1.size, (64, 64))
         self.assertEqual(a_frame1.mode, "RGB")
+        # Game of Life is a standalone mode, not part of the arcade rotation
+        self.assertNotIn("GAME OF LIFE", [game.name for game in arcade.games])
 
         # Advance past cycle_interval -> rotates to next game (Snake)
         ctx_adv = RenderContext(
@@ -714,10 +716,18 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(arcade.current_game.name, "SNAKE AI")
         self.assertEqual(a_frame2.size, (64, 64))
 
-        # Test individual arcade games
-        from modes.arcade import BreakoutGame, LifeGame, PongGame, SnakeGame
+        # 6. Game of Life (standalone mode)
+        from modes import LifeRenderer
 
-        for game in [PongGame(), SnakeGame(), BreakoutGame(), LifeGame()]:
+        life = LifeRenderer()
+        life_frame = life.render(ctx, size=64)
+        self.assertEqual(life_frame.size, (64, 64))
+        self.assertEqual(life_frame.mode, "RGB")
+
+        # Test individual arcade games
+        from modes.arcade import BreakoutGame, PongGame, SnakeGame
+
+        for game in [PongGame(), SnakeGame(), BreakoutGame()]:
             game.reset()
             game.update(0.05)
             img = Image.new("RGB", (64, 64))
@@ -725,6 +735,14 @@ class HubModeAndRendererTests(unittest.TestCase):
             game.draw(img, draw, size=64)
             self.assertEqual(img.size, (64, 64))
             self.assertEqual(img.mode, "RGB")
+
+    def test_breakout_bricks_clear_of_score_hud(self) -> None:
+        from modes.arcade import BreakoutGame
+
+        game = BreakoutGame()
+        # Bricks must sit below the top HUD band that holds the score
+        for brick in game.bricks:
+            self.assertGreaterEqual(brick.y, 12)
 
 
 if __name__ == "__main__":

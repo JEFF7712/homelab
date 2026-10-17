@@ -8,7 +8,6 @@ from modes.base import ModeRenderer, RenderContext
 
 from .base import ArcadeGame
 from .breakout import BreakoutGame
-from .life import LifeGame
 from .pong import PongGame
 from .snake import SnakeGame
 
@@ -19,7 +18,6 @@ class RetroArcadeRenderer(ModeRenderer):
             PongGame(),
             SnakeGame(),
             BreakoutGame(),
-            LifeGame(),
         ]
         self.cycle_interval = cycle_interval
         self.current_idx = 0
