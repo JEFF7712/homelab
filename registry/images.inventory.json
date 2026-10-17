@@ -2416,10 +2416,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "ha-reviewed",
-        "retention-candidate-fe9cead0c60a7b4b"
+        "modes-20261017-combined",
+        "retention-candidate-47baab623263cb14"
       ],
-      "digest": "sha256:fe9cead0c60a7b4bce21e72cc633bc98fa63be8561575d32084796402aaba264",
+      "digest": "sha256:47baab623263cb141049a159ce4d9f854f360051a76992963e7e134ffe1379ec",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2429,9 +2429,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ha-reviewed",
-        "digest": "sha256:fe9cead0c60a7b4bce21e72cc633bc98fa63be8561575d32084796402aaba264",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:fe9cead0c60a7b4bce21e72cc633bc98fa63be8561575d32084796402aaba264"
+        "tag": "modes-20261017-combined",
+        "digest": "sha256:47baab623263cb141049a159ce4d9f854f360051a76992963e7e134ffe1379ec",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261017-combined@sha256:47baab623263cb141049a159ce4d9f854f360051a76992963e7e134ffe1379ec"
       }
     }
   ],
