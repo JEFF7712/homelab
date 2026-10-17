@@ -18,7 +18,11 @@ QUERIES = {
     "K8S": {
         "nodes": 'kube_node_status_condition{condition="Ready",status="true"}',
         "pods": "sum by (node) (kube_pod_info)",
-        "bad": 'sum by (node) (kube_pod_info * on(namespace,pod) group_left() (kube_pod_status_phase{phase=~"Pending|Failed|Unknown"} == 1))',
+        "bad": (
+            "sum by (node) (kube_pod_info * on(namespace,pod) group_left() "
+            '((kube_pod_status_ready{condition=~"false|unknown"} == 1) '
+            'unless on(namespace,pod) (kube_pod_status_phase{phase="Succeeded"} == 1)))'
+        ),
     },
     "CI/CD": {
         "ci": "repo_ci_state",
