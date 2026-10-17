@@ -292,6 +292,29 @@ class ShowViewTest(unittest.TestCase):
         self.assertIn("Page.navigate", methods)
         self.assertNotIn("Runtime.evaluate", methods)
 
+    def test_seed_writes_storage_then_reloads(self) -> None:
+        page = FakeCdpPage()
+        page.start()
+        self.assertTrue(page.ready.wait(timeout=10))
+        session = self._session(page)
+        try:
+            ROTATE.show_view(
+                session,
+                {"url": "http://ha/3d-printing"},
+                5.0,
+                seed=("hassTokens", '{"access_token":"tok"}'),
+            )
+        finally:
+            session.close()
+        page.join(timeout=10)
+        methods = [m.get("method") for m in page.received]
+        self.assertEqual(methods.count("Page.navigate"), 2)
+        evaluate = next(
+            m for m in page.received if m.get("method") == "Runtime.evaluate"
+        )
+        self.assertIn("hassTokens", evaluate["params"]["expression"])
+        self.assertIn("localStorage.setItem", evaluate["params"]["expression"])
+
 
 class HaOriginTest(unittest.TestCase):
     def test_strips_path_and_keeps_port(self) -> None:
@@ -323,55 +346,44 @@ class BuildTokenPayloadTest(unittest.TestCase):
         self.assertEqual(payload["expires"], 1000 + 86400 * 1000)
 
 
-class SeedHaTokenTest(unittest.TestCase):
-    def _fake_session(self) -> Any:
-        class Session:
-            def __init__(self) -> None:
-                self.calls: list[tuple[str, Any]] = []
-                self._stored: dict[str, str] = {}
-
-            def call(self, method: str, params: Any = None) -> Any:
-                self.calls.append((method, params))
-                if method == "DOMStorage.setDOMStorageItem":
-                    self._stored[params["key"]] = params["value"]
-                if method == "DOMStorage.getDOMStorageItem":
-                    return {"value": self._stored.get(params["key"])}
-                return {}
-
-        return Session()
-
-    def test_writes_hass_tokens_for_origin(self) -> None:
-        session = self._fake_session()
-        ROTATE.seed_ha_token(session, "http://10.0.40.13:8123", "tok", 10)
-        methods = [m for m, _ in session.calls]
-        self.assertIn("DOMStorage.enable", methods)
-        set_call = next(
-            params
-            for method, params in session.calls
-            if method == "DOMStorage.setDOMStorageItem"
+class TokenSeedTest(unittest.TestCase):
+    def test_matching_view_returns_seed(self) -> None:
+        seed = ROTATE.token_seed(
+            "http://10.0.40.13:8123/3d-printing",
+            "http://10.0.40.13:8123",
+            "tok",
+            1000,
+            1,
         )
-        self.assertEqual(
-            set_call["storageId"],
-            {"securityOrigin": "http://10.0.40.13:8123", "isLocalStorage": True},
+        assert seed is not None
+        key, value = seed
+        self.assertEqual(key, "hassTokens")
+        payload = json.loads(value)
+        self.assertEqual(payload["access_token"], "tok")
+        self.assertEqual(payload["hassUrl"], "http://10.0.40.13:8123")
+        self.assertEqual(payload["expires"], 1000 + 86400 * 1000)
+
+    def test_other_origin_returns_none(self) -> None:
+        self.assertIsNone(
+            ROTATE.token_seed(
+                "http://10.0.40.12/d/homelab-fleet-overview",
+                "http://10.0.40.13:8123",
+                "tok",
+                1000,
+                1,
+            )
         )
-        self.assertEqual(set_call["key"], "hassTokens")
-        stored = json.loads(set_call["value"])
-        self.assertEqual(stored["access_token"], "tok")
-        self.assertEqual(stored["hassUrl"], "http://10.0.40.13:8123")
 
-    def test_raises_when_round_trip_fails(self) -> None:
-        class Dropping:
-            def __init__(self) -> None:
-                self.calls: list[tuple[str, Any]] = []
-
-            def call(self, method: str, params: Any = None) -> Any:
-                self.calls.append((method, params))
-                if method == "DOMStorage.getDOMStorageItem":
-                    return {"value": None}
-                return {}
-
-        with self.assertRaisesRegex(RuntimeError, "round-trip"):
-            ROTATE.seed_ha_token(Dropping(), "http://ha:8123", "tok", 10)
+    def test_missing_token_returns_none(self) -> None:
+        self.assertIsNone(
+            ROTATE.token_seed(
+                "http://10.0.40.13:8123/3d-printing",
+                "http://10.0.40.13:8123",
+                None,
+                1000,
+                1,
+            )
+        )
 
 
 if __name__ == "__main__":

@@ -8,9 +8,9 @@ advance. The view list is read from a JSON file so no shell quoting is needed.
 
 The process is intentionally dependency-free (standard library only) so it can
 ride along with ``pkgs.python3`` in the kiosk closure. It reconnects if the
-browser restarts. When a Home Assistant long-lived token is configured it also
-re-seeds the dashboard session on each (re)connect, since the tmpfs root wipes
-the Chromium profile every boot.
+browser restarts. When a Home Assistant long-lived-token is configured it also
+seeds the dashboard session each time the Home Assistant view is shown, since
+the tmpfs root wipes the Chromium profile every boot.
 """
 
 from __future__ import annotations
@@ -223,10 +223,30 @@ def inject_css(session: Session, css: str, attempts: int, delay: float) -> bool:
     return False
 
 
-def show_view(session: Session, view: dict[str, Any], settle: float) -> None:
+def show_view(
+    session: Session,
+    view: dict[str, Any],
+    settle: float,
+    seed: tuple[str, str] | None = None,
+) -> None:
+    """Show a view, seeding a session and re-loading first when one is given.
+
+    ``seed`` must be written while the view's own origin is loaded, so it runs
+    after the first navigation and before a second one that lets the page pick
+    the value up. The CSS is injected last so it survives that reload.
+    """
+    url = view["url"]
     session.call("Page.enable")
-    session.call("Page.navigate", {"url": view["url"]})
+    session.call("Page.navigate", {"url": url})
     session.wait_for_event("Page.loadEventFired", time.monotonic() + settle)
+    if seed is not None:
+        key, value = seed
+        evaluate(
+            session,
+            "window.localStorage.setItem(%s, %s)" % (json.dumps(key), json.dumps(value)),
+        )
+        session.call("Page.navigate", {"url": url})
+        session.wait_for_event("Page.loadEventFired", time.monotonic() + settle)
     css = view.get("css")
     if css:
         inject_css(session, css, attempts=10, delay=1.0)
@@ -292,27 +312,24 @@ def build_token_payload(
     }
 
 
-def seed_ha_token(session: Session, origin: str, token: str, lifespan_days: int) -> None:
-    """Write ``hassTokens`` into the browser's storage for the Home Assistant origin.
+def token_seed(
+    view_url: str, origin: str | None, token: str | None, now_ms: int, lifespan_days: int
+) -> tuple[str, str] | None:
+    """Return the ``localStorage`` key/value to seed for a Home Assistant view.
 
-    Uses the DevTools DOMStorage domain so the value lands on the target origin
-    without navigating the tab the rotation loop is driving.
+    Home Assistant stores its session under ``hassTokens`` in localStorage for
+    its own origin, so the write only counts on the HA page. Returns ``None``
+    for any other view or when no token is configured.
     """
-    value = json.dumps(
-        build_token_payload(token, origin, int(time.time() * 1000), lifespan_days)
-    )
-    storage_id = {"securityOrigin": origin, "isLocalStorage": True}
-    session.call("DOMStorage.enable")
-    session.call(
-        "DOMStorage.setDOMStorageItem",
-        {"storageId": storage_id, "key": "hassTokens", "value": value},
-    )
-    stored = session.call(
-        "DOMStorage.getDOMStorageItem",
-        {"storageId": storage_id, "key": "hassTokens"},
-    )
-    if stored.get("value") != value:
-        raise RuntimeError("hassTokens did not round-trip through DOMStorage")
+    if origin is None or token is None:
+        return None
+    try:
+        if ha_origin(view_url) != origin:
+            return None
+    except ValueError:
+        return None
+    value = json.dumps(build_token_payload(token, origin, now_ms, lifespan_days))
+    return "hassTokens", value
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -373,18 +390,19 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         try:
-            if origin and token:
-                try:
-                    seed_ha_token(
-                        session, origin, token, args.ha_token_lifespan_days
-                    )
-                    print(f"seeded Home Assistant session for {origin}", flush=True)
-                except (OSError, RuntimeError, TimeoutError) as exc:
-                    print(f"home assistant token seed failed: {exc}", file=sys.stderr)
             while True:
                 view = views[index]
+                seed = token_seed(
+                    view["url"],
+                    origin,
+                    token,
+                    int(time.time() * 1000),
+                    args.ha_token_lifespan_days,
+                )
                 print(f"showing view {index + 1}/{len(views)}: {view['url']}", flush=True)
-                show_view(session, view, args.settle)
+                show_view(session, view, args.settle, seed=seed)
+                if seed is not None:
+                    print(f"seeded Home Assistant session for {origin}", flush=True)
                 index = (index + 1) % len(views)
                 time.sleep(float(view.get("duration", 60)))
         except (OSError, RuntimeError, TimeoutError) as exc:

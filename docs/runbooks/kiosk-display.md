@@ -40,10 +40,11 @@ Instead the kiosk seeds its own session from a long-lived access token:
   `http://10.0.40.13:8123`).
 - `kiosk-rotate.service` receives the token as a systemd credential
   (`LoadCredential`), so the file stays root-only; the process reads it from
-  `$CREDENTIALS_DIRECTORY` and writes `hassTokens` for the HA origin over the
-  DevTools DOMStorage domain on every (re)connect. A `systemd.tmpfiles` rule
-  keeps an empty placeholder at the path so a missing token never fails the
-  rotation unit.
+  `$CREDENTIALS_DIRECTORY`. `hassTokens` is per-origin localStorage, so the
+  driver seeds it while the HA view itself is loaded (set the item, then
+  re-navigate so the page picks it up) on every pass through that view. A
+  `systemd.tmpfiles` rule keeps an empty placeholder at the path so a missing
+  token never fails the rotation unit.
 - The token lives only in that host file and the browser profile, never in Git.
 
 ### Rotating the dashboard token
