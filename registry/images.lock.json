@@ -4885,9 +4885,9 @@
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
         "ha-reviewed",
-        "retention-candidate-c18f95f0289a481c"
+        "retention-candidate-765362a51ef36123"
       ],
-      "digest": "sha256:c18f95f0289a481c32a95077ec0039f3eb6a76250d29e33a5f1c4b696126b9bd",
+      "digest": "sha256:765362a51ef361231c125fb5cc06c73fe5e933e1a06b861f29ab1d7e7530063f",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -4898,8 +4898,8 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
         "tag": "ha-reviewed",
-        "digest": "sha256:c18f95f0289a481c32a95077ec0039f3eb6a76250d29e33a5f1c4b696126b9bd",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:c18f95f0289a481c32a95077ec0039f3eb6a76250d29e33a5f1c4b696126b9bd"
+        "digest": "sha256:765362a51ef361231c125fb5cc06c73fe5e933e1a06b861f29ab1d7e7530063f",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ha-reviewed@sha256:765362a51ef361231c125fb5cc06c73fe5e933e1a06b861f29ab1d7e7530063f"
       },
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [

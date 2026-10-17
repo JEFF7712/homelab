@@ -147,13 +147,13 @@ class WebControllerServer:
                 ("Content-Type", "text/html; charset=utf-8"),
                 ("Cache-Control", "no-cache, no-store, must-revalidate"),
             ])
-            return connection.respond(200, "OK", headers=headers, body=CONTROLLER_HTML.encode("utf-8"))
+            return Response(200, "OK", headers=headers, body=CONTROLLER_HTML.encode("utf-8"))
         elif path == "/health":
             headers = Headers([("Content-Type", "application/json")])
-            return connection.respond(200, "OK", headers=headers, body=b'{"status":"healthy"}')
+            return Response(200, "OK", headers=headers, body=b'{"status":"healthy"}')
         elif path == "/ws":
             return None  # Upgrade to WebSocket
-        return connection.respond(404, "Not Found", headers=Headers(), body=b"404 Not Found")
+        return Response(404, "Not Found", headers=Headers(), body=b"404 Not Found")
 
     async def handle_connection(self, ws: ServerConnection) -> None:
         role = self.hub.register_client(ws)
