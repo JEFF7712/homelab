@@ -213,6 +213,7 @@ input_select:
       - "Clock & Weather"
       - "Night Clock"
       - "Retro Arcade"
+      - "Game of Life"
     initial: "Auto"
 
 input_number:
