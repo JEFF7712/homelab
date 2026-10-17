@@ -202,15 +202,16 @@ def evaluate(session: Session, expression: str) -> Any:
     return value.get("value")
 
 
-def inject_css(session: Session, css: str, attempts: int, delay: float) -> bool:
-    """Inject CSS, tolerating the target navigating out from under us.
+def evaluate_retrying(
+    session: Session, expression: str, attempts: int, delay: float
+) -> bool:
+    """Evaluate an idempotent expression, tolerating the target navigating away.
 
-    A dashboard that redirects client-side (Home Assistant bouncing to its
-    auth flow) can still be mid-navigation when the load event fires, which
-    makes Runtime.evaluate fail with "Inspected target navigated or closed".
-    That is transient, so retry before giving up.
+    A dashboard that redirects client-side (Home Assistant bouncing to its auth
+    flow) can still be mid-navigation when the load event fires, which makes
+    Runtime.evaluate fail with "Inspected target navigated or closed". That is
+    transient, so retry before giving up.
     """
-    expression = INJECT_JS % json.dumps(css)
     for attempt in range(attempts):
         try:
             evaluate(session, expression)
@@ -221,6 +222,10 @@ def inject_css(session: Session, css: str, attempts: int, delay: float) -> bool:
             if attempt < attempts - 1:
                 time.sleep(delay)
     return False
+
+
+def inject_css(session: Session, css: str, attempts: int, delay: float) -> bool:
+    return evaluate_retrying(session, INJECT_JS % json.dumps(css), attempts, delay)
 
 
 def show_view(
@@ -241,9 +246,11 @@ def show_view(
     session.wait_for_event("Page.loadEventFired", time.monotonic() + settle)
     if seed is not None:
         key, value = seed
-        evaluate(
+        evaluate_retrying(
             session,
             "window.localStorage.setItem(%s, %s)" % (json.dumps(key), json.dumps(value)),
+            attempts=10,
+            delay=1.0,
         )
         session.call("Page.navigate", {"url": url})
         session.wait_for_event("Page.loadEventFired", time.monotonic() + settle)
