@@ -279,3 +279,78 @@ views:
             icon: mdi:music
             features:
               - type: toggle
+      - cards:
+          - type: heading
+            heading: Matrix Display
+          - type: custom:mushroom-entity-card
+            entity: input_boolean.bedroom_matrix_power
+            name: Power
+            icon: mdi:led-strip-variant
+            icon_color: amber
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - type: custom:mushroom-select-card
+            entity: input_select.bedroom_matrix_mode
+            name: Mode
+            icon: mdi:view-dashboard-outline
+            icon_color: blue
+          - type: custom:mushroom-number-card
+            entity: input_number.bedroom_matrix_brightness
+            name: Brightness
+            icon: mdi:brightness-6
+            icon_color: amber
+            display_mode: slider
+          - type: custom:mushroom-chips-card
+            chips:
+              - type: action
+                name: Auto
+                icon: mdi:auto-fix
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Auto
+              - type: action
+                name: Spotify
+                icon: mdi:spotify
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Spotify
+              - type: action
+                name: Clock
+                icon: mdi:clock-outline
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Clock & Weather
+              - type: action
+                name: Night
+                icon: mdi:weather-night
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Night Clock
+              - type: action
+                name: "Off"
+                icon: mdi:power-off
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: "Off"
