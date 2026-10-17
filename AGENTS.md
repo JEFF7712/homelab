@@ -72,6 +72,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/arr-credentials.md` — media download-chain credential sync (qBittorrent password, *arr/Seerr API keys) and rotation.
 - `docs/runbooks/netbird.md` — NetBird dashboard/config API for agents: `NETBIRD_API_KEY` storage in SOPS, read-only usage, and rotation. Required reading before calling the NetBird Management API or changing peers, routes, or policies.
 - `docs/runbooks/home-assistant-automation-best-practices.md` — HA automation conventions.
+- `docs/runbooks/kiosk-display.md` — shared kiosk module: single-view Jarvis face vs rotating dashboards, and the HA dashboard token seeding.
 
 ### Gotchas (code-level pitfalls)
 - `docs/gotchas/nix-heredoc-indentation.md` — Nix `''` heredoc indentation stripping trap. Symptom is a runtime `IndentationError` on a service you just edited. `nixfmt` does not catch it.

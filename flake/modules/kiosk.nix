@@ -11,6 +11,10 @@ let
   bootUrl = if cfg.views == [ ] then cfg.url else (lib.head cfg.views).url;
   rotate = builtins.length cfg.views > 1;
   viewsFile = pkgs.writeText "kiosk-views.json" (builtins.toJSON cfg.views);
+  seedHa = cfg.haDashboardTokenFile != null && cfg.haDashboardUrl != null;
+  # systemd delivers the token as a credential so the file stays root-only;
+  # the seeder reads it from $CREDENTIALS_DIRECTORY inside the service.
+  seedArgs = lib.optionalString seedHa " --ha-token-file \"$CREDENTIALS_DIRECTORY/kiosk-ha-token\" --ha-url ${cfg.haDashboardUrl}";
   kioskBrowser = pkgs.writeShellScript "kiosk-browser" ''
     ${lib.concatMapStringsSep "\n" (
       output: "${pkgs.wlr-randr}/bin/wlr-randr --output ${output} --off || true"
@@ -99,6 +103,18 @@ in
       default = null;
       description = "File holding a Home Assistant long-lived token for the kiosk face. The tmpfs root wipes the Chromium profile every reboot, so when set, a boot service re-seeds the token into the kiosk browser over its local DevTools port. The file must live under /persist and is never part of the store closure.";
     };
+
+    haDashboardTokenFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "File holding a Home Assistant long-lived access token for a dashboard shown in 'views'. The tmpfs root wipes the Chromium profile every reboot, so the rotation service re-seeds the token into the browser's storage for 'haDashboardUrl' on every (re)connect. Requires 'haDashboardUrl'; must live under /persist and stays out of the store closure.";
+    };
+
+    haDashboardUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Home Assistant base URL whose origin receives the token from 'haDashboardTokenFile'.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -159,14 +175,31 @@ in
         User = cfg.user;
         Restart = "always";
         RestartSec = "10s";
+      }
+      // lib.optionalAttrs seedHa {
+        LoadCredential = [ "kiosk-ha-token:${cfg.haDashboardTokenFile}" ];
       };
       path = [ pkgs.python3 ];
       script = ''
         exec ${pkgs.python3}/bin/python3 ${./kiosk-rotate.py} \
           --cdp http://127.0.0.1:9222 \
-          --views-file ${viewsFile}
+          --views-file ${viewsFile}${seedArgs}
       '';
     };
+
+    # Guarantee the credential source exists so LoadCredential never fails the
+    # rotation service; the real token is written here out of band.
+    systemd.tmpfiles.rules = lib.optionals seedHa [
+      "d /persist/secrets 0700 root root -"
+      "f ${cfg.haDashboardTokenFile} 0600 root root -"
+    ];
+
+    assertions = [
+      {
+        assertion = (cfg.haDashboardTokenFile == null) == (cfg.haDashboardUrl == null);
+        message = "homelab.kiosk: set haDashboardTokenFile and haDashboardUrl together";
+      }
+    ];
 
     systemd.services."kiosk-ha-token-seed" = lib.mkIf (cfg.haTokenFile != null) {
       description = "Seed Home Assistant token into kiosk browser";

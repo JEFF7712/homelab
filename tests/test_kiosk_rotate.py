@@ -293,5 +293,86 @@ class ShowViewTest(unittest.TestCase):
         self.assertNotIn("Runtime.evaluate", methods)
 
 
+class HaOriginTest(unittest.TestCase):
+    def test_strips_path_and_keeps_port(self) -> None:
+        self.assertEqual(
+            ROTATE.ha_origin("http://10.0.40.13:8123/3d-printing"),
+            "http://10.0.40.13:8123",
+        )
+
+    def test_omits_default_port(self) -> None:
+        self.assertEqual(
+            ROTATE.ha_origin("https://ha.rupan.dev/lovelace/0"),
+            "https://ha.rupan.dev",
+        )
+
+    def test_rejects_relative_url(self) -> None:
+        with self.assertRaisesRegex(ValueError, "absolute"):
+            ROTATE.ha_origin("/3d-printing")
+
+
+class BuildTokenPayloadTest(unittest.TestCase):
+    def test_shapes_dashboard_session(self) -> None:
+        payload = ROTATE.build_token_payload("tok", "http://ha:8123", 1000, 1)
+        self.assertEqual(payload["access_token"], "tok")
+        self.assertEqual(payload["token_type"], "Bearer")
+        self.assertEqual(payload["refresh_token"], "")
+        self.assertEqual(payload["hassUrl"], "http://ha:8123")
+        self.assertEqual(payload["clientId"], "http://ha:8123")
+        self.assertEqual(payload["expires_in"], 86400)
+        self.assertEqual(payload["expires"], 1000 + 86400 * 1000)
+
+
+class SeedHaTokenTest(unittest.TestCase):
+    def _fake_session(self) -> Any:
+        class Session:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, Any]] = []
+                self._stored: dict[str, str] = {}
+
+            def call(self, method: str, params: Any = None) -> Any:
+                self.calls.append((method, params))
+                if method == "DOMStorage.setDOMStorageItem":
+                    self._stored[params["key"]] = params["value"]
+                if method == "DOMStorage.getDOMStorageItem":
+                    return {"value": self._stored.get(params["key"])}
+                return {}
+
+        return Session()
+
+    def test_writes_hass_tokens_for_origin(self) -> None:
+        session = self._fake_session()
+        ROTATE.seed_ha_token(session, "http://10.0.40.13:8123", "tok", 10)
+        methods = [m for m, _ in session.calls]
+        self.assertIn("DOMStorage.enable", methods)
+        set_call = next(
+            params
+            for method, params in session.calls
+            if method == "DOMStorage.setDOMStorageItem"
+        )
+        self.assertEqual(
+            set_call["storageId"],
+            {"securityOrigin": "http://10.0.40.13:8123", "isLocalStorage": True},
+        )
+        self.assertEqual(set_call["key"], "hassTokens")
+        stored = json.loads(set_call["value"])
+        self.assertEqual(stored["access_token"], "tok")
+        self.assertEqual(stored["hassUrl"], "http://10.0.40.13:8123")
+
+    def test_raises_when_round_trip_fails(self) -> None:
+        class Dropping:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, Any]] = []
+
+            def call(self, method: str, params: Any = None) -> Any:
+                self.calls.append((method, params))
+                if method == "DOMStorage.getDOMStorageItem":
+                    return {"value": None}
+                return {}
+
+        with self.assertRaisesRegex(RuntimeError, "round-trip"):
+            ROTATE.seed_ha_token(Dropping(), "http://ha:8123", "tok", 10)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,9 @@ advance. The view list is read from a JSON file so no shell quoting is needed.
 
 The process is intentionally dependency-free (standard library only) so it can
 ride along with ``pkgs.python3`` in the kiosk closure. It reconnects if the
-browser restarts.
+browser restarts. When a Home Assistant long-lived token is configured it also
+re-seeds the dashboard session on each (re)connect, since the tmpfs root wipes
+the Chromium profile every boot.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import sys
 import time
 import urllib.request
 from typing import Any
+from urllib.parse import urlsplit
 
 INJECT_JS = """(function(css) {
   let el = document.getElementById('kiosk-injected-css');
@@ -256,6 +259,62 @@ def load_views(path: str) -> list[dict[str, Any]]:
     return views
 
 
+def ha_origin(url: str) -> str:
+    """Return the ``scheme://host[:port]`` origin a Home Assistant URL serves from."""
+    parts = urlsplit(url)
+    if not parts.scheme or not parts.hostname:
+        raise ValueError(f"not an absolute Home Assistant URL: {url!r}")
+    host = parts.hostname
+    if parts.port is not None:
+        host = f"{host}:{parts.port}"
+    return f"{parts.scheme}://{host}"
+
+
+def build_token_payload(
+    token: str, origin: str, now_ms: int, lifespan_days: int
+) -> dict[str, Any]:
+    """Shape a long-lived access token as the ``hassTokens`` entry Home Assistant stores.
+
+    The dashboard frontend only reads ``access_token``/``hassUrl``/``expires``:
+    it refreshes when ``expires`` has passed, and a far-future expiry keeps it
+    from ever reaching for the empty ``refresh_token``. ``hassUrl`` must equal
+    the page origin or the frontend discards the entry.
+    """
+    seconds = lifespan_days * 86400
+    return {
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": seconds,
+        "refresh_token": "",
+        "expires": now_ms + seconds * 1000,
+        "hassUrl": origin,
+        "clientId": origin,
+    }
+
+
+def seed_ha_token(session: Session, origin: str, token: str, lifespan_days: int) -> None:
+    """Write ``hassTokens`` into the browser's storage for the Home Assistant origin.
+
+    Uses the DevTools DOMStorage domain so the value lands on the target origin
+    without navigating the tab the rotation loop is driving.
+    """
+    value = json.dumps(
+        build_token_payload(token, origin, int(time.time() * 1000), lifespan_days)
+    )
+    storage_id = {"securityOrigin": origin, "isLocalStorage": True}
+    session.call("DOMStorage.enable")
+    session.call(
+        "DOMStorage.setDOMStorageItem",
+        {"storageId": storage_id, "key": "hassTokens", "value": value},
+    )
+    stored = session.call(
+        "DOMStorage.getDOMStorageItem",
+        {"storageId": storage_id, "key": "hassTokens"},
+    )
+    if stored.get("value") != value:
+        raise RuntimeError("hassTokens did not round-trip through DOMStorage")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--views-file", required=True)
@@ -263,6 +322,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wait-seconds", type=float, default=180.0)
     parser.add_argument("--timeout", type=float, default=15.0)
     parser.add_argument("--settle", type=float, default=8.0)
+    parser.add_argument(
+        "--ha-token-file",
+        default=None,
+        help="File with a Home Assistant long-lived access token for the dashboard view.",
+    )
+    parser.add_argument(
+        "--ha-url",
+        default=None,
+        help="Home Assistant base URL whose origin receives the seeded token.",
+    )
+    parser.add_argument(
+        "--ha-token-lifespan-days",
+        type=int,
+        default=3650,
+        help="How long the seeded dashboard session stays valid before it refreshes.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -270,6 +345,20 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         print(f"cannot load views: {exc}", file=sys.stderr)
         return 1
+
+    origin = None
+    token = None
+    if args.ha_token_file and args.ha_url:
+        try:
+            origin = ha_origin(args.ha_url)
+            with open(args.ha_token_file, encoding="utf-8") as handle:
+                token = handle.read().strip()
+            if not token:
+                raise ValueError("token file is empty")
+        except (OSError, ValueError) as exc:
+            print(f"cannot seed Home Assistant token: {exc}", file=sys.stderr)
+            origin = None
+            token = None
 
     index = 0
     while True:
@@ -284,6 +373,14 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         try:
+            if origin and token:
+                try:
+                    seed_ha_token(
+                        session, origin, token, args.ha_token_lifespan_days
+                    )
+                    print(f"seeded Home Assistant session for {origin}", flush=True)
+                except (OSError, RuntimeError, TimeoutError) as exc:
+                    print(f"home assistant token seed failed: {exc}", file=sys.stderr)
             while True:
                 view = views[index]
                 print(f"showing view {index + 1}/{len(views)}: {view['url']}", flush=True)
