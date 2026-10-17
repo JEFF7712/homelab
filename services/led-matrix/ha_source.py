@@ -28,7 +28,7 @@ class HomeAssistantSource:
         self,
         base_url: str,
         token: str,
-        entity: str,
+        entity: str | list[str],
         power_entity: str | None = None,
         mode_entity: str | None = None,
         brightness_entity: str | None = None,
@@ -48,7 +48,20 @@ class HomeAssistantSource:
             raise ValueError("HA URL must be an HTTP(S) origin without credentials")
         if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
             raise ValueError("HA URL must not contain a path, query, or fragment")
-        if not token or not entity.startswith("media_player.") or stale_after <= 0:
+
+        if isinstance(entity, str):
+            entities = [e.strip() for e in entity.split(",") if e.strip()]
+        elif isinstance(entity, (list, tuple)):
+            entities = [str(e).strip() for e in entity if str(e).strip()]
+        else:
+            entities = []
+
+        if (
+            not token
+            or not entities
+            or any(not e.startswith("media_player.") for e in entities)
+            or stale_after <= 0
+        ):
             raise ValueError(
                 "HA token, media_player entity and positive stale timeout are required"
             )
@@ -63,7 +76,8 @@ class HomeAssistantSource:
             )
         )
         self.token = token
-        self.entity = entity
+        self.entities = entities
+        self.entity = entities[0]
         self.power_entity = power_entity
         self.mode_entity = mode_entity
         self.brightness_entity = brightness_entity
@@ -73,6 +87,7 @@ class HomeAssistantSource:
         self.on_update = on_update
         self.on_hub_update = on_hub_update
         self._state = PlaybackState()
+        self._states_by_entity: dict[str, PlaybackState] = {}
         self._hub_state = HAState()
         self._compact: dict[str, Any] = {}
         self._compact_by_entity: dict[str, dict[str, Any]] = {}
@@ -108,9 +123,42 @@ class HomeAssistantSource:
             return replace(state, available=False, playing=False)
         return state
 
+    def _select_best_state(self) -> PlaybackState:
+        # Assumes caller holds self._lock
+        # 1. Prioritize entities actively playing (pick newest updated)
+        playing_states = [
+            s for s in self._states_by_entity.values() if s.available and s.playing
+        ]
+        if playing_states:
+            return max(playing_states, key=lambda s: s.updated_at)
+
+        # 2. Entities paused with metadata (title or artwork)
+        paused_states = [
+            s
+            for s in self._states_by_entity.values()
+            if s.available and (s.title or s.artwork_url)
+        ]
+        if paused_states:
+            return max(paused_states, key=lambda s: s.updated_at)
+
+        # 3. Any available entity
+        available_states = [s for s in self._states_by_entity.values() if s.available]
+        if available_states:
+            return max(available_states, key=lambda s: s.updated_at)
+
+        # 4. Primary entity state if present
+        if self.entity in self._states_by_entity:
+            return self._states_by_entity[self.entity]
+
+        # 5. Fallback to newest entity state or empty
+        if self._states_by_entity:
+            return max(self._states_by_entity.values(), key=lambda s: s.updated_at)
+        return PlaybackState()
+
     def apply_state(self, value: dict[str, Any] | None) -> None:
         if value is None:
             with self._lock:
+                self._states_by_entity.clear()
                 self._state = PlaybackState()
             if self.on_update:
                 try:
@@ -118,7 +166,8 @@ class HomeAssistantSource:
                 except Exception:
                     pass
             return
-        if value.get("entity_id") != self.entity:
+        entity_id = value.get("entity_id")
+        if entity_id not in self.entities:
             return
         attributes = value.get("attributes") or {}
         try:
@@ -134,14 +183,19 @@ class HomeAssistantSource:
             updated_at=updated_at,
         )
         with self._lock:
-            if updated_at >= self._state.updated_at:
-                self._state = state
+            existing = self._states_by_entity.get(entity_id)
+            if existing is not None and updated_at < existing.updated_at:
+                return
+            self._states_by_entity[entity_id] = state
+            selected = self._select_best_state()
+            if selected != self._state:
+                self._state = selected
                 notify = True
             else:
                 notify = False
         if notify and self.on_update:
             try:
-                self.on_update(state)
+                self.on_update(selected)
             except Exception:
                 pass
 
@@ -171,7 +225,7 @@ class HomeAssistantSource:
                     else "Auto"
                 )
             elif entity_id == self.music_mode_entity:
-                music_mode = (state_val == "on")
+                music_mode = state_val == "on"
             elif entity_id == self.brightness_entity:
                 if state_val is not None:
                     try:
@@ -226,26 +280,38 @@ class HomeAssistantSource:
                 ]
                 if e
             }
+            media_entities = set(self.entities)
 
             removed = set(event.get("r", []))
             if removed:
                 for ent in removed:
                     self._compact_by_entity.pop(ent, None)
-                    if ent == self.entity:
-                        self._compact = {}
-                        self.apply_state(None)
+                    if ent in media_entities:
+                        with self._lock:
+                            self._states_by_entity.pop(ent, None)
+                            new_selected = self._select_best_state()
+                            changed = new_selected != self._state
+                            self._state = new_selected
+                        if ent == self.entity:
+                            self._compact = {}
+                        if changed and self.on_update:
+                            try:
+                                self.on_update(new_selected)
+                            except Exception:
+                                pass
                     elif ent in hub_entities:
                         self._apply_hub_entity(ent, None)
 
             additions = event.get("a", {})
             for ent, val in additions.items():
                 self._compact_by_entity[ent] = val
-                if ent == self.entity:
-                    self._compact = val
+                if ent in media_entities:
+                    if ent == self.entity:
+                        self._compact = val
                     timestamp = val.get("lu", val.get("lc", 0))
                     self.apply_state(
                         {
-                            "entity_id": self.entity,
+                            "entity_id": ent,
                             "state": val.get("s"),
                             "attributes": dict(val.get("a", {})),
                             "last_updated": datetime.fromtimestamp(
@@ -270,12 +336,13 @@ class HomeAssistantSource:
                 for key in diff.get("-", {}).get("a", []):
                     compact.get("a", {}).pop(key, None)
 
-                if ent == self.entity:
-                    self._compact = compact
+                if ent in media_entities:
+                    if ent == self.entity:
+                        self._compact = compact
                     timestamp = compact.get("lu", compact.get("lc", 0))
                     self.apply_state(
                         {
-                            "entity_id": self.entity,
+                            "entity_id": ent,
                             "state": compact.get("s"),
                             "attributes": dict(compact.get("a", {})),
                             "last_updated": datetime.fromtimestamp(
@@ -295,7 +362,7 @@ class HomeAssistantSource:
         entity_ids = [
             e
             for e in [
-                self.entity,
+                *self.entities,
                 self.power_entity,
                 self.mode_entity,
                 self.brightness_entity,
@@ -411,7 +478,7 @@ class HomeAssistantSource:
                 )
             headers = {}
         with requests.get(
-            url, headers=headers, timeout=10, allow_redirects=False, stream=True
+            url, headers=headers, timeout=10, allow_redirects=True, stream=True
         ) as response:
             if response.status_code != 200:
                 raise ConnectionError(f"Artwork returned HTTP {response.status_code}")
@@ -548,9 +615,19 @@ class HybridPlaybackSource:
 
         # Wake poller on Home Assistant state updates
         self.ha_source.on_update = self._on_ha_update
+        self._user_on_hub_update: Callable[[HAState], None] | None = None
+        self.ha_source.on_hub_update = self._on_ha_hub_update
 
     def _on_ha_update(self, _state: PlaybackState) -> None:
         self._wake_event.set()
+
+    def _on_ha_hub_update(self, state: HAState) -> None:
+        self._wake_event.set()
+        if self._user_on_hub_update:
+            try:
+                self._user_on_hub_update(state)
+            except Exception:
+                pass
 
     def start(self) -> None:
         self.ha_source.start()
@@ -599,14 +676,34 @@ class HybridPlaybackSource:
 
     @property
     def on_hub_update(self) -> Callable[[HAState], None] | None:
-        return self.ha_source.on_hub_update
+        return self._user_on_hub_update
 
     @on_hub_update.setter
     def on_hub_update(self, cb: Callable[[HAState], None] | None) -> None:
-        self.ha_source.on_hub_update = cb
+        self._user_on_hub_update = cb
 
     def fetch_artwork(self, picture: str) -> Image.Image:
         return self.ha_source.fetch_artwork(picture)
+
+    def _should_poll_spotify(self) -> bool:
+        hub = self.hub_state()
+        if (
+            hub is None
+            or not getattr(hub, "power", True)
+            or getattr(hub, "mode", "Auto") == "Off"
+        ):
+            return False
+        mode = getattr(hub, "mode", "Auto")
+        if mode == "Spotify":
+            return True
+        if mode == "Auto":
+            ha_snap = self.ha_source.snapshot()
+            if ha_snap and getattr(ha_snap, "playing", False):
+                return True
+            if time.monotonic() - self._last_active_at < self.active_window:
+                return True
+            return True
+        return False
 
     def _poll_once(self) -> float:
         """Poll Spotify once and return the delay until the next poll."""
@@ -672,6 +769,11 @@ class HybridPlaybackSource:
                 fallback_left = max(0.0, self._fallback_until - now)
             if fallback_left > 0:
                 self._wake_event.wait(timeout=min(fallback_left, 1.0))
+                self._wake_event.clear()
+                continue
+
+            if not self._should_poll_spotify():
+                self._wake_event.wait(timeout=30.0)
                 self._wake_event.clear()
                 continue
 

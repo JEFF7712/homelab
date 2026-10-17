@@ -27,14 +27,14 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:47baab623263cb141049a159ce4d9f854f360051a76992963e7e134ffe1379ec
+            registry.rupan.dev/apps/spotify-matrix@sha256:a73137586b2df6c512704c0520cd2efb144266d93316da032779eb9af198000b
           args:
             - --ha-url
             - http://10.0.40.13:8123
             - --ha-token-file
             - /run/secrets/ha/token
             - --entity
-            - media_player.spotify_rupan
+            - media_player.spotify_rupan,media_player.bedroom_speaker
             - --power-entity
             - input_boolean.bedroom_matrix_power
             - --mode-entity
@@ -49,6 +49,10 @@ spec:
             - 10.0.20.136
             - --fps
             - "20"
+            - --spotify-poll-interval
+            - "3.0"
+            - --spotify-poll-interval-paused
+            - "15.0"
             - --web-port
             - "8000"
             - --ledfx-port

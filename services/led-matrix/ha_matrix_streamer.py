@@ -49,7 +49,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--entity",
-        default=os.getenv("SPOTIFY_ENTITY", "media_player.spotify_rupan"),
+        default=os.getenv(
+            "SPOTIFY_ENTITY", "media_player.spotify_rupan,media_player.bedroom_speaker"
+        ),
     )
     parser.add_argument(
         "--power-entity",
@@ -88,12 +90,17 @@ def main() -> None:
     parser.add_argument(
         "--spotify-poll-interval",
         type=float,
-        default=float(os.getenv("SPOTIFY_POLL_INTERVAL", "1.0")),
+        default=float(os.getenv("SPOTIFY_POLL_INTERVAL", "3.0")),
     )
     parser.add_argument(
         "--spotify-poll-interval-paused",
         type=float,
-        default=float(os.getenv("SPOTIFY_POLL_INTERVAL_PAUSED", "0")) or None,
+        default=float(os.getenv("SPOTIFY_POLL_INTERVAL_PAUSED", "15.0")) or None,
+    )
+    parser.add_argument(
+        "--spotify-poll-interval-idle",
+        type=float,
+        default=float(os.getenv("SPOTIFY_POLL_INTERVAL_IDLE", "30.0")),
     )
     parser.add_argument(
         "--spotify-token-cache",
@@ -139,6 +146,7 @@ def main() -> None:
             args.spotify_poll_interval_paused is not None
             and args.spotify_poll_interval_paused <= 0
         )
+        or args.spotify_poll_interval_idle <= 0
     ):
         parser.error(
             "Invalid FPS, brightness, stale timeout, poll interval, or duration"
@@ -172,6 +180,7 @@ def main() -> None:
             spotify_client=spotify_client,
             poll_interval_playing=args.spotify_poll_interval,
             poll_interval_paused=args.spotify_poll_interval_paused,
+            poll_interval_idle=args.spotify_poll_interval_idle,
         )
         paused_info = (
             f"; paused: {args.spotify_poll_interval_paused:g}s"
