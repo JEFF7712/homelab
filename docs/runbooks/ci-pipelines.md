@@ -73,9 +73,41 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   areas (e.g. Home Assistant configurations, automations, custom components),
   repository validation runs with `SKIP_FLAKE_CHECK=1`. Linters, type checks, and
   unit tests run in ~15 seconds while avoiding full fleet evaluation.
+- **Scoped changes**: When every changed path maps to a narrow check, only those
+  checks run: Python sources and tests (`python.sh`, with only the changed
+  `tests.test_*` modules when tests are what changed), `gitops/` and `schemas/`
+  (`gitops.sh`), `tofu/` (`tofu.sh` after provider provisioning), `registry/`
+  and registry code (`registry.sh`), agent tooling (`agent-workflows.sh`), and
+  single-host Nix changes under `flake/hosts/<host>/` (`nix.sh <host>`). Mixed
+  narrow changes run the union of their checks. Validation infrastructure
+  (`scripts/ci/`, `scripts/checks/`, CI config, flake inputs), shared Nix
+  modules, and any unmapped path still force the full gate.
 - **Full offline gate**: Main branch pushes, periodic cron runs, release tags, and
-  any changes touching Nix files or infrastructure paths unconditionally run the
+  any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check` with `nix flake check`).
+
+The full gate avoids repeating work its own lanes already cover: the parallel
+`fmt` lane owns format and YAML lint (the gate runs with `CI_LINT_EXTERNAL=1`,
+and `just fmt-check` includes `yamllint gitops home-assistant`), the secret
+scan uses the incremental range scan in `scripts/checks/secrets.sh` instead of
+rescanning all history (full scans remain for schedules, tags, and local runs),
+and when `nix flake check` will run, `repository-contract` executes the full
+unit suite in the Nix sandbox so the local Python lane shrinks to the
+Nix-integration subset rather than running the suite twice.
+
+Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
+about half the closure of `devShells.default`, which remains for interactive
+and deployment work); `scripts/ci/cache.sh` and `just cache-populate` publish
+both shells to Attic. Inside the gate, `scripts/checks/all.sh` runs its
+independent lanes (Python, registry, Nix, GitOps, OpenTofu, Home Assistant,
+docs, secrets, flake) concurrently with per-lane buffered output printed in
+lane order, aggregating every lane failure instead of stopping at the first;
+`CHECK_SERIAL=1` restores sequential execution. Locally the Python suite
+dominates, so concurrency is roughly wall-neutral there, but no lane waits on
+an unrelated slow lane in CI. OpenTofu provisioning
+(`just provision-check-deps`) exports `TF_PLUGIN_CACHE_DIR`
+(`/tmp/tofu-plugin-cache` in CI, matching the GitLab lane) so repeat provider
+installs reuse the shared plugin cache instead of re-downloading.
 
 ### Dependency caching and timing visibility
 

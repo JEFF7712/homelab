@@ -42,7 +42,7 @@ NIX_CONFIG = (
 # summary prints at the end; the summary never fails the step, and the
 # step exits with the gate result.
 VALIDATION_COMMAND = (
-    "nix develop ./flake -c bash -e -c '"
+    "nix develop ./flake#ci -c bash -e -c '"
     "python -m scripts.ci.run fmt -- just fmt-check & f=$!; "
     "python -m scripts.ci.run jev -- python scripts/jev_decision_gate.py & j=$!; "
     "python -m scripts.ci.run gate -- python -m scripts.ci.validate repository & c=$!; "
@@ -368,7 +368,11 @@ def configuration(
             )
             return {"configs": configs}
 
-        validation_env = {"NIX_CONFIG": NIX_CONFIG}
+        validation_env = {
+            "NIX_CONFIG": NIX_CONFIG,
+            "CI_LINT_EXTERNAL": "1",
+            "TF_PLUGIN_CACHE_DIR": "/tmp/tofu-plugin-cache",
+        }
         if main or event in {"cron", "tag"}:
             validation_env["CI_FULL_VALIDATION"] = "1"
         if event == "pull_request" and merge_base:

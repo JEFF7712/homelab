@@ -186,7 +186,14 @@ class PolicyTest(unittest.TestCase):
                 configuration(self.request, self.catalog)["configs"][0]["data"]
             )
             self.assertEqual(workflow["labels"], {"tier": "sandbox", "type": "docker"})
-            self.assertNotIn("CI_LINT_EXTERNAL", workflow["steps"][0]["environment"])
+            self.assertEqual(
+                workflow["steps"][0]["environment"]["CI_LINT_EXTERNAL"], "1"
+            )
+            self.assertEqual(
+                workflow["steps"][0]["environment"]["TF_PLUGIN_CACHE_DIR"],
+                "/tmp/tofu-plugin-cache",
+            )
+            self.assertTrue(VALIDATION_COMMAND.startswith("nix develop ./flake#ci "))
             self.assertEqual(
                 workflow["steps"][0]["commands"],
                 [VALIDATION_COMMAND],
