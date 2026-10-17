@@ -221,7 +221,6 @@ data:
           - "Spotify"
           - "Clock & Weather"
           - "Night Clock"
-          - "Off"
         initial: "Auto"
 
     input_number:

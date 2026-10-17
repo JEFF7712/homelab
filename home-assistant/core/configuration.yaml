@@ -214,7 +214,6 @@ input_select:
       - "Spotify"
       - "Clock & Weather"
       - "Night Clock"
-      - "Off"
     initial: "Auto"
 
 input_number:
