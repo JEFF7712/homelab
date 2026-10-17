@@ -13,6 +13,7 @@
     ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
     ../../modules/repo-monitor.nix
+    ../../modules/release-mirror.nix
   ];
 
   networking.hostName = "homelab-04";
@@ -42,6 +43,12 @@
 
   homelab.woodpecker.enable = true;
   homelab.platformBackup.enable = true;
+
+  homelab.releaseMirror = {
+    enable = true;
+    repository = "JEFF7712/nix-agent";
+    minimumVersion = "0.13.0";
+  };
 
   # CI-driven mirror: the homelab GitHub branch carries GitHub-only commits,
   # so only ancestry of the Forgejo head is verified, not SHA equality.
