@@ -18,13 +18,17 @@ if [[ "$base" =~ ^[0-9a-f]{40}$ && ! "$base" =~ ^0+$ ]]; then
     git fetch --no-tags origin "$base"
   fi
   if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
-    git fetch --no-tags --unshallow origin
+    git fetch --no-tags --unshallow origin || true
   fi
   git merge-base --is-ancestor "$base" HEAD
   gitleaks detect --source . --redact --log-opts="$base..HEAD"
 else
   if [[ -n "$source" && $(git rev-parse --is-shallow-repository) == true ]]; then
-    git fetch --no-tags --unshallow origin
+    # Best effort: sandboxed CI clones may hold no credential for origin
+    # (the clone step used its own), so a failed unshallow must not kill
+    # the scan; gitleaks then covers the history that is present, which
+    # is what the pre-incremental gate scanned in that environment.
+    git fetch --no-tags --unshallow origin || true
   fi
   gitleaks detect --source . --redact
 fi
