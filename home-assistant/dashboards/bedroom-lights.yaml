@@ -302,30 +302,6 @@ views:
             icon: mdi:brightness-6
             icon_color: amber
             display_mode: slider
-          - type: custom:mushroom-template-card
-            primary: 2-Player Arcade
-            secondary: >
-              {% if is_state('input_select.bedroom_matrix_mode', '2-Player Arcade') %}
-                Active • Hold to open arcade.rupan.dev
-              {% else %}
-                Tap to switch • Hold to open arcade.rupan.dev
-              {% endif %}
-            icon: mdi:controller
-            icon_color: >
-              {{ 'cyan' if is_state('input_select.bedroom_matrix_mode', '2-Player Arcade') else 'blue' }}
-            badge_icon: >
-              {{ 'mdi:check-circle' if is_state('input_select.bedroom_matrix_mode', '2-Player Arcade') else '' }}
-            badge_color: green
-            tap_action:
-              action: perform-action
-              perform_action: input_select.select_option
-              target:
-                entity_id: input_select.bedroom_matrix_mode
-              data:
-                option: 2-Player Arcade
-            hold_action:
-              action: url
-              url_path: https://arcade.rupan.dev
           - type: custom:mushroom-chips-card
             chips:
               - type: action
@@ -398,12 +374,6 @@ views:
                     entity_id: input_select.bedroom_matrix_mode
                   data:
                     option: 2-Player Arcade
-              - type: action
-                name: Controller
-                icon: mdi:open-in-new
-                tap_action:
-                  action: url
-                  url_path: https://arcade.rupan.dev
               - type: action
                 name: Visualizer
                 icon: mdi:sine-wave
