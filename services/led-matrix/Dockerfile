@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir --no-index --require-hashes --find-links=/wheelho
 
 COPY spotify_matrix_streamer.py ha_source.py ha_matrix_streamer.py /app/
 COPY modes/ /app/modes/
+COPY web_controller/ /app/web_controller/
 ENV PYTHONUNBUFFERED=1 HOME=/tmp
 USER 1000:1000
 ENTRYPOINT ["python", "/app/ha_matrix_streamer.py"]

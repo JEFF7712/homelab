@@ -7,7 +7,21 @@ spec:
   endpointSelector:
     matchLabels:
       app: led-matrix
-  ingress: []
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: cloudflare
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+    - fromEntities:
+        - cluster
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+
   egress:
     - toEndpoints:
         - matchLabels:

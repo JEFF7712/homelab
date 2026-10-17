@@ -15,6 +15,7 @@ from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
     LifeRenderer,
+    MultiplayerArcadeRenderer,
     NightClockRenderer,
     RetroArcadeRenderer,
     SpotifyVinylRenderer,
@@ -25,6 +26,8 @@ from spotify_matrix_streamer import (
     TCPMatrixStreamer,
     write_private_file,
 )
+from web_controller import MultiplayerHub, start_background_server
+
 
 
 def main() -> None:
@@ -89,7 +92,14 @@ def main() -> None:
     )
     parser.add_argument("--pico-ip", default="10.0.20.136")
     parser.add_argument("--port", type=int, default=9999)
+    parser.add_argument(
+        "--web-port",
+        type=int,
+        default=int(os.getenv("WEB_PORT", "8000")),
+        help="Port for the mobile web controller HTTP & WebSocket server",
+    )
     parser.add_argument("--fps", type=float, default=20)
+
     parser.add_argument("--rotation-speed", type=float, default=45)
     parser.add_argument("--brightness", type=float, default=0.7)
     parser.add_argument("--stale-after", type=float, default=120)
@@ -156,6 +166,7 @@ def main() -> None:
             flush=True,
         )
 
+    multiplayer_hub = MultiplayerHub()
     renderers = {
         "Off": BlankRenderer(),
         "Spotify": SpotifyVinylRenderer(),
@@ -163,6 +174,7 @@ def main() -> None:
         "Night Clock": NightClockRenderer(),
         "Retro Arcade": RetroArcadeRenderer(),
         "Game of Life": LifeRenderer(),
+        "2-Player Arcade": MultiplayerArcadeRenderer(multiplayer_hub),
     }
 
     cache = ArtworkCache(source)
@@ -170,6 +182,11 @@ def main() -> None:
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
+
+    start_background_server(
+        multiplayer_hub, host="0.0.0.0", port=args.web_port, stop_event=stop
+    )
+
     started = last_tick = time.monotonic()
     last_ack = last_health = 0.0
     max_frame_ms = 0.0

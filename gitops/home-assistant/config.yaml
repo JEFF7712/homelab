@@ -221,6 +221,7 @@ data:
           - "Night Clock"
           - "Retro Arcade"
           - "Game of Life"
+          - "2-Player Arcade"
         initial: "Auto"
 
     input_number:
