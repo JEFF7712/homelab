@@ -14,11 +14,15 @@ from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
 from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
+    FractalRenderer,
+    HomelabRenderer,
     LedFxReceiver,
     LedFxRenderer,
     LifeRenderer,
     MultiplayerArcadeRenderer,
     NightClockRenderer,
+    PhysicsRenderer,
+    PrometheusSource,
     RetroArcadeRenderer,
     SpotifyVinylRenderer,
     VisualizerRenderer,
@@ -30,7 +34,6 @@ from spotify_matrix_streamer import (
     write_private_file,
 )
 from web_controller import MultiplayerHub, start_background_server
-
 
 
 def main() -> None:
@@ -103,6 +106,13 @@ def main() -> None:
         ),
     )
     parser.add_argument("--pico-ip", default="10.0.20.136")
+    parser.add_argument(
+        "--prometheus-url",
+        default=os.getenv(
+            "PROMETHEUS_URL",
+            "http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090",
+        ),
+    )
     parser.add_argument("--port", type=int, default=9999)
     parser.add_argument(
         "--web-port",
@@ -184,6 +194,7 @@ def main() -> None:
     ledfx_receiver = LedFxReceiver(port=args.ledfx_port)
     ledfx_receiver.start()
     ledfx_mode = LedFxRenderer(receiver=ledfx_receiver, fallback_renderer=visualizer)
+    prometheus = PrometheusSource(args.prometheus_url)
 
     renderers = {
         "Off": BlankRenderer(),
@@ -195,6 +206,9 @@ def main() -> None:
         "2-Player Arcade": MultiplayerArcadeRenderer(multiplayer_hub),
         "Visualizer": visualizer,
         "LedFx": ledfx_mode,
+        "Fractals": FractalRenderer(),
+        "Physics": PhysicsRenderer(),
+        "Homelab Dashboards": HomelabRenderer(prometheus),
     }
 
     cache = ArtworkCache(source)
@@ -219,6 +233,7 @@ def main() -> None:
         flush=True,
     )
     source.start()
+    prometheus.start()
     try:
         while not stop.is_set():
             tick = time.monotonic()
@@ -321,6 +336,7 @@ def main() -> None:
         source_connected = source.connected
         streamer.close()
         ledfx_receiver.stop()
+        prometheus.close()
         source.close()
         cache.close()
         stats = {

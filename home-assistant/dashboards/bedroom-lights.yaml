@@ -424,3 +424,35 @@ views:
                     entity_id: input_select.bedroom_matrix_mode
                   data:
                     option: LedFx
+          - type: custom:mushroom-chips-card
+            chips:
+              - type: action
+                name: Fractals
+                icon: mdi:blur-radial
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Fractals
+              - type: action
+                name: Physics
+                icon: mdi:atom
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Physics
+              - type: action
+                name: Homelab
+                icon: mdi:server-network
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_option
+                  target:
+                    entity_id: input_select.bedroom_matrix_mode
+                  data:
+                    option: Homelab Dashboards

@@ -10,6 +10,18 @@ through Home Assistant's WebSocket API. It receives that entity's cached state a
 background worker with an eight-image cache. Rendering and acknowledged TCP
 delivery run independently at 20 FPS.
 
+`input_select.bedroom_matrix_mode` controls the display. Fractals rotates Mandelbrot, Julia, and
+Burning Ship zooms every 24 seconds. Physics rotates gravity particles,
+colliding particles, and wave propagation every 20 seconds. Homelab Dashboards
+rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
+readiness, NAS traffic, and server health every 12 seconds. Its read-only
+Prometheus queries run in a background thread. The panel shows `DATA OFFLINE`
+when telemetry is unavailable; it does not substitute sample values. The
+Prometheus endpoint can be set with `--prometheus-url` or `PROMETHEUS_URL`.
+CI status comes from the existing repository monitor's five-minute collection
+cycle. The CI panel shows the age of the most recent collection; pending builds
+use an indeterminate animation rather than an invented completion percentage.
+
 This entry point makes no Spotify Web API or OAuth requests and has no direct
 Spotify fallback. Home Assistant's existing Spotify integration still uses its
 own API quota. Reusing its metadata avoids adding a second playback poller.

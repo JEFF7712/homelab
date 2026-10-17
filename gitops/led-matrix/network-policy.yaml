@@ -61,6 +61,14 @@ spec:
         - ports:
             - port: "8123"
               protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+            k8s:app.kubernetes.io/name: prometheus
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
     - toCIDR:
         - 10.0.20.136/32
       toPorts:
