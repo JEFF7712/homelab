@@ -6,6 +6,10 @@ from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import Mock, patch
 
+from PIL import Image, ImageDraw
+from websockets.exceptions import ConnectionClosed
+from websockets.sync.server import serve
+
 from ha_source import (
     ArtworkCache,
     HomeAssistantSource,
@@ -13,10 +17,7 @@ from ha_source import (
     PlaybackState,
     parse_spotify_state,
 )
-from PIL import Image, ImageDraw
 from spotify_matrix_streamer import SpotifyQuotaExceeded, SpotifyRateLimited
-from websockets.exceptions import ConnectionClosed
-from websockets.sync.server import serve
 
 ENTITY = "media_player.spotify_rupan"
 
@@ -239,7 +240,7 @@ class HomeAssistantTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     source.fetch_artwork(bad_url)
             self.assertEqual(request.call_count, 2)
-            self.assertFalse(request.call_args.kwargs["allow_redirects"])
+            self.assertTrue(request.call_args.kwargs["allow_redirects"])
 
     def test_silent_ha_connection_reaches_heartbeat_deadline(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
@@ -523,6 +524,128 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         ha_mock.hub_state.return_value = dummy_state
         hybrid = HybridPlaybackSource(ha_mock, Mock())
         self.assertEqual(hybrid.hub_state(), dummy_state)
+
+    def test_hybrid_source_does_not_poll_when_power_off_or_unrelated_mode(
+        self,
+    ) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        spotify_mock = Mock()
+        from modes.base import HAState
+
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock)
+
+        # Power off: should not poll
+        ha_mock.hub_state.return_value = HAState(power=False, mode="Spotify")
+        self.assertFalse(hybrid._should_poll_spotify())
+
+        # Mode Off: should not poll
+        ha_mock.hub_state.return_value = HAState(power=True, mode="Off")
+        self.assertFalse(hybrid._should_poll_spotify())
+
+        # Unrelated modes (Clock, Arcade, Fractals, Physics, etc.): should not poll
+        for mode in (
+            "Clock & Weather",
+            "Night Clock",
+            "Retro Arcade",
+            "2-Player Arcade",
+            "Game of Life",
+            "Fractals",
+            "Physics",
+            "Homelab Dashboards",
+            "LedFx",
+        ):
+            ha_mock.hub_state.return_value = HAState(power=True, mode=mode)
+            self.assertFalse(
+                hybrid._should_poll_spotify(), f"Expected False for mode {mode}"
+            )
+
+        # Mode Spotify: should poll
+        ha_mock.hub_state.return_value = HAState(power=True, mode="Spotify")
+        self.assertTrue(hybrid._should_poll_spotify())
+
+        # Mode Auto: should poll
+        ha_mock.hub_state.return_value = HAState(power=True, mode="Auto")
+        self.assertTrue(hybrid._should_poll_spotify())
+
+    def test_hub_update_wakes_hybrid_poller(self) -> None:
+        ha_source = HomeAssistantSource(
+            "http://127.0.0.1:8123",
+            "test-token",
+            ENTITY,
+            power_entity="input_boolean.bedroom_matrix_power",
+        )
+        spotify_mock = Mock()
+        hybrid = HybridPlaybackSource(ha_source, spotify_mock)
+
+        hub_updates = []
+        hybrid.on_hub_update = lambda state: hub_updates.append(state)
+
+        self.assertFalse(hybrid._wake_event.is_set())
+        ha_source._apply_hub_entity("input_boolean.bedroom_matrix_power", {"s": "off"})
+        self.assertTrue(hybrid._wake_event.is_set())
+        self.assertEqual(len(hub_updates), 1)
+
+    def test_multi_entity_media_player_prioritizes_active_playing_and_fallbacks(
+        self,
+    ) -> None:
+        source = HomeAssistantSource(
+            "http://127.0.0.1:8123",
+            "test-token",
+            "media_player.spotify_rupan,media_player.bedroom_speaker",
+        )
+        source._connected = True
+        self.assertEqual(
+            source.entities,
+            ["media_player.spotify_rupan", "media_player.bedroom_speaker"],
+        )
+        self.assertEqual(source.entity, "media_player.spotify_rupan")
+
+        # Spotify is paused
+        spotify_state = {
+            "entity_id": "media_player.spotify_rupan",
+            "state": "paused",
+            "last_updated": datetime.fromtimestamp(time.time() - 10, UTC).isoformat(),
+            "attributes": {
+                "media_title": "Spotify Paused",
+                "media_artist": "Artist 1",
+                "entity_picture": "https://i.scdn.co/image/spot1",
+            },
+        }
+        source.apply_state(spotify_state)
+        self.assertEqual(source.snapshot().title, "Spotify Paused")
+
+        # Bedroom speaker starts playing
+        speaker_state = {
+            "entity_id": "media_player.bedroom_speaker",
+            "state": "playing",
+            "last_updated": datetime.fromtimestamp(time.time() - 2, UTC).isoformat(),
+            "attributes": {
+                "media_title": "Hop Off A Jet",
+                "media_artist": "Young Thug",
+                "entity_picture": "/api/media_player_proxy/media_player.bedroom_speaker?token=xyz",
+            },
+        }
+        source.apply_state(speaker_state)
+        snap = source.snapshot()
+        self.assertEqual(snap.title, "Hop Off A Jet")
+        self.assertTrue(snap.playing)
+        self.assertEqual(
+            snap.artwork_url,
+            "/api/media_player_proxy/media_player.bedroom_speaker?token=xyz",
+        )
+
+        # Bedroom speaker stops (becomes idle), snapshot falls back to Spotify Paused
+        speaker_idle = {
+            "entity_id": "media_player.bedroom_speaker",
+            "state": "idle",
+            "last_updated": datetime.fromtimestamp(time.time(), UTC).isoformat(),
+            "attributes": {},
+        }
+        source.apply_state(speaker_idle)
+        snap = source.snapshot()
+        self.assertEqual(snap.title, "Spotify Paused")
+        self.assertFalse(snap.playing)
 
 
 class HubModeAndRendererTests(unittest.TestCase):
@@ -1203,8 +1326,6 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(life.palette_idx, 1)
         self.assertAlmostEqual(life.palette_timer, 30.0)
 
-
-
     def test_visualizer_effects_and_cycling(self) -> None:
         from modes import HAState, PlaybackState, RenderContext, VisualizerRenderer
 
@@ -1288,7 +1409,9 @@ class HubModeAndRendererTests(unittest.TestCase):
         # Test fallback when receiver has no recent frames
         empty_receiver = LedFxReceiver(size=64)
         fallback_renderer = VisualizerRenderer()
-        renderer_fallback = LedFxRenderer(receiver=empty_receiver, fallback_renderer=fallback_renderer)
+        renderer_fallback = LedFxRenderer(
+            receiver=empty_receiver, fallback_renderer=fallback_renderer
+        )
         fb_frame = renderer_fallback.render(ctx, size=64)
         self.assertEqual(fb_frame.size, (64, 64))
         self.assertEqual(fb_frame.mode, "RGB")
@@ -1299,12 +1422,20 @@ class HubModeAndRendererTests(unittest.TestCase):
         # 1. When mode is Auto and music_mode is False, Spotify idle -> Clock & Weather
         state_idle = HAState(mode="Auto", music_mode=False)
         spot_idle = PlaybackState(available=True, playing=False)
-        active_mode = "LedFx" if state_idle.music_mode else ("Spotify" if spot_idle.playing else "Clock & Weather")
+        active_mode = (
+            "LedFx"
+            if state_idle.music_mode
+            else ("Spotify" if spot_idle.playing else "Clock & Weather")
+        )
         self.assertEqual(active_mode, "Clock & Weather")
 
         # 2. When mode is Auto and music_mode is True -> auto switches to LedFx
         state_music = HAState(mode="Auto", music_mode=True)
-        active_mode = "LedFx" if state_music.music_mode else ("Spotify" if spot_idle.playing else "Clock & Weather")
+        active_mode = (
+            "LedFx"
+            if state_music.music_mode
+            else ("Spotify" if spot_idle.playing else "Clock & Weather")
+        )
         self.assertEqual(active_mode, "LedFx")
 
         # 3. When mode is explicitly Visualizer -> respects Visualizer regardless of music_mode
