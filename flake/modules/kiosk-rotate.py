@@ -8,7 +8,9 @@ advance. The view list is read from a JSON file so no shell quoting is needed.
 
 The process is intentionally dependency-free (standard library only) so it can
 ride along with ``pkgs.python3`` in the kiosk closure. It reconnects if the
-browser restarts. When a Home Assistant long-lived-token is configured it also
+browser restarts. It also suppresses the browser's context menu, which is
+chrome rather than page content and would otherwise sit on top of the display
+until dismissed. When a Home Assistant long-lived-token is configured it also
 seeds the dashboard session each time the Home Assistant view is shown, since
 the tmpfs root wipes the Chromium profile every boot.
 """
@@ -37,6 +39,14 @@ INJECT_JS = """(function(css) {
     (document.head || document.documentElement).appendChild(el);
   }
 })(%s);"""
+
+CONTEXT_MENU_GUARD_JS = """(function () {
+  if (window.__kioskNoContextMenu) { return; }
+  window.__kioskNoContextMenu = true;
+  window.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+  }, true);
+})();"""
 
 
 def list_targets(cdp_http: str, timeout: float) -> list[dict[str, Any]]:
@@ -228,6 +238,24 @@ def inject_css(session: Session, css: str, attempts: int, delay: float) -> bool:
     return evaluate_retrying(session, INJECT_JS % json.dumps(css), attempts, delay)
 
 
+def install_context_menu_guard(session: Session) -> None:
+    """Keep right-click from parking the browser's context menu on the display.
+
+    That menu is browser chrome, not page content, so only the page's own
+    'contextmenu' handler can suppress it. Register the handler for the document
+    at hand and for every document loaded afterwards, so a stray right-click
+    (touchscreen long-press, plugged-in mouse) cannot leave a menu on screen.
+    """
+    try:
+        session.call("Page.enable")
+        session.call(
+            "Page.addScriptToEvaluateOnNewDocument", {"source": CONTEXT_MENU_GUARD_JS}
+        )
+        evaluate_retrying(session, CONTEXT_MENU_GUARD_JS, attempts=3, delay=0.5)
+    except (OSError, RuntimeError, TimeoutError) as exc:
+        print(f"context-menu guard failed: {exc}", file=sys.stderr)
+
+
 def show_view(
     session: Session,
     view: dict[str, Any],
@@ -391,6 +419,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.cdp, args.timeout, time.monotonic() + args.wait_seconds
             )
             session = Session(ws_url, args.timeout)
+            install_context_menu_guard(session)
         except (OSError, RuntimeError, TimeoutError) as exc:
             print(f"waiting for kiosk page: {exc}", file=sys.stderr)
             time.sleep(5.0)

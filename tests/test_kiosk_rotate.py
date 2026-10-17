@@ -386,5 +386,35 @@ class TokenSeedTest(unittest.TestCase):
         )
 
 
+class ContextMenuGuardTest(unittest.TestCase):
+    class _Session:
+        def __init__(self, fail: bool = False) -> None:
+            self.calls: list[tuple[str, Any]] = []
+            self.fail = fail
+
+        def call(self, method: str, params: Any = None) -> Any:
+            if self.fail and method == "Page.enable":
+                raise OSError("boom")
+            self.calls.append((method, params))
+            return {}
+
+    def test_registers_guard_for_future_documents(self) -> None:
+        session = self._Session()
+        ROTATE.install_context_menu_guard(session)
+        methods = [m for m, _ in session.calls]
+        self.assertIn("Page.enable", methods)
+        self.assertIn("Page.addScriptToEvaluateOnNewDocument", methods)
+        self.assertIn("Runtime.evaluate", methods)
+        added = next(
+            params
+            for method, params in session.calls
+            if method == "Page.addScriptToEvaluateOnNewDocument"
+        )
+        self.assertIn("contextmenu", added["source"])
+
+    def test_swallows_errors(self) -> None:
+        ROTATE.install_context_menu_guard(self._Session(fail=True))
+
+
 if __name__ == "__main__":
     unittest.main()
