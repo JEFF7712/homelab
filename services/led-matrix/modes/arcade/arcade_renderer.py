@@ -8,8 +8,10 @@ from modes.base import ModeRenderer, RenderContext
 
 from .base import ArcadeGame
 from .breakout import BreakoutGame
+from .dungeon import DungeonGame
 from .pong import PongGame
 from .snake import SnakeGame
+from .tetris import TetrisGame
 
 
 class RetroArcadeRenderer(ModeRenderer):
@@ -18,6 +20,8 @@ class RetroArcadeRenderer(ModeRenderer):
             PongGame(),
             SnakeGame(),
             BreakoutGame(),
+            TetrisGame(),
+            DungeonGame(),
         ]
         self.cycle_interval = cycle_interval
         self.current_idx = 0

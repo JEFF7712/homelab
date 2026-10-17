@@ -725,9 +725,21 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(life_frame.mode, "RGB")
 
         # Test individual arcade games
-        from modes.arcade import BreakoutGame, PongGame, SnakeGame
+        from modes.arcade import (
+            BreakoutGame,
+            DungeonGame,
+            PongGame,
+            SnakeGame,
+            TetrisGame,
+        )
 
-        for game in [PongGame(), SnakeGame(), BreakoutGame()]:
+        for game in [
+            PongGame(),
+            SnakeGame(),
+            BreakoutGame(),
+            TetrisGame(),
+            DungeonGame(),
+        ]:
             game.reset()
             game.update(0.05)
             img = Image.new("RGB", (64, 64))
@@ -880,6 +892,34 @@ class HubModeAndRendererTests(unittest.TestCase):
 
         resp_ws = server.process_request(conn, DummyRequest("/ws"))  # type: ignore
         self.assertIsNone(resp_ws)  # Upgrade to WebSocket
+
+    def test_arcade_rotation_includes_new_games(self) -> None:
+        from modes.arcade import RetroArcadeRenderer
+
+        names = [game.name for game in RetroArcadeRenderer().games]
+        self.assertIn("TETRIS AI", names)
+        self.assertIn("DUNGEON", names)
+
+    def test_tetris_ai_stacks_pieces(self) -> None:
+        from modes.arcade import TetrisGame
+
+        game = TetrisGame()
+        filled = 0
+        for _ in range(300):
+            game.update(0.05)
+            filled = max(filled, sum(1 for row in game.board for cell in row if cell))
+        self.assertGreater(filled, 0)
+
+    def test_dungeon_bot_navigates(self) -> None:
+        from modes.arcade import DungeonGame
+
+        game = DungeonGame()
+        start = (game.px, game.py)
+        for _ in range(200):
+            game.update(0.05)
+        self.assertNotEqual((game.px, game.py), start)
+        self.assertEqual(len(game.grid), 21)
+        self.assertTrue(all(game.grid[y][x] == 1 for x in range(21) for y in (0, 20)))
 
 
 if __name__ == "__main__":
