@@ -14,11 +14,14 @@ from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
 from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
+    LedFxReceiver,
+    LedFxRenderer,
     LifeRenderer,
     MultiplayerArcadeRenderer,
     NightClockRenderer,
     RetroArcadeRenderer,
     SpotifyVinylRenderer,
+    VisualizerRenderer,
 )
 from modes.base import RenderContext
 from spotify_matrix_streamer import (
@@ -62,6 +65,15 @@ def main() -> None:
     parser.add_argument(
         "--weather-entity",
         default=os.getenv("WEATHER_ENTITY", "weather.forecast_home"),
+    )
+    parser.add_argument(
+        "--music-mode-entity",
+        default=os.getenv("MUSIC_MODE_ENTITY", "input_boolean.bedroom_music_mode"),
+    )
+    parser.add_argument(
+        "--ledfx-port",
+        type=int,
+        default=int(os.getenv("LEDFX_PORT", "4048")),
     )
     parser.add_argument("--spotify-client-id", default=os.getenv("SPOTIFY_CLIENT_ID"))
     parser.add_argument(
@@ -131,6 +143,7 @@ def main() -> None:
             mode_entity=args.mode_entity,
             brightness_entity=args.brightness_entity,
             weather_entity=args.weather_entity,
+            music_mode_entity=args.music_mode_entity,
             stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
@@ -167,6 +180,11 @@ def main() -> None:
         )
 
     multiplayer_hub = MultiplayerHub()
+    visualizer = VisualizerRenderer()
+    ledfx_receiver = LedFxReceiver(port=args.ledfx_port)
+    ledfx_receiver.start()
+    ledfx_mode = LedFxRenderer(receiver=ledfx_receiver, fallback_renderer=visualizer)
+
     renderers = {
         "Off": BlankRenderer(),
         "Spotify": SpotifyVinylRenderer(),
@@ -175,6 +193,8 @@ def main() -> None:
         "Retro Arcade": RetroArcadeRenderer(),
         "Game of Life": LifeRenderer(),
         "2-Player Arcade": MultiplayerArcadeRenderer(multiplayer_hub),
+        "Visualizer": visualizer,
+        "LedFx": ledfx_mode,
     }
 
     cache = ArtworkCache(source)
@@ -217,7 +237,9 @@ def main() -> None:
             if not ha_state.power or ha_state.mode == "Off":
                 active_mode = "Off"
             elif ha_state.mode == "Auto":
-                if spotify_state.available and spotify_state.playing:
+                if ha_state.music_mode:
+                    active_mode = "LedFx"
+                elif spotify_state.available and spotify_state.playing:
                     active_mode = "Spotify"
                 else:
                     active_mode = "Clock & Weather"
@@ -298,6 +320,7 @@ def main() -> None:
         ha_state = source.hub_state()
         source_connected = source.connected
         streamer.close()
+        ledfx_receiver.stop()
         source.close()
         cache.close()
         stats = {

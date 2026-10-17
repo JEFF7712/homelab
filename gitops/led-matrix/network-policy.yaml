@@ -17,10 +17,24 @@ spec:
               protocol: TCP
     - fromEntities:
         - cluster
+        - host
+        - remote-node
       toPorts:
         - ports:
             - port: "8000"
               protocol: TCP
+            - port: "4048"
+              protocol: UDP
+    - fromCIDR:
+        - 10.0.30.20/32
+        - 10.0.10.0/24
+        - 10.0.30.0/24
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "4048"
+              protocol: UDP
 
   egress:
     - toEndpoints:

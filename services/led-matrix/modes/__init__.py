@@ -4,15 +4,21 @@ from modes.arcade import RetroArcadeRenderer
 from modes.base import HAState, ModeRenderer, PlaybackState, RenderContext
 from modes.blank import BlankRenderer
 from modes.clock_weather import ClockWeatherRenderer
-from modes.life import LifeRenderer
+from modes.ledfx_mode import LedFxReceiver, LedFxRenderer
+from modes.life import DEFAULT_PALETTES, LifePalette, LifeRenderer
 from modes.multiplayer import MultiplayerArcadeRenderer
 from modes.night_clock import NightClockRenderer
 from modes.spotify_vinyl import SpotifyVinylRenderer
+from modes.visualizer import VisualizerRenderer
 
 __all__ = [
+    "DEFAULT_PALETTES",
     "BlankRenderer",
     "ClockWeatherRenderer",
     "HAState",
+    "LedFxReceiver",
+    "LedFxRenderer",
+    "LifePalette",
     "LifeRenderer",
     "ModeRenderer",
     "MultiplayerArcadeRenderer",
@@ -21,4 +27,5 @@ __all__ = [
     "RenderContext",
     "RetroArcadeRenderer",
     "SpotifyVinylRenderer",
+    "VisualizerRenderer",
 ]

@@ -1110,6 +1110,208 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(hub.matrix_view, "qr")
         lobby.render_lobby(draw)
 
+    def test_life_palette_rotation_default_interval(self) -> None:
+        from modes import DEFAULT_PALETTES, LifeRenderer
+
+        life = LifeRenderer()
+        # Default palette rotation interval is 2 minutes (120 seconds)
+        self.assertEqual(life.palette_interval, 120.0)
+        self.assertGreaterEqual(len(DEFAULT_PALETTES), 4)
+        self.assertEqual(life.current_palette.name, "Cyberpunk")
+        self.assertEqual(life.palette_idx, 0)
+
+        # Updating by 60 seconds (1 minute) should not rotate palette yet
+        life.update(60.0)
+        self.assertEqual(life.current_palette.name, "Cyberpunk")
+        self.assertEqual(life.palette_idx, 0)
+
+        # Another 60 seconds (total 120s / 2 minutes) rotates to next palette
+        life.update(60.0)
+        self.assertEqual(life.palette_idx, 1)
+        self.assertEqual(life.current_palette.name, "Amber CRT")
+
+        # Another 120 seconds rotates to palette 2
+        life.update(120.0)
+        self.assertEqual(life.palette_idx, 2)
+        self.assertEqual(life.current_palette.name, "Matrix Terminal")
+
+    def test_life_palette_full_rotation_cycle(self) -> None:
+        from modes import DEFAULT_PALETTES, LifeRenderer
+
+        life = LifeRenderer(palette_interval=120.0)
+        total_palettes = len(DEFAULT_PALETTES)
+
+        # Step through every palette in sequence
+        for idx in range(total_palettes):
+            self.assertEqual(life.palette_idx, idx)
+            self.assertEqual(life.current_palette, DEFAULT_PALETTES[idx])
+            life.update(120.0)
+
+        # Verify clean wrap-around back to the first palette
+        self.assertEqual(life.palette_idx, 0)
+        self.assertEqual(life.current_palette, DEFAULT_PALETTES[0])
+
+    def test_life_palette_manual_selection(self) -> None:
+        from modes import LifeRenderer
+
+        life = LifeRenderer()
+        life.set_palette("Matrix Terminal")
+        self.assertEqual(life.current_palette.name, "Matrix Terminal")
+        self.assertEqual(life.palette_idx, 2)
+
+        # Select by index
+        life.set_palette(3)
+        self.assertEqual(life.current_palette.name, "Synthwave")
+
+        with self.assertRaises(ValueError):
+            life.set_palette("nonexistent_palette")
+
+    def test_life_palette_render_colors(self) -> None:
+        from modes import HAState, LifeRenderer, PlaybackState, RenderContext
+
+        life = LifeRenderer()
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.05,
+            ha_state=HAState(),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Render first palette (Cyberpunk)
+        frame1 = life.render(ctx, size=64)
+        self.assertEqual(frame1.size, (64, 64))
+        # Top-left corner is background (3, 5, 10)
+        self.assertEqual(frame1.getpixel((0, 0)), (3, 5, 10))
+
+        # Rotate to Amber CRT palette
+        life.set_palette("Amber CRT")
+        frame2 = life.render(ctx, size=64)
+        # Background color should now match Amber CRT bg (8, 4, 1)
+        self.assertEqual(frame2.getpixel((0, 0)), (8, 4, 1))
+
+    def test_life_reset_preserves_palette_timer(self) -> None:
+        from modes import LifeRenderer
+
+        life = LifeRenderer(palette_interval=120.0)
+        life.update(150.0)  # Advances to palette 1, 30s into next 2min cycle
+        self.assertEqual(life.palette_idx, 1)
+        self.assertAlmostEqual(life.palette_timer, 30.0)
+
+        # Calling reset (e.g. on cell stagnation or extinction) preserves palette progression
+        life.reset()
+        self.assertEqual(life.palette_idx, 1)
+        self.assertAlmostEqual(life.palette_timer, 30.0)
+
+
+
+    def test_visualizer_effects_and_cycling(self) -> None:
+        from modes import HAState, PlaybackState, RenderContext, VisualizerRenderer
+
+        vis = VisualizerRenderer(cycle_interval=60.0)
+        self.assertEqual(len(vis.effects), 5)
+        names = [eff.name for eff in vis.effects]
+        self.assertIn("RADIAL SPECTRUM", names)
+        self.assertIn("HYPERSPACE TUNNEL", names)
+        self.assertIn("PARTICLE FOUNTAIN", names)
+        self.assertIn("GRAPHIC EQUALIZER", names)
+        self.assertIn("OSCILLOSCOPE RIBBON", names)
+
+        ctx = RenderContext(
+            tick=1.0,
+            dt=0.05,
+            ha_state=HAState(),
+            spotify_state=PlaybackState(available=True, playing=True),
+            spotify_art=None,
+        )
+
+        # Test rendering all effects individually
+        for idx in range(len(vis.effects)):
+            vis.set_effect(idx)
+            frame = vis.render(ctx, size=64)
+            self.assertEqual(frame.size, (64, 64))
+            self.assertEqual(frame.mode, "RGB")
+
+        # Test cycle timer
+        vis.set_effect(0)
+        self.assertEqual(vis.current_idx, 0)
+        vis.update(30.0, 0.5)
+        self.assertEqual(vis.current_idx, 0)
+        vis.update(31.0, 0.5)
+        self.assertEqual(vis.current_idx, 1)
+
+    def test_ledfx_receiver_ddp_and_fallback(self) -> None:
+        from modes import (
+            HAState,
+            LedFxReceiver,
+            LedFxRenderer,
+            PlaybackState,
+            RenderContext,
+            VisualizerRenderer,
+        )
+
+        receiver = LedFxReceiver(size=64)
+        self.assertFalse(receiver.has_recent_frame())
+        self.assertIsNone(receiver.get_frame())
+
+        # Construct a synthetic DDP packet: 10 byte header + 12288 bytes of RGB
+        header = bytearray(10)
+        header[0] = 0x41
+        header[1] = 0x00
+        header[2] = 0x01
+        header[3] = 0x01
+        header[4:8] = (0).to_bytes(4, "big")
+        header[8:10] = (12288).to_bytes(2, "big")
+        payload = bytes([100, 150, 200] * 4096)
+        packet = bytes(header) + payload
+
+        receiver.process_packet(packet)
+        self.assertTrue(receiver.has_recent_frame(timeout=1.0))
+        frame = receiver.get_frame()
+        self.assertIsNotNone(frame)
+        assert frame is not None
+        self.assertEqual(frame.size, (64, 64))
+        self.assertEqual(frame.getpixel((0, 0)), (100, 150, 200))
+
+        # Test LedFxRenderer with active frame
+        renderer = LedFxRenderer(receiver=receiver)
+        ctx = RenderContext(
+            tick=1.0,
+            dt=0.05,
+            ha_state=HAState(),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        rendered_frame = renderer.render(ctx, size=64)
+        self.assertEqual(rendered_frame.getpixel((0, 0)), (100, 150, 200))
+
+        # Test fallback when receiver has no recent frames
+        empty_receiver = LedFxReceiver(size=64)
+        fallback_renderer = VisualizerRenderer()
+        renderer_fallback = LedFxRenderer(receiver=empty_receiver, fallback_renderer=fallback_renderer)
+        fb_frame = renderer_fallback.render(ctx, size=64)
+        self.assertEqual(fb_frame.size, (64, 64))
+        self.assertEqual(fb_frame.mode, "RGB")
+
+    def test_music_mode_auto_selection(self) -> None:
+        from modes import HAState, PlaybackState
+
+        # 1. When mode is Auto and music_mode is False, Spotify idle -> Clock & Weather
+        state_idle = HAState(mode="Auto", music_mode=False)
+        spot_idle = PlaybackState(available=True, playing=False)
+        active_mode = "LedFx" if state_idle.music_mode else ("Spotify" if spot_idle.playing else "Clock & Weather")
+        self.assertEqual(active_mode, "Clock & Weather")
+
+        # 2. When mode is Auto and music_mode is True -> auto switches to LedFx
+        state_music = HAState(mode="Auto", music_mode=True)
+        active_mode = "LedFx" if state_music.music_mode else ("Spotify" if spot_idle.playing else "Clock & Weather")
+        self.assertEqual(active_mode, "LedFx")
+
+        # 3. When mode is explicitly Visualizer -> respects Visualizer regardless of music_mode
+        state_vis = HAState(mode="Visualizer", music_mode=True)
+        active_mode = state_vis.mode if state_vis.mode != "Auto" else "LedFx"
+        self.assertEqual(active_mode, "Visualizer")
+
 
 if __name__ == "__main__":
     unittest.main()

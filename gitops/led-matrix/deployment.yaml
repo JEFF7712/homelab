@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:45a90b9abfc894103b37eee249a8ddf1b969f3e50b4b472b0964e2332e10a18e
+            registry.rupan.dev/apps/spotify-matrix@sha256:fe9cead0c60a7b4bce21e72cc633bc98fa63be8561575d32084796402aaba264
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -43,18 +43,25 @@ spec:
             - input_number.bedroom_matrix_brightness
             - --weather-entity
             - weather.forecast_home
+            - --music-mode-entity
+            - input_boolean.bedroom_music_mode
             - --pico-ip
             - 10.0.20.136
             - --fps
             - "20"
             - --web-port
             - "8000"
+            - --ledfx-port
+            - "4048"
             - --health-file
             - /tmp/health.json
           ports:
             - name: http
               containerPort: 8000
               protocol: TCP
+            - name: ddp
+              containerPort: 4048
+              protocol: UDP
           env:
             - name: SPOTIFY_CLIENT_ID
               valueFrom:
