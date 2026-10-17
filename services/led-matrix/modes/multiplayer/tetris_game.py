@@ -9,12 +9,12 @@ from PIL import ImageDraw, ImageFont
 from .base import MultiplayerGame
 
 COLS = 10
-ROWS = 18
+ROWS = 17
 CELL = 3
 BOARD_W = COLS * CELL
 BOARD_H = ROWS * CELL
 ORIGIN_X = (64 - BOARD_W) // 2
-ORIGIN_Y = 8
+ORIGIN_Y = 11
 
 SHAPES: dict[str, list[list[int]]] = {
     "I": [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
@@ -44,10 +44,7 @@ def _rotate(matrix: list[list[int]]) -> list[list[int]]:
 
 def _cells(matrix: list[list[int]]) -> list[tuple[int, int]]:
     return [
-        (x, y)
-        for y, row in enumerate(matrix)
-        for x, value in enumerate(row)
-        if value
+        (x, y) for y, row in enumerate(matrix) for x, value in enumerate(row) if value
     ]
 
 
@@ -155,10 +152,14 @@ class InteractiveTetris(MultiplayerGame):
         if p1_events:
             for ev in p1_events:
                 if ev == "left":
-                    if not self._collide(self.piece_matrix, self.piece_x - 1, self.piece_y):
+                    if not self._collide(
+                        self.piece_matrix, self.piece_x - 1, self.piece_y
+                    ):
                         self.piece_x -= 1
                 elif ev == "right":
-                    if not self._collide(self.piece_matrix, self.piece_x + 1, self.piece_y):
+                    if not self._collide(
+                        self.piece_matrix, self.piece_x + 1, self.piece_y
+                    ):
                         self.piece_x += 1
                 elif ev in ("up", "rotate", "action_a"):
                     rotated = _rotate(self.piece_matrix)
@@ -172,12 +173,16 @@ class InteractiveTetris(MultiplayerGame):
                         self.piece_matrix = rotated
                 elif ev in ("drop", "hard_drop", "action_b"):
                     # Hard drop
-                    while not self._collide(self.piece_matrix, self.piece_x, self.piece_y + 1):
+                    while not self._collide(
+                        self.piece_matrix, self.piece_x, self.piece_y + 1
+                    ):
                         self.piece_y += 1
                     self.score += 4
                     self._lock_piece()
                     return
-                elif ev == "down" and not self._collide(self.piece_matrix, self.piece_x, self.piece_y + 1):
+                elif ev == "down" and not self._collide(
+                    self.piece_matrix, self.piece_x, self.piece_y + 1
+                ):
                     # Soft drop
                     self.piece_y += 1
                     self.score += 1
@@ -236,7 +241,7 @@ class InteractiveTetris(MultiplayerGame):
         next_mat = SHAPES[self.next_piece_name]
         for cx, cy in _cells(next_mat):
             px = 52 + cx * 2
-            py = 2 + cy * 2
+            py = 14 + cy * 2
             draw.rectangle([px, py, px + 1, py + 1], fill=next_color)
 
     def get_status_text(self) -> str:

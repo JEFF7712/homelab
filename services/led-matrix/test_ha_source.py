@@ -727,9 +727,11 @@ class HubModeAndRendererTests(unittest.TestCase):
         # Test individual arcade games
         from modes.arcade import (
             BreakoutGame,
-            DungeonGame,
+            DonkeyKongGame,
+            PacmanGame,
             PongGame,
             SnakeGame,
+            SpaceInvadersGame,
             TetrisGame,
         )
 
@@ -738,7 +740,9 @@ class HubModeAndRendererTests(unittest.TestCase):
             SnakeGame(),
             BreakoutGame(),
             TetrisGame(),
-            DungeonGame(),
+            PacmanGame(),
+            SpaceInvadersGame(),
+            DonkeyKongGame(),
         ]:
             game.reset()
             game.update(0.05)
@@ -911,7 +915,10 @@ class HubModeAndRendererTests(unittest.TestCase):
 
         names = [game.name for game in RetroArcadeRenderer().games]
         self.assertIn("TETRIS AI", names)
-        self.assertIn("DUNGEON", names)
+        self.assertIn("PAC-MAN", names)
+        self.assertIn("SPACE INVADERS", names)
+        self.assertIn("DONKEY KONG", names)
+        self.assertNotIn("DUNGEON", names)
 
     def test_tetris_ai_stacks_pieces(self) -> None:
         from modes.arcade import TetrisGame
@@ -923,16 +930,38 @@ class HubModeAndRendererTests(unittest.TestCase):
             filled = max(filled, sum(1 for row in game.board for cell in row if cell))
         self.assertGreater(filled, 0)
 
-    def test_dungeon_bot_navigates(self) -> None:
-        from modes.arcade import DungeonGame
+    def test_pacman_ai_eats_and_navigates(self) -> None:
+        from modes.arcade import PacmanGame
 
-        game = DungeonGame()
-        start = (game.px, game.py)
+        game = PacmanGame()
+        initial_dots = len(game.dots)
         for _ in range(200):
             game.update(0.05)
-        self.assertNotEqual((game.px, game.py), start)
-        self.assertEqual(len(game.grid), 21)
-        self.assertTrue(all(game.grid[y][x] == 1 for x in range(21) for y in (0, 20)))
+        # Pac-man should have eaten dots or moved
+        self.assertNotEqual((game.pac_x, game.pac_y), (7.0, 9.0))
+        self.assertLessEqual(len(game.dots), initial_dots)
+
+    def test_space_invaders_sim(self) -> None:
+        from modes.arcade import SpaceInvadersGame
+
+        game = SpaceInvadersGame()
+        positions = set()
+        for _ in range(60):
+            game.update(0.05)
+            positions.add((game.fleet_x, game.fleet_y))
+        # Fleet should march through multiple positions
+        self.assertGreater(len(positions), 1)
+
+    def test_donkey_kong_sim(self) -> None:
+        from modes.arcade import DonkeyKongGame
+
+        game = DonkeyKongGame()
+        positions = set()
+        for _ in range(60):
+            game.update(0.05)
+            positions.add((round(game.mario_x, 1), round(game.mario_y, 1)))
+        # Mario should run along girders
+        self.assertGreater(len(positions), 1)
 
     def test_multiplayer_tron_event_queue(self) -> None:
         from modes.multiplayer import Tron2P

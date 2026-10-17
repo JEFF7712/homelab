@@ -9,12 +9,12 @@ from PIL import Image, ImageDraw, ImageFont
 from .base import ArcadeGame
 
 COLS = 10
-ROWS = 18
+ROWS = 17
 CELL = 3
 BOARD_W = COLS * CELL
 BOARD_H = ROWS * CELL
 ORIGIN_X = (64 - BOARD_W) // 2
-ORIGIN_Y = 8
+ORIGIN_Y = 11
 
 SHAPES: dict[str, list[list[int]]] = {
     "I": [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
@@ -44,10 +44,7 @@ def _rotate(matrix: list[list[int]]) -> list[list[int]]:
 
 def _cells(matrix: list[list[int]]) -> list[tuple[int, int]]:
     return [
-        (x, y)
-        for y, row in enumerate(matrix)
-        for x, value in enumerate(row)
-        if value
+        (x, y) for y, row in enumerate(matrix) for x, value in enumerate(row) if value
     ]
 
 
@@ -116,7 +113,7 @@ class TetrisGame(ArcadeGame):
         best: tuple[list[tuple[int, int]], int] = (VARIANTS[name][0], 0)
         for cells in VARIANTS[name]:
             width = max(c[0] for c in cells) + 1
-            for px in range(0, COLS - width + 1):
+            for px in range(COLS - width + 1):
                 py = 0
                 while not self._collide(cells, px, py + 1):
                     py += 1
@@ -161,12 +158,8 @@ class TetrisGame(ArcadeGame):
                 self.board[y][x] = self.piece
         cleared = {y for y in range(ROWS) if all(self.board[y][x] for x in range(COLS))}
         if cleared:
-            remaining = [
-                row for y, row in enumerate(self.board) if y not in cleared
-            ]
-            self.board = [
-                [None] * COLS for _ in range(len(cleared))
-            ] + remaining
+            remaining = [row for y, row in enumerate(self.board) if y not in cleared]
+            self.board = [[None] * COLS for _ in range(len(cleared))] + remaining
             self.lines += len(cleared)
             self.score += [0, 100, 300, 500, 800][len(cleared)]
             self.flash_timer = 0.18
@@ -224,20 +217,16 @@ class TetrisGame(ArcadeGame):
                 continue
             px = ORIGIN_X + (self.piece_x + cx) * CELL
             py = ORIGIN_Y + y * CELL
-            draw.rectangle(
-                [(px, py), (px + CELL - 1, py + CELL - 1)], fill=color
-            )
+            draw.rectangle([(px, py), (px + CELL - 1, py + CELL - 1)], fill=color)
 
         preview = VARIANTS[self.next_piece][0]
         pw = max(c[0] for c in preview) + 1
-        ph = max(c[1] for c in preview) + 1
         box_x = size - 2 - pw * 3
-        box_y = 18
+        box_y = 16
         for cx, cy in preview:
             px = box_x + cx * 3
             py = box_y + cy * 3
             draw.rectangle([(px, py), (px + 2, py + 2)], fill=COLORS[self.next_piece])
-        draw.text((size - 20, box_y - 8), "NEXT", fill=(110, 140, 170), font=self.font)
 
         if self.flash_timer > 0:
             draw.rectangle(
