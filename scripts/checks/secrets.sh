@@ -15,20 +15,26 @@ esac
 
 if [[ "$base" =~ ^[0-9a-f]{40}$ && ! "$base" =~ ^0+$ ]]; then
   if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-    git fetch --no-tags origin "$base"
+    # Sandboxed clones may hold no credential for origin (the clone step
+    # used its own), so tolerate a failed fetch and check again below.
+    git fetch --no-tags origin "$base" || true
   fi
-  if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
-    git fetch --no-tags --unshallow origin || true
+  if git cat-file -e "$base^{commit}" 2>/dev/null; then
+    if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
+      git fetch --no-tags --unshallow origin || true
+    fi
+    git merge-base --is-ancestor "$base" HEAD
+    gitleaks detect --source . --redact --log-opts="$base..HEAD"
+    exit $?
   fi
-  git merge-base --is-ancestor "$base" HEAD
-  gitleaks detect --source . --redact --log-opts="$base..HEAD"
-else
-  if [[ -n "$source" && $(git rev-parse --is-shallow-repository) == true ]]; then
-    # Best effort: sandboxed CI clones may hold no credential for origin
-    # (the clone step used its own), so a failed unshallow must not kill
-    # the scan; gitleaks then covers the history that is present, which
-    # is what the pre-incremental gate scanned in that environment.
-    git fetch --no-tags --unshallow origin || true
+  if [[ "${GITLAB_CI:-}" == "true" ]]; then
+    echo "secret scan base $base is unavailable; refusing incomplete range" >&2
+    exit 1
   fi
-  gitleaks detect --source . --redact
+  echo "secret scan base unavailable in this clone; scanning present history" >&2
 fi
+
+if [[ -n "$source" && $(git rev-parse --is-shallow-repository) == true ]]; then
+  git fetch --no-tags --unshallow origin || true
+fi
+gitleaks detect --source . --redact

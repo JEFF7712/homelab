@@ -42,6 +42,7 @@ class SecretScanTest(unittest.TestCase):
     ) -> subprocess.CompletedProcess[str]:
         env = {k: v for k, v in os.environ.items() if not k.startswith("CI_")}
         env.update(
+            GITLAB_CI="true",
             CI_PIPELINE_SOURCE=source,
             CI_COMMIT_BEFORE_SHA=base,
             CI_MERGE_REQUEST_DIFF_BASE_SHA=base,
@@ -100,6 +101,17 @@ class SecretScanTest(unittest.TestCase):
         self.commit('password = "' + "aB9xK2mP7qR4sT8vW1yZ6nC3dF5hJ0lG" + '"')
         result = self.scan_env(
             {"CI_PIPELINE_EVENT": "pull_request", "CI_MERGE_BASE": self.base}
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+
+    def test_sandbox_missing_base_falls_back_to_present_history(self) -> None:
+        result = self.scan_env(
+            {"CI_PIPELINE_EVENT": "push", "CI_PREV_COMMIT_SHA": "b" * 40}
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.commit('password = "' + "aB9xK2mP7qR4sT8vW1yZ6nC3dF5hJ0lG" + '"')
+        result = self.scan_env(
+            {"CI_PIPELINE_EVENT": "push", "CI_PREV_COMMIT_SHA": "b" * 40}
         )
         self.assertEqual(result.returncode, 1, result.stderr)
 
