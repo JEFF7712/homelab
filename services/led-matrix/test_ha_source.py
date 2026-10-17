@@ -874,8 +874,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         server = WebControllerServer(hub)
 
         class DummyConnection:
-            def respond(self, status, message, headers=None, body=b""):
-                return {"status": status, "body": body}
+            pass
 
         class DummyRequest:
             def __init__(self, path: str):
@@ -883,12 +882,14 @@ class HubModeAndRendererTests(unittest.TestCase):
 
         conn = DummyConnection()
         resp_root = server.process_request(conn, DummyRequest("/"))  # type: ignore
-        self.assertEqual(resp_root["status"], 200)
-        self.assertIn(b"LED MATRIX ARCADE", resp_root["body"])
+        self.assertIsNotNone(resp_root)
+        self.assertEqual(resp_root.status_code, 200)
+        self.assertIn(b"LED MATRIX ARCADE", resp_root.body)
 
         resp_health = server.process_request(conn, DummyRequest("/health"))  # type: ignore
-        self.assertEqual(resp_health["status"], 200)
-        self.assertIn(b"healthy", resp_health["body"])
+        self.assertIsNotNone(resp_health)
+        self.assertEqual(resp_health.status_code, 200)
+        self.assertIn(b"healthy", resp_health.body)
 
         resp_ws = server.process_request(conn, DummyRequest("/ws"))  # type: ignore
         self.assertIsNone(resp_ws)  # Upgrade to WebSocket
