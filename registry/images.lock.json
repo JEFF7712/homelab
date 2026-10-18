@@ -4884,10 +4884,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "arcade-registry-tilt-20261017",
-        "retention-candidate-2f1aa678f8f9afed"
+        "modes-20261018-physics-registry",
+        "retention-candidate-ea789df92b130722"
       ],
-      "digest": "sha256:2f1aa678f8f9afed8b7759e22abd8fbc5db5b9b2068af9497734d4775d912a5e",
+      "digest": "sha256:ea789df92b130722e6938d68f432f488c2d922845e555a084ec26b926fbcbe9d",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -4897,9 +4897,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "arcade-registry-tilt-20261017",
-        "digest": "sha256:2f1aa678f8f9afed8b7759e22abd8fbc5db5b9b2068af9497734d4775d912a5e",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-registry-tilt-20261017@sha256:2f1aa678f8f9afed8b7759e22abd8fbc5db5b9b2068af9497734d4775d912a5e"
+        "tag": "modes-20261018-physics-registry",
+        "digest": "sha256:ea789df92b130722e6938d68f432f488c2d922845e555a084ec26b926fbcbe9d",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261018-physics-registry@sha256:ea789df92b130722e6938d68f432f488c2d922845e555a084ec26b926fbcbe9d"
       },
 
       "media_type": "application/vnd.oci.image.index.v1+json",
