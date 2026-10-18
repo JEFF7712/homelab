@@ -1683,6 +1683,113 @@
     "mutation": true,
     "prerequisite": "deploy-home-assistant-dry-run"
   },
+  "deploy-home-assistant-matrix-dashboard-dry-run": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
+      "python -m scripts.home_assistant plan --instance homelab-01 --select dashboard/bedroom-lights --json"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HASS_TOKEN": {
+        "from_secret": "hass_token"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "home-assistant-homelab-01",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-home-assistant-matrix-dashboard": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
+      "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
+      "python -m scripts.home_assistant plan --instance homelab-01 --select dashboard/bedroom-lights --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
+      "plan_file=$(python3 -c 'import json; print(json.load(open(\"plan.json\"))[\"plan_file\"])')",
+      "python -m scripts.home_assistant apply --instance homelab-01 --plan-file \"$plan_file\" --yes",
+      "python -m scripts.home_assistant diff --instance homelab-01 --select dashboard/bedroom-lights"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HASS_TOKEN": {
+        "from_secret": "hass_token"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "home-assistant-homelab-01",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "deploy-home-assistant-matrix-dashboard-dry-run"
+  },
   "sync-to-github": {
     "commands": [
       "python -m scripts.ci.run mirror -- bash scripts/ci/mirror.sh"

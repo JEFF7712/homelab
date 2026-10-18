@@ -37,6 +37,7 @@ When a user asks an agent to make a Home Assistant change (e.g. "Create an autom
    Run `just ha-plan --select automation/bedtime_lights`. Inspect generated immutable actions and bindings.
 5. **Commit and Deploy**:
    Publish a Forgejo PR, pass Woodpecker validation, and merge through main protection. Run the protected `deploy-home-assistant-dry-run` target from the successful current-main pipeline, then `deploy-home-assistant` from that same parent. The deployment verifies changes against the target cluster and advances the shared cluster baseline (`home-assistant-baseline-<instance>`).
+   For changes limited to `dashboard/bedroom-lights` when an unrelated resource blocks the global diff, use the protected `deploy-home-assistant-matrix-dashboard-dry-run` target followed by `deploy-home-assistant-matrix-dashboard` from the same successful current-main pipeline. These targets plan, apply, and verify only that dashboard.
    *Authorized Local Apply*: If authorized for manual execution, run `just ha-apply --select automation/bedtime_lights` after ensuring UI edits are paused. The tool acquires an atomic lock, performs read-before-write validation, verifies readback, and advances the shared and local baseline.
 6. **Report Completion**:
    Confirm to the user that the automation is live, active, and editable in the Home Assistant UI.
