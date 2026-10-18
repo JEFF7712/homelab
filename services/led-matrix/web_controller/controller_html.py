@@ -1,4 +1,4 @@
-"""Ultra-minimal retro gamepad mobile interface for LED Matrix Arcade."""
+"""Ultra-minimal retro gamepad mobile interface with robust W3C Pointer Events multi-touch and Gamepad API."""
 
 CONTROLLER_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -6,6 +6,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1a1d24">
 <title>LED MATRIX ARCADE</title>
@@ -17,6 +18,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+    touch-action: none !important;
   }
   html, body {
     width: 100%;
@@ -25,7 +27,6 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     overflow: hidden;
     background: #1a1d24;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    touch-action: none;
   }
   body {
     display: flex;
@@ -33,7 +34,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     align-items: center;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     position: relative;
-    background: radial-gradient(circle at 50% 50%, #20242c 0%, #16181e 100%);
+    background: radial-gradient(circle at 50% 50%, #22262f 0%, #16181f 100%);
   }
 
   /* Connection Dot (Subtle indicator at top center) */
@@ -45,7 +46,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: rgba(0, 255, 180, 0.2);
+    background: rgba(0, 255, 180, 0.25);
     transition: all 0.3s ease;
     pointer-events: none;
     z-index: 10;
@@ -56,7 +57,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     opacity: 0.9;
   }
 
-  /* Gamepad Container */
+  /* Gamepad Stage */
   .gamepad-stage {
     width: 100%;
     height: 100%;
@@ -66,11 +67,11 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     padding: 0 max(28px, env(safe-area-inset-left)) 0 max(28px, env(safe-area-inset-right));
   }
 
-  /* Portrait adjustment: split nicely across bottom half */
+  /* Portrait mode: ergonomic lower-half positioning */
   @media (orientation: portrait) {
     .gamepad-stage {
       align-items: flex-end;
-      padding-bottom: max(60px, env(safe-area-inset-bottom));
+      padding-bottom: max(64px, env(safe-area-inset-bottom));
     }
   }
 
@@ -79,7 +80,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     width: 176px;
     height: 176px;
     position: relative;
-    touch-action: none;
+    cursor: pointer;
   }
   .dpad-cross {
     position: absolute;
@@ -88,6 +89,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     transform: translate(-50%, -50%);
     width: 168px;
     height: 168px;
+    pointer-events: none;
   }
   .dpad-wing {
     position: absolute;
@@ -100,11 +102,10 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     color: #4b5568;
     font-size: 15px;
     font-weight: 900;
-    cursor: pointer;
-    touch-action: none;
-    transition: background 0.06s, transform 0.06s, box-shadow 0.06s, color 0.06s;
+    pointer-events: none;
+    transition: background 0.05s, transform 0.05s, box-shadow 0.05s, color 0.05s;
   }
-  .dpad-wing.touch-active, .dpad-wing:active {
+  .dpad-wing.touch-active {
     background: #17191f;
     box-shadow: 0 2px 4px rgba(0,0,0,0.8), inset 0 2px 5px rgba(0,0,0,0.9);
     color: #8da2c0;
@@ -160,7 +161,6 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     width: 176px;
     height: 176px;
     position: relative;
-    touch-action: none;
   }
   .btn-round {
     width: 78px;
@@ -178,10 +178,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    touch-action: none;
     text-shadow: 0 1px 2px rgba(0,0,0,0.4);
     transform: rotate(-12deg);
-    transition: transform 0.06s, box-shadow 0.06s, background 0.06s;
+    transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
   }
   .btn-round.btn-b {
     bottom: 8px;
@@ -191,7 +190,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     top: 8px;
     right: 8px;
   }
-  .btn-round.touch-active, .btn-round:active {
+  .btn-round.touch-active {
     background: radial-gradient(circle at 36% 30%, #7d1723 0%, #540b13 60%, #36060c 100%);
     box-shadow: 0 2px 5px rgba(0,0,0,0.8), inset 0 3px 6px rgba(0,0,0,0.9);
     transform: rotate(-12deg) scale(0.93);
@@ -203,7 +202,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <div class="conn-dot" id="conn-dot" title="Connection Status"></div>
 
 <div class="gamepad-stage">
-  <!-- D-PAD -->
+  <!-- D-PAD CONTAINER -->
   <div class="dpad-container" id="dpad-container">
     <div class="dpad-cross">
       <div class="dpad-wing wing-up" data-action="up">▲</div>
@@ -215,9 +214,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   </div>
 
   <!-- ACTION BUTTONS -->
-  <div class="action-container">
-    <div class="btn-round btn-b" data-action="action_b">B</div>
-    <div class="btn-round btn-a" data-action="action_a">A</div>
+  <div class="action-container" id="action-container">
+    <div class="btn-round btn-b" id="btn-b" data-action="action_b">B</div>
+    <div class="btn-round btn-a" id="btn-a" data-action="action_a">A</div>
   </div>
 </div>
 
@@ -231,6 +230,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   let bHoldTimer = null;
 
   const connDot = document.getElementById('conn-dot');
+  const dpadContainer = document.getElementById('dpad-container');
+  const btnA = document.getElementById('btn-a');
+  const btnB = document.getElementById('btn-b');
 
   function vibrate(ms) {
     if (navigator.vibrate) {
@@ -286,28 +288,113 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     }
   }
 
-  // Bind Buttons with immediate zero-latency touch and tactile haptics
-  function bindTouchButton(btn, action) {
-    const onDown = (e) => {
-      e.preventDefault();
-      btn.classList.add('touch-active');
-      vibrate(12);
+  // ---------------- MULTI-TOUCH W3C POINTER EVENTS ----------------
+  // 1. D-PAD with smooth radial angle tracking & setPointerCapture
+  let dpadPointerId = null;
+  let activeDpadAction = null;
 
-      // Handle Carousel Menu Navigation on D-Pad Left / Right
+  function updateDpadFromCoords(clientX, clientY) {
+    const rect = dpadContainer.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Deadzone in the center dish (~22px)
+    if (dist < 22) {
+      setDpadAction(null);
+      return;
+    }
+
+    // 4 cardinal sectors based on angle
+    const angle = Math.atan2(dy, dx); // -PI to PI
+    let action = null;
+    if (angle >= -Math.PI / 4 && angle < Math.PI / 4) {
+      action = 'right';
+    } else if (angle >= Math.PI / 4 && angle < (3 * Math.PI) / 4) {
+      action = 'down';
+    } else if (angle >= (-3 * Math.PI) / 4 && angle < -Math.PI / 4) {
+      action = 'up';
+    } else {
+      action = 'left';
+    }
+    setDpadAction(action);
+  }
+
+  function setDpadAction(action) {
+    if (action === activeDpadAction) return;
+
+    if (activeDpadAction) {
+      const prevWing = document.querySelector(`.dpad-wing[data-action="${activeDpadAction}"]`);
+      if (prevWing) prevWing.classList.remove('touch-active');
+      send({ type: 'input', action: activeDpadAction, state: 'up' });
+    }
+
+    activeDpadAction = action;
+
+    if (activeDpadAction) {
+      const newWing = document.querySelector(`.dpad-wing[data-action="${activeDpadAction}"]`);
+      if (newWing) newWing.classList.add('touch-active');
+      vibrate(10);
+
+      // Carousel menu navigation in lobby
       if (currentPhase === 'lobby') {
-        if (action === 'left') {
+        if (activeDpadAction === 'left') {
           send({ type: 'menu_nav', dir: 'prev' });
           return;
-        } else if (action === 'right') {
+        } else if (activeDpadAction === 'right') {
           send({ type: 'menu_nav', dir: 'next' });
-          return;
-        } else if (action === 'action_a') {
-          send({ type: 'start_game', game: selectedGame, solo: soloMode });
           return;
         }
       }
 
-      // Handle Gameover Actions: A = Rematch, B = Menu Exit
+      send({ type: 'input', action: activeDpadAction, state: 'down' });
+    }
+  }
+
+  dpadContainer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dpadContainer.setPointerCapture(e.pointerId);
+    dpadPointerId = e.pointerId;
+    updateDpadFromCoords(e.clientX, e.clientY);
+  });
+
+  dpadContainer.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== dpadPointerId) return;
+    e.preventDefault();
+    updateDpadFromCoords(e.clientX, e.clientY);
+  });
+
+  const releaseDpad = (e) => {
+    if (e.pointerId !== dpadPointerId) return;
+    e.preventDefault();
+    try { dpadContainer.releasePointerCapture(e.pointerId); } catch (err) {}
+    dpadPointerId = null;
+    setDpadAction(null);
+  };
+
+  dpadContainer.addEventListener('pointerup', releaseDpad);
+  dpadContainer.addEventListener('pointercancel', releaseDpad);
+
+  // 2. ACTION BUTTONS (A & B) with independent pointer tracking
+  const activeActionPointers = new Map(); // pointerId -> action
+
+  function bindActionButton(btn, action) {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+      activeActionPointers.set(e.pointerId, action);
+      btn.classList.add('touch-active');
+      vibrate(12);
+
+      // In lobby: A starts game
+      if (currentPhase === 'lobby' && action === 'action_a') {
+        send({ type: 'start_game', game: selectedGame, solo: soloMode });
+        return;
+      }
+
+      // In gameover: A rematches, B returns to menu
       if (currentPhase === 'gameover') {
         if (action === 'action_a') {
           send({ type: 'rematch' });
@@ -318,7 +405,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
         }
       }
 
-      // Hold B for 1.2s to exit active game back to matrix carousel menu
+      // Hold B for 1.2s to exit active game back to matrix carousel
       if (action === 'action_b' && currentPhase === 'playing') {
         clearTimeout(bHoldTimer);
         bHoldTimer = setTimeout(() => {
@@ -327,70 +414,94 @@ CONTROLLER_HTML = """<!DOCTYPE html>
         }, 1200);
       }
 
-      // Send standard gameplay action
       send({ type: 'input', action: action, state: 'down' });
-    };
+    });
 
-    const onUp = (e) => {
+    const onPointerRelease = (e) => {
+      if (!activeActionPointers.has(e.pointerId)) return;
       e.preventDefault();
+      try { btn.releasePointerCapture(e.pointerId); } catch (err) {}
+      activeActionPointers.delete(e.pointerId);
       btn.classList.remove('touch-active');
+
       if (action === 'action_b') {
         clearTimeout(bHoldTimer);
       }
       send({ type: 'input', action: action, state: 'up' });
     };
 
-    btn.addEventListener('touchstart', onDown, { passive: false });
-    btn.addEventListener('touchend', onUp, { passive: false });
-    btn.addEventListener('touchcancel', onUp, { passive: false });
-    btn.addEventListener('mousedown', onDown);
-    btn.addEventListener('mouseup', onUp);
-    btn.addEventListener('mouseleave', onUp);
+    btn.addEventListener('pointerup', onPointerRelease);
+    btn.addEventListener('pointercancel', onPointerRelease);
   }
 
-  document.querySelectorAll('[data-action]').forEach(el => {
-    bindTouchButton(el, el.dataset.action);
-  });
+  bindActionButton(btnA, 'action_a');
+  bindActionButton(btnB, 'action_b');
 
-  // Desktop keyboard controls for testing / debugging
+  // ---------------- HTML5 GAMEPAD API (BLUETOOTH CONTROLLERS) ----------------
+  const gpButtonStates = {};
+  function syncGamepadInput(act, isDown) {
+    const wasDown = !!gpButtonStates[act];
+    if (isDown === wasDown) return;
+    gpButtonStates[act] = isDown;
+
+    const el = document.querySelector(`[data-action="${act}"]`);
+    if (el) {
+      if (isDown) el.classList.add('touch-active');
+      else el.classList.remove('touch-active');
+    }
+
+    if (isDown) {
+      vibrate(10);
+      if (currentPhase === 'lobby') {
+        if (act === 'left') { send({ type: 'menu_nav', dir: 'prev' }); return; }
+        if (act === 'right') { send({ type: 'menu_nav', dir: 'next' }); return; }
+        if (act === 'action_a') { send({ type: 'start_game', game: selectedGame, solo: soloMode }); return; }
+      }
+      if (currentPhase === 'gameover') {
+        if (act === 'action_a') { send({ type: 'rematch' }); return; }
+        if (act === 'action_b') { send({ type: 'menu_exit' }); return; }
+      }
+      send({ type: 'input', action: act, state: 'down' });
+    } else {
+      send({ type: 'input', action: act, state: 'up' });
+    }
+  }
+
+  function pollGamepad() {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (let i = 0; i < gamepads.length; i++) {
+      const gp = gamepads[i];
+      if (!gp) continue;
+      const btn = (idx) => gp.buttons[idx] && (gp.buttons[idx].pressed || gp.buttons[idx].value > 0.5);
+
+      syncGamepadInput('up', btn(12) || (gp.axes[1] < -0.5));
+      syncGamepadInput('down', btn(13) || (gp.axes[1] > 0.5));
+      syncGamepadInput('left', btn(14) || (gp.axes[0] < -0.5));
+      syncGamepadInput('right', btn(15) || (gp.axes[0] > 0.5));
+      syncGamepadInput('action_a', btn(0)); // A / Cross
+      syncGamepadInput('action_b', btn(1)); // B / Circle
+      break;
+    }
+    requestAnimationFrame(pollGamepad);
+  }
+  requestAnimationFrame(pollGamepad);
+
+  // Keyboard controls for testing / debugging
   const KEY_MAP = {
-    'ArrowUp': 'up',
-    'KeyW': 'up',
-    'ArrowDown': 'down',
-    'KeyS': 'down',
-    'ArrowLeft': 'left',
-    'KeyA': 'left',
-    'ArrowRight': 'right',
-    'KeyD': 'right',
-    'KeyX': 'action_b',
-    'KeyZ': 'action_a',
-    'Space': 'action_a',
+    'ArrowUp': 'up', 'KeyW': 'up',
+    'ArrowDown': 'down', 'KeyS': 'down',
+    'ArrowLeft': 'left', 'KeyA': 'left',
+    'ArrowRight': 'right', 'KeyD': 'right',
+    'KeyX': 'action_b', 'KeyZ': 'action_a', 'Space': 'action_a',
   };
-
-  const heldKeys = new Set();
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     const act = KEY_MAP[e.code];
-    if (act && !heldKeys.has(act)) {
-      heldKeys.add(act);
-      const targetBtn = document.querySelector(`[data-action="${act}"]`);
-      if (targetBtn) {
-        const evt = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
-        targetBtn.dispatchEvent(evt);
-      }
-    }
+    if (act) syncGamepadInput(act, true);
   });
-
   window.addEventListener('keyup', (e) => {
     const act = KEY_MAP[e.code];
-    if (act) {
-      heldKeys.delete(act);
-      const targetBtn = document.querySelector(`[data-action="${act}"]`);
-      if (targetBtn) {
-        const evt = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
-        targetBtn.dispatchEvent(evt);
-      }
-    }
+    if (act) syncGamepadInput(act, false);
   });
 
   connect();
