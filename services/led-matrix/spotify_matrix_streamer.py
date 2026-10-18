@@ -8,6 +8,7 @@ import base64
 import json
 import os
 import secrets
+import select
 import socket
 import sys
 import tempfile
@@ -119,15 +120,38 @@ class USBMatrixStreamer:
 
 
 class TCPMatrixStreamer:
-    """Send one little-endian RGB565 frame, then wait for display completion."""
+    """Send RGB565 frames with a bounded number awaiting display acknowledgement."""
 
-    def __init__(self, host: str, port: int = 9999) -> None:
+    def __init__(self, host: str, port: int = 9999, *, max_in_flight: int = 1) -> None:
+        if not 1 <= max_in_flight <= 4:
+            raise ValueError("max_in_flight must be between 1 and 4")
         self.host = host
         self.port = port
+        self.max_in_flight = max_in_flight
         self.sock: socket.socket | None = None
+        self._pending_frames = 0
         self.frames = 0
         self.failures = 0
         self.last_error = 0.0
+        self.last_ack = 0.0
+
+    def _receive_acknowledgements(self, *, wait: bool = False) -> bool:
+        if self.sock is None or not self._pending_frames:
+            return False
+        readable, _, _ = select.select([self.sock], [], [], 1.0 if wait else 0)
+        if not readable:
+            if wait:
+                raise TimeoutError("Pico did not acknowledge displayed frames")
+            return False
+        replies = self.sock.recv(self._pending_frames)
+        if not replies or replies != b"A" * len(replies):
+            raise ConnectionError(
+                "Pico disconnected or returned an invalid frame acknowledgement"
+            )
+        self._pending_frames -= len(replies)
+        self.frames += len(replies)
+        self.last_ack = time.monotonic()
+        return True
 
     def send_frame(self, image: Image.Image, brightness: float = 1.0) -> bool:
         raw_bytes = frame_to_rgb565(image, brightness)
@@ -147,12 +171,13 @@ class TCPMatrixStreamer:
                     ready.extend(part)
                 if ready != b"R565":
                     raise ConnectionError("Pico returned an invalid ready handshake")
+            while self._receive_acknowledgements():
+                pass
+            while self._pending_frames >= self.max_in_flight:
+                self._receive_acknowledgements(wait=True)
             self.sock.sendall(raw_bytes)
-            if self.sock.recv(1) != b"A":
-                raise ConnectionError(
-                    "Pico disconnected or returned an invalid frame acknowledgement"
-                )
-            self.frames += 1
+            self._pending_frames += 1
+            self._receive_acknowledgements(wait=self.max_in_flight == 1)
             return True
         except OSError as error:
             self.failures += 1
@@ -170,6 +195,7 @@ class TCPMatrixStreamer:
         if self.sock is not None:
             self.sock.close()
             self.sock = None
+        self._pending_frames = 0
 
 
 # --- Album Art Rendering (Spinning Record) ---

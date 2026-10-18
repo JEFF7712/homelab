@@ -103,6 +103,12 @@ Deployment, inventory, and lock to its actual manifest digest before publication
 
 ## Acceptance and recovery
 
+The renderer sends at most four TCP frames before waiting for display replies.
+This lets short acknowledgement delays pass without stopping frame submission,
+while limiting outstanding data to 32 KiB. Health frame counts and readiness
+advance only on actual Pico acknowledgements. `max_frame_ms` records the longest
+render and send iteration since startup for diagnosing visible pauses.
+
 On 2026-10-16, the initial local container delivered 1,294 acknowledged frames
 over 65.02 seconds at 19.90 FPS, with zero failed frames or HA reconnects.
 Maximum render-to-ack time was 85.0 ms. Real HA metadata and artwork loaded;

@@ -107,6 +107,59 @@ class StreamingTests(unittest.TestCase):
             os.close(master)
             os.close(slave)
 
+    def test_tcp_keeps_sending_during_delayed_replies_but_caps_pending_frames(
+        self,
+    ) -> None:
+        streamer = TCPMatrixStreamer("unused", max_in_flight=4)
+        result = []
+        sender, receiver = socket.socketpair()
+        with sender, receiver:
+            sender.settimeout(1)
+            receiver.settimeout(1)
+            streamer.sock = sender
+            image = Image.new("RGB", (64, 64), "red")
+            try:
+                for _ in range(4):
+                    self.assertTrue(streamer.send_frame(image))
+                payload = bytearray()
+                while len(payload) < 4 * 8192:
+                    payload.extend(receiver.recv(4 * 8192 - len(payload)))
+                self.assertEqual(bytes(payload), b"\x00\xf8" * (4096 * 4))
+                self.assertEqual(streamer.frames, 0)
+                self.assertEqual(streamer.last_ack, 0)
+                worker = threading.Thread(
+                    target=lambda: result.append(streamer.send_frame(image)),
+                    daemon=True,
+                )
+                worker.start()
+                receiver.settimeout(0.1)
+                with self.assertRaises(socket.timeout):
+                    receiver.recv(1)
+                receiver.sendall(b"AAAA")
+                worker.join(2)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual(result, [True])
+                self.assertEqual(streamer.frames, 4)
+                self.assertGreater(streamer.last_ack, 0)
+                self.assertEqual(streamer.failures, 0)
+            finally:
+                streamer.close()
+
+    def test_tcp_pipeline_rejects_invalid_reply(self) -> None:
+        streamer = TCPMatrixStreamer("unused", max_in_flight=4)
+        sender, receiver = socket.socketpair()
+        with sender, receiver:
+            streamer.sock = sender
+            image = Image.new("RGB", (64, 64), "blue")
+            try:
+                self.assertTrue(streamer.send_frame(image))
+                receiver.sendall(b"X")
+                self.assertFalse(streamer.send_frame(image))
+                self.assertEqual((streamer.frames, streamer.failures), (0, 1))
+                self.assertIsNone(streamer.sock)
+            finally:
+                streamer.close()
+
     def test_tcp_rejects_invalid_ready_without_sending_pixels(self) -> None:
         received = []
         with socket.socket() as server:
