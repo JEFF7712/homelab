@@ -6,6 +6,7 @@ import numpy as np
 from PIL import ImageDraw
 
 from .base import MultiplayerGame
+from .registry import register_game
 
 DIR_VECTORS = {
     "up": (0, -1),
@@ -22,8 +23,26 @@ OPPOSITE = {
 }
 
 
+@register_game(
+    game_id="tron",
+    name="TRON CYCLES",
+    short_title="TRON",
+    badge="1P / 2P",
+    desc="High-speed light trail survival arena",
+    supports_2p=True,
+    color=(0, 229, 255),
+    order=2,
+)
 class Tron2P(MultiplayerGame):
     """2-Player real-time Tron Light Cycles."""
+
+    @staticmethod
+    def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
+        draw.line([(cx - 7, cy + 5), (cx - 7, cy - 3), (cx + 1, cy - 3)], fill=(0, 190, 230))
+        draw.point((cx + 1, cy - 3), fill=(255, 255, 255))
+        draw.line([(cx + 7, cy - 5), (cx + 7, cy + 3), (cx - 2, cy + 3)], fill=(220, 110, 0))
+        draw.point((cx - 2, cy + 3), fill=(255, 180, 50))
+
 
     def __init__(self, solo_vs_ai: bool = False, winning_rounds: int = 2) -> None:
         super().__init__(solo_vs_ai=solo_vs_ai)

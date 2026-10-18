@@ -7,6 +7,8 @@ import random
 from PIL import ImageDraw, ImageFont
 
 from .base import MultiplayerGame
+from .registry import register_game
+
 
 COLS = 10
 ROWS = 17
@@ -48,8 +50,31 @@ def _cells(matrix: list[list[int]]) -> list[tuple[int, int]]:
     ]
 
 
+@register_game(
+    game_id="tetris",
+    name="TETRIS",
+    short_title="TETRIS",
+    badge="1P SOLO",
+    desc="Classic falling block puzzle line clearing",
+    supports_2p=False,
+    color=(180, 90, 230),
+    order=5,
+)
 class InteractiveTetris(MultiplayerGame):
     """Playable Tetris block puzzle controlled via mobile gamepad."""
+
+    @staticmethod
+    def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
+        draw.rectangle([cx - 5, cy - 4, cx - 3, cy - 2], fill=(180, 90, 230))
+        draw.rectangle([cx - 2, cy - 4, cx, cy - 2], fill=(180, 90, 230))
+        draw.rectangle([cx + 1, cy - 4, cx + 3, cy - 2], fill=(180, 90, 230))
+        draw.rectangle([cx - 2, cy - 1, cx, cy + 1], fill=(180, 90, 230))
+
+        draw.rectangle([cx - 7, cy + 3, cx - 5, cy + 5], fill=(60, 220, 230))
+        draw.rectangle([cx - 4, cy + 3, cx - 2, cy + 5], fill=(60, 220, 230))
+        draw.rectangle([cx - 1, cy + 3, cx + 1, cy + 5], fill=(60, 220, 230))
+        draw.rectangle([cx + 2, cy + 3, cx + 4, cy + 5], fill=(60, 220, 230))
+
 
     def __init__(self) -> None:
         super().__init__(solo_vs_ai=True)

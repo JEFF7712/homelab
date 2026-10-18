@@ -11,12 +11,8 @@ from modes.base import ModeRenderer, RenderContext
 from web_controller.server import MultiplayerHub
 
 from .base import MultiplayerGame
-from .breakout_game import InteractiveBreakout
 from .lobby import LobbyRenderer
-from .pong_2p import Pong2P
-from .snake_game import InteractiveSnake
-from .tetris_game import InteractiveTetris
-from .tron_2p import Tron2P
+from .registry import GAME_REGISTRY
 
 logger = logging.getLogger("multiplayer_arcade")
 
@@ -42,17 +38,7 @@ class MultiplayerArcadeRenderer(ModeRenderer):
 
     def _on_start_game(self, game_name: str, solo: bool) -> None:
         with self._lock:
-            if game_name == "tron":
-                self.active_game = Tron2P(solo_vs_ai=solo)
-            elif game_name == "snake":
-                self.active_game = InteractiveSnake()
-            elif game_name == "breakout":
-                self.active_game = InteractiveBreakout()
-            elif game_name == "tetris":
-                self.active_game = InteractiveTetris()
-            else:
-                self.active_game = Pong2P(solo_vs_ai=solo)
-
+            self.active_game = GAME_REGISTRY.create_game(game_name, solo=solo)
             if self.active_game:
                 self.active_game.sfx_callback = self.hub.play_sfx
 

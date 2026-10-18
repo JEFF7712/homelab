@@ -7,46 +7,13 @@ from typing import TYPE_CHECKING
 
 from PIL import ImageDraw, ImageFont
 
+from .registry import GAME_REGISTRY
+
 if TYPE_CHECKING:
     from web_controller.server import MultiplayerHub
 
-GAME_ITEMS = [
-    {
-        "id": "pong",
-        "title": "PONG 2P",
-        "short_title": "PONG",
-        "badge": "1P / 2P",
-        "color": (0, 229, 255),
-    },
-    {
-        "id": "tron",
-        "title": "TRON CYCLES",
-        "short_title": "TRON",
-        "badge": "1P / 2P",
-        "color": (0, 229, 255),
-    },
-    {
-        "id": "snake",
-        "title": "SNAKE",
-        "short_title": "SNAKE",
-        "badge": "1P SOLO",
-        "color": (40, 220, 90),
-    },
-    {
-        "id": "breakout",
-        "title": "BREAKOUT",
-        "short_title": "BREAK",
-        "badge": "1P SOLO",
-        "color": (255, 130, 20),
-    },
-    {
-        "id": "tetris",
-        "title": "TETRIS",
-        "short_title": "TETRIS",
-        "badge": "1P SOLO",
-        "color": (180, 90, 230),
-    },
-]
+# Fallback module-level alias for backward compatibility
+GAME_ITEMS = GAME_REGISTRY.get_carousel_items()
 
 CARD_SPACING = 38.0
 
@@ -62,7 +29,8 @@ class CarouselRenderer:
 
     def update(self, dt: float) -> None:
         self.anim_timer += dt
-        safe_idx = self.hub.selected_game_index % len(GAME_ITEMS) if GAME_ITEMS else 0
+        items = GAME_REGISTRY.get_carousel_items()
+        safe_idx = self.hub.selected_game_index % len(items) if items else 0
         target_x = float(safe_idx * CARD_SPACING)
         # Smooth spring/lerp transition
         self.scroll_x += (target_x - self.scroll_x) * min(1.0, dt * 14.0)
@@ -90,8 +58,9 @@ class CarouselRenderer:
         draw.polygon([(59, 26), (62, 28), (59, 30)], fill=arrow_col)
 
         # 4. Draw Carousel Cards
+        items = GAME_REGISTRY.get_carousel_items()
         center_screen_x = 32
-        for idx, item in enumerate(GAME_ITEMS):
+        for idx, item in enumerate(items):
             card_cx = center_screen_x + int(idx * CARD_SPACING - self.scroll_x)
 
             # Skip if offscreen
@@ -117,29 +86,22 @@ class CarouselRenderer:
 
             draw.rectangle([x0, y0, x1, y1], fill=bg_col, outline=border_col)
 
-            # Draw Game Icon centered at (card_cx, 24)
+            # Draw Game Icon centered at (card_cx, 23) via game's registered icon_fn
             icon_y = 23
-            if item["id"] == "pong":
-                self._draw_pong_icon(draw, card_cx, icon_y)
-            elif item["id"] == "tron":
-                self._draw_tron_icon(draw, card_cx, icon_y)
-            elif item["id"] == "snake":
-                self._draw_snake_icon(draw, card_cx, icon_y)
-            elif item["id"] == "breakout":
-                self._draw_breakout_icon(draw, card_cx, icon_y)
-            elif item["id"] == "tetris":
-                self._draw_tetris_icon(draw, card_cx, icon_y)
+            icon_fn = item.get("icon_fn")
+            if icon_fn:
+                icon_fn(draw, card_cx, icon_y)
 
             # Short title text below icon
-            title = item["short_title"]
+            title = item.get("short_title", "")
             text_x = card_cx - len(title) * 2 - 2
             text_col = (255, 255, 255) if is_selected else (100, 115, 140)
             draw.text((text_x, 35), title, fill=text_col, font=self.font)
 
         # 5. Carousel Position Dots at y=48
-        safe_idx = self.hub.selected_game_index % len(GAME_ITEMS) if GAME_ITEMS else 0
-        dot_start_x = 32 - (len(GAME_ITEMS) * 4) // 2
-        for i in range(len(GAME_ITEMS)):
+        safe_idx = self.hub.selected_game_index % len(items) if items else 0
+        dot_start_x = 32 - (len(items) * 4) // 2
+        for i in range(len(items)):
             dx = dot_start_x + i * 4
             if i == safe_idx:
                 draw.rectangle([dx, 48, dx + 1, 49], fill=(0, 229, 255))
@@ -147,20 +109,20 @@ class CarouselRenderer:
                 draw.point((dx, 48), fill=(40, 50, 75))
 
         # 6. Mode Badge or High Score at y=52 (Alternating every ~2s)
-        curr_item = GAME_ITEMS[safe_idx]
-        hi_score = self.hub.get_high_score(curr_item["id"])
-        show_hi = hi_score > 0 and (int(self.anim_timer * 0.6) % 2 == 1)
+        if items:
+            curr_item = items[safe_idx]
+            hi_score = self.hub.get_high_score(curr_item["id"])
+            show_hi = hi_score > 0 and (int(self.anim_timer * 0.6) % 2 == 1)
 
-        if show_hi:
-            display_text = f"HI: {hi_score}"
-            display_col = (255, 215, 0)
-        else:
-            display_text = curr_item["badge"]
-            display_col = curr_item["color"]
+            if show_hi:
+                display_text = f"HI: {hi_score}"
+                display_col = (255, 215, 0)
+            else:
+                display_text = curr_item["badge"]
+                display_col = curr_item["color"]
 
-        badge_x = 32 - len(display_text) * 2 - 2
-        draw.text((badge_x, 52), display_text, fill=display_col, font=self.font)
-
+            badge_x = 32 - len(display_text) * 2 - 2
+            draw.text((badge_x, 52), display_text, fill=display_col, font=self.font)
 
         # 7. Bottom connection indicators (y=62..63)
         draw.rectangle(
@@ -171,65 +133,3 @@ class CarouselRenderer:
             [33, 62, 63, 63],
             fill=(255, 145, 0) if self.hub.p2_connected else (45, 30, 20),
         )
-
-    def _draw_pong_icon(self, draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
-        # Dotted center line
-        for dy in (-6, -3, 0, 3, 6):
-            draw.point((cx, cy + dy), fill=(35, 45, 65))
-        # Left paddle (Cyan)
-        draw.rectangle([cx - 8, cy - 5, cx - 7, cy + 5], fill=(0, 229, 255))
-        # Right paddle (Orange)
-        draw.rectangle([cx + 6, cy - 3, cx + 7, cy + 5], fill=(255, 145, 0))
-        # Ball (White)
-        draw.rectangle([cx - 1, cy - 2, cx, cy - 1], fill=(255, 255, 255))
-
-    def _draw_tron_icon(self, draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
-        # Cyan Light Cycle
-        draw.line([(cx - 7, cy + 5), (cx - 7, cy - 3), (cx + 1, cy - 3)], fill=(0, 190, 230))
-        draw.point((cx + 1, cy - 3), fill=(255, 255, 255))
-        # Orange Light Cycle
-        draw.line([(cx + 7, cy - 5), (cx + 7, cy + 3), (cx - 2, cy + 3)], fill=(220, 110, 0))
-        draw.point((cx - 2, cy + 3), fill=(255, 180, 50))
-
-    def _draw_snake_icon(self, draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
-        # Winding green snake
-        segments = [
-            (cx - 6, cy + 4), (cx - 4, cy + 4), (cx - 2, cy + 4),
-            (cx - 2, cy + 2), (cx - 2, cy), (cx, cy), (cx + 2, cy),
-            (cx + 2, cy - 2), (cx + 4, cy - 2),
-        ]
-        for sx, sy in segments:
-            draw.rectangle([sx, sy, sx + 1, sy + 1], fill=(40, 220, 90))
-        # Glowing head
-        draw.rectangle([cx + 4, cy - 2, cx + 5, cy - 1], fill=(255, 255, 255))
-        # Red apple
-        draw.rectangle([cx - 6, cy - 2, cx - 5, cy - 1], fill=(255, 50, 40))
-        draw.point((cx - 6, cy - 3), fill=(60, 200, 60))
-
-    def _draw_breakout_icon(self, draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
-        # Mini bricks
-        draw.rectangle([cx - 8, cy - 6, cx - 3, cy - 5], fill=(255, 40, 50))
-        draw.rectangle([cx - 2, cy - 6, cx + 3, cy - 5], fill=(255, 130, 20))
-        draw.rectangle([cx + 4, cy - 6, cx + 8, cy - 5], fill=(255, 215, 30))
-
-        draw.rectangle([cx - 8, cy - 3, cx - 3, cy - 2], fill=(40, 220, 90))
-        draw.rectangle([cx - 2, cy - 3, cx + 3, cy - 2], fill=(30, 190, 255))
-        draw.rectangle([cx + 4, cy - 3, cx + 8, cy - 2], fill=(220, 50, 200))
-
-        # Ball
-        draw.point((cx + 1, cy + 1), fill=(255, 255, 255))
-        # Paddle
-        draw.rectangle([cx - 5, cy + 5, cx + 3, cy + 6], fill=(0, 229, 255))
-
-    def _draw_tetris_icon(self, draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
-        # Magenta T-tetromino
-        draw.rectangle([cx - 5, cy - 4, cx - 3, cy - 2], fill=(180, 90, 230))
-        draw.rectangle([cx - 2, cy - 4, cx, cy - 2], fill=(180, 90, 230))
-        draw.rectangle([cx + 1, cy - 4, cx + 3, cy - 2], fill=(180, 90, 230))
-        draw.rectangle([cx - 2, cy - 1, cx, cy + 1], fill=(180, 90, 230))
-
-        # Cyan I-tetromino (horizontal at bottom)
-        draw.rectangle([cx - 7, cy + 3, cx - 5, cy + 5], fill=(60, 220, 230))
-        draw.rectangle([cx - 4, cy + 3, cx - 2, cy + 5], fill=(60, 220, 230))
-        draw.rectangle([cx - 1, cy + 3, cx + 1, cy + 5], fill=(60, 220, 230))
-        draw.rectangle([cx + 2, cy + 3, cx + 4, cy + 5], fill=(60, 220, 230))

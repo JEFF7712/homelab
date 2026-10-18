@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from PIL import ImageDraw, ImageFont
 
 from .base import MultiplayerGame
+from .registry import register_game
+
 
 
 @dataclass
@@ -30,8 +32,32 @@ class Spark:
     life: float = 0.4
 
 
+@register_game(
+    game_id="breakout",
+    name="BREAKOUT",
+    short_title="BREAK",
+    badge="1P SOLO",
+    desc="Smash all bricks with bouncing ball physics",
+    supports_2p=False,
+    color=(255, 130, 20),
+    order=4,
+)
 class InteractiveBreakout(MultiplayerGame):
     """Playable Breakout brick-breaker controlled via mobile gamepad."""
+
+    @staticmethod
+    def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
+        draw.rectangle([cx - 8, cy - 6, cx - 3, cy - 5], fill=(255, 40, 50))
+        draw.rectangle([cx - 2, cy - 6, cx + 3, cy - 5], fill=(255, 130, 20))
+        draw.rectangle([cx + 4, cy - 6, cx + 8, cy - 5], fill=(255, 215, 30))
+
+        draw.rectangle([cx - 8, cy - 3, cx - 3, cy - 2], fill=(40, 220, 90))
+        draw.rectangle([cx - 2, cy - 3, cx + 3, cy - 2], fill=(30, 190, 255))
+        draw.rectangle([cx + 4, cy - 3, cx + 8, cy - 2], fill=(220, 50, 200))
+
+        draw.point((cx + 1, cy + 1), fill=(255, 255, 255))
+        draw.rectangle([cx - 5, cy + 5, cx + 3, cy + 6], fill=(0, 229, 255))
+
 
     def __init__(self) -> None:
         super().__init__(solo_vs_ai=True)

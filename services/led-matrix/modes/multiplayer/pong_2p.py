@@ -5,6 +5,7 @@ import random
 from PIL import ImageDraw
 
 from .base import MultiplayerGame
+from .registry import register_game
 
 # Compact 3x5 bitmap numbers for score rendering
 NUMS = {
@@ -21,8 +22,27 @@ NUMS = {
 }
 
 
+@register_game(
+    game_id="pong",
+    name="PONG 2P",
+    short_title="PONG",
+    badge="1P / 2P",
+    desc="Classic arcade table tennis battle",
+    supports_2p=True,
+    color=(0, 229, 255),
+    order=1,
+)
 class Pong2P(MultiplayerGame):
     """2-Player real-time competitive Pong."""
+
+    @staticmethod
+    def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
+        for dy in (-6, -3, 0, 3, 6):
+            draw.point((cx, cy + dy), fill=(35, 45, 65))
+        draw.rectangle([cx - 8, cy - 5, cx - 7, cy + 5], fill=(0, 229, 255))
+        draw.rectangle([cx + 6, cy - 3, cx + 7, cy + 5], fill=(255, 145, 0))
+        draw.rectangle([cx - 1, cy - 2, cx, cy - 1], fill=(255, 255, 255))
+
 
     def __init__(self, solo_vs_ai: bool = False, winning_score: int = 5) -> None:
         super().__init__(solo_vs_ai=solo_vs_ai)

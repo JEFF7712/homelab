@@ -26,7 +26,10 @@ class HighScoreManager:
         self.primary_path = primary_path or os.environ.get(
             "ARCADE_HIGH_SCORES_FILE", "/data/arcade_high_scores.json"
         )
-        self.fallback_path = fallback_path or "/tmp/arcade_high_scores.json"
+        if primary_path is not None and fallback_path is None:
+            self.fallback_path = f"{self.primary_path}.fallback"
+        else:
+            self.fallback_path = fallback_path or "/tmp/arcade_high_scores.json"
         self.active_path = self.primary_path
         self._lock = threading.Lock()
         self.scores: dict[str, int] = dict(DEFAULT_SCORES)

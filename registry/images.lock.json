@@ -4884,10 +4884,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "arcade-sfx-hiscore-20261017",
-        "retention-candidate-d57006576c9e33a1"
+        "arcade-registry-tilt-20261017",
+        "retention-candidate-2f1aa678f8f9afed"
       ],
-      "digest": "sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3",
+      "digest": "sha256:2f1aa678f8f9afed8b7759e22abd8fbc5db5b9b2068af9497734d4775d912a5e",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -4897,12 +4897,12 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "arcade-sfx-hiscore-20261017",
-        "digest": "sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-sfx-hiscore-20261017@sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3"
+        "tag": "arcade-registry-tilt-20261017",
+        "digest": "sha256:2f1aa678f8f9afed8b7759e22abd8fbc5db5b9b2068af9497734d4775d912a5e",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-registry-tilt-20261017@sha256:2f1aa678f8f9afed8b7759e22abd8fbc5db5b9b2068af9497734d4775d912a5e"
       },
 
-      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "media_type": "application/vnd.oci.image.index.v1+json",
       "platforms": [
         "linux/amd64"
       ],

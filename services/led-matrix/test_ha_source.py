@@ -1726,7 +1726,129 @@ class HubModeAndRendererTests(unittest.TestCase):
         tetris.update(0.01, set(), set(), p1_events=["down"])
         self.assertIn("drop", tetris_sfx)
 
+    def test_game_registry_dynamic_discovery_and_creation(self) -> None:
+        from modes.multiplayer import GAME_REGISTRY
+
+        games = GAME_REGISTRY.list_games()
+        self.assertGreaterEqual(len(games), 5)
+        game_ids = [g.id for g in games]
+        self.assertEqual(game_ids[:5], ["pong", "tron", "snake", "breakout", "tetris"])
+
+        # Config dictionary matches expectations
+        config = GAME_REGISTRY.get_games_config()
+        self.assertEqual(len(config), len(games))
+        self.assertEqual(config[0]["id"], "pong")
+        self.assertEqual(config[0]["supports_2p"], True)
+
+        # Carousel items contain titles, colors, and callable icon functions
+        items = GAME_REGISTRY.get_carousel_items()
+        self.assertEqual(len(items), len(games))
+        for item in items:
+            self.assertIn("short_title", item)
+            self.assertIn("color", item)
+            self.assertTrue(callable(item["icon_fn"]))
+
+        # Factory create_game instantiates valid games
+        pong = GAME_REGISTRY.create_game("pong", solo=True)
+        self.assertTrue(pong.solo_vs_ai)
+        snake = GAME_REGISTRY.create_game("snake")
+        self.assertIsNotNone(snake)
+        breakout = GAME_REGISTRY.create_game("breakout")
+        self.assertIsNotNone(breakout)
+
+    def test_scores_http_endpoint(self) -> None:
+        import json
+        import tempfile
+        from modes.multiplayer.high_scores import HighScoreManager
+        from web_controller.server import MultiplayerHub, WebControllerServer
+
+        with tempfile.NamedTemporaryFile(suffix=".json") as tmp:
+            tmp.write(b"{}")
+            tmp.flush()
+            hub = MultiplayerHub()
+            hub.high_score_manager = HighScoreManager(primary_path=tmp.name, fallback_path=tmp.name)
+            hub.high_score_manager.update_score("pong", 7)
+            hub.high_score_manager.update_score("snake", 42)
+
+            server = WebControllerServer(hub=hub)
+
+            class DummyRequest:
+                def __init__(self, path: str):
+                    self.path = path
+
+            res = server.process_request(object(), DummyRequest("/scores"))  # type: ignore
+            self.assertIsNotNone(res)
+            self.assertEqual(res.status_code, 200)
+            data = json.loads(res.body.decode("utf-8"))
+            self.assertIn("scores", data)
+            self.assertEqual(data["scores"].get("pong"), 7)
+            self.assertEqual(data["scores"].get("snake"), 42)
+
+    def test_headless_game_fuzz_and_invariants(self) -> None:
+        import random
+        from PIL import Image, ImageDraw
+        from modes.multiplayer import GAME_REGISTRY
+
+        actions_pool = ["up", "down", "left", "right", "action_a", "action_b"]
+        dt_scenarios = [0.001, 0.016, 0.033, 0.05, 0.15, 0.0]
+
+        img = Image.new("RGB", (64, 64), (0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        for spec in GAME_REGISTRY.list_games():
+            game = GAME_REGISTRY.create_game(spec.id, solo=True)
+            sfx_log = []
+            game.sfx_callback = lambda s: sfx_log.append(s)
+
+            for _ in range(80):
+                # Randomize inputs and dt stutter
+                dt = random.choice(dt_scenarios)
+                p1_inputs = set(random.sample(actions_pool, k=random.randint(0, 2)))
+                p2_inputs = set(random.sample(actions_pool, k=random.randint(0, 2)))
+                p1_events = random.sample(actions_pool, k=random.randint(0, 1))
+
+                # Step simulation without throwing exceptions
+                game.update(dt, p1_inputs, p2_inputs, p1_events=p1_events)
+
+                # Render active state without crash
+                game.render(draw)
+
+                # Game-specific invariants
+                if spec.id == "pong":
+                    # Paddle must stay clamped inside the 64px vertical court
+                    self.assertGreaterEqual(game.p1_y, 0)
+                    self.assertLessEqual(game.p1_y, 64 - game.paddle_h)
+                    self.assertGreaterEqual(game.p2_y, 0)
+                    self.assertLessEqual(game.p2_y, 64 - game.paddle_h)
+                elif spec.id == "snake":
+                    # All segments must remain strictly within the 30x30 grid
+                    for sx, sy in game.snake:
+                        self.assertGreaterEqual(sx, 0)
+                        self.assertLess(sx, game.grid_size)
+                        self.assertGreaterEqual(sy, 0)
+                        self.assertLess(sy, game.grid_size)
+                elif spec.id == "breakout":
+                    # Paddle center must stay within half_w + 1 and 63 - half_w
+                    half_w = game.paddle_w / 2.0
+                    self.assertGreaterEqual(game.paddle_x, half_w)
+                    self.assertLessEqual(game.paddle_x, 63 - half_w + 0.1)
+                elif spec.id == "tetris":
+                    # Board grid dimensions invariant 10x17
+                    self.assertEqual(len(game.board), 17)
+                    self.assertEqual(len(game.board[0]), 10)
+                elif spec.id == "tron":
+                    # Light cycle positions stay clamped
+                    self.assertGreaterEqual(game.p1_pos[0], 0)
+                    self.assertLess(game.p1_pos[0], 64)
+                    self.assertGreaterEqual(game.p1_pos[1], 0)
+                    self.assertLess(game.p1_pos[1], 64)
+                    self.assertGreaterEqual(game.p2_pos[0], 0)
+                    self.assertLess(game.p2_pos[0], 64)
+                    self.assertGreaterEqual(game.p2_pos[1], 0)
+                    self.assertLess(game.p2_pos[1], 64)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
