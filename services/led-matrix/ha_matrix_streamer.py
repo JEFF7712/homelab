@@ -199,9 +199,9 @@ def main() -> None:
         )
 
     multiplayer_hub = MultiplayerHub()
-    visualizer = VisualizerRenderer()
     ledfx_receiver = LedFxReceiver(port=args.ledfx_port)
     ledfx_receiver.start()
+    visualizer = VisualizerRenderer(audio_source=ledfx_receiver.get_latest_audio)
     ledfx_mode = LedFxRenderer(receiver=ledfx_receiver, fallback_renderer=visualizer)
     prometheus = PrometheusSource(args.prometheus_url)
 

@@ -42,6 +42,11 @@ data:
         method: put
         content_type: "application/json"
         payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'
+      ledfx_bedroom_set_matrix_effect:
+        url: "http://10.0.30.20:8888/api/virtuals/bedroom-matrix-2d/effects"
+        method: post
+        content_type: "application/json"
+        payload: '{"type": "{{ effect_type }}", "config": {{ effect_config | default("{}") }}}'
     automation: !include automations.yaml
     script: !include scripts.yaml
     scene: !include scenes.yaml
@@ -228,6 +233,21 @@ data:
           - "Physics"
           - "Homelab Dashboards"
         initial: "Auto"
+      bedroom_ledfx_effect:
+        name: Bedroom LedFx Effect
+        icon: mdi:music-note-outline
+        options:
+          - "equalizer2d"
+          - "plasma2d"
+          - "bands_matrix"
+          - "digitalrain2d"
+          - "fire"
+          - "radial"
+          - "spectrum"
+          - "energy"
+          - "wavelength"
+          - "keybeat2d"
+        initial: "equalizer2d"
 
     input_number:
       bedroom_matrix_brightness:

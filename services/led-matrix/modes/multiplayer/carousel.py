@@ -202,7 +202,7 @@ class CarouselRenderer:
 
         draw.rectangle([cx - 8, cy - 3, cx - 3, cy - 2], fill=(40, 220, 90))
         draw.rectangle([cx - 2, cy - 3, cx + 3, cy - 2], fill=(30, 190, 255))
-        draw.rectangle([cx + 4, cy - 3, cy - 2, cy - 2], fill=(220, 50, 200))
+        draw.rectangle([cx + 4, cy - 3, cx + 8, cy - 2], fill=(220, 50, 200))
 
         # Ball
         draw.point((cx + 1, cy + 1), fill=(255, 255, 255))

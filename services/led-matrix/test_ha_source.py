@@ -1443,6 +1443,61 @@ class HubModeAndRendererTests(unittest.TestCase):
         active_mode = state_vis.mode if state_vis.mode != "Auto" else "LedFx"
         self.assertEqual(active_mode, "Visualizer")
 
+    def test_ledfx_receiver_audio_packet(self) -> None:
+        import struct
+        from modes.ledfx_mode import AudioFrame, LedFxReceiver
+
+        receiver = LedFxReceiver(size=64)
+        self.assertIsNone(receiver.get_latest_audio())
+
+        # Construct a 76-byte FFT packet
+        test_bands = [float(i) / 15.0 for i in range(16)]
+        payload = b"FFT1" + struct.pack("!ff16f", 0.45, 0.85, *test_bands)
+        receiver.process_packet(payload)
+
+        audio = receiver.get_latest_audio(timeout=2.0)
+        self.assertIsNotNone(audio)
+        self.assertAlmostEqual(audio.rms, 0.45, places=5)
+        self.assertAlmostEqual(audio.beat, 0.85, places=5)
+        self.assertEqual(len(audio.bands), 16)
+        self.assertAlmostEqual(audio.bands[0], 0.0, places=5)
+        self.assertAlmostEqual(audio.bands[15], 1.0, places=5)
+
+        # Timeout should return None
+        expired = receiver.get_latest_audio(timeout=0.0)
+        self.assertIsNone(expired)
+
+    def test_visualizer_audio_reactivity(self) -> None:
+        from modes.base import HAState, PlaybackState, RenderContext
+        from modes.ledfx_mode import AudioFrame
+        from modes.visualizer import VisualizerRenderer
+
+        frame_data = AudioFrame(
+            rms=0.5,
+            beat=0.9,
+            bands=[0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] * 2,
+            timestamp=100.0,
+        )
+        vis = VisualizerRenderer(size=64, audio_source=lambda: frame_data)
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.05,
+            ha_state=HAState(),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        for _ in range(len(vis.effects)):
+            img = vis.render(ctx, size=64)
+            self.assertEqual(img.size, (64, 64))
+            self.assertEqual(img.mode, "RGB")
+            vis.update(60.0, beat=0.9)  # advance to next effect
+
+        # When audio_source returns None, falls back to procedural generator
+        vis_none = VisualizerRenderer(size=64, audio_source=lambda: None)
+        img_fb = vis_none.render(ctx, size=64)
+        self.assertEqual(img_fb.size, (64, 64))
+
 
 if __name__ == "__main__":
     unittest.main()

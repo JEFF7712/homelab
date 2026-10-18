@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import socket
+import struct
 import threading
 import time
+from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image
@@ -13,8 +15,17 @@ from modes.base import ModeRenderer, RenderContext
 from modes.visualizer import VisualizerRenderer
 
 
+@dataclass
+class AudioFrame:
+    """Real-time audio FFT frame streamed from nas-01."""
+    rms: float
+    beat: float
+    bands: list[float]
+    timestamp: float
+
+
 class LedFxReceiver:
-    """Thread-safe background UDP server for LedFx DDP (port 4048) and raw pixel streams."""
+    """Thread-safe background UDP server for LedFx DDP (port 4048), audio FFT packets, and raw pixel streams."""
 
     def __init__(self, host: str = "0.0.0.0", port: int = 4048, size: int = 64) -> None:
         self.host = host
@@ -23,6 +34,7 @@ class LedFxReceiver:
         self.expected_bytes = size * size * 3  # 12288 bytes for 64x64
         self._buffer = bytearray(self.expected_bytes)
         self._current_frame: Image.Image | None = None
+        self._latest_audio: AudioFrame | None = None
         self._last_packet_time = 0.0
         self._lock = threading.Lock()
         self._running = False
@@ -52,6 +64,12 @@ class LedFxReceiver:
         with self._lock:
             return self._current_frame
 
+    def get_latest_audio(self, timeout: float = 2.0) -> AudioFrame | None:
+        with self._lock:
+            if self._latest_audio is not None and (time.monotonic() - self._latest_audio.timestamp < timeout):
+                return self._latest_audio
+            return None
+
     def _listen_loop(self) -> None:
         try:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -76,6 +94,22 @@ class LedFxReceiver:
 
     def process_packet(self, data: bytes) -> None:
         now = time.monotonic()
+        # 0. Audio FFT Spectrum Packet (Magic: b"FFT1", rms: float32, beat: float32, 16 bands: float32)
+        if len(data) >= 76 and data.startswith(b"FFT1"):
+            try:
+                rms, beat = struct.unpack_from("!ff", data, 4)
+                bands = list(struct.unpack_from("!16f", data, 12))
+                with self._lock:
+                    self._latest_audio = AudioFrame(
+                        rms=float(rms),
+                        beat=float(beat),
+                        bands=bands,
+                        timestamp=now,
+                    )
+            except struct.error:
+                pass
+            return
+
         # 1. DDP protocol header (10 bytes: flags, seq, type, id, offset, len)
         if len(data) >= 10 and (data[0] & 0x40):
             offset = int.from_bytes(data[4:8], "big")

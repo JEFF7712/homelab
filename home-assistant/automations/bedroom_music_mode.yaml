@@ -32,6 +32,9 @@ actions:
           - action: rest_command.ledfx_bedroom_activate_scene
             data:
               scene_id: "bedroom-music-mode"
+          - action: rest_command.ledfx_bedroom_set_matrix_effect
+            data:
+              effect_type: "{{ states('input_select.bedroom_ledfx_effect') }}"
       - conditions:
           - condition: trigger
             id: "mode_off"
