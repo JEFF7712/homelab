@@ -9,6 +9,7 @@ from collections import deque
 from PIL import ImageDraw, ImageFont
 
 from .base import MultiplayerGame
+from .registry import register_game
 
 GRID_SIZE = 30  # 30x30 grid, 2x2 px cells with 2px margins = 64x64
 
@@ -27,8 +28,32 @@ OPPOSITE = {
 }
 
 
+@register_game(
+    game_id="snake",
+    name="SNAKE",
+    short_title="SNAKE",
+    badge="1P SOLO",
+    desc="Eat glowing apples, grow longer, don't crash",
+    supports_2p=False,
+    color=(40, 220, 90),
+    order=3,
+)
 class InteractiveSnake(MultiplayerGame):
     """Playable Snake game controlled via mobile gamepad."""
+
+    @staticmethod
+    def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
+        segments = [
+            (cx - 6, cy + 4), (cx - 4, cy + 4), (cx - 2, cy + 4),
+            (cx - 2, cy + 2), (cx - 2, cy), (cx, cy), (cx + 2, cy),
+            (cx + 2, cy - 2), (cx + 4, cy - 2),
+        ]
+        for sx, sy in segments:
+            draw.rectangle([sx, sy, sx + 1, sy + 1], fill=(40, 220, 90))
+        draw.rectangle([cx + 4, cy - 2, cx + 5, cy - 1], fill=(255, 255, 255))
+        draw.rectangle([cx - 6, cy - 2, cx - 5, cy - 1], fill=(255, 50, 40))
+        draw.point((cx - 6, cy - 3), fill=(60, 200, 60))
+
 
     def __init__(self) -> None:
         super().__init__(solo_vs_ai=True)

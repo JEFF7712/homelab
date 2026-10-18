@@ -83,6 +83,34 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     opacity: 0.65;
   }
 
+  /* Tilt Toggle (Discreet icon next to sound toggle) */
+  .tilt-toggle {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 8px);
+    right: max(56px, calc(env(safe-area-inset-right) + 40px));
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.45;
+    padding: 8px;
+    border-radius: 50%;
+    z-index: 20;
+    transition: opacity 0.2s, color 0.2s, transform 0.2s;
+  }
+  .tilt-toggle:active, .tilt-toggle:hover {
+    opacity: 1.0;
+    color: #cbd5e1;
+  }
+  .tilt-toggle.active {
+    color: #00e5ff;
+    opacity: 0.95;
+    filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.6));
+    transform: rotate(15deg);
+  }
+
   /* Gamepad Stage */
   .gamepad-stage {
     width: 100%;
@@ -230,6 +258,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <div class="conn-dot" id="conn-dot" title="Connection Status"></div>
 <button class="sound-toggle" id="sound-toggle" aria-label="Toggle Sound" title="Sound Mute/Unmute">
   <span id="sound-icon">🔊</span>
+</button>
+<button class="tilt-toggle" id="tilt-toggle" aria-label="Toggle Tilt Steering" title="Tilt Steering (Motion)">
+  <span id="tilt-icon">⚖️</span>
 </button>
 
 <div class="gamepad-stage">
@@ -482,6 +513,21 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     };
   }
 
+  const HAPTICS = {
+    crash: [80, 50, 100],
+    wall: 25,
+    paddle: 35,
+    brick: 20,
+    eat: 25,
+    line_clear: [30, 40, 50],
+    tetris: [40, 30, 60, 30, 80],
+    drop: 30,
+    lock: 15,
+    score: [40, 40, 60],
+    pip: 20,
+    start: [20, 30, 20, 30, 60],
+  };
+
   function handleMessage(msg) {
     if (msg.type === 'assign') {
       playerRole = msg.player;
@@ -495,17 +541,146 @@ CONTROLLER_HTML = """<!DOCTYPE html>
       vibrate(35);
     } else if (msg.type === 'game_over') {
       currentPhase = 'gameover';
+      clearTilt();
       if (msg.new_high) {
-        vibrate([40, 40, 50, 40, 80]);
+        vibrate([60, 40, 80, 40, 120]);
         SoundChip.play('high_score');
       } else {
-        vibrate(msg.winner === playerRole ? [40, 50, 40, 50, 60] : 80);
+        vibrate(msg.winner === playerRole ? [40, 50, 40, 50, 80] : [120, 60, 100]);
       }
     } else if (msg.type === 'sfx') {
       if (msg.name) {
         SoundChip.play(msg.name);
+        if (HAPTICS[msg.name]) {
+          vibrate(HAPTICS[msg.name]);
+        }
       }
     }
+  }
+
+  // ---------------- TILT CONTROLS (DEVICE ORIENTATION API) ----------------
+  const tiltToggle = document.getElementById('tilt-toggle');
+  let tiltEnabled = localStorage.getItem('arcade_tilt_enabled') === '1';
+  let activeTiltAction = null;
+  let orientationListenerActive = false;
+
+  function updateTiltUI() {
+    if (tiltToggle) {
+      if (tiltEnabled) {
+        tiltToggle.classList.add('active');
+      } else {
+        tiltToggle.classList.remove('active');
+      }
+    }
+  }
+  updateTiltUI();
+
+  function clearTilt() {
+    if (activeTiltAction) {
+      const prevWing = document.querySelector(`.dpad-wing[data-action="${activeTiltAction}"]`);
+      if (prevWing) prevWing.classList.remove('touch-active');
+      send({ type: 'input', action: activeTiltAction, state: 'up' });
+      activeTiltAction = null;
+    }
+  }
+
+  function handleOrientation(e) {
+    if (!tiltEnabled || currentPhase !== 'playing') {
+      if (activeTiltAction) clearTilt();
+      return;
+    }
+    // If player is actively touching on-screen D-pad, touch overrides tilt
+    if (dpadPointerId !== null) {
+      if (activeTiltAction) clearTilt();
+      return;
+    }
+
+    let roll = e.gamma || 0;
+    let pitch = e.beta || 0;
+
+    const orientation = (screen.orientation && screen.orientation.type) || '';
+    if (orientation.includes('landscape-primary')) {
+      const temp = roll;
+      roll = pitch;
+      pitch = -temp;
+    } else if (orientation.includes('landscape-secondary')) {
+      const temp = roll;
+      roll = -pitch;
+      pitch = temp;
+    }
+
+    let tiltAction = null;
+
+    if (selectedGame === 'breakout') {
+      if (roll < -7) tiltAction = 'left';
+      else if (roll > 7) tiltAction = 'right';
+    } else if (selectedGame === 'snake' || selectedGame === 'tron') {
+      const dPitch = pitch - 42;
+      if (Math.abs(roll) > Math.abs(dPitch)) {
+        if (roll < -13) tiltAction = 'left';
+        else if (roll > 13) tiltAction = 'right';
+      } else {
+        if (dPitch < -13) tiltAction = 'up';
+        else if (dPitch > 13) tiltAction = 'down';
+      }
+    } else if (selectedGame === 'pong') {
+      const dPitch = pitch - 42;
+      if (dPitch < -10) tiltAction = 'up';
+      else if (dPitch > 10) tiltAction = 'down';
+    }
+
+    if (tiltAction !== activeTiltAction) {
+      clearTilt();
+      activeTiltAction = tiltAction;
+      if (activeTiltAction) {
+        const wing = document.querySelector(`.dpad-wing[data-action="${activeTiltAction}"]`);
+        if (wing) wing.classList.add('touch-active');
+        send({ type: 'input', action: activeTiltAction, state: 'down' });
+      }
+    }
+  }
+
+  function startOrientation() {
+    if (!orientationListenerActive && window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', handleOrientation);
+      orientationListenerActive = true;
+    }
+  }
+
+  function toggleTilt() {
+    tiltEnabled = !tiltEnabled;
+    localStorage.setItem('arcade_tilt_enabled', tiltEnabled ? '1' : '0');
+    updateTiltUI();
+    vibrate(tiltEnabled ? [20, 30, 20] : 30);
+    if (tiltEnabled) {
+      startOrientation();
+      SoundChip.play('button');
+    } else {
+      clearTilt();
+    }
+  }
+
+  if (tiltToggle) {
+    tiltToggle.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      SoundChip.init();
+      if (
+        typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function'
+      ) {
+        DeviceOrientationEvent.requestPermission()
+          .then((resp) => {
+            if (resp === 'granted') toggleTilt();
+          })
+          .catch(() => toggleTilt());
+      } else {
+        toggleTilt();
+      }
+    });
+  }
+
+  if (tiltEnabled) {
+    startOrientation();
   }
 
   // ---------------- MULTI-TOUCH W3C POINTER EVENTS ----------------

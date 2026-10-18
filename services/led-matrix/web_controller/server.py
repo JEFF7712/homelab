@@ -12,48 +12,14 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 from modes.multiplayer.high_scores import HighScoreManager
+from modes.multiplayer.registry import GAME_REGISTRY
 
 from .controller_html import CONTROLLER_HTML
 
 logger = logging.getLogger("web_controller")
 
-GAMES_CONFIG = [
-    {
-        "id": "pong",
-        "name": "PONG 2P",
-        "badge": "1P / 2P",
-        "desc": "Classic arcade table tennis battle",
-        "supports_2p": True,
-    },
-    {
-        "id": "tron",
-        "name": "TRON CYCLES",
-        "badge": "1P / 2P",
-        "desc": "High-speed light trail survival arena",
-        "supports_2p": True,
-    },
-    {
-        "id": "snake",
-        "name": "SNAKE",
-        "badge": "1P SOLO",
-        "desc": "Eat glowing apples, grow longer, don't crash",
-        "supports_2p": False,
-    },
-    {
-        "id": "breakout",
-        "name": "BREAKOUT",
-        "badge": "1P SOLO",
-        "desc": "Smash all bricks with bouncing ball physics",
-        "supports_2p": False,
-    },
-    {
-        "id": "tetris",
-        "name": "TETRIS",
-        "badge": "1P SOLO",
-        "desc": "Classic falling block puzzle line clearing",
-        "supports_2p": False,
-    },
-]
+# Auto-discovered game configuration derived from GAME_REGISTRY
+GAMES_CONFIG = GAME_REGISTRY.get_games_config()
 
 
 class MultiplayerHub:
@@ -69,9 +35,11 @@ class MultiplayerHub:
         self.phase: str = "lobby"  # 'lobby', 'countdown', 'playing', 'gameover'
         self.countdown_remaining: float = 0.0
         self.selected_game_index: int = 0
-        self.selected_game: str = GAMES_CONFIG[0]["id"]
+        games = GAME_REGISTRY.get_games_config()
+        self.selected_game: str = games[0]["id"] if games else "pong"
         self.solo_vs_ai: bool = False
         self.matrix_view: str = "auto"  # 'auto', 'carousel', 'qr'
+
 
         # Active input state per player (keys currently held down)
         self.p1_inputs: set[str] = set()
@@ -282,9 +250,17 @@ class WebControllerServer:
         elif path == "/health":
             headers = Headers([("Content-Type", "application/json")])
             return Response(200, "OK", headers=headers, body=b'{"status":"healthy"}')
+        elif path == "/scores":
+            headers = Headers([
+                ("Content-Type", "application/json"),
+                ("Cache-Control", "no-cache"),
+            ])
+            body = json.dumps({"scores": self.hub.high_score_manager.get_all()}).encode("utf-8")
+            return Response(200, "OK", headers=headers, body=body)
         elif path == "/ws":
             return None  # Upgrade to WebSocket
         return Response(404, "Not Found", headers=Headers(), body=b"404 Not Found")
+
 
     async def handle_connection(self, ws: ServerConnection) -> None:
         role = self.hub.register_client(ws)
