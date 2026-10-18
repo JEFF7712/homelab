@@ -116,26 +116,42 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
   /* Gamepad Stage */
   .gamepad-stage {
+    --dpad-size: min(220px, calc(100dvh - 80px));
     width: 100%;
     height: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right));
+    gap: 12px;
+    padding: 0 16px;
   }
 
   /* Portrait mode: ergonomic lower-half positioning */
   @media (orientation: portrait) {
     .gamepad-stage {
+      --dpad-size: clamp(180px, calc(100vw - 140px), 220px);
       align-items: flex-end;
       padding-bottom: max(45px, env(safe-area-inset-bottom));
     }
+    .gamepad-stage .action-container {
+      flex-basis: 96px;
+      width: 96px;
+    }
+    .gamepad-stage .btn-round {
+      transform: none;
+    }
+    .gamepad-stage .btn-round.touch-active {
+      transform: scale(0.93);
+    }
+    .gamepad-stage .btn-a { right: 0; }
+    .gamepad-stage .btn-b { left: 0; }
   }
 
   /* ---------------- CLASSIC CROSS D-PAD (ENLARGED) ---------------- */
   .dpad-container {
-    width: 220px;
-    height: 220px;
+    flex: 0 0 var(--dpad-size);
+    width: var(--dpad-size);
+    height: var(--dpad-size);
     position: relative;
     touch-action: none !important;
   }
@@ -144,8 +160,8 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 210px;
-    height: 210px;
+    width: calc(100% - 10px);
+    height: calc(100% - 10px);
     pointer-events: none;
   }
   .dpad-wing {
@@ -171,42 +187,42 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
   .wing-up {
     top: 0;
-    left: 70px;
-    width: 70px;
-    height: 70px;
+    left: calc(100% / 3);
+    width: calc(100% / 3);
+    height: calc(100% / 3);
     border-radius: 12px 12px 0 0;
     border-bottom: none;
   }
   .wing-down {
     bottom: 0;
-    left: 70px;
-    width: 70px;
-    height: 70px;
+    left: calc(100% / 3);
+    width: calc(100% / 3);
+    height: calc(100% / 3);
     border-radius: 0 0 12px 12px;
     border-top: none;
   }
   .wing-left {
-    top: 70px;
+    top: calc(100% / 3);
     left: 0;
-    width: 70px;
-    height: 70px;
+    width: calc(100% / 3);
+    height: calc(100% / 3);
     border-radius: 12px 0 0 12px;
     border-right: none;
   }
   .wing-right {
-    top: 70px;
+    top: calc(100% / 3);
     right: 0;
-    width: 70px;
-    height: 70px;
+    width: calc(100% / 3);
+    height: calc(100% / 3);
     border-radius: 0 12px 12px 0;
     border-left: none;
   }
   .dpad-center {
     position: absolute;
-    top: 70px;
-    left: 70px;
-    width: 70px;
-    height: 70px;
+    top: calc(100% / 3);
+    left: calc(100% / 3);
+    width: calc(100% / 3);
+    height: calc(100% / 3);
     background: #17191f;
     border-radius: 50%;
     box-shadow: inset 0 4px 8px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.04);
@@ -215,6 +231,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
   /* ---------------- ACTION BUTTONS A & B (ENLARGED) ---------------- */
   .action-container {
+    flex: 0 0 220px;
     width: 220px;
     height: 220px;
     position: relative;
@@ -243,11 +260,11 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   }
   .btn-round.btn-b {
     bottom: 8px;
-    left: 6px;
+    left: 2px;
   }
   .btn-round.btn-a {
     top: 8px;
-    right: 6px;
+    right: 2px;
   }
   .btn-round.touch-active {
     background: radial-gradient(circle at 36% 30%, #7d1723 0%, #540b13 60%, #36060c 100%);
