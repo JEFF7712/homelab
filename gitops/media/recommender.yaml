@@ -1,0 +1,228 @@
+# Jellyfin AI Recommender (upstream jessepesse/jellyfin-ai-recommender).
+# Backend (Node/Express + Prisma/SQLite, port 3001) generates per-user
+# recommendations from Jellyfin history and pushes one-click requests to
+# Seerr. Frontend (nginx) serves the React UI and proxies /api/ and
+# /images/ to the backend Service. Media apps reach services in-cluster:
+# the frontend Service name `recommender-frontend` and backend
+# `recommender-backend` are referenced from the cloudflared ingress ConfigMap.
+#
+# Non-secret service URLs/config persist in the backend Settings UI
+# (SQLite), not in env; only the initial admin password bootstrap comes
+# from the media-app secret (rotation: Settings > Admin Account, then
+# update PROPERTY_RECOMMENDER_ADMIN_PASSWORD in GitLab + sops).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommender-backend
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: recommender-backend
+  template:
+    metadata:
+      labels:
+        app: recommender-backend
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: registry.rupan.dev/upstream/ghcr.io/jessepesse/jellyfin-ai-recommender-backend@sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b  # yamllint disable-line rule:line-length
+          # Upstream image runs as root (no USER directive); rootfs stays
+          # read-only with HOME redirected into writable tmp so the
+          # start.sh prisma steps do not write into the image layers.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+#            runAsUser: 1000
+          env:
+            - name: HOME
+              value: /tmp/home
+            - name: NPM_CONFIG_CACHE
+              value: /tmp/home/.npm
+            - name: DATA_DIR
+              value: /app/data
+            - name: IMAGE_DIR
+              value: /app/images
+            - name: DATABASE_URL
+              value: file:/app/data/dev.db
+            - name: PORT
+              value: "3001"
+            - name: INITIAL_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: media-app
+                  key: RECOMMENDER_ADMIN_PASSWORD
+          ports:
+            - containerPort: 3001
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: data
+              mountPath: /app/images
+              subPath: images
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 2Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: recommender-data
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommender-backend
+  namespace: media
+spec:
+  selector:
+    app: recommender-backend
+  ports:
+    - port: 80
+      targetPort: 3001
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recommender-frontend-nginx
+  namespace: media
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+            root /usr/share/nginx/html;
+            index index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+
+        location /api/ {
+            proxy_pass http://recommender-backend.media.svc.cluster.local:3001;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_read_timeout 180s;
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+
+        location /images/ {
+            proxy_pass http://recommender-backend.media.svc.cluster.local:3001/images/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            add_header Cache-Control "public, max-age=2592000";
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommender-frontend
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: recommender-frontend
+  template:
+    metadata:
+      labels:
+        app: recommender-frontend
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: registry.rupan.dev/upstream/ghcr.io/jessepesse/jellyfin-ai-recommender-frontend@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30  # yamllint disable-line rule:line-length
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: recommender-frontend-nginx
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommender-frontend
+  namespace: media
+spec:
+  selector:
+    app: recommender-frontend
+  ports:
+    - port: 80
+      targetPort: 80
