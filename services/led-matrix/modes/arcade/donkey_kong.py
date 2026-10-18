@@ -6,6 +6,7 @@ import math
 import random
 
 from PIL import Image, ImageDraw, ImageFont
+from modes.text_utils import draw_right_aligned_text
 
 from .base import ArcadeGame
 
@@ -245,7 +246,7 @@ class DonkeyKongGame(ArcadeGame):
 
         # Top HUD: Score & Donkey Kong title
         draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
-        draw.text((36, 0), "DK 1981", fill=(255, 120, 160), font=self.font)
+        draw_right_aligned_text(draw, "DK 1981", right_x=62, y=1, fill=(255, 120, 160), max_width=32, preferred_size=7)
 
         # Girders (Steel platforms in classic arcade red/magenta with depth shadow)
         girder_col = (225, 40, 80)

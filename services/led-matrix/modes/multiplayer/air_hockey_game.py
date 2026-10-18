@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import random
 from PIL import ImageDraw, ImageFont
+from modes.text_utils import draw_boxed_message
 
 from .base import MultiplayerGame
 from .registry import register_game
@@ -372,6 +373,12 @@ class AirHockeyGame(MultiplayerGame):
 
         # Game Over Banner
         if self.is_game_over():
-            draw.rectangle([6, 24, 57, 40], fill=(0, 0, 0), outline=(255, 215, 0))
             winner_text = "P1 WINS!" if self.winner == 1 else ("CPU WINS" if self.solo_vs_ai else "P2 WINS!")
-            draw.text((12, 27), winner_text, fill=(255, 220, 40), font=self.font)
+            draw_boxed_message(
+                draw,
+                title=winner_text,
+                rect=(4, 23, 59, 41),
+                bg_color=(10, 10, 16),
+                border_color=(255, 215, 0),
+                title_color=(255, 220, 40),
+            )

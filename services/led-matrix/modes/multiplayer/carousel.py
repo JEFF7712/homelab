@@ -6,6 +6,7 @@ import math
 from typing import TYPE_CHECKING
 
 from PIL import ImageDraw, ImageFont
+from modes.text_utils import draw_centered_text
 
 from .registry import GAME_REGISTRY
 
@@ -84,11 +85,19 @@ class CarouselRenderer:
             if icon_fn:
                 icon_fn(draw, card_cx, icon_y)
 
-            # Short title text below icon
+            # Short title text below icon (perfectly centered on card)
             title = item.get("short_title", "")
-            text_x = card_cx - len(title) * 2 - 2
             text_col = (255, 255, 255) if is_selected else (100, 115, 140)
-            draw.text((text_x, 35), title, fill=text_col, font=self.font)
+            draw_centered_text(
+                draw,
+                title,
+                cx=card_cx,
+                cy=38,
+                fill=text_col,
+                max_width=34,
+                preferred_size=8,
+                min_size=6,
+            )
 
         # 5. Carousel Position Dots at y=48
         safe_idx = self.hub.selected_game_index % len(items) if items else 0
@@ -100,7 +109,7 @@ class CarouselRenderer:
             else:
                 draw.point((dx, 48), fill=(40, 50, 75))
 
-        # 6. Mode Badge or High Score at y=52 (Alternating every ~2s)
+        # 6. Mode Badge or High Score at y=54 (Alternating every ~2s)
         if items:
             curr_item = items[safe_idx]
             hi_score = self.hub.get_high_score(curr_item["id"])
@@ -113,8 +122,16 @@ class CarouselRenderer:
                 display_text = curr_item["badge"]
                 display_col = curr_item["color"]
 
-            badge_x = 32 - len(display_text) * 2 - 2
-            draw.text((badge_x, 52), display_text, fill=display_col, font=self.font)
+            draw_centered_text(
+                draw,
+                display_text,
+                cx=32,
+                cy=55,
+                fill=display_col,
+                max_width=58,
+                preferred_size=8,
+                min_size=6,
+            )
 
         # 7. Bottom connection indicators (y=62..63)
         draw.rectangle(

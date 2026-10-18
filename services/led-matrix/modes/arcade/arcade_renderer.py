@@ -8,9 +8,11 @@ from PIL import Image, ImageDraw
 
 from modes.base import ModeRenderer, RenderContext
 
+from .asteroids import AsteroidsGame
 from .base import ArcadeGame
 from .breakout import BreakoutGame
 from .donkey_kong import DonkeyKongGame
+from .frogger import FroggerGame
 from .pacman import PacmanGame
 from .pong import PongGame
 from .snake import SnakeGame
@@ -28,6 +30,8 @@ class RetroArcadeRenderer(ModeRenderer):
             PacmanGame(),
             SpaceInvadersGame(),
             DonkeyKongGame(),
+            FroggerGame(),
+            AsteroidsGame(),
         ]
         self.cycle_interval = cycle_interval
         self.randomize = randomize
