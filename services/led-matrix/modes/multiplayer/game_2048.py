@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 from PIL import ImageDraw, ImageFont
+from modes.text_utils import draw_boxed_message
 
 from .base import MultiplayerGame
 from .registry import register_game
@@ -281,5 +282,11 @@ class Game2048(MultiplayerGame):
 
         # Game Over Banner
         if self.is_game_over():
-            draw.rectangle([6, 24, 57, 40], fill=(0, 0, 0), outline=(237, 194, 46))
-            draw.text((10, 27), "GAME OVER", fill=(255, 80, 80), font=self.font)
+            draw_boxed_message(
+                draw,
+                title="GAME OVER",
+                rect=(4, 23, 59, 41),
+                bg_color=(10, 10, 16),
+                border_color=(237, 194, 46),
+                title_color=(255, 80, 80),
+            )

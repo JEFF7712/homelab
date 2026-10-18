@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from PIL import ImageDraw, ImageFont
+from modes.text_utils import draw_boxed_message
 
 from .base import MultiplayerGame
 from .registry import register_game
@@ -196,5 +197,11 @@ class FlappyBirdGame(MultiplayerGame):
 
         # Game Over Banner
         if self.is_game_over():
-            draw.rectangle([6, 22, 57, 40], fill=(0, 0, 0), outline=(255, 210, 0))
-            draw.text((10, 26), "GAME OVER", fill=(255, 70, 70), font=self.font)
+            draw_boxed_message(
+                draw,
+                title="GAME OVER",
+                rect=(4, 23, 59, 41),
+                bg_color=(10, 10, 16),
+                border_color=(255, 210, 0),
+                title_color=(255, 70, 70),
+            )

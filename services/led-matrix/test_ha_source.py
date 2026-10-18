@@ -1042,6 +1042,8 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertIn("PAC-MAN", names)
         self.assertIn("SPACE INVADERS", names)
         self.assertIn("DONKEY KONG", names)
+        self.assertIn("FROGGER", names)
+        self.assertIn("ASTEROIDS", names)
         self.assertNotIn("DUNGEON", names)
 
     def test_tetris_ai_stacks_pieces(self) -> None:
@@ -1086,6 +1088,28 @@ class HubModeAndRendererTests(unittest.TestCase):
             positions.add((round(game.mario_x, 1), round(game.mario_y, 1)))
         # Mario should run along girders
         self.assertGreater(len(positions), 1)
+
+    def test_frogger_sim(self) -> None:
+        from modes.arcade import FroggerGame
+
+        game = FroggerGame()
+        positions = set()
+        for _ in range(80):
+            game.update(0.05)
+            positions.add((round(game.frog_x, 1), round(game.frog_y, 1)))
+        # Autonomous frog should navigate across lanes
+        self.assertGreater(len(positions), 1)
+
+    def test_asteroids_ai_sim(self) -> None:
+        from modes.arcade import AsteroidsGame
+
+        game = AsteroidsGame()
+        initial_rocks = len(game.asteroids)
+        for _ in range(100):
+            game.update(0.04)
+        # Simulation runs smoothly with active ship and asteroids
+        self.assertGreaterEqual(len(game.asteroids), 1)
+        self.assertGreaterEqual(game.score, 0)
 
     def test_multiplayer_tron_event_queue(self) -> None:
         from modes.multiplayer import Tron2P

@@ -121,21 +121,21 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 max(28px, env(safe-area-inset-left)) 0 max(28px, env(safe-area-inset-right));
+    padding: 0 max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right));
   }
 
   /* Portrait mode: ergonomic lower-half positioning */
   @media (orientation: portrait) {
     .gamepad-stage {
       align-items: flex-end;
-      padding-bottom: max(60px, env(safe-area-inset-bottom));
+      padding-bottom: max(45px, env(safe-area-inset-bottom));
     }
   }
 
-  /* ---------------- CLASSIC CROSS D-PAD ---------------- */
+  /* ---------------- CLASSIC CROSS D-PAD (ENLARGED) ---------------- */
   .dpad-container {
-    width: 176px;
-    height: 176px;
+    width: 220px;
+    height: 220px;
     position: relative;
     touch-action: none !important;
   }
@@ -144,92 +144,92 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 168px;
-    height: 168px;
+    width: 210px;
+    height: 210px;
     pointer-events: none;
   }
   .dpad-wing {
     position: absolute;
     background: #252830;
-    border: 2.5px solid #17191f;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.65), inset 0 1px 1px rgba(255,255,255,0.08);
+    border: 3px solid #17191f;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.68), inset 0 1px 1px rgba(255,255,255,0.09);
     display: flex;
     justify-content: center;
     align-items: center;
     color: #4b5568;
-    font-size: 15px;
+    font-size: 20px;
     font-weight: 900;
     pointer-events: none;
     transition: background 0.05s, transform 0.05s, box-shadow 0.05s, color 0.05s;
   }
   .dpad-wing.touch-active {
     background: #14161c;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.8), inset 0 2px 6px rgba(0,0,0,0.95);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.85), inset 0 2px 7px rgba(0,0,0,0.95);
     color: #9cb3d6;
     transform: scale(0.96);
   }
 
   .wing-up {
     top: 0;
-    left: 55px;
-    width: 58px;
-    height: 58px;
-    border-radius: 10px 10px 0 0;
+    left: 70px;
+    width: 70px;
+    height: 70px;
+    border-radius: 12px 12px 0 0;
     border-bottom: none;
   }
   .wing-down {
     bottom: 0;
-    left: 55px;
-    width: 58px;
-    height: 58px;
-    border-radius: 0 0 10px 10px;
+    left: 70px;
+    width: 70px;
+    height: 70px;
+    border-radius: 0 0 12px 12px;
     border-top: none;
   }
   .wing-left {
-    top: 55px;
+    top: 70px;
     left: 0;
-    width: 58px;
-    height: 58px;
-    border-radius: 10px 0 0 10px;
+    width: 70px;
+    height: 70px;
+    border-radius: 12px 0 0 12px;
     border-right: none;
   }
   .wing-right {
-    top: 55px;
+    top: 70px;
     right: 0;
-    width: 58px;
-    height: 58px;
-    border-radius: 0 10px 10px 0;
+    width: 70px;
+    height: 70px;
+    border-radius: 0 12px 12px 0;
     border-left: none;
   }
   .dpad-center {
     position: absolute;
-    top: 55px;
-    left: 55px;
-    width: 58px;
-    height: 58px;
+    top: 70px;
+    left: 70px;
+    width: 70px;
+    height: 70px;
     background: #17191f;
     border-radius: 50%;
-    box-shadow: inset 0 3px 6px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.04);
+    box-shadow: inset 0 4px 8px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.04);
     pointer-events: none;
   }
 
-  /* ---------------- ACTION BUTTONS A & B ---------------- */
+  /* ---------------- ACTION BUTTONS A & B (ENLARGED) ---------------- */
   .action-container {
-    width: 176px;
-    height: 176px;
+    width: 220px;
+    height: 220px;
     position: relative;
     touch-action: none !important;
   }
   .btn-round {
-    width: 78px;
-    height: 78px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     position: absolute;
     background: radial-gradient(circle at 36% 30%, #a82433 0%, #7e1723 58%, #520b13 100%);
-    border: 3.5px solid #36060c;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.7), inset 0 2px 3px rgba(255,255,255,0.25), inset 0 -3px 4px rgba(0,0,0,0.5);
+    border: 4px solid #36060c;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.75), inset 0 2px 3px rgba(255,255,255,0.25), inset 0 -4px 5px rgba(0,0,0,0.55);
     color: #ffffff;
-    font-size: 28px;
+    font-size: 34px;
     font-weight: 800;
     letter-spacing: -0.5px;
     display: flex;
@@ -237,21 +237,21 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     align-items: center;
     cursor: pointer;
     touch-action: none !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     transform: rotate(-12deg);
     transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
   }
   .btn-round.btn-b {
     bottom: 8px;
-    left: 8px;
+    left: 6px;
   }
   .btn-round.btn-a {
     top: 8px;
-    right: 8px;
+    right: 6px;
   }
   .btn-round.touch-active {
     background: radial-gradient(circle at 36% 30%, #7d1723 0%, #540b13 60%, #36060c 100%);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.8), inset 0 3px 6px rgba(0,0,0,0.9);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.85), inset 0 4px 8px rgba(0,0,0,0.92);
     transform: rotate(-12deg) scale(0.93);
   }
 </style>
@@ -711,8 +711,8 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     const dy = clientY - cy;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Deadzone in the center dish (~22px)
-    if (dist < 22) {
+    // Deadzone in the center dish (~26px)
+    if (dist < 26) {
       setDpadAction(null);
       return;
     }

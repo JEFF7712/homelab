@@ -4,6 +4,7 @@ import math
 import random
 
 from PIL import ImageDraw, ImageFont
+from modes.text_utils import draw_boxed_message
 from web_controller.server import MultiplayerHub
 
 
@@ -175,22 +176,32 @@ class LobbyRenderer:
         if new_high:
             gold_pulse = int(180 + 75 * math.sin(self.blink_timer * 12.0))
             border_col = (255, gold_pulse, 0)
-            draw.rectangle([4, 15, 59, 48], fill=(20, 18, 10), outline=border_col, width=2)
-            title = "NEW HIGH!"
-            tx = 32 - len(title) * 2 - 2
-            draw.text((tx, 20), title, fill=(255, 225, 50), font=self.font)
-
             hi_str = f"HI: {high_score}"
-            hx = 32 - len(hi_str) * 2 - 2
-            draw.text((hx, 33), hi_str, fill=(255, 255, 255), font=self.font)
+            draw_boxed_message(
+                draw,
+                title="NEW HIGH!",
+                subtitle=hi_str,
+                rect=(4, 16, 59, 47),
+                bg_color=(20, 18, 10),
+                border_color=border_col,
+                title_color=(255, 225, 50),
+                sub_color=(255, 255, 255),
+                border_width=2,
+            )
 
         elif is_solo:
-            draw.rectangle([6, 17, 57, 46], fill=(16, 12, 16), outline=(255, 60, 60), width=2)
-            draw.text((8, 22), "GAME OVER", fill=(255, 80, 80), font=self.font)
-            if high_score > 0:
-                hi_str = f"HI: {high_score}"
-                hx = 32 - len(hi_str) * 2 - 2
-                draw.text((hx, 33), hi_str, fill=(255, 215, 0), font=self.font)
+            hi_str = f"HI: {high_score}" if high_score > 0 else None
+            draw_boxed_message(
+                draw,
+                title="GAME OVER",
+                subtitle=hi_str,
+                rect=(4, 16, 59, 47),
+                bg_color=(16, 12, 16),
+                border_color=(255, 60, 60),
+                title_color=(255, 80, 80),
+                sub_color=(255, 215, 0),
+                border_width=2,
+            )
 
         else:
             col = (0, 229, 255) if winner == 1 else (255, 145, 0)
