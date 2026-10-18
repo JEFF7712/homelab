@@ -219,7 +219,7 @@ def main() -> None:
     }
 
     cache = ArtworkCache(source)
-    streamer = TCPMatrixStreamer(args.pico_ip, args.port)
+    streamer = TCPMatrixStreamer(args.pico_ip, args.port, max_in_flight=4)
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
@@ -315,8 +315,8 @@ def main() -> None:
             frame = renderer.render(ctx, size=64)
 
             effective_brightness = 0.0 if active_mode == "Off" else brightness
-            if streamer.send_frame(frame, brightness=effective_brightness):
-                last_ack = time.monotonic()
+            streamer.send_frame(frame, brightness=effective_brightness)
+            last_ack = streamer.last_ack
             max_frame_ms = max(max_frame_ms, (time.monotonic() - tick) * 1000)
 
             if args.health_file and tick - last_health >= 2:
@@ -333,6 +333,7 @@ def main() -> None:
                             "artwork_ready": art is not None,
                             "frames": streamer.frames,
                             "failures": streamer.failures,
+                            "max_frame_ms": round(max_frame_ms, 2),
                             "provider": getattr(
                                 source, "active_provider", "home_assistant"
                             ),

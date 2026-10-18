@@ -2416,10 +2416,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "modes-20261018-physics-registry",
-        "retention-candidate-9f2e5ca91f9f5fc3"
+        "modes-20261018-smooth",
+        "retention-candidate-7f3fc2d1b9c81278"
       ],
-      "digest": "sha256:9f2e5ca91f9f5fc32a55af57c10ebdc20cdb2187d840d2c40c4ad60dcfb21281",
+      "digest": "sha256:7f3fc2d1b9c812780383ce0cd0960b93b5c931c0005a269ca3e0fdce3c168ac8",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2429,9 +2429,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "modes-20261018-physics-registry",
-        "digest": "sha256:9f2e5ca91f9f5fc32a55af57c10ebdc20cdb2187d840d2c40c4ad60dcfb21281",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261018-physics-registry@sha256:9f2e5ca91f9f5fc32a55af57c10ebdc20cdb2187d840d2c40c4ad60dcfb21281"
+        "tag": "modes-20261018-smooth",
+        "digest": "sha256:7f3fc2d1b9c812780383ce0cd0960b93b5c931c0005a269ca3e0fdce3c168ac8",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261018-smooth@sha256:7f3fc2d1b9c812780383ce0cd0960b93b5c931c0005a269ca3e0fdce3c168ac8"
       }
 
     }
