@@ -4884,10 +4884,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "arcade-quality-20261018",
-        "retention-candidate-756249cc2b38374b"
+        "arcade-more-classics-20261018",
+        "retention-candidate-056e75086bf67543"
       ],
-      "digest": "sha256:756249cc2b38374b09ac959bf3cb91f09da7bc56a720c9563994094813d14be8",
+      "digest": "sha256:056e75086bf6754381a53b3a04215f23b9696fe819f1c4966410faa8f7fc60eb",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -4897,9 +4897,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "arcade-quality-20261018",
-        "digest": "sha256:756249cc2b38374b09ac959bf3cb91f09da7bc56a720c9563994094813d14be8",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-quality-20261018@sha256:756249cc2b38374b09ac959bf3cb91f09da7bc56a720c9563994094813d14be8"
+        "tag": "arcade-more-classics-20261018",
+        "digest": "sha256:056e75086bf6754381a53b3a04215f23b9696fe819f1c4966410faa8f7fc60eb",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-more-classics-20261018@sha256:056e75086bf6754381a53b3a04215f23b9696fe819f1c4966410faa8f7fc60eb"
       },
 
       "media_type": "application/vnd.docker.distribution.manifest.v2+json",

@@ -1847,6 +1847,70 @@ class HubModeAndRendererTests(unittest.TestCase):
                     self.assertLess(game.p2_pos[0], 64)
                     self.assertGreaterEqual(game.p2_pos[1], 0)
                     self.assertLess(game.p2_pos[1], 64)
+                elif spec.id == "air_hockey":
+                    # Mallets clamped inside their respective rink halves
+                    self.assertGreaterEqual(game.p1_x, game.RINK_L + game.MALLET_R - 0.1)
+                    self.assertLessEqual(game.p1_x, 29.0 - game.MALLET_R + 0.1)
+                    self.assertGreaterEqual(game.p2_x, 34.0 + game.MALLET_R - 0.1)
+                    self.assertLessEqual(game.p2_x, game.RINK_R - game.MALLET_R + 0.1)
+                elif spec.id == "asteroids":
+                    # Coordinates wrap within 64x64 canvas
+                    self.assertGreaterEqual(game.ship_x, 0.0)
+                    self.assertLess(game.ship_x, 64.0)
+                    self.assertGreaterEqual(game.ship_y, 0.0)
+                    self.assertLess(game.ship_y, 64.0)
+                elif spec.id == "flappy":
+                    # Bird stays clamped in flight zone
+                    self.assertEqual(game.bird_x, 16.0)
+                    self.assertGreaterEqual(game.bird_y, 0.0)
+                    self.assertLessEqual(game.bird_y, game.GROUND_Y)
+                elif spec.id == "2048":
+                    # Grid remains 4x4
+                    self.assertEqual(len(game.grid), 4)
+                    self.assertTrue(all(len(row) == 4 for row in game.grid))
+
+    def test_classic_arcade_new_games_mechanics(self) -> None:
+        from modes.multiplayer import AirHockeyGame, AsteroidsGame, FlappyBirdGame, Game2048
+
+        # 1. Air Hockey puck bounce & goal mechanics
+        hockey = AirHockeyGame(solo_vs_ai=True)
+        self.assertEqual(hockey.p1_score, 0)
+        self.assertEqual(hockey.p2_score, 0)
+        # Position puck right in front of right goal moving right
+        hockey.puck_x = 59.0
+        hockey.puck_y = 31.0
+        hockey.puck_vx = 30.0
+        hockey.puck_vy = 0.0
+        hockey.update(0.02, set(), set())
+        # Goal scored by P1!
+        self.assertEqual(hockey.p1_score, 1)
+
+        # 2. Asteroids bullet fire and splitting
+        asteroids = AsteroidsGame()
+        asteroids.cooldown = 0.0
+        # Fire bullet with action_a
+        asteroids.update(0.016, {"action_a"}, set())
+        self.assertGreater(len(asteroids.bullets), 0)
+
+        # 3. Flappy Bird flap and jump impulse
+        flappy = FlappyBirdGame()
+        flappy.update(0.016, {"action_a"}, set())
+        self.assertAlmostEqual(flappy.bird_vy, flappy.FLAP_IMPULSE + flappy.GRAVITY * 0.016, places=2)
+
+        # 4. 2048 slide left and merge
+        g2048 = Game2048()
+        g2048.grid = [
+            [2, 2, 0, 0],
+            [4, 0, 4, 0],
+            [0, 0, 0, 0],
+            [8, 8, 8, 8],
+        ]
+        moved, earned, _ = g2048._apply_move("left")
+        self.assertTrue(moved)
+        self.assertEqual(g2048.grid[0], [4, 0, 0, 0])
+        self.assertEqual(g2048.grid[1], [8, 0, 0, 0])
+        self.assertEqual(g2048.grid[3], [16, 16, 0, 0])
+        self.assertEqual(earned, 4 + 8 + 32)
 
 
 if __name__ == "__main__":

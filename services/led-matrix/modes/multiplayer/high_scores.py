@@ -16,6 +16,10 @@ DEFAULT_SCORES: dict[str, int] = {
     "breakout": 0,
     "pong": 0,
     "tron": 0,
+    "air_hockey": 0,
+    "asteroids": 0,
+    "flappy": 0,
+    "2048": 0,
 }
 
 
