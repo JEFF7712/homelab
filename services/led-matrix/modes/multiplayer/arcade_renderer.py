@@ -31,6 +31,9 @@ class MultiplayerArcadeRenderer(ModeRenderer):
         self.last_update = time.time()
         self.status_broadcast_timer = 0.0
         self._lock = threading.RLock()
+        self.countdown_pip = 4
+        self.is_new_high = False
+        self.best_score = 0
 
         # Wire up hub callbacks
         self.hub.on_start_game = self._on_start_game
@@ -49,15 +52,26 @@ class MultiplayerArcadeRenderer(ModeRenderer):
                 self.active_game = InteractiveTetris()
             else:
                 self.active_game = Pong2P(solo_vs_ai=solo)
+
+            if self.active_game:
+                self.active_game.sfx_callback = self.hub.play_sfx
+
+            self.countdown_pip = 4
+            self.is_new_high = False
+            self.best_score = self.hub.get_high_score(game_name)
             self.hub.phase = "countdown"
             self.hub.countdown_remaining = 3.0
 
     def _on_rematch(self) -> None:
         with self._lock:
             if self.active_game:
+                self.active_game.sfx_callback = self.hub.play_sfx
                 self.active_game.reset()
             else:
                 self._on_start_game(self.hub.selected_game, self.hub.solo_vs_ai)
+            self.countdown_pip = 4
+            self.is_new_high = False
+            self.best_score = self.hub.get_high_score(self.hub.selected_game)
             self.hub.phase = "countdown"
             self.hub.countdown_remaining = 3.0
 
@@ -65,6 +79,8 @@ class MultiplayerArcadeRenderer(ModeRenderer):
         with self._lock:
             self.active_game = None
             self.hub.phase = "lobby"
+            self.hub.play_sfx("button")
+
 
     def reset(self) -> None:
         with self._lock:
@@ -93,8 +109,13 @@ class MultiplayerArcadeRenderer(ModeRenderer):
             elif phase == "countdown":
                 self.hub.countdown_remaining -= dt
                 count = math.ceil(self.hub.countdown_remaining)
+                if count != self.countdown_pip and count > 0:
+                    self.countdown_pip = count
+                    self.hub.play_sfx("pip")
+
                 if self.hub.countdown_remaining <= 0:
                     self.hub.phase = "playing"
+                    self.hub.play_sfx("start")
                     if game:
                         game.reset()
                 else:
@@ -145,11 +166,22 @@ class MultiplayerArcadeRenderer(ModeRenderer):
                         status_text = game.get_status_text()
                     except Exception:  # noqa: BLE001, S110
                         pass
+
+                    final_score = game.get_final_score()
+                    is_new, best = self.hub.record_game_score(self.hub.selected_game, final_score)
+                    self.is_new_high = is_new
+                    self.best_score = best
+                    if is_new:
+                        self.hub.play_sfx("high_score")
+
                     self.hub.broadcast_sync({
                         "type": "game_over",
                         "winner": winner,
                         "winner_text": winner_text,
                         "score_text": status_text,
+                        "score": final_score,
+                        "high_score": best,
+                        "new_high": is_new,
                     })
 
             elif phase == "gameover":
@@ -165,7 +197,13 @@ class MultiplayerArcadeRenderer(ModeRenderer):
                     except Exception:  # noqa: BLE001, S110
                         pass
                 self.lobby.render_game_over(
-                    draw, winner, is_solo=is_solo, score_text=score_text
+                    draw,
+                    winner,
+                    is_solo=is_solo,
+                    score_text=score_text,
+                    new_high=self.is_new_high,
+                    high_score=self.best_score,
                 )
 
         return image
+

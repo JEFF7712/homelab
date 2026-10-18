@@ -90,8 +90,12 @@ class InteractiveTetris(MultiplayerGame):
         # If spawn position collides immediately, game over!
         if self._collide(self.piece_matrix, self.piece_x, self.piece_y):
             self.winner = 1
+            self.play_sfx("game_over")
             return False
         return True
+
+    def get_final_score(self) -> int:
+        return self.score
 
     def _collide(self, matrix: list[list[int]], px: int, py: int) -> bool:
         for cx, cy in _cells(matrix):
@@ -123,8 +127,14 @@ class InteractiveTetris(MultiplayerGame):
             self.lines += count
             pts = {1: 100, 2: 300, 3: 500, 4: 800}.get(count, count * 200)
             self.score += pts
+            if count >= 4:
+                self.play_sfx("tetris")
+            else:
+                self.play_sfx("line_clear")
         else:
+            self.play_sfx("lock")
             self._spawn()
+
 
     def update(
         self,
@@ -159,21 +169,26 @@ class InteractiveTetris(MultiplayerGame):
                         self.piece_matrix, self.piece_x - 1, self.piece_y
                     ):
                         self.piece_x -= 1
+                        self.play_sfx("move")
                 elif ev == "right":
                     if not self._collide(
                         self.piece_matrix, self.piece_x + 1, self.piece_y
                     ):
                         self.piece_x += 1
+                        self.play_sfx("move")
                 elif ev in ("up", "rotate", "action_a"):
                     rotated = _rotate(self.piece_matrix)
                     if not self._collide(rotated, self.piece_x, self.piece_y):
                         self.piece_matrix = rotated
+                        self.play_sfx("rotate")
                     elif not self._collide(rotated, self.piece_x - 1, self.piece_y):
                         self.piece_x -= 1
                         self.piece_matrix = rotated
+                        self.play_sfx("rotate")
                     elif not self._collide(rotated, self.piece_x + 1, self.piece_y):
                         self.piece_x += 1
                         self.piece_matrix = rotated
+                        self.play_sfx("rotate")
                 elif ev in ("drop", "hard_drop", "action_b"):
                     # Hard drop
                     while not self._collide(
@@ -181,6 +196,7 @@ class InteractiveTetris(MultiplayerGame):
                     ):
                         self.piece_y += 1
                     self.score += 4
+                    self.play_sfx("drop")
                     self._lock_piece()
                     return
                 elif ev == "down" and not self._collide(
@@ -189,6 +205,8 @@ class InteractiveTetris(MultiplayerGame):
                     # Soft drop
                     self.piece_y += 1
                     self.score += 1
+                    self.play_sfx("drop")
+
 
         # Fall timer (accelerates with lines cleared)
         speed = max(0.12, self.fall_interval - (self.lines // 5) * 0.04)

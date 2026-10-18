@@ -3,8 +3,9 @@
 import math
 import random
 
-from PIL import ImageDraw
+from PIL import ImageDraw, ImageFont
 from web_controller.server import MultiplayerHub
+
 
 from .carousel import CarouselRenderer
 
@@ -44,8 +45,10 @@ class LobbyRenderer:
     def __init__(self, hub: MultiplayerHub) -> None:
         self.hub = hub
         self.carousel = CarouselRenderer(hub)
+        self.font = ImageFont.load_default(size=9)
         self.blink_timer = 0.0
         self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
+
 
     def update(self, dt: float) -> None:
         self.blink_timer = (self.blink_timer + dt) % 2.0
@@ -133,18 +136,33 @@ class LobbyRenderer:
             # "GO"
             self._draw_go(draw, 20, 24, (255, 255, 255))
 
-    def render_game_over(self, draw: ImageDraw.ImageDraw, winner: int, is_solo: bool = False, score_text: str = "") -> None:
-        """Render victory or game-over screen with celebratory sparks."""
+    def render_game_over(
+
+        self,
+        draw: ImageDraw.ImageDraw,
+        winner: int,
+        is_solo: bool = False,
+        score_text: str = "",
+        new_high: bool = False,
+        high_score: int = 0,
+    ) -> None:
+        """Render victory or game-over screen with celebratory sparks and high-score badge."""
         draw.rectangle([0, 0, 63, 63], fill=(5, 5, 12))
 
-        # Periodically spawn confetti
-        if random.random() < 0.4:
-            col = (0, 229, 255) if winner == 1 else (255, 145, 0)
+        # Periodically spawn confetti (gold for new high score, player color otherwise)
+        if random.random() < 0.5:
+            if new_high:
+                col = (255, random.choice([215, 240, 180]), random.choice([0, 50, 120]))
+            elif is_solo:
+                col = (255, 80, 80)
+            else:
+                col = (0, 229, 255) if winner == 1 else (255, 145, 0)
+
             self.particles.append((
-                random.uniform(10, 54),
+                random.uniform(8, 56),
                 random.uniform(5, 55),
-                random.uniform(-20, 20),
-                random.uniform(-20, 20),
+                random.uniform(-25, 25),
+                random.uniform(-25, 25),
                 col,
                 random.uniform(0.3, 0.8),
             ))
@@ -153,17 +171,35 @@ class LobbyRenderer:
             if 0 <= px < 64 and 0 <= py < 64:
                 draw.point((int(px), int(py)), fill=col)
 
-        # Winner Banner
-        col = (0, 229, 255) if winner == 1 else (255, 145, 0)
-        draw.rectangle([6, 18, 57, 45], fill=(12, 12, 24), outline=col, width=2)
+        # Winner / Record Banner
+        if new_high:
+            gold_pulse = int(180 + 75 * math.sin(self.blink_timer * 12.0))
+            border_col = (255, gold_pulse, 0)
+            draw.rectangle([4, 15, 59, 48], fill=(20, 18, 10), outline=border_col, width=2)
+            title = "NEW HIGH!"
+            tx = 32 - len(title) * 2 - 2
+            draw.text((tx, 20), title, fill=(255, 225, 50), font=self.font)
 
-        # Draw "GAME OVER" or "P1 WIN" or "P2 WIN"
-        if is_solo:
-            draw.text((10, 26), "GAME OVER", fill=(255, 80, 80))
-        elif winner == 1:
-            self._draw_p1_win(draw, 14, 26, col)
+            hi_str = f"HI: {high_score}"
+            hx = 32 - len(hi_str) * 2 - 2
+            draw.text((hx, 33), hi_str, fill=(255, 255, 255), font=self.font)
+
+        elif is_solo:
+            draw.rectangle([6, 17, 57, 46], fill=(16, 12, 16), outline=(255, 60, 60), width=2)
+            draw.text((8, 22), "GAME OVER", fill=(255, 80, 80), font=self.font)
+            if high_score > 0:
+                hi_str = f"HI: {high_score}"
+                hx = 32 - len(hi_str) * 2 - 2
+                draw.text((hx, 33), hi_str, fill=(255, 215, 0), font=self.font)
+
         else:
-            self._draw_p2_win(draw, 14, 26, col)
+            col = (0, 229, 255) if winner == 1 else (255, 145, 0)
+            draw.rectangle([6, 18, 57, 45], fill=(12, 12, 24), outline=col, width=2)
+            if winner == 1:
+                self._draw_p1_win(draw, 14, 26, col)
+            else:
+                self._draw_p2_win(draw, 14, 26, col)
+
 
     def _draw_big_3(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
         bitmap = [

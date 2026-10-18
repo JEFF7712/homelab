@@ -173,9 +173,17 @@ class Tron2P(MultiplayerGame):
         # Pick random safe direction
         self.p2_next_dir = random.choice(safe_dirs)
 
+    def get_final_score(self) -> int:
+        return self.p1_rounds
+
     def _step_cycles(self) -> None:
+        p1_turned = self.p1_dir != self.p1_next_dir
+        p2_turned = self.p2_dir != self.p2_next_dir
         self.p1_dir = self.p1_next_dir
         self.p2_dir = self.p2_next_dir
+
+        if p1_turned or p2_turned:
+            self.play_sfx("turn")
 
         p1_dx, p1_dy = DIR_VECTORS[self.p1_dir]
         p2_dx, p2_dy = DIR_VECTORS[self.p2_dir]
@@ -188,6 +196,7 @@ class Tron2P(MultiplayerGame):
             self.p1_crashed = True
             self.p2_crashed = True
             self._explode(next_p1[0], next_p1[1], (255, 255, 255))
+            self.play_sfx("crash")
             self.round_delay = 1.5
             return
 
@@ -206,16 +215,19 @@ class Tron2P(MultiplayerGame):
             self.p2_crashed = True
             self._explode(next_p1[0], next_p1[1], (0, 229, 255))
             self._explode(next_p2[0], next_p2[1], (255, 145, 0))
+            self.play_sfx("crash")
             self.round_delay = 1.5
         elif p1_hit:
             self.p1_crashed = True
             self.p2_rounds += 1
             self._explode(next_p1[0], next_p1[1], (0, 229, 255))
+            self.play_sfx("crash")
             self.round_delay = 1.5
         elif p2_hit:
             self.p2_crashed = True
             self.p1_rounds += 1
             self._explode(next_p2[0], next_p2[1], (255, 145, 0))
+            self.play_sfx("crash")
             self.round_delay = 1.5
         else:
             # Move both cycles forward and lay trails
@@ -223,6 +235,7 @@ class Tron2P(MultiplayerGame):
             self.p2_pos = next_p2
             self.grid[self.p1_pos[1], self.p1_pos[0]] = 1
             self.grid[self.p2_pos[1], self.p2_pos[0]] = 2
+
 
     def _explode(self, x: int, y: int, color: tuple[int, int, int]) -> None:
         for _ in range(24):

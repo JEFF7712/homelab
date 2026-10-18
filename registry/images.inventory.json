@@ -2416,10 +2416,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "controller-pointer-20261017",
-        "retention-candidate-4e7b9b338a10c85a"
+        "arcade-sfx-hiscore-20261017",
+        "retention-candidate-d57006576c9e33a1"
       ],
-      "digest": "sha256:4e7b9b338a10c85a8d110ac41bddd4cf45800e629959db117c0dccf9b6648fbb",
+      "digest": "sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2429,10 +2429,11 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "controller-pointer-20261017",
-        "digest": "sha256:4e7b9b338a10c85a8d110ac41bddd4cf45800e629959db117c0dccf9b6648fbb",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:controller-pointer-20261017@sha256:4e7b9b338a10c85a8d110ac41bddd4cf45800e629959db117c0dccf9b6648fbb"
+        "tag": "arcade-sfx-hiscore-20261017",
+        "digest": "sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-sfx-hiscore-20261017@sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3"
       }
+
     }
   ],
   "kind": "registry-inventory",
