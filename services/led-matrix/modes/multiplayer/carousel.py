@@ -39,15 +39,7 @@ class CarouselRenderer:
         # 1. Dark arcade cabinet background
         draw.rectangle([0, 0, 63, 63], fill=(6, 8, 16))
 
-        # 2. Top Header Bar (y=0..9)
-        draw.rectangle([0, 0, 63, 9], fill=(12, 16, 28))
-        draw.line([(0, 9), (63, 9)], fill=(40, 55, 85))
-
-        # Title: "SELECT GAME"
-        pulse = int(190 + 55 * math.sin(self.anim_timer * 4.0))
-        draw.text((6, 0), "SELECT GAME", fill=(pulse, pulse, 255), font=self.font)
-
-        # 3. Side Navigation Arrows
+        # 2. Side Navigation Arrows
         arrow_pulse = int(140 + 90 * math.sin(self.anim_timer * 6.0))
         arrow_col = (0, arrow_pulse, arrow_pulse)
 

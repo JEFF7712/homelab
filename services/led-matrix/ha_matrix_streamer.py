@@ -204,14 +204,19 @@ def main() -> None:
     ledfx_mode = LedFxRenderer(receiver=ledfx_receiver, fallback_renderer=visualizer)
     prometheus = PrometheusSource(args.prometheus_url)
 
+    retro_arcade_renderer = RetroArcadeRenderer()
+    multiplayer_renderer = MultiplayerArcadeRenderer(multiplayer_hub)
+
     renderers = {
         "Off": BlankRenderer(),
         "Spotify": SpotifyVinylRenderer(),
         "Clock & Weather": ClockWeatherRenderer(),
         "Night Clock": NightClockRenderer(),
-        "Retro Arcade": RetroArcadeRenderer(),
+        "AI Arcade": retro_arcade_renderer,
+        "Retro Arcade": retro_arcade_renderer,
         "Game of Life": LifeRenderer(),
-        "2-Player Arcade": MultiplayerArcadeRenderer(multiplayer_hub),
+        "Arcade": multiplayer_renderer,
+        "2-Player Arcade": multiplayer_renderer,
         "Visualizer": visualizer,
         "LedFx": ledfx_mode,
         "Physics": PhysicsRenderer(),
