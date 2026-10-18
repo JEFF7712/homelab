@@ -167,11 +167,23 @@ class MultiplayerHub:
     def handle_input(self, player: int, action: str, state: str) -> None:
         target_inputs = self.p1_inputs if player == 1 else self.p2_inputs
         target_events = self.p1_events if player == 1 else self.p2_events
+        actions = [action]
+        if action == "action_a":
+            actions.append("a")
+        elif action == "a":
+            actions.append("action_a")
+        elif action == "action_b":
+            actions.append("b")
+        elif action == "b":
+            actions.append("action_b")
+
         if state == "down":
-            target_inputs.add(action)
-            target_events.append(action)
+            for a in actions:
+                target_inputs.add(a)
+                target_events.append(a)
         elif state == "up":
-            target_inputs.discard(action)
+            for a in actions:
+                target_inputs.discard(a)
 
     def consume_events(self, player: int) -> list[str]:
         target_events = self.p1_events if player == 1 else self.p2_events

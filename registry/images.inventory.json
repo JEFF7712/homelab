@@ -2416,10 +2416,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "controller-retro-20261017",
-        "retention-candidate-e9ae2ec1bda04968"
+        "controller-minimal-20261017",
+        "retention-candidate-1ce18a80a8183e44"
       ],
-      "digest": "sha256:e9ae2ec1bda04968f6c6e7cf13b5709fa38bd39a8f91a5ecc8b7a85f9f3234b0",
+      "digest": "sha256:1ce18a80a8183e44ad2e4536ffc88fb5096a3d100ed86aa309a283e556c9fdc8",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2429,9 +2429,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "controller-retro-20261017",
-        "digest": "sha256:e9ae2ec1bda04968f6c6e7cf13b5709fa38bd39a8f91a5ecc8b7a85f9f3234b0",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:controller-retro-20261017@sha256:e9ae2ec1bda04968f6c6e7cf13b5709fa38bd39a8f91a5ecc8b7a85f9f3234b0"
+        "tag": "controller-minimal-20261017",
+        "digest": "sha256:1ce18a80a8183e44ad2e4536ffc88fb5096a3d100ed86aa309a283e556c9fdc8",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:controller-minimal-20261017@sha256:1ce18a80a8183e44ad2e4536ffc88fb5096a3d100ed86aa309a283e556c9fdc8"
       }
     }
   ],
