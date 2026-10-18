@@ -11,6 +11,8 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.datastructures import Headers
 from websockets.http11 import Response
 
+from modes.multiplayer.high_scores import HighScoreManager
+
 from .controller_html import CONTROLLER_HTML
 
 logger = logging.getLogger("web_controller")
@@ -57,10 +59,12 @@ GAMES_CONFIG = [
 class MultiplayerHub:
     """Central state and communication hub for connected mobile gamepads."""
 
-    def __init__(self) -> None:
+    def __init__(self, high_score_manager: HighScoreManager | None = None) -> None:
         self.p1_ws: ServerConnection | None = None
         self.p2_ws: ServerConnection | None = None
         self.spectators: set[ServerConnection] = set()
+
+        self.high_score_manager = high_score_manager or HighScoreManager()
 
         self.phase: str = "lobby"  # 'lobby', 'countdown', 'playing', 'gameover'
         self.countdown_remaining: float = 0.0
@@ -92,6 +96,16 @@ class MultiplayerHub:
     def p2_connected(self) -> bool:
         return self.p2_ws is not None
 
+    def get_high_score(self, game_id: str) -> int:
+        return self.high_score_manager.get_score(game_id)
+
+    def record_game_score(self, game_id: str, score: int) -> tuple[bool, int]:
+        return self.high_score_manager.update_score(game_id, score)
+
+    def play_sfx(self, sound_name: str) -> None:
+        """Broadcast a retro 8-bit sound effect to all connected web controllers."""
+        self.broadcast_sync({"type": "sfx", "name": sound_name})
+
     def get_lobby_state(self) -> dict[str, Any]:
         return {
             "type": "lobby_state",
@@ -103,6 +117,7 @@ class MultiplayerHub:
             "games": GAMES_CONFIG,
             "solo_vs_ai": self.solo_vs_ai,
             "matrix_view": self.matrix_view,
+            "high_scores": self.high_score_manager.get_all(),
         }
 
     async def broadcast(self, data: dict[str, Any]) -> None:

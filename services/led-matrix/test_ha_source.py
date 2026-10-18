@@ -1629,6 +1629,104 @@ class HubModeAndRendererTests(unittest.TestCase):
         )
         self.assertEqual(hub.selected_game_index, expected_tetris_idx)
 
+    def test_arcade_high_scores_persistence_and_records(self) -> None:
+        import tempfile
+        from modes.multiplayer.high_scores import HighScoreManager
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_path = f"{tmpdir}/scores.json"
+            fallback_path = f"{tmpdir}/fallback.json"
+            mgr = HighScoreManager(primary_path=file_path, fallback_path=fallback_path)
+
+            self.assertEqual(mgr.get_score("tetris"), 0)
+            self.assertEqual(mgr.get_score("snake"), 0)
+
+            # Record higher score
+            is_new, best = mgr.update_score("tetris", 1200)
+            self.assertTrue(is_new)
+            self.assertEqual(best, 1200)
+            self.assertEqual(mgr.get_score("tetris"), 1200)
+
+            # Record lower score - should not overwrite
+            is_new2, best2 = mgr.update_score("tetris", 800)
+            self.assertFalse(is_new2)
+            self.assertEqual(best2, 1200)
+
+            # Verify reload from disk
+            mgr2 = HighScoreManager(primary_path=file_path, fallback_path=fallback_path)
+            self.assertEqual(mgr2.get_score("tetris"), 1200)
+            self.assertEqual(mgr2.get_score("snake"), 0)
+
+    def test_multiplayer_hub_sfx_and_high_score_recording(self) -> None:
+        import tempfile
+        from modes.multiplayer.high_scores import HighScoreManager
+        from web_controller.server import MultiplayerHub
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mgr = HighScoreManager(primary_path=f"{tmpdir}/scores.json")
+            hub = MultiplayerHub(high_score_manager=mgr)
+
+            broadcasted_messages = []
+            hub.broadcast_sync = lambda data: broadcasted_messages.append(data)  # type: ignore
+
+            # SFX broadcast
+            hub.play_sfx("pip")
+            self.assertEqual(len(broadcasted_messages), 1)
+            self.assertEqual(broadcasted_messages[0], {"type": "sfx", "name": "pip"})
+
+            # High score update via hub
+            is_new, current_high = hub.record_game_score("snake", 50)
+            self.assertTrue(is_new)
+            self.assertEqual(current_high, 50)
+            self.assertEqual(hub.get_high_score("snake"), 50)
+
+            state = hub.get_lobby_state()
+            self.assertIn("high_scores", state)
+            self.assertEqual(state["high_scores"]["snake"], 50)
+
+    def test_games_sfx_triggers_and_score_reporting(self) -> None:
+        from modes.multiplayer.snake_game import InteractiveSnake
+        from modes.multiplayer.tetris_game import InteractiveTetris
+        from modes.multiplayer.breakout_game import InteractiveBreakout
+
+        # Test Snake
+        snake = InteractiveSnake()
+        sfx_events = []
+        snake.sfx_callback = lambda name: sfx_events.append(name)
+        self.assertEqual(snake.get_final_score(), 0)
+
+        # Force snake death to test crash sound
+        snake.snake.append((0, 0))
+        snake.current_dir = "left"
+        snake.next_dir = "left"
+        snake._step_snake()
+        self.assertTrue(snake.is_game_over())
+        self.assertIn("crash", sfx_events)
+
+        # Test Breakout
+        breakout = InteractiveBreakout()
+        breakout_sfx = []
+        breakout.sfx_callback = lambda name: breakout_sfx.append(name)
+        self.assertEqual(breakout.get_final_score(), 0)
+
+        # Force ball lost
+        breakout.ball_y = 64.0
+        breakout.lives = 1
+        breakout.update(0.01, set(), set())
+        self.assertTrue(breakout.is_game_over())
+        self.assertIn("game_over", breakout_sfx)
+
+        # Test Tetris
+        tetris = InteractiveTetris()
+        tetris_sfx = []
+        tetris.sfx_callback = lambda name: tetris_sfx.append(name)
+        self.assertEqual(tetris.get_final_score(), 0)
+
+        # Soft drop event
+        tetris.update(0.01, set(), set(), p1_events=["down"])
+        self.assertIn("drop", tetris_sfx)
+
 
 if __name__ == "__main__":
     unittest.main()
+

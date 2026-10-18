@@ -129,10 +129,12 @@ class Pong2P(MultiplayerGame):
             self.ball_y = 1.0
             self.ball_vy = abs(self.ball_vy)
             self._spawn_sparks(self.ball_x, self.ball_y, (120, 120, 255), count=4)
+            self.play_sfx("wall")
         elif self.ball_y >= 61.0:
             self.ball_y = 61.0
             self.ball_vy = -abs(self.ball_vy)
             self._spawn_sparks(self.ball_x, self.ball_y, (120, 120, 255), count=4)
+            self.play_sfx("wall")
 
         # P1 paddle collision (x=2..4)
         if self.ball_x <= 4.0 and self.ball_vx < 0:
@@ -144,6 +146,7 @@ class Pong2P(MultiplayerGame):
                 self.ball_vx = speed * (1.0 - 0.3 * abs(offset))
                 self.ball_vy = speed * offset * 0.8
                 self._spawn_sparks(4.0, self.ball_y, (0, 229, 255), count=7)
+                self.play_sfx("paddle")
 
         # P2 paddle collision (x=59..61)
         if self.ball_x >= 58.0 and self.ball_vx > 0:
@@ -155,6 +158,7 @@ class Pong2P(MultiplayerGame):
                 self.ball_vx = -speed * (1.0 - 0.3 * abs(offset))
                 self.ball_vy = speed * offset * 0.8
                 self._spawn_sparks(59.0, self.ball_y, (255, 145, 0), count=7)
+                self.play_sfx("paddle")
 
         # Goal scored
         if self.ball_x < -2.0:
@@ -163,7 +167,9 @@ class Pong2P(MultiplayerGame):
             self._spawn_sparks(2.0, self.ball_y, (255, 145, 0), count=16)
             if self.p2_score >= self.winning_score:
                 self.winner = 2
+                self.play_sfx("game_over")
             else:
+                self.play_sfx("score")
                 self.reset_ball(serving_to=1)
         elif self.ball_x > 66.0:
             # P1 scores
@@ -171,8 +177,14 @@ class Pong2P(MultiplayerGame):
             self._spawn_sparks(62.0, self.ball_y, (0, 229, 255), count=16)
             if self.p1_score >= self.winning_score:
                 self.winner = 1
+                self.play_sfx("game_over")
             else:
+                self.play_sfx("score")
                 self.reset_ball(serving_to=2)
+
+    def get_final_score(self) -> int:
+        return self.p1_score
+
 
     def _spawn_sparks(self, x: float, y: float, color: tuple[int, int, int], count: int) -> None:
         for _ in range(count):

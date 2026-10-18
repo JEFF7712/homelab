@@ -1,4 +1,4 @@
-"""Ultra-minimal retro gamepad mobile interface with robust W3C Pointer Events multi-touch and Gamepad API."""
+"""Ultra-minimal retro gamepad mobile interface with W3C Pointer Events and 8-bit Web Audio synth."""
 
 CONTROLLER_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -57,6 +57,32 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     opacity: 0.9;
   }
 
+  /* Sound Mute Toggle (Discreet icon at top right) */
+  .sound-toggle {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 8px);
+    right: max(16px, env(safe-area-inset-right));
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.45;
+    padding: 8px;
+    border-radius: 50%;
+    z-index: 20;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  .sound-toggle:active, .sound-toggle:hover {
+    opacity: 1.0;
+    color: #cbd5e1;
+  }
+  .sound-toggle.muted {
+    color: #ef4444;
+    opacity: 0.65;
+  }
+
   /* Gamepad Stage */
   .gamepad-stage {
     width: 100%;
@@ -71,16 +97,16 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   @media (orientation: portrait) {
     .gamepad-stage {
       align-items: flex-end;
-      padding-bottom: max(64px, env(safe-area-inset-bottom));
+      padding-bottom: max(60px, env(safe-area-inset-bottom));
     }
   }
 
-  /* ---------------- CLASSIC D-PAD ---------------- */
+  /* ---------------- CLASSIC CROSS D-PAD ---------------- */
   .dpad-container {
     width: 176px;
     height: 176px;
     position: relative;
-    cursor: pointer;
+    touch-action: none !important;
   }
   .dpad-cross {
     position: absolute;
@@ -94,8 +120,8 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   .dpad-wing {
     position: absolute;
     background: #252830;
-    border: 2px solid #1a1c22;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.65), inset 0 1px 1px rgba(255,255,255,0.08);
+    border: 2.5px solid #17191f;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.65), inset 0 1px 1px rgba(255,255,255,0.08);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -106,9 +132,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     transition: background 0.05s, transform 0.05s, box-shadow 0.05s, color 0.05s;
   }
   .dpad-wing.touch-active {
-    background: #17191f;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.8), inset 0 2px 5px rgba(0,0,0,0.9);
-    color: #8da2c0;
+    background: #14161c;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.8), inset 0 2px 6px rgba(0,0,0,0.95);
+    color: #9cb3d6;
     transform: scale(0.96);
   }
 
@@ -117,7 +143,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     left: 55px;
     width: 58px;
     height: 58px;
-    border-radius: 9px 9px 0 0;
+    border-radius: 10px 10px 0 0;
     border-bottom: none;
   }
   .wing-down {
@@ -125,7 +151,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     left: 55px;
     width: 58px;
     height: 58px;
-    border-radius: 0 0 9px 9px;
+    border-radius: 0 0 10px 10px;
     border-top: none;
   }
   .wing-left {
@@ -133,7 +159,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     left: 0;
     width: 58px;
     height: 58px;
-    border-radius: 9px 0 0 9px;
+    border-radius: 10px 0 0 10px;
     border-right: none;
   }
   .wing-right {
@@ -141,7 +167,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     right: 0;
     width: 58px;
     height: 58px;
-    border-radius: 0 9px 9px 0;
+    border-radius: 0 10px 10px 0;
     border-left: none;
   }
   .dpad-center {
@@ -150,9 +176,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     left: 55px;
     width: 58px;
     height: 58px;
-    background: #1a1c22;
+    background: #17191f;
     border-radius: 50%;
-    box-shadow: inset 0 3px 6px rgba(0,0,0,0.85), 0 1px 1px rgba(255,255,255,0.04);
+    box-shadow: inset 0 3px 6px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.04);
     pointer-events: none;
   }
 
@@ -161,6 +187,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     width: 176px;
     height: 176px;
     position: relative;
+    touch-action: none !important;
   }
   .btn-round {
     width: 78px;
@@ -178,6 +205,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     justify-content: center;
     align-items: center;
     cursor: pointer;
+    touch-action: none !important;
     text-shadow: 0 1px 2px rgba(0,0,0,0.4);
     transform: rotate(-12deg);
     transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
@@ -200,6 +228,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <body>
 
 <div class="conn-dot" id="conn-dot" title="Connection Status"></div>
+<button class="sound-toggle" id="sound-toggle" aria-label="Toggle Sound" title="Sound Mute/Unmute">
+  <span id="sound-icon">🔊</span>
+</button>
 
 <div class="gamepad-stage">
   <!-- D-PAD CONTAINER -->
@@ -222,6 +253,159 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
 <script>
 (function() {
+  // ---------------- RETRO 8-BIT SOUND CHIP (WEB AUDIO API) ----------------
+  const SoundChip = (function() {
+    let ctx = null;
+    let muted = localStorage.getItem('arcade_sfx_muted') === '1';
+
+    function getContext() {
+      if (!ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          ctx = new AudioCtx();
+        }
+      }
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      return ctx;
+    }
+
+    function isMuted() {
+      return muted;
+    }
+
+    function setMuted(m) {
+      muted = !!m;
+      localStorage.setItem('arcade_sfx_muted', muted ? '1' : '0');
+    }
+
+    function toggleMuted() {
+      setMuted(!muted);
+      return muted;
+    }
+
+    function tone({ type = 'square', freq = 440, endFreq = null, dur = 0.1, vol = 0.15 } = {}) {
+      if (muted) return;
+      const c = getContext();
+      if (!c) return;
+
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      if (endFreq && endFreq !== freq) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFreq), now + dur);
+      }
+
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      osc.connect(gain);
+      gain.connect(c.destination);
+
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+    }
+
+    function noise({ dur = 0.2, vol = 0.2, filterFreq = 1200 } = {}) {
+      if (muted) return;
+      const c = getContext();
+      if (!c) return;
+
+      const now = c.currentTime;
+      const bufferSize = Math.floor(c.sampleRate * dur);
+      const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noiseSource = c.createBufferSource();
+      noiseSource.buffer = buffer;
+
+      const filter = c.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(filterFreq, now);
+      filter.frequency.exponentialRampToValueAtTime(80, now + dur);
+
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      noiseSource.connect(filter);
+      filter.connect(gain);
+      gain.connect(c.destination);
+
+      noiseSource.start(now);
+      noiseSource.stop(now + dur + 0.02);
+    }
+
+    const SFX = {
+      button: () => tone({ type: 'square', freq: 520, endFreq: 400, dur: 0.035, vol: 0.08 }),
+      move: () => tone({ type: 'triangle', freq: 300, endFreq: 220, dur: 0.04, vol: 0.09 }),
+      turn: () => tone({ type: 'square', freq: 380, endFreq: 480, dur: 0.04, vol: 0.09 }),
+      rotate: () => tone({ type: 'square', freq: 360, endFreq: 580, dur: 0.06, vol: 0.12 }),
+      drop: () => tone({ type: 'triangle', freq: 160, endFreq: 70, dur: 0.07, vol: 0.15 }),
+      lock: () => tone({ type: 'triangle', freq: 220, endFreq: 110, dur: 0.08, vol: 0.14 }),
+      line_clear: () => {
+        [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+          setTimeout(() => tone({ type: 'square', freq: f, dur: 0.08, vol: 0.13 }), i * 65);
+        });
+      },
+      tetris: () => {
+        [523.25, 659.25, 783.99, 987.77, 1046.50, 1318.51].forEach((f, i) => {
+          setTimeout(() => tone({ type: 'square', freq: f, dur: 0.11, vol: 0.16 }), i * 75);
+        });
+      },
+      eat: () => {
+        tone({ type: 'square', freq: 587, endFreq: 880, dur: 0.07, vol: 0.14 });
+        setTimeout(() => tone({ type: 'square', freq: 880, endFreq: 1174, dur: 0.09, vol: 0.15 }), 60);
+      },
+      paddle: () => tone({ type: 'square', freq: 440, endFreq: 330, dur: 0.06, vol: 0.15 }),
+      wall: () => tone({ type: 'square', freq: 220, endFreq: 180, dur: 0.05, vol: 0.11 }),
+      brick: () => tone({ type: 'square', freq: 520 + Math.random() * 300, endFreq: 400, dur: 0.05, vol: 0.13 }),
+      score: () => {
+        tone({ type: 'square', freq: 659, dur: 0.08, vol: 0.14 });
+        setTimeout(() => tone({ type: 'square', freq: 880, dur: 0.14, vol: 0.15 }), 80);
+      },
+      pip: () => tone({ type: 'square', freq: 440, dur: 0.06, vol: 0.12 }),
+      start: () => {
+        tone({ type: 'square', freq: 440, dur: 0.07, vol: 0.14 });
+        setTimeout(() => tone({ type: 'square', freq: 554, dur: 0.07, vol: 0.14 }), 70);
+        setTimeout(() => tone({ type: 'square', freq: 659, dur: 0.07, vol: 0.14 }), 140);
+        setTimeout(() => tone({ type: 'square', freq: 880, dur: 0.18, vol: 0.17 }), 210);
+      },
+      crash: () => noise({ dur: 0.28, vol: 0.22, filterFreq: 900 }),
+      game_over: () => {
+        [392, 370, 349, 311].forEach((f, i) => {
+          setTimeout(() => tone({ type: 'triangle', freq: f, dur: 0.15, vol: 0.16 }), i * 140);
+        });
+      },
+      high_score: () => {
+        [523.25, 659.25, 783.99, 1046.50, 1174.66, 1318.51, 1567.98].forEach((f, i) => {
+          setTimeout(() => tone({ type: 'square', freq: f, dur: 0.12, vol: 0.16 }), i * 70);
+        });
+      },
+    };
+
+    function play(name) {
+      if (SFX[name]) {
+        try { SFX[name](); } catch (e) {}
+      }
+    }
+
+    return {
+      init: getContext,
+      play: play,
+      isMuted: isMuted,
+      toggleMuted: toggleMuted,
+    };
+  })();
+
+  // ---------------- GAMEPAD CLIENT LOGIC ----------------
   let ws = null;
   let playerRole = 1;
   let currentPhase = 'lobby';
@@ -230,9 +414,36 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   let bHoldTimer = null;
 
   const connDot = document.getElementById('conn-dot');
+  const soundToggle = document.getElementById('sound-toggle');
+  const soundIcon = document.getElementById('sound-icon');
   const dpadContainer = document.getElementById('dpad-container');
   const btnA = document.getElementById('btn-a');
   const btnB = document.getElementById('btn-b');
+
+  function updateSoundUI() {
+    if (SoundChip.isMuted()) {
+      soundToggle.classList.add('muted');
+      soundIcon.textContent = '🔇';
+    } else {
+      soundToggle.classList.remove('muted');
+      soundIcon.textContent = '🔊';
+    }
+  }
+  updateSoundUI();
+
+  soundToggle.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    SoundChip.init();
+    const isNowMuted = SoundChip.toggleMuted();
+    updateSoundUI();
+    vibrate(isNowMuted ? 40 : 15);
+    if (!isNowMuted) {
+      SoundChip.play('button');
+    }
+  });
+
+  // Resume AudioContext on any user interaction
+  window.addEventListener('pointerdown', () => SoundChip.init(), { once: true });
 
   function vibrate(ms) {
     if (navigator.vibrate) {
@@ -284,12 +495,20 @@ CONTROLLER_HTML = """<!DOCTYPE html>
       vibrate(35);
     } else if (msg.type === 'game_over') {
       currentPhase = 'gameover';
-      vibrate(msg.winner === playerRole ? [40, 50, 40, 50, 60] : 80);
+      if (msg.new_high) {
+        vibrate([40, 40, 50, 40, 80]);
+        SoundChip.play('high_score');
+      } else {
+        vibrate(msg.winner === playerRole ? [40, 50, 40, 50, 60] : 80);
+      }
+    } else if (msg.type === 'sfx') {
+      if (msg.name) {
+        SoundChip.play(msg.name);
+      }
     }
   }
 
   // ---------------- MULTI-TOUCH W3C POINTER EVENTS ----------------
-  // 1. D-PAD with smooth radial angle tracking & setPointerCapture
   let dpadPointerId = null;
   let activeDpadAction = null;
 
@@ -308,7 +527,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     }
 
     // 4 cardinal sectors based on angle
-    const angle = Math.atan2(dy, dx); // -PI to PI
+    const angle = Math.atan2(dy, dx);
     let action = null;
     if (angle >= -Math.PI / 4 && angle < Math.PI / 4) {
       action = 'right';
@@ -337,6 +556,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
       const newWing = document.querySelector(`.dpad-wing[data-action="${activeDpadAction}"]`);
       if (newWing) newWing.classList.add('touch-active');
       vibrate(10);
+      SoundChip.play('button');
 
       // Carousel menu navigation in lobby
       if (currentPhase === 'lobby') {
@@ -355,7 +575,8 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
   dpadContainer.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    dpadContainer.setPointerCapture(e.pointerId);
+    SoundChip.init();
+    try { dpadContainer.setPointerCapture(e.pointerId); } catch (err) {}
     dpadPointerId = e.pointerId;
     updateDpadFromCoords(e.clientX, e.clientY);
   });
@@ -378,15 +599,17 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   dpadContainer.addEventListener('pointercancel', releaseDpad);
 
   // 2. ACTION BUTTONS (A & B) with independent pointer tracking
-  const activeActionPointers = new Map(); // pointerId -> action
+  const activeActionPointers = new Map();
 
   function bindActionButton(btn, action) {
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      SoundChip.init();
       try { btn.setPointerCapture(e.pointerId); } catch (err) {}
       activeActionPointers.set(e.pointerId, action);
       btn.classList.add('touch-active');
       vibrate(12);
+      SoundChip.play('button');
 
       // In lobby: A starts game
       if (currentPhase === 'lobby' && action === 'action_a') {
@@ -437,71 +660,145 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   bindActionButton(btnA, 'action_a');
   bindActionButton(btnB, 'action_b');
 
-  // ---------------- HTML5 GAMEPAD API (BLUETOOTH CONTROLLERS) ----------------
-  const gpButtonStates = {};
-  function syncGamepadInput(act, isDown) {
-    const wasDown = !!gpButtonStates[act];
-    if (isDown === wasDown) return;
-    gpButtonStates[act] = isDown;
+  // ---------------- HTML5 GAMEPAD API INTEGRATION ----------------
+  let lastGamepadAxes = { x: 0, y: 0 };
+  let lastGamepadButtons = new Map();
 
-    const el = document.querySelector(`[data-action="${act}"]`);
-    if (el) {
-      if (isDown) el.classList.add('touch-active');
-      else el.classList.remove('touch-active');
-    }
-
-    if (isDown) {
-      vibrate(10);
-      if (currentPhase === 'lobby') {
-        if (act === 'left') { send({ type: 'menu_nav', dir: 'prev' }); return; }
-        if (act === 'right') { send({ type: 'menu_nav', dir: 'next' }); return; }
-        if (act === 'action_a') { send({ type: 'start_game', game: selectedGame, solo: soloMode }); return; }
-      }
-      if (currentPhase === 'gameover') {
-        if (act === 'action_a') { send({ type: 'rematch' }); return; }
-        if (act === 'action_b') { send({ type: 'menu_exit' }); return; }
-      }
-      send({ type: 'input', action: act, state: 'down' });
-    } else {
-      send({ type: 'input', action: act, state: 'up' });
-    }
-  }
-
-  function pollGamepad() {
+  function pollGamepads() {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (let i = 0; i < gamepads.length; i++) {
-      const gp = gamepads[i];
+    for (const gp of gamepads) {
       if (!gp) continue;
-      const btn = (idx) => gp.buttons[idx] && (gp.buttons[idx].pressed || gp.buttons[idx].value > 0.5);
 
-      syncGamepadInput('up', btn(12) || (gp.axes[1] < -0.5));
-      syncGamepadInput('down', btn(13) || (gp.axes[1] > 0.5));
-      syncGamepadInput('left', btn(14) || (gp.axes[0] < -0.5));
-      syncGamepadInput('right', btn(15) || (gp.axes[0] > 0.5));
-      syncGamepadInput('action_a', btn(0)); // A / Cross
-      syncGamepadInput('action_b', btn(1)); // B / Circle
-      break;
+      // Analog stick or D-pad axes
+      const ax = gp.axes[0] || 0;
+      const ay = gp.axes[1] || 0;
+      let gpAction = null;
+      if (Math.abs(ax) > 0.45 || Math.abs(ay) > 0.45) {
+        if (Math.abs(ax) > Math.abs(ay)) {
+          gpAction = ax > 0 ? 'right' : 'left';
+        } else {
+          gpAction = ay > 0 ? 'down' : 'up';
+        }
+      }
+
+      // Standard D-pad buttons (B12=Up, B13=Down, B14=Left, B15=Right)
+      if (gp.buttons[12] && gp.buttons[12].pressed) gpAction = 'up';
+      if (gp.buttons[13] && gp.buttons[13].pressed) gpAction = 'down';
+      if (gp.buttons[14] && gp.buttons[14].pressed) gpAction = 'left';
+      if (gp.buttons[15] && gp.buttons[15].pressed) gpAction = 'right';
+
+      if (dpadPointerId === null) {
+        setDpadAction(gpAction);
+      }
+
+      // Standard A & B buttons (B0=A, B1=B)
+      const b0 = !!(gp.buttons[0] && gp.buttons[0].pressed);
+      const b1 = !!(gp.buttons[1] && gp.buttons[1].pressed);
+
+      if (b0 !== lastGamepadButtons.get('action_a')) {
+        lastGamepadButtons.set('action_a', b0);
+        if (b0) {
+          btnA.classList.add('touch-active');
+          vibrate(12);
+          SoundChip.play('button');
+          if (currentPhase === 'lobby') {
+            send({ type: 'start_game', game: selectedGame, solo: soloMode });
+          } else if (currentPhase === 'gameover') {
+            send({ type: 'rematch' });
+          } else {
+            send({ type: 'input', action: 'action_a', state: 'down' });
+          }
+        } else {
+          btnA.classList.remove('touch-active');
+          send({ type: 'input', action: 'action_a', state: 'up' });
+        }
+      }
+
+      if (b1 !== lastGamepadButtons.get('action_b')) {
+        lastGamepadButtons.set('action_b', b1);
+        if (b1) {
+          btnB.classList.add('touch-active');
+          vibrate(12);
+          SoundChip.play('button');
+          if (currentPhase === 'gameover') {
+            send({ type: 'menu_exit' });
+          } else {
+            send({ type: 'input', action: 'action_b', state: 'down' });
+          }
+        } else {
+          btnB.classList.remove('touch-active');
+          send({ type: 'input', action: 'action_b', state: 'up' });
+        }
+      }
     }
-    requestAnimationFrame(pollGamepad);
+    requestAnimationFrame(pollGamepads);
   }
-  requestAnimationFrame(pollGamepad);
+  requestAnimationFrame(pollGamepads);
 
-  // Keyboard controls for testing / debugging
+  // Keyboard controls for desktop testing
   const KEY_MAP = {
-    'ArrowUp': 'up', 'KeyW': 'up',
-    'ArrowDown': 'down', 'KeyS': 'down',
-    'ArrowLeft': 'left', 'KeyA': 'left',
-    'ArrowRight': 'right', 'KeyD': 'right',
-    'KeyX': 'action_b', 'KeyZ': 'action_a', 'Space': 'action_a',
+    'ArrowUp': 'up',
+    'KeyW': 'up',
+    'ArrowDown': 'down',
+    'KeyS': 'down',
+    'ArrowLeft': 'left',
+    'KeyA': 'left',
+    'ArrowRight': 'right',
+    'KeyD': 'right',
+    'KeyX': 'action_b',
+    'KeyZ': 'action_a',
+    'Space': 'action_a',
   };
+
+  const heldKeys = new Set();
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
+    SoundChip.init();
     const act = KEY_MAP[e.code];
-    if (act) syncGamepadInput(act, true);
+    if (act && !heldKeys.has(act)) {
+      heldKeys.add(act);
+      if (['up', 'down', 'left', 'right'].includes(act)) {
+        setDpadAction(act);
+      } else if (act === 'action_a') {
+        btnA.classList.add('touch-active');
+        vibrate(10);
+        SoundChip.play('button');
+        if (currentPhase === 'lobby') {
+          send({ type: 'start_game', game: selectedGame, solo: soloMode });
+        } else if (currentPhase === 'gameover') {
+          send({ type: 'rematch' });
+        } else {
+          send({ type: 'input', action: act, state: 'down' });
+        }
+      } else if (act === 'action_b') {
+        btnB.classList.add('touch-active');
+        vibrate(10);
+        SoundChip.play('button');
+        if (currentPhase === 'gameover') {
+          send({ type: 'menu_exit' });
+        } else {
+          send({ type: 'input', action: act, state: 'down' });
+        }
+      }
+    }
   });
+
   window.addEventListener('keyup', (e) => {
     const act = KEY_MAP[e.code];
-    if (act) syncGamepadInput(act, false);
+    if (act && heldKeys.has(act)) {
+      heldKeys.delete(act);
+      if (['up', 'down', 'left', 'right'].includes(act)) {
+        if (activeDpadAction === act) {
+          setDpadAction(null);
+        }
+      } else if (act === 'action_a') {
+        btnA.classList.remove('touch-active');
+        send({ type: 'input', action: act, state: 'up' });
+      } else if (act === 'action_b') {
+        btnB.classList.remove('touch-active');
+        send({ type: 'input', action: act, state: 'up' });
+      }
+    }
   });
 
   connect();

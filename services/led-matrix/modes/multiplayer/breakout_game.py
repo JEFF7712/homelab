@@ -126,22 +126,32 @@ class InteractiveBreakout(MultiplayerGame):
         self.ball_y += self.ball_vy * dt
 
         # Wall collisions
+        hit_wall = False
         if self.ball_x <= 1:
             self.ball_x = 1
             self.ball_vx = abs(self.ball_vx)
+            hit_wall = True
         elif self.ball_x >= 62:
             self.ball_x = 62
             self.ball_vx = -abs(self.ball_vx)
+            hit_wall = True
 
         if self.ball_y <= 1:
             self.ball_y = 1
             self.ball_vy = abs(self.ball_vy)
-        elif self.ball_y >= 63:
+            hit_wall = True
+
+        if hit_wall:
+            self.play_sfx("wall")
+
+        if self.ball_y >= 63:
             # Ball lost!
             self.lives -= 1
             if self.lives <= 0:
                 self.winner = 1  # Game over
+                self.play_sfx("game_over")
             else:
+                self.play_sfx("crash")
                 self._reset_ball()
             return
 
@@ -155,6 +165,7 @@ class InteractiveBreakout(MultiplayerGame):
             offset = (self.ball_x - self.paddle_x) / half_w
             self.ball_vx = offset * 45.0
             self.ball_vy = -max(28.0, 48.0 - abs(offset) * 15.0)
+            self.play_sfx("paddle")
 
         # Brick Collisions
         all_cleared = True
@@ -169,6 +180,7 @@ class InteractiveBreakout(MultiplayerGame):
                 b.alive = False
                 self.ball_vy = -self.ball_vy
                 self.score += 15
+                self.play_sfx("brick")
 
                 # Sparks
                 for _ in range(6):
@@ -186,7 +198,12 @@ class InteractiveBreakout(MultiplayerGame):
         if all_cleared:
             # Victory! Respawn bricks
             self.score += 100
+            self.play_sfx("tetris")
             self._init_bricks()
+
+    def get_final_score(self) -> int:
+        return self.score
+
 
     def render(self, draw: ImageDraw.ImageDraw) -> None:
         # Background

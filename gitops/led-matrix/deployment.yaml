@@ -27,7 +27,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:4e7b9b338a10c85a8d110ac41bddd4cf45800e629959db117c0dccf9b6648fbb
+            registry.rupan.dev/apps/spotify-matrix@sha256:d57006576c9e33a1229e279439cd2c226cfa1fcdce5c1a0cdf0e3577b36b00d3
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -100,6 +100,8 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            - name: data
+              mountPath: /data
           livenessProbe:
             exec:
               command:
@@ -133,3 +135,6 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 16Mi
+        - name: data
+          persistentVolumeClaim:
+            claimName: led-matrix-data

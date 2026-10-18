@@ -146,11 +146,21 @@ class CarouselRenderer:
             else:
                 draw.point((dx, 48), fill=(40, 50, 75))
 
-        # 6. Mode Badge at y=53
+        # 6. Mode Badge or High Score at y=52 (Alternating every ~2s)
         curr_item = GAME_ITEMS[safe_idx]
-        badge_text = curr_item["badge"]
-        badge_x = 32 - len(badge_text) * 2 - 2
-        draw.text((badge_x, 52), badge_text, fill=curr_item["color"], font=self.font)
+        hi_score = self.hub.get_high_score(curr_item["id"])
+        show_hi = hi_score > 0 and (int(self.anim_timer * 0.6) % 2 == 1)
+
+        if show_hi:
+            display_text = f"HI: {hi_score}"
+            display_col = (255, 215, 0)
+        else:
+            display_text = curr_item["badge"]
+            display_col = curr_item["color"]
+
+        badge_x = 32 - len(display_text) * 2 - 2
+        draw.text((badge_x, 52), display_text, fill=display_col, font=self.font)
+
 
         # 7. Bottom connection indicators (y=62..63)
         draw.rectangle(

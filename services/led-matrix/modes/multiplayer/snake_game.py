@@ -103,8 +103,14 @@ class InteractiveSnake(MultiplayerGame):
             self.step_timer -= self.step_interval
             self._step_snake()
 
+    def get_final_score(self) -> int:
+        return self.score
+
     def _step_snake(self) -> None:
+        prev_dir = self.current_dir
         self.current_dir = self.next_dir
+        if self.current_dir != prev_dir:
+            self.play_sfx("turn")
         dx, dy = DIR_MAP[self.current_dir]
         head = self.snake[-1]
         new_head = (head[0] + dx, head[1] + dy)
@@ -117,6 +123,7 @@ class InteractiveSnake(MultiplayerGame):
             # Game Over!
             self.winner = 1
             self.high_score = max(self.high_score, self.score)
+            self.play_sfx("crash")
             # Spawn explosion particles
             hx = 2 + head[0] * 2
             hy = 2 + head[1] * 2
@@ -135,6 +142,7 @@ class InteractiveSnake(MultiplayerGame):
         self.snake.append(new_head)
         if new_head == self.food:
             self.score += 10
+            self.play_sfx("eat")
             # Food sparkle
             fx = 2 + self.food[0] * 2
             fy = 2 + self.food[1] * 2
@@ -150,6 +158,7 @@ class InteractiveSnake(MultiplayerGame):
             self._spawn_food()
         else:
             self.snake.popleft()
+
 
     def render(self, draw: ImageDraw.ImageDraw) -> None:
         # Background

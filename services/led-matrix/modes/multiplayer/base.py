@@ -1,8 +1,8 @@
-"""Base class for 2-Player LED Matrix Arcade games."""
-
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from PIL import ImageDraw
+
 
 
 class MultiplayerGame(ABC):
@@ -11,9 +11,23 @@ class MultiplayerGame(ABC):
     def __init__(self, solo_vs_ai: bool = False) -> None:
         self.solo_vs_ai = solo_vs_ai
         self.winner: int = 0  # 0: ongoing, 1: P1, 2: P2
+        self.sfx_callback: Callable[[str], None] | None = None
+
+    def play_sfx(self, name: str) -> None:
+        """Trigger an 8-bit sound effect broadcast."""
+        if self.sfx_callback:
+            try:
+                self.sfx_callback(name)
+            except Exception:
+                pass
+
+    def get_final_score(self) -> int:
+        """Return the current or game-over score for high-score tracking."""
+        return 0
 
     @abstractmethod
     def reset(self) -> None:
+
         """Reset the game state for a new round/match."""
 
     @abstractmethod
