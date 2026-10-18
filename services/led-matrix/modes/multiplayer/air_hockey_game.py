@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import math
 import random
+
 from PIL import ImageDraw, ImageFont
-from modes.text_utils import draw_boxed_message
+
+from modes.text_utils import draw_boxed_message, draw_fitted_text
 
 from .base import MultiplayerGame
 from .registry import register_game
@@ -278,7 +280,9 @@ class AirHockeyGame(MultiplayerGame):
         self._check_mallet_collision(self.p1_x, self.p1_y, self.p1_vx, self.p1_vy)
         self._check_mallet_collision(self.p2_x, self.p2_y, self.p2_vx, self.p2_vy)
 
-    def _check_mallet_collision(self, mx: float, my: float, mvx: float, mvy: float) -> None:
+    def _check_mallet_collision(
+        self, mx: float, my: float, mvx: float, mvy: float
+    ) -> None:
         dx = self.puck_x - mx
         dy = self.puck_y - my
         min_dist = self.MALLET_R + self.PUCK_R
@@ -322,11 +326,15 @@ class AirHockeyGame(MultiplayerGame):
         # 1. Rink surface & boundary
         bg_color = (6, 18, 30)
         draw.rectangle([0, 0, 63, 63], fill=(0, 0, 0))
-        draw.rectangle([self.RINK_L, self.RINK_T, self.RINK_R, self.RINK_B], fill=bg_color)
+        draw.rectangle(
+            [self.RINK_L, self.RINK_T, self.RINK_R, self.RINK_B], fill=bg_color
+        )
 
         # Rink boundary outline
         border_col = (0, 180, 240) if self.goal_flash == 0 else (255, 255, 255)
-        draw.rectangle([self.RINK_L, self.RINK_T, self.RINK_R, self.RINK_B], outline=border_col)
+        draw.rectangle(
+            [self.RINK_L, self.RINK_T, self.RINK_R, self.RINK_B], outline=border_col
+        )
 
         # Center line & center circle
         draw.line([31, self.RINK_T + 1, 31, self.RINK_B - 1], fill=(20, 60, 90))
@@ -334,14 +342,19 @@ class AirHockeyGame(MultiplayerGame):
         draw.ellipse([25, 25, 38, 38], outline=(20, 70, 100))
 
         # Goal openings
-        draw.rectangle([self.RINK_L, self.GOAL_T, self.RINK_L + 1, self.GOAL_B], fill=(255, 40, 50))
-        draw.rectangle([self.RINK_R - 1, self.GOAL_T, self.RINK_R, self.GOAL_B], fill=(40, 190, 255))
+        draw.rectangle(
+            [self.RINK_L, self.GOAL_T, self.RINK_L + 1, self.GOAL_B], fill=(255, 40, 50)
+        )
+        draw.rectangle(
+            [self.RINK_R - 1, self.GOAL_T, self.RINK_R, self.GOAL_B],
+            fill=(40, 190, 255),
+        )
 
         # Scores rendered at top border of rink
         s1 = str(self.p1_score)
         s2 = str(self.p2_score)
-        draw.text((22, 1), s1, fill=(255, 100, 100), font=self.font)
-        draw.text((37, 1), s2, fill=(100, 200, 255), font=self.font)
+        draw_fitted_text(draw, s1, (12, 1, 30, 9), fill=(255, 100, 100))
+        draw_fitted_text(draw, s2, (34, 1, 52, 9), fill=(100, 200, 255))
 
         # 2. P1 Mallet (Red/Orange neon)
         p1_r = int(self.MALLET_R)
@@ -373,7 +386,11 @@ class AirHockeyGame(MultiplayerGame):
 
         # Game Over Banner
         if self.is_game_over():
-            winner_text = "P1 WINS!" if self.winner == 1 else ("CPU WINS" if self.solo_vs_ai else "P2 WINS!")
+            winner_text = (
+                "P1 WINS!"
+                if self.winner == 1
+                else ("CPU WINS" if self.solo_vs_ai else "P2 WINS!")
+            )
             draw_boxed_message(
                 draw,
                 title=winner_text,

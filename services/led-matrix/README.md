@@ -2,6 +2,32 @@
 
 Streams the current Spotify album art rendered as a rotating vinyl disc to a Raspberry Pi Pico W driving a 64x64 HUB75 RGB LED matrix. TCP over Wi-Fi is the default transport at 20 FPS. Dedicated USB CDC is also available.
 
+## Arcade modes
+
+`AI Arcade` rotates through eleven autonomous games: Pong, Snake, Breakout,
+Tetris, Pac-Man, Space Invaders, Donkey Kong, Frogger, Asteroids, Doodle Jump,
+and Q*bert. Each game runs for 60 seconds before the shuffled rotation advances.
+Frogger crosses five traffic lanes and rides logs, turtles, and alligator backs
+to fill five homes. Doodle Jump steers between moving platforms and springs as
+the camera climbs. Q*bert colors an isometric pyramid while avoiding Coily.
+
+`Arcade` uses the phone controller. Its A/B buttons stay 96 pixels across;
+portrait screens stack them beside a responsive 180 to 220 pixel D-pad.
+Landscape screens retain the diagonal action-button layout. Direction and
+action inputs work simultaneously and release on pointer cancellation.
+
+Arcade labels, scores, and modal messages use `modes/text_utils.py`. Every
+text region has explicit width and height bounds; text first scales to fit,
+then uses an ellipsis if necessary. Alignment uses visible glyph pixels rather
+than font bearings. Borders, title rows, subtitle rows, and HUD columns reserve
+separate regions so text cannot spill into adjacent content.
+
+Offline arcade and transport regression checks run from this directory:
+
+```bash
+env -u PYTHONPATH uv run --frozen python -m unittest test_arcade_polish test_streaming test_ha_source
+```
+
 ## Home Assistant source (preferred)
 
 `ha_matrix_streamer.py` follows the existing `media_player.spotify_rupan` entity

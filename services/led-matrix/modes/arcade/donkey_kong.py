@@ -6,7 +6,8 @@ import math
 import random
 
 from PIL import Image, ImageDraw, ImageFont
-from modes.text_utils import draw_right_aligned_text
+
+from modes.text_utils import draw_centered_text, draw_scoreboard
 
 from .base import ArcadeGame
 
@@ -245,8 +246,9 @@ class DonkeyKongGame(ArcadeGame):
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 4, 12))
 
         # Top HUD: Score & Donkey Kong title
-        draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
-        draw_right_aligned_text(draw, "DK 1981", right_x=62, y=1, fill=(255, 120, 160), max_width=32, preferred_size=7)
+        draw_scoreboard(
+            draw, f"S{self.score}", "DK 1981", size=size, right_color=(255, 120, 160)
+        )
 
         # Girders (Steel platforms in classic arcade red/magenta with depth shadow)
         girder_col = (225, 40, 80)
@@ -291,7 +293,17 @@ class DonkeyKongGame(ArcadeGame):
         draw.rectangle([(px + 1, py - 1), (px + 3, py - 1)], fill=(220, 50, 120))
         # Beating heart animation above Pauline
         if int(self.heart_timer * 3) % 2 == 0 or self.won:
-            draw.text((px - 2, py - 12), "♥", fill=(255, 50, 130), font=self.font)
+            draw.polygon(
+                [
+                    (px - 2, py - 11),
+                    (px - 1, py - 12),
+                    (px, py - 11),
+                    (px + 1, py - 12),
+                    (px + 2, py - 11),
+                    (px, py - 8),
+                ],
+                fill=(255, 50, 130),
+            )
 
         # Draw Donkey Kong (top left, standing on y=19 platform)
         dk_x = 8
@@ -299,18 +311,32 @@ class DonkeyKongGame(ArcadeGame):
         # Gorilla brown body
         draw.rectangle([(dk_x, dk_y + 3), (dk_x + 9, dk_y + 8)], fill=(170, 75, 20))
         # Peach chest / face
-        draw.rectangle([(dk_x + 2, dk_y + 4), (dk_x + 6, dk_y + 7)], fill=(255, 190, 130))
+        draw.rectangle(
+            [(dk_x + 2, dk_y + 4), (dk_x + 6, dk_y + 7)], fill=(255, 190, 130)
+        )
         # Head & eyes
         draw.rectangle([(dk_x + 2, dk_y), (dk_x + 7, dk_y + 3)], fill=(170, 75, 20))
         draw.point((dk_x + 3, dk_y + 1), fill=(255, 255, 255))
         draw.point((dk_x + 6, dk_y + 1), fill=(255, 255, 255))
         # Arms animation (chest beating)
         if self.dk_frame == 0:
-            draw.line([(dk_x - 1, dk_y + 4), (dk_x, dk_y + 6)], fill=(170, 75, 20), width=1)
-            draw.line([(dk_x + 10, dk_y + 4), (dk_x + 9, dk_y + 6)], fill=(170, 75, 20), width=1)
+            draw.line(
+                [(dk_x - 1, dk_y + 4), (dk_x, dk_y + 6)], fill=(170, 75, 20), width=1
+            )
+            draw.line(
+                [(dk_x + 10, dk_y + 4), (dk_x + 9, dk_y + 6)],
+                fill=(170, 75, 20),
+                width=1,
+            )
         else:
-            draw.line([(dk_x - 1, dk_y + 2), (dk_x, dk_y + 4)], fill=(170, 75, 20), width=1)
-            draw.line([(dk_x + 10, dk_y + 2), (dk_x + 9, dk_y + 4)], fill=(170, 75, 20), width=1)
+            draw.line(
+                [(dk_x - 1, dk_y + 2), (dk_x, dk_y + 4)], fill=(170, 75, 20), width=1
+            )
+            draw.line(
+                [(dk_x + 10, dk_y + 2), (dk_x + 9, dk_y + 4)],
+                fill=(170, 75, 20),
+                width=1,
+            )
 
         # Draw Rolling Barrels (strictly on top of girder surface)
         for b in self.barrels:
@@ -349,11 +375,15 @@ class DonkeyKongGame(ArcadeGame):
 
         # Popups
         for pop in self.popups:
-            draw.text(
-                (int(pop["x"]), int(pop["y"])),
+            draw_centered_text(
+                draw,
                 pop["text"],
+                min(52, max(12, int(pop["x"]))),
+                min(59, max(13, int(pop["y"]))),
                 fill=(255, 240, 60),
-                font=self.font,
+                max_width=24,
+                max_height=7,
+                preferred_size=7,
             )
 
     def _draw_ladder(

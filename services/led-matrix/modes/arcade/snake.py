@@ -8,6 +8,8 @@ from collections import deque
 
 from PIL import Image, ImageDraw, ImageFont
 
+from modes.text_utils import draw_right_aligned_text
+
 from .base import ArcadeGame
 
 GRID_SIZE = 30  # 30x30 cells, 2x2 px each with 2px margins = 64x64
@@ -178,7 +180,9 @@ class SnakeGame(ArcadeGame):
 
         # Score display in top right
         score_str = f"{self.score}"
-        draw.text((size - 14, 2), score_str, fill=(160, 200, 240), font=self.font)
+        draw_right_aligned_text(
+            draw, score_str, right_x=size - 2, y=1, max_width=28, fill=(160, 200, 240)
+        )
 
         # Game Over Flash
         if self.game_over_timer > 0 and int(self.game_over_timer * 6) % 2 == 0:

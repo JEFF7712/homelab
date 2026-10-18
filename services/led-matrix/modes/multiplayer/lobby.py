@@ -4,9 +4,9 @@ import math
 import random
 
 from PIL import ImageDraw, ImageFont
-from modes.text_utils import draw_boxed_message
 from web_controller.server import MultiplayerHub
 
+from modes.text_utils import draw_boxed_message, draw_fitted_text
 
 from .carousel import CarouselRenderer
 
@@ -48,8 +48,9 @@ class LobbyRenderer:
         self.carousel = CarouselRenderer(hub)
         self.font = ImageFont.load_default(size=9)
         self.blink_timer = 0.0
-        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
-
+        self.particles: list[
+            tuple[float, float, float, float, tuple[int, int, int], float]
+        ] = []
 
     def update(self, dt: float) -> None:
         self.blink_timer = (self.blink_timer + dt) % 2.0
@@ -113,8 +114,14 @@ class LobbyRenderer:
         draw.point((32, 1), fill=(180, 180, 255))
 
         # 4. Bottom bar (y=61..63)
-        draw.rectangle([0, 61, 31, 63], fill=(0, 180, 220) if self.hub.p1_connected else (20, 30, 45))
-        draw.rectangle([32, 61, 63, 63], fill=(220, 110, 0) if self.hub.p2_connected else (45, 30, 20))
+        draw.rectangle(
+            [0, 61, 31, 63],
+            fill=(0, 180, 220) if self.hub.p1_connected else (20, 30, 45),
+        )
+        draw.rectangle(
+            [32, 61, 63, 63],
+            fill=(220, 110, 0) if self.hub.p2_connected else (45, 30, 20),
+        )
 
     def render_countdown(self, draw: ImageDraw.ImageDraw, count: int) -> None:
         """Render animated countdown before game launch."""
@@ -135,10 +142,9 @@ class LobbyRenderer:
             self._draw_big_1(draw, 26, 22, color)
         else:
             # "GO"
-            self._draw_go(draw, 20, 24, (255, 255, 255))
+            draw_fitted_text(draw, "GO!", (15, 19, 49, 45), preferred_size=14)
 
     def render_game_over(
-
         self,
         draw: ImageDraw.ImageDraw,
         winner: int,
@@ -159,14 +165,16 @@ class LobbyRenderer:
             else:
                 col = (0, 229, 255) if winner == 1 else (255, 145, 0)
 
-            self.particles.append((
-                random.uniform(8, 56),
-                random.uniform(5, 55),
-                random.uniform(-25, 25),
-                random.uniform(-25, 25),
-                col,
-                random.uniform(0.3, 0.8),
-            ))
+            self.particles.append(
+                (
+                    random.uniform(8, 56),
+                    random.uniform(5, 55),
+                    random.uniform(-25, 25),
+                    random.uniform(-25, 25),
+                    col,
+                    random.uniform(0.3, 0.8),
+                )
+            )
 
         for px, py, _, _, col, _ in self.particles:
             if 0 <= px < 64 and 0 <= py < 64:
@@ -205,14 +213,19 @@ class LobbyRenderer:
 
         else:
             col = (0, 229, 255) if winner == 1 else (255, 145, 0)
-            draw.rectangle([6, 18, 57, 45], fill=(12, 12, 24), outline=col, width=2)
-            if winner == 1:
-                self._draw_p1_win(draw, 14, 26, col)
-            else:
-                self._draw_p2_win(draw, 14, 26, col)
+            draw_boxed_message(
+                draw,
+                f"P{winner} WINS!",
+                rect=(6, 18, 57, 45),
+                bg_color=(12, 12, 24),
+                border_color=col,
+                title_color=col,
+                border_width=2,
+            )
 
-
-    def _draw_big_3(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
+    def _draw_big_3(
+        self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]
+    ) -> None:
         bitmap = [
             "11111111",
             "00000011",
@@ -224,7 +237,9 @@ class LobbyRenderer:
         ]
         self._render_bitmap(draw, bitmap, x, y, col, scale=2)
 
-    def _draw_big_2(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
+    def _draw_big_2(
+        self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]
+    ) -> None:
         bitmap = [
             "11111111",
             "00000011",
@@ -236,7 +251,9 @@ class LobbyRenderer:
         ]
         self._render_bitmap(draw, bitmap, x, y, col, scale=2)
 
-    def _draw_big_1(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
+    def _draw_big_1(
+        self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]
+    ) -> None:
         bitmap = [
             "001100",
             "011100",
@@ -248,17 +265,15 @@ class LobbyRenderer:
         ]
         self._render_bitmap(draw, bitmap, x, y, col, scale=2)
 
-    def _draw_go(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
-        # G O
-        draw.text((x, y), "GO!", fill=col)
-
-    def _draw_p1_win(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
-        draw.text((x, y), "P1 WINS!", fill=col)
-
-    def _draw_p2_win(self, draw: ImageDraw.ImageDraw, x: int, y: int, col: tuple[int, int, int]) -> None:
-        draw.text((x, y), "P2 WINS!", fill=col)
-
-    def _render_bitmap(self, draw: ImageDraw.ImageDraw, bitmap: list[str], x: int, y: int, col: tuple[int, int, int], scale: int = 1) -> None:
+    def _render_bitmap(
+        self,
+        draw: ImageDraw.ImageDraw,
+        bitmap: list[str],
+        x: int,
+        y: int,
+        col: tuple[int, int, int],
+        scale: int = 1,
+    ) -> None:
         for r, row in enumerate(bitmap):
             for c, val in enumerate(row):
                 if val == "1":
@@ -267,4 +282,6 @@ class LobbyRenderer:
                     if scale == 1:
                         draw.point((px, py), fill=col)
                     else:
-                        draw.rectangle([px, py, px + scale - 1, py + scale - 1], fill=col)
+                        draw.rectangle(
+                            [px, py, px + scale - 1, py + scale - 1], fill=col
+                        )

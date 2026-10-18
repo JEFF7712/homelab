@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+
 from PIL import ImageDraw, ImageFont
-from modes.text_utils import draw_boxed_message
+
+from modes.text_utils import draw_boxed_message, draw_fitted_text
 
 from .base import MultiplayerGame
 from .registry import register_game
@@ -41,8 +43,12 @@ class FlappyBirdGame(MultiplayerGame):
     @staticmethod
     def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
         # Green pipe outline
-        draw.rectangle([cx + 2, cy - 8, cx + 7, cy - 2], fill=(40, 190, 60), outline=(20, 120, 30))
-        draw.rectangle([cx + 2, cy + 3, cx + 7, cy + 8], fill=(40, 190, 60), outline=(20, 120, 30))
+        draw.rectangle(
+            [cx + 2, cy - 8, cx + 7, cy - 2], fill=(40, 190, 60), outline=(20, 120, 30)
+        )
+        draw.rectangle(
+            [cx + 2, cy + 3, cx + 7, cy + 8], fill=(40, 190, 60), outline=(20, 120, 30)
+        )
         # Yellow bird
         draw.rectangle([cx - 7, cy - 2, cx - 3, cy + 2], fill=(255, 220, 0))
         draw.point((cx - 4, cy - 1), fill=(255, 255, 255))
@@ -93,7 +99,9 @@ class FlappyBirdGame(MultiplayerGame):
 
         # 1. Edge-triggered flap input
         is_flap_held = bool(p1_inputs & {"up", "action_a", "action_b"})
-        event_flap = bool(p1_events and (set(p1_events) & {"up", "action_a", "action_b"}))
+        event_flap = bool(
+            p1_events and (set(p1_events) & {"up", "action_a", "action_b"})
+        )
 
         if (is_flap_held and not self._prev_flap_input) or event_flap:
             self.bird_vy = self.FLAP_IMPULSE
@@ -163,15 +171,31 @@ class FlappyBirdGame(MultiplayerGame):
 
             # Upper Pipe
             if gap_top > 0:
-                draw.rectangle([ix, 0, ix + int(self.PIPE_W) - 1, gap_top], fill=(40, 200, 60), outline=(20, 130, 40))
+                draw.rectangle(
+                    [ix, 0, ix + int(self.PIPE_W) - 1, gap_top],
+                    fill=(40, 200, 60),
+                    outline=(20, 130, 40),
+                )
                 # Upper collar lip
-                draw.rectangle([ix - 1, gap_top - 3, ix + int(self.PIPE_W), gap_top], fill=(50, 225, 75), outline=(20, 140, 40))
+                draw.rectangle(
+                    [ix - 1, gap_top - 3, ix + int(self.PIPE_W), gap_top],
+                    fill=(50, 225, 75),
+                    outline=(20, 140, 40),
+                )
 
             # Lower Pipe
             if gap_bot < int(self.GROUND_Y):
-                draw.rectangle([ix, gap_bot, ix + int(self.PIPE_W) - 1, int(self.GROUND_Y) - 1], fill=(40, 200, 60), outline=(20, 130, 40))
+                draw.rectangle(
+                    [ix, gap_bot, ix + int(self.PIPE_W) - 1, int(self.GROUND_Y) - 1],
+                    fill=(40, 200, 60),
+                    outline=(20, 130, 40),
+                )
                 # Lower collar lip
-                draw.rectangle([ix - 1, gap_bot, ix + int(self.PIPE_W), gap_bot + 3], fill=(50, 225, 75), outline=(20, 140, 40))
+                draw.rectangle(
+                    [ix - 1, gap_bot, ix + int(self.PIPE_W), gap_bot + 3],
+                    fill=(50, 225, 75),
+                    outline=(20, 140, 40),
+                )
 
         # Ground
         gy = int(self.GROUND_Y)
@@ -193,7 +217,7 @@ class FlappyBirdGame(MultiplayerGame):
         draw.point((bx + 4, by + 2), fill=(255, 120, 0))
 
         # Score HUD
-        draw.text((2, 1), str(self.score), fill=(255, 255, 255), font=self.font)
+        draw_fitted_text(draw, str(self.score), (2, 1, 62, 9), align="left")
 
         # Game Over Banner
         if self.is_game_over():

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 
+from modes.text_utils import draw_right_aligned_text
+
 from .base import ArcadeGame
 
 
@@ -206,11 +208,12 @@ class BreakoutGame(ArcadeGame):
 
     def _draw_score(self, draw: ImageDraw.ImageDraw, size: int) -> None:
         score_str = f"{self.score}"
-        left, top, right, bottom = draw.textbbox((0, 0), score_str, font=self.font)
-        text_w = right - left
-        text_h = bottom - top
-        x = size - text_w - 2
-        y = 1
-        # Opaque backing keeps the score legible over the playfield
-        draw.rectangle([(x - 2, 0), (size - 1, y + text_h)], fill=(4, 6, 12))
-        draw.text((x - left, y - top), score_str, fill=(255, 230, 120), font=self.font)
+        draw.rectangle((0, 0, size - 1, 9), fill=(4, 6, 12))
+        draw_right_aligned_text(
+            draw,
+            score_str,
+            right_x=size - 2,
+            y=1,
+            max_width=size - 4,
+            fill=(255, 230, 120),
+        )

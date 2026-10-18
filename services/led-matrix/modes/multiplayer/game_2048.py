@@ -3,28 +3,13 @@
 from __future__ import annotations
 
 import random
+
 from PIL import ImageDraw, ImageFont
-from modes.text_utils import draw_boxed_message
+
+from modes.text_utils import draw_boxed_message, draw_fitted_text
 
 from .base import MultiplayerGame
 from .registry import register_game
-
-
-# Crisp 3x5 pixel bitmap font for rendering numbers in small 12x12 LED matrix tiles
-# Each character is defined by 5 rows of 3 bits (1 = pixel on, 0 = pixel off)
-DIGITS_3x5: dict[str, list[int]] = {
-    "0": [0b111, 0b101, 0b101, 0b101, 0b111],
-    "1": [0b010, 0b110, 0b010, 0b010, 0b111],
-    "2": [0b111, 0b001, 0b111, 0b100, 0b111],
-    "3": [0b111, 0b001, 0b111, 0b001, 0b111],
-    "4": [0b101, 0b101, 0b111, 0b001, 0b001],
-    "5": [0b111, 0b100, 0b111, 0b001, 0b111],
-    "6": [0b111, 0b100, 0b111, 0b101, 0b111],
-    "7": [0b111, 0b001, 0b010, 0b010, 0b010],
-    "8": [0b111, 0b101, 0b111, 0b101, 0b111],
-    "9": [0b111, 0b101, 0b111, 0b001, 0b111],
-    "k": [0b101, 0b110, 0b110, 0b101, 0b101],
-}
 
 TILE_COLORS: dict[int, tuple[int, int, int]] = {
     0: (22, 22, 30),
@@ -125,7 +110,11 @@ class Game2048(MultiplayerGame):
             if p1_events and d in p1_events:
                 direction = d
                 break
-            elif d in p1_inputs and d not in self._prev_inputs and self._move_cooldown <= 0:
+            elif (
+                d in p1_inputs
+                and d not in self._prev_inputs
+                and self._move_cooldown <= 0
+            ):
                 direction = d
                 break
 
@@ -235,23 +224,17 @@ class Game2048(MultiplayerGame):
                     return False
         return True
 
-    def _draw_3x5_text(self, draw: ImageDraw.ImageDraw, text: str, start_x: int, start_y: int, color: tuple[int, int, int]) -> None:
-        """Render a string using the crisp 3x5 pixel font."""
-        cur_x = start_x
-        for ch in text:
-            bitmap = DIGITS_3x5.get(ch)
-            if bitmap:
-                for row_idx, bits in enumerate(bitmap):
-                    for col_idx in range(3):
-                        if (bits >> (2 - col_idx)) & 1:
-                            draw.point((cur_x + col_idx, start_y + row_idx), fill=color)
-            cur_x += 4  # 3 pixels char + 1 pixel tracking
-
     def render(self, draw: ImageDraw.ImageDraw) -> None:
         draw.rectangle([0, 0, 63, 63], fill=(12, 12, 16))
 
         # Top score HUD
-        draw.text((self.OFFSET_X, 0), f"SCORE {self.score}", fill=(240, 220, 180), font=self.font)
+        draw_fitted_text(
+            draw,
+            f"SCORE {self.score}",
+            (self.OFFSET_X, 0, 58, 9),
+            fill=(240, 220, 180),
+            align="left",
+        )
 
         # 4x4 Grid Tiles
         for r in range(4):
@@ -273,12 +256,14 @@ class Game2048(MultiplayerGame):
                     else:
                         display_str = str(val)
 
-                    # Center the 3x5 text in the 12x12 tile
-                    # Width = len * 4 - 1
-                    total_w = len(display_str) * 4 - 1
-                    text_x = x1 + max(0, (self.TILE_SIZE - total_w) // 2)
-                    text_y = y1 + max(0, (self.TILE_SIZE - 5) // 2)
-                    self._draw_3x5_text(draw, display_str, text_x, text_y, text_color)
+                    draw_fitted_text(
+                        draw,
+                        display_str,
+                        (x1 + 1, y1 + 1, x2, y2),
+                        text_color,
+                        preferred_size=8,
+                        min_size=5,
+                    )
 
         # Game Over Banner
         if self.is_game_over():
