@@ -1,0 +1,41 @@
+id: bedroom_ledfx_effect_rotation
+alias: "Lighting: Bedroom LedFx Matrix Effect Rotation"
+description: >-
+  Cycles through 2D music effects on the bedroom matrix every 2 minutes while
+  music mode is active, and immediately updates LedFx on nas-01 when the
+  effect selection changes.
+mode: restart
+triggers:
+  - trigger: state
+    entity_id: input_select.bedroom_ledfx_effect
+    id: "effect_changed"
+  - trigger: time_pattern
+    minutes: "/2"
+    id: "cycle_timer"
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "effect_changed"
+        sequence:
+          - action: rest_command.ledfx_bedroom_set_matrix_effect
+            data:
+              effect_type: "{{ trigger.to_state.state }}"
+      - conditions:
+          - condition: trigger
+            id: "cycle_timer"
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: input_boolean.bedroom_music_mode
+                state: "on"
+              - condition: state
+                entity_id: input_select.bedroom_matrix_mode
+                state: "LedFx"
+        sequence:
+          - action: input_select.select_next
+            target:
+              entity_id: input_select.bedroom_ledfx_effect
+            data:
+              cycle: true

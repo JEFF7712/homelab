@@ -246,6 +246,40 @@
     };
   };
 
+  systemd.services.bedroom-audio-fft = {
+    description = "Stream audio FFT from bedroom music tap to LED matrix";
+    after = [
+      "pipewire.service"
+      "pipewire-pulse.service"
+    ];
+    requires = [
+      "pipewire.service"
+      "pipewire-pulse.service"
+    ];
+    partOf = [ "pipewire-pulse.service" ];
+    wantedBy = [
+      "multi-user.target"
+      "pipewire-pulse.service"
+    ];
+    restartTriggers = [ config.environment.etc.pipewire.source ];
+    environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+    script = ''
+      exec ${pkgs.pipewire}/bin/pw-record \
+        --target=bedroom_music_pre_delay \
+        -P '{"stream.capture.sink":true}' \
+        --raw --rate=22050 --channels=1 --format=s16 - \
+        | ${
+          pkgs.python3.withPackages (ps: [ ps.numpy ])
+        }/bin/python3 ${../../modules/bedroom-audio-fft.py}
+    '';
+    serviceConfig = {
+      User = "pipewire";
+      Group = "pipewire";
+      Restart = "always";
+      RestartSec = "2s";
+    };
+  };
+
   environment.systemPackages = with pkgs; [
     alsa-utils
     bluez

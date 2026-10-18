@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 import random
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 from PIL import Image, ImageDraw
 
@@ -21,8 +22,8 @@ class VisualizerEffect(ABC):
         ...
 
     @abstractmethod
-    def update(self, dt: float, beat: float) -> None:
-        """Update effect state given delta time and beat intensity (0.0 to 1.0)."""
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
+        """Update effect state given delta time, beat intensity (0.0 to 1.0), and optional frequency bands."""
         ...
 
     @abstractmethod
@@ -50,15 +51,20 @@ class RadialSpectrumEffect(VisualizerEffect):
         self.band_heights = [6.0] * self.bands
         self.ripples.clear()
 
-    def update(self, dt: float, beat: float) -> None:
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
         self.rotation += dt * 0.8
         for i in range(self.bands):
-            # Target height combines beat pulse and angular harmonic frequencies
-            target = 5.0 + 16.0 * beat * (0.6 + 0.4 * math.sin(i * 1.2 + self.rotation * 3.0))
+            if bands and len(bands) > 0:
+                idx = min(len(bands) - 1, int(i / self.bands * len(bands)))
+                b_val = bands[idx]
+                target = 4.0 + 26.0 * b_val * (0.7 + 0.6 * beat)
+            else:
+                target = 5.0 + 16.0 * beat * (0.6 + 0.4 * math.sin(i * 1.2 + self.rotation * 3.0))
             self.band_heights[i] += (target - self.band_heights[i]) * min(1.0, dt * 14.0)
 
-        # Spawn shockwave ripple on strong beat
-        if beat > 0.65:
+        # Spawn shockwave ripple on strong beat (or bass transient)
+        bass = bands[0] if (bands and len(bands) > 0) else beat
+        if beat > 0.65 or bass > 0.75:
             self.ripples.append([8.0, 1.0, self.rotation])
 
         # Advance ripples
@@ -129,10 +135,11 @@ class GeometricTunnelEffect(VisualizerEffect):
         self.depth_offsets = [i * 0.16 for i in range(7)]
         self.angle = 0.0
 
-    def update(self, dt: float, beat: float) -> None:
-        # Speed surges with beat intensity
-        current_speed = self.speed * (1.0 + beat * 2.2)
-        self.angle += dt * (0.6 + beat * 1.2)
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
+        bass = (bands[0] + bands[1]) / 2.0 if (bands and len(bands) > 1) else beat
+        # Speed surges with beat and bass intensity
+        current_speed = self.speed * (1.0 + max(beat, bass) * 2.4)
+        self.angle += dt * (0.6 + max(beat, bass) * 1.5)
 
         for i in range(len(self.depth_offsets)):
             self.depth_offsets[i] += dt * current_speed
@@ -187,16 +194,18 @@ class ParticleFireworksEffect(VisualizerEffect):
         self.particles.clear()
         self.spawn_timer = 0.0
 
-    def update(self, dt: float, beat: float) -> None:
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
         self.spawn_timer += dt
+        bass = bands[0] if (bands and len(bands) > 0) else beat
+        trigger_intensity = max(beat, bass)
 
-        # Spawn burst on beat pulse
-        if beat > 0.45 or self.spawn_timer > 0.2:
-            burst_count = int(8 + 24 * beat)
+        # Spawn burst on beat pulse or bass kick
+        if trigger_intensity > 0.45 or self.spawn_timer > 0.25:
+            burst_count = int(8 + 26 * trigger_intensity)
             cx, cy = self.size / 2.0, self.size / 2.0
             for _ in range(burst_count):
                 angle = random.uniform(0, 2 * math.pi)
-                speed = random.uniform(12.0, 48.0) * (0.8 + 1.2 * beat)
+                speed = random.uniform(12.0, 52.0) * (0.8 + 1.3 * trigger_intensity)
                 vx = math.cos(angle) * speed
                 vy = math.sin(angle) * speed
                 lifespan = random.uniform(0.6, 1.4)
@@ -266,15 +275,19 @@ class GraphicEqualizerEffect(VisualizerEffect):
         self.peak_speeds = [0.0] * self.num_bars
         self.phase = 0.0
 
-    def update(self, dt: float, beat: float) -> None:
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
         self.phase += dt * 3.0
         max_h = 50.0
 
         for i in range(self.num_bars):
-            # Frequency curve simulation: heavier bass on left, dynamic mids, sparkle highs
-            freq_scale = 1.0 - (i / self.num_bars) * 0.45
-            harmonic = math.sin(self.phase * 1.5 + i * 0.45) * 0.5 + 0.5
-            target = 6.0 + max_h * freq_scale * (0.3 * harmonic + 0.7 * beat)
+            if bands and len(bands) > 0:
+                idx = min(len(bands) - 1, int(i / self.num_bars * len(bands)))
+                target = 3.0 + max_h * bands[idx]
+            else:
+                # Frequency curve simulation: heavier bass on left, dynamic mids, sparkle highs
+                freq_scale = 1.0 - (i / self.num_bars) * 0.45
+                harmonic = math.sin(self.phase * 1.5 + i * 0.45) * 0.5 + 0.5
+                target = 6.0 + max_h * freq_scale * (0.3 * harmonic + 0.7 * beat)
 
             # Smooth interpolation
             self.heights[i] += (target - self.heights[i]) * min(1.0, dt * 18.0)
@@ -332,8 +345,9 @@ class OscilloscopeRibbonEffect(VisualizerEffect):
     def reset(self) -> None:
         self.time = 0.0
 
-    def update(self, dt: float, beat: float) -> None:
-        self.time += dt * (1.2 + beat * 1.5)
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
+        energy = (sum(bands) / len(bands)) if (bands and len(bands) > 0) else beat
+        self.time += dt * (1.2 + max(beat, energy) * 1.8)
 
     def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 1, 6))
@@ -368,6 +382,7 @@ class VisualizerRenderer(ModeRenderer):
         size: int = 64,
         cycle_interval: float = 60.0,
         effects: list[VisualizerEffect] | None = None,
+        audio_source: Callable[[], Any] | None = None,
     ) -> None:
         self.size = size
         self.cycle_interval = cycle_interval
@@ -378,6 +393,7 @@ class VisualizerRenderer(ModeRenderer):
             GraphicEqualizerEffect(size),
             OscilloscopeRibbonEffect(size),
         ]
+        self.audio_source = audio_source
         self.current_idx = 0
         self.timer = 0.0
         self.beat_phase = 0.0
@@ -405,7 +421,7 @@ class VisualizerRenderer(ModeRenderer):
                     return
             raise ValueError(f"Unknown visualizer effect: {index_or_name}")
 
-    def update(self, dt: float, beat: float) -> None:
+    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
         # Cycle effects on timer
         if self.cycle_interval > 0 and len(self.effects) > 1:
             self.timer += dt
@@ -415,24 +431,28 @@ class VisualizerRenderer(ModeRenderer):
                 self.current_idx = (self.current_idx + steps) % len(self.effects)
                 self.current_effect.reset()
 
-        self.current_effect.update(dt, beat)
+        self.current_effect.update(dt, beat, bands=bands)
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
-        # Compute beat intensity:
-        # If Spotify is active and playing, pulse rhythmically at ~120 BPM (~2 Hz)
-        if ctx.spotify_state.available and ctx.spotify_state.playing:
-            bpm = 124.0
-            bps = bpm / 60.0
-            self.beat_phase += ctx.dt * bps * 2.0 * math.pi
+        audio_frame = self.audio_source() if self.audio_source else None
+        if audio_frame is not None:
+            beat = audio_frame.beat
+            bands = audio_frame.bands
         else:
             # Standalone rhythmic audio pulse generator
-            self.beat_phase += ctx.dt * 2.0 * 2.0 * math.pi
+            if ctx.spotify_state.available and ctx.spotify_state.playing:
+                bpm = 124.0
+                bps = bpm / 60.0
+                self.beat_phase += ctx.dt * bps * 2.0 * math.pi
+            else:
+                self.beat_phase += ctx.dt * 2.0 * 2.0 * math.pi
 
-        # Sharp beat curve with exponential decay
-        raw_sin = math.sin(self.beat_phase)
-        beat = max(0.0, raw_sin) ** 3.5
+            # Sharp beat curve with exponential decay
+            raw_sin = math.sin(self.beat_phase)
+            beat = max(0.0, raw_sin) ** 3.5
+            bands = None
 
-        self.update(ctx.dt, beat)
+        self.update(ctx.dt, beat, bands=bands)
 
         frame = Image.new("RGB", (size, size), (2, 2, 6))
         draw = ImageDraw.Draw(frame)
