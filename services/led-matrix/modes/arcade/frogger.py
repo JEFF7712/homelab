@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import math
-import random
 from dataclasses import dataclass
+
 from PIL import Image, ImageDraw, ImageFont
 
-from modes.text_utils import draw_right_aligned_text
+from modes.text_utils import draw_boxed_message, draw_scoreboard
+
 from .base import ArcadeGame
 
 
@@ -21,6 +21,7 @@ class Obstacle:
     color: tuple[int, int, int]
     is_log: bool = False
     is_turtle: bool = False
+    is_alligator: bool = False
 
 
 class FroggerGame(ArcadeGame):
@@ -35,7 +36,7 @@ class FroggerGame(ArcadeGame):
         self.lives = 3
         self.level = 1
         self.frog_x = 31.0
-        self.frog_y = 59.0
+        self.frog_y = 62.0
         self.homes_filled = [False] * 5
         self.obstacles: list[Obstacle] = []
         self.splat_timer = 0.0
@@ -58,7 +59,7 @@ class FroggerGame(ArcadeGame):
 
     def _respawn_frog(self) -> None:
         self.frog_x = 31.0
-        self.frog_y = 59.0
+        self.frog_y = 62.0
         self.hop_cooldown = 0.15
 
     def _init_obstacles(self) -> None:
@@ -68,36 +69,124 @@ class FroggerGame(ArcadeGame):
         # --- River Lanes (Y=16..35) ---
         # Lane 1 (y=16): Small logs ->
         for x in (4, 28, 52):
-            self.obstacles.append(Obstacle(x=float(x), y=16, w=14, h=4, speed=16.0 * spd_scale, color=(140, 85, 30), is_log=True))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=16,
+                    w=14,
+                    h=4,
+                    speed=16.0 * spd_scale,
+                    color=(140, 85, 30),
+                    is_log=True,
+                )
+            )
 
         # Lane 2 (y=21): Turtles <-
         for x in (8, 30, 52):
-            self.obstacles.append(Obstacle(x=float(x), y=21, w=11, h=4, speed=-18.0 * spd_scale, color=(40, 160, 70), is_turtle=True))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=21,
+                    w=11,
+                    h=4,
+                    speed=-18.0 * spd_scale,
+                    color=(40, 160, 70),
+                    is_turtle=True,
+                )
+            )
 
         # Lane 3 (y=26): Big logs ->
         for x in (2, 36):
-            self.obstacles.append(Obstacle(x=float(x), y=26, w=20, h=4, speed=13.0 * spd_scale, color=(140, 85, 30), is_log=True))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=26,
+                    w=20,
+                    h=4,
+                    speed=13.0 * spd_scale,
+                    color=(140, 85, 30),
+                    is_log=True,
+                    is_alligator=x == 36,
+                )
+            )
 
         # Lane 4 (y=31): Small logs <-
         for x in (6, 32, 56):
-            self.obstacles.append(Obstacle(x=float(x), y=31, w=13, h=4, speed=-20.0 * spd_scale, color=(140, 85, 30), is_log=True))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=31,
+                    w=13,
+                    h=4,
+                    speed=-20.0 * spd_scale,
+                    color=(140, 85, 30),
+                    is_log=True,
+                )
+            )
 
         # --- Road Lanes (Y=41..56) ---
         # Lane 1 (y=41): Yellow sedans ->
         for x in (6, 36):
-            self.obstacles.append(Obstacle(x=float(x), y=41, w=7, h=4, speed=20.0 * spd_scale, color=(240, 220, 40)))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=40,
+                    w=7,
+                    h=4,
+                    speed=20.0 * spd_scale,
+                    color=(240, 220, 40),
+                )
+            )
 
         # Lane 2 (y=45): White trucks <-
         for x in (12, 44):
-            self.obstacles.append(Obstacle(x=float(x), y=45, w=10, h=4, speed=-14.0 * spd_scale, color=(220, 225, 235)))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=44,
+                    w=10,
+                    h=4,
+                    speed=-14.0 * spd_scale,
+                    color=(220, 225, 235),
+                )
+            )
 
         # Lane 3 (y=49): Red racecars ->
         for x in (18, 50):
-            self.obstacles.append(Obstacle(x=float(x), y=49, w=7, h=4, speed=26.0 * spd_scale, color=(240, 50, 60)))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=48,
+                    w=7,
+                    h=4,
+                    speed=26.0 * spd_scale,
+                    color=(240, 50, 60),
+                )
+            )
 
         # Lane 4 (y=53): Orange bulldozers <-
         for x in (8, 38):
-            self.obstacles.append(Obstacle(x=float(x), y=53, w=8, h=4, speed=-12.0 * spd_scale, color=(255, 130, 20)))
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=52,
+                    w=8,
+                    h=4,
+                    speed=-12.0 * spd_scale,
+                    color=(255, 130, 20),
+                )
+            )
+        for x in (4, 30, 56):
+            self.obstacles.append(
+                Obstacle(
+                    x=float(x),
+                    y=56,
+                    w=6,
+                    h=4,
+                    speed=18.0 * spd_scale,
+                    color=(50, 190, 230),
+                )
+            )
 
     def update(self, dt: float) -> None:
         dt = min(dt, 0.05)
@@ -138,8 +227,13 @@ class FroggerGame(ArcadeGame):
 
         if in_river:
             for obs in self.obstacles:
-                if (obs.is_log or obs.is_turtle) and abs(self.frog_y - (obs.y + 1)) <= 2:
+                if (obs.is_log or obs.is_turtle) and abs(
+                    self.frog_y - (obs.y + 1)
+                ) <= 2:
                     if (obs.x - 1) <= self.frog_x <= (obs.x + obs.w):
+                        if obs.is_alligator and self.frog_x > obs.x + obs.w - 5:
+                            self.splat_timer = 0.5
+                            return
                         on_platform = True
                         platform_drift = obs.speed * dt
                         break
@@ -156,10 +250,14 @@ class FroggerGame(ArcadeGame):
                 return
 
         # 3. Check Traffic Collision
-        in_road = 40 <= self.frog_y <= 56
+        in_road = 40 <= self.frog_y <= 59
         if in_road:
             for obs in self.obstacles:
-                if not obs.is_log and not obs.is_turtle and abs(self.frog_y - (obs.y + 1)) <= 2:
+                if (
+                    not obs.is_log
+                    and not obs.is_turtle
+                    and abs(self.frog_y - (obs.y + 1)) <= 2
+                ):
                     if (obs.x - 2) <= self.frog_x <= (obs.x + obs.w):
                         self.splat_timer = 0.5
                         return
@@ -191,101 +289,76 @@ class FroggerGame(ArcadeGame):
 
         self._ai_step()
 
+    def _safe_position(self, x: float, y: float, horizon: float = 0.25) -> bool:
+        if not 3 <= x <= 60:
+            return False
+        if y <= 13:
+            return any(
+                not filled and abs(x - hx) <= 3
+                for hx, filled in zip(self.LILY_HOMES_X, self.homes_filled)
+            )
+        if 15 <= y <= 35:
+            return any(
+                (obs.is_log or obs.is_turtle)
+                and abs(y - (obs.y + 1)) <= 2
+                and obs.x + 1 <= x <= obs.x + obs.w - (6 if obs.is_alligator else 2)
+                and 3 <= x + obs.speed * horizon <= 60
+                for obs in self.obstacles
+            )
+        if 40 <= y <= 59:
+            return not any(
+                not obs.is_log
+                and not obs.is_turtle
+                and abs(y - (obs.y + 1)) <= 2
+                and obs.x + min(0, obs.speed * horizon) - 3
+                <= x
+                <= obs.x + obs.w + max(0, obs.speed * horizon) + 1
+                for obs in self.obstacles
+            )
+        return True
+
     def _ai_step(self) -> None:
-        # Determine target home index (pick nearest empty lily pad)
-        unfilled = [i for i, f in enumerate(self.homes_filled) if not f]
+        unfilled = [
+            hx for hx, filled in zip(self.LILY_HOMES_X, self.homes_filled) if not filled
+        ]
         if not unfilled:
             return
-        target_idx = min(unfilled, key=lambda i: abs(self.LILY_HOMES_X[i] - self.frog_x))
-        target_hx = self.LILY_HOMES_X[target_idx]
-
-        step_y = 4.0
-
-        # Scenario A: In Traffic
-        if self.frog_y >= 40:
-            target_next_y = self.frog_y - step_y
-            is_forward_safe = True
-            for obs in self.obstacles:
-                if not obs.is_log and not obs.is_turtle and abs(target_next_y - (obs.y + 1)) <= 3:
-                    # Vehicle will pass through within 0.3s
-                    pred_x1 = obs.x + min(0, obs.speed * 0.35) - 2
-                    pred_x2 = obs.x + obs.w + max(0, obs.speed * 0.35) + 2
-                    if pred_x1 <= self.frog_x <= pred_x2:
-                        is_forward_safe = False
-                        break
-
-            if is_forward_safe:
-                self.frog_y -= step_y
-                self.score += 10
-                self.hop_cooldown = 0.18
-                return
-            else:
-                # Try sidestepping towards target_hx if safe
-                if abs(self.frog_x - target_hx) > 2:
-                    dx = 3.0 if target_hx > self.frog_x else -3.0
-                    new_x = max(4.0, min(59.0, self.frog_x + dx))
-                    self.frog_x = new_x
-                    self.hop_cooldown = 0.16
-                    return
-                # Wait for opening
-                self.hop_cooldown = 0.10
-                return
-
-        # Scenario B: Grassy Median (y around 36..39)
-        if 36 <= self.frog_y < 40:
-            # Prepare to enter River Lane 4 (y=31)
-            target_lane_y = 31
-            for obs in self.obstacles:
-                if obs.y == target_lane_y:
-                    pred_x = obs.x + obs.speed * 0.18
-                    if pred_x + 1 <= self.frog_x <= pred_x + obs.w - 1:
-                        self.frog_y = 32
-                        self.score += 10
-                        self.hop_cooldown = 0.22
-                        return
-            self.hop_cooldown = 0.08
+        home = min(unfilled, key=lambda hx: abs(hx - self.frog_x))
+        if self.frog_y >= 42:
+            next_y = self.frog_y - 4
+        elif self.frog_y >= 36:
+            next_y = 32.0
+        elif self.frog_y > 17:
+            next_y = self.frog_y - 5
+        else:
+            next_y = 11.0
+        forward = [
+            self.frog_x + dx
+            for dx in (0, -4, 4, -8, 8)
+            if self._safe_position(self.frog_x + dx, next_y)
+        ]
+        if forward:
+            self.frog_x = min(
+                forward, key=lambda x: abs(x - self.frog_x) + abs(x - home) * 0.35
+            )
+            self.frog_y = next_y
+            self.score += 10
+            self.hop_cooldown = 0.16
             return
+        lateral = [
+            self.frog_x + dx
+            for dx in (-3, 0, 3)
+            if self._safe_position(self.frog_x + dx, self.frog_y)
+        ]
+        if lateral:
+            self.frog_x = min(lateral, key=lambda x: abs(x - home))
+        elif self.frog_y >= 42 and self._safe_position(self.frog_x, self.frog_y + 4):
+            self.frog_y += 4
+        self.hop_cooldown = 0.08
 
-        # Scenario C: In River (y=16..35)
-        if 15 <= self.frog_y <= 35:
-            target_next_y = self.frog_y - 5.0
-            if target_next_y <= 13:
-                # Entering home!
-                if abs(self.frog_x - target_hx) <= 3:
-                    self.frog_y = 11
-                    self.frog_x = target_hx
-                    self.hop_cooldown = 0.25
-                    return
-                else:
-                    # Adjust X to align with target home
-                    dx = 2.5 if target_hx > self.frog_x else -2.5
-                    self.frog_x = max(4.0, min(59.0, self.frog_x + dx))
-                    self.hop_cooldown = 0.12
-                    return
-
-            # Moving across river lanes
-            target_lane = int(round(target_next_y))
-            can_hop = False
-            for obs in self.obstacles:
-                if (obs.is_log or obs.is_turtle) and abs(target_lane - obs.y) <= 2:
-                    pred_x = obs.x + obs.speed * 0.2
-                    if pred_x <= self.frog_x <= pred_x + obs.w:
-                        can_hop = True
-                        break
-
-            if can_hop:
-                self.frog_y = target_next_y
-                self.score += 10
-                self.hop_cooldown = 0.22
-                return
-            else:
-                # Shift position along current platform to align with target home
-                dx = 2.0 if target_hx > self.frog_x else -2.0
-                self.frog_x = max(4.0, min(59.0, self.frog_x + dx))
-                self.hop_cooldown = 0.12
-                return
-
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         # 1. Background Regions
         # Top goal bank (dark green bush)
         draw.rectangle([(0, 0), (63, 14)], fill=(12, 60, 24))
@@ -297,14 +370,14 @@ class FroggerGame(ArcadeGame):
         draw.rectangle([(0, 36), (63, 39)], fill=(28, 120, 36))
 
         # Road
-        draw.rectangle([(0, 40), (63, 56)], fill=(20, 20, 24))
+        draw.rectangle([(0, 40), (63, 59)], fill=(20, 20, 24))
         # Road lane dividers
-        for ly in (44, 48, 52):
+        for ly in (44, 48, 52, 56):
             for lx in range(2, 63, 8):
                 draw.line([(lx, ly), (lx + 3, ly)], fill=(70, 70, 80))
 
         # Starting curb
-        draw.rectangle([(0, 57), (63, 63)], fill=(28, 120, 36))
+        draw.rectangle([(0, 60), (63, 63)], fill=(28, 120, 36))
 
         # 2. Lily Pad Homes
         for idx, hx in enumerate(self.LILY_HOMES_X):
@@ -317,15 +390,29 @@ class FroggerGame(ArcadeGame):
                 draw.point((hx + 1, hy - 2), fill=(255, 255, 255))
             else:
                 # Open blue goal slot with lily pad ring
-                draw.rectangle([(hx - 3, hy - 3), (hx + 3, hy + 3)], fill=(8, 20, 50), outline=(40, 180, 80))
+                draw.rectangle(
+                    [(hx - 3, hy - 3), (hx + 3, hy + 3)],
+                    fill=(8, 20, 50),
+                    outline=(40, 180, 80),
+                )
                 draw.ellipse([(hx - 2, hy - 2), (hx + 2, hy + 2)], fill=(30, 140, 50))
 
         # 3. Obstacles (Logs, Turtles, Cars)
         for obs in self.obstacles:
             ix = int(obs.x)
             iy = obs.y
-            if obs.is_log:
-                draw.rectangle([(ix, iy), (ix + obs.w - 1, iy + obs.h - 1)], fill=obs.color)
+            if obs.is_alligator:
+                draw.rectangle((ix, iy, ix + obs.w - 1, iy + 3), fill=(70, 150, 35))
+                draw.rectangle(
+                    (ix + obs.w - 5, iy + 1, ix + obs.w - 1, iy + 2), fill=(10, 35, 15)
+                )
+                draw.point((ix + obs.w - 6, iy), fill=(255, 235, 70))
+                for tooth in range(ix + obs.w - 4, ix + obs.w, 2):
+                    draw.point((tooth, iy + 1), fill=(245, 245, 205))
+            elif obs.is_log:
+                draw.rectangle(
+                    [(ix, iy), (ix + obs.w - 1, iy + obs.h - 1)], fill=obs.color
+                )
                 # Wood ring accents
                 draw.point((ix + 1, iy + 1), fill=(100, 55, 15))
                 draw.point((ix + obs.w - 2, iy + 2), fill=(100, 55, 15))
@@ -336,7 +423,9 @@ class FroggerGame(ArcadeGame):
                     draw.point((tx + 1, iy + 1), fill=(20, 90, 40))
             else:
                 # Car / Truck
-                draw.rectangle([(ix, iy), (ix + obs.w - 1, iy + obs.h - 1)], fill=obs.color)
+                draw.rectangle(
+                    [(ix, iy), (ix + obs.w - 1, iy + obs.h - 1)], fill=obs.color
+                )
                 # Headlights
                 if obs.speed > 0:
                     draw.point((ix + obs.w - 1, iy + 1), fill=(255, 255, 200))
@@ -365,10 +454,16 @@ class FroggerGame(ArcadeGame):
             draw.point((fx + 2, fy + 1), fill=(25, 160, 35))
 
         # 5. Top HUD
-        draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
-        draw_right_aligned_text(draw, "FROGGER", right_x=62, y=1, fill=(50, 240, 50), max_width=34, preferred_size=7)
+        draw_scoreboard(
+            draw, f"S{self.score}", "FROGGER", size=size, right_color=(50, 240, 50)
+        )
 
         # Level Clear Flash
         if self.level_clear_timer > 0 and int(self.anim_phase * 10) % 2 == 0:
-            draw.rectangle([(4, 25), (59, 39)], fill=(0, 0, 0), outline=(255, 215, 0))
-            draw.text((10, 28), "LEVEL CLEAR!", fill=(255, 220, 40), font=self.font)
+            draw_boxed_message(
+                draw,
+                "LEVEL CLEAR!",
+                rect=(4, 25, 59, 39),
+                border_color=(255, 215, 0),
+                title_color=(255, 220, 40),
+            )

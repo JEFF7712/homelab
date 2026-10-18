@@ -7,6 +7,8 @@ from collections import deque
 
 from PIL import Image, ImageDraw, ImageFont
 
+from modes.text_utils import draw_fitted_text
+
 from .base import ArcadeGame
 
 
@@ -131,11 +133,7 @@ class PongGame(ArcadeGame):
 
         # Score bar at top
         score_text = f"{self.score_left}   {self.score_right}"
-        bbox = draw.textbbox((0, 0), score_text, font=self.font)
-        sw = bbox[2] - bbox[0]
-        draw.text(
-            ((size - sw) // 2, 1), score_text, fill=(200, 220, 240), font=self.font
-        )
+        draw_fitted_text(draw, score_text, (2, 1, size - 2, 9), fill=(200, 220, 240))
 
         # Upper divider line
         draw.line([(0, 10), (size - 1, 10)], fill=(25, 35, 55), width=1)

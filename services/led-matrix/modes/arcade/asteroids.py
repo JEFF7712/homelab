@@ -5,9 +5,11 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
+
 from PIL import Image, ImageDraw, ImageFont
 
-from modes.text_utils import draw_right_aligned_text
+from modes.text_utils import draw_scoreboard
+
 from .base import ArcadeGame
 
 
@@ -76,7 +78,9 @@ class AsteroidsGame(ArcadeGame):
             r = radius * random.uniform(0.75, 1.25)
             offsets.append((math.cos(a) * r, math.sin(a) * r))
 
-        return AIAsteroid(x=x, y=y, vx=vx, vy=vy, tier=tier, radius=radius, offsets=offsets)
+        return AIAsteroid(
+            x=x, y=y, vx=vx, vy=vy, tier=tier, radius=radius, offsets=offsets
+        )
 
     def _spawn_wave(self, count: int) -> None:
         self.asteroids.clear()
@@ -221,17 +225,22 @@ class AsteroidsGame(ArcadeGame):
                 )
             )
 
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(0, 0, 0))
 
         # Top HUD
-        draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
-        draw_right_aligned_text(draw, "ASTEROIDS", right_x=62, y=1, fill=(255, 220, 60), max_width=38, preferred_size=7)
+        draw_scoreboard(draw, f"S{self.score}", "ASTEROIDS", size=size)
 
         # Asteroids
         for a in self.asteroids:
             pts = [(int(a.x + ox) % 64, int(a.y + oy) % 64) for ox, oy in a.offsets]
-            col = (210, 210, 230) if a.tier == 3 else ((180, 190, 220) if a.tier == 2 else (140, 150, 190))
+            col = (
+                (210, 210, 230)
+                if a.tier == 3
+                else ((180, 190, 220) if a.tier == 2 else (140, 150, 190))
+            )
             if len(pts) >= 3:
                 draw.polygon(pts, outline=col)
 
@@ -243,9 +252,15 @@ class AsteroidsGame(ArcadeGame):
         rad = math.radians(self.ship_angle)
         p_nose = (self.ship_x + math.cos(rad) * 4.5, self.ship_y - math.sin(rad) * 4.5)
         rad_l = rad + 2.5
-        p_left = (self.ship_x + math.cos(rad_l) * 4.0, self.ship_y - math.sin(rad_l) * 4.0)
+        p_left = (
+            self.ship_x + math.cos(rad_l) * 4.0,
+            self.ship_y - math.sin(rad_l) * 4.0,
+        )
         rad_r = rad - 2.5
-        p_right = (self.ship_x + math.cos(rad_r) * 4.0, self.ship_y - math.sin(rad_r) * 4.0)
+        p_right = (
+            self.ship_x + math.cos(rad_r) * 4.0,
+            self.ship_y - math.sin(rad_r) * 4.0,
+        )
 
         ship_pts = [
             (int(p_nose[0]) % 64, int(p_nose[1]) % 64),
@@ -260,4 +275,7 @@ class AsteroidsGame(ArcadeGame):
                 int(self.ship_x + math.cos(rad_back) * 4.0) % 64,
                 int(self.ship_y - math.sin(rad_back) * 4.0) % 64,
             )
-            draw.line([(int(self.ship_x) % 64, int(self.ship_y) % 64), flame_tip], fill=(255, 140, 20))
+            draw.line(
+                [(int(self.ship_x) % 64, int(self.ship_y) % 64), flame_tip],
+                fill=(255, 140, 20),
+            )

@@ -7,7 +7,8 @@ import random
 from collections import deque
 
 from PIL import Image, ImageDraw, ImageFont
-from modes.text_utils import draw_right_aligned_text
+
+from modes.text_utils import draw_centered_text, draw_scoreboard
 
 from .base import ArcadeGame
 
@@ -390,8 +391,9 @@ class PacmanGame(ArcadeGame):
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(0, 0, 0))
 
         # Top HUD
-        draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
-        draw_right_aligned_text(draw, "PAC-MAN", right_x=62, y=1, fill=(255, 230, 0), max_width=32, preferred_size=7)
+        draw_scoreboard(
+            draw, f"S{self.score}", "PAC-MAN", size=size, right_color=(255, 230, 0)
+        )
 
         # Flash effect when clearing maze
         wall_col = (255, 255, 255) if self.flash_timer > 0 else (28, 42, 215)
@@ -491,9 +493,13 @@ class PacmanGame(ArcadeGame):
 
         # Score popups
         for pop in self.score_popups:
-            draw.text(
-                (int(pop["x"]), int(pop["y"])),
+            draw_centered_text(
+                draw,
                 pop["text"],
+                min(52, max(12, int(pop["x"]))),
+                min(59, max(13, int(pop["y"]))),
                 fill=(0, 240, 255),
-                font=self.font,
+                max_width=24,
+                max_height=7,
+                preferred_size=7,
             )

@@ -8,6 +8,8 @@ from collections import deque
 
 from PIL import ImageDraw, ImageFont
 
+from modes.text_utils import draw_right_aligned_text
+
 from .base import MultiplayerGame
 from .registry import register_game
 
@@ -44,16 +46,21 @@ class InteractiveSnake(MultiplayerGame):
     @staticmethod
     def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
         segments = [
-            (cx - 6, cy + 4), (cx - 4, cy + 4), (cx - 2, cy + 4),
-            (cx - 2, cy + 2), (cx - 2, cy), (cx, cy), (cx + 2, cy),
-            (cx + 2, cy - 2), (cx + 4, cy - 2),
+            (cx - 6, cy + 4),
+            (cx - 4, cy + 4),
+            (cx - 2, cy + 4),
+            (cx - 2, cy + 2),
+            (cx - 2, cy),
+            (cx, cy),
+            (cx + 2, cy),
+            (cx + 2, cy - 2),
+            (cx + 4, cy - 2),
         ]
         for sx, sy in segments:
             draw.rectangle([sx, sy, sx + 1, sy + 1], fill=(40, 220, 90))
         draw.rectangle([cx + 4, cy - 2, cx + 5, cy - 1], fill=(255, 255, 255))
         draw.rectangle([cx - 6, cy - 2, cx - 5, cy - 1], fill=(255, 50, 40))
         draw.point((cx - 6, cy - 3), fill=(60, 200, 60))
-
 
     def __init__(self) -> None:
         super().__init__(solo_vs_ai=True)
@@ -67,7 +74,9 @@ class InteractiveSnake(MultiplayerGame):
         self.high_score = 0
         self.step_interval = 0.085
         self.step_timer = 0.0
-        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
+        self.particles: list[
+            tuple[float, float, float, float, tuple[int, int, int], float]
+        ] = []
         self.reset()
 
     def reset(self) -> None:
@@ -119,7 +128,11 @@ class InteractiveSnake(MultiplayerGame):
         else:
             # 2. Check held inputs
             for d in ("up", "down", "left", "right"):
-                if d in p1_inputs and OPPOSITE[d] != self.current_dir and d != self.current_dir:
+                if (
+                    d in p1_inputs
+                    and OPPOSITE[d] != self.current_dir
+                    and d != self.current_dir
+                ):
                     self.next_dir = d
                     break
 
@@ -142,7 +155,9 @@ class InteractiveSnake(MultiplayerGame):
 
         # Check wall or self collision
         if (
-            not (0 <= new_head[0] < self.grid_size and 0 <= new_head[1] < self.grid_size)
+            not (
+                0 <= new_head[0] < self.grid_size and 0 <= new_head[1] < self.grid_size
+            )
             or new_head in self.snake
         ):
             # Game Over!
@@ -154,14 +169,16 @@ class InteractiveSnake(MultiplayerGame):
             hy = 2 + head[1] * 2
             for _ in range(16):
                 speed = random.uniform(15, 45)
-                self.particles.append((
-                    float(hx),
-                    float(hy),
-                    speed * random.uniform(-1, 1),
-                    speed * random.uniform(-1, 1),
-                    (255, 60, 40),
-                    random.uniform(0.3, 0.6),
-                ))
+                self.particles.append(
+                    (
+                        float(hx),
+                        float(hy),
+                        speed * random.uniform(-1, 1),
+                        speed * random.uniform(-1, 1),
+                        (255, 60, 40),
+                        random.uniform(0.3, 0.6),
+                    )
+                )
             return
 
         self.snake.append(new_head)
@@ -172,18 +189,19 @@ class InteractiveSnake(MultiplayerGame):
             fx = 2 + self.food[0] * 2
             fy = 2 + self.food[1] * 2
             for _ in range(8):
-                self.particles.append((
-                    float(fx),
-                    float(fy),
-                    random.uniform(-20, 20),
-                    random.uniform(-20, 20),
-                    (255, 220, 50),
-                    random.uniform(0.2, 0.4),
-                ))
+                self.particles.append(
+                    (
+                        float(fx),
+                        float(fy),
+                        random.uniform(-20, 20),
+                        random.uniform(-20, 20),
+                        (255, 220, 50),
+                        random.uniform(0.2, 0.4),
+                    )
+                )
             self._spawn_food()
         else:
             self.snake.popleft()
-
 
     def render(self, draw: ImageDraw.ImageDraw) -> None:
         # Background
@@ -221,7 +239,9 @@ class InteractiveSnake(MultiplayerGame):
                 draw.point((int(px), int(py)), fill=col)
 
         # Score in top right
-        draw.text((45, 2), f"{self.score}", fill=(160, 200, 240), font=self.font)
+        draw_right_aligned_text(
+            draw, str(self.score), right_x=62, y=1, max_width=28, fill=(160, 200, 240)
+        )
 
     def get_status_text(self) -> str:
         return f"SCORE: {self.score} | LENGTH: {len(self.snake)}"

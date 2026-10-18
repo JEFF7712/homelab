@@ -6,6 +6,7 @@ import math
 from typing import TYPE_CHECKING
 
 from PIL import ImageDraw, ImageFont
+
 from modes.text_utils import draw_centered_text
 
 from .registry import GAME_REGISTRY
@@ -94,7 +95,8 @@ class CarouselRenderer:
                 cx=card_cx,
                 cy=38,
                 fill=text_col,
-                max_width=34,
+                max_width=24,
+                max_height=10,
                 preferred_size=8,
                 min_size=6,
             )

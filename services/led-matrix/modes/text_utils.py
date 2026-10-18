@@ -1,42 +1,93 @@
-"""Robust pixel-perfect text rendering and auto-fitting utilities for 64x64 LED canvas."""
+"""Fit and align text inside explicit pixel bounds on the matrix."""
 
 from __future__ import annotations
 
-from PIL import ImageDraw, ImageFont
+import math
+from functools import lru_cache
+from typing import Literal
 
-_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
+from PIL import Image, ImageDraw, ImageFont
+
+Color = tuple[int, int, int]
+Bounds = tuple[int, int, int, int]
+Font = ImageFont.ImageFont | ImageFont.FreeTypeFont
 
 
-def get_matrix_font(size: int = 9) -> ImageFont.ImageFont:
-    """Retrieve or cache a PIL default font of the requested size."""
-    if size not in _FONT_CACHE:
-        _FONT_CACHE[size] = ImageFont.load_default(size=size)
-    return _FONT_CACHE[size]
+@lru_cache(maxsize=16)
+def get_matrix_font(size: int = 9) -> Font:
+    return ImageFont.load_default(size=size)
 
 
-def fit_text_font(
-    draw: ImageDraw.ImageDraw,
-    text: str,
-    max_width: int,
-    preferred_size: int = 9,
-    min_size: int = 6,
-) -> tuple[ImageFont.ImageFont, int, int]:
-    """Find the largest font size in [min_size..preferred_size] that fits within max_width.
+def _font_bounds(font: Font, text: str) -> Bounds:
+    left, top, right, bottom = font.getbbox(text)
+    return math.floor(left), math.floor(top), math.ceil(right), math.ceil(bottom)
 
-    Returns (font, text_width, text_height).
-    """
+
+@lru_cache(maxsize=512)
+def _fit_text(
+    text: str, width: int, height: int, preferred_size: int, min_size: int
+) -> tuple[str, Font, Bounds]:
+    text = " ".join(text.split())
     for size in range(preferred_size, min_size - 1, -1):
         font = get_matrix_font(size)
-        bbox = draw.textbbox((0, 0), text, font=font)
-        w = bbox[2] - bbox[0]
-        h = bbox[3] - bbox[1]
-        if w <= max_width:
-            return font, w, h
-
-    # If it still exceeds at min_size, return min_size
+        bounds = _font_bounds(font, text)
+        if bounds[2] - bounds[0] <= width and bounds[3] - bounds[1] <= height:
+            return text, font, bounds
     font = get_matrix_font(min_size)
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return font, bbox[2] - bbox[0], bbox[3] - bbox[1]
+    marker = "..."
+    while marker and font.getlength(marker) > width:
+        marker = marker[:-1]
+    while text:
+        candidate = text.rstrip() + marker
+        bounds = _font_bounds(font, candidate)
+        if bounds[2] - bounds[0] <= width and bounds[3] - bounds[1] <= height:
+            return candidate, font, bounds
+        text = text[:-1]
+    bounds = _font_bounds(font, marker)
+    if bounds[3] - bounds[1] <= height:
+        return marker, font, bounds
+    return "", font, (0, 0, 0, 0)
+
+
+def draw_fitted_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    rect: Bounds,
+    fill: Color = (255, 255, 255),
+    *,
+    align: Literal["left", "center", "right"] = "center",
+    preferred_size: int = 9,
+    min_size: int = 6,
+) -> Bounds:
+    """Draw within a half-open rectangle, returning the actual visible ink bounds."""
+    left, top, right, bottom = rect
+    width, height = right - left, bottom - top
+    if width <= 0 or height <= 0 or not text:
+        return left, top, left, top
+    if not 1 <= min_size <= preferred_size:
+        raise ValueError("Font sizes must satisfy 1 <= min_size <= preferred_size")
+    if align not in {"left", "center", "right"}:
+        raise ValueError("Unknown text alignment")
+    text, font, bounds = _fit_text(text, width, height, preferred_size, min_size)
+    ink_width, ink_height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+    glyph = Image.new("L", (max(1, ink_width), max(1, ink_height)))
+    ImageDraw.Draw(glyph).text((-bounds[0], -bounds[1]), text, font=font, fill=255)
+    ink = glyph.getbbox()
+    if ink is None:
+        return left, top, left, top
+    glyph = glyph.crop(ink)
+    ink_width, ink_height = glyph.size
+    x = {"left": 0, "center": (width - ink_width) // 2, "right": width - ink_width}[
+        align
+    ]
+    y = (height - ink_height) // 2
+    mask = Image.new("L", (width, height))
+    mask.paste(glyph, (x, y))
+    visible = mask.getbbox()
+    draw.bitmap((left, top), mask, fill=fill)
+    if visible is None:
+        return left, top, left, top
+    return left + visible[0], top + visible[1], left + visible[2], top + visible[3]
 
 
 def draw_centered_text(
@@ -44,89 +95,22 @@ def draw_centered_text(
     text: str,
     cx: int | float,
     cy: int | float,
-    fill: tuple[int, int, int] = (255, 255, 255),
+    fill: Color = (255, 255, 255),
     max_width: int | None = None,
     preferred_size: int = 9,
     min_size: int = 6,
-) -> tuple[int, int, int, int]:
-    """Draw text precisely centered at (cx, cy) on the integer pixel grid.
-
-    Compensates for PIL font bounding-box ascender offsets and auto-scales down font size
-    if max_width is specified.
-    """
-    if max_width is not None and max_width > 0:
-        font, w, h = fit_text_font(draw, text, max_width, preferred_size, min_size)
-    else:
-        font = get_matrix_font(preferred_size)
-
-    bbox = draw.textbbox((0, 0), text, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-
-    # Calculate exact top-left render coordinate subtracting bbox offsets
-    x = int(round(cx - (w / 2.0) - bbox[0]))
-    y = int(round(cy - (h / 2.0) - bbox[1]))
-
-    draw.text((x, y), text, fill=fill, font=font)
-    return (x, y, x + w, y + h)
-
-
-def draw_boxed_message(
-    draw: ImageDraw.ImageDraw,
-    title: str,
-    subtitle: str | None = None,
-    rect: tuple[int, int, int, int] = (4, 18, 59, 46),
-    bg_color: tuple[int, int, int] = (10, 10, 16),
-    border_color: tuple[int, int, int] = (255, 60, 60),
-    title_color: tuple[int, int, int] = (255, 80, 80),
-    sub_color: tuple[int, int, int] = (255, 215, 0),
-    border_width: int = 1,
-) -> None:
-    """Draw a clean, perfectly aligned modal banner with guaranteed non-clipping text."""
-    x1, y1, x2, y2 = rect
-    draw.rectangle([x1, y1, x2, y2], fill=bg_color)
-    draw.rectangle([x1, y1, x2, y2], outline=border_color, width=border_width)
-
-    box_cx = (x1 + x2) / 2.0
-    box_w = (x2 - x1) - 4  # 2px padding on each side
-
-    if subtitle:
-        # Two stacked lines
-        title_cy = y1 + ((y2 - y1) * 0.35)
-        sub_cy = y1 + ((y2 - y1) * 0.72)
-        draw_centered_text(
-            draw,
-            title,
-            cx=box_cx,
-            cy=title_cy,
-            fill=title_color,
-            max_width=box_w,
-            preferred_size=8,
-            min_size=6,
-        )
-        draw_centered_text(
-            draw,
-            subtitle,
-            cx=box_cx,
-            cy=sub_cy,
-            fill=sub_color,
-            max_width=box_w,
-            preferred_size=8,
-            min_size=6,
-        )
-    else:
-        # Single line centered vertically
-        box_cy = (y1 + y2) / 2.0
-        draw_centered_text(
-            draw,
-            title,
-            cx=box_cx,
-            cy=box_cy,
-            fill=title_color,
-            max_width=box_w,
-            preferred_size=8,
-            min_size=6,
-        )
+    max_height: int = 12,
+) -> Bounds:
+    width = max_width if max_width is not None else 64
+    left, top = round(cx - width / 2), round(cy - max_height / 2)
+    return draw_fitted_text(
+        draw,
+        text,
+        (left, top, left + width, top + max_height),
+        fill,
+        preferred_size=preferred_size,
+        min_size=min_size,
+    )
 
 
 def draw_right_aligned_text(
@@ -134,23 +118,77 @@ def draw_right_aligned_text(
     text: str,
     right_x: int = 62,
     y: int = 0,
-    fill: tuple[int, int, int] = (255, 255, 255),
+    fill: Color = (255, 255, 255),
     max_width: int | None = None,
     preferred_size: int = 7,
     min_size: int = 6,
-) -> tuple[int, int, int, int]:
-    """Draw text aligned to right_x with auto-fitting and no edge clipping."""
-    if max_width is not None and max_width > 0:
-        font, w, h = fit_text_font(draw, text, max_width, preferred_size, min_size)
+    max_height: int = 8,
+) -> Bounds:
+    width = max_width if max_width is not None else right_x
+    return draw_fitted_text(
+        draw,
+        text,
+        (right_x - width, y, right_x, y + max_height),
+        fill,
+        align="right",
+        preferred_size=preferred_size,
+        min_size=min_size,
+    )
+
+
+def draw_scoreboard(
+    draw: ImageDraw.ImageDraw,
+    left: str,
+    right: str = "",
+    *,
+    size: int = 64,
+    left_color: Color = (210, 225, 245),
+    right_color: Color = (255, 205, 90),
+) -> None:
+    right_width = min(
+        size // 2 + 6, max(16, round(get_matrix_font(7).getlength(right)) + 1)
+    )
+    split = size - 2 - right_width
+    draw_fitted_text(
+        draw,
+        left,
+        (2, 1, split - 4 if right else size - 2, 9),
+        left_color,
+        align="left",
+        preferred_size=8,
+    )
+    if right:
+        draw_fitted_text(
+            draw,
+            right,
+            (split, 1, size - 2, 9),
+            right_color,
+            align="right",
+            preferred_size=8,
+        )
+
+
+def draw_boxed_message(
+    draw: ImageDraw.ImageDraw,
+    title: str,
+    subtitle: str | None = None,
+    rect: Bounds = (4, 18, 59, 46),
+    bg_color: Color = (10, 10, 16),
+    border_color: Color = (255, 60, 60),
+    title_color: Color = (255, 80, 80),
+    sub_color: Color = (255, 215, 0),
+    border_width: int = 1,
+) -> None:
+    """Draw an inclusive border and reserve separate bounded text rows inside it."""
+    x1, y1, x2, y2 = rect
+    draw.rectangle(rect, fill=bg_color, outline=border_color, width=border_width)
+    inset = border_width + 2
+    inner = (x1 + inset, y1 + inset, x2 - inset + 1, y2 - inset + 1)
+    if subtitle:
+        middle = (inner[1] + inner[3]) // 2
+        title_rect = (inner[0], inner[1], inner[2], middle - 1)
+        sub_rect = (inner[0], middle + 1, inner[2], inner[3])
+        draw_fitted_text(draw, title, title_rect, title_color, preferred_size=8)
+        draw_fitted_text(draw, subtitle, sub_rect, sub_color, preferred_size=8)
     else:
-        font = get_matrix_font(preferred_size)
-
-    bbox = draw.textbbox((0, 0), text, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-
-    x = int(right_x - w - bbox[0])
-    draw_y = int(y - bbox[1])
-    draw.text((x, draw_y), text, fill=fill, font=font)
-    return (x, draw_y, x + w, draw_y + h)
-
+        draw_fitted_text(draw, title, inner, title_color, preferred_size=8)

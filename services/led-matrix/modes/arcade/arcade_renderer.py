@@ -12,9 +12,11 @@ from .asteroids import AsteroidsGame
 from .base import ArcadeGame
 from .breakout import BreakoutGame
 from .donkey_kong import DonkeyKongGame
+from .doodle_jump import DoodleJumpGame
 from .frogger import FroggerGame
 from .pacman import PacmanGame
 from .pong import PongGame
+from .qbert import QbertGame
 from .snake import SnakeGame
 from .space_invaders import SpaceInvadersGame
 from .tetris import TetrisGame
@@ -32,6 +34,8 @@ class RetroArcadeRenderer(ModeRenderer):
             DonkeyKongGame(),
             FroggerGame(),
             AsteroidsGame(),
+            DoodleJumpGame(),
+            QbertGame(),
         ]
         self.cycle_interval = cycle_interval
         self.randomize = randomize
@@ -67,7 +71,10 @@ class RetroArcadeRenderer(ModeRenderer):
                 random.shuffle(self.playlist)
                 # Avoid playing the same game consecutively across playlist loops
                 if len(self.playlist) > 1 and self.playlist[0] == last_idx:
-                    self.playlist[0], self.playlist[1] = self.playlist[1], self.playlist[0]
+                    self.playlist[0], self.playlist[1] = (
+                        self.playlist[1],
+                        self.playlist[0],
+                    )
                 self.playlist_pos = 0
             self.current_idx = self.playlist[self.playlist_pos]
         else:

@@ -7,6 +7,8 @@ import random
 
 from PIL import Image, ImageDraw, ImageFont
 
+from modes.text_utils import draw_centered_text, draw_scoreboard
+
 from .base import ArcadeGame
 
 COLS = 6
@@ -332,8 +334,13 @@ class SpaceInvadersGame(ArcadeGame):
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 4, 10))
 
         # Top HUD
-        draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
-        draw.text((size - 22, 0), f"W{self.wave}", fill=(100, 240, 120), font=self.font)
+        draw_scoreboard(
+            draw,
+            f"S{self.score}",
+            f"W{self.wave}",
+            size=size,
+            right_color=(100, 240, 120),
+        )
 
         # Draw UFO
         if self.ufo_x is not None:
@@ -410,9 +417,13 @@ class SpaceInvadersGame(ArcadeGame):
 
         # Popups
         for pop in self.popups:
-            draw.text(
-                (int(pop["x"]), int(pop["y"])),
+            draw_centered_text(
+                draw,
                 pop["text"],
+                min(52, max(12, int(pop["x"]))),
+                min(59, max(13, int(pop["y"]))),
                 fill=(255, 255, 80),
-                font=self.font,
+                max_width=24,
+                max_height=7,
+                preferred_size=7,
             )

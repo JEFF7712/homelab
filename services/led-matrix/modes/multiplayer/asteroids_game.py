@@ -5,8 +5,10 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
+
 from PIL import ImageDraw, ImageFont
-from modes.text_utils import draw_boxed_message
+
+from modes.text_utils import draw_boxed_message, draw_fitted_text
 
 from .base import MultiplayerGame
 from .registry import register_game
@@ -58,7 +60,11 @@ class AsteroidsGame(MultiplayerGame):
     @staticmethod
     def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
         # Mini vector ship pointing up-right
-        draw.polygon([(cx + 4, cy - 4), (cx - 5, cy), (cx - 1, cy + 5)], outline=(255, 255, 255), fill=(40, 60, 100))
+        draw.polygon(
+            [(cx + 4, cy - 4), (cx - 5, cy), (cx - 1, cy + 5)],
+            outline=(255, 255, 255),
+            fill=(40, 60, 100),
+        )
         # Thruster spark
         draw.point((cx - 4, cy + 4), fill=(255, 120, 20))
         # Nearby asteroid rock
@@ -107,7 +113,9 @@ class AsteroidsGame(MultiplayerGame):
         self.cooldown = 0.0
         self.thrusting = False
 
-    def _make_asteroid(self, x: float, y: float, tier: int, speed_boost: float = 0.0) -> Asteroid:
+    def _make_asteroid(
+        self, x: float, y: float, tier: int, speed_boost: float = 0.0
+    ) -> Asteroid:
         radius = 5.5 if tier == 3 else (3.6 if tier == 2 else 2.0)
         speed = random.uniform(8.0 + speed_boost, 18.0 + speed_boost)
         angle = random.uniform(0, 2 * math.pi)
@@ -122,7 +130,9 @@ class AsteroidsGame(MultiplayerGame):
             r = radius * random.uniform(0.75, 1.25)
             offsets.append((math.cos(a) * r, math.sin(a) * r))
 
-        return Asteroid(x=x, y=y, vx=vx, vy=vy, tier=tier, radius=radius, offsets=offsets)
+        return Asteroid(
+            x=x, y=y, vx=vx, vy=vy, tier=tier, radius=radius, offsets=offsets
+        )
 
     def _spawn_wave(self, count: int) -> None:
         self.asteroids.clear()
@@ -258,12 +268,20 @@ class AsteroidsGame(MultiplayerGame):
                 # Points & SFX
                 if a.tier == 3:
                     self.score += 20
-                    new_asteroids.append(self._make_asteroid(a.x, a.y, tier=2, speed_boost=boost))
-                    new_asteroids.append(self._make_asteroid(a.x, a.y, tier=2, speed_boost=boost))
+                    new_asteroids.append(
+                        self._make_asteroid(a.x, a.y, tier=2, speed_boost=boost)
+                    )
+                    new_asteroids.append(
+                        self._make_asteroid(a.x, a.y, tier=2, speed_boost=boost)
+                    )
                 elif a.tier == 2:
                     self.score += 50
-                    new_asteroids.append(self._make_asteroid(a.x, a.y, tier=1, speed_boost=boost))
-                    new_asteroids.append(self._make_asteroid(a.x, a.y, tier=1, speed_boost=boost))
+                    new_asteroids.append(
+                        self._make_asteroid(a.x, a.y, tier=1, speed_boost=boost)
+                    )
+                    new_asteroids.append(
+                        self._make_asteroid(a.x, a.y, tier=1, speed_boost=boost)
+                    )
                 else:
                     self.score += 100
 
@@ -321,7 +339,9 @@ class AsteroidsGame(MultiplayerGame):
                             y=self.ship_y,
                             vx=math.cos(ang) * sp,
                             vy=math.sin(ang) * sp,
-                            color=random.choice([(255, 60, 40), (255, 180, 20), (255, 255, 100)]),
+                            color=random.choice(
+                                [(255, 60, 40), (255, 180, 20), (255, 255, 100)]
+                            ),
                         )
                     )
 
@@ -343,7 +363,11 @@ class AsteroidsGame(MultiplayerGame):
         # 2. Asteroids
         for a in self.asteroids:
             pts = [(int(a.x + ox) % 64, int(a.y + oy) % 64) for ox, oy in a.offsets]
-            color = (210, 210, 230) if a.tier == 3 else ((180, 190, 220) if a.tier == 2 else (140, 150, 190))
+            color = (
+                (210, 210, 230)
+                if a.tier == 3
+                else ((180, 190, 220) if a.tier == 2 else (140, 150, 190))
+            )
             if len(pts) >= 3:
                 draw.polygon(pts, outline=color)
 
@@ -354,16 +378,27 @@ class AsteroidsGame(MultiplayerGame):
             draw.point((ix, iy), fill=(255, 60, 60))
 
         # 4. Ship
-        if not self.is_game_over() and (self.invulnerable <= 0 or int(self.invulnerable * 12) % 2 == 0):
+        if not self.is_game_over() and (
+            self.invulnerable <= 0 or int(self.invulnerable * 12) % 2 == 0
+        ):
             rad = math.radians(self.ship_angle)
             # Nose
-            p_nose = (self.ship_x + math.cos(rad) * 4.5, self.ship_y - math.sin(rad) * 4.5)
+            p_nose = (
+                self.ship_x + math.cos(rad) * 4.5,
+                self.ship_y - math.sin(rad) * 4.5,
+            )
             # Left wing
             rad_l = rad + 2.5
-            p_left = (self.ship_x + math.cos(rad_l) * 4.0, self.ship_y - math.sin(rad_l) * 4.0)
+            p_left = (
+                self.ship_x + math.cos(rad_l) * 4.0,
+                self.ship_y - math.sin(rad_l) * 4.0,
+            )
             # Right wing
             rad_r = rad - 2.5
-            p_right = (self.ship_x + math.cos(rad_r) * 4.0, self.ship_y - math.sin(rad_r) * 4.0)
+            p_right = (
+                self.ship_x + math.cos(rad_r) * 4.0,
+                self.ship_y - math.sin(rad_r) * 4.0,
+            )
 
             ship_pts = [
                 (int(p_nose[0]) % 64, int(p_nose[1]) % 64),
@@ -386,7 +421,9 @@ class AsteroidsGame(MultiplayerGame):
                 )
 
         # 5. HUD: Score and Lives
-        draw.text((2, 1), str(self.score), fill=(255, 220, 60), font=self.font)
+        draw_fitted_text(
+            draw, str(self.score), (2, 1, 40, 9), fill=(255, 220, 60), align="left"
+        )
         # Small ship icons for remaining lives
         for i in range(self.lives):
             lx = 58 - i * 6

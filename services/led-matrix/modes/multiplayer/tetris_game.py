@@ -6,9 +6,10 @@ import random
 
 from PIL import ImageDraw, ImageFont
 
+from modes.text_utils import draw_fitted_text
+
 from .base import MultiplayerGame
 from .registry import register_game
-
 
 COLS = 10
 ROWS = 17
@@ -74,7 +75,6 @@ class InteractiveTetris(MultiplayerGame):
         draw.rectangle([cx - 4, cy + 3, cx - 2, cy + 5], fill=(60, 220, 230))
         draw.rectangle([cx - 1, cy + 3, cx + 1, cy + 5], fill=(60, 220, 230))
         draw.rectangle([cx + 2, cy + 3, cx + 4, cy + 5], fill=(60, 220, 230))
-
 
     def __init__(self) -> None:
         super().__init__(solo_vs_ai=True)
@@ -160,7 +160,6 @@ class InteractiveTetris(MultiplayerGame):
             self.play_sfx("lock")
             self._spawn()
 
-
     def update(
         self,
         dt: float,
@@ -232,7 +231,6 @@ class InteractiveTetris(MultiplayerGame):
                     self.score += 1
                     self.play_sfx("drop")
 
-
         # Fall timer (accelerates with lines cleared)
         speed = max(0.12, self.fall_interval - (self.lines // 5) * 0.04)
         if "down" in p1_inputs:
@@ -280,7 +278,9 @@ class InteractiveTetris(MultiplayerGame):
                     draw.rectangle([px, py, px + CELL - 1, py + CELL - 1], fill=color)
 
         # Top score HUD
-        draw.text((2, 0), f"{self.score}", fill=(180, 210, 255), font=self.font)
+        draw_fitted_text(
+            draw, str(self.score), (2, 1, 48, 9), fill=(180, 210, 255), align="left"
+        )
 
         # Next piece preview in top right
         next_color = COLORS[self.next_piece_name]

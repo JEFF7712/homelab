@@ -7,9 +7,10 @@ from dataclasses import dataclass
 
 from PIL import ImageDraw, ImageFont
 
+from modes.text_utils import draw_fitted_text
+
 from .base import MultiplayerGame
 from .registry import register_game
-
 
 
 @dataclass
@@ -58,7 +59,6 @@ class InteractiveBreakout(MultiplayerGame):
         draw.point((cx + 1, cy + 1), fill=(255, 255, 255))
         draw.rectangle([cx - 5, cy + 5, cx + 3, cy + 6], fill=(0, 229, 255))
 
-
     def __init__(self) -> None:
         super().__init__(solo_vs_ai=True)
         self.font = ImageFont.load_default(size=9)
@@ -97,10 +97,10 @@ class InteractiveBreakout(MultiplayerGame):
     def _init_bricks(self) -> None:
         self.bricks.clear()
         row_colors = [
-            (255, 40, 50),   # Red
+            (255, 40, 50),  # Red
             (255, 130, 20),  # Orange
             (255, 215, 30),  # Yellow
-            (40, 220, 90),   # Green
+            (40, 220, 90),  # Green
             (30, 190, 255),  # Cyan
             (220, 50, 200),  # Magenta
         ]
@@ -230,7 +230,6 @@ class InteractiveBreakout(MultiplayerGame):
     def get_final_score(self) -> int:
         return self.score
 
-
     def render(self, draw: ImageDraw.ImageDraw) -> None:
         # Background
         draw.rectangle([0, 0, 63, 63], fill=(8, 10, 18))
@@ -241,7 +240,9 @@ class InteractiveBreakout(MultiplayerGame):
         draw.line([(63, 0), (63, 63)], fill=(30, 40, 60))
 
         # Score HUD
-        draw.text((2, 2), f"{self.score:04d}", fill=(180, 210, 255), font=self.font)
+        draw_fitted_text(
+            draw, f"{self.score:04d}", (2, 1, 40, 9), fill=(180, 210, 255), align="left"
+        )
 
         # Lives HUD (pips)
         for i in range(self.lives):

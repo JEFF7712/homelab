@@ -6,6 +6,8 @@ import random
 
 from PIL import Image, ImageDraw, ImageFont
 
+from modes.text_utils import draw_scoreboard
+
 from .base import ArcadeGame
 
 COLS = 10
@@ -185,9 +187,13 @@ class TetrisGame(ArcadeGame):
     ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(4, 6, 12))
 
-        draw.text((2, 0), f"S{self.score}", fill=(150, 190, 230), font=self.font)
-        draw.text(
-            (size - 20, 0), f"L{self.lines}", fill=(150, 190, 230), font=self.font
+        draw_scoreboard(
+            draw,
+            f"S{self.score}",
+            f"L{self.lines}",
+            size=size,
+            left_color=(150, 190, 230),
+            right_color=(150, 190, 230),
         )
 
         draw.rectangle(
