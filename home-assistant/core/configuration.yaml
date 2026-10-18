@@ -222,7 +222,6 @@ input_select:
       - "2-Player Arcade"
       - "Visualizer"
       - "LedFx"
-      - "Fractals"
       - "Physics"
       - "Homelab Dashboards"
     initial: "Auto"

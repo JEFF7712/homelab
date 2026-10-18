@@ -14,7 +14,6 @@ from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
 from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
-    FractalRenderer,
     HomelabRenderer,
     LedFxReceiver,
     LedFxRenderer,
@@ -215,7 +214,6 @@ def main() -> None:
         "2-Player Arcade": MultiplayerArcadeRenderer(multiplayer_hub),
         "Visualizer": visualizer,
         "LedFx": ledfx_mode,
-        "Fractals": FractalRenderer(),
         "Physics": PhysicsRenderer(),
         "Homelab Dashboards": HomelabRenderer(prometheus),
     }

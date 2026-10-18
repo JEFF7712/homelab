@@ -543,14 +543,13 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         ha_mock.hub_state.return_value = HAState(power=True, mode="Off")
         self.assertFalse(hybrid._should_poll_spotify())
 
-        # Unrelated modes (Clock, Arcade, Fractals, Physics, etc.): should not poll
+        # Unrelated modes should not poll
         for mode in (
             "Clock & Weather",
             "Night Clock",
             "Retro Arcade",
             "2-Player Arcade",
             "Game of Life",
-            "Fractals",
             "Physics",
             "Homelab Dashboards",
             "LedFx",
@@ -1850,5 +1849,3 @@ class HubModeAndRendererTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-

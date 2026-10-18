@@ -10,9 +10,8 @@ through Home Assistant's WebSocket API. It receives that entity's cached state a
 background worker with an eight-image cache. Rendering and acknowledged TCP
 delivery run independently at 20 FPS.
 
-`input_select.bedroom_matrix_mode` controls the display. Fractals rotates Mandelbrot, Julia, and
-Burning Ship zooms every 24 seconds. Physics rotates gravity particles,
-colliding particles, and wave propagation every 20 seconds. Homelab Dashboards
+`input_select.bedroom_matrix_mode` controls the display. Physics rotates orbiting particles,
+bouncing particles, and wave propagation every 20 seconds. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only
 Prometheus queries run in a background thread. The panel shows `DATA OFFLINE`
