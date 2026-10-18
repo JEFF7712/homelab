@@ -345,7 +345,7 @@ views:
                   data:
                     option: Night Clock
               - type: action
-                name: Arcade
+                name: AI Arcade
                 icon: mdi:robot
                 tap_action:
                   action: perform-action
@@ -353,7 +353,7 @@ views:
                   target:
                     entity_id: input_select.bedroom_matrix_mode
                   data:
-                    option: Retro Arcade
+                    option: AI Arcade
               - type: action
                 name: Life
                 icon: mdi:grid
@@ -365,7 +365,7 @@ views:
                   data:
                     option: Game of Life
               - type: action
-                name: 2P Battle
+                name: Arcade
                 icon: mdi:controller
                 tap_action:
                   action: perform-action
@@ -373,7 +373,7 @@ views:
                   target:
                     entity_id: input_select.bedroom_matrix_mode
                   data:
-                    option: 2-Player Arcade
+                    option: Arcade
               - type: action
                 name: Visualizer
                 icon: mdi:sine-wave

@@ -547,7 +547,9 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         for mode in (
             "Clock & Weather",
             "Night Clock",
+            "AI Arcade",
             "Retro Arcade",
+            "Arcade",
             "2-Player Arcade",
             "Game of Life",
             "Physics",

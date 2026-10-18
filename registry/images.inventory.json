@@ -2416,10 +2416,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "modes-20261018-smooth",
-        "retention-candidate-7f3fc2d1b9c81278"
+        "arcade-quality-20261018",
+        "retention-candidate-756249cc2b38374b"
       ],
-      "digest": "sha256:7f3fc2d1b9c812780383ce0cd0960b93b5c931c0005a269ca3e0fdce3c168ac8",
+      "digest": "sha256:756249cc2b38374b09ac959bf3cb91f09da7bc56a720c9563994094813d14be8",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2429,9 +2429,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "modes-20261018-smooth",
-        "digest": "sha256:7f3fc2d1b9c812780383ce0cd0960b93b5c931c0005a269ca3e0fdce3c168ac8",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261018-smooth@sha256:7f3fc2d1b9c812780383ce0cd0960b93b5c931c0005a269ca3e0fdce3c168ac8"
+        "tag": "arcade-quality-20261018",
+        "digest": "sha256:756249cc2b38374b09ac959bf3cb91f09da7bc56a720c9563994094813d14be8",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-quality-20261018@sha256:756249cc2b38374b09ac959bf3cb91f09da7bc56a720c9563994094813d14be8"
       }
 
     }

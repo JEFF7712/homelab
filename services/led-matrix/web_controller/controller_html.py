@@ -15,9 +15,12 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
     touch-action: none !important;
   }
   html, body {
@@ -253,7 +256,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   }
 </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
 
 <div class="conn-dot" id="conn-dot" title="Connection Status"></div>
 <button class="sound-toggle" id="sound-toggle" aria-label="Toggle Sound" title="Sound Mute/Unmute">
@@ -263,10 +266,10 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   <span id="tilt-icon">⚖️</span>
 </button>
 
-<div class="gamepad-stage">
+<div class="gamepad-stage" oncontextmenu="return false;">
   <!-- D-PAD CONTAINER -->
-  <div class="dpad-container" id="dpad-container">
-    <div class="dpad-cross">
+  <div class="dpad-container" id="dpad-container" draggable="false" oncontextmenu="return false;">
+    <div class="dpad-cross" draggable="false">
       <div class="dpad-wing wing-up" data-action="up">▲</div>
       <div class="dpad-wing wing-down" data-action="down">▼</div>
       <div class="dpad-wing wing-left" data-action="left">◀</div>
@@ -276,9 +279,9 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   </div>
 
   <!-- ACTION BUTTONS -->
-  <div class="action-container" id="action-container">
-    <div class="btn-round btn-b" id="btn-b" data-action="action_b">B</div>
-    <div class="btn-round btn-a" id="btn-a" data-action="action_a">A</div>
+  <div class="action-container" id="action-container" draggable="false" oncontextmenu="return false;">
+    <div class="btn-round btn-b" id="btn-b" data-action="action_b" draggable="false" oncontextmenu="return false;">B</div>
+    <div class="btn-round btn-a" id="btn-a" data-action="action_a" draggable="false" oncontextmenu="return false;">A</div>
   </div>
 </div>
 
@@ -475,6 +478,19 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
   // Resume AudioContext on any user interaction
   window.addEventListener('pointerdown', () => SoundChip.init(), { once: true });
+
+  // Suppress Firefox/Chrome/Safari mobile long-press selection & context menus
+  ['contextmenu', 'selectstart', 'selectionchange'].forEach((evt) => {
+    window.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const sel = window.getSelection();
+      if (sel && sel.removeAllRanges) {
+        sel.removeAllRanges();
+      }
+      return false;
+    }, { passive: false, capture: true });
+  });
 
   function vibrate(ms) {
     if (navigator.vibrate) {
@@ -772,11 +788,26 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
   dpadContainer.addEventListener('pointerup', releaseDpad);
   dpadContainer.addEventListener('pointercancel', releaseDpad);
+  ['contextmenu', 'selectstart'].forEach((evt) => {
+    dpadContainer.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    });
+  });
 
   // 2. ACTION BUTTONS (A & B) with independent pointer tracking
   const activeActionPointers = new Map();
 
   function bindActionButton(btn, action) {
+    ['contextmenu', 'selectstart'].forEach((evt) => {
+      btn.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      });
+    });
+
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       SoundChip.init();

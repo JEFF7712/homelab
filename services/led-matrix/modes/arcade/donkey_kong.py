@@ -26,23 +26,22 @@ class DonkeyKongGame(ArcadeGame):
         self.dk_frame = 0  # 0: chest beat, 1: barrel toss
         self.barrel_spawn_timer = 2.0
 
-        # Barrels list: dict of x, y, tier, dir (+1 or -1), falling (bool), anim
+        # Barrels list: dict of x, y, tier, dir (+1 or -1), falling (bool), rot
         self.barrels: list[dict] = []
 
         # Jumpman (Mario)
         self.mario_x = 4.0
-        self.mario_y = 56.0
+        self.mario_y = 57.0  # Ground level on Tier 3
         self.mario_tier = 3  # 3: bottom, 2: mid-low, 1: mid-high, 0: top
         self.mario_vx = 18.0
-        self.mario_vy = 0.0
         self.mario_state = "run"  # "run", "climb", "jump"
         self.jump_t = 0.0
-        self.jump_origin_y = 56.0
+        self.jump_origin_y = 57.0
         self.face_dir = 1
 
         # Pauline & Hearts
-        self.pauline_x = 30.0
-        self.pauline_y = 9.0
+        self.pauline_x = 28.0
+        self.pauline_y = 15.0
         self.heart_timer = 0.0
         self.won = False
         self.win_timer = 0.0
@@ -50,9 +49,9 @@ class DonkeyKongGame(ArcadeGame):
         self.popups: list[dict] = []
 
     def _get_girder_y(self, tier: int, x: float) -> float:
-        """Calculate y-coordinate on sloped girder tier."""
+        """Calculate surface y-coordinate on sloped girder tier."""
         if tier == 0:
-            return 19.0
+            return 15.0
         elif tier == 1:
             # Slopes down to the right (x: 4..60 -> y: 28..32)
             t = max(0.0, min(1.0, (x - 4.0) / 56.0))
@@ -62,7 +61,7 @@ class DonkeyKongGame(ArcadeGame):
             t = max(0.0, min(1.0, (x - 4.0) / 56.0))
             return 44.0 - t * 4.0
         else:
-            # Bottom tier: flat
+            # Bottom tier: flat floor
             return 57.0
 
     def update(self, dt: float) -> None:
@@ -74,7 +73,7 @@ class DonkeyKongGame(ArcadeGame):
 
         self.heart_timer += dt
 
-        # Update popups
+        # Update floating score popups
         for pop in list(self.popups):
             pop["life"] -= dt
             pop["y"] -= dt * 6.0
@@ -93,11 +92,11 @@ class DonkeyKongGame(ArcadeGame):
         # Barrel Spawning by Donkey Kong
         self.barrel_spawn_timer -= dt
         if self.barrel_spawn_timer <= 0:
-            self.barrel_spawn_timer = random.uniform(2.6, 4.0)
+            self.barrel_spawn_timer = random.uniform(2.5, 3.8)
             self.barrels.append(
                 {
-                    "x": 22.0,
-                    "y": 18.0,
+                    "x": 20.0,
+                    "y": self._get_girder_y(1, 20.0),
                     "tier": 1,
                     "dir": 1,
                     "falling": False,
@@ -110,7 +109,7 @@ class DonkeyKongGame(ArcadeGame):
         for b in list(self.barrels):
             b["rot"] = (b["rot"] + 1) % 4
             if b["falling"]:
-                b["y"] += 28.0 * dt
+                b["y"] += 30.0 * dt
                 target_y = self._get_girder_y(b["tier"], b["x"])
                 if b["y"] >= target_y:
                     b["y"] = target_y
@@ -121,33 +120,16 @@ class DonkeyKongGame(ArcadeGame):
                 b["x"] += b["dir"] * 22.0 * dt
                 b["y"] = self._get_girder_y(b["tier"], b["x"])
 
-                # Check ladder drops or tier edge drop
-                if b["tier"] == 1 and b["x"] >= 56.0:
+                # Check tier edges to drop to next tier down
+                if b["tier"] == 1 and b["x"] >= 58.0:
                     b["tier"] = 2
                     b["falling"] = True
-                elif b["tier"] == 2 and b["x"] <= 8.0:
+                elif b["tier"] == 2 and b["x"] <= 6.0:
                     b["tier"] = 3
                     b["falling"] = True
                 elif b["tier"] == 3 and b["x"] >= 66.0:
                     self.barrels.remove(b)
                     continue
-
-                # Random tumble down ladder
-                if not b["falling"]:
-                    if (
-                        b["tier"] == 1
-                        and abs(b["x"] - 28.0) < 1.0
-                        and random.random() < 0.2
-                    ):
-                        b["tier"] = 2
-                        b["falling"] = True
-                    elif (
-                        b["tier"] == 2
-                        and abs(b["x"] - 38.0) < 1.0
-                        and random.random() < 0.2
-                    ):
-                        b["tier"] = 3
-                        b["falling"] = True
 
         # Autonomous AI Jumpman (Mario)
         self._ai_mario(dt)
@@ -161,7 +143,7 @@ class DonkeyKongGame(ArcadeGame):
             if (
                 self.mario_state == "jump"
                 and not b["jumped"]
-                and dx < 4.0
+                and dx < 5.0
                 and self.mario_y < b["y"]
             ):
                 b["jumped"] = True
@@ -169,7 +151,7 @@ class DonkeyKongGame(ArcadeGame):
                 self.popups.append(
                     {
                         "x": self.mario_x,
-                        "y": self.mario_y - 4,
+                        "y": self.mario_y - 6,
                         "text": "+100",
                         "life": 0.8,
                     }
@@ -179,7 +161,7 @@ class DonkeyKongGame(ArcadeGame):
             if (
                 dx < 3.2
                 and dy < 3.2
-                and not (self.mario_state == "jump" and self.mario_y < b["y"] - 2)
+                and not (self.mario_state == "jump" and self.mario_y < b["y"] - 3)
             ):
                 self.lives -= 1
                 if self.lives <= 0:
@@ -190,15 +172,15 @@ class DonkeyKongGame(ArcadeGame):
                 return
 
     def _ai_mario(self, dt: float) -> None:
-        """Mario navigates girders, climbs ladders, and jumps over incoming barrels."""
+        """Mario navigates girders, climbs ladders, and cleanly jumps over incoming barrels."""
         # Ladders connecting tiers:
-        # Tier 3 -> Tier 2: x = 50.0
-        # Tier 2 -> Tier 1: x = 12.0
-        # Tier 1 -> Tier 0: x = 48.0
+        # Tier 3 -> Tier 2 at x=50.0
+        # Tier 2 -> Tier 1 at x=14.0
+        # Tier 1 -> Tier 0 at x=36.0 (Pauline's platform)
         ladder_targets = {
             3: 50.0,
-            2: 12.0,
-            1: 48.0,
+            2: 14.0,
+            1: 36.0,
             0: self.pauline_x,
         }
 
@@ -209,9 +191,9 @@ class DonkeyKongGame(ArcadeGame):
             for b in self.barrels:
                 if b["tier"] == self.mario_tier and not b["falling"]:
                     dist = b["x"] - self.mario_x
-                    # If barrel is moving towards Mario and within 8px
-                    if (b["dir"] > 0 and -8.0 < dist < -1.0) or (
-                        b["dir"] < 0 and 1.0 < dist < 8.0
+                    # If barrel is moving towards Mario and within 10px
+                    if (b["dir"] > 0 and -10.0 < dist < -1.5) or (
+                        b["dir"] < 0 and 1.5 < dist < 10.0
                     ):
                         self.mario_state = "jump"
                         self.jump_t = 0.0
@@ -220,18 +202,20 @@ class DonkeyKongGame(ArcadeGame):
 
         # State machine
         if self.mario_state == "jump":
-            self.jump_t += dt * 4.5
-            # Parabolic jump arc: height 8px
-            self.mario_x += self.face_dir * 14.0 * dt
-            self.mario_y = self.jump_origin_y - 8.0 * math.sin(
+            self.jump_t += dt * 3.8
+            # Jump forward in current facing direction
+            self.mario_x += self.face_dir * 16.0 * dt
+            ground_y = self._get_girder_y(self.mario_tier, self.mario_x)
+            # High 10px parabolic arc for clean barrel clearance
+            self.mario_y = ground_y - 10.0 * math.sin(
                 min(math.pi, self.jump_t * math.pi)
             )
             if self.jump_t >= 1.0:
                 self.mario_state = "run"
-                self.mario_y = self._get_girder_y(self.mario_tier, self.mario_x)
+                self.mario_y = ground_y
 
         elif self.mario_state == "climb":
-            self.mario_y -= 14.0 * dt
+            self.mario_y -= 15.0 * dt
             dest_tier = self.mario_tier - 1
             dest_y = self._get_girder_y(dest_tier, self.mario_x)
             if self.mario_y <= dest_y:
@@ -239,9 +223,9 @@ class DonkeyKongGame(ArcadeGame):
                 self.mario_tier = dest_tier
                 self.mario_state = "run"
                 if self.mario_tier == 0:
-                    # Won!
+                    # Won! Reached Pauline
                     self.won = True
-                    self.win_timer = 1.8
+                    self.win_timer = 2.0
 
         elif self.mario_state == "run":
             diff = target_x - self.mario_x
@@ -259,106 +243,108 @@ class DonkeyKongGame(ArcadeGame):
     ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 4, 12))
 
-        # Top HUD
+        # Top HUD: Score & Donkey Kong title
         draw.text((2, 0), f"S{self.score}", fill=(240, 240, 240), font=self.font)
         draw.text((36, 0), "DK 1981", fill=(255, 120, 160), font=self.font)
 
-        # Draw Pauline & Perch
-        draw.rectangle([(26, 15), (42, 16)], fill=(225, 40, 80))
-        px, py = int(self.pauline_x), int(self.pauline_y)
-        # Dress (pink) & blonde hair
-        draw.rectangle([(px, py + 2), (px + 4, py + 5)], fill=(255, 130, 190))
-        draw.rectangle([(px + 1, py), (px + 3, py + 1)], fill=(255, 230, 80))
-        # Heart animation above Pauline
-        if int(self.heart_timer * 3) % 2 == 0 or self.won:
-            draw.text((px - 2, py - 6), "♥", fill=(255, 50, 130), font=self.font)
+        # Girders (Steel platforms in classic arcade red/magenta with depth shadow)
+        girder_col = (225, 40, 80)
+        girder_shadow = (140, 20, 45)
 
-        # Draw Donkey Kong (top left)
+        # Donkey Kong Platform: x: 4..22, y: 19
+        draw.line([(4, 19), (22, 19)], fill=girder_col, width=1)
+        draw.line([(4, 20), (22, 20)], fill=girder_shadow, width=1)
+
+        # Pauline Perch: x: 24..44, y: 15
+        draw.line([(24, 15), (44, 15)], fill=girder_col, width=1)
+        draw.line([(24, 16), (44, 16)], fill=girder_shadow, width=1)
+
+        # Tier 1 (slope down right): (4, 28) to (60, 32)
+        draw.line([(4, 28), (60, 32)], fill=girder_col, width=1)
+        draw.line([(4, 29), (60, 33)], fill=girder_shadow, width=1)
+
+        # Tier 2 (slope down left): (60, 40) to (4, 44)
+        draw.line([(60, 40), (4, 44)], fill=girder_col, width=1)
+        draw.line([(60, 41), (4, 45)], fill=girder_shadow, width=1)
+
+        # Tier 3 (bottom floor): (0, 57) to (63, 57)
+        draw.line([(0, 57), (63, 57)], fill=girder_col, width=1)
+        draw.line([(0, 58), (63, 58)], fill=girder_shadow, width=1)
+
+        # Blue Ladders connecting tiers cleanly
+        ladder_col = (50, 180, 255)
+        # Ladder 3: connects Tier 3 to Tier 2 at x=50
+        self._draw_ladder(draw, 50, 41, 57, ladder_col)
+        # Ladder 2: connects Tier 2 to Tier 1 at x=14
+        self._draw_ladder(draw, 14, 29, 43, ladder_col)
+        # Ladder 1: connects Tier 1 to Pauline Perch at x=36
+        self._draw_ladder(draw, 36, 15, 30, ladder_col)
+
+        # Draw Pauline standing on perch (x=28, y=15)
+        px, py = int(self.pauline_x), int(self.pauline_y)
+        # Blonde hair & face
+        draw.rectangle([(px + 1, py - 7), (px + 3, py - 6)], fill=(255, 230, 80))
+        draw.rectangle([(px + 1, py - 5), (px + 3, py - 5)], fill=(255, 200, 140))
+        # Pink dress & shoes
+        draw.rectangle([(px, py - 4), (px + 4, py - 2)], fill=(255, 130, 190))
+        draw.rectangle([(px + 1, py - 1), (px + 3, py - 1)], fill=(220, 50, 120))
+        # Beating heart animation above Pauline
+        if int(self.heart_timer * 3) % 2 == 0 or self.won:
+            draw.text((px - 2, py - 12), "♥", fill=(255, 50, 130), font=self.font)
+
+        # Draw Donkey Kong (top left, standing on y=19 platform)
         dk_x = 8
-        dk_y = 11
-        # Platform under DK
-        draw.rectangle([(4, 19), (24, 20)], fill=(225, 40, 80))
-        # Gorilla body (brown)
-        draw.rectangle([(dk_x, dk_y + 2), (dk_x + 9, dk_y + 7)], fill=(170, 75, 20))
+        dk_y = 10
+        # Gorilla brown body
+        draw.rectangle([(dk_x, dk_y + 3), (dk_x + 9, dk_y + 8)], fill=(170, 75, 20))
         # Peach chest / face
-        draw.rectangle(
-            [(dk_x + 2, dk_y + 3), (dk_x + 6, dk_y + 6)], fill=(255, 190, 130)
-        )
+        draw.rectangle([(dk_x + 2, dk_y + 4), (dk_x + 6, dk_y + 7)], fill=(255, 190, 130))
         # Head & eyes
-        draw.rectangle([(dk_x + 2, dk_y), (dk_x + 7, dk_y + 2)], fill=(170, 75, 20))
+        draw.rectangle([(dk_x + 2, dk_y), (dk_x + 7, dk_y + 3)], fill=(170, 75, 20))
         draw.point((dk_x + 3, dk_y + 1), fill=(255, 255, 255))
         draw.point((dk_x + 6, dk_y + 1), fill=(255, 255, 255))
         # Arms animation (chest beating)
         if self.dk_frame == 0:
-            draw.line(
-                [(dk_x - 1, dk_y + 3), (dk_x, dk_y + 5)], fill=(170, 75, 20), width=1
-            )
-            draw.line(
-                [(dk_x + 10, dk_y + 3), (dk_x + 9, dk_y + 5)],
-                fill=(170, 75, 20),
-                width=1,
-            )
+            draw.line([(dk_x - 1, dk_y + 4), (dk_x, dk_y + 6)], fill=(170, 75, 20), width=1)
+            draw.line([(dk_x + 10, dk_y + 4), (dk_x + 9, dk_y + 6)], fill=(170, 75, 20), width=1)
         else:
-            draw.line(
-                [(dk_x - 1, dk_y + 1), (dk_x, dk_y + 3)], fill=(170, 75, 20), width=1
-            )
-            draw.line(
-                [(dk_x + 10, dk_y + 1), (dk_x + 9, dk_y + 3)],
-                fill=(170, 75, 20),
-                width=1,
-            )
+            draw.line([(dk_x - 1, dk_y + 2), (dk_x, dk_y + 4)], fill=(170, 75, 20), width=1)
+            draw.line([(dk_x + 10, dk_y + 2), (dk_x + 9, dk_y + 4)], fill=(170, 75, 20), width=1)
 
-        # Draw Girders (Steel platforms in red/magenta)
-        girder_col = (225, 40, 80)
-        # Tier 1 (slope down right)
-        draw.line([(4, 28), (60, 32)], fill=girder_col, width=2)
-        # Tier 2 (slope down left)
-        draw.line([(60, 40), (4, 44)], fill=girder_col, width=2)
-        # Tier 3 (bottom floor)
-        draw.line([(0, 57), (63, 57)], fill=girder_col, width=2)
-
-        # Draw Ladders (blue rungs)
-        ladder_col = (50, 180, 255)
-        # Ladder 3: connects Tier 3 to Tier 2 at x=50
-        self._draw_ladder(draw, 50, 42, 57, ladder_col)
-        # Ladder 2: connects Tier 2 to Tier 1 at x=12
-        self._draw_ladder(draw, 12, 29, 43, ladder_col)
-        # Ladder 1: connects Tier 1 to Tier 0 at x=48
-        self._draw_ladder(draw, 48, 16, 31, ladder_col)
-
-        # Draw Barrels
+        # Draw Rolling Barrels (strictly on top of girder surface)
         for b in self.barrels:
             bx, by = int(b["x"]), int(b["y"])
-            draw.rectangle([(bx - 1, by - 2), (bx + 2, by + 1)], fill=(195, 110, 25))
-            # Rotating cross pattern
+            draw.rectangle([(bx - 2, by - 4), (bx + 1, by - 1)], fill=(195, 110, 25))
+            # Rotating cross highlight
             if b["rot"] % 2 == 0:
-                draw.point((bx, by - 1), fill=(255, 190, 80))
-                draw.point((bx + 1, by), fill=(255, 190, 80))
+                draw.point((bx - 1, by - 3), fill=(255, 190, 80))
+                draw.point((bx, by - 2), fill=(255, 190, 80))
             else:
-                draw.point((bx + 1, by - 1), fill=(255, 190, 80))
-                draw.point((bx, by), fill=(255, 190, 80))
+                draw.point((bx, by - 3), fill=(255, 190, 80))
+                draw.point((bx - 1, by - 2), fill=(255, 190, 80))
 
-        # Draw Jumpman (Mario)
+        # Draw Jumpman (Mario) - strictly on top of girder surface at y=my
         mx, my = int(self.mario_x), int(self.mario_y)
-        # Red Cap & Overalls
-        draw.rectangle([(mx - 1, my - 4), (mx + 2, my - 3)], fill=(240, 30, 30))  # Cap
-        draw.rectangle([(mx, my - 2), (mx + 2, my - 2)], fill=(255, 200, 140))  # Face
-        draw.point(
-            (mx + (1 if self.face_dir > 0 else 0), my - 2), fill=(30, 30, 30)
-        )  # Eye
-        draw.rectangle(
-            [(mx - 1, my - 1), (mx + 2, my)], fill=(30, 70, 220)
-        )  # Blue shirt
-        draw.rectangle(
-            [(mx - 1, my + 1), (mx + 2, my + 1)], fill=(240, 30, 30)
-        )  # Red overalls
-        # Feet
+        # Red Cap
+        draw.rectangle([(mx - 1, my - 7), (mx + 2, my - 6)], fill=(240, 30, 30))
+        # Face (skin tone) & Eye
+        draw.rectangle([(mx, my - 5), (mx + 2, my - 5)], fill=(255, 200, 140))
+        draw.point((mx + (1 if self.face_dir > 0 else 0), my - 5), fill=(30, 30, 30))
+        # Blue Shirt
+        draw.rectangle([(mx - 1, my - 4), (mx + 2, my - 3)], fill=(30, 70, 220))
+        # Red Overalls
+        draw.rectangle([(mx - 1, my - 2), (mx + 2, my - 2)], fill=(240, 30, 30))
+        # Feet / Boots
         if self.mario_state == "jump":
-            draw.point((mx - 2, my), fill=(160, 80, 20))
-            draw.point((mx + 3, my), fill=(160, 80, 20))
+            draw.point((mx - 2, my - 3), fill=(160, 80, 20))
+            draw.point((mx + 3, my - 3), fill=(160, 80, 20))
+        elif self.mario_state == "climb":
+            alt = int(self.mario_y * 0.8) % 2
+            draw.point((mx - 1, my - (1 if alt == 0 else 2)), fill=(160, 80, 20))
+            draw.point((mx + 2, my - (2 if alt == 0 else 1)), fill=(160, 80, 20))
         else:
-            draw.point((mx - 1, my + 2), fill=(160, 80, 20))
-            draw.point((mx + 2, my + 2), fill=(160, 80, 20))
+            draw.point((mx - 1, my - 1), fill=(160, 80, 20))
+            draw.point((mx + 2, my - 1), fill=(160, 80, 20))
 
         # Popups
         for pop in self.popups:
