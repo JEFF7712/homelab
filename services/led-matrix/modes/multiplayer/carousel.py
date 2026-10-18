@@ -62,7 +62,8 @@ class CarouselRenderer:
 
     def update(self, dt: float) -> None:
         self.anim_timer += dt
-        target_x = float(self.hub.selected_game_index * CARD_SPACING)
+        safe_idx = self.hub.selected_game_index % len(GAME_ITEMS) if GAME_ITEMS else 0
+        target_x = float(safe_idx * CARD_SPACING)
         # Smooth spring/lerp transition
         self.scroll_x += (target_x - self.scroll_x) * min(1.0, dt * 14.0)
 
@@ -136,16 +137,17 @@ class CarouselRenderer:
             draw.text((text_x, 35), title, fill=text_col, font=self.font)
 
         # 5. Carousel Position Dots at y=48
+        safe_idx = self.hub.selected_game_index % len(GAME_ITEMS) if GAME_ITEMS else 0
         dot_start_x = 32 - (len(GAME_ITEMS) * 4) // 2
         for i in range(len(GAME_ITEMS)):
             dx = dot_start_x + i * 4
-            if i == self.hub.selected_game_index:
+            if i == safe_idx:
                 draw.rectangle([dx, 48, dx + 1, 49], fill=(0, 229, 255))
             else:
                 draw.point((dx, 48), fill=(40, 50, 75))
 
         # 6. Mode Badge at y=53
-        curr_item = GAME_ITEMS[self.hub.selected_game_index]
+        curr_item = GAME_ITEMS[safe_idx]
         badge_text = curr_item["badge"]
         badge_x = 32 - len(badge_text) * 2 - 2
         draw.text((badge_x, 52), badge_text, fill=curr_item["color"], font=self.font)

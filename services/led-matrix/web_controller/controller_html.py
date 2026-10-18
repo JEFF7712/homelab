@@ -7,590 +7,439 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a14">
-<title>LED Matrix Arcade</title>
+<meta name="theme-color" content="#12131a">
+<title>LED MATRIX ARCADE</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-  body {
-    background-color: #070711;
-    color: #e0e0ff;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
-    height: 100vh;
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  html, body {
+    height: 100%;
     height: 100dvh;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    background: #0d0e14;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Press Start 2P", monospace;
     touch-action: none;
   }
-  header {
-    background: #0f1020;
-    border-bottom: 2px solid #1f2038;
-    padding: 10px 14px;
+  body {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    z-index: 50;
-  }
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .btn-menu-exit {
-    background: #1c1c32;
-    border: 1px solid #353555;
-    color: #a0a0cc;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 6px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: none;
-  }
-  .btn-menu-exit:active { background: #282845; color: #fff; }
-  .title { font-weight: 800; font-size: 13px; letter-spacing: 1px; color: #7878a0; }
-  .badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .badge-p1 { background: rgba(0, 229, 255, 0.2); color: #00e5ff; border: 1px solid #00e5ff; }
-  .badge-p2 { background: rgba(255, 145, 0, 0.2); color: #ff9100; border: 1px solid #ff9100; }
-  .badge-spec { background: #222234; color: #7878a0; border: 1px solid #383850; }
-
-  #main-view {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 12px;
     justify-content: center;
     align-items: center;
-    position: relative;
-    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
-  /* Carousel Wheel Menu View */
-  #menu-view {
+  /* Retro Handheld Chassis */
+  .chassis {
+    width: 100%;
+    max-width: 440px;
+    height: 100%;
+    max-height: 840px;
+    background: linear-gradient(180deg, #242735 0%, #1a1b24 100%);
+    border: 3px solid #363a4e;
+    border-radius: 32px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.08);
     display: flex;
     flex-direction: column;
-    width: 100%;
-    max-width: 380px;
-    height: 100%;
+    padding: 16px 18px 24px 18px;
+    position: relative;
     justify-content: space-between;
-    padding: 8px 0;
   }
-  .menu-card {
-    background: #101222;
-    border: 2px solid #282c48;
+
+  /* Top LCD Screen Bezel */
+  .screen-bezel {
+    background: #10121a;
+    border: 3px solid #282c3c;
     border-radius: 18px;
-    padding: 16px;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    margin-bottom: 8px;
+    padding: 12px 14px;
+    box-shadow: inset 0 4px 12px rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .menu-banner-top {
+
+  /* LCD Glass */
+  .lcd-glass {
+    background: #090c10;
+    border: 2px solid #1a2230;
+    border-radius: 10px;
+    padding: 8px 10px;
+    color: #00ffcc;
+    font-family: monospace;
+    text-shadow: 0 0 4px rgba(0,255,204,0.5);
+  }
+
+  .lcd-top-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-  }
-  .matrix-hint {
-    font-size: 11px;
-    color: #00e5ff;
-    letter-spacing: 1px;
-    font-weight: 700;
-  }
-  .game-badge {
-    padding: 3px 8px;
-    border-radius: 8px;
     font-size: 11px;
     font-weight: 800;
-    background: rgba(0, 229, 255, 0.15);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed #1a3038;
+    padding-bottom: 4px;
+  }
+
+  .player-pill {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 900;
+    background: #16242c;
     color: #00e5ff;
     border: 1px solid #00e5ff;
   }
-  .game-title-lg {
-    font-size: 26px;
-    font-weight: 900;
-    color: #ffffff;
-    letter-spacing: 1px;
-    margin: 4px 0;
-  }
-  .game-desc {
-    font-size: 13px;
-    color: #8c8caa;
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  body.p2-mode .player-pill {
+    background: #2c2016;
+    color: #ff9100;
+    border-color: #ff9100;
   }
 
-  .nav-row {
-    display: flex;
-    gap: 10px;
-    width: 100%;
-    margin-top: 6px;
+  .conn-status {
+    font-size: 10px;
+    color: #7a889b;
   }
-  .btn-nav {
-    flex: 1;
-    background: #17182c;
-    border: 2px solid #303356;
-    color: #00e5ff;
-    font-size: 16px;
-    font-weight: 800;
-    padding: 14px 10px;
-    border-radius: 14px;
-    cursor: pointer;
-    touch-action: manipulation;
-    transition: all 0.1s ease;
-  }
-  .btn-nav:active {
-    background: #252848;
-    border-color: #00e5ff;
-    transform: scale(0.97);
-  }
+  .conn-status.online { color: #00ff88; }
 
-  .mode-toggle-box {
-    background: #0d0e1a;
-    border: 1px solid #23253c;
-    border-radius: 12px;
-    padding: 6px;
+  /* Quick Game Picker Chips */
+  .game-chips-row {
     display: flex;
     gap: 6px;
-    margin: 10px 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  .btn-mode {
+  .game-chips-row::-webkit-scrollbar { display: none; }
+
+  .chip-game {
     flex: 1;
-    background: none;
-    border: none;
-    color: #777799;
-    padding: 8px 4px;
-    font-size: 12px;
-    font-weight: 700;
+    min-width: 62px;
+    background: #141722;
+    border: 1px solid #2e3448;
+    color: #8c96ac;
+    padding: 6px 2px;
     border-radius: 8px;
-    cursor: pointer;
-  }
-  .btn-mode.active {
-    background: #1f223d;
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-
-  .btn-play-action {
-    background: linear-gradient(135deg, #00e5ff, #0077cc);
-    color: #000;
-    font-size: 20px;
-    font-weight: 900;
-    padding: 16px;
-    border-radius: 14px;
-    border: none;
-    width: 100%;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4);
-    touch-action: manipulation;
-  }
-  .btn-play-action:active { transform: scale(0.98); }
-  .btn-play-action:disabled {
-    background: #202234;
-    color: #555577;
-    box-shadow: none;
-    cursor: not-allowed;
-  }
-
-  .lobby-footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 8px;
-  }
-  .btn-sub-action {
-    flex: 1;
-    background: #141424;
-    border: 1px solid #2a2a44;
-    color: #8888aa;
-    padding: 8px 6px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .btn-sub-action:active { background: #222238; color: #fff; }
-
-  /* Generic Game HUD Header */
-  .game-hud {
-    text-align: center;
-    font-size: 18px;
+    font-size: 10px;
     font-weight: 800;
-    padding: 6px 0 12px 0;
-    letter-spacing: 1.5px;
+    text-align: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.15s ease;
+  }
+  .chip-game:active { transform: scale(0.96); }
+  .chip-game.active {
+    background: #004455;
+    border-color: #00ffcc;
     color: #ffffff;
-    width: 100%;
+    box-shadow: 0 0 10px rgba(0,255,204,0.4);
+  }
+  body.p2-mode .chip-game.active {
+    background: #553300;
+    border-color: #ff9900;
+    box-shadow: 0 0 10px rgba(255,153,0,0.4);
   }
 
-  /* Pong View */
-  #pong-view {
-    display: none;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .btn-pong {
-    flex: 1;
-    border-radius: 18px;
-    border: 3px solid #303358;
-    background: #131428;
-    color: #fff;
-    font-size: 32px;
-    font-weight: 900;
+  .lcd-msg-row {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    touch-action: none;
-  }
-  .btn-pong:active, .btn-pong.touch-active {
-    background: #23254c;
-    border-color: #00e5ff;
-    color: #00e5ff;
-  }
-  body.p2-mode .btn-pong:active, body.p2-mode .btn-pong.touch-active {
-    border-color: #ff9100;
-    color: #ff9100;
-  }
-
-  /* D-pad Views (Tron & Snake) */
-  #tron-view, #snake-view {
-    display: none;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
     justify-content: space-between;
     align-items: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #ffffff;
+    min-height: 20px;
   }
-  .dpad-container {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
+  .lcd-status {
+    color: #00ffcc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .dpad {
-    width: min(320px, 85vw);
-    height: min(320px, 85vw);
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
-    gap: 10px;
-  }
-  .dpad-btn {
-    background: #14152a;
-    border: 3px solid #2d3154;
-    border-radius: 18px;
-    color: #fff;
-    font-size: 32px;
-    font-weight: 900;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    touch-action: none;
-  }
-  .dpad-btn:active, .dpad-btn.touch-active {
-    background: #252852;
-    border-color: #00e5ff;
-    color: #00e5ff;
-  }
-  body.p2-mode .dpad-btn:active, body.p2-mode .dpad-btn.touch-active {
-    border-color: #ff9100;
-    color: #ff9100;
-  }
-  .dpad-up    { grid-column: 2; grid-row: 1; }
-  .dpad-left  { grid-column: 1; grid-row: 2; }
-  .dpad-right { grid-column: 3; grid-row: 2; }
-  .dpad-down  { grid-column: 2; grid-row: 3; }
-  .dpad-center {
-    grid-column: 2;
-    grid-row: 2;
-    background: #0d0e1b;
-    border: 2px solid #202238;
-    border-radius: 50%;
-  }
+  body.p2-mode .lcd-status { color: #ffaa33; }
 
-  /* Breakout View */
-  #breakout-view {
-    display: none;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 14px;
-  }
-  .breakout-controls {
-    flex: 1;
-    display: flex;
-    gap: 14px;
-    width: 100%;
-  }
-  .btn-paddle {
-    flex: 1;
-    border-radius: 20px;
-    border: 3px solid #303358;
-    background: #14152a;
-    color: #fff;
-    font-size: 26px;
-    font-weight: 900;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+  .mode-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #1b212f;
+    color: #9cb2cc;
     cursor: pointer;
-    touch-action: none;
-    gap: 8px;
+    border: 1px solid #323d54;
   }
-  .btn-paddle span { font-size: 13px; font-weight: 700; color: #8888bb; }
-  .btn-paddle:active, .btn-paddle.touch-active {
-    background: #252852;
-    border-color: #00e5ff;
-    color: #00e5ff;
-  }
+  .mode-badge:active { background: #283348; color: #fff; }
 
-  /* Tetris View */
-  #tetris-view {
-    display: none;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
+  /* Brand Branding */
+  .brand-row {
+    display: flex;
     justify-content: space-between;
-  }
-  .tetris-controls {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    justify-content: center;
-    width: 100%;
-    max-width: 380px;
-  }
-  .tetris-row {
-    display: flex;
-    gap: 12px;
-    height: 90px;
-  }
-  .btn-tetris {
-    flex: 1;
-    background: #14152a;
-    border: 3px solid #303358;
-    border-radius: 16px;
-    color: #fff;
-    font-size: 24px;
-    font-weight: 900;
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    touch-action: none;
+    padding: 4px 6px;
+  }
+  .brand-text {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #4c526a;
+    text-transform: uppercase;
+  }
+  .speaker-vents {
+    display: flex;
     gap: 4px;
   }
-  .btn-tetris span { font-size: 11px; font-weight: 700; color: #8888bb; }
-  .btn-tetris.action-rot {
-    background: #191b36;
-    border-color: #7b42f6;
-    color: #d1b3ff;
-  }
-  .btn-tetris.action-drop {
-    background: #1c152a;
-    border-color: #f6427b;
-    color: #ffb3d1;
-  }
-  .btn-tetris:active, .btn-tetris.touch-active {
-    background: #252852;
-    border-color: #00e5ff;
-    color: #00e5ff;
+  .vent {
+    width: 22px;
+    height: 4px;
+    background: #12141c;
+    border-radius: 2px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
   }
 
-  /* Game Over Banner Overlay */
-  #banner {
+  /* Main Controls Container */
+  .controls-area {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    position: relative;
+  }
+
+  /* Classic 4-Way Cross D-PAD */
+  .dpad-container {
+    width: 160px;
+    height: 160px;
+    position: relative;
+    touch-action: none;
+  }
+  .dpad-cross {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(10, 11, 22, 0.96);
-    border: 3px solid #00e5ff;
-    border-radius: 20px;
-    padding: 24px 28px;
-    text-align: center;
-    display: none;
-    z-index: 100;
-    width: 90%;
-    max-width: 340px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    width: 148px;
+    height: 148px;
   }
-  #banner.p2-border { border-color: #ff9100; }
-  #banner-title { font-size: 28px; font-weight: 900; margin-bottom: 8px; color: #fff; }
-  #banner-score { font-size: 15px; color: #00e5ff; margin-bottom: 20px; font-weight: 700; }
-  .banner-buttons {
+  .dpad-wing {
+    position: absolute;
+    background: linear-gradient(145deg, #2a2c3a, #1a1c26);
+    border: 2px solid #141520;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.15);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #555b77;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    touch-action: none;
+    transition: background 0.08s, transform 0.08s, box-shadow 0.08s;
+  }
+  .dpad-wing.touch-active, .dpad-wing:active {
+    background: linear-gradient(145deg, #161820, #0f1016);
+    color: #00ffcc;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.8), inset 0 2px 4px rgba(0,0,0,0.9);
+    transform: scale(0.96);
+  }
+  body.p2-mode .dpad-wing.touch-active, body.p2-mode .dpad-wing:active {
+    color: #ff9900;
+  }
+
+  .wing-up {
+    top: 0;
+    left: 49px;
+    width: 50px;
+    height: 52px;
+    border-radius: 10px 10px 0 0;
+    border-bottom: none;
+  }
+  .wing-down {
+    bottom: 0;
+    left: 49px;
+    width: 50px;
+    height: 52px;
+    border-radius: 0 0 10px 10px;
+    border-top: none;
+  }
+  .wing-left {
+    top: 49px;
+    left: 0;
+    width: 52px;
+    height: 50px;
+    border-radius: 10px 0 0 10px;
+    border-right: none;
+  }
+  .wing-right {
+    top: 49px;
+    right: 0;
+    width: 52px;
+    height: 50px;
+    border-radius: 0 10px 10px 0;
+    border-left: none;
+  }
+  .dpad-center {
+    position: absolute;
+    top: 49px;
+    left: 49px;
+    width: 50px;
+    height: 50px;
+    background: #1c1d27;
+    border-radius: 50%;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.7);
+    pointer-events: none;
+  }
+
+  /* Classic Action Buttons (B and A) */
+  .action-container {
+    width: 150px;
+    height: 150px;
+    position: relative;
+    transform: rotate(-24deg);
+    touch-action: none;
+  }
+  .btn-round {
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    position: absolute;
+    background: linear-gradient(145deg, #c41e3a, #851024);
+    border: 3px solid #540916;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.7), inset 0 3px 5px rgba(255,255,255,0.3);
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 900;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    touch-action: none;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .btn-round.btn-b {
+    bottom: 8px;
+    left: 6px;
+  }
+  .btn-round.btn-a {
+    top: 8px;
+    right: 6px;
+  }
+  .btn-round.touch-active, .btn-round:active {
+    background: linear-gradient(145deg, #851024, #540916);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.8), inset 0 3px 8px rgba(0,0,0,0.8);
+    transform: scale(0.94);
+  }
+
+  /* Center Rubber Pill Buttons (SELECT & START) */
+  .center-pills {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 8px;
+    padding-bottom: 6px;
+  }
+  .pill-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 6px;
   }
-  .btn-rematch {
-    background: #00e5ff;
-    color: #000;
-    font-size: 17px;
+  .btn-pill {
+    width: 58px;
+    height: 20px;
+    background: #181922;
+    border: 2px solid #111219;
+    border-radius: 12px;
+    transform: rotate(-25deg);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.15);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.08s ease;
+  }
+  .btn-pill:active, .btn-pill.touch-active {
+    background: #0d0e14;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.8), inset 0 2px 4px rgba(0,0,0,0.9);
+    transform: rotate(-25deg) scale(0.92);
+  }
+  .pill-label {
+    font-size: 10px;
     font-weight: 900;
-    padding: 14px;
-    border-radius: 12px;
-    border: none;
-    cursor: pointer;
-  }
-  .btn-back-menu {
-    background: #1e2034;
-    border: 1px solid #353856;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 12px;
-    border-radius: 12px;
-    cursor: pointer;
+    color: #555b77;
+    letter-spacing: 1px;
+    text-transform: uppercase;
   }
 </style>
 </head>
 <body>
-<header>
-  <div class="header-left">
-    <button class="btn-menu-exit" id="btn-header-menu">⌂ MENU</button>
-    <div class="title">LED MATRIX ARCADE</div>
-  </div>
-  <div id="player-badge" class="badge badge-spec">Connecting...</div>
-</header>
 
-<div id="main-view">
-  <!-- Carousel Menu View -->
-  <div id="menu-view">
-    <div class="menu-card">
-      <div class="menu-banner-top">
-        <span class="matrix-hint">◀ MATRIX CAROUSEL ▶</span>
-        <span class="game-badge" id="menu-game-badge">1P / 2P</span>
+<div class="chassis">
+  <!-- Top LCD Display Box -->
+  <div class="screen-bezel">
+    <div class="lcd-glass">
+      <div class="lcd-top-row">
+        <span class="player-pill" id="player-pill">PLAYER 1 (CYAN)</span>
+        <span class="conn-status" id="conn-status">CONNECTING...</span>
       </div>
-      <div class="game-title-lg" id="menu-game-title">PONG 2P</div>
-      <div class="game-desc" id="menu-game-desc">Classic arcade table tennis battle</div>
 
-      <!-- Left / Right Carousel Controls -->
-      <div class="nav-row">
-        <button class="btn-nav" id="btn-nav-prev">◀ PREV</button>
-        <button class="btn-nav" id="btn-nav-next">NEXT ▶</button>
+      <!-- Quick Game Select Chips -->
+      <div class="game-chips-row" id="game-chips">
+        <div class="chip-game active" data-game="pong">PONG</div>
+        <div class="chip-game" data-game="tron">TRON</div>
+        <div class="chip-game" data-game="snake">SNAKE</div>
+        <div class="chip-game" data-game="breakout">BREAKOUT</div>
+        <div class="chip-game" data-game="tetris">TETRIS</div>
+      </div>
+
+      <!-- Live Info / Score Row -->
+      <div class="lcd-msg-row">
+        <span class="lcd-status" id="lcd-status">SELECT GAME OR PRESS START</span>
+        <span class="mode-badge" id="mode-badge">1P / 2P</span>
       </div>
     </div>
+  </div>
 
-    <!-- Mode Selector (For games supporting 2P) -->
-    <div class="mode-toggle-box" id="mode-box">
-      <button class="btn-mode active" id="btn-mode-2p">2-PLAYER BATTLE</button>
-      <button class="btn-mode" id="btn-mode-1p">PLAY SOLO VS AI</button>
-    </div>
-
-    <!-- Start / Play Action -->
-    <button id="btn-start" class="btn-play-action">▶ START GAME</button>
-
-    <!-- Sub Actions: Toggle Matrix QR & Info -->
-    <div class="lobby-footer">
-      <button class="btn-sub-action" id="btn-toggle-qr">Toggle QR on Matrix</button>
-      <button class="btn-sub-action" id="btn-p2-status">P2: Waiting...</button>
+  <!-- Branding -->
+  <div class="brand-row">
+    <div class="brand-text">RETRO CONTROLLER</div>
+    <div class="speaker-vents">
+      <div class="vent"></div>
+      <div class="vent"></div>
+      <div class="vent"></div>
     </div>
   </div>
 
-  <!-- Pong View -->
-  <div id="pong-view">
-    <div class="game-hud" id="pong-hud">P1: 0  |  P2: 0</div>
-    <button class="btn-pong" data-action="up">▲ PADDLE UP</button>
-    <button class="btn-pong" data-action="down">▼ PADDLE DOWN</button>
-  </div>
-
-  <!-- Tron View -->
-  <div id="tron-view">
-    <div class="game-hud" id="tron-hud">ROUND 1</div>
-    <div class="dpad-container">
-      <div class="dpad">
-        <button class="dpad-btn dpad-up" data-action="up">▲</button>
-        <button class="dpad-btn dpad-left" data-action="left">◀</button>
+  <!-- Main Gamepad Area -->
+  <div class="controls-area">
+    <!-- D-PAD -->
+    <div class="dpad-container" id="dpad-container">
+      <div class="dpad-cross">
+        <div class="dpad-wing wing-up" data-action="up">▲</div>
+        <div class="dpad-wing wing-down" data-action="down">▼</div>
+        <div class="dpad-wing wing-left" data-action="left">◀</div>
+        <div class="dpad-wing wing-right" data-action="right">▶</div>
         <div class="dpad-center"></div>
-        <button class="dpad-btn dpad-right" data-action="right">▶</button>
-        <button class="dpad-btn dpad-down" data-action="down">▼</button>
       </div>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="action-container">
+      <div class="btn-round btn-b" data-action="action_b">B</div>
+      <div class="btn-round btn-a" data-action="action_a">A</div>
     </div>
   </div>
 
-  <!-- Snake View -->
-  <div id="snake-view">
-    <div class="game-hud" id="snake-hud">SCORE: 0</div>
-    <div class="dpad-container">
-      <div class="dpad">
-        <button class="dpad-btn dpad-up" data-action="up">▲</button>
-        <button class="dpad-btn dpad-left" data-action="left">◀</button>
-        <div class="dpad-center"></div>
-        <button class="dpad-btn dpad-right" data-action="right">▶</button>
-        <button class="dpad-btn dpad-down" data-action="down">▼</button>
-      </div>
+  <!-- SELECT & START Pills -->
+  <div class="center-pills">
+    <div class="pill-wrapper">
+      <button class="btn-pill" id="btn-select" title="Cycle Game / Change Mode"></button>
+      <div class="pill-label">SELECT</div>
     </div>
-  </div>
-
-  <!-- Breakout View -->
-  <div id="breakout-view">
-    <div class="game-hud" id="breakout-hud">SCORE: 0 | LIVES: ♥♥♥</div>
-    <div class="breakout-controls">
-      <button class="btn-paddle" data-action="left">
-        ◀
-        <span>LEFT</span>
-      </button>
-      <button class="btn-paddle" data-action="right">
-        ▶
-        <span>RIGHT</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Tetris View -->
-  <div id="tetris-view">
-    <div class="game-hud" id="tetris-hud">SCORE: 0 | LINES: 0</div>
-    <div class="tetris-controls">
-      <div class="tetris-row">
-        <button class="btn-tetris action-rot" data-action="rotate">
-          ⟳
-          <span>ROTATE</span>
-        </button>
-        <button class="btn-tetris action-drop" data-action="drop">
-          ⏬
-          <span>HARD DROP</span>
-        </button>
-      </div>
-      <div class="tetris-row">
-        <button class="btn-tetris" data-action="left">
-          ◀
-          <span>LEFT</span>
-        </button>
-        <button class="btn-tetris" data-action="down">
-          ▼
-          <span>SOFT DROP</span>
-        </button>
-        <button class="btn-tetris" data-action="right">
-          ▶
-          <span>RIGHT</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Game Over Banner -->
-  <div id="banner">
-    <div id="banner-title">GAME OVER</div>
-    <div id="banner-score"></div>
-    <div class="banner-buttons">
-      <button class="btn-rematch" id="btn-banner-rematch">REMATCH</button>
-      <button class="btn-back-menu" id="btn-banner-menu">BACK TO MENU</button>
+    <div class="pill-wrapper">
+      <button class="btn-pill" id="btn-start" title="Start / Rematch"></button>
+      <div class="pill-label">START</div>
     </div>
   </div>
 </div>
@@ -598,34 +447,17 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 <script>
 (function() {
   let ws = null;
-  let playerRole = null; // 1, 2, or 0
-  let currentLobbyState = null;
-  let selectedModeSolo = false;
+  let playerRole = 1;
+  let currentLobby = null;
+  let selectedSolo = false;
 
-  const badge = document.getElementById('player-badge');
-  const btnHeaderMenu = document.getElementById('btn-header-menu');
-
-  const menuView = document.getElementById('menu-view');
-  const pongView = document.getElementById('pong-view');
-  const tronView = document.getElementById('tron-view');
-  const snakeView = document.getElementById('snake-view');
-  const breakoutView = document.getElementById('breakout-view');
-  const tetrisView = document.getElementById('tetris-view');
-  const allViews = [menuView, pongView, tronView, snakeView, breakoutView, tetrisView];
-
-  const banner = document.getElementById('banner');
-  const bannerTitle = document.getElementById('banner-title');
-  const bannerScore = document.getElementById('banner-score');
-
-  const menuGameBadge = document.getElementById('menu-game-badge');
-  const menuGameTitle = document.getElementById('menu-game-title');
-  const menuGameDesc = document.getElementById('menu-game-desc');
-  const modeBox = document.getElementById('mode-box');
-  const btnMode2p = document.getElementById('btn-mode-2p');
-  const btnMode1p = document.getElementById('btn-mode-1p');
+  const playerPill = document.getElementById('player-pill');
+  const connStatus = document.getElementById('conn-status');
+  const lcdStatus = document.getElementById('lcd-status');
+  const modeBadge = document.getElementById('mode-badge');
+  const gameChips = document.querySelectorAll('.chip-game');
+  const btnSelect = document.getElementById('btn-select');
   const btnStart = document.getElementById('btn-start');
-  const btnP2Status = document.getElementById('btn-p2-status');
-  const btnToggleQr = document.getElementById('btn-toggle-qr');
 
   function vibrate(ms) {
     if (navigator.vibrate) {
@@ -633,33 +465,36 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     }
   }
 
-  function send(data) {
+  function send(msg) {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
+      ws.send(JSON.stringify(msg));
     }
   }
 
   function connect() {
+    connStatus.textContent = 'CONNECTING...';
+    connStatus.className = 'conn-status';
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      badge.textContent = 'CONNECTED';
+      connStatus.textContent = 'ONLINE';
+      connStatus.className = 'conn-status online';
     };
 
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         handleMessage(msg);
-      } catch (e) {
-        console.error('WS Parse Error', e);
+      } catch (err) {
+        console.error('WS Parse Error', err);
       }
     };
 
     ws.onclose = () => {
-      badge.className = 'badge badge-spec';
-      badge.textContent = 'DISCONNECTED';
+      connStatus.textContent = 'OFFLINE';
+      connStatus.className = 'conn-status';
       setTimeout(connect, 1500);
     };
   }
@@ -668,193 +503,121 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     if (msg.type === 'assign') {
       playerRole = msg.player;
       if (playerRole === 1) {
-        badge.className = 'badge badge-p1';
-        badge.textContent = 'PLAYER 1 (CYAN)';
+        playerPill.textContent = 'P1 (CYAN)';
         document.body.classList.remove('p2-mode');
       } else if (playerRole === 2) {
-        badge.className = 'badge badge-p2';
-        badge.textContent = 'PLAYER 2 (ORANGE)';
+        playerPill.textContent = 'P2 (ORANGE)';
         document.body.classList.add('p2-mode');
       } else {
-        badge.className = 'badge badge-spec';
-        badge.textContent = 'SPECTATOR';
+        playerPill.textContent = 'SPECTATOR';
       }
     } else if (msg.type === 'lobby_state') {
-      currentLobbyState = msg;
-      if (msg.phase === 'lobby') {
-        showView('menu');
-      }
-      updateMenuUI(msg);
+      currentLobby = msg;
+      updateLobbyUI(msg);
     } else if (msg.type === 'game_start') {
-      launchGame(msg.game);
+      highlightActiveGame(msg.game);
+      lcdStatus.textContent = `${(msg.game || '').toUpperCase()} ACTIVE!`;
+      vibrate(40);
     } else if (msg.type === 'game_update') {
-      updateGameHUD(msg);
+      if (msg.score_text) {
+        lcdStatus.textContent = msg.score_text;
+      }
     } else if (msg.type === 'game_over') {
-      showGameOver(msg);
-    }
-  }
-
-  function showView(viewName) {
-    allViews.forEach(v => v.style.display = 'none');
-    banner.style.display = 'none';
-
-    if (viewName === 'menu') {
-      menuView.style.display = 'flex';
-      btnHeaderMenu.style.display = 'none';
-    } else {
-      btnHeaderMenu.style.display = 'block';
-      if (viewName === 'pong') pongView.style.display = 'flex';
-      else if (viewName === 'tron') tronView.style.display = 'flex';
-      else if (viewName === 'snake') snakeView.style.display = 'flex';
-      else if (viewName === 'breakout') breakoutView.style.display = 'flex';
-      else if (viewName === 'tetris') tetrisView.style.display = 'flex';
-    }
-  }
-
-  function updateMenuUI(state) {
-    const games = state.games || [];
-    const currGame = games[state.selected_game_index] || {
-      id: state.selected_game,
-      name: state.selected_game.toUpperCase(),
-      badge: '1P / 2P',
-      desc: '',
-      supports_2p: true,
-    };
-
-    menuGameTitle.textContent = currGame.name;
-    menuGameBadge.textContent = currGame.badge;
-    menuGameDesc.textContent = currGame.desc;
-
-    // Toggle 2P vs Solo mode buttons
-    if (currGame.supports_2p) {
-      modeBox.style.display = 'flex';
-      if (selectedModeSolo) {
-        btnMode1p.classList.add('active');
-        btnMode2p.classList.remove('active');
+      lcdStatus.textContent = `${msg.winner_text || 'GAME OVER'} (PRESS START)`;
+      if (msg.winner === playerRole) {
+        vibrate([40, 60, 40, 60, 80]);
       } else {
-        btnMode2p.classList.add('active');
-        btnMode1p.classList.remove('active');
+        vibrate(100);
       }
-    } else {
-      modeBox.style.display = 'none';
-      selectedModeSolo = true;
     }
+  }
 
-    // P2 connection badge
-    if (state.p2_connected) {
-      btnP2Status.textContent = 'P2: READY';
-      btnP2Status.style.color = '#ff9100';
-    } else {
-      btnP2Status.textContent = 'P2: WAITING...';
-      btnP2Status.style.color = '#8888aa';
-    }
-
-    // Start button state
-    if (playerRole === 1) {
-      btnStart.disabled = false;
-      if (currGame.supports_2p && !selectedModeSolo && !state.p2_connected) {
-        btnStart.textContent = 'WAITING FOR P2 (OR PLAY SOLO)';
+  function highlightActiveGame(gameId) {
+    gameChips.forEach(chip => {
+      if (chip.dataset.game === gameId) {
+        chip.classList.add('active');
+        chip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       } else {
-        btnStart.textContent = '▶ START GAME';
+        chip.classList.remove('active');
       }
-    } else if (playerRole === 2) {
-      btnStart.disabled = true;
-      btnStart.textContent = 'WAITING FOR P1 TO START';
+    });
+  }
+
+  function updateLobbyUI(state) {
+    highlightActiveGame(state.selected_game);
+    const activeGameConfig = (state.games || []).find(g => g.id === state.selected_game);
+    const supports2p = activeGameConfig ? activeGameConfig.supports_2p : false;
+
+    if (!supports2p) {
+      selectedSolo = true;
+      modeBadge.textContent = '1P SOLO';
     } else {
-      btnStart.disabled = true;
-      btnStart.textContent = 'SPECTATING';
+      modeBadge.textContent = selectedSolo ? '1P SOLO' : '2P BATTLE';
+    }
+
+    if (state.phase === 'lobby') {
+      if (state.selected_game) {
+        const title = (state.selected_game || '').toUpperCase();
+        if (supports2p && !selectedSolo && !state.p2_connected) {
+          lcdStatus.textContent = `${title}: WAITING FOR P2...`;
+        } else {
+          lcdStatus.textContent = `${title}: PRESS START`;
+        }
+      }
+    } else if (state.phase === 'countdown') {
+      lcdStatus.textContent = 'GET READY...';
     }
   }
 
-  function launchGame(game) {
-    showView(game);
-    vibrate(40);
-  }
+  // Tapping Game Chips directly switches active game without crash
+  gameChips.forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
+      const game = chip.dataset.game;
+      highlightActiveGame(game);
+      send({ type: 'select_game', game: game });
+      vibrate(15);
+    });
+  });
 
-  function updateGameHUD(msg) {
-    if (msg.score_text) {
-      const el = document.getElementById(`${currentLobbyState?.selected_game || 'pong'}-hud`);
-      if (el) el.textContent = msg.score_text;
-    }
-  }
-
-  function showGameOver(msg) {
-    banner.style.display = 'block';
-    bannerTitle.textContent = msg.winner_text || 'GAME OVER';
-    bannerScore.textContent = msg.score_text || '';
-    if (msg.winner === playerRole) {
-      bannerTitle.textContent += ' 🏆';
-      vibrate([40, 60, 40, 60, 80]);
-    } else {
-      vibrate(120);
-    }
-  }
-
-  // Bind Carousel Navigation
-  document.getElementById('btn-nav-prev').addEventListener('click', () => {
-    send({ type: 'menu_nav', dir: 'prev' });
+  // Mode badge toggles 1P Solo vs 2P Battle
+  modeBadge.addEventListener('click', (e) => {
+    e.preventDefault();
+    selectedSolo = !selectedSolo;
+    modeBadge.textContent = selectedSolo ? '1P SOLO' : '2P BATTLE';
     vibrate(15);
   });
-  document.getElementById('btn-nav-next').addEventListener('click', () => {
+
+  // SELECT button: cycles game or menu navigation
+  btnSelect.addEventListener('click', (e) => {
+    e.preventDefault();
     send({ type: 'menu_nav', dir: 'next' });
-    vibrate(15);
+    vibrate(20);
   });
 
-  // Mode Selection
-  btnMode2p.addEventListener('click', () => {
-    selectedModeSolo = false;
-    btnMode2p.classList.add('active');
-    btnMode1p.classList.remove('active');
-    updateMenuUI(currentLobbyState);
-    vibrate(15);
-  });
-  btnMode1p.addEventListener('click', () => {
-    selectedModeSolo = true;
-    btnMode1p.classList.add('active');
-    btnMode2p.classList.remove('active');
-    updateMenuUI(currentLobbyState);
-    vibrate(15);
-  });
-
-  // Start & Rematch
-  btnStart.addEventListener('click', () => {
-    const game = currentLobbyState?.selected_game || 'pong';
-    send({ type: 'start_game', game: game, solo: selectedModeSolo });
+  // START button: starts game or triggers rematch
+  btnStart.addEventListener('click', (e) => {
+    e.preventDefault();
+    const game = currentLobby ? currentLobby.selected_game : 'pong';
+    if (currentLobby && currentLobby.phase === 'gameover') {
+      send({ type: 'rematch' });
+    } else {
+      send({ type: 'start_game', game: game, solo: selectedSolo });
+    }
     vibrate(30);
   });
 
-  document.getElementById('btn-banner-rematch').addEventListener('click', () => {
-    banner.style.display = 'none';
-    send({ type: 'rematch' });
-    vibrate(25);
-  });
-
-  // Menu Exit
-  btnHeaderMenu.addEventListener('click', () => {
-    send({ type: 'menu_exit' });
-    showView('menu');
-    vibrate(20);
-  });
-  document.getElementById('btn-banner-menu').addEventListener('click', () => {
-    send({ type: 'menu_exit' });
-    showView('menu');
-    vibrate(20);
-  });
-
-  btnToggleQr.addEventListener('click', () => {
-    send({ type: 'toggle_qr' });
-    vibrate(15);
-  });
-
-  // Unified Touch & Input Event Handlers
-  function bindControllerButton(btn) {
-    const action = btn.dataset.action;
-    if (!action) return;
-
+  // Bind Physical Buttons with immediate zero-lag touch and haptics
+  function bindTouchButton(btn, action) {
     const onDown = (e) => {
       e.preventDefault();
       btn.classList.add('touch-active');
       send({ type: 'input', action: action, state: 'down' });
+
+      // In lobby/gameover, A button can also start or rematch!
+      if (action === 'action_a' && currentLobby && (currentLobby.phase === 'lobby' || currentLobby.phase === 'gameover')) {
+        btnStart.click();
+      }
       vibrate(15);
     };
 
@@ -872,9 +635,11 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     btn.addEventListener('mouseleave', onUp);
   }
 
-  document.querySelectorAll('[data-action]').forEach(bindControllerButton);
+  document.querySelectorAll('[data-action]').forEach(el => {
+    bindTouchButton(el, el.dataset.action);
+  });
 
-  // Keyboard controls for desktop browser pair programming / testing
+  // Desktop keyboard controls for testing / pair programming
   const KEY_MAP = {
     'ArrowUp': 'up',
     'KeyW': 'up',
@@ -884,46 +649,37 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     'KeyA': 'left',
     'ArrowRight': 'right',
     'KeyD': 'right',
-    'Space': 'drop',
-    'KeyR': 'rotate',
+    'KeyX': 'action_b',
+    'KeyZ': 'action_a',
+    'Space': 'action_a',
+    'Enter': 'start',
+    'Tab': 'select',
   };
 
-  const activeHeldKeys = new Set();
+  const heldKeys = new Set();
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
-    const action = KEY_MAP[e.code];
-
-    // Menu navigation on keyboard
-    if (menuView.style.display !== 'none') {
-      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-        send({ type: 'menu_nav', dir: 'prev' });
-        return;
-      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-        send({ type: 'menu_nav', dir: 'next' });
-        return;
-      } else if (e.code === 'Enter' || e.code === 'Space') {
-        btnStart.click();
-        return;
-      }
-    }
-
-    if (e.code === 'Escape') {
-      send({ type: 'menu_exit' });
-      showView('menu');
+    if (e.code === 'Enter') {
+      btnStart.click();
       return;
     }
-
-    if (action && !activeHeldKeys.has(action)) {
-      activeHeldKeys.add(action);
-      send({ type: 'input', action: action, state: 'down' });
+    if (e.code === 'Tab') {
+      e.preventDefault();
+      btnSelect.click();
+      return;
+    }
+    const act = KEY_MAP[e.code];
+    if (act && !heldKeys.has(act)) {
+      heldKeys.add(act);
+      send({ type: 'input', action: act, state: 'down' });
     }
   });
 
   window.addEventListener('keyup', (e) => {
-    const action = KEY_MAP[e.code];
-    if (action) {
-      activeHeldKeys.delete(action);
-      send({ type: 'input', action: action, state: 'up' });
+    const act = KEY_MAP[e.code];
+    if (act) {
+      heldKeys.delete(act);
+      send({ type: 'input', action: act, state: 'up' });
     }
   });
 

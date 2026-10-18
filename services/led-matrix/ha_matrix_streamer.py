@@ -278,6 +278,12 @@ def main() -> None:
             if active_mode != last_mode:
                 print(f"[Hub] Mode: {active_mode} (HA: {ha_state.mode})", flush=True)
                 last_mode = active_mode
+                target_renderer = renderers.get(active_mode)
+                if target_renderer and hasattr(target_renderer, "reset"):
+                    try:
+                        target_renderer.reset()
+                    except Exception:
+                        pass
 
             if active_mode == "Spotify":
                 if spotify_state.title != last_title:

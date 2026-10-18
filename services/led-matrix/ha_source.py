@@ -174,8 +174,12 @@ class HomeAssistantSource:
             updated_at = datetime.fromisoformat(value["last_updated"]).timestamp()
         except (KeyError, TypeError, ValueError):
             updated_at = 0.0
+        has_art = bool(attributes.get("entity_picture"))
+        is_active = value.get("state") in ("playing", "paused") or (
+            value.get("state") == "idle" and has_art
+        )
         state = PlaybackState(
-            available=value.get("state") in ("playing", "paused"),
+            available=is_active,
             playing=value.get("state") == "playing",
             title=str(attributes.get("media_title") or ""),
             artist=str(attributes.get("media_artist") or ""),

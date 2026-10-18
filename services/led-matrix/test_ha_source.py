@@ -819,7 +819,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         # 5. Retro Arcade
         from modes import RetroArcadeRenderer
 
-        arcade = RetroArcadeRenderer(cycle_interval=2.0)
+        arcade = RetroArcadeRenderer(cycle_interval=2.0, randomize=False)
         self.assertEqual(arcade.current_game.name, "PONG AI")
         a_frame1 = arcade.render(ctx, size=64)
         self.assertEqual(a_frame1.size, (64, 64))
@@ -1497,6 +1497,137 @@ class HubModeAndRendererTests(unittest.TestCase):
         vis_none = VisualizerRenderer(size=64, audio_source=lambda: None)
         img_fb = vis_none.render(ctx, size=64)
         self.assertEqual(img_fb.size, (64, 64))
+
+    def test_retro_arcade_random_cycle_and_reset(self) -> None:
+        import random
+
+        from modes.arcade import RetroArcadeRenderer
+
+        # Fix seed for reproducible assertions
+        random.seed(12345)
+        arcade = RetroArcadeRenderer(cycle_interval=1.0, randomize=True)
+        self.assertEqual(len(arcade.playlist), len(arcade.games))
+        self.assertEqual(set(arcade.playlist), set(range(len(arcade.games))))
+
+        initial_playlist = list(arcade.playlist)
+
+        # Reset should re-shuffle
+        random.seed(67890)
+        arcade.reset()
+        reset_playlist = list(arcade.playlist)
+        self.assertNotEqual(initial_playlist, reset_playlist)
+
+        # Cycling through the full playlist covers all games without repeating consecutively
+        visited = []
+        for _ in range(len(arcade.games) * 2):
+            visited.append(arcade.current_game.name)
+            arcade._next_game()
+
+        # Check no two consecutive games are the same
+        for i in range(len(visited) - 1):
+            self.assertNotEqual(
+                visited[i],
+                visited[i + 1],
+                f"Duplicate consecutive game at {i}: {visited[i]}",
+            )
+
+    def test_multiplayer_arcade_thread_safety_and_game_change_stability(self) -> None:
+        import threading
+        import time
+
+        from PIL import Image
+
+        from modes.base import HAState, PlaybackState, RenderContext
+        from modes.multiplayer import MultiplayerArcadeRenderer
+        from web_controller.server import MultiplayerHub
+
+        hub = MultiplayerHub()
+        renderer = MultiplayerArcadeRenderer(hub)
+        ctx = RenderContext(
+            tick=1.0,
+            dt=0.05,
+            ha_state=HAState(power=True, mode="2-Player Arcade"),
+            spotify_state=PlaybackState(),
+            spotify_art=Image.new("RGB", (64, 64)),
+        )
+
+        stop = threading.Event()
+        errors: list[Exception] = []
+
+        def render_worker() -> None:
+            while not stop.is_set():
+                try:
+                    frame = renderer.render(ctx, size=64)
+                    self.assertEqual(frame.size, (64, 64))
+                except Exception as e:  # noqa: BLE001
+                    errors.append(e)
+                time.sleep(0.005)
+
+        t = threading.Thread(target=render_worker, daemon=True)
+        t.start()
+
+        # Concurrently perform rapid game changes, rematches, and menu exits
+        for _ in range(15):
+            renderer._on_start_game("pong", solo=False)
+            time.sleep(0.005)
+            renderer._on_start_game("tron", solo=True)
+            time.sleep(0.005)
+            renderer._on_start_game("snake", solo=True)
+            time.sleep(0.005)
+            renderer._on_start_game("breakout", solo=True)
+            time.sleep(0.005)
+            renderer._on_start_game("tetris", solo=True)
+            time.sleep(0.005)
+            renderer._on_rematch()
+            time.sleep(0.005)
+            renderer._on_menu_exit()
+            time.sleep(0.005)
+
+        stop.set()
+        t.join(timeout=2.0)
+        self.assertEqual(
+            len(errors), 0, f"Encountered render errors during game changes: {errors}"
+        )
+
+    def test_tetris_safe_multiple_row_clears(self) -> None:
+        from modes.multiplayer.tetris_game import COLS, ROWS, InteractiveTetris
+
+        tetris = InteractiveTetris()
+        # Fill multiple non-adjacent rows completely
+        for x in range(COLS):
+            tetris.board[ROWS - 1][x] = "I"
+            tetris.board[ROWS - 3][x] = "T"
+            tetris.board[ROWS - 5][x] = "O"
+
+        tetris.clearing_rows = [ROWS - 5, ROWS - 3, ROWS - 1]
+        tetris.clear_timer = 0.01
+        # Update past clear_timer to trigger row removal
+        tetris.update(0.02, set(), set())
+
+        self.assertEqual(len(tetris.board), ROWS)
+        for y in range(ROWS):
+            self.assertEqual(len(tetris.board[y]), COLS)
+        self.assertEqual(len(tetris.clearing_rows), 0)
+
+    def test_multiplayer_hub_index_sync_and_clamping(self) -> None:
+        from web_controller.server import GAMES_CONFIG, MultiplayerHub
+
+        hub = MultiplayerHub()
+        # Start game sets both selected_game and selected_game_index
+        hub.trigger_game_start("breakout", solo=True)
+        self.assertEqual(hub.selected_game, "breakout")
+        expected_idx = next(
+            i for i, g in enumerate(GAMES_CONFIG) if g["id"] == "breakout"
+        )
+        self.assertEqual(hub.selected_game_index, expected_idx)
+
+        # set_selected_game
+        hub.set_selected_game("tetris")
+        self.assertEqual(hub.selected_game, "tetris")
+        expected_tetris_idx = next(
+            i for i, g in enumerate(GAMES_CONFIG) if g["id"] == "tetris"
+        )
+        self.assertEqual(hub.selected_game_index, expected_tetris_idx)
 
 
 if __name__ == "__main__":

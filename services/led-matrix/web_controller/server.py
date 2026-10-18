@@ -221,6 +221,10 @@ class MultiplayerHub:
 
     def trigger_game_start(self, game: str, solo: bool) -> None:
         self.selected_game = game
+        for idx, g in enumerate(GAMES_CONFIG):
+            if g["id"] == game:
+                self.selected_game_index = idx
+                break
         self.solo_vs_ai = solo
         self.clear_inputs()
         self.phase = "countdown"

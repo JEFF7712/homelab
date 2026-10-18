@@ -140,10 +140,13 @@ class InteractiveTetris(MultiplayerGame):
         if self.clear_timer > 0:
             self.clear_timer -= dt
             if self.clear_timer <= 0:
-                # Remove cleared rows
-                for y in sorted(self.clearing_rows):
-                    del self.board[y]
-                    self.board.insert(0, [None] * COLS)
+                cleared_count = len(self.clearing_rows)
+                remaining = [
+                    row
+                    for y, row in enumerate(self.board)
+                    if y not in self.clearing_rows
+                ]
+                self.board = [[None] * COLS for _ in range(cleared_count)] + remaining
                 self.clearing_rows.clear()
                 self._spawn()
             return

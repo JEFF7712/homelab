@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+
 from PIL import Image, ImageDraw
 
 from modes.base import ModeRenderer, RenderContext
@@ -17,7 +19,7 @@ from .tetris import TetrisGame
 
 
 class RetroArcadeRenderer(ModeRenderer):
-    def __init__(self, cycle_interval: float = 60.0) -> None:
+    def __init__(self, cycle_interval: float = 60.0, randomize: bool = True) -> None:
         self.games: list[ArcadeGame] = [
             PongGame(),
             SnakeGame(),
@@ -28,15 +30,44 @@ class RetroArcadeRenderer(ModeRenderer):
             DonkeyKongGame(),
         ]
         self.cycle_interval = cycle_interval
-        self.current_idx = 0
+        self.randomize = randomize
+        self.playlist: list[int] = list(range(len(self.games)))
+        self.playlist_pos = 0
+        if self.randomize:
+            random.shuffle(self.playlist)
+        self.current_idx = self.playlist[0] if self.randomize else 0
         self.game_timer = 0.0
 
     @property
     def current_game(self) -> ArcadeGame:
         return self.games[self.current_idx]
 
+    def reset(self) -> None:
+        """Reset rotation order (called when switching into Retro Arcade mode)."""
+        self.game_timer = 0.0
+        if self.randomize:
+            random.shuffle(self.playlist)
+            self.playlist_pos = 0
+            self.current_idx = self.playlist[0]
+        else:
+            self.playlist_pos = 0
+            self.current_idx = 0
+        self.current_game.reset()
+
     def _next_game(self) -> None:
-        self.current_idx = (self.current_idx + 1) % len(self.games)
+        if self.randomize:
+            self.playlist_pos += 1
+            if self.playlist_pos >= len(self.playlist):
+                last_idx = self.playlist[-1]
+                self.playlist = list(range(len(self.games)))
+                random.shuffle(self.playlist)
+                # Avoid playing the same game consecutively across playlist loops
+                if len(self.playlist) > 1 and self.playlist[0] == last_idx:
+                    self.playlist[0], self.playlist[1] = self.playlist[1], self.playlist[0]
+                self.playlist_pos = 0
+            self.current_idx = self.playlist[self.playlist_pos]
+        else:
+            self.current_idx = (self.current_idx + 1) % len(self.games)
         self.current_game.reset()
         self.game_timer = 0.0
 
