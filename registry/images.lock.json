@@ -4885,9 +4885,9 @@
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
         "modes-20261018-physics-registry",
-        "retention-candidate-ea789df92b130722"
+        "retention-candidate-9f2e5ca91f9f5fc3"
       ],
-      "digest": "sha256:ea789df92b130722e6938d68f432f488c2d922845e555a084ec26b926fbcbe9d",
+      "digest": "sha256:9f2e5ca91f9f5fc32a55af57c10ebdc20cdb2187d840d2c40c4ad60dcfb21281",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -4898,11 +4898,11 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
         "tag": "modes-20261018-physics-registry",
-        "digest": "sha256:ea789df92b130722e6938d68f432f488c2d922845e555a084ec26b926fbcbe9d",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261018-physics-registry@sha256:ea789df92b130722e6938d68f432f488c2d922845e555a084ec26b926fbcbe9d"
+        "digest": "sha256:9f2e5ca91f9f5fc32a55af57c10ebdc20cdb2187d840d2c40c4ad60dcfb21281",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:modes-20261018-physics-registry@sha256:9f2e5ca91f9f5fc32a55af57c10ebdc20cdb2187d840d2c40c4ad60dcfb21281"
       },
 
-      "media_type": "application/vnd.oci.image.index.v1+json",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
       "platforms": [
         "linux/amd64"
       ],
