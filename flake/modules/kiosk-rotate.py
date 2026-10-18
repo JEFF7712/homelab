@@ -200,6 +200,27 @@ class Session:
             if response.get("method") == name:
                 return
 
+    def drain(self, quiet: float = 0.1) -> None:
+        """Discard events already buffered from earlier commands.
+
+        ``wait_for_event`` returns the first matching event it reads, so a stale
+        ``Page.loadEventFired`` left over from the previous navigation would
+        otherwise be mistaken for the one just triggered, and the next step would
+        run against a document that has not committed yet. Read until the socket
+        goes quiet before starting a fresh navigation.
+        """
+        while True:
+            try:
+                ws_recv(self._sock, self._buf, quiet)
+            except (TimeoutError, socket.timeout):
+                return
+
+
+TRANSIENT_EVALUATION_ERRORS = (
+    "navigated or closed",
+    "Access is denied for this document",
+)
+
 
 def evaluate(session: Session, expression: str) -> Any:
     result = session.call(
@@ -215,19 +236,21 @@ def evaluate(session: Session, expression: str) -> Any:
 def evaluate_retrying(
     session: Session, expression: str, attempts: int, delay: float
 ) -> bool:
-    """Evaluate an idempotent expression, tolerating the target navigating away.
+    """Evaluate an idempotent expression, tolerating an unready document.
 
     A dashboard that redirects client-side (Home Assistant bouncing to its auth
     flow) can still be mid-navigation when the load event fires, which makes
-    Runtime.evaluate fail with "Inspected target navigated or closed". That is
-    transient, so retry before giving up.
+    Runtime.evaluate fail with "Inspected target navigated or closed". And if the
+    expression runs before the target commits -- while the initial opaque
+    document is still current -- its ``localStorage`` is "Access is denied for
+    this document". Both clear on their own, so retry before giving up.
     """
     for attempt in range(attempts):
         try:
             evaluate(session, expression)
             return True
         except RuntimeError as exc:
-            if "navigated or closed" not in str(exc):
+            if not any(marker in str(exc) for marker in TRANSIENT_EVALUATION_ERRORS):
                 raise
             if attempt < attempts - 1:
                 time.sleep(delay)
@@ -270,16 +293,19 @@ def show_view(
     """
     url = view["url"]
     session.call("Page.enable")
+    session.drain()
     session.call("Page.navigate", {"url": url})
     session.wait_for_event("Page.loadEventFired", time.monotonic() + settle)
     if seed is not None:
         key, value = seed
         evaluate_retrying(
             session,
-            "window.localStorage.setItem(%s, %s)" % (json.dumps(key), json.dumps(value)),
+            "window.localStorage.setItem(%s, %s)"
+            % (json.dumps(key), json.dumps(value)),
             attempts=10,
             delay=1.0,
         )
+        session.drain()
         session.call("Page.navigate", {"url": url})
         session.wait_for_event("Page.loadEventFired", time.monotonic() + settle)
     css = view.get("css")
@@ -348,7 +374,11 @@ def build_token_payload(
 
 
 def token_seed(
-    view_url: str, origin: str | None, token: str | None, now_ms: int, lifespan_days: int
+    view_url: str,
+    origin: str | None,
+    token: str | None,
+    now_ms: int,
+    lifespan_days: int,
 ) -> tuple[str, str] | None:
     """Return the ``localStorage`` key/value to seed for a Home Assistant view.
 
@@ -435,7 +465,9 @@ def main(argv: list[str] | None = None) -> int:
                     int(time.time() * 1000),
                     args.ha_token_lifespan_days,
                 )
-                print(f"showing view {index + 1}/{len(views)}: {view['url']}", flush=True)
+                print(
+                    f"showing view {index + 1}/{len(views)}: {view['url']}", flush=True
+                )
                 show_view(session, view, args.settle, seed=seed)
                 if seed is not None:
                     print(f"seeded Home Assistant session for {origin}", flush=True)

@@ -240,6 +240,76 @@ class InjectCssTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "some other failure"):
             ROTATE.inject_css(Bad(0), "x", attempts=3, delay=0.0)
 
+    def test_retries_uncommitted_document(self) -> None:
+        class Unready(_FakeSession):
+            def call(self, method: str, params: Any = None) -> Any:
+                self.calls += 1
+                if self.calls <= self.failures:
+                    raise RuntimeError(
+                        "evaluation failed: SecurityError: Failed to read the "
+                        "'localStorage' property from 'Window': Access is denied "
+                        "for this document."
+                    )
+                return {"result": {"value": None}}
+
+        session = Unready(failures=1)
+        self.assertTrue(ROTATE.inject_css(session, "x", attempts=3, delay=0.0))
+        self.assertEqual(session.calls, 2)
+
+
+class SessionDrainTest(unittest.TestCase):
+    class _Sock:
+        def __init__(self, frames: bytes) -> None:
+            self._frames = bytearray(frames)
+            self.timeouts: list[float] = []
+
+        def settimeout(self, value: float) -> None:
+            self.timeouts.append(value)
+
+        def recv(self, size: int) -> bytes:
+            if not self._frames:
+                raise TimeoutError("quiet")
+            chunk = bytes(self._frames[:size])
+            del self._frames[:size]
+            return chunk
+
+    @staticmethod
+    def _frame(payload: dict[str, Any]) -> bytes:
+        data = json.dumps(payload).encode()
+        header = bytearray([0x81])
+        length = len(data)
+        if length < 126:
+            header.append(length)
+        elif length < 65536:
+            header.append(126)
+            header.extend(struct.pack("!H", length))
+        else:
+            header.append(127)
+            header.extend(struct.pack("!Q", length))
+        return bytes(header) + data
+
+    def _session(self, frames: bytes) -> Any:
+        session = ROTATE.Session.__new__(ROTATE.Session)
+        session._sock = self._Sock(frames)
+        session._buf = bytearray()
+        session._next_id = 0
+        session._timeout = 1.0
+        return session
+
+    def test_discards_buffered_events(self) -> None:
+        session = self._session(
+            self._frame({"method": "Page.loadEventFired", "params": {}})
+        )
+        session.drain()
+        self.assertEqual(bytes(session._buf), b"")
+        self.assertTrue(session._sock.timeouts)
+        self.assertTrue(all(value == 0.1 for value in session._sock.timeouts))
+
+    def test_returns_when_socket_is_quiet(self) -> None:
+        session = self._session(b"")
+        session.drain()
+        self.assertEqual(session._sock.timeouts, [0.1])
+
 
 class ShowViewTest(unittest.TestCase):
     def _session(self, page: FakeCdpPage) -> Any:
