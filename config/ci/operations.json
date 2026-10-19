@@ -2144,5 +2144,101 @@
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
+  },
+  "deploy-ci-host-dry-run": {
+    "commands": [
+      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "just deploy-fleet --dry-run --target homelab-04"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-ci-host": {
+    "commands": [
+      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "just deploy-fleet --target homelab-04"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "deploy-ci-host-dry-run"
   }
 }
