@@ -86,6 +86,9 @@
           pythonPackages.jinja2
           pythonPackages.cryptography
         ]);
+        matrixLibraryPath = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
+          pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
+        );
         ciPackages = with pkgs; [
           age
           git
@@ -105,6 +108,8 @@
           ruff
           shellcheck
           sops
+          # The full gate's matrix check syncs the frozen service env with uv.
+          uv
           yamllint
           # The registry serves this exact build and the GC fixture asserts
           # the version it runs, so both share nix/zot-release.nix.
@@ -133,12 +138,13 @@
             ];
           };
 
-        devShells.ci = pkgs.mkShell { packages = ciPackages; };
+        devShells.ci = pkgs.mkShell {
+          MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
+          packages = ciPackages;
+        };
 
         devShells.default = pkgs.mkShell {
-          MATRIX_LD_LIBRARY_PATH = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
-            pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
-          );
+          MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
           packages =
             ciPackages
             ++ (with pkgs; [
@@ -158,7 +164,6 @@
               qemu_kvm
               skopeo
               tea
-              uv
             ]);
         };
 
