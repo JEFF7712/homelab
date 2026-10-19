@@ -397,6 +397,12 @@ class PolicyTest(unittest.TestCase):
                 self.assertEqual(workflow["concurrency"]["group"], expected)
         self.assertNotIn("deploy-fleet-dry-run", SCHEDULES["maintenance"])
         self.assertIn("registry-promote-first-party", SCHEDULES["promote"])
+        # Each promotion leaves the committed live snapshot behind the lock,
+        # so enforcing drift would block every later scheduled promotion.
+        self.assertIn(
+            "--allow-observed-drift",
+            "\n".join(self.catalog["registry-promote-first-party"]["commands"]),
+        )
         self.assertIn("cache-publish", SCHEDULES["maintenance"])
         self.request["pipeline"].update(event="cron", cron="unknown")
         self.assertEqual(

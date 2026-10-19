@@ -191,7 +191,11 @@ Promotion enforces observed drift only while the snapshot is under a day old.
 An older snapshot describes itself rather than the cluster, so promotion
 prints a warning naming its age instead of failing; before this, manual digest
 bumps left the snapshot pinning superseded digests and blocked every
-first-party promotion. `just doctor --live` flags a snapshot older than a week.
+first-party promotion. The scheduled `registry-promote-first-party` and
+`registry-promote-nix-agent` operations pass `--allow-observed-drift`: any
+promotion leaves the snapshot pinning the superseded digest until the next
+refresh, so they report drift in `promote-report.json` instead of failing
+on it. `just doctor --live` flags a snapshot older than a week.
 
 Provision or rotate a scoped publisher with
 `just registry-provision-publisher apps/<name> [...]`. The lock-rendered
