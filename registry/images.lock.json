@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-18T08:52:57+00:00",
+  "generated_at": "2026-10-19T06:33:07+00:00",
   "images": [
     {
       "authenticity": {
@@ -128,6 +128,47 @@
     },
     {
       "authenticity": {
+        "reason": "No signature verification policy declared; local OCI bytes and registry origin digest verified",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/led-matrix/deployment.yaml:29"
+      ],
+      "destination_repository": "apps/spotify-matrix",
+      "destination_tags": [
+        "arcade-complete-20261018",
+        "retention-candidate-85596b5a83d60ab7"
+      ],
+      "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
+      "id": "first-party-apps-spotify-matrix",
+      "kind": "first-party",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "services/led-matrix/Dockerfile",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-local-build-published"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-complete-20261018@sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/spotify-matrix",
+        "tag": "arcade-complete-20261018"
+      }
+    },
+    {
+      "authenticity": {
         "reason": "Pinned source and local GPU verification; no registry signature policy declared",
         "status": "unsupported"
       },
@@ -218,10 +259,10 @@
       ],
       "destination_repository": "apps/bookshelf",
       "destination_tags": [
-        "0.0.1000002",
-        "retention-deployed-4b8da8a72ea0b00f"
+        "0.0.1000009",
+        "retention-deployed-47c5d9de2f63191e"
       ],
-      "digest": "sha256:4b8da8a72ea0b00f4313900b7974dbad505ef870cff54b6a3cd7fab77f0792ec",
+      "digest": "sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0",
       "id": "first-party-jeff7712-bookshelf-eae2399244a0",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -240,11 +281,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:4b8da8a72ea0b00f4313900b7974dbad505ef870cff54b6a3cd7fab77f0792ec",
-        "reference": "registry.rupan.dev/apps/bookshelf:0.0.1000002@sha256:4b8da8a72ea0b00f4313900b7974dbad505ef870cff54b6a3cd7fab77f0792ec",
+        "digest": "sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0",
+        "reference": "registry.rupan.dev/apps/bookshelf:0.0.1000009@sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0",
         "registry": "registry.rupan.dev",
         "repository": "apps/bookshelf",
-        "tag": "0.0.1000002"
+        "tag": "0.0.1000009"
       }
     },
     {
@@ -298,16 +339,14 @@
       ],
       "destination_repository": "apps/darkbit",
       "destination_tags": [
-        "0.0.1000025",
-        "retention-deployed-9387340adce2259a"
+        "0.0.1000029",
+        "retention-deployed-fb8988e61bb9549d"
       ],
-      "digest": "sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
+      "digest": "sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6",
       "id": "first-party-jeff7712-darkbit-dff8afdb518d",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-darkbit",
         "location": "forgejo:JEFF7712/darkbit-site",
@@ -323,11 +362,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
-        "reference": "registry.rupan.dev/apps/darkbit:0.0.1000025@sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623",
+        "digest": "sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6",
+        "reference": "registry.rupan.dev/apps/darkbit:0.0.1000029@sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6",
         "registry": "registry.rupan.dev",
         "repository": "apps/darkbit",
-        "tag": "0.0.1000025"
+        "tag": "0.0.1000029"
       }
     },
     {
@@ -652,16 +691,14 @@
       ],
       "destination_repository": "apps/pod-agent",
       "destination_tags": [
-        "0.0.1000060",
-        "retention-deployed-a67755b6b71aaa89"
+        "0.0.1791435600",
+        "retention-deployed-d8eb13487bfa610f"
       ],
-      "digest": "sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47",
+      "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
       "id": "first-party-jeff7712-pod-agent-8e7963a1b6d1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "location": "JEFF7712/pod-agent",
         "owner": "JEFF7712",
@@ -676,11 +713,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47",
-        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1000060@sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47",
+        "digest": "sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
+        "reference": "registry.rupan.dev/apps/pod-agent:0.0.1791435600@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
-        "tag": "0.0.1000060"
+        "tag": "0.0.1791435600"
       }
     },
     {
@@ -4950,48 +4987,6 @@
         "registry": "docker.io",
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
-      }
-    },
-    {
-      "id": "first-party-apps-spotify-matrix",
-      "kind": "first-party",
-      "consumers": [
-        "gitops/led-matrix/deployment.yaml:29"
-      ],
-      "destination_repository": "apps/spotify-matrix",
-      "destination_tags": [
-        "arcade-complete-20261018",
-        "retention-candidate-85596b5a83d60ab7"
-      ],
-      "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
-      "retention_class": "candidate",
-      "producer": {
-        "owner": "JEFF7712/homelab",
-        "location": "services/led-matrix/Dockerfile",
-        "pipeline_status": "verified-local-build-published"
-      },
-      "source": {
-        "registry": "registry.rupan.dev",
-        "repository": "apps/spotify-matrix",
-        "tag": "arcade-complete-20261018",
-        "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-complete-20261018@sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91"
-      },
-
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "authenticity": {
-        "status": "unsupported",
-        "reason": "No signature verification policy declared; local OCI bytes and registry origin digest verified"
-      },
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
       }
     }
   ],
