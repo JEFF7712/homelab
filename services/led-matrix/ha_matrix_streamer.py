@@ -34,6 +34,16 @@ from spotify_matrix_streamer import (
 )
 from web_controller import MultiplayerHub, start_background_server
 
+SPOTIFY_VINYL_BRIGHTNESS = 1.0
+
+
+def effective_brightness(mode: str, configured_brightness: float) -> float:
+    if mode == "Off":
+        return 0.0
+    if mode == "Spotify":
+        return SPOTIFY_VINYL_BRIGHTNESS
+    return configured_brightness
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -303,11 +313,12 @@ def main() -> None:
                     last_playing = spotify_state.playing
 
             renderer = renderers.get(active_mode, renderers["Clock & Weather"])
-            brightness = (
+            configured_brightness = (
                 ha_state.brightness
                 if ha_state.brightness is not None
                 else args.brightness
             )
+            brightness = effective_brightness(active_mode, configured_brightness)
             ctx = RenderContext(
                 tick=tick,
                 dt=dt,
@@ -319,8 +330,7 @@ def main() -> None:
             )
             frame = renderer.render(ctx, size=64)
 
-            effective_brightness = 0.0 if active_mode == "Off" else brightness
-            streamer.send_frame(frame, brightness=effective_brightness)
+            streamer.send_frame(frame, brightness=brightness)
             last_ack = streamer.last_ack
             max_frame_ms = max(max_frame_ms, (time.monotonic() - tick) * 1000)
 
