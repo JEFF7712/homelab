@@ -31,6 +31,16 @@
           "default_branch": "main",
           "ci_contract": "python-uv-v1"
         }
+      },
+      {
+        "project_key": "cctop",
+        "repository": "JEFF7712/cctop",
+        "visibility": "private",
+        "routine": {
+          "repository_id": 26,
+          "default_branch": "main",
+          "ci_contract": "python-uv-v1"
+        }
       }
     ]
   }
