@@ -905,6 +905,30 @@ class PolicyTest(unittest.TestCase):
         ):
             self.assertNotIn("CI_SCOPE_FILES", environment(result))
 
+    def test_ci_nix_bounds_unreachable_substituter_stalls(self) -> None:
+        request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 446,
+                "event": "push",
+                "ref": "refs/heads/feat/x",
+                "commit": SHA,
+                "author": "homelab-agent",
+            },
+        }
+        workflow = yaml.safe_load(
+            configuration(request, self.catalog)["configs"][0]["data"]
+        )
+        settings = dict(
+            line.split(" = ", 1)
+            for line in workflow["steps"][0]["environment"]["NIX_CONFIG"].splitlines()
+        )
+        # A dead resolver costs connect-timeout * download-attempts per nix
+        # invocation before the local cache takes over; Nix defaults to 75s.
+        self.assertLessEqual(
+            int(settings["connect-timeout"]) * int(settings["download-attempts"]), 15
+        )
+
     def test_catalog_commands_parse_and_predecessors_exist(self) -> None:
         import subprocess
 

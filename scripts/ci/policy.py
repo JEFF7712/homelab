@@ -34,6 +34,8 @@ NIX_CONFIG = (
     "sandbox = false\n"
     "max-jobs = 2\n"
     "cores = 2\n"
+    "connect-timeout = 5\n"
+    "download-attempts = 3\n"
     "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
     "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
 )
