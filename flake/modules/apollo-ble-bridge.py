@@ -33,6 +33,16 @@ CHAR_WRITE_UUID = "0000ffd9-0000-1000-8000-00805f9b34fb"
 CMD_POWER_ON = bytes([0xCC, 0x23, 0x33])
 CMD_POWER_OFF = bytes([0xCC, 0x24, 0x33])
 
+EFFECT_MAP = {
+    "solid": bytes([0xBB, 0x00, 0x04, 0x44]),
+    "rainbow": bytes([0xBB, 0x25, 0x04, 0x44]),
+    "pulse": bytes([0xBB, 0x26, 0x04, 0x44]),
+    "chase": bytes([0xBB, 0x38, 0x04, 0x44]),
+    "fire": bytes([0xBB, 0x04, 0x04, 0x44]),
+    "sparkle": bytes([0xBB, 0x30, 0x04, 0x44]),
+}
+EFFECT_LIST = list(EFFECT_MAP.keys())
+
 
 def clamp(val: int, min_val: int = 0, max_val: int = 255) -> int:
     return max(min_val, min(max_val, val))
@@ -71,10 +81,14 @@ class ApolloBleBridge:
         udp_host: str = "127.0.0.1",
         udp_port: int = DEFAULT_UDP_PORT,
         state_file: Path | None = None,
+        object_id: str | None = None,
+        area: str | None = None,
     ) -> None:
         self.mac = mac
         self.name = name
         self.slug = mac.replace(":", "").lower()
+        self.object_id = object_id or "apollo_led_strip"
+        self.area = area or "Living Room"
         self.mqtt_host = mqtt_host
         self.mqtt_port = mqtt_port
         self.mqtt_user = mqtt_user
@@ -92,6 +106,7 @@ class ApolloBleBridge:
             "brightness": 255,
             "color_mode": "rgb",
             "color": {"r": 255, "g": 255, "b": 255},
+            "effect": "solid",
         }
         self._load_state()
 
@@ -132,7 +147,7 @@ class ApolloBleBridge:
         return {
             "name": None,
             "unique_id": f"apollo_{self.slug}",
-            "object_id": "apollo_led_strip",
+            "object_id": self.object_id,
             "command_topic": self.command_topic,
             "state_topic": self.state_topic,
             "schema": "json",
@@ -140,12 +155,14 @@ class ApolloBleBridge:
             "brightness": True,
             "brightness_scale": 255,
             "supported_color_modes": ["rgb"],
+            "effect": True,
+            "effect_list": EFFECT_LIST,
             "device": {
                 "identifiers": [f"apollo_{self.slug}"],
                 "name": self.name,
                 "model": f"AP-{self.slug.upper()}",
                 "manufacturer": "Qianghe",
-                "suggested_area": "Living Room",
+                "suggested_area": self.area,
             },
         }
 
@@ -205,11 +222,30 @@ class ApolloBleBridge:
                     "b": clamp(int(col.get("b", 255))),
                 }
 
+            if "effect" in cmd:
+                eff = str(cmd["effect"]).lower()
+                if eff in EFFECT_MAP:
+                    self.state["effect"] = eff
+                    if self.state["state"] == "OFF":
+                        self.state["state"] = "ON"
+
+            if "color" in cmd and "effect" not in cmd:
+                self.state["effect"] = "solid"
+
             # Send BLE hardware commands
             if self.state["state"] == "OFF":
                 logger.info("Turning light OFF")
                 await self._send_ble_packet(CMD_POWER_OFF)
                 self._last_sent_rgb = (0, 0, 0)
+            elif (
+                self.state.get("effect")
+                and self.state["effect"] != "solid"
+                and ("effect" in cmd or ("state" in cmd and "color" not in cmd))
+            ):
+                logger.info("Playing animation effect: %s", self.state["effect"])
+                await self._send_ble_packet(CMD_POWER_ON)
+                await asyncio.sleep(0.05)
+                await self._send_ble_packet(EFFECT_MAP[self.state["effect"]])
             else:
                 logger.info(
                     "Turning light ON (brightness=%s, color=%s)",
@@ -443,6 +479,16 @@ def parse_args() -> argparse.Namespace:
         default=Path(os.getenv("STATE_FILE", "/var/lib/apollo-ble-bridge/state.json")),
         help="Path to persisted state JSON",
     )
+    parser.add_argument(
+        "--object-id",
+        default=os.getenv("OBJECT_ID", "apollo_led_strip"),
+        help="Home Assistant object_id",
+    )
+    parser.add_argument(
+        "--area",
+        default=os.getenv("SUGGESTED_AREA", "Living Room"),
+        help="Home Assistant suggested area",
+    )
     return parser.parse_args()
 
 
@@ -462,6 +508,8 @@ def main() -> None:
         udp_host=args.udp_host,
         udp_port=args.udp_port,
         state_file=args.state_file,
+        object_id=args.object_id,
+        area=args.area,
     )
 
     loop = asyncio.new_event_loop()

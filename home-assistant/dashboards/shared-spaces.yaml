@@ -306,6 +306,86 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.kitchen_kitchen_led_strip
+            name: Kitchen LED Strip
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - type: custom:mushroom-chips-card
+            alignment: center
+            chips:
+              - type: action
+                name: Rainbow
+                icon: mdi:looks
+                icon_color: purple
+                tap_action:
+                  action: perform-action
+                  perform_action: light.turn_on
+                  target:
+                    entity_id: light.kitchen_kitchen_led_strip
+                  data:
+                    effect: rainbow
+              - type: action
+                name: Pulse
+                icon: mdi:heart-pulse
+                icon_color: red
+                tap_action:
+                  action: perform-action
+                  perform_action: light.turn_on
+                  target:
+                    entity_id: light.kitchen_kitchen_led_strip
+                  data:
+                    effect: pulse
+              - type: action
+                name: Chase
+                icon: mdi:transit-connection-horizontal
+                icon_color: blue
+                tap_action:
+                  action: perform-action
+                  perform_action: light.turn_on
+                  target:
+                    entity_id: light.kitchen_kitchen_led_strip
+                  data:
+                    effect: chase
+              - type: action
+                name: Fire
+                icon: mdi:fire
+                icon_color: orange
+                tap_action:
+                  action: perform-action
+                  perform_action: light.turn_on
+                  target:
+                    entity_id: light.kitchen_kitchen_led_strip
+                  data:
+                    effect: fire
+              - type: action
+                name: Sparkle
+                icon: mdi:creation
+                icon_color: amber
+                tap_action:
+                  action: perform-action
+                  perform_action: light.turn_on
+                  target:
+                    entity_id: light.kitchen_kitchen_led_strip
+                  data:
+                    effect: sparkle
+              - type: action
+                name: Solid
+                icon: mdi:circle
+                icon_color: red
+                tap_action:
+                  action: perform-action
+                  perform_action: light.turn_on
+                  target:
+                    entity_id: light.kitchen_kitchen_led_strip
+                  data:
+                    effect: solid
           - entity: light.living_room_good_vibes_sign
             name: Good Vibes Sign
             fill_container: true

@@ -54,8 +54,27 @@ class ApolloBleBridgeTest(unittest.TestCase):
         )
         self.assertEqual(payload["schema"], "json")
         self.assertIn("rgb", payload["supported_color_modes"])
+        self.assertTrue(payload["effect"])
+        self.assertIn("rainbow", payload["effect_list"])
+        self.assertIn("pulse", payload["effect_list"])
         self.assertEqual(payload["device"]["model"], "AP-010546003A71")
         self.assertEqual(payload["device"]["suggested_area"], "Living Room")
+
+    def test_custom_area_and_object_id(self) -> None:
+        bridge = bridge_mod.ApolloBleBridge(
+            mac="E4:63:64:3C:16:48",
+            name="Kitchen LED Strip",
+            mqtt_host="10.0.30.10",
+            mqtt_port=1883,
+            mqtt_user="roku-bridge",
+            mqtt_pass="",
+            object_id="kitchen_led_strip",
+            area="Kitchen",
+        )
+        payload = bridge.discovery_payload()
+        self.assertEqual(payload["unique_id"], "apollo_e463643c1648")
+        self.assertEqual(payload["object_id"], "kitchen_led_strip")
+        self.assertEqual(payload["device"]["suggested_area"], "Kitchen")
 
     def test_ledfx_udp_protocol_parses_drgb(self) -> None:
         received = []
