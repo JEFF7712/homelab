@@ -164,7 +164,8 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
         status = _api(token, f"/commits/{expected_sha}/status")
         matches = [
             item
-            for item in status.get("statuses", [])
+            # Forgejo reports "statuses": null before the first status lands.
+            for item in status.get("statuses") or []
             if item.get("context") == REQUIRED_CONTEXT
         ]
         latest = max(matches, key=lambda item: item.get("updated_at", ""), default=None)
