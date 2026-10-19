@@ -17,3 +17,4 @@ resources:
   - books.yaml
   - music.yaml
   - frontend.yaml
+  - recommender.yaml

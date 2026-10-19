@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-15T06:03:15+00:00",
+  "generated_at": "2026-10-18T08:52:57+00:00",
   "images": [
     {
       "authenticity": {
@@ -1865,6 +1865,82 @@
         "registry": "docker.io",
         "repository": "intel/intel-gpu-plugin",
         "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/jessepesse/jellyfin-ai-recommender-backend",
+      "destination_tags": [
+        "latest",
+        "retention-deployed-ee2d25fade81d322"
+      ],
+      "digest": "sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b",
+      "id": "upstream-jessepesse-jellyfin-ai-recommender-backend-96c66737f2ba",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b",
+        "reference": "ghcr.io/jessepesse/jellyfin-ai-recommender-backend:latest@sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b",
+        "registry": "ghcr.io",
+        "repository": "jessepesse/jellyfin-ai-recommender-backend",
+        "tag": "latest"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/jessepesse/jellyfin-ai-recommender-frontend",
+      "destination_tags": [
+        "latest",
+        "retention-deployed-02eebd905f59e5d1"
+      ],
+      "digest": "sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30",
+      "id": "upstream-jessepesse-jellyfin-ai-recommender-frontend-f78845075d27",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30",
+        "reference": "ghcr.io/jessepesse/jellyfin-ai-recommender-frontend:latest@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30",
+        "registry": "ghcr.io",
+        "repository": "jessepesse/jellyfin-ai-recommender-frontend",
+        "tag": "latest"
       }
     },
     {

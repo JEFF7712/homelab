@@ -22,7 +22,15 @@ from scripts.agent.__main__ import build_parser
 ROOT = Path(__file__).resolve().parents[2]
 
 SKIP_DIRECTORIES = frozenset(
-    {".git", ".agent-state", ".agent-cache", ".worktrees", "node_modules", "3d-prints"}
+    {
+        ".git",
+        ".agent-state",
+        ".agent-cache",
+        ".worktrees",
+        ".venv",
+        "node_modules",
+        "3d-prints",
+    }
 )
 MAINTAINED_DOCS = ("README.md", "AGENTS.md", "AGENT_MAP.md", "docs/agent-workflow.md")
 CLI_CONTRACTS = {
@@ -172,7 +180,7 @@ def command_contract_errors(root: Path) -> list[str]:
 
 def iter_markdown_files(root: Path) -> Iterator[Path]:
     for path in root.rglob("*.md"):
-        if SKIP_DIRECTORIES.intersection(path.parts):
+        if SKIP_DIRECTORIES.intersection(path.relative_to(root).parts):
             continue
         yield path
 

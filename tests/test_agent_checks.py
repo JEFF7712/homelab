@@ -84,6 +84,7 @@ class AgentCheckSelectionTest(unittest.TestCase):
 
     def test_routes_repository_surfaces_with_reasons(self) -> None:
         expected = {
+            "services/led-matrix/ha_matrix_streamer.py": "led-matrix",
             "flake/hosts/homelab-01/default.nix": "nix-host-homelab-01",
             "flake/modules/k3s-server.nix": "nix-all-hosts",
             "opnsense_reconciler/reconcile.py": "python",

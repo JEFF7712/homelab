@@ -1,0 +1,21 @@
+# Inventory-only upstream image declarations for gitops/media consumers
+# that mirror their upstream images before deploy. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# referenced by digest in the owning manifest.
+#
+# This file is NOT listed in gitops/media/kustomization.yaml: it is an
+# inventory source only and must never be applied to the cluster.
+#
+# Update flow: change the digest below, run `just registry-inventory`,
+# resolve/import/verify through the registry CI lane, promote the lock,
+# then update the consumer manifest digest.
+apiVersion: v1
+kind: List
+metadata:
+  name: media-registry-sources
+items:
+  # jellyfin-ai-recommender backend (Node API: AI recs, SQLite, Seerr proxy)
+  - image: ghcr.io/jessepesse/jellyfin-ai-recommender-backend:latest@sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b  # yamllint disable-line rule:line-length
+  # jellyfin-ai-recommender frontend (nginx: proxied React UI)
+  - image: ghcr.io/jessepesse/jellyfin-ai-recommender-frontend:latest@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30  # yamllint disable-line rule:line-length

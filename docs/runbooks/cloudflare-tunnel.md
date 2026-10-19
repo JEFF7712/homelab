@@ -76,22 +76,23 @@ Cloudflare Access public bypass configured.
 30. `navidrome.rupan.dev -> http://navidrome.media:80`
 31. `music.rupan.dev -> http://navidrome.media:80`
 32. `seerr.rupan.dev -> http://seerr.media:80`
-33. `requests.rupan.dev -> http://seerr.media:80`
-34. `lidarr.rupan.dev -> http://lidarr.media:80`
-35. `radarr.rupan.dev -> http://radarr.media:80`
-36. `sonarr.rupan.dev -> http://sonarr.media:80`
-37. `prowlarr.rupan.dev -> http://prowlarr.media:80`
-38. `bazarr.rupan.dev -> http://bazarr.media:80`
-39. `slskd.rupan.dev -> http://slskd.media:80`
-40. `torrent.rupan.dev -> http://qbittorrent.media:80`
-41. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
-42. `books.rupan.dev -> http://calibre-web.media:80`
-43. `media.rupan.dev -> http://filebrowser.media:80`
-44. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-45. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-46. `git.rupan.dev -> http://forgejo.cloudflare:3000`
-47. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
-48. `http_status:404`
+33. `recommender.rupan.dev -> http://recommender-frontend.media:80`
+34. `requests.rupan.dev -> http://seerr.media:80`
+35. `lidarr.rupan.dev -> http://lidarr.media:80`
+36. `radarr.rupan.dev -> http://radarr.media:80`
+37. `sonarr.rupan.dev -> http://sonarr.media:80`
+38. `prowlarr.rupan.dev -> http://prowlarr.media:80`
+39. `bazarr.rupan.dev -> http://bazarr.media:80`
+40. `slskd.rupan.dev -> http://slskd.media:80`
+41. `torrent.rupan.dev -> http://qbittorrent.media:80`
+42. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
+43. `books.rupan.dev -> http://calibre-web.media:80`
+44. `media.rupan.dev -> http://filebrowser.media:80`
+45. `bookshelf.rupan.dev -> http://bookshelf.media:80`
+46. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+47. `git.rupan.dev -> http://forgejo.cloudflare:3000`
+48. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
+49. `http_status:404`
 
 
 Removed 2026-09-15 (v72):

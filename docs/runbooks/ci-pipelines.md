@@ -115,6 +115,11 @@ validation. The catalog covers registry operations, publisher provisioning,
 registry platform and nodes, DNS, Zigbee, LedFx, NAS proof, OPNsense,
 Cloudflare, fleet, agent workspaces, Home Assistant, GitHub mirroring and cache.
 
+`matrix-publish` builds and verifies the LED matrix image with its scoped
+publisher and produces a reviewable Flux promotion patch. Provision its protected
+credential and activate the immutable catalog before use. See
+[Matrix releases](matrix-release.md).
+
 The custom OPNsense agent ACL is reconciled by `opnsense-apply`. It plans
 file and cache drift before firewall mutation, then converges and verifies
 the ACL through a dedicated `opnsense_acl_ssh_key` file secret available only
