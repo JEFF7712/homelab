@@ -154,7 +154,7 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/compchem/tools/cctop",
       "ci": {
-        "kind": "python-test-v1",
+        "kind": "python-uv-v1",
         "tier": "sandbox"
       },
       "woodpecker_repository_id": 25,
@@ -546,7 +546,7 @@
       "default_branch": "main",
       "local_path": "/home/rupan/projects/resume-agent",
       "ci": {
-        "kind": "python-test-v1",
+        "kind": "python-uv-v1",
         "tier": "sandbox"
       },
       "woodpecker_repository_id": 24,
