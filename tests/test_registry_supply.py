@@ -4034,3 +4034,19 @@ class RegistryReviewRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ObservedSnapshotAgeTest(unittest.TestCase):
+    def test_age_is_measured_from_the_committed_capture_time(self) -> None:
+        from scripts.registry.core import observed_snapshot_age
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            self.assertIsNone(observed_snapshot_age(root, 0))
+            (root / "registry").mkdir()
+            path = root / "registry/observed-images.json"
+            path.write_text(json.dumps({"observed_at": "2026-10-19T00:00:00+00:00"}))
+            captured = 1792368000.0
+            self.assertEqual(observed_snapshot_age(root, captured + 7200), 7200)
+            path.write_text(json.dumps({"observed_at": "not a time"}))
+            self.assertIsNone(observed_snapshot_age(root, captured))
