@@ -487,3 +487,27 @@ class FirstPartyPromotionGuardTest(unittest.TestCase):
                 self.run_guard(root, ["registry/images.lock.json"])
             with self.assertRaisesRegex(ValueError, "may not change"):
                 self.run_guard(root, ["flake/flake.nix"])
+
+
+class PromotionSupersedeTest(unittest.TestCase):
+    def test_only_same_scope_or_legacy_promotions_are_superseded(self) -> None:
+        def pull(ref: str) -> dict:
+            return {"number": len(ref), "head": {"ref": ref}}
+
+        pulls = [
+            pull("registry-promotion/first-party-aaaaaaaaaaaa"),
+            pull("registry-promotion/first-party-bbbbbbbbbbbb"),
+            pull("registry-promotion/nix-agent-site-cccccccccccc"),
+            pull("registry-promotion/f21a4a2a8e35-ecd6991af91e"),
+            pull("feat/unrelated"),
+        ]
+        closed = promote_commit.superseded_pulls(
+            pulls, "first-party", "registry-promotion/first-party-bbbbbbbbbbbb"
+        )
+        self.assertEqual(
+            [item["head"]["ref"] for item in closed],
+            [
+                "registry-promotion/first-party-aaaaaaaaaaaa",
+                "registry-promotion/f21a4a2a8e35-ecd6991af91e",
+            ],
+        )
