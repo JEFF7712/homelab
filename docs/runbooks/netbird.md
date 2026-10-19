@@ -2,6 +2,8 @@
 
 Peer client config and dashboard control plane are separate. `flake/modules/adguard-netbird/netbird.nix` owns the `adguard-netbird-01` peer (interface `wt0`, port 51820, routing features `server`). Everything in the NetBird dashboard (peers, routes, policies, groups, users, setup keys, networks) is managed through the NetBird Management public API, not through NixOS options. Read this runbook before calling that API or proposing route, policy, or peer changes.
 
+OPNsense gives the peer a stable public endpoint so remote peers behind strict NAT connect P2P instead of through the NetBird cloud relay: `tofu/opnsense/` forwards WAN UDP 51820 to `10.0.30.10:51820` with a matching WAN pass rule, and `opnsense_reconciler/outbound-nat-rules.json` keeps that source port static on egress so the STUN-discovered candidate is `wanip:51820`. Without it, peers such as `akshath-lenovo7` fall back to `Relayed` and drop whenever the relay session resets, recovering only on the hourly ICE retry. Check with `netbird status -d` on `adguard-netbird-01` (`Connection type: P2P`).
+
 ## When agents should use it
 
 - Peer approval, rename, or group assignment from the dashboard side.

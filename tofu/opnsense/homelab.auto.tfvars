@@ -868,6 +868,22 @@ firewall_filters = {
       destination = { net = "netbird_allowed_dests", port = "" }
     }
   }
+  wan-allow-netbird-wireguard = {
+    description = "Allow forwarded NetBird WireGuard to adguard netbird 01"
+    enabled     = true
+    sequence    = 700
+    interface   = { interface = ["wan"] }
+    filter = {
+      action      = "pass"
+      direction   = "in"
+      ip_protocol = "inet"
+      protocol    = "udp"
+      quick       = true
+      log         = false
+      source      = { net = "any", port = "" }
+      destination = { net = "10.0.30.10/32", port = "51820" }
+    }
+  }
 }
 
 firewall_nat_port_forwards = {
@@ -883,5 +899,18 @@ firewall_nat_port_forwards = {
     source         = { net = "any" }
     destination    = { net = "wanip", port = "18080" }
     target         = { ip = "10.0.30.14", port = "18080" }
+  }
+  wan-netbird-wireguard = {
+    description    = "WAN NetBird WireGuard to adguard netbird 01"
+    enabled        = true
+    sequence       = 110
+    interface      = ["wan"]
+    ip_protocol    = "inet"
+    protocol       = "udp"
+    log            = false
+    nat_reflection = "default"
+    source         = { net = "any" }
+    destination    = { net = "wanip", port = "51820" }
+    target         = { ip = "10.0.30.10", port = "51820" }
   }
 }
