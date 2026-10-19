@@ -56,43 +56,44 @@ Cloudflare Access public bypass configured.
 10. `soluble.rupan.dev -> http://soluble-rupan-svc.soluble-rupan:80`
 11. `photo.rupan.dev -> http://photography-svc.photography:80`
 12. `majorfinder.rupan.dev -> http://majorfinder-svc.majorfinder:80`
-13. `notes.rupan.dev -> http://quartz-notes.obsidian.svc.cluster.local:80`
-14. `ntfy.rupan.dev -> http://ntfy-ntfy.observability.svc.cluster.local:80`
-15. `obsidian.rupan.dev -> http://couchdb.obsidian.svc.cluster.local:5984`
-16. `renovate-status.rupan.dev -> http://renovate-dashboard.automation.svc.cluster.local:80`
-17. `renovate-approve.rupan.dev -> http://renovate-approval-webhook.automation.svc.cluster.local:80`
-18. `ha.rupan.dev -> http://home-assistant.home-assistant:8123`
-19. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
-20. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
-21. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
-22. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
-23. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
-24. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
-25. `apollinestore.com -> http://apolline-svc.apolline:80`
-26. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
-27. `pulseagent.dev -> http://pulse-svc.pulse:80`
-28. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
-29. `jellyfin.rupan.dev -> http://jellyfin.media:80`
-30. `navidrome.rupan.dev -> http://navidrome.media:80`
-31. `music.rupan.dev -> http://navidrome.media:80`
-32. `seerr.rupan.dev -> http://seerr.media:80`
-33. `recommender.rupan.dev -> http://recommender-frontend.media:80`
-34. `requests.rupan.dev -> http://seerr.media:80`
-35. `lidarr.rupan.dev -> http://lidarr.media:80`
-36. `radarr.rupan.dev -> http://radarr.media:80`
-37. `sonarr.rupan.dev -> http://sonarr.media:80`
-38. `prowlarr.rupan.dev -> http://prowlarr.media:80`
-39. `bazarr.rupan.dev -> http://bazarr.media:80`
-40. `slskd.rupan.dev -> http://slskd.media:80`
-41. `torrent.rupan.dev -> http://qbittorrent.media:80`
-42. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
-43. `books.rupan.dev -> http://calibre-web.media:80`
-44. `media.rupan.dev -> http://filebrowser.media:80`
-45. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-46. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-47. `git.rupan.dev -> http://forgejo.cloudflare:3000`
-48. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
-49. `http_status:404`
+13. `uwagent.rupan.dev -> http://uwagent-svc.uwagent:80`
+14. `notes.rupan.dev -> http://quartz-notes.obsidian.svc.cluster.local:80`
+15. `ntfy.rupan.dev -> http://ntfy-ntfy.observability.svc.cluster.local:80`
+16. `obsidian.rupan.dev -> http://couchdb.obsidian.svc.cluster.local:5984`
+17. `renovate-status.rupan.dev -> http://renovate-dashboard.automation.svc.cluster.local:80`
+18. `renovate-approve.rupan.dev -> http://renovate-approval-webhook.automation.svc.cluster.local:80`
+19. `ha.rupan.dev -> http://home-assistant.home-assistant:8123`
+20. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
+21. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
+22. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
+23. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
+24. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
+25. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
+26. `apollinestore.com -> http://apolline-svc.apolline:80`
+27. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
+28. `pulseagent.dev -> http://pulse-svc.pulse:80`
+29. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
+30. `jellyfin.rupan.dev -> http://jellyfin.media:80`
+31. `navidrome.rupan.dev -> http://navidrome.media:80`
+32. `music.rupan.dev -> http://navidrome.media:80`
+33. `seerr.rupan.dev -> http://seerr.media:80`
+34. `recommender.rupan.dev -> http://recommender-frontend.media:80`
+35. `requests.rupan.dev -> http://seerr.media:80`
+36. `lidarr.rupan.dev -> http://lidarr.media:80`
+37. `radarr.rupan.dev -> http://radarr.media:80`
+38. `sonarr.rupan.dev -> http://sonarr.media:80`
+39. `prowlarr.rupan.dev -> http://prowlarr.media:80`
+40. `bazarr.rupan.dev -> http://bazarr.media:80`
+41. `slskd.rupan.dev -> http://slskd.media:80`
+42. `torrent.rupan.dev -> http://qbittorrent.media:80`
+43. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
+44. `books.rupan.dev -> http://calibre-web.media:80`
+45. `media.rupan.dev -> http://filebrowser.media:80`
+46. `bookshelf.rupan.dev -> http://bookshelf.media:80`
+47. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+48. `git.rupan.dev -> http://forgejo.cloudflare:3000`
+49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
+50. `http_status:404`
 
 
 Removed 2026-09-15 (v72):

@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-deploy
+  namespace: uwagent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: uwagent-web
+  template:
+    metadata:
+      labels:
+        app: uwagent-web
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: registry.rupan.dev/apps/uwagent@sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c  # yamllint disable-line rule:line-length
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UWAGENT_PUBLIC_URL
+              value: https://uwagent.rupan.dev
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 384Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: plans
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+      volumes:
+        - name: plans
+          persistentVolumeClaim:
+            claimName: uwagent-plans
+        - name: tmp
+          emptyDir: {}

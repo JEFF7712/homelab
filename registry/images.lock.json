@@ -4988,6 +4988,48 @@
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/websites/uwagent/deployment.yaml:26"
+      ],
+      "destination_repository": "apps/uwagent",
+      "destination_tags": [
+        "0.0.1000005",
+        "retention-deployed-228eba505d6f486c"
+      ],
+      "digest": "sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c",
+      "id": "first-party-apps-uwagent-9af52aa77c22",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "local_publisher": "forgejo-uwagent",
+        "location": "forgejo:JEFF7712/uwagent",
+        "owner": "jeff7712",
+        "pipeline_status": "verified-woodpecker-release"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c",
+        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000005@sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/uwagent",
+        "tag": "0.0.1000005"
+      }
     }
   ],
   "kind": "registry-image-lock",
