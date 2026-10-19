@@ -136,20 +136,20 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "arcade-complete-20261018",
-        "retention-candidate-85596b5a83d60ab7"
+        "ci-2831-1644196a6159",
+        "retention-candidate-f224830e2a7b3353"
       ],
-      "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
+      "digest": "sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74",
       "id": "first-party-apps-spotify-matrix",
       "kind": "first-party",
-      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [
         "linux/amd64"
       ],
       "producer": {
         "location": "services/led-matrix/Dockerfile",
         "owner": "JEFF7712/homelab",
-        "pipeline_status": "verified-local-build-published"
+        "pipeline_status": "verified-ci-build-published"
       },
       "referrers": {
         "required": [],
@@ -160,11 +160,11 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-complete-20261018@sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
+        "digest": "sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-2831-1644196a6159@sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74",
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "arcade-complete-20261018"
+        "tag": "ci-2831-1644196a6159"
       }
     },
     {
