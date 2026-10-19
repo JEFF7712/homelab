@@ -82,6 +82,28 @@ class AutomationTest(unittest.TestCase):
         )
         self.assertEqual(api.call_args_list[-1].kwargs["data"], {"Do": "merge"})
 
+    def test_auto_merge_waits_through_a_null_status_list(self) -> None:
+        pull = {"number": 42, "head": {"sha": SHA}, "base": {"sha": "base-sha"}}
+        success = {
+            "statuses": [
+                {
+                    "context": "ci/woodpecker/validation-v2",
+                    "status": "success",
+                    "updated_at": "2026-10-12T00:00:00Z",
+                }
+            ]
+        }
+        with (
+            patch.object(
+                promote_commit,
+                "_api",
+                side_effect=[{}, pull, pull, {"statuses": None}, pull, success, {}],
+            ) as api,
+            patch.object(promote_commit.time, "sleep"),
+        ):
+            promote_commit._auto_merge_pull("fixture-token", pull)
+        self.assertEqual(api.call_args_list[-1].args[1], "/pulls/42/merge")
+
     def test_auto_merge_rejects_a_failed_required_status(self) -> None:
         pull = {
             "number": 42,

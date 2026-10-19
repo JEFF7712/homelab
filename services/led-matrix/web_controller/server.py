@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 from collections import deque
 from collections.abc import Callable
 from typing import Any
@@ -48,6 +49,10 @@ class MultiplayerHub:
         # Discrete key tap events for step/grid/turn based games & menu navigation
         self.p1_events: deque[str] = deque(maxlen=10)
         self.p2_events: deque[str] = deque(maxlen=10)
+
+        # Continuous tilt axis in [-1, 1]; None when the controller is not tilting
+        self.p1_analog: float | None = None
+        self.p2_analog: float | None = None
 
         self.loop: asyncio.AbstractEventLoop | None = None
 
@@ -132,11 +137,13 @@ class MultiplayerHub:
             self.p1_ws = None
             self.p1_inputs.clear()
             self.p1_events.clear()
+            self.p1_analog = None
             logger.info("Player 1 disconnected")
         elif self.p2_ws == ws:
             self.p2_ws = None
             self.p2_inputs.clear()
             self.p2_events.clear()
+            self.p2_analog = None
             logger.info("Player 2 disconnected")
         else:
             self.spectators.discard(ws)
@@ -168,6 +175,16 @@ class MultiplayerHub:
             for a in actions:
                 target_inputs.discard(a)
 
+    def handle_analog(self, player: int, value: object) -> None:
+        axis: float | None = None
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if math.isfinite(value):
+                axis = max(-1.0, min(1.0, float(value)))
+        if player == 1:
+            self.p1_analog = axis
+        else:
+            self.p2_analog = axis
+
     def consume_events(self, player: int) -> list[str]:
         target_events = self.p1_events if player == 1 else self.p2_events
         events = list(target_events)
@@ -179,6 +196,8 @@ class MultiplayerHub:
         self.p2_inputs.clear()
         self.p1_events.clear()
         self.p2_events.clear()
+        self.p1_analog = None
+        self.p2_analog = None
 
     def navigate_menu(self, direction: str) -> None:
         if direction in ("left", "prev"):
@@ -290,6 +309,8 @@ class WebControllerServer:
                     action = data.get("action", "")
                     state = data.get("state", "down")
                     self.hub.handle_input(role, action, state)
+                elif msg_type == "analog" and role in (1, 2):
+                    self.hub.handle_analog(role, data.get("x"))
                 elif msg_type == "menu_nav" and role in (1, 2):
                     self.hub.navigate_menu(data.get("dir", "next"))
                 elif msg_type == "select_game" and role in (1, 2):
