@@ -40,6 +40,7 @@ from scripts.ci.policy import (
 )
 from scripts.ci.prepare_platform import certificate, clone_environment
 from scripts.ci.state import Store, handler
+from scripts.ci.woodpecker_settings import cron_changes
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
@@ -369,6 +370,26 @@ class PolicyTest(unittest.TestCase):
             (ROOT / "config/ci/woodpecker-repository.json").read_text()
         )
         self.assertIn("cron", settings["cancel_previous_pipeline_events"])
+
+    def test_cron_reconciliation_creates_enabled_and_removes_unowned(self) -> None:
+        desired = {"nightly": {"schedule": "17 8 * * *", "branch": "main"}}
+        live = [
+            {
+                "id": 1,
+                "name": "maintenance",
+                "schedule": "*/30 * * * *",
+                "branch": "main",
+                "enabled": True,
+            },
+        ]
+        changes = cron_changes(desired, live)
+        self.assertEqual(changes[0][0:2], ("create", "nightly"))
+        self.assertIs(changes[0][2]["enabled"], True)
+        self.assertEqual(changes[1], ("delete", "maintenance", {"id": 1}))
+        disabled = [dict(live[0], name="nightly", schedule="17 8 * * *", enabled=False)]
+        self.assertEqual(cron_changes(desired, disabled)[0][0], "update")
+        enabled = [dict(disabled[0], enabled=True)]
+        self.assertEqual(cron_changes(desired, enabled), [])
 
     def test_deployment_requires_fresh_current_main_and_operator(self) -> None:
         result = self.deployment()
