@@ -117,6 +117,35 @@
   # changes; otherwise Shairport can start before the virtual sink exists.
   systemd.services.pipewire-pulse.restartTriggers = [ config.environment.etc.pipewire.source ];
 
+  # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
+  # here (port 46100); this source turns it into a PipeWire source node and
+  # laptop-rtp-loopback below feeds it into bedroom_music_pre_delay, so LedFx
+  # and the Bose chain hear it exactly like Shairport audio. Deliberately RTP
+  # and not RAOP/AirPlay: PipeWire 1.6.8's RAOP sender aborts the whole
+  # daemon on this shairport-sync's handshake (rtsp-client.c:397), while RTP
+  # has no handshake to crash on. source.ip 0.0.0.0 accepts any sender; the
+  # firewall restricts the port to the home ranges. net.ttl is not set here
+  # (receiver side); the sender must use a TTL above 1 because the laptop
+  # reaches nas-01 through a router hop.
+  services.pipewire.extraConfig.pipewire."30-laptop-rtp" = {
+    "context.modules" = [
+      {
+        name = "libpipewire-module-rtp-source";
+        args = {
+          "source.ip" = "0.0.0.0";
+          "source.port" = 46100;
+          "sess.latency.msec" = 100;
+          "audio.rate" = 48000;
+          "audio.channels" = 2;
+          "stream.props" = {
+            "node.name" = "bedroom-rtp-in";
+            "node.description" = "Laptop RTP in";
+          };
+        };
+      }
+    ];
+  };
+
   # Wyoming satellite for bedroom audio playback (Jarvis + media)
   users.users.wyoming = {
     isSystemUser = true;
@@ -156,10 +185,13 @@
     };
   };
 
-  # Open firewall ports for Wyoming protocol and mDNS discovery
+  # Open firewall ports for Wyoming protocol and mDNS discovery.
+  # UDP 46100 is the unicast RTP feed from the laptop into
+  # bedroom_music_pre_delay (see the 30-laptop-rtp module above).
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 10700 accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
+    ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 46100 accept
   '';
 
   # AirPlay (shairport-sync) for Music Assistant and phone streaming to Bose speaker
@@ -276,6 +308,37 @@
       User = "pipewire";
       Group = "pipewire";
       Restart = "always";
+      RestartSec = "2s";
+    };
+  };
+
+  systemd.services.laptop-rtp-loopback = {
+    description = "Feed laptop RTP stream into the bedroom music tap";
+    after = [
+      "pipewire.service"
+      "pipewire-pulse.service"
+    ];
+    requires = [
+      "pipewire.service"
+      "pipewire-pulse.service"
+    ];
+    partOf = [ "pipewire-pulse.service" ];
+    wantedBy = [
+      "multi-user.target"
+      "pipewire-pulse.service"
+    ];
+    restartTriggers = [ config.environment.etc.pipewire.source ];
+    environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+    script = ''
+      exec ${pkgs.pipewire}/bin/pw-loopback \
+        --name=laptop-rtp-loopback \
+        --capture=bedroom-rtp-in \
+        --playback=bedroom_music_pre_delay
+    '';
+    serviceConfig = {
+      User = "pipewire";
+      Group = "pipewire";
+      Restart = "on-failure";
       RestartSec = "2s";
     };
   };
