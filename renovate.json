@@ -60,12 +60,21 @@
       "groupSlug": "ci-docker-images"
     },
     {
-      "description": "Group OpenTofu provider updates",
+      "description": "Group OpenTofu provider updates; CI installs providers only from the Nix mirror, so each bump regenerates nix/ci-providers.json",
       "matchManagers": [
         "terraform"
       ],
       "groupName": "OpenTofu dependency updates",
-      "groupSlug": "opentofu-dependencies"
+      "groupSlug": "opentofu-dependencies",
+      "postUpgradeTasks": {
+        "commands": [
+          "python3 scripts/ci/sync_providers.py"
+        ],
+        "fileFilters": [
+          "nix/ci-providers.json"
+        ],
+        "executionMode": "branch"
+      }
     },
     {
       "description": "Group Flux and Kubernetes manifest updates",

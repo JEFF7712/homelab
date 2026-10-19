@@ -143,6 +143,10 @@ check-tofu:
 check-docs:
     python -m scripts.checks.docs
 
+# Move the Nix provider mirror CI uses to the versions the tofu locks pin.
+tofu-providers-sync:
+    python scripts/ci/sync_providers.py
+
 provision-check-deps:
     export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/opentofu/plugins}"; mkdir -p "$TF_PLUGIN_CACHE_DIR"; pids=""; for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false -lockfile=readonly & pids="$pids $!"; done; rc=0; for pid in $pids; do wait "$pid" || rc=1; done; exit "$rc"
 
