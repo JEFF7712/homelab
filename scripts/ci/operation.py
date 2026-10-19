@@ -16,6 +16,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 
 
+class SupersededSource(ValueError):
+    """Main moved past the validated commit while the operation was queued."""
+
+
 def current_source(environment: dict[str, str]) -> None:
     sha = environment["CI_COMMIT_SHA"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -38,7 +42,7 @@ def current_source(environment: dict[str, str]) -> None:
         with urllib.request.urlopen(request, timeout=10) as response:
             current = json.load(response)["commit"]["id"]
     if current != sha:
-        raise ValueError("Operation source must be the current main commit")
+        raise SupersededSource("Operation source must be the current main commit")
 
 
 def artifact_url(environment: dict[str, str], operation: str) -> str:
@@ -208,7 +212,18 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("operation", choices=sorted(catalog))
     args = parser.parse_args()
-    run(args.operation, catalog)
+    try:
+        run(args.operation, catalog)
+    except SupersededSource:
+        # An operator-requested deployment must fail loudly. Automatic push
+        # and cron work for an older main is redundant: the newer main runs
+        # the same operations, so reporting failure only paints main red.
+        if os.environ.get("CI_PIPELINE_EVENT") == "deployment":
+            raise
+        print(
+            f"Skipping {args.operation}: main moved past "
+            f"{os.environ.get('CI_COMMIT_SHA', '')[:12]}; the newer commit runs it"
+        )
 
 
 if __name__ == "__main__":

@@ -26,10 +26,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
-from scripts.ci.operation import current_source, pack, unpack
+from scripts.ci.operation import SupersededSource, current_source, pack, unpack
+from scripts.ci.operation import main as operation_main
 from scripts.ci.platform_backup import snapshot_database
 from scripts.ci.policy import (
     DEPLOY_AUTHORS,
+    SCHEDULES,
     VALIDATION,
     VALIDATION_COMMAND,
     configuration,
@@ -121,6 +123,30 @@ class CurrentSourceTest(unittest.TestCase):
             side_effect=[SHA, SHA + " refs/heads/main\n"],
         ):
             current_source(environment)
+
+
+class SupersededOperationTest(unittest.TestCase):
+    def superseded_main(self, event: str) -> None:
+        with (
+            patch.dict(os.environ, {"CI_PIPELINE_EVENT": event, "CI_COMMIT_SHA": SHA}),
+            patch("sys.argv", ["operation", "opnsense-plan"]),
+            patch(
+                "scripts.ci.operation.run",
+                side_effect=SupersededSource(
+                    "Operation source must be the current main commit"
+                ),
+            ),
+        ):
+            operation_main()
+
+    def test_automatic_work_for_an_older_main_skips_instead_of_failing(self) -> None:
+        for event in ["push", "cron"]:
+            with self.subTest(event=event):
+                self.superseded_main(event)
+
+    def test_operator_deployment_for_an_older_main_still_fails(self) -> None:
+        with self.assertRaisesRegex(ValueError, "current main"):
+            self.superseded_main("deployment")
 
 
 class PolicyTest(unittest.TestCase):
@@ -304,6 +330,45 @@ class PolicyTest(unittest.TestCase):
         workflow = yaml.safe_load(item["data"])
         self.assertEqual(workflow["depends_on"], [VALIDATION])
         self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
+
+    def test_schedules_split_fast_maintenance_from_nightly_work(self) -> None:
+        for name, targets in SCHEDULES.items():
+            self.request["pipeline"].update(event="cron", cron=name)
+            result = configuration(self.request, self.catalog, current=SHA)
+            names = [item["name"].removesuffix(".yaml") for item in result["configs"]]
+            self.assertEqual(sorted(names), sorted([VALIDATION, *targets]))
+            for item in result["configs"][1:]:
+                workflow = yaml.safe_load(item["data"])
+                operation = self.catalog[item["name"].removesuffix(".yaml")]
+                expected = (
+                    "production-authority"
+                    if operation["mutation"]
+                    else "scheduled-read-only"
+                )
+                self.assertEqual(workflow["concurrency"]["group"], expected)
+        self.assertNotIn("deploy-fleet-dry-run", SCHEDULES["maintenance"])
+        self.assertIn("registry-promote-first-party", SCHEDULES["maintenance"])
+        self.request["pipeline"].update(event="cron", cron="unknown")
+        self.assertEqual(
+            len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
+        )
+
+    def test_read_only_operations_do_not_hold_production_authority(self) -> None:
+        result = configuration(self.request, self.catalog, current=SHA)
+        groups = {
+            item["name"]: yaml.safe_load(item["data"])["concurrency"]["group"]
+            for item in result["configs"][1:]
+        }
+        self.assertEqual(groups["opnsense-plan.yaml"], "read-only-opnsense-plan")
+        self.assertEqual(groups["cache-publish.yaml"], "production-authority")
+
+    def test_scheduled_crons_match_policy(self) -> None:
+        crons = json.loads((ROOT / "config/ci/woodpecker-crons.json").read_text())
+        self.assertEqual(set(crons), set(SCHEDULES))
+        settings = json.loads(
+            (ROOT / "config/ci/woodpecker-repository.json").read_text()
+        )
+        self.assertIn("cron", settings["cancel_previous_pipeline_events"])
 
     def test_deployment_requires_fresh_current_main_and_operator(self) -> None:
         result = self.deployment()

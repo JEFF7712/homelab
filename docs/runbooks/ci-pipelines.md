@@ -20,8 +20,12 @@ the restriction. Its offline behavior tests are
 All three agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
 have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
-Sandbox has two workflow slots; trusted and deploy agents have one each.
-All operations share production-authority concurrency with limit one.
+Sandbox and trusted agents have two workflow slots each; deploy has one.
+Mutating operations share the production-authority concurrency group with
+limit one. Read-only operations serialize per operation
+(`read-only-<operation>`), and scheduled read-only work shares the single
+`scheduled-read-only` group, so maintenance holds at most one trusted slot
+and never queues an operator's plan or deployment behind it.
 
 The immutable server configuration extension verifies the signed request,
 repository, event, current main SHA, deployment operator, and successful
@@ -92,10 +96,28 @@ sync-to-github and cache-publish after validation. A push that changes
 registry/images.lock.json or registry/images.inventory.json also runs
 registry-lock-import after validation, so a reviewed lock entry is copied
 into the registry by the same pipeline that lands it; when the push diff
-cannot be read, the import runs anyway. The maintenance cron runs registry
-lock import, registry drift,
-retention reconciliation, and first-party promotion. Promotion creates a PR.
-The cron also runs the webhook watchdog ungated: it fails when a recent
+cannot be read, the import runs anyway.
+
+Cron schedules are owned by `config/ci/woodpecker-crons.json`, repository
+settings by `config/ci/woodpecker-repository.json`, and the operations each
+schedule runs by `SCHEDULES` in `scripts/ci/policy.py`. Reconcile the live
+server with `just woodpecker-settings plan` and `just woodpecker-settings apply`.
+`maintenance` runs twice an hour and carries only the short work: webhook
+watchdog, registry lock import, drift, retention, resolve, auth consistency,
+and first-party and nix-agent promotion. Promotion creates a PR. `nightly`
+runs the slow proofs once a day: the GC fixture, OPNsense plan, dataplane
+and inventory, NAS proof, and the fleet, agent-workspace, and Home Assistant
+dry runs. A schedule must finish well inside its interval; before the split,
+the 30 minute schedule took about 100 minutes, queued behind itself, and every
+queued operation then failed the current-main check.
+
+Woodpecker cancels a superseded pending or running pipeline for the same
+branch on push, pull request, and cron events. An automatic push or cron
+operation that starts after main has moved exits successfully with a skip
+message, since the newer main runs the same work; operator-requested
+deployments still fail when their commit is no longer main.
+
+The maintenance schedule runs the webhook watchdog ungated: it fails when a recent
 push or pull request has no validation status past the grace period or a
 pending validation past the stuck threshold, which is how a broken
 Forgejo-to-Woodpecker delivery path shows up (Forgejo does not retry).

@@ -205,3 +205,6 @@ forgejo-pr title target="main":
 
 forgejo-merge index:
     nix develop ./flake -c tea pr merge --repo JEFF7712/homelab {{index}}
+
+woodpecker-settings mode="plan":
+    python -m scripts.ci.woodpecker_settings {{mode}}
