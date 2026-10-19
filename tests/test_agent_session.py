@@ -77,6 +77,8 @@ class AgentSessionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = make_repository(Path(directory))
             (root / "justfile").write_text((root_source / "justfile").read_text())
+            (root / "flake").mkdir()
+            (root / "flake/flake.nix").write_text("{}\n")
             (root / "bin").mkdir()
             client = root / "bin/codex"
             client.write_text(
@@ -107,7 +109,7 @@ class AgentSessionTest(unittest.TestCase):
                 ],
                 cwd=root,
                 env={
-                    **os.environ,
+                    **{k: v for k, v in os.environ.items() if k != "IN_NIX_SHELL"},
                     "PYTHONPATH": str(root_source),
                     "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
                 },

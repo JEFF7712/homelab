@@ -134,6 +134,25 @@ class AgentCheckSelectionTest(unittest.TestCase):
                 selection = self.select(path)
                 self.assertEqual([item.name for item in selection.checks], list(checks))
 
+    def test_application_and_ci_changes_avoid_the_full_gate(self) -> None:
+        expected = {
+            "scripts/ci/policy.py": ("python-lint", "ci"),
+            "config/ci/operations.json": ("python-lint", "ci"),
+            "tests/test_forgejo_ci.py": ("python-lint", "ci"),
+            "tests/test_bus_display.py": ("python-lint", "unit-test_bus_display"),
+            "services/bus-display/display.py": ("python",),
+            "scripts/deploy_fleet.py": ("python",),
+        }
+        for path, checks in expected.items():
+            with self.subTest(path=path):
+                selection = self.select(path)
+                self.assertEqual([item.name for item in selection.checks], list(checks))
+        selection = self.select("tests/test_bus_display.py")
+        self.assertEqual(
+            selection.checks[1].command,
+            ("python", "-m", "unittest", "tests.test_bus_display"),
+        )
+
     def test_ignored_3d_print_changes_select_no_checks(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository = make_repository(Path(directory))

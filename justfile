@@ -1,9 +1,14 @@
+# Every recipe line runs in the pinned dev shell. Lines run directly when
+# already inside it (direnv, nix develop, CI), from latency-bounded hooks, or
+# outside a checkout carrying the flake.
+set shell := ["bash", "-c", 'if [[ -n "${IN_NIX_SHELL:-}" || -n "${AGENT_HOOK_ACTIVE:-}" || ! -f flake/flake.nix ]]; then exec bash -c "$@"; fi; exec nix develop ./flake -c bash -c "$@"', "just-shell"]
+
 agent-context *args:
     python -m scripts.agent context {{args}}
 
 [positional-arguments]
 agent-run id client *args:
-    nix develop ./flake -c python -m scripts.agent agent-run "$@"
+    python -m scripts.agent agent-run "$@"
 
 [positional-arguments]
 agent-verify *args:
@@ -123,7 +128,7 @@ check-docs:
     python -m scripts.checks.docs
 
 provision-check-deps:
-    pids=""; for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false -lockfile=readonly & pids="$pids $!"; done; rc=0; for pid in $pids; do wait "$pid" || rc=1; done; exit "$rc"
+    export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/opentofu/plugins}"; mkdir -p "$TF_PLUGIN_CACHE_DIR"; pids=""; for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false -lockfile=readonly & pids="$pids $!"; done; rc=0; for pid in $pids; do wait "$pid" || rc=1; done; exit "$rc"
 
 refresh-crd-schemas:
     python scripts/checks/provision_schemas.py
@@ -162,7 +167,7 @@ workspace-deprovision id *args:
     python -m scripts.agent_workspaces --manifest config/agent-workspaces/workspaces.json deprovision {{id}} {{args}}
 
 netbird-agent-workspaces *args:
-    nix develop ./flake -c python scripts/netbird_agent_workspaces.py {{args}}
+    python scripts/netbird_agent_workspaces.py {{args}}
 
 ha-inventory *args:
     python -m scripts.home_assistant inventory {{args}}
@@ -201,10 +206,10 @@ jarvis-eval-live *args:
 # merging require explicit authorization. Merge only after validation-v2 is
 # green; prefer fast-forward so the Forgejo to GitLab mirror stays clean.
 forgejo-pr title target="main":
-    nix develop ./flake -c tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
+    tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
 
 forgejo-merge index:
-    nix develop ./flake -c tea pr merge --repo JEFF7712/homelab {{index}}
+    tea pr merge --repo JEFF7712/homelab {{index}}
 
 woodpecker-settings mode="plan":
     python -m scripts.ci.woodpecker_settings {{mode}}
