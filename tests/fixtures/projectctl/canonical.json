@@ -1,0 +1,26 @@
+[
+  {
+    "payload": {
+      "z": -9007199254740991,
+      "a": [
+        true,
+        null,
+        9007199254740991
+      ],
+      "quote": "\\\""
+    },
+    "canonical": "{\"a\":[true,null,9007199254740991],\"quote\":\"\\\\\\\"\",\"z\":-9007199254740991}",
+    "digest": "sha256:a105e66ef885d5817094483d310fd1332c69fa674d1fbf2550a91bd1c038ed25"
+  },
+  {
+    "payload": {
+      "schema_version": 1,
+      "project": {
+        "name": "molecular-ml",
+        "private": true
+      }
+    },
+    "canonical": "{\"project\":{\"name\":\"molecular-ml\",\"private\":true},\"schema_version\":1}",
+    "digest": "sha256:8c2508c30f1657ba3b448fbda2b8893e5b8b8e98a22a10463214b43eecdc5f0a"
+  }
+]

@@ -55,7 +55,14 @@ jq -r '[.adminPolicy.users[], .repositories[].policies[]?.users[]] | unique[]' \
   /tmp/zot-access-control.json
 ```
 
-The generated policy identities are `node`, `importer`, `maintenance`, and one
+The generated policy also grants the dedicated `projectctl-pull` identity read
+access to the locked uv validation and Woodpecker clone image repositories.
+It has no wildcard, application, publication, or administrative permissions.
+Provision its credential only through the reviewed
+[projectctl setup](projectctl.md). Exact repository entries retain node reader
+and importer permissions because Zot uses the longest matching policy.
+
+The other generated policy identities are `node`, `importer`, `maintenance`, and one
 `publisher-<project>` identity for each first-party destination in the lock.
 Initially create htpasswd entries only for `node`, `importer`, and
 `maintenance`. Add a project publisher's

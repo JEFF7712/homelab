@@ -1,0 +1,37 @@
+{
+  "approval": {
+    "key_id": "test-operator",
+    "payload": {
+      "allowed_operations": [
+        "repository",
+        "clone",
+        "enrollment",
+        "pull",
+        "catalog",
+        "source",
+        "policy",
+        "ci",
+        "readiness"
+      ],
+      "catalog_entry_digest": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "catalog_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expires_at": "2026-10-15T12:02:00Z",
+      "grant_id": "grant-1",
+      "not_before": "2026-10-15T11:59:59Z",
+      "plan_digest": "sha256:077f60a8b9412f8d8e54f6c2688d7555249dac500b18778ad06375fb08cbf863",
+      "platform": {
+        "forgejo": "forgejo-local",
+        "homelab_repository": "JEFF7712/homelab",
+        "woodpecker": "woodpecker-local"
+      },
+      "policy_digest": "sha256:9d673268b23fb40ce48ac921a57cac9ff197e6a74fe6b98d533e83b68d26d8fd",
+      "principal": "agent-test",
+      "project_key": "molecular-ml",
+      "request_id": "req-vector",
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "signature": "75ZVRyMfpsbEEAbp0HZjurxoq4begY/SWWPAaiPQ7nCCeaX8Qc4eLifMB5mnSW9tIeLCeZHHBwqLH69LvM60Cg=="
+  },
+  "public_key": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+}
