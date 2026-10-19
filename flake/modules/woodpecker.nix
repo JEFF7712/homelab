@@ -192,7 +192,9 @@ in
       # Two trusted slots: scheduled read-only work holds at most one (its
       # shared concurrency group), so pushes and operator plans keep the other.
       trusted = agent "trusted" 2;
-      deploy = agent "deploy" 1;
+      # Operations serialize per resource group, so a second deploy slot lets
+      # unrelated mutations (a cache push and a Home Assistant apply) overlap.
+      deploy = agent "deploy" 2;
     };
     systemd.services.woodpecker-agent-sandbox.serviceConfig.Restart = lib.mkForce "always";
     systemd.services.woodpecker-agent-trusted.serviceConfig.Restart = lib.mkForce "always";
