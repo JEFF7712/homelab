@@ -30,7 +30,9 @@ just ship --json                   # machine-readable summary on stdout
    pipeline, and Woodpecker reports `validation-v2` as running until the
    whole pipeline ends. If main advances to a commit that contains the
    merge, it follows the newer tip, because the superseded pipeline is
-   cancelled.
+   cancelled. A pipeline killed while the merge is still the tip (a restart
+   of an older main pipeline cancels it) is restarted once; a second kill
+   fails the ship.
 8. Runs the deployment operations routed from the changed paths, each with its
    catalog prerequisite, against that main pipeline.
 9. When an operation prints a promotion patch (base64 encoded between the

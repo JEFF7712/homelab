@@ -131,6 +131,52 @@ class ShipPlanRetryTest(unittest.TestCase):
             shipper.run_plan(["deploy"], "c" * 40, {"deploy": {}})
 
 
+class ShipMainPipelineTest(unittest.TestCase):
+    def shipper(self, statuses: list[str]) -> tuple[ship.Shipper, list[int]]:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
+        shipper.forgejo = unittest.mock.Mock()
+        shipper.forgejo.call.return_value = {"commit": {"id": SHA}}
+        pipelines = [
+            {"number": 10, "event": "push", "branch": "main", "status": statuses[0]}
+        ]
+        restarts: list[int] = []
+
+        def restart(number: int) -> dict[str, int]:
+            restarts.append(number)
+            created = len(pipelines) + 10
+            pipelines.append(
+                {
+                    "number": created,
+                    "event": "push",
+                    "branch": "main",
+                    "status": statuses[len(pipelines)],
+                }
+            )
+            return {"number": created}
+
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipelines_for = lambda sha: list(pipelines)
+        shipper.woodpecker.restart = restart
+        return shipper, restarts
+
+    def test_killed_tip_pipeline_is_restarted_once(self) -> None:
+        shipper, restarts = self.shipper(["killed", "success"])
+        with patch.object(ship.time, "sleep"):
+            self.assertEqual(shipper.main_pipeline(SHA), (SHA, 11))
+        self.assertEqual(restarts, [10])
+
+    def test_killed_again_after_restart_fails_instead_of_waiting(self) -> None:
+        shipper, restarts = self.shipper(["killed", "killed"])
+        with (
+            patch.object(ship.time, "sleep"),
+            self.assertRaisesRegex(ShipError, "killed again"),
+        ):
+            shipper.main_pipeline(SHA)
+        self.assertEqual(restarts, [10])
+
+
 class ShipRolloutTest(unittest.TestCase):
     def test_kustomizations_follow_changed_paths(self) -> None:
         items = [
