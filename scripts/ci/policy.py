@@ -410,7 +410,7 @@ def configuration(
                     "image": IMAGE,
                     "environment": environment,
                     "commands": [
-                        f"nix develop ./flake -c python -m scripts.ci.operation {target}"
+                        f"nix develop ./flake#ops -c python -m scripts.ci.operation {target}"
                     ],
                 }
             ],

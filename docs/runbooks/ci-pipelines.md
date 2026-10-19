@@ -20,7 +20,12 @@ the restriction. Its offline behavior tests are
 All three agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
 have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
-Every agent has two workflow slots. Operations serialize on the resource
+Validation runs in the slim `ci` dev shell; protected operations run in
+the `ops` shell, which adds registry, cache, and release clients but leaves
+out the virtualization and GUI closure of the default shell (2.4 GiB instead
+of 3.9 GiB), so an operation container copies far less from Attic before it
+starts. `cache-publish` pushes all three shells. Every agent has two
+workflow slots. Operations serialize on the resource
 they act on: the catalog `group` becomes the concurrency group
 `resource-<group>` with limit one, so two OpenTofu applies on the same stack
 never overlap while a cache push and a Home Assistant apply can. Scheduled
