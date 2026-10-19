@@ -11,6 +11,26 @@
           "default_branch": "main",
           "ci_contract": "python-uv-v1"
         }
+      },
+      {
+        "project_key": "predmarkbot",
+        "repository": "JEFF7712/predmarkbot",
+        "visibility": "private",
+        "routine": {
+          "repository_id": 28,
+          "default_branch": "main",
+          "ci_contract": "python-uv-v1"
+        }
+      },
+      {
+        "project_key": "resume-agent",
+        "repository": "JEFF7712/resume-agent",
+        "visibility": "private",
+        "routine": {
+          "repository_id": 25,
+          "default_branch": "main",
+          "ci_contract": "python-uv-v1"
+        }
       }
     ]
   }
