@@ -23,6 +23,7 @@ from unittest.mock import patch
 
 import yaml
 
+from scripts.ci.applications import load_catalog
 from scripts.registry import core
 from scripts.registry.cli import main
 from scripts.registry.core import (
@@ -2357,6 +2358,32 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
         )
         self.assertNotIn("projectctl-pull", policy["adminPolicy"]["users"])
         self.assertNotIn("projectctl-pull", access_control_users({"images": []}))
+
+    def test_locked_catalog_applications_keep_their_forgejo_publish_grant(
+        self,
+    ) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        lock = json.loads((root / "registry/images.lock.json").read_text())
+        policy = render_access_control(lock)
+        locked = {
+            record["destination_repository"]
+            for record in lock["images"]
+            if record["kind"] == "first-party"
+        }
+        missing = [
+            application.id
+            for application in load_catalog(root / "config/ci/applications.json")
+            if application.artifact_repository in locked
+            and {
+                "users": [
+                    f"publisher-{application.id}",
+                    f"forgejo-{application.id}",
+                ],
+                "actions": ["read", "create", "update"],
+            }
+            not in policy["repositories"][application.artifact_repository]["policies"]
+        ]
+        self.assertEqual(missing, [])
 
     def test_access_control_is_lock_derived_and_least_privilege(self) -> None:
         raw = manifest()

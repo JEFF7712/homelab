@@ -106,6 +106,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-sovereign-site",
         "location": "JEFF7712/sovereign",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -229,6 +230,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-apolline",
         "location": "JEFF7712/apolline-site",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -268,6 +270,7 @@
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [],
       "producer": {
+        "local_publisher": "forgejo-bookshelf",
         "location": "external-image-repository:ghcr.io/jeff7712/bookshelf",
         "owner": "jeff7712",
         "pipeline_status": "unverified"
@@ -309,6 +312,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-cr-demo",
         "location": "external-image-repository:docker.io/jeff7712/cr-demo",
         "owner": "jeff7712",
         "pipeline_status": "unverified"
@@ -390,6 +394,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-distrojeff-site",
         "location": "JEFF7712/distrojeff-site",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -511,6 +516,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-ism",
         "location": "JEFF7712/ism",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -552,6 +558,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-majorfinder",
         "location": "JEFF7712/majorfinder",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -591,6 +598,7 @@
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [],
       "producer": {
+        "local_publisher": "forgejo-nix-agent-site",
         "location": "JEFF7712/nix-agent",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -632,6 +640,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-photography",
         "location": "JEFF7712/photos",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -700,6 +709,7 @@
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [],
       "producer": {
+        "local_publisher": "forgejo-pod-agent",
         "location": "JEFF7712/pod-agent",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -742,6 +752,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-pulse-site",
         "location": "JEFF7712/pulse",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -784,6 +795,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-quartz",
         "location": "JEFF7712/obsidian-vault",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -826,6 +838,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-quartz",
         "location": "JEFF7712/obsidian-vault",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -867,6 +880,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-rupan-dev",
         "location": "JEFF7712/rupan.dev",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -908,6 +922,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-rupanism",
         "location": "JEFF7712/rupanism",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -950,6 +965,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-solubility-gnn",
         "location": "JEFF7712/solubility-predictor",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
@@ -991,6 +1007,7 @@
         "linux/amd64"
       ],
       "producer": {
+        "local_publisher": "forgejo-spatia-site",
         "location": "JEFF7712/spatia",
         "owner": "JEFF7712",
         "pipeline_status": "verified-woodpecker-release"
