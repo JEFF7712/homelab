@@ -47,6 +47,7 @@ password or secret-value columns from service databases.
 | homelab-01 through homelab-05 | /etc/rancher/k3s/registries.yaml | Runtime copy loaded from the protected source during K3s startup |
 | nas-01 pull client | /persist/secrets/registry-auth.json | Replace only the node auth value for registry.rupan.dev |
 | Woodpecker homelab repository | registry_node_password_file | Replace the protected file-secret value through the trusted operator UI |
+| Woodpecker homelab repository | registry_read_password | Replace the plain node password used by service, native and application release builders to pull pinned bases; a stale value fails every `*-publish` operation with 401 on the base pull |
 | Woodpecker homelab repository | registry_htpasswd_file | Refresh the protected bcrypt file from the accepted Zot account set, including projectctl-pull |
 | Woodpecker repository registries | Thirteen active node entries below | Replace only registry.rupan.dev passwords through supported settings operations |
 
