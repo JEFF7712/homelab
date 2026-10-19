@@ -71,3 +71,7 @@ spec:
       kind: Deployment
       name: website-deploy
       namespace: bus-display
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: website-deploy
+      namespace: uwagent

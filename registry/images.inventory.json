@@ -2433,6 +2433,28 @@
         "digest": "sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74",
         "reference": "registry.rupan.dev/apps/spotify-matrix:ci-2831-1644196a6159@sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74"
       }
+    },
+    {
+      "consumers": [
+        "gitops/websites/uwagent/deployment.yaml:26"
+      ],
+      "destination_repository": "apps/uwagent",
+      "id": "first-party-apps-uwagent-9af52aa77c22",
+      "kind": "first-party",
+      "producer": {
+        "local_publisher": "forgejo-uwagent",
+        "location": "forgejo:JEFF7712/uwagent",
+        "owner": "jeff7712",
+        "pipeline_status": "configured-local"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c",
+        "reference": "registry.rupan.dev/apps/uwagent@sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/uwagent",
+        "tag": null
+      }
     }
   ],
   "kind": "registry-inventory",
@@ -2655,6 +2677,14 @@
       "consumer": "gitops/websites/spatia/deployment.yaml:38,observed:spatia/website-deploy-75d64d5f9f-cdtn5/web",
       "id": "producer:first-party-apps-spatia-site-9dc57113a2bb",
       "input": "registry.rupan.dev/apps/spatia-site@sha256:8369afde6519683c8c91b545548614df9452ef3d7f4b81e5c586dc92717bffbc",
+      "reason": "producer pipeline location and local-registry publication are not proven by this repository"
+    },
+    {
+      "blocking": false,
+      "class": "producer-pipeline",
+      "consumer": "gitops/websites/uwagent/deployment.yaml:26",
+      "id": "producer:first-party-apps-uwagent-9af52aa77c22",
+      "input": "registry.rupan.dev/apps/uwagent@sha256:228eba505d6f486c700d9468b99b00fc85de914c7eae774607c2b1198e6c313c",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     }
   ]
