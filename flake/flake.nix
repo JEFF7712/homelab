@@ -113,6 +113,7 @@
           ruff
           shellcheck
           sops
+          # The full gate's matrix check syncs the frozen service env with uv.
           uv
           yamllint
           # The registry serves this exact build and the GC fixture asserts
@@ -169,7 +170,6 @@
               qemu_kvm
               skopeo
               tea
-              uv
             ]);
         };
 

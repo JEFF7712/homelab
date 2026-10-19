@@ -43,6 +43,7 @@ NIX_CONFIG = (
 # step exits with the gate result.
 VALIDATION_COMMAND = (
     "nix develop ./flake#ci -c bash -e -c '"
+    'mkdir -p "$TF_PLUGIN_CACHE_DIR"; '
     "python -m scripts.ci.run fmt -- just fmt-check & f=$!; "
     "python -m scripts.ci.run jev -- python scripts/jev_decision_gate.py & j=$!; "
     "python -m scripts.ci.run gate -- python -m scripts.ci.validate repository & c=$!; "
