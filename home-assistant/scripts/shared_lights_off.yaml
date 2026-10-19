@@ -27,6 +27,7 @@ sequence:
             - switch.living_room_good_vibes_sign
             - switch.stairs_light
             - light.apollo_led_strip_apollo_led_strip
+            - light.kitchen_kitchen_led_strip
   - action: homeassistant.turn_off
     target:
       label_id: shared_space
