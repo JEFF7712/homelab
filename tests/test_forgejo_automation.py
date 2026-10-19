@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import chdir
@@ -391,3 +392,76 @@ class AutomationTest(unittest.TestCase):
 
         coredns = (ROOT / "gitops/platform/coredns-custom.yaml").read_text()
         self.assertIn("10.0.30.20 git.rupan.dev", coredns)
+
+
+class FirstPartyPromotionGuardTest(unittest.TestCase):
+    def repository(self, directory: str) -> Path:
+        root = Path(directory)
+        (root / "gitops/app").mkdir(parents=True)
+        (root / "registry").mkdir()
+        (root / "gitops/app/deployment.yaml").write_text(
+            "image: registry.rupan.dev/apps/app@sha256:" + "a" * 64 + "\nreplicas: 1\n"
+        )
+        lock = {
+            "generated_at": "then",
+            "images": [
+                {
+                    "id": "first-party-app",
+                    "destination_repository": "apps/app",
+                    "digest": "sha256:" + "a" * 64,
+                },
+                {
+                    "id": "upstream",
+                    "destination_repository": "upstream/x",
+                    "digest": "sha256:" + "c" * 64,
+                },
+            ],
+        }
+        (root / "registry/images.lock.json").write_text(json.dumps(lock))
+        for command in (
+            ["git", "init", "-q"],
+            ["git", "add", "."],
+            [
+                "git",
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit",
+                "-qm",
+                "init",
+            ],
+        ):
+            subprocess.run(command, cwd=root, check=True)
+        return root
+
+    def run_guard(self, root: Path, changed: list[str]) -> None:
+        with chdir(root):
+            promote_commit._assert_first_party_digests_only(changed)
+
+    def test_digest_moves_pass_and_anything_else_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.repository(directory)
+            deployment = root / "gitops/app/deployment.yaml"
+            lock_path = root / "registry/images.lock.json"
+            deployment.write_text(deployment.read_text().replace("a" * 64, "b" * 64))
+            lock = json.loads(lock_path.read_text())
+            lock["generated_at"] = "now"
+            lock["images"][0]["digest"] = "sha256:" + "b" * 64
+            lock_path.write_text(json.dumps(lock))
+            changed = ["gitops/app/deployment.yaml", "registry/images.lock.json"]
+            self.run_guard(root, changed)
+
+            deployment.write_text(
+                deployment.read_text().replace("replicas: 1", "replicas: 3")
+            )
+            with self.assertRaisesRegex(ValueError, "more than digests"):
+                self.run_guard(root, changed)
+            subprocess.run(["git", "checkout", "-q", "gitops"], cwd=root, check=True)
+
+            lock["images"][1]["digest"] = "sha256:" + "d" * 64
+            lock_path.write_text(json.dumps(lock))
+            with self.assertRaisesRegex(ValueError, "non-first-party"):
+                self.run_guard(root, ["registry/images.lock.json"])
+            with self.assertRaisesRegex(ValueError, "may not change"):
+                self.run_guard(root, ["flake/flake.nix"])
