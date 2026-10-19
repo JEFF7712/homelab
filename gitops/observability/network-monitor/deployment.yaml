@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: network-monitor-state
+  namespace: observability
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-monitor
+  namespace: observability
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: network-monitor
+  template:
+    metadata:
+      labels:
+        app: network-monitor
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: monitor
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+          command: [python, /config/monitor.py]
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - >-
+                  import json,time;
+                  assert time.time()-json.load(open('/state/state.json'))['last_probe']['time'] < 120
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - >-
+                  import json,time;
+                  assert time.time()-json.load(open('/state/state.json'))['last_probe']['time'] < 120
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: '1'
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: code
+              mountPath: /config
+              readOnly: true
+            - name: state
+              mountPath: /state
+            - name: token
+              mountPath: /secret
+              readOnly: true
+      volumes:
+        - name: code
+          configMap:
+            name: network-monitor-code
+        - name: state
+          persistentVolumeClaim:
+            claimName: network-monitor-state
+        - name: token
+          secret:
+            secretName: alertmanager-ntfy-token
