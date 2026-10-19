@@ -99,6 +99,7 @@
           cosign
           curl
           dnsutils
+          nixos-rebuild-ng
           oras
           skopeo
           tea
