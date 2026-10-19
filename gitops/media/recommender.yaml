@@ -67,6 +67,10 @@ spec:
             - name: data
               mountPath: /app/images
               subPath: images
+            # prisma generate rewrites the client into the source tree on
+            # every boot (upstream start.sh); keep that writable on tmpfs.
+            - name: prisma-client
+              mountPath: /app/backend/src/generated
             - name: tmp
               mountPath: /tmp
           readinessProbe:
@@ -91,6 +95,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: recommender-data
+        - name: prisma-client
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
 ---
@@ -124,7 +130,7 @@ data:
         }
 
         location /api/ {
-            proxy_pass http://recommender-backend.media.svc.cluster.local:3001;
+            proxy_pass http://recommender-backend.media.svc.cluster.local:80;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection 'upgrade';
@@ -138,7 +144,7 @@ data:
         }
 
         location /images/ {
-            proxy_pass http://recommender-backend.media.svc.cluster.local:3001/images/;
+            proxy_pass http://recommender-backend.media.svc.cluster.local:80/images/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
