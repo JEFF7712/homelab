@@ -72,6 +72,15 @@ prevent duplicate execution and runner queue saturation:
 
 Validation steps invoke `python -m scripts.ci.validate repository`:
 - Path classification is handled by `scripts/ci/scope.py`.
+- **Changed paths of a branch push** come from the policy service, which keeps
+  a blobless mirror (`/var/lib/woodpecker-policy/homelab.git` on homelab-04),
+  diffs the pushed commit against its merge base with main, and passes the
+  list as `CI_SCOPE_FILES`. The validation clone is shallow and has no
+  credentials, so it cannot compute that range itself: without the list a
+  new branch has no before commit and a branch updated from main reports
+  main's changes as its own, and both run the full gate. A failed or slow
+  mirror fetch (20 second bound) omits the list and falls back to Woodpecker's
+  `CI_PIPELINE_FILES`, then to the full gate.
 - **Documentation changes**: When a change modifies only documentation and
   markdown files, only docs and whitespace checks run, completing in ~2 seconds.
 - **Application changes**: When changes are confined to allowlisted application

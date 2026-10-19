@@ -197,8 +197,10 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       environment.PYTHONPATH = toString policySource;
+      path = [ pkgs.git ];
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --projects ${../../config/ci/projects.json} --public-key %d/signature-public.pem";
+        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --projects ${../../config/ci/projects.json} --public-key %d/signature-public.pem --mirror %S/woodpecker-policy/homelab.git";
+        StateDirectory = "woodpecker-policy";
         LoadCredential = "signature-public.pem:/persist/woodpecker/signature-public.pem";
         EnvironmentFile = "/persist/woodpecker/policy.env";
         DynamicUser = true;

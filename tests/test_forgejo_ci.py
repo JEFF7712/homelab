@@ -20,6 +20,7 @@ from contextlib import closing
 from email.message import Message
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import yaml
@@ -36,9 +37,11 @@ from scripts.ci.policy import (
     SCHEDULES,
     VALIDATION,
     VALIDATION_COMMAND,
+    SourceMirror,
     configuration,
     defers_to_branch_push,
     find_reusable_validation,
+    resolve_configuration,
     schedule_state,
     verify_request,
 )
@@ -858,6 +861,50 @@ class PolicyTest(unittest.TestCase):
             workflow_main["steps"][0]["environment"]["CI_FULL_VALIDATION"], "1"
         )
 
+    def test_branch_push_carries_branch_files_and_main_does_not(self) -> None:
+        def request(ref: str) -> dict[str, Any]:
+            return {
+                "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+                "pipeline": {
+                    "id": 443,
+                    "event": "push",
+                    "ref": ref,
+                    "commit": SHA,
+                    "author": "homelab-agent",
+                },
+            }
+
+        def environment(result: dict[str, Any]) -> dict[str, str]:
+            for config in result["configs"]:
+                workflow = yaml.safe_load(config["data"])
+                for step in workflow["steps"]:
+                    if step["name"] == VALIDATION:
+                        return step["environment"]
+            raise AssertionError("no validation step")
+
+        files = ("gitops/a.yaml", "docs/b.md")
+        branch = environment(
+            configuration(
+                request("refs/heads/feat/x"), self.catalog, branch_files=files
+            )
+        )
+        self.assertEqual(json.loads(branch["CI_SCOPE_FILES"]), list(files))
+        for result in (
+            configuration(request("refs/heads/feat/x"), self.catalog),
+            configuration(
+                request("refs/heads/feat/x"),
+                self.catalog,
+                branch_files=tuple(f"docs/{n}.md" for n in range(1001)),
+            ),
+            configuration(
+                request("refs/heads/main"),
+                self.catalog,
+                current=SHA,
+                branch_files=files,
+            ),
+        ):
+            self.assertNotIn("CI_SCOPE_FILES", environment(result))
+
     def test_catalog_commands_parse_and_predecessors_exist(self) -> None:
         import subprocess
 
@@ -935,6 +982,75 @@ class PolicyTest(unittest.TestCase):
         for altered, now in [(body + b" ", 1000), (body, 1100)]:
             with self.assertRaises(ValueError):
                 verify_request(headers, altered, public, now)
+
+
+class SourceMirrorTest(unittest.TestCase):
+    def setUp(self) -> None:
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.origin = self.root / "origin"
+        self.origin.mkdir()
+        self.git("init", "-q", "-b", "main")
+        self.git("config", "user.email", "test@example.invalid")
+        self.git("config", "user.name", "Test")
+        self.commit("README.md", "baseline")
+        self.git("checkout", "-q", "-b", "feature")
+        self.commit("gitops/site.yaml", "feature")
+        self.git("checkout", "-q", "main")
+        self.commit("justfile", "main moves on")
+        self.git("checkout", "-q", "feature")
+        self.mirror = SourceMirror(self.root / "mirror.git", remote=str(self.origin))
+
+    def git(self, *args: str) -> str:
+        return subprocess.check_output(
+            ["git", *args], cwd=self.origin, text=True
+        ).strip()
+
+    def commit(self, name: str, message: str) -> None:
+        path = self.origin / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(message + "\n")
+        self.git("add", name)
+        self.git("commit", "-qm", message)
+
+    def test_new_branch_reports_only_its_own_changes(self) -> None:
+        changes = self.mirror.branch_changes(self.git("rev-parse", "HEAD"), {})
+        self.assertEqual(changes, ("gitops/site.yaml",))
+
+    def test_branch_updated_from_main_excludes_main_changes(self) -> None:
+        self.git("merge", "-q", "--no-edit", "main")
+        changes = self.mirror.branch_changes(self.git("rev-parse", "HEAD"), {})
+        self.assertEqual(changes, ("gitops/site.yaml",))
+
+    def test_unreachable_or_invalid_commit_yields_none(self) -> None:
+        self.assertIsNone(self.mirror.branch_changes("f" * 40, {}))
+        self.assertIsNone(self.mirror.branch_changes("not-a-sha", {}))
+
+    def test_policy_scopes_branch_pushes_through_the_mirror(self) -> None:
+        commit = self.git("rev-parse", "HEAD")
+        request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 444,
+                "event": "push",
+                "ref": "refs/heads/feature",
+                "commit": commit,
+                "author": "homelab-agent",
+            },
+            "netrc": {"login": "reader", "password": "token"},
+        }
+        result = resolve_configuration(request, {}, (), (), self.mirror)
+        steps = [
+            step
+            for config in result["configs"]
+            for step in yaml.safe_load(config["data"])["steps"]
+            if step["name"] == VALIDATION
+        ]
+        self.assertEqual(
+            json.loads(steps[0]["environment"]["CI_SCOPE_FILES"]),
+            ["gitops/site.yaml"],
+        )
 
 
 class StateTest(unittest.TestCase):
