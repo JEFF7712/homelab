@@ -4,7 +4,7 @@ Use this map to find the authoritative source before editing. Run `just check-ch
 
 | Area | Inspect and edit | Minimum validation | Runbooks and references |
 | --- | --- | --- | --- |
-| LED matrix service and releases | `services/led-matrix/`; `scripts/ci/matrix_release.py`; protected `matrix-publish` in `config/ci/operations.json`; `gitops/led-matrix/` | `bash scripts/checks/led-matrix.sh`; release/routing regression tests; GitOps and registry checks for promotion | `docs/runbooks/matrix-release.md` |
+| LED matrix service and releases | `services/led-matrix/`; `scripts/ci/service_release.py`; protected `matrix-publish` in `config/ci/operations.json`; `gitops/led-matrix/` | `bash scripts/checks/led-matrix.sh`; release/routing regression tests; GitOps and registry checks for promotion | `docs/runbooks/matrix-release.md` |
 | OPNsense reconciliation | `opnsense_reconciler/`; behavior tests under `tests/test_opnsense_*.py` | `bash scripts/checks/python.sh` | `docs/runbooks/opnsense-recovery.md`; `docs/runbooks/opnsense-bgp-proof.md` |
 | NetBird dashboard and config API | `flake/modules/adguard-netbird/netbird.nix` (on-host peer only); dashboard state via NetBird Management API with `NETBIRD_API_KEY` from `gitops/secrets/homelab-values.sops.yaml` | `just check-changed`; API calls are live and authorized separately | `docs/runbooks/netbird.md` |
 | Encrypted secrets | `.sops.yaml`; `gitops/secrets/`; encrypted secret manifests beside their consumers | `bash scripts/checks/secrets.sh`; `bash scripts/checks/gitops.sh`; `sops -d gitops/secrets/groq-stt.sops.yaml >/dev/null` (example decryption check) | `docs/runbooks/secrets.md`; the owning application runbook |

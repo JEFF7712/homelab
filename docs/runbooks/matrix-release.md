@@ -76,11 +76,11 @@ continue to apply according to their normal scope.
 6. The scoped writer publishes a pipeline-specific tag. Registry reads verify
    the tag's manifest, its immutable digest lookup, its configuration checksum,
    the tested local image ID, source revision label, platform, user, and entrypoint.
-7. Retrieve `artifacts/matrix-release/receipt.json` and `promotion.patch` using
-   the existing protected operation artifact path. The patch updates the matrix
-   Deployment and its inventory and lock records together. Review and apply it
-   to a clean promotion worktree, run the GitOps and registry checks, then publish
-   and merge the focused promotion PR under the task's authorization.
+7. The operation prints the promotion patch between `BEGIN/END PROMOTION
+   PATCH` markers and keeps it with the receipt under
+   `artifacts/service-release/spotify-matrix/`. The patch updates the matrix
+   Deployment and its inventory and lock records together. `just ship` applies
+   it on a fresh branch and ships it as the promotion PR.
 8. Verify Flux reconciliation, the Deployment's actual image digest, readiness,
    HA connectivity, and acknowledged Pico frames. Exercise the affected mode
    and confirm the visible result before calling the change accepted.
@@ -91,7 +91,7 @@ uncertain outcome: inspect the pipeline-specific tag, builder logs, and receipt
 before retrying. Never delete published content to make a retry pass.
 
 For an authentication diagnostic, run
-`python -m scripts.ci.matrix_release doctor --auth-file PATH` only in the
+`python -m scripts.ci.service_release doctor spotify-matrix --auth-file PATH` only in the
 authorized environment holding the protected publisher file. This is a read-only
 check and never falls back to `~/.docker/config.json`.
 
@@ -107,3 +107,16 @@ For application rollback, revert the focused Flux promotion commit, preserving
 the prior image pin and registry records together. Verify the old image is
 available before merging the revert and confirm the sender resumes healthy
 acknowledged frames. Keep laptop senders stopped throughout.
+
+## Other services
+
+`scripts/ci/service_release.py` holds one `Release` entry per service built
+from this repository: `spotify-matrix`, `bus-display`, and
+`lidarr-extended`, each with its own scoped publisher, consumer manifests,
+lock record, and runtime contract, published by `<name>-publish` (the matrix
+keeps `matrix-publish`). bus-display builds offline from its retained
+wheelhouse, which the coordinator fetches and verifies before archiving.
+lidarr-extended builds on a vendor base that installs packages at build time,
+so its build has network access and no user or entrypoint contract. Add a
+service by adding a `Release`, its catalog operation, and a `ship` route, then
+provision its publisher with `just registry-provision-publisher apps/<name>`.

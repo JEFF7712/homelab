@@ -2,31 +2,84 @@
   "routes": [
     {
       "name": "led-matrix-image",
-      "paths": ["services/led-matrix/"],
-      "operations": ["matrix-publish"],
+      "paths": [
+        "services/led-matrix/"
+      ],
+      "operations": [
+        "matrix-publish"
+      ],
       "auto": true
     },
     {
+      "name": "bus-display-image",
+      "paths": [
+        "services/bus-display/"
+      ],
+      "operations": [
+        "bus-display-publish"
+      ],
+      "auto": true
+    },
+    {
+      "name": "lidarr-extended-image",
+      "paths": [
+        "services/lidarr-extended/"
+      ],
+      "operations": [
+        "lidarr-extended-publish"
+      ],
+      "auto": true
+    },
+    {
+      "name": "voice-asr-image",
+      "paths": [
+        "services/voice-supply/"
+      ],
+      "operations": [
+        "native-asr-publish"
+      ],
+      "auto": false
+    },
+    {
       "name": "home-assistant",
-      "paths": ["home-assistant/"],
-      "operations": ["deploy-home-assistant-dry-run", "deploy-home-assistant"],
+      "paths": [
+        "home-assistant/"
+      ],
+      "operations": [
+        "deploy-home-assistant-dry-run",
+        "deploy-home-assistant"
+      ],
       "auto": true
     },
     {
       "name": "opnsense",
-      "paths": ["tofu/opnsense/", "opnsense_reconciler/"],
-      "operations": ["opnsense-plan", "opnsense-apply"],
+      "paths": [
+        "tofu/opnsense/",
+        "opnsense_reconciler/"
+      ],
+      "operations": [
+        "opnsense-plan",
+        "opnsense-apply"
+      ],
       "auto": false
     },
     {
       "name": "cloudflare",
-      "paths": ["tofu/cloudflare/"],
-      "operations": ["cloudflare-plan", "cloudflare-apply"],
+      "paths": [
+        "tofu/cloudflare/"
+      ],
+      "operations": [
+        "cloudflare-plan",
+        "cloudflare-apply"
+      ],
       "auto": false
     },
     {
       "name": "agent-workspace-host",
-      "paths": ["flake/modules/agent-workspace", "config/agent-workspaces/"],
+      "paths": [
+        "flake/modules/agent-workspace",
+        "config/agent-workspaces/"
+      ],
       "operations": [
         "deploy-agent-workspace-host-dry-run",
         "deploy-agent-workspace-host"
@@ -35,8 +88,16 @@
     },
     {
       "name": "fleet",
-      "paths": ["flake/hosts/", "flake/modules/", "flake/flake.nix", "flake/flake.lock"],
-      "operations": ["deploy-fleet-dry-run", "deploy-fleet"],
+      "paths": [
+        "flake/hosts/",
+        "flake/modules/",
+        "flake/flake.nix",
+        "flake/flake.lock"
+      ],
+      "operations": [
+        "deploy-fleet-dry-run",
+        "deploy-fleet"
+      ],
       "auto": false
     }
   ]

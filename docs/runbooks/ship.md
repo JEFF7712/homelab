@@ -55,6 +55,9 @@ change. Add a route when a new service gains a protected publish operation;
 | Route | Paths | Operations | Automatic |
 |---|---|---|---|
 | led-matrix-image | `services/led-matrix/` | `matrix-publish`, then its promotion PR | yes |
+| bus-display-image | `services/bus-display/` | `bus-display-publish`, then its promotion PR | yes |
+| lidarr-extended-image | `services/lidarr-extended/` | `lidarr-extended-publish`, then its promotion PR | yes |
+| voice-asr-image | `services/voice-supply/` | `native-asr-publish` | no (not exercised since the Forgejo migration) |
 | home-assistant | `home-assistant/` | `deploy-home-assistant-dry-run`, `deploy-home-assistant` | yes |
 | opnsense | `tofu/opnsense/`, `opnsense_reconciler/` | `opnsense-plan`, `opnsense-apply` | no |
 | cloudflare | `tofu/cloudflare/` | `cloudflare-plan`, `cloudflare-apply` | no |

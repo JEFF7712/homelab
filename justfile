@@ -119,6 +119,12 @@ registry-check-auth report="artifacts/registry/auth-report.json":
 registry-gc-fixture report="artifacts/registry/gc-fixture-report.json":
     python -m scripts.registry.gc_fixture --report {{report}}
 
+# Creates or rotates scoped publisher credentials for repositories whose
+# lock-rendered policy already grants a publisher, and installs their
+# deployment-scoped Woodpecker secrets. Restarts zot once.
+registry-provision-publisher +repositories:
+    python -m scripts.registry.provision_publisher {{repositories}}
+
 registry-access-control output="artifacts/registry/access-control.json":
     python -m scripts.registry access-control --lock registry/images.lock.json --output {{output}}
 
