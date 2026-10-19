@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import re
+import subprocess
+import threading
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -51,6 +53,10 @@ VALIDATION_COMMAND = (
     "python -m scripts.ci.timings_report || true; exit $rc'"
 )
 START_TIME = int(time.time())
+REPOSITORY_URL = "https://git.rupan.dev/JEFF7712/homelab.git"
+# A branch touching more paths than this almost certainly needs the full
+# gate anyway, and the list travels in the step environment.
+SCOPE_FILES_LIMIT = 1000
 
 # Forgejo identities permitted to trigger manual deployments. The machine user
 # holds operator rights by explicit decision: its token is scoped, revocable,
@@ -315,6 +321,79 @@ def push_changed_files(request: dict[str, Any]) -> tuple[str, ...] | None:
     )
 
 
+class SourceMirror:
+    """Blobless mirror for diffing a branch push against its merge base.
+
+    Validation clones are shallow and credential-free, so a sandbox step
+    cannot see where a branch left main. Without that, a new branch has no
+    usable range and a branch updated from main reports main's changes as
+    its own, and both fall back to the full gate. The policy already holds
+    the clone credentials, so it computes the branch's own changes here.
+    """
+
+    def __init__(
+        self, path: Path, remote: str = REPOSITORY_URL, timeout: float = 20
+    ) -> None:
+        self.path = path
+        self.remote = remote
+        self.timeout = timeout
+        self.lock = threading.Lock()
+
+    def git(self, *args: str, env: dict[str, str] | None = None) -> bytes:
+        return subprocess.run(
+            ["git", "-C", str(self.path), *args],
+            check=True,
+            capture_output=True,
+            timeout=self.timeout,
+            env={**os.environ, "HOME": str(self.path), **(env or {})},
+        ).stdout
+
+    def branch_changes(
+        self, commit: str, credentials: dict[str, Any]
+    ) -> tuple[str, ...] | None:
+        """Paths commit changes since its merge base with main, or None."""
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            return None
+        if not self.lock.acquire(timeout=self.timeout):
+            return None
+        try:
+            if not (self.path / "HEAD").exists():
+                self.path.mkdir(parents=True, exist_ok=True)
+                subprocess.run(
+                    ["git", "init", "--quiet", "--bare", str(self.path)],
+                    check=True,
+                    capture_output=True,
+                    timeout=self.timeout,
+                )
+            auth = base64.b64encode(
+                f"{credentials.get('login', '')}:{credentials.get('password', '')}".encode()
+            ).decode()
+            self.git(
+                "fetch",
+                "--quiet",
+                "--no-tags",
+                "--filter=blob:none",
+                self.remote,
+                "+refs/heads/main:refs/heads/main",
+                commit,
+                env={
+                    "GIT_TERMINAL_PROMPT": "0",
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": "http.extraHeader",
+                    "GIT_CONFIG_VALUE_0": f"Authorization: Basic {auth}",
+                },
+            )
+            base = self.git("merge-base", "refs/heads/main", commit).decode().strip()
+            changes = self.git(
+                "diff", "--name-only", "--no-renames", "-z", base, commit
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        finally:
+            self.lock.release()
+        return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
+
+
 def configuration(
     request: dict[str, Any],
     operations: dict[str, Any],
@@ -326,6 +405,7 @@ def configuration(
     changed_files: tuple[str, ...] | None = None,
     schedule_overlap: bool = False,
     main_validation: str = "none",
+    branch_files: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -473,6 +553,13 @@ def configuration(
             validation_env["CI_FULL_VALIDATION"] = "1"
         if event == "pull_request" and merge_base:
             validation_env["CI_MERGE_BASE"] = merge_base
+        if (
+            event == "push"
+            and not main
+            and branch_files is not None
+            and len(branch_files) <= SCOPE_FILES_LIMIT
+        ):
+            validation_env["CI_SCOPE_FILES"] = json.dumps(list(branch_files))
 
         if not reuse_main_validation and not defer_to_main_validation:
             add(
@@ -579,6 +666,7 @@ def resolve_configuration(
     operations: dict[str, Any],
     applications: tuple[Application, ...],
     development_projects: tuple[DevelopmentProject, ...] = (),
+    mirror: SourceMirror | None = None,
 ) -> dict[str, Any]:
     repo = request["repo"]
     if not (
@@ -625,6 +713,16 @@ def resolve_configuration(
         and request["pipeline"].get("ref") == "refs/heads/main"
     ):
         changed_files = push_changed_files(request)
+    branch_files = None
+    if (
+        mirror is not None
+        and request["pipeline"].get("event") == "push"
+        and request["pipeline"].get("ref", "").startswith("refs/heads/")
+        and request["pipeline"].get("ref") != "refs/heads/main"
+    ):
+        branch_files = mirror.branch_changes(
+            request["pipeline"].get("commit", ""), request.get("netrc", {})
+        )
     if request["pipeline"].get("ref") == "refs/heads/main":
         credentials = request["netrc"]
         tip = api(
@@ -664,6 +762,7 @@ def resolve_configuration(
         changed_files=changed_files,
         schedule_overlap=schedule_overlap,
         main_validation=main_validation,
+        branch_files=branch_files,
     )
 
 
@@ -673,6 +772,7 @@ def main() -> None:
     parser.add_argument("--applications", type=Path, required=True)
     parser.add_argument("--projects", type=Path, required=False, default=None)
     parser.add_argument("--public-key", type=Path, required=True)
+    parser.add_argument("--mirror", type=Path, default=None)
     args = parser.parse_args()
     catalog = json.loads(args.catalog.read_text())
     applications = load_catalog(args.applications)
@@ -687,6 +787,7 @@ def main() -> None:
         else ()
     )
     key = args.public_key.read_bytes()
+    mirror = SourceMirror(args.mirror) if args.mirror else None
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -701,7 +802,7 @@ def main() -> None:
                 verify_request(self.headers, body, key, int(time.time()))
                 request = json.loads(body)
                 result = resolve_configuration(
-                    request, catalog, applications, development_projects
+                    request, catalog, applications, development_projects, mirror
                 )
             except Exception:
                 # Never include a request body, netrc, or API exception in responses or logs.

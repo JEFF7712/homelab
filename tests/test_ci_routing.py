@@ -237,6 +237,50 @@ class CommitRangeTest(unittest.TestCase):
         )
         self.assertEqual(scope.mode, "full")
 
+    def test_policy_branch_files_scope_a_new_branch_without_a_before_sha(
+        self,
+    ) -> None:
+        scope = determine(
+            self.root,
+            dict(
+                self.env,
+                CI_COMMIT_BEFORE_SHA="0" * 40,
+                CI_SCOPE_FILES=json.dumps(["gitops/apps/site.yaml"]),
+            ),
+        )
+        self.assertEqual(scope.mode, "scoped")
+        self.assertEqual(scope.checks, ("gitops",))
+
+    def test_policy_branch_files_take_precedence_over_pipeline_files(self) -> None:
+        scope = determine(
+            self.root,
+            dict(
+                self.env,
+                CI_PIPELINE_FILES=json.dumps(["README.md", "justfile"]),
+                CI_SCOPE_FILES=json.dumps(["README.md"]),
+            ),
+        )
+        self.assertEqual(scope.mode, "documentation")
+
+    def test_policy_branch_files_still_force_full_for_infrastructure(self) -> None:
+        scope = determine(
+            self.root,
+            dict(self.env, CI_SCOPE_FILES=json.dumps(["scripts/ci/scope.py"])),
+        )
+        self.assertEqual(scope.mode, "full")
+
+    def test_policy_branch_files_ignored_off_push_or_on_mismatched_checkout(
+        self,
+    ) -> None:
+        files = json.dumps(["README.md"])
+        for env in (
+            dict(self.env, CI_SCOPE_FILES=files, CI_PIPELINE_SOURCE="cron"),
+            dict(self.env, CI_SCOPE_FILES=files, CI_COMMIT_SHA=self.base),
+            dict(self.env, CI_SCOPE_FILES="{invalid", CI_COMMIT_BEFORE_SHA="0" * 40),
+        ):
+            with self.subTest(env=env):
+                self.assertEqual(determine(self.root, env).mode, "full")
+
     def test_woodpecker_pipeline_files_invalid_json_falls_back_to_git(self) -> None:
         scope = determine(
             self.root,

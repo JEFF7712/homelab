@@ -162,6 +162,26 @@ def classify(paths: Sequence[str]) -> Scope:
     )
 
 
+def _file_list(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    try:
+        files = json.loads(value)
+    except ValueError:
+        return None
+    if isinstance(files, list) and all(isinstance(f, str) for f in files):
+        return files
+    return None
+
+
+def _checked_out(root: Path, head: str) -> bool:
+    try:
+        actual = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root)
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return actual.decode().strip() == head
+
+
 def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
     env = os.environ if env is None else env
     source = (
@@ -180,27 +200,28 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
     else:
         base = env.get("CI_COMMIT_BEFORE_SHA") or env.get("CI_PREV_COMMIT_SHA", "")
     head = env.get("CI_COMMIT_SHA", "")
+    # The CI policy diffs a branch push against its merge base with main,
+    # which the shallow validation clone cannot do and which stays correct
+    # for a new branch and for a branch updated from main.
+    branch_files = _file_list(env.get("CI_SCOPE_FILES"))
+    if (
+        source == "push"
+        and branch_files is not None
+        and re.fullmatch(r"[0-9a-f]{40}", head)
+        and _checked_out(root, head)
+    ):
+        return classify(branch_files)
     if any(
         not re.fullmatch(r"[0-9a-f]{40}", ref) or set(ref) == {"0"}
         for ref in (base, head)
     ):
         return Scope("full", "missing or invalid commit range")
     try:
-        actual = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root)
-            .decode()
-            .strip()
-        )
-        if actual != head:
+        if not _checked_out(root, head):
             return Scope("full", "checkout does not match pipeline commit")
-        pipeline_files = env.get("CI_PIPELINE_FILES")
-        if pipeline_files:
-            try:
-                files = json.loads(pipeline_files)
-                if isinstance(files, list) and all(isinstance(f, str) for f in files):
-                    return classify(files)
-            except (json.JSONDecodeError, ValueError):
-                pass
+        pipeline_files = _file_list(env.get("CI_PIPELINE_FILES"))
+        if pipeline_files is not None:
+            return classify(pipeline_files)
         subprocess.run(
             ["git", "merge-base", "--is-ancestor", base, head],
             cwd=root,
