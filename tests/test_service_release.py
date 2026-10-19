@@ -152,6 +152,14 @@ class MatrixReleaseTests(unittest.TestCase):
         self.assertEqual(
             receipt["digest"], "sha256:" + hashlib.sha256(manifest).hexdigest()
         )
+        with patch(
+            "scripts.ci.service_release.registry_get",
+            side_effect=[manifest, raw_config, manifest],
+        ):
+            # The containerd image store reports the manifest digest as Id.
+            verify_publication(
+                MATRIX, "synthetic", "ci-1-" + sha[:12], receipt["digest"], sha
+            )
         with patch("scripts.ci.service_release.registry_get", return_value=manifest):
             with self.assertRaisesRegex(ValueError, "tested local image"):
                 verify_publication(

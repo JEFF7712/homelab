@@ -167,8 +167,12 @@ def verify_publication(
     raw = registry_get(token, f"{repository}/manifests/{tag}")
     digest = "sha256:" + hashlib.sha256(raw).hexdigest()
     manifest = json.loads(raw)
+    if "config" not in manifest:
+        raise ValueError("Published reference is an index, not a single image")
     config_digest = manifest["config"]["digest"]
-    if config_digest != image_id:
+    # Docker's classic store identifies an image by its config digest; the
+    # containerd image store (homelab-04) by its manifest digest.
+    if image_id not in {config_digest, digest}:
         raise ValueError("Published image differs from the tested local image")
     config_raw = registry_get(token, f"{repository}/blobs/{config_digest}")
     if "sha256:" + hashlib.sha256(config_raw).hexdigest() != config_digest:
@@ -539,8 +543,14 @@ def coordinate(name: str) -> None:
         text=True,
     )
     if result.returncode:
+        # The worker never prints credentials; its stderr carries the
+        # failing check or traceback, which otherwise only lives on the
+        # builder when the failure happens before a release log exists.
+        detail = "\n".join(result.stderr.strip().splitlines()[-15:])
         raise RuntimeError(
-            f"{release.name} builder failed; inspect /persist/service-release-ci/{release.name}-*/release.log on homelab-04"
+            f"{release.name} builder failed; inspect "
+            f"/persist/service-release-ci/{release.name}-*/release.log on homelab-04\n"
+            + detail
         )
     receipt = json.loads(result.stdout.splitlines()[-1])
     if receipt["source_revision"] != sha or receipt["pipeline"] != request["number"]:
@@ -552,9 +562,13 @@ def coordinate(name: str) -> None:
     (output / "promotion.patch").write_text(patch)
     print(f"{release.name} image publication verified: " + receipt["image"])
     # The patch holds only public digests and tags. `just ship` reads it from
-    # this log and ships it as the Flux promotion PR.
-    print("----- BEGIN PROMOTION PATCH -----")
-    print(patch, end="")
+    # this log and ships it as the Flux promotion PR. It is base64 encoded
+    # because Woodpecker masks every line of multi-line secrets, and lines of
+    # pretty-printed JSON secrets ("{", "},") also occur in a lock patch.
+    print("----- BEGIN PROMOTION PATCH (base64) -----")
+    encoded = base64.b64encode(patch.encode()).decode()
+    for start in range(0, len(encoded), 76):
+        print(encoded[start : start + 76])
     print("----- END PROMOTION PATCH -----")
 
 

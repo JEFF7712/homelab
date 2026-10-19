@@ -188,7 +188,7 @@ def run(name: str, catalog: dict[str, Any]) -> None:
             [
                 "nix",
                 "develop",
-                "./flake",
+                "./flake#ops",
                 "-c",
                 "bash",
                 "-euo",

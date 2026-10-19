@@ -220,13 +220,14 @@ def schedule_state(
     pipelines: list[dict[str, Any]],
     details: Any,
     now: int,
-) -> tuple[bool, bool]:
-    """(overlap, validated) for a cron request on the current main commit.
+) -> tuple[bool, str]:
+    """(overlap, main validation) for a cron request on the current main commit.
 
     Overlap: another run of the same schedule (Woodpecker records the cron
-    name as the sender) is still pending or running. Validated: a push,
-    manual, or cron pipeline already passed validation-v2 for this commit
-    within 24 hours.
+    name as the sender) is still pending or running. Main validation is
+    "validated" when a push, manual, or cron pipeline already passed
+    validation-v2 for this commit within 24 hours, "validating" when one is
+    still running it, and "none" otherwise.
     """
     pipeline = request["pipeline"]
     name, commit = pipeline.get("cron"), pipeline.get("commit")
@@ -237,7 +238,7 @@ def schedule_state(
         and item.get("number") != pipeline.get("number")
         for item in pipelines
     )
-    validated = False
+    state = "none"
     for item in pipelines:
         if (
             item.get("commit") != commit
@@ -248,13 +249,15 @@ def schedule_state(
         ):
             continue
         workflows = details(item["number"]).get("workflows") or []
-        if any(
-            w.get("name") == VALIDATION and w.get("state") == "success"
-            for w in workflows
-        ):
-            validated = True
-            break
-    return overlap, validated
+        states = {w.get("state") for w in workflows if w.get("name") == VALIDATION}
+        if "success" in states:
+            return overlap, "validated"
+        if states & {"pending", "running"} and item.get("status") in {
+            "pending",
+            "running",
+        }:
+            state = "validating"
+    return overlap, state
 
 
 def defers_to_branch_push(pipeline: dict[str, Any], pull: dict[str, Any]) -> bool:
@@ -322,7 +325,7 @@ def configuration(
     merge_base: str = "",
     changed_files: tuple[str, ...] | None = None,
     schedule_overlap: bool = False,
-    validated_main: bool = False,
+    main_validation: str = "none",
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -407,7 +410,7 @@ def configuration(
                     "image": IMAGE,
                     "environment": environment,
                     "commands": [
-                        f"nix develop ./flake -c python -m scripts.ci.operation {target}"
+                        f"nix develop ./flake#ops -c python -m scripts.ci.operation {target}"
                     ],
                 }
             ],
@@ -456,7 +459,11 @@ def configuration(
                 },
             )
             return {"configs": configs}
-        reuse_main_validation = event == "cron" and validated_main
+        reuse_main_validation = event == "cron" and main_validation == "validated"
+        # Main's own validation of this commit is still running: a second
+        # full validation would only compete with it for sandbox slots and
+        # memory, so gated scheduled work waits for the next run.
+        defer_to_main_validation = event == "cron" and main_validation == "validating"
         validation_env = {
             "NIX_CONFIG": NIX_CONFIG,
             "CI_LINT_EXTERNAL": "1",
@@ -467,7 +474,7 @@ def configuration(
         if event == "pull_request" and merge_base:
             validation_env["CI_MERGE_BASE"] = merge_base
 
-        if not reuse_main_validation:
+        if not reuse_main_validation and not defer_to_main_validation:
             add(
                 VALIDATION,
                 {
@@ -509,6 +516,26 @@ def configuration(
                 # Main validation of this exact commit already passed, so a
                 # schedule reuses it instead of revalidating every run.
                 gate = [] if reuse_main_validation else [VALIDATION]
+                if defer_to_main_validation:
+                    if not configs:
+                        add(
+                            "awaiting-main-validation",
+                            {
+                                "when": [{"event": "cron"}],
+                                "labels": {"tier": "sandbox", "type": "docker"},
+                                "steps": [
+                                    {
+                                        "name": "awaiting-main-validation",
+                                        "image": IMAGE,
+                                        "commands": [
+                                            "echo 'Main validation of this commit is"
+                                            " still running; the next run proceeds'"
+                                        ],
+                                    }
+                                ],
+                            },
+                        )
+                    return {"configs": configs}
                 for target in schedule:
                     if target != "webhook-watchdog":
                         operation_workflow(target, "${CI_PIPELINE_NUMBER}", gate)
@@ -580,11 +607,12 @@ def resolve_configuration(
     reusable = None
     merge_base = ""
     changed_files = None
-    schedule_overlap = validated_main = False
+    schedule_overlap = False
+    main_validation = "none"
     if request["pipeline"].get("event") == "cron":
         token = os.environ["POLICY_API_TOKEN"]
         recent = api("http://127.0.0.1:8000/api/repos/1/pipelines?perPage=50", token)
-        schedule_overlap, validated_main = schedule_state(
+        schedule_overlap, main_validation = schedule_state(
             request,
             recent,
             lambda number: api(
@@ -635,7 +663,7 @@ def resolve_configuration(
         merge_base=merge_base,
         changed_files=changed_files,
         schedule_overlap=schedule_overlap,
-        validated_main=validated_main,
+        main_validation=main_validation,
     )
 
 

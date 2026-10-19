@@ -80,7 +80,7 @@ class NasStorageTest(unittest.TestCase):
     def test_storage_consumers_require_their_mounts(self) -> None:
         services = self.configuration["services"]
         self.assertIn(
-            "/tank/attic", services["atticd"]["unitConfig"]["RequiresMountsFor"]
+            "/srv/attic", services["atticd"]["unitConfig"]["RequiresMountsFor"]
         )
         self.assertIn(
             "/tank/registry", services["zot"]["unitConfig"]["RequiresMountsFor"]

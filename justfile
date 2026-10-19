@@ -69,6 +69,7 @@ cache-populate:
       ./flake#checks.x86_64-linux.zot-registry \
       ./flake#devShells.x86_64-linux.default \
       ./flake#devShells.x86_64-linux.ci \
+      ./flake#devShells.x86_64-linux.ops \
       | attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
 
 deploy-fleet *args:

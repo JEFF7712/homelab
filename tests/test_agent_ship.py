@@ -57,7 +57,7 @@ class ShipPlanTest(unittest.TestCase):
         changed = ["flake/hosts/homelab-04/default.nix", "tofu/opnsense/rules.tf"]
         plan = plan_operations(changed, self.routes, "auto", self.catalog)
         self.assertEqual(plan.run, [])
-        self.assertEqual(set(plan.held), {"fleet", "opnsense"})
+        self.assertEqual(set(plan.held), {"fleet", "ci-host", "opnsense"})
         explicit = plan_operations(changed, self.routes, "opnsense-apply", self.catalog)
         self.assertEqual(explicit.run, ["opnsense-plan", "opnsense-apply"])
         self.assertEqual(
@@ -92,6 +92,43 @@ class ShipNetworkTest(unittest.TestCase):
             self.assertRaisesRegex(ShipError, "unreachable"),
         ):
             ship.http("GET", "http://x", {})
+
+
+class ShipPlanRetryTest(unittest.TestCase):
+    def test_superseded_operations_resume_on_the_new_main(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.summary = {"operations": [], "promotions": []}
+        shipper.say = lambda message: None
+        parents = iter([("a" * 40, 10), ("b" * 40, 11)])
+        shipper.main_pipeline = lambda merged: next(parents)
+        calls = []
+
+        def run_operation(parent, operation):
+            calls.append((parent, operation))
+            if (parent, operation) == (10, "deploy"):
+                raise ShipError("deploy failed\n" + ship.SUPERSEDED)
+            return {"pipeline": len(calls), "log": ""}
+
+        shipper.run_operation = run_operation
+        catalog = {"dry-run": {}, "deploy": {"prerequisite": "dry-run"}}
+        shipper.run_plan(["dry-run", "deploy"], "c" * 40, catalog)
+        self.assertEqual(
+            calls, [(10, "dry-run"), (10, "deploy"), (11, "dry-run"), (11, "deploy")]
+        )
+        self.assertEqual(shipper.summary["validation_pipeline"], 11)
+
+    def test_other_operation_failures_are_not_retried(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.summary = {"operations": [], "promotions": []}
+        shipper.say = lambda message: None
+        shipper.main_pipeline = lambda merged: ("a" * 40, 10)
+
+        def run_operation(parent, operation):
+            raise ShipError("deploy failed: HTTP 401")
+
+        shipper.run_operation = run_operation
+        with self.assertRaisesRegex(ShipError, "401"):
+            shipper.run_plan(["deploy"], "c" * 40, {"deploy": {}})
 
 
 class ShipRolloutTest(unittest.TestCase):
@@ -167,9 +204,16 @@ class ShipRolloutTest(unittest.TestCase):
         self.assertEqual(required_status([]), "missing")
 
     def test_promotion_patch_extraction(self) -> None:
-        log = f"noise\n{PATCH_BEGIN}\n--- a/x\n+++ b/x\n{PATCH_END}\nmore"
+        log = f"noise\n{PATCH_BEGIN} -----\n--- a/x\n+++ b/x\n{PATCH_END}\nmore"
         self.assertEqual(extract_patch(log), "--- a/x\n+++ b/x\n")
         self.assertIsNone(extract_patch("no patch here"))
+        import base64
+
+        patch = "--- a/x\n+++ b/x\n-  },\n+  {\n"
+        encoded = base64.b64encode(patch.encode()).decode()
+        chunks = "\n".join(encoded[i : i + 8] for i in range(0, len(encoded), 8))
+        log = f"noise\n{PATCH_BEGIN} (base64) -----\n{chunks}\n{PATCH_END}\n"
+        self.assertEqual(extract_patch(log), patch)
 
 
 if __name__ == "__main__":

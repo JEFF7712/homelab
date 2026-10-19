@@ -33,9 +33,10 @@ REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
 AGENT_REMOTE = "git-agent:JEFF7712/homelab.git"
-PATCH_BEGIN = "----- BEGIN PROMOTION PATCH -----"
+PATCH_BEGIN = "----- BEGIN PROMOTION PATCH"
 PATCH_END = "----- END PROMOTION PATCH -----"
 POLL_SECONDS = 15
+SUPERSEDED = "Operation source must be the current main commit"
 NETWORK_RETRIES = 20
 
 
@@ -150,7 +151,11 @@ def required_status(statuses: list[dict[str, Any]]) -> str:
 def extract_patch(log: str) -> str | None:
     if PATCH_BEGIN not in log:
         return None
-    body = log.split(PATCH_BEGIN, 1)[1].split(PATCH_END, 1)[0]
+    header, _, rest = log.split(PATCH_BEGIN, 1)[1].partition("\n")
+    body = rest.split(PATCH_END, 1)[0]
+    if "(base64)" in header:
+        encoded = "".join(line.strip() for line in body.splitlines())
+        return base64.b64decode(encoded, validate=True).decode()
     return body.strip("\n") + "\n"
 
 
@@ -464,6 +469,43 @@ class Shipper:
                 )
             time.sleep(POLL_SECONDS)
 
+    def run_plan(
+        self, operations: list[str], merged: str, catalog: dict[str, Any]
+    ) -> None:
+        """Run operations against the newest main pipeline containing merged.
+
+        Main moves often here, and an operation started against a pipeline
+        that main has already left is rejected by its current-main guard.
+        That case re-resolves the main pipeline and resumes from the failed
+        operation, or from its prerequisite when the prerequisite's receipt
+        is bound to the old parent.
+        """
+        main_sha, parent = self.main_pipeline(merged)
+        index = 0
+        retries = 0
+        while index < len(operations):
+            operation = operations[index]
+            try:
+                result = self.run_operation(parent, operation)
+            except ShipError as error:
+                if SUPERSEDED not in str(error) or retries >= 3:
+                    raise
+                retries += 1
+                prerequisite = catalog[operation].get("prerequisite")
+                if prerequisite in operations[:index]:
+                    index = operations.index(prerequisite)
+                self.say(f"main moved during {operation}; retrying on the new main")
+                main_sha, parent = self.main_pipeline(merged)
+                continue
+            self.summary.update(main=main_sha, validation_pipeline=parent)
+            self.summary["operations"].append(
+                {"operation": operation, "pipeline": result["pipeline"]}
+            )
+            patch = extract_patch(result["log"])
+            if patch:
+                self.promote(patch, operation.removesuffix("-publish"))
+            index += 1
+
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         created = self.woodpecker.deploy(parent, operation)
         number = int(created["number"])
@@ -479,12 +521,19 @@ class Shipper:
                 self.say(f"{operation}: {state}")
                 last = state
             if state == "success":
-                logs = "\n".join(
-                    self.woodpecker.step_log(number, step["id"])
-                    for workflow in pipeline.get("workflows") or []
-                    for step in workflow.get("children") or []
-                    if step.get("name") == operation
-                )
+                # Woodpecker can report success before the step log is fully
+                # stored, so an empty or unterminated log is fetched again.
+                logs = ""
+                for _ in range(8):
+                    logs = "\n".join(
+                        self.woodpecker.step_log(number, step["id"])
+                        for workflow in pipeline.get("workflows") or []
+                        for step in workflow.get("children") or []
+                        if step.get("name") == operation
+                    )
+                    if logs and (PATCH_BEGIN not in logs or PATCH_END in logs):
+                        break
+                    time.sleep(POLL_SECONDS)
                 return {"operation": operation, "pipeline": number, "log": logs}
             if state in {"failure", "error", "killed", "declined"}:
                 raise ShipError(
@@ -607,16 +656,7 @@ class Shipper:
         merged = self.merge(pull)
         self.summary["merged"] = merged
         if plan.run:
-            main_sha, parent = self.main_pipeline(merged)
-            self.summary.update(main=main_sha, validation_pipeline=parent)
-            for operation in plan.run:
-                result = self.run_operation(parent, operation)
-                self.summary["operations"].append(
-                    {"operation": operation, "pipeline": result["pipeline"]}
-                )
-                patch = extract_patch(result["log"])
-                if patch:
-                    self.promote(patch, operation.removesuffix("-publish"))
+            self.run_plan(plan.run, merged, catalog)
         gitops = [p for p in changed if p.startswith("gitops/")]
         if gitops or any(p.startswith("registry/") for p in changed):
             self.wait_flux(merged, gitops)

@@ -33,7 +33,7 @@ just ship --json                   # machine-readable summary on stdout
    cancelled.
 8. Runs the deployment operations routed from the changed paths, each with its
    catalog prerequisite, against that main pipeline.
-9. When an operation prints a promotion patch (between the
+9. When an operation prints a promotion patch (base64 encoded between the
    `BEGIN/END PROMOTION PATCH` markers), ships it as its own PR on a temporary
    worktree, recursively, with the same deadline.
 10. When `gitops/` or `registry/` changed, requests a Flux source reconcile and
@@ -63,9 +63,18 @@ change. Add a route when a new service gains a protected publish operation;
 | cloudflare | `tofu/cloudflare/` | `cloudflare-plan`, `cloudflare-apply` | no |
 | agent-workspace-host | workspace modules and manifest | dry run, then apply | no |
 | fleet | `flake/hosts/`, `flake/modules/`, flake inputs | `deploy-fleet-dry-run`, `deploy-fleet` | no |
+| ci-host | CI policy, catalogs, `woodpecker.nix`, `flake/hosts/homelab-04/` | `deploy-ci-host-dry-run`, `deploy-ci-host` | no |
 
 GitOps-only changes need no operation: merging deploys them, and `ship`
 verifies the Flux result.
+
+The Woodpecker policy service on homelab-04 runs the policy and operation
+catalog from its deployed NixOS generation, not from main. A merged change
+to either, including a new operation or a new secret on an existing one,
+takes effect only after the `ci-host` route deploys homelab-04. When the
+change adds the `deploy-ci-host` operations themselves, or alters the
+Woodpecker agents (a deploy restarts the agent running the operation),
+deploy locally with `just deploy-fleet --target homelab-04` instead.
 
 ## Credentials
 

@@ -57,20 +57,20 @@
       "producer": {
         "location": "services/bus-display/Dockerfile",
         "owner": "JEFF7712/homelab",
-        "pipeline_status": "verified-local-build"
+        "pipeline_status": "verified-ci-build-published"
       },
-      "retention_class": "deployed",
+      "retention_class": "candidate",
       "source": {
-        "digest": "sha256:6da28826b8304ada63e75d866a233f6aff901cbce21c6c1ab58055865f55948d",
-        "reference": "registry.rupan.dev/apps/bus-display:0.0.5@sha256:6da28826b8304ada63e75d866a233f6aff901cbce21c6c1ab58055865f55948d",
+        "digest": "sha256:6106c04d1cb634a0ea0c4383c51ce260cafd28236155cf2b73b19f323dc0a961",
+        "reference": "registry.rupan.dev/apps/bus-display:ci-2793-21e2fba8fa3f@sha256:6106c04d1cb634a0ea0c4383c51ce260cafd28236155cf2b73b19f323dc0a961",
         "registry": "registry.rupan.dev",
         "repository": "apps/bus-display",
-        "tag": "0.0.5"
+        "tag": "ci-2793-21e2fba8fa3f"
       },
-      "digest": "sha256:6da28826b8304ada63e75d866a233f6aff901cbce21c6c1ab58055865f55948d",
+      "digest": "sha256:6106c04d1cb634a0ea0c4383c51ce260cafd28236155cf2b73b19f323dc0a961",
       "destination_tags": [
-        "0.0.5",
-        "retention-deployed-6da28826b8304ada"
+        "ci-2793-21e2fba8fa3f",
+        "retention-candidate-6106c04d1cb634a0"
       ]
     },
     {
@@ -2416,24 +2416,23 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "arcade-complete-20261018",
-        "retention-candidate-85596b5a83d60ab7"
+        "ci-2831-1644196a6159",
+        "retention-candidate-f224830e2a7b3353"
       ],
-      "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
+      "digest": "sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
         "location": "services/led-matrix/Dockerfile",
-        "pipeline_status": "verified-local-build-published"
+        "pipeline_status": "verified-ci-build-published"
       },
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "arcade-complete-20261018",
-        "digest": "sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:arcade-complete-20261018@sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91"
+        "tag": "ci-2831-1644196a6159",
+        "digest": "sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-2831-1644196a6159@sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74"
       }
-
     }
   ],
   "kind": "registry-inventory",

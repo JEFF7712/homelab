@@ -27,11 +27,14 @@ def _change_key(path: str, data: bytes) -> bytes:
     return data
 
 
-def _api(token: str, path: str, *, data: dict | None = None) -> dict:
+def _api(
+    token: str, path: str, *, data: dict | None = None, method: str | None = None
+) -> dict:
     payload = None if data is None else json.dumps(data).encode()
     request = urllib.request.Request(
         FORGEJO_API + path,
         data=payload,
+        method=method,
         headers={
             "Authorization": f"token {token}",
             "Content-Type": "application/json",
@@ -40,6 +43,27 @@ def _api(token: str, path: str, *, data: dict | None = None) -> dict:
     with urllib.request.urlopen(request, timeout=30) as response:
         body = response.read()
         return json.loads(body) if body else {}
+
+
+LEGACY_BRANCH = re.compile(r"registry-promotion/[0-9a-f]{12}-[0-9a-f]{12}")
+
+
+def superseded_pulls(pulls: list[dict], label: str, branch: str) -> list[dict]:
+    """Open promotion PRs this run replaces: same scope, other content.
+
+    Legacy branches keyed by main commit predate scopes; whichever scope runs
+    first retires them, and the other scope regenerates its own if needed.
+    """
+    prefix = f"registry-promotion/{label}-"
+    return [
+        pull
+        for pull in pulls
+        if pull["head"]["ref"] != branch
+        and (
+            pull["head"]["ref"].startswith(prefix)
+            or LEGACY_BRANCH.fullmatch(pull["head"]["ref"])
+        )
+    ]
 
 
 def _assert_nix_agent_only(changed: list[str]) -> None:
@@ -218,7 +242,10 @@ def main() -> None:
         path.encode() + b"\0" + _change_key(path, Path(path).read_bytes())
         for path in sorted(changed)
     )
-    branch = f"registry-promotion/{os.environ['CI_COMMIT_SHA'][:12]}-{hashlib.sha256(content).hexdigest()[:12]}"
+    # Keyed by scope and content, not by main commit: a rerun on a newer main
+    # with the same promotion finds its open PR instead of opening another.
+    label = scope or "review"
+    branch = f"registry-promotion/{label}-{hashlib.sha256(content).hexdigest()[:12]}"
     recovery = os.environ.get("CI_OPERATION_AUTHORITY") == "gitlab"
     token_name = "GITLAB_PUBLISH_TOKEN" if recovery else "FORGEJO_PUBLISH_TOKEN"
     token = os.environ[token_name]
@@ -245,6 +272,15 @@ def main() -> None:
         ),
         None,
     )
+    if not recovery:
+        for pull in superseded_pulls(pulls, label, branch):
+            _api(
+                token,
+                f"/pulls/{pull['number']}",
+                data={"state": "closed"},
+                method="PATCH",
+            )
+            print(f"Closed superseded promotion PR #{pull['number']}")
     if existing:
         print(
             f"Promotion is already awaiting review: {existing['web_url' if recovery else 'html_url']}"
