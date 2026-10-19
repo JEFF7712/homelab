@@ -2079,6 +2079,9 @@
       },
       "REGISTRY_BUS_DISPLAY_PUBLISHER_AUTH_FILE": {
         "from_secret": "registry_bus_display_publisher_auth_file"
+      },
+      "FORGEJO_PACKAGE_TOKEN": {
+        "from_secret": "supply_read_password"
       }
     },
     "file_secrets": [

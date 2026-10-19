@@ -479,7 +479,15 @@ def source_archive(release: Release, sha: str) -> bytes:
     archive = subprocess.check_output(["git", "archive", sha, release.service])
     if release.wheel_fetch is None:
         return archive
-    subprocess.run(["bash", release.wheel_fetch], check=True)
+    # The wheelhouse lives in Forgejo generic packages, which only the
+    # package-read identity can fetch; the source-read token gets 401.
+    subprocess.run(
+        ["bash", release.wheel_fetch],
+        check=True,
+        env=dict(
+            os.environ, FORGEJO_SOURCE_READ_TOKEN=os.environ["FORGEJO_PACKAGE_TOKEN"]
+        ),
+    )
     wheelhouse = Path(release.service) / "wheelhouse"
     buffer = io.BytesIO()
     with (

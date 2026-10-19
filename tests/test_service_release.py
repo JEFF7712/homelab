@@ -256,6 +256,11 @@ class MatrixReleaseTests(unittest.TestCase):
                     f"python -m scripts.ci.service_release coordinate {release.name}",
                     operation["commands"],
                 )
+                if release.wheel_fetch is not None:
+                    self.assertEqual(
+                        operation["environment"]["FORGEJO_PACKAGE_TOKEN"],
+                        {"from_secret": "supply_read_password"},
+                    )
                 self.assertEqual(
                     records[release.record]["destination_repository"],
                     release.repository,
