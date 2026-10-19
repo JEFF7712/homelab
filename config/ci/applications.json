@@ -2005,6 +2005,96 @@
       "node_outputs": [],
       "node_runtime": "",
       "node_seeds": []
+    },
+    {
+      "id": "uwagent",
+      "repository": "JEFF7712/uwagent",
+      "woodpecker_repository_id": 36,
+      "default_branch": "main",
+      "validator": "node-service-v1",
+      "validation_image": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc",
+      "release_base_image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
+      "artifact_repository": "apps/uwagent",
+      "deployment_path": "gitops/websites/uwagent",
+      "state": "stateful",
+      "release_kind": "node",
+      "release_files": [],
+      "release_supply": [
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node.tar.gz",
+          "sha256": "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff",
+          "kind": "file",
+          "dest": "/inputs/node.tar.gz"
+        },
+        {
+          "package": "uwagent-supply",
+          "version": "1",
+          "filename": "npm-cache.tar.gz",
+          "sha256": "sha256:a5b329327f0cd9aea95c1f9b9c1e6ef60d8f74bd80153888a0d30cd75394a01d",
+          "kind": "file",
+          "dest": "/inputs/npm-cache.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-musl.tar.gz",
+          "sha256": "sha256:3d63405fc65a0d2d2976c1f0bc2fd27bb0bd07212469e705aac3f03ae5ab4c9c",
+          "kind": "file",
+          "dest": "/inputs/node-musl.tar.gz"
+        },
+        {
+          "package": "node-toolchain",
+          "version": "1",
+          "filename": "node-libs.tar.gz",
+          "sha256": "sha256:dd42455a10b33193c827cf8c76f6b117af8bf2f7d34b36c098a48d0a98521fa1",
+          "kind": "file",
+          "dest": "/inputs/node-libs.tar.gz"
+        }
+      ],
+      "release_scripts": [],
+      "release_python": "",
+      "release_uid": 1001,
+      "release_gid": 1001,
+      "release_user": "1001:1001",
+      "release_entrypoint": [
+        "node",
+        "dist/hosted/server.js"
+      ],
+      "release_env": {
+        "NODE_ENV": "production",
+        "PORT": "8080",
+        "UWAGENT_DATA_DIR": "/data"
+      },
+      "release_workdir": "/app",
+      "node_manager": "npm",
+      "node_dir": "",
+      "node_build": [
+        "npm",
+        "run",
+        "build:release"
+      ],
+      "node_outputs": [
+        [
+          "dist",
+          "/app/dist"
+        ],
+        [
+          "data",
+          "/app/data"
+        ],
+        [
+          "node_modules",
+          "/app/node_modules"
+        ],
+        [
+          "package.json",
+          "/app/package.json"
+        ]
+      ],
+      "node_runtime": "node",
+      "node_seeds": []
     }
   ]
 }

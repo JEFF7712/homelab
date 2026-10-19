@@ -739,6 +739,22 @@
         "tier": "none"
       },
       "woodpecker_repository_id": null
+    },
+    {
+      "name": "uwagent",
+      "github_repo": "",
+      "forgejo_repo": "JEFF7712/uwagent",
+      "visibility": "private",
+      "state": "already-primary",
+      "is_fork": false,
+      "is_archived": false,
+      "default_branch": "main",
+      "local_path": "/home/rupan/projects/uwagent",
+      "ci": {
+        "kind": "node-service-v1",
+        "tier": "deploy"
+      },
+      "woodpecker_repository_id": 36
     }
   ]
 }
