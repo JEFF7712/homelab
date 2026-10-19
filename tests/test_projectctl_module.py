@@ -53,6 +53,8 @@ class ProjectctlModuleTest(unittest.TestCase):
             keys = cfg.users.users.projectctl-worker.openssh.authorizedKeys.keys;
             service = cfg.systemd.services."projectctl-dispatch@".serviceConfig;
             verification = cfg.systemd.services.projectctl-verify-credentials.serviceConfig;
+            reconciliation = cfg.systemd.services.projectctl-reconcile.serviceConfig;
+            timer = cfg.systemd.timers.projectctl-reconcile.timerConfig;
             mounts = cfg.systemd.services."projectctl-dispatch@".unitConfig.RequiresMountsFor;
             tmpfiles = cfg.systemd.tmpfiles.rules;
           }
@@ -82,6 +84,11 @@ class ProjectctlModuleTest(unittest.TestCase):
                     "project_key": "autocompress",
                     "repository": "JEFF7712/autocompress",
                     "visibility": "private",
+                    "routine": {
+                        "repository_id": 24,
+                        "default_branch": "main",
+                        "ci_contract": "python-uv-v1",
+                    },
                 }
             ],
         )
@@ -106,7 +113,7 @@ class ProjectctlModuleTest(unittest.TestCase):
             )
         )
 
-    def test_worker_has_no_automatic_dispatch_or_broad_capabilities(self) -> None:
+    def test_automatic_worker_retains_dispatch_isolation(self) -> None:
         service = self.evaluated["service"]
         self.assertEqual(service["User"], "projectctl-worker")
         self.assertTrue(service["NoNewPrivileges"])
@@ -114,6 +121,12 @@ class ProjectctlModuleTest(unittest.TestCase):
         self.assertTrue(service["ProtectHome"])
         self.assertEqual(service["CapabilityBoundingSet"], "")
         self.assertEqual(len(service["LoadCredential"]), 5)
+        reconciliation = self.evaluated["reconciliation"]
+        self.assertEqual(reconciliation["LoadCredential"], service["LoadCredential"])
+        self.assertEqual(reconciliation["User"], "projectctl-worker")
+        self.assertTrue(reconciliation["NoNewPrivileges"])
+        self.assertEqual(self.evaluated["timer"]["OnUnitInactiveSec"], "30s")
+        self.assertIn("reconcile --config", reconciliation["ExecStart"])
         self.assertEqual(
             self.evaluated["verification"]["LoadCredential"], service["LoadCredential"]
         )

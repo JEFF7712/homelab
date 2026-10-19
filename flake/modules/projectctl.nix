@@ -24,6 +24,19 @@ let
                 ];
                 default = "private";
               };
+              routine = lib.mkOption {
+                default = null;
+                description = "Preapproved onboarding of this existing repository, branch and sandbox CI contract.";
+                type = lib.types.nullOr (
+                  lib.types.submodule {
+                    options = {
+                      repository_id = lib.mkOption { type = lib.types.ints.positive; };
+                      default_branch = lib.mkOption { type = lib.types.str; };
+                      ci_contract = lib.mkOption { type = lib.types.enum [ "python-uv-v1" ]; };
+                    };
+                  }
+                );
+              };
             };
           }
         );
@@ -68,7 +81,7 @@ let
 in
 {
   options.homelab.projectctl = {
-    enable = lib.mkEnableOption "restricted project onboarding gateway and operator-dispatched worker";
+    enable = lib.mkEnableOption "restricted project onboarding gateway and trusted worker";
     principals = lib.mkOption {
       type = lib.types.attrsOf principalType;
       default = { };
@@ -192,6 +205,21 @@ in
       unitConfig.RequiresMountsFor = [ stateDirectory ];
       serviceConfig = config.systemd.services."projectctl-dispatch@".serviceConfig // {
         ExecStart = "${package}/bin/projectctl-operator verify-credentials --config ${settings}";
+      };
+    };
+    systemd.services.projectctl-reconcile = {
+      description = "Reconcile preapproved project onboarding requests";
+      unitConfig.RequiresMountsFor = [ stateDirectory ];
+      serviceConfig = config.systemd.services."projectctl-dispatch@".serviceConfig // {
+        ExecStart = "${package}/bin/projectctl-operator reconcile --config ${settings}";
+      };
+    };
+    systemd.timers.projectctl-reconcile = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "30s";
+        OnUnitInactiveSec = "30s";
+        AccuracySec = "5s";
       };
     };
   };

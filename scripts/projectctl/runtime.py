@@ -42,6 +42,11 @@ class Runtime:
                 policy,
                 datetime.now(timezone.utc),
             )
+            if policy.routine_onboarding:
+                self.authority.check_routine(
+                    {"principal": principal, "plan": document(candidate)},
+                    self.authority.main_revision(),
+                )
             return {
                 "plan": document(candidate),
                 "plan_digest": digest(document(candidate)),
@@ -53,9 +58,19 @@ class Runtime:
             candidate = Plan.parse(payload["plan"])
             if payload["plan_digest"] != digest(document(candidate)):
                 raise ProtocolError(Code.INVALID_SPEC)
+            if self.authority.admit(principal, candidate.project).routine_onboarding:
+                self.authority.check_routine(
+                    {"principal": principal, "plan": document(candidate)},
+                    self.authority.main_revision(),
+                )
             request_id = self.worker.submit(
                 candidate, principal, string(payload["idempotency_key"])
             )
+            self.authority.capture_context(request_id, principal)
+            if self.authority.admit(principal, candidate.project).routine_onboarding:
+                status = self.journal.status(request_id, principal)
+                if status["state"] == "awaiting_authorization":
+                    self.journal.state(request_id, "queued")
             return self.journal.status(request_id, principal)
         if action in {"status", "cancel", "approval-context"}:
             payload = obj(payload, "request_id")
@@ -69,6 +84,50 @@ class Runtime:
             payload = obj(payload, "project_key")
             return self.doctor(principal, string(payload["project_key"]))
         raise ProtocolError(Code.INVALID_SPEC)
+
+    def reconcile(self) -> dict[str, Any]:
+        results = []
+        for request_id, principal in self.journal.pending():
+            status = self.journal.status(request_id, principal)
+            try:
+                project = Project.parse(status["plan"]["project"])
+                if not self.config.policy(principal, project).routine_onboarding:
+                    continue
+                self.authority.capture_context(request_id, principal)
+                result = self.worker.run(request_id, principal)
+                results.append(
+                    {
+                        "request_id": request_id,
+                        "state": result["state"],
+                        "code": result["code"],
+                    }
+                )
+            except ProtocolError as error:
+                if error.code == Code.RESOURCE_CONFLICT:
+                    results.append(
+                        {
+                            "request_id": request_id,
+                            "state": self.journal.status(request_id, principal)[
+                                "state"
+                            ],
+                            "code": error.code.value,
+                        }
+                    )
+                    continue
+                state = (
+                    "waiting"
+                    if error.code == Code.DEPENDENCY_UNAVAILABLE
+                    else "blocked"
+                )
+                self.journal.state(request_id, state, error.code)
+                results.append(
+                    {
+                        "request_id": request_id,
+                        "state": state,
+                        "code": error.code.value,
+                    }
+                )
+        return {"requests": results}
 
     def doctor(self, principal: str, project_key: str) -> dict[str, Any]:
         scopes = [

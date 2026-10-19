@@ -508,13 +508,14 @@ class ProtocolTest(unittest.TestCase):
         request_id, status = self.run_request()
         self.assertEqual(status["state"], "succeeded", status)
         self.assertEqual(
-            self.adapter.writes, ["repository", "clone", "enrollment", "pull", "ci"]
+            self.adapter.writes,
+            ["repository", "clone", "enrollment", "pull", "protection", "ci"],
         )
         self.assertTrue(
             all(item["state"] == "verified" for item in status["operations"])
         )
         attempts = self.journal.attempts(request_id, self.plan.principal)
-        self.assertEqual(len(attempts), 5)
+        self.assertEqual(len(attempts), 6)
         self.assertTrue(
             all(
                 loads(attempt["grant"])["grant_id"] == "grant-1" for attempt in attempts

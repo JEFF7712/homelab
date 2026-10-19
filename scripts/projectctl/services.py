@@ -47,7 +47,7 @@ class ServiceAdapter:
                 "allow_plaintext"
             ],
         )
-        self.protection_api = Api(
+        self.repository_admin_api = Api(
             self.forgejo.base,
             lambda _write: config.authorization("forgejo", True),
             allow_plaintext=config.bindings["endpoints"]["forgejo"]["allow_plaintext"],
@@ -164,7 +164,12 @@ class ServiceAdapter:
             and enrollment.get("private") is private
             and enrollment.get("visibility") == ("private" if private else "public")
             and all(
-                enrollment.get(key) == value
+                (
+                    key == "netrc_trusted"
+                    and key in enrollment
+                    and enrollment[key] is None
+                )
+                or enrollment.get(key) == value
                 for key, value in DEVELOPMENT_SETTINGS.items()
             )
         )
@@ -272,7 +277,7 @@ class ServiceAdapter:
 
     def _protection(self, context: OperationContext) -> dict[str, Any] | None:
         project = context.plan.project
-        rule = self.protection_api.request(
+        rule = self.repository_admin_api.request(
             f"/api/v1/repos/{project.repository}/branch_protections/{segment(project.default_branch)}",
             missing=True,
         )
@@ -364,7 +369,7 @@ class ServiceAdapter:
                 self.journal.allocation(context.request_id, "repository") == repo["id"],
             )
         if operation == "clone":
-            permission = self.forgejo.request(
+            permission = self.repository_admin_api.request(
                 f"/api/v1/repos/{project.repository}/collaborators/{segment(self.config.clone_identity)}/permission",
                 missing=True,
             )
@@ -406,6 +411,11 @@ class ServiceAdapter:
                 and registry.get("username") == self.config.registry_username
             )
             evidence["pull_read_only"] = ready
+            if registry is not None and registry.get("username") not in {
+                "node",
+                self.config.registry_username,
+            }:
+                return Observation("conflict", evidence)
             return Observation("verified" if ready else "absent", evidence)
         if operation == "catalog":
             approval, revision, baseline, catalog = self.authority.baseline(
@@ -446,6 +456,10 @@ class ServiceAdapter:
             return Observation(
                 "verified", evidence, {"policy_digest": context.plan.policy_digest}
             )
+        if operation == "protection":
+            protected = self._protection(context) is not None
+            evidence["branch_protection"] = protected
+            return Observation("verified" if protected else "absent", evidence)
         pipeline = self._pipeline(context, enrollment_id)
         if pipeline is None:
             return Observation("absent" if operation == "ci" else "pending", evidence)
@@ -484,6 +498,9 @@ class ServiceAdapter:
             branch_protection=protection is not None,
             protection_probe=self._probe(context, enrollment_id, protection)
             if protection
+            and not self.config.policy(
+                context.plan.principal, project
+            ).routine_onboarding
             else False,
         )
         return Observation("verified", evidence)
@@ -597,17 +614,22 @@ class ServiceAdapter:
             existing = self.registry_api.request(
                 path + "/" + segment(self.config.registry_address), missing=True
             )
-            if (
-                existing is not None
-                and existing.get("username") != self.config.registry_username
-            ):
+            if existing is not None and existing.get("username") not in {
+                "node",
+                self.config.registry_username,
+            }:
                 raise ProtocolError(Code.RESOURCE_CONFLICT)
-            if existing is None:
+            if (
+                existing is None
+                or existing.get("username") != self.config.registry_username
+            ):
                 self._write(
                     context,
                     "woodpecker",
-                    path,
-                    method="POST",
+                    path
+                    if existing is None
+                    else path + "/" + segment(self.config.registry_address),
+                    method="POST" if existing is None else "PATCH",
                     body={
                         "address": self.config.registry_address,
                         "username": self.config.registry_username,
@@ -630,6 +652,32 @@ class ServiceAdapter:
             )
             self.journal.allocate(
                 context.request_id, operation, context.attempt, number(result["number"])
+            )
+            return
+        if operation == "protection":
+            path = f"/api/v1/repos/{project.repository}/branch_protections"
+            existing = self.repository_admin_api.request(
+                path + "/" + segment(project.default_branch), missing=True
+            )
+            body = {
+                "enable_push": False,
+                "enable_push_whitelist": False,
+                "enable_status_check": True,
+                "apply_to_admins": True,
+                "status_check_contexts": sorted(
+                    set((existing or {}).get("status_check_contexts", [])) | {CONTEXT}
+                ),
+            }
+            if existing is None:
+                body["branch_name"] = project.default_branch
+            self._write(
+                context,
+                "forgejo",
+                path
+                if existing is None
+                else path + "/" + segment(project.default_branch),
+                method="POST" if existing is None else "PATCH",
+                body=body,
             )
             return
         raise ProtocolError(Code.INVALID_SPEC)

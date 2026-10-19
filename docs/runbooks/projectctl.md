@@ -1,18 +1,64 @@
 # projectctl
 
 The CLI onboards an existing Python repository through a restricted SSH gateway
-and an operator-dispatched worker. It provides adopt, plan, request, status,
+and a trusted worker. It provides adopt, plan, request, status,
 approval-context, doctor, and cancel. Every command returns a versioned JSON
 envelope. Request journals intent without executing infrastructure writes.
-Status and doctor are read-only. See the [protocol design](../superpowers/specs/2026-10-15-projectctl-protocol-design.md).
+Status and doctor are read-only. A request in a preapproved routine scope is
+queued for automatic execution. Other scopes require signed operator approval.
+See the [original protocol design](../superpowers/specs/2026-10-15-projectctl-protocol-design.md).
 
 Implementation lives in scripts/projectctl/. The worker uses supported Forgejo
-and Woodpecker APIs, verifies signed protected-main approvals before every write,
+and Woodpecker APIs, rechecks authorization on protected main before every write,
 and emits an enrollment artifact for protected review. It cannot merge that
 artifact, deploy policy, or execute repository code. GitHub mirrors, templates,
 application deployment, secret creation, and automatic deletion are deferred.
 
-## Pilot activation status
+## Routine onboarding
+
+The operator preapproves a caller's exact project in config/projectctl/callers.json
+by setting routine to the existing Forgejo repository ID, default branch and
+CI contract. The deployed worker and protected-main entry must agree. The pilot
+scope is private JEFF7712/autocompress, ID 24, main, python-uv-v1. The account
+and token grants remain confined to that project. This authorization permits
+only fixed clone-reader, CI enrollment/settings, registry-reader, branch-protection
+and CI-trigger
+operations. It cannot create repositories, change visibility or branch, publish,
+delete, deploy, select arbitrary commands, or expand permissions. Changes to
+the scope itself require protected platform review and deployment.
+
+Submit an adopt plan and request normally. The systemd reconciler runs every
+30 seconds with the same isolated identity and LoadCredential credentials as
+manual dispatch. Routine requests need no signing packet, approval PR or manual
+dispatch. The original catalog revision and entry digest are saved once in the
+journal. Retries cannot silently replace that baseline. Removed or changed
+protected scopes stop subsequent writes, and policy changes invalidate old plans.
+The journal upgrades existing version-2 databases without dropping requests.
+
+The worker still emits catalog artifacts for the normal protected review and
+deployment workflow. The agent handles that promotion, then the worker resumes
+automatically. Worker credentials cannot merge platform PRs or deploy hosts.
+Status distinguishes waiting for policy or CI from success; uncertain outcomes
+remain blocked for inspection instead of blindly retrying. Cancellation retains
+resources. Blocked requests require diagnosis and explicit resubmission or dispatch.
+
+Routine readiness checks exact-SHA stamped CI, matching commit status, a real
+push webhook, and configured status checks applying to administrators with direct
+push disabled. The worker creates or strengthens the standard branch rule only
+after CI admission is deployed. It preserves additional status contexts, approval
+requirements and signed-commit restrictions. It does not claim independent proof
+of merge rejection. The signed
+failing-PR probe is a separate platform qualification audit, not a per-project
+onboarding gate. Signed scopes retain their stronger request-bound proof path.
+
+## Pilot activation history
+
+Persistent worker provisioning and identity/SSH acceptance completed on
+2026-10-19 at 05:59 UTC and were refreshed at 14:53 UTC. Those receipts are under
+.agent-state/operations/projectctl-accepted-20261019T145318Z in the primary checkout.
+Later host deployments preserve the worker. The details below describe earlier
+temporary trials and their recovery, not the current activation state. Routine
+authorization requires deployment of the implementation described above.
 
 The selected pilot is JEFF7712/autocompress, private, main, python-uv-v1.
 The [pilot profile](../../flake/profiles/projectctl-pilot.nix) is enabled in the
@@ -122,7 +168,8 @@ GET requests. The trusted worker uses its provisioner credential for those
 fixed lookups. Gateway diagnosis continues using the observer credential;
 provisioner credentials require the worker's systemd credential directory.
 Forgejo also requires repository administration to read branch-protection rules.
-The trusted worker uses its pilot provisioner for that fixed lookup. Observer
+It requires the same authority to inspect clone collaborator permissions. The
+trusted worker uses its pilot provisioner for those fixed lookups. Observer
 diagnostics report protection as unknown when access is denied and preserve
 the other observed capabilities. They never gain provisioner credentials.
 Forgejo's Specific repositories tokens permit only repository/issue scopes and
@@ -144,6 +191,11 @@ The projectctl-pull identity and its effective Zot ACL were verified independent
 as described above. Woodpecker's registry readonly field does not establish remote
 registry authorization. Configuring actions=["read"] is an operator assertion,
 not a substitute for examining the effective Zot policy.
+
+For an existing pilot registry entry using the legacy node identity, onboarding
+updates only that repository's entry at the configured registry address to
+projectctl-pull. An entry using another identity remains a resource conflict.
+The service identity and registry password never enter the operation journal.
 
 ## Trusted setup
 
@@ -283,6 +335,20 @@ set -gx PROJECTCTL_WORKER projectctl-worker
 python -m scripts.projectctl adopt /home/rupan/projects/autocompress --repository JEFF7712/autocompress --project-key autocompress --ci python-uv-v1 --plan --json > /tmp/projectctl-plan.json
 python -m scripts.projectctl request /tmp/projectctl-plan.json --idempotency-key autocompress-pilot-1 --json > /tmp/projectctl-request.json
 set request_id (jq -r '.data.request_id' /tmp/projectctl-request.json)
+python -m scripts.projectctl status $request_id --json
+~~~
+
+For the routine pilot scope, the worker now proceeds automatically. Inspect and
+promote its enrollment artifact through protected review, deploy the CI policy,
+and monitor status. No operator signature is needed. If an older signed request
+is still pending, cancel it and generate a fresh plan after the worker upgrade;
+implementation changes deliberately invalidate its policy digest.
+
+### Signed scopes and qualification audits
+
+For a scope without routine authorization, the separate operator procedure is:
+
+~~~fish
 python -m scripts.projectctl approval-context $request_id --json > /tmp/projectctl-context.json
 ~~~
 
@@ -300,7 +366,7 @@ project, operations, plan and policy digests, original catalog revision and entr
 digest, and expiry. Endpoint, implementation, public-key, clone-identity or
 registry-policy changes invalidate older plans.
 
-Only an operator starts execution:
+Signed requests run only when the operator starts execution:
 
 ~~~fish
 ssh homelab-04 sudo systemctl start projectctl-dispatch@$request_id.service
@@ -318,7 +384,7 @@ unrelated entries. Merge and deploy policy through the existing operator
 workflow, then dispatch the same request again. Renew expired grants for the
 same request and plan using the original saved approval context.
 
-Final readiness requires the exact planned SHA, stamped server-owned
+Signed-scope final readiness requires the exact planned SHA, stamped server-owned
 development-validation workflow, successful python-uv-test, matching Forgejo
 status, a real push webhook, protected status checks applying to administrators,
 and a signed request-bound protection probe. A manual build alone cannot pass.
