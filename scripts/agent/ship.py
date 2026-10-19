@@ -36,6 +36,7 @@ AGENT_REMOTE = "git-agent:JEFF7712/homelab.git"
 PATCH_BEGIN = "----- BEGIN PROMOTION PATCH -----"
 PATCH_END = "----- END PROMOTION PATCH -----"
 POLL_SECONDS = 15
+SUPERSEDED = "Operation source must be the current main commit"
 NETWORK_RETRIES = 20
 
 
@@ -464,6 +465,43 @@ class Shipper:
                 )
             time.sleep(POLL_SECONDS)
 
+    def run_plan(
+        self, operations: list[str], merged: str, catalog: dict[str, Any]
+    ) -> None:
+        """Run operations against the newest main pipeline containing merged.
+
+        Main moves often here, and an operation started against a pipeline
+        that main has already left is rejected by its current-main guard.
+        That case re-resolves the main pipeline and resumes from the failed
+        operation, or from its prerequisite when the prerequisite's receipt
+        is bound to the old parent.
+        """
+        main_sha, parent = self.main_pipeline(merged)
+        index = 0
+        retries = 0
+        while index < len(operations):
+            operation = operations[index]
+            try:
+                result = self.run_operation(parent, operation)
+            except ShipError as error:
+                if SUPERSEDED not in str(error) or retries >= 3:
+                    raise
+                retries += 1
+                prerequisite = catalog[operation].get("prerequisite")
+                if prerequisite in operations[:index]:
+                    index = operations.index(prerequisite)
+                self.say(f"main moved during {operation}; retrying on the new main")
+                main_sha, parent = self.main_pipeline(merged)
+                continue
+            self.summary.update(main=main_sha, validation_pipeline=parent)
+            self.summary["operations"].append(
+                {"operation": operation, "pipeline": result["pipeline"]}
+            )
+            patch = extract_patch(result["log"])
+            if patch:
+                self.promote(patch, operation.removesuffix("-publish"))
+            index += 1
+
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         created = self.woodpecker.deploy(parent, operation)
         number = int(created["number"])
@@ -607,16 +645,7 @@ class Shipper:
         merged = self.merge(pull)
         self.summary["merged"] = merged
         if plan.run:
-            main_sha, parent = self.main_pipeline(merged)
-            self.summary.update(main=main_sha, validation_pipeline=parent)
-            for operation in plan.run:
-                result = self.run_operation(parent, operation)
-                self.summary["operations"].append(
-                    {"operation": operation, "pipeline": result["pipeline"]}
-                )
-                patch = extract_patch(result["log"])
-                if patch:
-                    self.promote(patch, operation.removesuffix("-publish"))
+            self.run_plan(plan.run, merged, catalog)
         gitops = [p for p in changed if p.startswith("gitops/")]
         if gitops or any(p.startswith("registry/") for p in changed):
             self.wait_flux(merged, gitops)

@@ -94,6 +94,43 @@ class ShipNetworkTest(unittest.TestCase):
             ship.http("GET", "http://x", {})
 
 
+class ShipPlanRetryTest(unittest.TestCase):
+    def test_superseded_operations_resume_on_the_new_main(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.summary = {"operations": [], "promotions": []}
+        shipper.say = lambda message: None
+        parents = iter([("a" * 40, 10), ("b" * 40, 11)])
+        shipper.main_pipeline = lambda merged: next(parents)
+        calls = []
+
+        def run_operation(parent, operation):
+            calls.append((parent, operation))
+            if (parent, operation) == (10, "deploy"):
+                raise ShipError("deploy failed\n" + ship.SUPERSEDED)
+            return {"pipeline": len(calls), "log": ""}
+
+        shipper.run_operation = run_operation
+        catalog = {"dry-run": {}, "deploy": {"prerequisite": "dry-run"}}
+        shipper.run_plan(["dry-run", "deploy"], "c" * 40, catalog)
+        self.assertEqual(
+            calls, [(10, "dry-run"), (10, "deploy"), (11, "dry-run"), (11, "deploy")]
+        )
+        self.assertEqual(shipper.summary["validation_pipeline"], 11)
+
+    def test_other_operation_failures_are_not_retried(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.summary = {"operations": [], "promotions": []}
+        shipper.say = lambda message: None
+        shipper.main_pipeline = lambda merged: ("a" * 40, 10)
+
+        def run_operation(parent, operation):
+            raise ShipError("deploy failed: HTTP 401")
+
+        shipper.run_operation = run_operation
+        with self.assertRaisesRegex(ShipError, "401"):
+            shipper.run_plan(["deploy"], "c" * 40, {"deploy": {}})
+
+
 class ShipRolloutTest(unittest.TestCase):
     def test_kustomizations_follow_changed_paths(self) -> None:
         items = [
