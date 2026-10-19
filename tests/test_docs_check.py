@@ -61,6 +61,11 @@ class DocsCheckTest(unittest.TestCase):
             vendored = root / ".opencode" / "node_modules" / "dep"
             vendored.mkdir(parents=True)
             (vendored / "README.md").write_text("dirty   \n", encoding="utf-8")
+            wheels = root / "services" / "led-matrix" / ".venv" / "lib"
+            wheels.mkdir(parents=True)
+            (wheels / "LICENSE.md").write_text(
+                "vendor hard break  \n", encoding="utf-8"
+            )
             prints = root / "3d-prints" / "rack_extension"
             prints.mkdir(parents=True)
             (prints / "part.md").write_text("break  \n", encoding="utf-8")
@@ -78,6 +83,15 @@ class DocsCheckTest(unittest.TestCase):
 
             errors = trailing_whitespace_errors(root)
 
+        self.assertEqual(len(errors), 1)
+        self.assertIn("notes.md:1: trailing whitespace", errors[0])
+
+    def test_worktree_parent_does_not_hide_owned_documentation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / ".worktrees" / "task"
+            root.mkdir(parents=True)
+            (root / "notes.md").write_text("dirty   \n", encoding="utf-8")
+            errors = trailing_whitespace_errors(root)
         self.assertEqual(len(errors), 1)
         self.assertIn("notes.md:1: trailing whitespace", errors[0])
 
