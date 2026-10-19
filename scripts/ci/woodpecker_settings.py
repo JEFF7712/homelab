@@ -47,7 +47,13 @@ def cron_changes(
     by_name = {item["name"]: item for item in live}
     changes: list[tuple[str, str, dict[str, Any]]] = []
     for name, spec in sorted(desired.items()):
-        body = {"name": name, "schedule": spec["schedule"], "branch": spec["branch"]}
+        # Woodpecker creates crons disabled unless enabled is sent explicitly.
+        body = {
+            "name": name,
+            "schedule": spec["schedule"],
+            "branch": spec["branch"],
+            "enabled": True,
+        }
         current = by_name.get(name)
         if current is None:
             changes.append(("create", name, body))
@@ -56,7 +62,7 @@ def cron_changes(
             or current.get("branch") != spec["branch"]
             or current.get("enabled") is False
         ):
-            changes.append(("update", name, dict(body, id=current["id"], enabled=True)))
+            changes.append(("update", name, dict(body, id=current["id"])))
     for name, current in sorted(by_name.items()):
         if name not in desired:
             changes.append(("delete", name, {"id": current["id"]}))
