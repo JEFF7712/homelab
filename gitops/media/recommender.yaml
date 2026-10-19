@@ -63,6 +63,18 @@ spec:
                 secretKeyRef:
                   name: media-app
                   key: RECOMMENDER_ADMIN_PASSWORD
+            # Env keys apply only while the matching SystemConfig column is
+            # empty; a key saved in the Settings UI overrides these.
+            - name: JELLYSEERR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-app
+                  key: SEERR_API_KEY
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-app
+                  key: RECOMMENDER_GEMINI_API_KEY
           ports:
             - containerPort: 3001
           volumeMounts:
