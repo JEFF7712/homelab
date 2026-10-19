@@ -62,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = subparsers.add_parser("doctor", help="diagnose local workflow tooling")
     add_json_option(doctor)
+    doctor.add_argument(
+        "--live",
+        action="store_true",
+        help="also check Forgejo, Woodpecker, Kubernetes, SOPS, and SSH access",
+    )
 
     check_changed = subparsers.add_parser(
         "check-changed", help="select checks for changed paths"
@@ -258,7 +263,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
 
     if arguments.command == "doctor":
-        payload = run_doctor(Path.cwd())
+        payload = run_doctor(Path.cwd(), live=arguments.live)
         if arguments.json:
             print(json.dumps(payload, sort_keys=True))
         else:
