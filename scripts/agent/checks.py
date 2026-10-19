@@ -64,6 +64,27 @@ COMMANDS = {
         "tests.test_agent_workspace_lifecycle",
         "-v",
     ),
+    "ci": (
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*ci*.py",
+    ),
+    "python-lint": (
+        "ruff",
+        "check",
+        "--select",
+        "E,F,I,UP",
+        "--ignore",
+        "E501",
+        "scripts",
+        "opnsense_reconciler",
+        "tests",
+    ),
     "nix-all-hosts": ("bash", "scripts/checks/nix.sh", "all"),
     "full": ("bash", "scripts/checks/all.sh"),
 }
@@ -138,6 +159,21 @@ def _route(path: str) -> list[tuple[str, str]]:
         ("docs/", ".claude/skills/", "skills/", ".agents/skills/")
     ):
         return [("docs", f"{path} changes documentation")]
+    if path.startswith(("scripts/ci/", "config/ci/", ".woodpecker/")) or (
+        path.startswith("tests/test_") and "ci" in Path(path).stem.split("_")
+    ):
+        return [
+            ("python-lint", f"{path} changes CI Python or policy"),
+            ("ci", f"{path} changes CI policy or operations"),
+        ]
+    if path.startswith("tests/test_") and path.endswith(".py") and "/" not in path[6:]:
+        module = Path(path).stem
+        return [
+            ("python-lint", f"{path} changes a test module"),
+            (f"unit-{module}", f"{path} changes a test module"),
+        ]
+    if path.startswith(("scripts/", "services/")) and path.endswith(".py"):
+        return [("python", f"{path} changes Python covered by the unit suite")]
     return [("full", f"{path} has no narrower maintained mapping")]
 
 
@@ -153,6 +189,13 @@ def select_checks(state: GitState) -> CheckSelection:
         command = COMMANDS.get(name)
         if command is None and name.startswith("nix-host-"):
             command = ("bash", "scripts/checks/nix.sh", name.removeprefix("nix-host-"))
+        if command is None and name.startswith("unit-"):
+            command = (
+                "python",
+                "-m",
+                "unittest",
+                "tests." + name.removeprefix("unit-"),
+            )
         assert command is not None
         checks.append(SelectedCheck(name, command, tuple(why)))
     return CheckSelection(state.affected_paths, tuple(checks))

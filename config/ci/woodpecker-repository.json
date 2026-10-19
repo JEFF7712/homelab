@@ -10,5 +10,5 @@
   "registry_extension_endpoint": "",
   "netrc_trusted": [],
   "require_approval": "forks",
-  "cancel_previous_pipeline_events": ["pull_request"]
+  "cancel_previous_pipeline_events": ["pull_request", "push", "cron"]
 }

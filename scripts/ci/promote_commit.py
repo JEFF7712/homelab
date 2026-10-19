@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from scripts.ci.operation import current_source
+from scripts.ci.operation import SupersededSource, current_source
 
 FORGEJO_API = "http://git.internal:3000/api/v1/repos/JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
@@ -140,7 +140,13 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
 
 
 def main() -> None:
-    current_source(dict(os.environ))
+    try:
+        current_source(dict(os.environ))
+    except SupersededSource:
+        if os.environ.get("CI_PIPELINE_EVENT") == "deployment":
+            raise
+        print("Skipping promotion: main moved on; the newer commit promotes")
+        return
     changed = subprocess.check_output(
         ["git", "diff", "--name-only", "--", "registry/images.lock.json", "gitops"],
         text=True,

@@ -189,7 +189,9 @@ in
     };
     services.woodpecker-agents.agents = {
       sandbox = agent "sandbox" 2;
-      trusted = agent "trusted" 1;
+      # Two trusted slots: scheduled read-only work holds at most one (its
+      # shared concurrency group), so pushes and operator plans keep the other.
+      trusted = agent "trusted" 2;
       deploy = agent "deploy" 1;
     };
     systemd.services.woodpecker-agent-sandbox.serviceConfig.Restart = lib.mkForce "always";

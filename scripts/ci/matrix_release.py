@@ -419,11 +419,14 @@ def coordinate() -> None:
     output = Path("artifacts/matrix-release")
     output.mkdir(parents=True, exist_ok=True)
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    (output / "promotion.patch").write_text(promotion_patch(Path.cwd(), receipt))
+    patch = promotion_patch(Path.cwd(), receipt)
+    (output / "promotion.patch").write_text(patch)
     print("Matrix image publication verified: " + receipt["image"])
-    print(
-        "Review artifacts/matrix-release/promotion.patch before publishing the Flux change"
-    )
+    # The patch holds only public digests and tags. `just ship` reads it from
+    # this log and ships it as the Flux promotion PR.
+    print("----- BEGIN PROMOTION PATCH -----")
+    print(patch, end="")
+    print("----- END PROMOTION PATCH -----")
 
 
 def main() -> None:

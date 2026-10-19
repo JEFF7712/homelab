@@ -177,6 +177,35 @@ def find_reusable_validation(
     return None
 
 
+# Scheduled operations by Woodpecker cron name (config/ci/woodpecker-crons.json).
+# The frequent schedule carries only short registry and watchdog work so it
+# finishes well inside its interval; slow host dry runs and proofs run nightly.
+# A schedule that outlives its interval queues behind itself and every queued
+# operation then fails the current-main check.
+SCHEDULES: dict[str, tuple[str, ...]] = {
+    "maintenance": (
+        "webhook-watchdog",
+        "registry-lock-import",
+        "registry-drift-check",
+        "registry-retention-reconcile",
+        "registry-promote-first-party",
+        "registry-promote-nix-agent",
+        "registry-resolve",
+        "registry-auth-consistency",
+    ),
+    "nightly": (
+        "registry-gc-fixture",
+        "opnsense-plan",
+        "opnsense-dataplane",
+        "opnsense-inventory",
+        "nas-proof",
+        "deploy-fleet-dry-run",
+        "deploy-agent-workspace-host-dry-run",
+        "deploy-home-assistant-dry-run",
+    ),
+}
+
+
 REGISTRY_LOCK_PATHS = frozenset(
     {"registry/images.inventory.json", "registry/images.lock.json"}
 )
@@ -287,13 +316,23 @@ def configuration(
             CI_DEFAULT_BRANCH="main",
             CI_OPERATION=target,
         )
+        # Mutations serialize on one production authority. Read-only work
+        # serializes per operation, and scheduled read-only work shares one
+        # group, so maintenance never occupies more than one trusted slot and
+        # never queues an operator's deployment behind a plan it does not need.
+        if operation["mutation"]:
+            group = "production-authority"
+        elif event == "cron":
+            group = "scheduled-read-only"
+        else:
+            group = "read-only-" + target
         workflow: dict[str, Any] = {
             "when": [{"event": event}],
             "labels": {
                 "tier": "deploy" if operation["mutation"] else "trusted",
                 "type": "docker",
             },
-            "concurrency": {"group": "production-authority", "limit": 1},
+            "concurrency": {"group": group, "limit": 1},
             "steps": [
                 {
                     "name": target,
@@ -370,29 +409,18 @@ def configuration(
                     operation_workflow(
                         "registry-lock-import", "${CI_PIPELINE_NUMBER}", [VALIDATION]
                     )
-            elif event == "cron" and pipeline.get("cron") == "maintenance":
+            elif event == "cron" and pipeline.get("cron") in SCHEDULES:
+                schedule = SCHEDULES[pipeline["cron"]]
                 # The watchdog reports missing or stuck validation, so it
                 # runs ungated: depending on validation would silence exactly
                 # the outage it watches for.
-                operation_workflow("webhook-watchdog", "${CI_PIPELINE_NUMBER}", [])
-                for target in [
-                    "registry-lock-import",
-                    "registry-drift-check",
-                    "registry-retention-reconcile",
-                    "registry-promote-first-party",
-                    "registry-promote-nix-agent",
-                    "registry-resolve",
-                    "registry-auth-consistency",
-                    "registry-gc-fixture",
-                    "opnsense-plan",
-                    "opnsense-dataplane",
-                    "opnsense-inventory",
-                    "nas-proof",
-                    "deploy-fleet-dry-run",
-                    "deploy-agent-workspace-host-dry-run",
-                    "deploy-home-assistant-dry-run",
-                ]:
-                    operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
+                if "webhook-watchdog" in schedule:
+                    operation_workflow("webhook-watchdog", "${CI_PIPELINE_NUMBER}", [])
+                for target in schedule:
+                    if target != "webhook-watchdog":
+                        operation_workflow(
+                            target, "${CI_PIPELINE_NUMBER}", [VALIDATION]
+                        )
         return {"configs": configs}
 
     if not main or pipeline.get("author") not in DEPLOY_AUTHORS:
