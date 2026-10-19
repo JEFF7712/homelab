@@ -107,6 +107,7 @@
           ruff
           shellcheck
           sops
+          uv
           yamllint
           # The registry serves this exact build and the GC fixture asserts
           # the version it runs, so both share nix/zot-release.nix.
