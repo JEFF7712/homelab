@@ -1,0 +1,12 @@
+{
+  "projectctl-caller": {
+    "publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE84bnqgrMcr7xx43F3Higr7V8N9IKX6S+KrzkUHTdoV projectctl-caller",
+    "projects": [
+      {
+        "project_key": "autocompress",
+        "repository": "JEFF7712/autocompress",
+        "visibility": "private"
+      }
+    ]
+  }
+}
