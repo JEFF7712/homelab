@@ -14,8 +14,10 @@ import tempfile
 import threading
 import time
 import unittest
+import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
+from email.message import Message
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -118,6 +120,42 @@ class CurrentSourceTest(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "current main"),
         ):
             current_source(environment)
+
+    def test_forgejo_gateway_errors_are_retried(self) -> None:
+        environment = {
+            "CI_COMMIT_SHA": SHA,
+            "FORGEJO_SOURCE_READ_TOKEN": "read-only-fixture",
+        }
+        gateway = urllib.error.HTTPError("url", 502, "Bad Gateway", Message(), None)
+        response = io.BytesIO(json.dumps({"commit": {"id": SHA}}).encode())
+        with (
+            patch("scripts.ci.operation.subprocess.check_output", return_value=SHA),
+            patch(
+                "scripts.ci.operation.urllib.request.urlopen",
+                side_effect=[gateway, urllib.error.URLError("refused"), response],
+            ) as request,
+            patch("scripts.ci.operation.time.sleep") as sleep,
+        ):
+            current_source(environment)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_forgejo_client_errors_are_not_retried(self) -> None:
+        environment = {
+            "CI_COMMIT_SHA": SHA,
+            "FORGEJO_SOURCE_READ_TOKEN": "read-only-fixture",
+        }
+        denied = urllib.error.HTTPError("url", 401, "Unauthorized", Message(), None)
+        with (
+            patch("scripts.ci.operation.subprocess.check_output", return_value=SHA),
+            patch(
+                "scripts.ci.operation.urllib.request.urlopen", side_effect=denied
+            ) as request,
+            patch("scripts.ci.operation.time.sleep"),
+            self.assertRaises(urllib.error.HTTPError),
+        ):
+            current_source(environment)
+        self.assertEqual(request.call_count, 1)
 
     def test_recovery_tip_uses_native_gitlab_clone_authentication(self) -> None:
         environment = {"CI_COMMIT_SHA": SHA, "CI_OPERATION_AUTHORITY": "gitlab"}

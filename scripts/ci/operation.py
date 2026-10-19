@@ -8,6 +8,7 @@ import re
 import ssl
 import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -18,6 +19,27 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class SupersededSource(ValueError):
     """Main moved past the validated commit while the operation was queued."""
+
+
+def _fetch(request: urllib.request.Request, attempts: int = 6) -> bytes:
+    """Read a Forgejo API response, riding out its brief proxy and restart gaps.
+
+    The scheduled platform backup stops Forgejo for about a minute, and the
+    reverse proxy answers 502 meanwhile; an operation that lands there should
+    wait, not fail before doing any work.
+    """
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code not in (502, 503, 504) or attempt == attempts - 1:
+                raise
+        except urllib.error.URLError:
+            if attempt == attempts - 1:
+                raise
+        time.sleep(15)
+    raise AssertionError("unreachable")
 
 
 def current_source(environment: dict[str, str]) -> None:
@@ -39,8 +61,7 @@ def current_source(environment: dict[str, str]) -> None:
                 "Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]
             },
         )
-        with urllib.request.urlopen(request, timeout=10) as response:
-            current = json.load(response)["commit"]["id"]
+        current = json.loads(_fetch(request))["commit"]["id"]
     if current != sha:
         raise SupersededSource("Operation source must be the current main commit")
 
