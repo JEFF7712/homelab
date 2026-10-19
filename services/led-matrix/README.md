@@ -173,5 +173,5 @@ Quota reference: [Spotify's July 2026 update](https://developer.spotify.com/blog
 | `--fps` | `20` | Requested streaming frame rate |
 | `--poll-interval` | `15` | Minimum playback polling interval in seconds; paused/idle polls at least 60 seconds apart |
 | `--rotation-speed` | `45.0` | Disc rotation speed in degrees per second |
-| `--brightness` | `0.7` | Display brightness scale factor (0.1 to 1.0) |
+| `--brightness` | `0.7` | Display brightness scale factor for modes without a mode-specific setting; Spotify vinyl is fixed at full brightness to use the panel's available color range |
 | `--test` | `False` | Run animated test pattern without Spotify |

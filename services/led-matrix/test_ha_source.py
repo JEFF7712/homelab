@@ -53,6 +53,13 @@ def wait_until(predicate, seconds: float = 4) -> None:
 
 
 class HomeAssistantTests(unittest.TestCase):
+    def test_spotify_vinyl_uses_locked_full_brightness(self) -> None:
+        from ha_matrix_streamer import effective_brightness
+
+        self.assertEqual(effective_brightness("Spotify", 0.35), 1.0)
+        self.assertEqual(effective_brightness("Clock & Weather", 0.35), 0.35)
+        self.assertEqual(effective_brightness("Off", 0.35), 0.0)
+
     def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
         source._connected = True
