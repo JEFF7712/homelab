@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -117,13 +118,22 @@ def kustomizations_for(
     return sorted(names)
 
 
-def kustomization_state(item: dict[str, Any], sha: str) -> tuple[bool, str]:
+def applied_revision(item: dict[str, Any]) -> str:
+    revision = item.get("status", {}).get("lastAppliedRevision", "")
+    match = re.search(r"[0-9a-f]{40}", revision)
+    return match[0] if match else ""
+
+
+def kustomization_state(
+    item: dict[str, Any], includes: Callable[[str], bool]
+) -> tuple[bool, str]:
+    """Ready once the applied revision includes the shipped commit."""
     status = item.get("status", {})
     ready = next(
         (c for c in status.get("conditions", []) if c.get("type") == "Ready"), {}
     )
-    applied = sha in status.get("lastAppliedRevision", "")
-    if applied and ready.get("status") == "True":
+    revision = applied_revision(item)
+    if revision and includes(revision) and ready.get("status") == "True":
         return True, "ready"
     return False, ready.get("message", "waiting for reconciliation")[:300]
 
@@ -249,6 +259,7 @@ class Shipper:
         self.woodpecker = Woodpecker()
         self.deadline = time.monotonic() + args.timeout * 60
         self.summary: dict[str, Any] = {"operations": [], "promotions": []}
+        self.reported: dict[str, str] = {}
 
     def say(self, message: str) -> None:
         print(f"[ship {time.strftime('%H:%M:%S')}] {message}", flush=True)
@@ -324,14 +335,14 @@ class Shipper:
     # CI side ---------------------------------------------------------------
 
     def wait_status(self, sha: str, label: str) -> None:
-        last = ""
+        last = self.reported.get(sha, "")
         while True:
             self.remaining()
             status = self.forgejo.call("GET", f"/commits/{sha}/status")
             state = required_status(status.get("statuses") or [])
             if state != last:
                 self.say(f"{label} {sha[:12]}: {REQUIRED_CONTEXT} {state}")
-                last = state
+                last = self.reported[sha] = state
             if state == "success":
                 return
             if state in {"failure", "error"}:
@@ -375,38 +386,56 @@ class Shipper:
                 continue
             raise ShipError(f"Merge of PR #{number} rejected: HTTP {code} {message}")
 
-    def main_validation(self, sha: str) -> tuple[str, int]:
-        """Wait for main validation covering sha; returns (main sha, pipeline)."""
+    def contains(self, ancestor: str, descendant: str) -> bool:
+        if ancestor == descendant:
+            return True
+        self.git("fetch", "--quiet", "origin", "main")
+        return (
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+                cwd=ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+
+    def main_pipeline(self, sha: str) -> tuple[str, int]:
+        """Wait for a successful main push pipeline covering sha.
+
+        Deployment policy requires the whole parent pipeline to succeed, and
+        Woodpecker reports validation-v2 as running until the pipeline ends,
+        so this waits for the pipeline's terminal state. When main advances
+        past sha, the superseded pipeline is cancelled and the newer tip,
+        which contains sha, becomes the target.
+        """
+        last = ""
         while True:
             self.remaining()
             tip = self.forgejo.call("GET", "/branches/main")["commit"]["id"]
-            if tip != sha:
-                self.git("fetch", "--quiet", "origin", "main")
-                contains = (
-                    subprocess.run(
-                        ["git", "merge-base", "--is-ancestor", sha, tip], cwd=ROOT
-                    ).returncode
-                    == 0
-                )
-                if contains:
-                    self.say(f"main advanced to {tip[:12]}, which contains {sha[:12]}")
-                    sha = tip
-            self.wait_status(sha, "main")
-            if self.forgejo.call("GET", "/branches/main")["commit"]["id"] != sha:
-                continue
-            for pipeline in self.woodpecker.pipelines_for(sha):
-                if (
-                    pipeline.get("event") in {"push", "manual"}
-                    and pipeline.get("branch") == "main"
-                    and any(
-                        w.get("name") == "validation-v2" and w.get("state") == "success"
-                        for w in self.woodpecker.pipeline(pipeline["number"]).get(
-                            "workflows"
-                        )
-                        or []
+            if tip != sha and self.contains(sha, tip):
+                self.say(f"main advanced to {tip[:12]}, which contains {sha[:12]}")
+                sha, last = tip, ""
+            candidates = [
+                p
+                for p in self.woodpecker.pipelines_for(sha)
+                if p.get("event") in {"push", "manual"} and p.get("branch") == "main"
+            ]
+            pipeline = max(candidates, key=lambda p: p["number"], default=None)
+            state = pipeline.get("status", "") if pipeline else "missing"
+            if state != last:
+                number = f" #{pipeline['number']}" if pipeline else ""
+                self.say(f"main {sha[:12]} pipeline{number}: {state}")
+                last = state
+            if pipeline and state == "success":
+                return sha, int(pipeline["number"])
+            if pipeline and state in {"failure", "error"}:
+                raise ShipError(
+                    f"Main pipeline #{pipeline['number']} failed; deployment operations "
+                    "need a successful parent\n"
+                    + self.woodpecker.failure_report(
+                        self.woodpecker.pipeline(pipeline["number"])
                     )
-                ):
-                    return sha, int(pipeline["number"])
+                )
             time.sleep(POLL_SECONDS)
 
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
@@ -467,7 +496,10 @@ class Shipper:
             ]
             by_name = {item["metadata"]["name"]: item for item in items}
             for name in list(pending):
-                ready, message = kustomization_state(by_name.get(name, {}), sha)
+                ready, message = kustomization_state(
+                    by_name.get(name, {}),
+                    lambda revision: self.contains(sha, revision),
+                )
                 if ready:
                     self.say(f"Flux {name}: ready")
                     del pending[name]
@@ -547,19 +579,21 @@ class Shipper:
             self.summary["state"] = "validated"
             return self.summary
         merged = self.merge(pull)
-        main_sha, parent = self.main_validation(merged)
-        self.summary.update(merged=merged, main=main_sha, validation_pipeline=parent)
-        for operation in plan.run:
-            result = self.run_operation(parent, operation)
-            self.summary["operations"].append(
-                {"operation": operation, "pipeline": result["pipeline"]}
-            )
-            patch = extract_patch(result["log"])
-            if patch:
-                self.promote(patch, operation.removesuffix("-publish"))
+        self.summary["merged"] = merged
+        if plan.run:
+            main_sha, parent = self.main_pipeline(merged)
+            self.summary.update(main=main_sha, validation_pipeline=parent)
+            for operation in plan.run:
+                result = self.run_operation(parent, operation)
+                self.summary["operations"].append(
+                    {"operation": operation, "pipeline": result["pipeline"]}
+                )
+                patch = extract_patch(result["log"])
+                if patch:
+                    self.promote(patch, operation.removesuffix("-publish"))
         gitops = [p for p in changed if p.startswith("gitops/")]
         if gitops or any(p.startswith("registry/") for p in changed):
-            self.wait_flux(main_sha, gitops)
+            self.wait_flux(merged, gitops)
         self.summary["state"] = "deployed"
         self.say("done")
         return self.summary

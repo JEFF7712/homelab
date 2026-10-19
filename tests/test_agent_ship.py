@@ -95,8 +95,16 @@ class ShipRolloutTest(unittest.TestCase):
         fresh = {
             "status": {"lastAppliedRevision": "main@sha1:" + SHA, "conditions": [ready]}
         }
-        self.assertFalse(kustomization_state(stale, SHA)[0])
-        self.assertTrue(kustomization_state(fresh, SHA)[0])
+        includes = {SHA, "c" * 40}.__contains__
+        self.assertFalse(kustomization_state(stale, includes)[0])
+        self.assertTrue(kustomization_state(fresh, includes)[0])
+        descendant = {
+            "status": {
+                "lastAppliedRevision": "main@sha1:" + "c" * 40,
+                "conditions": [ready],
+            }
+        }
+        self.assertTrue(kustomization_state(descendant, includes)[0])
         failing = {
             "status": {
                 "lastAppliedRevision": "main@sha1:" + SHA,
@@ -106,7 +114,7 @@ class ShipRolloutTest(unittest.TestCase):
             }
         }
         self.assertEqual(
-            kustomization_state(failing, SHA), (False, "HealthCheckFailed")
+            kustomization_state(failing, includes), (False, "HealthCheckFailed")
         )
 
     def test_required_status_uses_latest_required_context(self) -> None:

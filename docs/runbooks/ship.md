@@ -25,17 +25,20 @@ just ship --json                   # machine-readable summary on stdout
    the tail of each failing Woodpecker step and exits nonzero.
 6. Merges. When Forgejo reports the head is behind main, it updates the PR
    branch and waits for validation again.
-7. Waits for main validation of the merge commit. If main advances to a
-   commit that contains the merge, it follows the newer tip, because the
-   superseded pipeline is cancelled.
+7. When operations are planned, waits for the main push pipeline of the
+   merge commit to succeed. Deployment policy requires a successful parent
+   pipeline, and Woodpecker reports `validation-v2` as running until the
+   whole pipeline ends. If main advances to a commit that contains the
+   merge, it follows the newer tip, because the superseded pipeline is
+   cancelled.
 8. Runs the deployment operations routed from the changed paths, each with its
-   catalog prerequisite, against that main validation pipeline.
+   catalog prerequisite, against that main pipeline.
 9. When an operation prints a promotion patch (between the
    `BEGIN/END PROMOTION PATCH` markers), ships it as its own PR on a temporary
    worktree, recursively, with the same deadline.
 10. When `gitops/` or `registry/` changed, requests a Flux source reconcile and
     waits until each Kustomization containing a changed path reports Ready at
-    the merged revision. It falls back to the root `flux-system`
+    a revision that includes the merge. It falls back to the root `flux-system`
     Kustomization when no narrower one matches.
 
 The default overall timeout is 90 minutes (`--timeout`).
