@@ -1338,6 +1338,39 @@ class RecoveryMirrorTest(unittest.TestCase):
                 git("rev-parse", "refs/heads/main", cwd=destination), recovery
             )
 
+    def test_rebased_renovate_branches_are_replaced(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, destination = root / "source", root / "mirror.git"
+            source.mkdir()
+
+            def git(*args: str, cwd: Path = source) -> str:
+                return subprocess.check_output(
+                    ["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL
+                ).strip()
+
+            git("init", "-q", "-b", "main")
+            git("config", "user.name", "Test")
+            git("config", "user.email", "test@example.invalid")
+            git("commit", "--allow-empty", "-qm", "initial")
+            git("checkout", "-q", "-b", "renovate/dependency")
+            git("commit", "--allow-empty", "-qm", "bump")
+            git("init", "--bare", "-q", str(destination))
+            mirror(source, str(destination))
+            git("checkout", "-q", "main")
+            git("commit", "--allow-empty", "-qm", "main moves on")
+            git("checkout", "-q", "renovate/dependency")
+            git("rebase", "-q", "main")
+            mirror(source, str(destination))
+            self.assertEqual(
+                git("rev-parse", "refs/heads/renovate/dependency", cwd=destination),
+                git("rev-parse", "HEAD"),
+            )
+            self.assertEqual(
+                git("rev-parse", "refs/heads/main", cwd=destination),
+                git("rev-parse", "main"),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
