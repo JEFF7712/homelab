@@ -110,7 +110,9 @@
         "config/ci/applications.json",
         "config/ci/projects.json",
         "flake/modules/woodpecker.nix",
-        "flake/hosts/homelab-04/"
+        "flake/hosts/homelab-04/",
+        "config/projectctl/",
+        "flake/profiles/projectctl-pilot.nix"
       ],
       "operations": [
         "deploy-ci-host-dry-run",

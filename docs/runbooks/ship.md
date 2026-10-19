@@ -63,7 +63,7 @@ change. Add a route when a new service gains a protected publish operation;
 | cloudflare | `tofu/cloudflare/` | `cloudflare-plan`, `cloudflare-apply` | no |
 | agent-workspace-host | workspace modules and manifest | dry run, then apply | no |
 | fleet | `flake/hosts/`, `flake/modules/`, flake inputs | `deploy-fleet-dry-run`, `deploy-fleet` | no |
-| ci-host | CI policy, catalogs, `woodpecker.nix`, `flake/hosts/homelab-04/` | `deploy-ci-host-dry-run`, `deploy-ci-host` | no |
+| ci-host | CI policy, catalogs, `woodpecker.nix`, `flake/hosts/homelab-04/`, projectctl scopes and pilot profile | `deploy-ci-host-dry-run`, `deploy-ci-host` | no |
 
 GitOps-only changes need no operation: merging deploys them, and `ship`
 verifies the Flux result.
