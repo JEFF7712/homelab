@@ -201,6 +201,12 @@ ha-revert *args:
 jarvis-eval-live *args:
     python -m scripts.jarvis_eval {{args}}
 
+# One-command change delivery: push, PR, wait for required CI, merge, run
+# the routed deployment operations, and verify Flux. See docs/runbooks/ship.md.
+[positional-arguments]
+ship *args:
+    python -m scripts.agent.ship "$@"
+
 # Forgejo PR flow for agents. Requires `tea` login and the dedicated
 # git-agent SSH identity (see docs/runbooks/ci-pipelines.md). Publishing and
 # merging require explicit authorization. Merge only after validation-v2 is

@@ -213,7 +213,8 @@ One-time setup, by a human in the Forgejo UI:
    Agent branches must use this identity; `origin` may authenticate as another
    Forgejo account.
 
-Agent flow per change, after explicit authorization and successful preflight
+Agents deliver changes with `just ship` ([ship runbook](ship.md)). The
+manual flow per change, after explicit authorization and successful preflight
 (see [the agent workflow guide](../agent-workflow.md#publishing-changes)):
 
 ```sh
