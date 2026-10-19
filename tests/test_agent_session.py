@@ -109,7 +109,11 @@ class AgentSessionTest(unittest.TestCase):
                 ],
                 cwd=root,
                 env={
-                    **{k: v for k, v in os.environ.items() if k != "IN_NIX_SHELL"},
+                    **{
+                        k: v
+                        for k, v in os.environ.items()
+                        if k not in {"IN_NIX_SHELL", "HOMELAB_DEV_SHELL"}
+                    },
                     "PYTHONPATH": str(root_source),
                     "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
                 },
