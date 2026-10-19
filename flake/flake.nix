@@ -86,6 +86,30 @@
           pythonPackages.jinja2
           pythonPackages.cryptography
         ]);
+        ciPackages = with pkgs; [
+          age
+          git
+          gitleaks
+          # hooks/common.sh treats a missing jq as "cannot read hook input"
+          # and answers every hook with a bare {}, so without this the agent
+          # harness tests pass vacuously in CI instead of testing the hooks.
+          jq
+          just
+          kubeconform
+          kubectl
+          kubernetes-helm
+          nixfmt
+          (import ../nix/ci-providers.nix { inherit pkgs; })
+          pyright
+          python
+          ruff
+          shellcheck
+          sops
+          yamllint
+          # The registry serves this exact build and the GC fixture asserts
+          # the version it runs, so both share nix/zot-release.nix.
+          (import ../nix/zot-release.nix { inherit pkgs lib; }).zotPackage
+        ];
       in
       {
         formatter = pkgs.nixfmt;
@@ -109,51 +133,33 @@
             ];
           };
 
+        devShells.ci = pkgs.mkShell { packages = ciPackages; };
+
         devShells.default = pkgs.mkShell {
           MATRIX_LD_LIBRARY_PATH = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
             pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
           );
-          packages = with pkgs; [
-            age
-            apacheHttpd
-            attic-client
-            cosign
-            cloud-utils
-            curl
-            dnsutils
-            git
-            gitleaks
-            glab
-            # hooks/common.sh treats a missing jq as "cannot read hook input"
-            # and answers every hook with a bare {}, so without this the agent
-            # harness tests pass vacuously in CI instead of testing the hooks.
-            jq
-            just
-            kubeconform
-            kubectl
-            kubernetes-helm
-            libvirt
-            nixfmt
-            nodejs
-            (import ../nix/ci-providers.nix { inherit pkgs; })
-            oras
-            patchelf
-            php
-            prometheus.cli
-            pyright
-            qemu_kvm
-            python
-            ruff
-            shellcheck
-            skopeo
-            sops
-            tea
-            uv
-            yamllint
-            # The registry serves this exact build and the GC fixture asserts
-            # the version it runs, so both share nix/zot-release.nix.
-            (import ../nix/zot-release.nix { inherit pkgs lib; }).zotPackage
-          ];
+          packages =
+            ciPackages
+            ++ (with pkgs; [
+              apacheHttpd
+              attic-client
+              cosign
+              cloud-utils
+              curl
+              dnsutils
+              glab
+              libvirt
+              nodejs
+              oras
+              patchelf
+              php
+              prometheus.cli
+              qemu_kvm
+              skopeo
+              tea
+              uv
+            ]);
         };
 
         checks.repository-contract =

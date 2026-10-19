@@ -30,6 +30,52 @@ def matrix_checks() -> int:
     return 0
 
 
+def _scoped_commands(scope: Scope) -> list[tuple[list[str], dict[str, str] | None]]:
+    commands: list[tuple[list[str], dict[str, str] | None]] = []
+    provisioned = False
+    for check in scope.checks:
+        kind, _, arg = check.partition(":")
+        if kind == "agent":
+            commands.append((["bash", "scripts/checks/agent-workflows.sh"], None))
+        elif kind == "python":
+            env = None
+            if scope.test_modules:
+                env = {"CI_SCOPED_TEST_MODULES": " ".join(scope.test_modules)}
+            commands.append((["bash", "scripts/checks/python.sh"], env))
+        elif kind == "registry":
+            commands.append((["bash", "scripts/checks/registry.sh"], None))
+        elif kind == "nix":
+            commands.append((["bash", "scripts/checks/nix.sh", arg], None))
+        elif kind == "gitops":
+            commands.append((["bash", "scripts/checks/gitops.sh"], None))
+        elif kind == "tofu":
+            if not provisioned:
+                commands.append((["just", "provision-check-deps"], None))
+                provisioned = True
+            commands.append((["bash", "scripts/checks/tofu.sh"], None))
+        elif kind == "home-assistant":
+            commands.append((["bash", "scripts/checks/home-assistant.sh"], None))
+        elif kind == "docs":
+            commands.append((["python", "-m", "scripts.checks.docs"], None))
+            commands.append((["python", "scripts/checks/whitespace.py"], None))
+    return commands
+
+
+def _repository_scoped(scope: Scope) -> int:
+    for command, extra_env in _scoped_commands(scope):
+        env = dict(os.environ)
+        # Scoped lanes run their own tests; the full-gate partition flag
+        # would otherwise shrink python.sh to the Nix-integration subset.
+        env.pop("CI_UNIT_TESTS_EXTERNAL", None)
+        if extra_env:
+            env.update(extra_env)
+        print(f"CI scoped: {' '.join(command)}", flush=True)
+        code = subprocess.call(command, env=env)
+        if code:
+            return code
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("gate", choices=("repository", "flake", "cache", "fleet"))
@@ -83,6 +129,13 @@ def main(argv: list[str] | None = None) -> int:
             if code:
                 return code
         return 0
+    if scope.mode == "scoped":
+        if args.gate != "repository":
+            print(
+                "No fleet inputs changed; deployment preflight will require a full build."
+            )
+            return 0
+        return _repository_scoped(scope)
     if args.gate == "repository":
         if Path("services/led-matrix").is_dir():
             code = matrix_checks()

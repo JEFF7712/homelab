@@ -8,6 +8,71 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class AllGateTest(unittest.TestCase):
+    LANES = (
+        "agent-workflows",
+        "python",
+        "registry",
+        "nix",
+        "gitops",
+        "tofu",
+        "home-assistant",
+        "secrets",
+    )
+
+    def run_gate(
+        self, failures: dict[str, int] | None = None, serial: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        failures = failures or {}
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            checks = repo / "scripts" / "checks"
+            checks.mkdir(parents=True)
+            shutil.copy(ROOT / "scripts/checks/all.sh", checks / "all.sh")
+            for lane in self.LANES:
+                stub = checks / f"{lane}.sh"
+                stub.write_text(
+                    f"printf '{lane} ran\\n'\nexit {failures.get(lane, 0)}\n"
+                )
+            (checks / "docs.py").write_text("print('docs ran')\n")
+            (checks / "whitespace.py").write_text("print('whitespace ran')\n")
+            env = dict(
+                os.environ,
+                SKIP_FLAKE_CHECK="1",
+                SKIP_SECRET_SCAN="0",
+                CHECK_SERIAL="1" if serial else "0",
+            )
+            return subprocess.run(
+                ["bash", "scripts/checks/all.sh"],
+                cwd=repo,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+    def test_parallel_lanes_print_in_lane_order(self) -> None:
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        headers = [
+            result.stdout.index(f"===== {lane} =====")
+            for lane in (*self.LANES[:7], "docs", "secrets")
+        ]
+        self.assertEqual(headers, sorted(headers))
+        self.assertIn("python ran", result.stdout)
+        self.assertIn("docs ran", result.stdout)
+
+    def test_failures_are_aggregated_not_first_only(self) -> None:
+        for serial in (False, True):
+            with self.subTest(serial=serial):
+                result = self.run_gate({"gitops": 3, "tofu": 5}, serial=serial)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("lane gitops failed with exit 3", result.stderr)
+                self.assertIn("lane tofu failed with exit 5", result.stderr)
+                self.assertIn("home-assistant ran", result.stdout)
+                self.assertIn("secrets ran", result.stdout)
+
+
 class GitopsCheckTest(unittest.TestCase):
     def run_check(
         self,

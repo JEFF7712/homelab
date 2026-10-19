@@ -12,59 +12,153 @@ class Scope:
     mode: str
     reason: str
     paths: tuple[str, ...] = ()
+    checks: tuple[str, ...] = ()
+    test_modules: tuple[str, ...] = ()
 
     def report(self) -> dict[str, object]:
         return asdict(self)
 
 
+_DOCUMENTATION = {
+    "README.md",
+    "HARDWARE.md",
+    "AGENT_MAP.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+}
+
+_APPLICATION_PREFIXES = (
+    "home-assistant/custom_components/",
+    "home-assistant/automations/",
+    "home-assistant/blueprints/",
+    "home-assistant/dashboards/",
+    "home-assistant/themes/",
+    "gitops/home-assistant/",
+    "scripts/home_assistant/",
+)
+
+# Validation infrastructure: any change here can weaken every other lane,
+# so it always forces the full gate.
+_FULL_PREFIXES = ("scripts/ci/", "scripts/checks/", ".woodpecker/", "config/ci/")
+_FULL_PATHS = {"flake/flake.nix", "flake/flake.lock", "flake.lock", "justfile"}
+
+# Deterministic execution order for scoped checks, mirroring all.sh.
+_CHECK_ORDER = (
+    "agent",
+    "python",
+    "registry",
+    "nix",
+    "gitops",
+    "tofu",
+    "home-assistant",
+    "docs",
+)
+
+
+def _test_module(name: str) -> str:
+    return "tests." + PurePosixPath(name).stem
+
+
 def classify(paths: Sequence[str]) -> Scope:
     if not paths:
         return Scope("full", "no changed paths")
-    documentation = {
-        "README.md",
-        "HARDWARE.md",
-        "AGENT_MAP.md",
-        "AGENTS.md",
-        "CLAUDE.md",
-    }
     application = False
     matrix = False
+    documentation = False
+    checks: set[str] = set()
+    test_modules: set[str] = set()
     for name in paths:
         path = PurePosixPath(name)
-        if path.is_absolute() or ".." in path.parts or path.suffix == ".nix":
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or name in _FULL_PATHS
+            or name.startswith(_FULL_PREFIXES)
+        ):
             return Scope("full", "unmapped or infrastructure path", tuple(paths))
-        if name in documentation or (name.startswith("docs/") and path.suffix == ".md"):
+        if name in _DOCUMENTATION or (
+            name.startswith("docs/") and path.suffix == ".md"
+        ):
+            documentation = True
+            continue
+        if path.suffix == ".nix":
+            parts = path.parts
+            if (
+                len(parts) >= 4
+                and parts[0] == "flake"
+                and parts[1] == "hosts"
+                and parts[2]
+            ):
+                checks.add(f"nix:{parts[2]}")
+                continue
+            return Scope("full", "unmapped or infrastructure path", tuple(paths))
+        if (
+            name.startswith(("gitops/voice/", "home-assistant/www/"))
+            or name.startswith(_APPLICATION_PREFIXES)
+            or (name.startswith("tests/test_home_assistant_") and path.suffix == ".py")
+        ):
+            application = True
             continue
         if name.startswith("services/led-matrix/"):
             matrix = True
             continue
-        if name.startswith(("gitops/voice/", "home-assistant/www/")):
-            application = True
+        if name.startswith(("gitops/", "schemas/")):
+            checks.add("gitops")
+            continue
+        if name.startswith("tofu/"):
+            checks.add("tofu")
+            continue
+        if name.startswith("registry/"):
+            checks.add("registry")
+            continue
+        if name.startswith("scripts/registry/") or name.startswith(
+            "tests/test_registry_"
+        ):
+            checks.update(("python", "registry"))
+            if name.startswith("tests/"):
+                test_modules.add(_test_module(name))
             continue
         if name.startswith(
-            (
-                "home-assistant/custom_components/",
-                "home-assistant/automations/",
-                "home-assistant/blueprints/",
-                "home-assistant/dashboards/",
-                "home-assistant/themes/",
-                "gitops/home-assistant/",
-                "scripts/home_assistant/",
-            )
-        ) or (name.startswith("tests/test_home_assistant_") and path.suffix == ".py"):
-            application = True
+            ("scripts/agent/", "hooks/", ".opencode/", ".muse/harness/")
+        ) or name.startswith("tests/test_agent_"):
+            checks.add("agent")
+            continue
+        if (
+            name.startswith(("scripts/", "opnsense_reconciler/"))
+            and path.suffix == ".py"
+        ):
+            checks.add("python")
+            continue
+        if name.startswith("tests/test_") and path.suffix == ".py":
+            checks.add("python")
+            test_modules.add(_test_module(name))
             continue
         return Scope("full", "unmapped or infrastructure path", tuple(paths))
-    if matrix and not application:
+    if matrix and not application and not checks:
         return Scope("matrix", "only matrix service and documentation", tuple(paths))
     if matrix:
         return Scope("full", "matrix and other application changes", tuple(paths))
+    if application and not checks:
+        return Scope(
+            "application",
+            "only allowlisted application assets and documentation",
+            tuple(paths),
+        )
+    if not checks:
+        return Scope("documentation", "only documentation", tuple(paths))
+    if application:
+        checks.add("home-assistant")
+    if documentation:
+        checks.add("docs")
+    ordered = tuple(
+        sorted(checks, key=lambda c: _CHECK_ORDER.index(c.partition(":")[0]))
+    )
     return Scope(
-        "application" if application else "documentation",
-        "only allowlisted application assets and documentation"
-        if application
-        else "only documentation",
+        "scoped",
+        "only narrowly mapped paths: " + ", ".join(ordered),
         tuple(paths),
+        checks=ordered,
+        test_modules=tuple(sorted(test_modules)),
     )
 
 

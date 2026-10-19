@@ -34,6 +34,7 @@ fmt:
 
 fmt-check:
     ruff format --check scripts opnsense_reconciler tests
+    yamllint gitops home-assistant
     nixfmt --check $(git ls-files -co --exclude-standard '*.nix')
     for stack in tofu/*/; do tofu -chdir="$stack" fmt -check; done
 
@@ -59,6 +60,7 @@ cache-populate:
       ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
       ./flake#checks.x86_64-linux.zot-registry \
       ./flake#devShells.x86_64-linux.default \
+      ./flake#devShells.x86_64-linux.ci \
       | attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
 
 deploy-fleet *args:

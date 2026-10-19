@@ -49,14 +49,59 @@ class ScopeTest(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assertEqual(classify(paths).mode, expected)
 
+    def test_narrowly_mapped_changes_are_scoped(self) -> None:
+        for paths, checks, modules in (
+            (["tests/test_example.py"], ("python",), ("tests.test_example",)),
+            (["scripts/deploy_fleet.py"], ("python",), ()),
+            (["opnsense_reconciler/reconciler.py"], ("python",), ()),
+            (
+                ["gitops/clusters/homelab-01/kustomization.yaml"],
+                ("gitops",),
+                (),
+            ),
+            (["schemas/kubernetes/example.json"], ("gitops",), ()),
+            (["tofu/opnsense/main.tf"], ("tofu",), ()),
+            (["registry/images.lock.json"], ("registry",), ()),
+            (
+                ["scripts/registry/__init__.py"],
+                ("python", "registry"),
+                (),
+            ),
+            (
+                ["tests/test_registry_supply.py"],
+                ("python", "registry"),
+                ("tests.test_registry_supply",),
+            ),
+            (
+                ["flake/hosts/homelab-01/default.nix"],
+                ("nix:homelab-01",),
+                (),
+            ),
+            (
+                ["gitops/apps/app.yaml", "tofu/cloudflare/main.tf", "README.md"],
+                ("gitops", "tofu", "docs"),
+                (),
+            ),
+            (
+                ["home-assistant/automations/lights.yaml", "gitops/apps/app.yaml"],
+                ("gitops", "home-assistant"),
+                (),
+            ),
+        ):
+            with self.subTest(paths=paths):
+                scope = classify(paths)
+                self.assertEqual(scope.mode, "scoped")
+                self.assertEqual(scope.checks, checks)
+                self.assertEqual(scope.test_modules, modules)
+
     def test_unknown_shared_and_mixed_changes_remain_exhaustive(self) -> None:
         for path in (
             ".gitlab-ci.yml",
-            "flake/hosts/homelab-01/default.nix",
-            "tests/test_example.py",
+            "flake/flake.nix",
+            "flake/modules/k3s.nix",
             "scripts/ci/scope.py",
+            "scripts/checks/python.sh",
             "config/agent-workspaces/workspaces.json",
-            "gitops/clusters/homelab-01/kustomization.yaml",
             "home-assistant/configuration.yaml",
             "docs/research/probe.py",
             "gitops/voice/extra.nix",
@@ -67,6 +112,9 @@ class ScopeTest(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(classify(["README.md", path]).mode, "full")
         self.assertEqual(classify([]).mode, "full")
+        self.assertEqual(
+            classify(["gitops/apps/app.yaml", "flake/modules/k3s.nix"]).mode, "full"
+        )
 
 
 class CommitRangeTest(unittest.TestCase):
@@ -184,7 +232,7 @@ class CommitRangeTest(unittest.TestCase):
             dict(
                 self.env,
                 CI_PIPELINE_EVENT="push",
-                CI_PIPELINE_FILES=json.dumps(["flake/hosts/homelab-01/default.nix"]),
+                CI_PIPELINE_FILES=json.dumps(["flake/modules/k3s.nix"]),
             ),
         )
         self.assertEqual(scope.mode, "full")
@@ -275,7 +323,12 @@ class ValidationLaneTest(unittest.TestCase):
             self.assertEqual(self.invoke(gate, "matrix"), (0, [], 0))
 
     def invoke(
-        self, gate: str, mode: str, failure: int = 0
+        self,
+        gate: str,
+        mode: str,
+        failure: int = 0,
+        checks: tuple[str, ...] = (),
+        test_modules: tuple[str, ...] = (),
     ) -> tuple[int, list[list[str]], int]:
         with tempfile.TemporaryDirectory() as temporary:
             env = dict(os.environ, CI_JOB_ID="test")
@@ -283,7 +336,10 @@ class ValidationLaneTest(unittest.TestCase):
                 contextlib.chdir(temporary),
                 patch.dict(os.environ, env),
                 patch(
-                    "scripts.ci.validate.determine", return_value=Scope(mode, "test")
+                    "scripts.ci.validate.determine",
+                    return_value=Scope(
+                        mode, "test", checks=checks, test_modules=test_modules
+                    ),
                 ),
                 patch(
                     "scripts.ci.validate.subprocess.call", return_value=failure
@@ -310,6 +366,34 @@ class ValidationLaneTest(unittest.TestCase):
             self.assertEqual(builds, 0)
         self.assertEqual(self.invoke("cache", "documentation"), (0, [], 0))
         self.assertEqual(self.invoke("repository", "documentation", 3)[0], 3)
+
+    def test_scoped_runs_only_mapped_checks_without_full_gate(self) -> None:
+        code, commands, builds = self.invoke(
+            "repository",
+            "scoped",
+            checks=("python", "registry", "nix:homelab-01", "gitops", "tofu"),
+            test_modules=("tests.test_example",),
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            commands,
+            [
+                ["bash", "scripts/checks/python.sh"],
+                ["bash", "scripts/checks/registry.sh"],
+                ["bash", "scripts/checks/nix.sh", "homelab-01"],
+                ["bash", "scripts/checks/gitops.sh"],
+                ["just", "provision-check-deps"],
+                ["bash", "scripts/checks/tofu.sh"],
+            ],
+        )
+        self.assertEqual(builds, 0)
+        for gate in ("flake", "cache"):
+            self.assertEqual(
+                self.invoke(gate, "scoped", checks=("gitops",)), (0, [], 0)
+            )
+        self.assertEqual(
+            self.invoke("repository", "scoped", 3, checks=("gitops",))[0], 3
+        )
 
     def test_application_keeps_sandbox_tests_and_repository_validation(self) -> None:
         self.assertEqual(self.invoke("flake", "application"), (0, [], 1))
@@ -350,7 +434,9 @@ class ValidationLaneTest(unittest.TestCase):
 
 
 class PythonGateTest(unittest.TestCase):
-    def run_gate(self, external: str, pyright_status: int = 0) -> tuple[int, list[str]]:
+    def run_gate(
+        self, external: str, pyright_status: int = 0, scoped_modules: str = ""
+    ) -> tuple[int, list[str]]:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             checks = root / "scripts/checks"
@@ -373,6 +459,7 @@ class PythonGateTest(unittest.TestCase):
                 PATH=f"{binaries}:{os.environ['PATH']}",
                 UNIT_COMMANDS=str(log),
                 CI_UNIT_TESTS_EXTERNAL=external,
+                CI_SCOPED_TEST_MODULES=scoped_modules,
                 CI_TEST_REPORT="",
                 PYRIGHT_STATUS=str(pyright_status),
             )
@@ -392,6 +479,16 @@ class PythonGateTest(unittest.TestCase):
             self.assertEqual(code, status)
             self.assertIn("test_zot_registry_module.py", args)
             self.assertNotIn("discover", args)
+
+    def test_scoped_gate_runs_only_named_test_modules(self) -> None:
+        code, args = self.run_gate(
+            "1", scoped_modules="tests.test_example tests.test_other"
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            args,
+            ["-m", "unittest", "tests.test_example", "tests.test_other", "-v"],
+        )
 
     def test_local_python_gate_keeps_the_complete_unit_suite(self) -> None:
         code, args = self.run_gate("0")

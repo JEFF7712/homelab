@@ -25,6 +25,7 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
     "$flake#checks.x86_64-linux.zot-registry"
     "$flake#devShells.x86_64-linux.default"
+    "$flake#devShells.x86_64-linux.ci"
   )
 elif [[ "$target_set" == "nixos-laptop" ]]; then
   build_targets=(
