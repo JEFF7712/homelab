@@ -23,6 +23,7 @@ let
     && safeIPv4CIDR workspace.network.address
     && safeIPv4 workspace.network.gateway
     && (workspace.network.ha_api == null || safeIPv4 workspace.network.ha_api)
+    && ((workspace.network.kubernetes_api or null) == null || safeIPv4 workspace.network.kubernetes_api)
     && builtins.all safeIPv4 workspace.network.dns
     && builtins.all safeIPv4 workspace.network.ntp
     && builtins.all safeIPv4CIDR workspace.network.ingress_sources;
@@ -41,6 +42,9 @@ let
     iifname "${workspace.network.bridge}" ct state established,related accept
     ${lib.optionalString (workspace.network.ha_api != null)
       ''iifname "${workspace.network.bridge}" ip daddr ${workspace.network.ha_api} tcp dport 443 ct state new accept''
+    }
+    ${lib.optionalString ((workspace.network.kubernetes_api or null) != null)
+      ''iifname "${workspace.network.bridge}" ip daddr ${workspace.network.kubernetes_api} tcp dport 6443 ct state new accept''
     }
     ${lib.optionalString (workspace.network.dns != [ ])
       ''

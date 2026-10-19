@@ -77,7 +77,25 @@ in
     pkgs.bluez-tools
   ];
 
-  homelab.apollo-ble-bridge.enable = true;
+  homelab.apollo-ble-bridge = {
+    enable = true;
+    devices = {
+      living-room = {
+        mac = "01:05:46:00:3A:71";
+        name = "Apollo LED Strip";
+        objectId = "apollo_led_strip";
+        area = "Living Room";
+        udpPort = 21324;
+      };
+      kitchen = {
+        mac = "E4:63:64:3C:16:48";
+        name = "Kitchen LED Strip";
+        objectId = "kitchen_led_strip";
+        area = "Kitchen";
+        udpPort = 21325;
+      };
+    };
+  };
 
   security.rtkit.enable = true;
   services.pipewire = {

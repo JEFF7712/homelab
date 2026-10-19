@@ -18,6 +18,7 @@ resources:
   - obsidian.yaml
   - platform.yaml
   - pod-agent.yaml
+  - readers.yaml
   - secrets.yaml
   - led-matrix.yaml
   - storage.yaml

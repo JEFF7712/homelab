@@ -68,48 +68,127 @@ in
       default = "/var/lib/apollo-ble-bridge";
       description = "Directory for bridge persistent state";
     };
-  };
 
-  config = lib.mkIf cfg.enable {
-    environment.persistence."/persist".directories = [
-      (toString cfg.stateDir)
-    ];
-
-    systemd.services.apollo-ble-bridge = {
-      description = "Apollo BLE LED Strip MQTT Bridge";
-      after = [
-        "network-online.target"
-        "bluetooth.service"
-      ];
-      wants = [
-        "network-online.target"
-        "bluetooth.service"
-      ];
-      wantedBy = [ "multi-user.target" ];
-
-      unitConfig.ConditionPathExists = [
-        (toString cfg.passwordFile)
-      ];
-
-      serviceConfig = {
-        Type = "simple";
-        User = "root";
-        StateDirectory = "apollo-ble-bridge";
-        Restart = "always";
-        RestartSec = "5s";
-      };
-
-      script = ''
-        export MQTT_PASS="$(${pkgs.coreutils}/bin/cat ${cfg.passwordFile})"
-        exec ${bridgePython}/bin/python3 -u ${bridgeDaemon}/bin/apollo-ble-bridge \
-          --mac "${cfg.mac}" \
-          --name "${cfg.name}" \
-          --mqtt-host "${cfg.mqttHost}" \
-          --mqtt-port "${toString cfg.mqttPort}" \
-          --mqtt-user "${cfg.mqttUser}" \
-          --udp-port "${toString cfg.udpPort}" \
-          --state-file "${toString cfg.stateDir}/state.json"
-      '';
+    devices = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule (
+          { name, ... }:
+          {
+            options = {
+              enable = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+              };
+              mac = lib.mkOption {
+                type = lib.types.str;
+                description = "Bluetooth MAC address of the light strip";
+              };
+              name = lib.mkOption {
+                type = lib.types.str;
+                default = "Apollo LED Strip";
+                description = "Friendly name for Home Assistant discovery";
+              };
+              objectId = lib.mkOption {
+                type = lib.types.str;
+                default = "apollo_led_strip";
+                description = "Home Assistant object_id";
+              };
+              area = lib.mkOption {
+                type = lib.types.str;
+                default = "Living Room";
+                description = "Home Assistant suggested area";
+              };
+              udpPort = lib.mkOption {
+                type = lib.types.int;
+                default = 21324;
+                description = "UDP port for LedFx music mode frames";
+              };
+            };
+          }
+        )
+      );
+      default = { };
+      description = "Attribute set of Apollo BLE devices to bridge";
     };
   };
+
+  config = lib.mkIf cfg.enable (
+    let
+      activeDevices =
+        if cfg.devices == { } then
+          {
+            default = {
+              enable = true;
+              mac = cfg.mac;
+              name = cfg.name;
+              objectId = "apollo_led_strip";
+              area = "Living Room";
+              udpPort = cfg.udpPort;
+            };
+          }
+        else
+          lib.filterAttrs (_: dev: dev.enable) cfg.devices;
+
+      makeService = devName: devCfg: {
+        description = "Apollo BLE LED Strip MQTT Bridge (${devCfg.name})";
+        after = [
+          "network-online.target"
+          "bluetooth.service"
+        ];
+        wants = [
+          "network-online.target"
+          "bluetooth.service"
+        ];
+        wantedBy = [ "multi-user.target" ];
+
+        unitConfig.ConditionPathExists = [
+          (toString cfg.passwordFile)
+        ];
+
+        serviceConfig = {
+          Type = "simple";
+          User = "root";
+          StateDirectory = "apollo-ble-bridge";
+          Restart = "always";
+          RestartSec = "5s";
+        };
+
+        script = ''
+          export MQTT_PASS="$(${pkgs.coreutils}/bin/cat ${cfg.passwordFile})"
+          exec ${bridgePython}/bin/python3 -u ${bridgeDaemon}/bin/apollo-ble-bridge \
+            --mac "${devCfg.mac}" \
+            --name "${devCfg.name}" \
+            --object-id "${devCfg.objectId}" \
+            --area "${devCfg.area}" \
+            --mqtt-host "${cfg.mqttHost}" \
+            --mqtt-port "${toString cfg.mqttPort}" \
+            --mqtt-user "${cfg.mqttUser}" \
+            --udp-port "${toString devCfg.udpPort}" \
+            --state-file "${toString cfg.stateDir}/${devName}.json"
+        '';
+      };
+    in
+    {
+      environment.persistence."/persist".directories = [
+        (toString cfg.stateDir)
+      ];
+
+      systemd.services =
+        if cfg.devices == { } then
+          {
+            apollo-ble-bridge = makeService "default" {
+              enable = true;
+              mac = cfg.mac;
+              name = cfg.name;
+              objectId = "apollo_led_strip";
+              area = "Living Room";
+              udpPort = cfg.udpPort;
+            };
+          }
+        else
+          lib.mapAttrs' (
+            devName: devCfg: lib.nameValuePair "apollo-ble-bridge-${devName}" (makeService devName devCfg)
+          ) activeDevices;
+    }
+  );
 }

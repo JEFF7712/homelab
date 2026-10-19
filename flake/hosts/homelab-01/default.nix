@@ -65,6 +65,7 @@
             mac = "02:00:00:10:00:06";
             uplink = "eno1";
             ha_api = null;
+            kubernetes_api = "10.0.30.11";
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [
