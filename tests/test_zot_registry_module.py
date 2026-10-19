@@ -326,5 +326,23 @@ class ZotRegistryModuleTests(unittest.TestCase):
             self.assertFalse((rejected_runtime / "config.json").exists())
 
 
+class RegistryPlatformDeployTests(unittest.TestCase):
+    def test_deploy_leaves_storage_ownership_to_the_module(self) -> None:
+        commands = json.loads((ROOT / "config/ci/operations.json").read_text())[
+            "deploy-registry-platform"
+        ]["commands"]
+        for command in commands:
+            self.assertNotRegex(command, r"\binstall -d\b")
+        rebuild = next(
+            index
+            for index, command in enumerate(commands)
+            if command.startswith("nixos-rebuild")
+        )
+        self.assertIn(
+            "systemd-tmpfiles --create --prefix=/tank/registry --prefix=/persist/zot",
+            commands[rebuild + 1],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
