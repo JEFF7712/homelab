@@ -26,6 +26,7 @@
       ...
     }:
     {
+      nixosModules.projectctl = import ./modules/projectctl.nix;
       nixosConfigurations =
         let
           mkHost =
@@ -82,6 +83,7 @@
             modules = [ { requiredFeatures.kvm = false; } ];
           };
         python = pkgs.python313.withPackages (pythonPackages: [
+          pythonPackages.bcrypt
           pythonPackages.pyyaml
           pythonPackages.jinja2
           pythonPackages.cryptography
@@ -112,6 +114,7 @@
         ];
       in
       {
+        packages.projectctl = import ./packages/projectctl.nix { inherit pkgs; };
         formatter = pkgs.nixfmt;
 
         devShells.voice-asr =

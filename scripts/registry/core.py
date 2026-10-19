@@ -25,6 +25,12 @@ from scripts.ci.applications import load_catalog
 
 SCHEMA_VERSION = 1
 DEFAULT_REGISTRY = "registry.rupan.dev"
+PROJECTCTL_PULL_REPOSITORIES = frozenset(
+    {
+        "upstream/ghcr.io/astral-sh/uv",
+        "upstream/docker.io/woodpeckerci/plugin-git",
+    }
+)
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _REPOSITORY_RE = re.compile(
     r"[a-z0-9]+(?:[._]|__|[-]*[a-z0-9]+)*(?:/[a-z0-9]+(?:[._]|__|[-]*[a-z0-9]+)*)*\Z"
@@ -2581,9 +2587,17 @@ def render_access_control(lock: Mapping[str, Any]) -> dict[str, Any]:
     for record in sorted(
         lock["images"], key=lambda item: item["destination_repository"]
     ):
+        repository = record["destination_repository"]
+        if record["kind"] == "upstream" and repository in PROJECTCTL_PULL_REPOSITORIES:
+            repositories[repository] = {
+                "policies": [
+                    {"users": ["node", "projectctl-pull"], "actions": read},
+                    {"users": ["importer"], "actions": write},
+                ],
+                "defaultPolicy": [],
+            }
         if record["kind"] != "first-party":
             continue
-        repository = record["destination_repository"]
         project = repository.removeprefix("apps/")
         publishers = [f"publisher-{project}"]
         local_publisher = (record.get("producer") or {}).get("local_publisher")

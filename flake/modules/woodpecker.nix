@@ -170,6 +170,21 @@ in
       ReadWritePaths = [ "/persist/woodpecker" ];
       WorkingDirectory = lib.mkForce "/persist/woodpecker";
     };
+    environment.etc."projectctl/ci-policy.json".source = pkgs.writeText "projectctl-ci-policy.json" (
+      builtins.toJSON {
+        schema_version = 1;
+        exclusive = true;
+        contract_digest =
+          "sha256:"
+          + builtins.hashString "sha256" (
+            builtins.readFile ../../scripts/ci/policy.py
+            + "\n"
+            + builtins.readFile ../../scripts/ci/development_projects.py
+          );
+        package_digest = "sha256:" + builtins.hashString "sha256" (toString policySource);
+        catalog = builtins.fromJSON (builtins.readFile ../../config/ci/projects.json);
+      }
+    );
     systemd.services.woodpecker-policy = {
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];

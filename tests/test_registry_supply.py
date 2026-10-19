@@ -2326,6 +2326,38 @@ class CopyVerifyTest(unittest.TestCase):
 
 
 class PolicyAndNodeConfigTest(unittest.TestCase):
+    def test_projectctl_reader_is_limited_to_locked_validation_and_clone_images(
+        self,
+    ) -> None:
+        lock = json.loads(
+            (
+                pathlib.Path(__file__).resolve().parents[1]
+                / "registry/images.lock.json"
+            ).read_text()
+        )
+        policy = render_access_control(lock)
+        granted = {}
+        for repository, entry in policy["repositories"].items():
+            for rule in entry.get("policies", []):
+                if "projectctl-pull" in rule["users"]:
+                    granted[repository] = rule["actions"]
+                    self.assertIn(
+                        {
+                            "users": ["importer"],
+                            "actions": ["read", "create", "update"],
+                        },
+                        entry["policies"],
+                    )
+        self.assertEqual(
+            granted,
+            {
+                "upstream/ghcr.io/astral-sh/uv": ["read"],
+                "upstream/docker.io/woodpeckerci/plugin-git": ["read"],
+            },
+        )
+        self.assertNotIn("projectctl-pull", policy["adminPolicy"]["users"])
+        self.assertNotIn("projectctl-pull", access_control_users({"images": []}))
+
     def test_access_control_is_lock_derived_and_least_privilege(self) -> None:
         raw = manifest()
         value = valid_lock(raw)

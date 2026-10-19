@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -29,6 +30,18 @@ SUPPORTED_KINDS = frozenset(
         "none",
     }
 )
+
+
+def contract_digest() -> str:
+    directory = Path(__file__).parent
+    payload = (
+        (directory / "policy.py").read_bytes()
+        + b"\n"
+        + (directory / "development_projects.py").read_bytes()
+    )
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
 ALLOWED_EVENTS = frozenset(
     {"push", "pull_request", "manual", "pull_request_closed", "pull_request_metadata"}
 )
@@ -233,6 +246,7 @@ def configuration(
 
         workflow = {
             "when": [{"event": event}],
+            "environment": {"PROJECTCTL_CONTRACT_DIGEST": contract_digest()},
             "labels": {
                 "tier": "sandbox",
                 "type": "docker",
