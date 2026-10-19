@@ -6,7 +6,9 @@ lock, so this script never widens it). The script generates a fresh password,
 creates or rotates that identity's htpasswd entry with one zot restart, keeps
 the previous files for rollback, verifies the new credential against the
 registry, and stores the OCI auth file as a deployment-scoped Woodpecker
-secret. Passwords are never printed.
+secret. The new htpasswd is also written back to the registry_htpasswd_file
+secret, which deploy-registry-platform installs verbatim; without that the
+next platform deploy silently drops the identity. Passwords are never printed.
 
 Run from an operator machine with sudo SSH to the registry host and an admin
 Woodpecker token:
@@ -33,6 +35,7 @@ REGISTRY = "registry.rupan.dev"
 REGISTRY_HOST = "rupan@10.0.30.20"
 WOODPECKER = "http://ci.internal:8000"
 REPOSITORY_ID = 1
+HTPASSWD_SECRET = "registry_htpasswd_file"
 
 
 def publisher_identity(policy: dict[str, Any], repository: str) -> str:
@@ -72,7 +75,16 @@ def remote(command: str, data: bytes | None = None) -> bytes:
     ).stdout
 
 
-def woodpecker(method: str, path: str, body: Any = None) -> int:
+def htpasswd_secret(existing: dict[str, Any], content: str) -> dict[str, Any]:
+    return {
+        "name": HTPASSWD_SECRET,
+        "value": content,
+        "events": existing["events"],
+        "images": existing.get("images") or [],
+    }
+
+
+def woodpecker(method: str, path: str, body: Any = None) -> tuple[int, Any]:
     token = (
         os.environ.get("WOODPECKER_TOKEN")
         or (Path.home() / ".config/woodpecker/token").read_text()
@@ -88,9 +100,10 @@ def woodpecker(method: str, path: str, body: Any = None) -> int:
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return response.status
+            payload = response.read()
+            return response.status, json.loads(payload) if payload else None
     except urllib.error.HTTPError as error:
-        return error.code
+        return error.code, None
 
 
 def verify(identity: str, password: str) -> None:
@@ -113,6 +126,9 @@ def main() -> None:
     args = parser.parse_args()
     policy = json.loads(remote("sudo cat /persist/zot/access-control.json"))
     users = remote("sudo cat /persist/zot/htpasswd")
+    status, existing = woodpecker("GET", f"/secrets/{HTPASSWD_SECRET}")
+    if status != 200 or not isinstance(existing, dict):
+        raise RuntimeError(f"Cannot read Woodpecker secret {HTPASSWD_SECRET}")
     entries = users.decode().splitlines()
     issued: list[tuple[str, str, str]] = []
     for repository in args.repositories:
@@ -127,11 +143,12 @@ def main() -> None:
         ).stdout.strip()
         entries = replace_entry(entries, identity, hashed)
         issued.append((repository, identity, password))
+    content = "\n".join(entries) + "\n"
     directory = f"/persist/zot/publisher-provision-{time.time_ns()}"
     remote(f"sudo install -d -m 0700 {directory}")
     remote(
         f"sudo install -m 0640 -o root -g zot /dev/stdin {directory}/htpasswd",
-        ("\n".join(entries) + "\n").encode(),
+        content.encode(),
     )
     digest = hashlib.sha256(users).hexdigest()
     remote(
@@ -140,8 +157,17 @@ def main() -> None:
         f" && sudo mv {directory}/htpasswd /persist/zot/htpasswd"
         " && sudo systemctl restart zot"
     )
-    for repository, identity, password in issued:
+    for _, identity, password in issued:
         verify(identity, password)
+    status, _ = woodpecker(
+        "PATCH", f"/secrets/{HTPASSWD_SECRET}", htpasswd_secret(existing, content)
+    )
+    if status >= 300:
+        raise RuntimeError(
+            f"Woodpecker rejected {HTPASSWD_SECRET}: HTTP {status}; the next "
+            "deploy-registry-platform would drop the new identities"
+        )
+    for repository, identity, password in issued:
         name = secret_name(repository)
         body = {
             "name": name,
@@ -149,9 +175,9 @@ def main() -> None:
             "events": ["deployment"],
             "images": [],
         }
-        status = woodpecker("PATCH", f"/secrets/{name}", body)
+        status, _ = woodpecker("PATCH", f"/secrets/{name}", body)
         if status == 404:
-            status = woodpecker("POST", "/secrets", body)
+            status, _ = woodpecker("POST", "/secrets", body)
         if status >= 300:
             raise RuntimeError(f"Woodpecker rejected secret {name}: HTTP {status}")
         print(f"{identity}: credential verified; Woodpecker secret {name} installed")

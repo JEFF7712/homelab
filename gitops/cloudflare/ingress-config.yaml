@@ -32,6 +32,8 @@ data:
         service: http://photography-svc.photography:80
       - hostname: majorfinder.rupan.dev
         service: http://majorfinder-svc.majorfinder:80
+      - hostname: uwagent.rupan.dev
+        service: http://uwagent-svc.uwagent:80
       - hostname: notes.rupan.dev
         service: http://quartz-notes.obsidian.svc.cluster.local:80
       - hostname: ntfy.rupan.dev

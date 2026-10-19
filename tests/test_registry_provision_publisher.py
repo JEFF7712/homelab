@@ -6,6 +6,7 @@ import unittest
 
 from scripts.registry.provision_publisher import (
     auth_file,
+    htpasswd_secret,
     publisher_identity,
     replace_entry,
     secret_name,
@@ -60,6 +61,24 @@ class ProvisionPublisherTest(unittest.TestCase):
         document = json.loads(auth_file("publisher-bus-display", "pw"))
         token = document["auths"]["registry.rupan.dev"]["auth"]
         self.assertEqual(base64.b64decode(token).decode(), "publisher-bus-display:pw")
+
+    def test_htpasswd_secret_carries_new_content_and_keeps_scope(self) -> None:
+        existing = {
+            "id": 7,
+            "name": "registry_htpasswd_file",
+            "value": "",
+            "events": ["deployment", "manual"],
+            "images": None,
+        }
+        self.assertEqual(
+            htpasswd_secret(existing, "node:x\npublisher-new:y\n"),
+            {
+                "name": "registry_htpasswd_file",
+                "value": "node:x\npublisher-new:y\n",
+                "events": ["deployment", "manual"],
+                "images": [],
+            },
+        )
 
 
 if __name__ == "__main__":
