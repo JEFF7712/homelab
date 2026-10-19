@@ -379,7 +379,7 @@ class PolicyTest(unittest.TestCase):
     def test_cron_reuses_main_validation_and_reports_overlap(self) -> None:
         self.request["pipeline"].update(event="cron", cron="promote")
         reused = configuration(
-            self.request, self.catalog, current=SHA, validated_main=True
+            self.request, self.catalog, current=SHA, main_validation="validated"
         )
         names = [item["name"] for item in reused["configs"]]
         self.assertNotIn(VALIDATION + ".yaml", names)
@@ -433,12 +433,40 @@ class PolicyTest(unittest.TestCase):
             6: {"workflows": [{"name": VALIDATION, "state": "success"}]},
         }
         self.assertEqual(
-            schedule_state(request, pipelines, details.__getitem__, 1000), (True, True)
+            schedule_state(request, pipelines, details.__getitem__, 1000),
+            (True, "validated"),
         )
         idle = [dict(item, status="success") for item in pipelines]
         idle[2]["created"] = 1000 - 90000
         self.assertEqual(
-            schedule_state(request, idle, details.__getitem__, 1000), (False, False)
+            schedule_state(request, idle, details.__getitem__, 1000), (False, "none")
+        )
+        running = {6: {"workflows": [{"name": VALIDATION, "state": "running"}]}}
+        self.assertEqual(
+            schedule_state(
+                request,
+                [dict(pipelines[2], status="running")],
+                running.__getitem__,
+                1000,
+            )[1],
+            "validating",
+        )
+
+    def test_schedules_wait_for_main_validation_in_flight(self) -> None:
+        self.request["pipeline"].update(event="cron", cron="maintenance")
+        result = configuration(
+            self.request, self.catalog, current=SHA, main_validation="validating"
+        )
+        self.assertEqual(
+            [item["name"] for item in result["configs"]], ["webhook-watchdog.yaml"]
+        )
+        self.request["pipeline"].update(cron="promote")
+        result = configuration(
+            self.request, self.catalog, current=SHA, main_validation="validating"
+        )
+        self.assertEqual(
+            [item["name"] for item in result["configs"]],
+            ["awaiting-main-validation.yaml"],
         )
 
     def test_same_repository_prs_defer_to_the_branch_push(self) -> None:

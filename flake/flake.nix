@@ -94,6 +94,15 @@
             pkgs.zlib
           ]
         );
+        opsPackages = with pkgs; [
+          attic-client
+          cosign
+          curl
+          dnsutils
+          oras
+          skopeo
+          tea
+        ];
         ciPackages = with pkgs; [
           # Scoped validation lanes run unit tests directly in this shell,
           # not inside checks.repository-contract, so they need the same
@@ -157,23 +166,26 @@
           packages = ciPackages;
         };
 
+        # Protected CI operations: the CI tools plus registry, cache, and
+        # release clients, without the virtualization and GUI closure (qemu,
+        # libvirt, cloud-utils) that every operation container would
+        # otherwise copy from Attic before doing any work.
+        devShells.ops = pkgs.mkShell {
+          MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
+          packages = ciPackages ++ opsPackages;
+        };
+
         devShells.default = pkgs.mkShell {
           MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
           packages =
             ciPackages
+            ++ opsPackages
             ++ (with pkgs; [
-              attic-client
-              cosign
               cloud-utils
-              curl
-              dnsutils
               glab
               libvirt
-              oras
               prometheus.cli
               qemu_kvm
-              skopeo
-              tea
             ]);
         };
 

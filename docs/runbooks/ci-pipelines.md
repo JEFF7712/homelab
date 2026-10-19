@@ -20,7 +20,12 @@ the restriction. Its offline behavior tests are
 All three agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
 have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
-Every agent has two workflow slots. Operations serialize on the resource
+Validation runs in the slim `ci` dev shell; protected operations run in
+the `ops` shell, which adds registry, cache, and release clients but leaves
+out the virtualization and GUI closure of the default shell (2.4 GiB instead
+of 3.9 GiB), so an operation container copies far less from Attic before it
+starts. `cache-publish` pushes all three shells. Every agent has two
+workflow slots. Operations serialize on the resource
 they act on: the catalog `group` becomes the concurrency group
 `resource-<group>` with limit one, so two OpenTofu applies on the same stack
 never overlap while a cache push and a Home Assistant apply can. Scheduled
@@ -152,7 +157,10 @@ queued operation then failed the current-main check.
 
 A schedule run reuses main validation when a push, manual, or cron pipeline
 already passed validation-v2 for the same commit within 24 hours, so it
-spends no sandbox time revalidating an unchanged main. When the previous run
+spends no sandbox time revalidating an unchanged main. While main's own
+validation of the commit is still running, a schedule runs only its ungated
+watchdog and defers the rest to its next run rather than starting a second
+full validation beside it. When the previous run
 of the same schedule (Woodpecker records the cron name as the sender) is
 still pending or running, the new run emits only a failing
 `schedule-overlap` workflow: the schedule outlives its interval and needs
