@@ -222,6 +222,13 @@ in
     systemd.services.woodpecker-agent-trusted.serviceConfig.Restart = lib.mkForce "always";
     systemd.services.woodpecker-agent-deploy.serviceConfig.Restart = lib.mkForce "always";
     networking.firewall.allowedTCPPorts = [ 8000 ];
+    # deploy-ci-host steps SSH to this host's own address. That traffic is
+    # delivered locally from the step's Docker bridge with a container source
+    # address, so the 10.0.30.0/24 SSH rule never matches it. Steps already
+    # reach SSH on every other fleet host through the masquerade.
+    networking.firewall.extraInputRules = ''
+      iifname { "docker0", "br-*" } tcp dport 22 accept
+    '';
     networking.hosts = {
       "192.168.1.1" = [ "OPNsense.internal" ];
       # registry.rupan.dev is pinned in k3s-server.nix, which every
