@@ -162,6 +162,7 @@
           };
 
         devShells.ci = pkgs.mkShell {
+          HOMELAB_DEV_SHELL = "ci";
           MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
           packages = ciPackages;
         };
@@ -171,11 +172,13 @@
         # libvirt, cloud-utils) that every operation container would
         # otherwise copy from Attic before doing any work.
         devShells.ops = pkgs.mkShell {
+          HOMELAB_DEV_SHELL = "ops";
           MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
           packages = ciPackages ++ opsPackages;
         };
 
         devShells.default = pkgs.mkShell {
+          HOMELAB_DEV_SHELL = "default";
           MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;
           packages =
             ciPackages
