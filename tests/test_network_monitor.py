@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,6 +32,10 @@ def probes(*failed: str) -> dict[str, bool]:
 
 
 class NetworkMonitorTests(unittest.TestCase):
+    def test_truncated_dns_response_is_a_failed_probe(self) -> None:
+        with patch.object(monitor, "dns", side_effect=struct.error("short reply")):
+            self.assertFalse(monitor.safe_probe("dns"))
+
     def test_failed_delivery_retries_in_order(self) -> None:
         events = [{"title": "outage"}, {"title": "recovery"}]
         state: dict[str, Any] = {"pending": events.copy()}

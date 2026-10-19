@@ -61,7 +61,7 @@ def safe_probe(name: str) -> bool:
             case _:
                 kind, address = name.split(":", 1)
                 return tcp(address) if kind == "tcp" else https(address)
-    except (OSError, ValueError, http.client.HTTPException):
+    except (OSError, ValueError, struct.error, http.client.HTTPException):
         return False
 
 
