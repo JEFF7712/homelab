@@ -35,7 +35,9 @@ WOODPECKER_REPO = 1
 AGENT_REMOTE = "git-agent:JEFF7712/homelab.git"
 PATCH_BEGIN = "----- BEGIN PROMOTION PATCH"
 PATCH_END = "----- END PROMOTION PATCH -----"
-POLL_SECONDS = 15
+POLL_SECONDS = 5
+# Outage, log-storage, and mergeability retries keep their original window.
+RETRY_SECONDS = 15
 SUPERSEDED = "Operation source must be the current main commit"
 NETWORK_RETRIES = 20
 
@@ -179,7 +181,7 @@ def http(
                 return response.status, json.loads(payload) if payload else None
         except urllib.error.HTTPError as error:
             if error.code in {502, 503, 504} and attempt + 1 < NETWORK_RETRIES:
-                time.sleep(POLL_SECONDS)
+                time.sleep(RETRY_SECONDS)
                 continue
             text = error.read().decode(errors="replace")
             try:
@@ -189,7 +191,7 @@ def http(
         except (urllib.error.URLError, ConnectionError, TimeoutError) as error:
             if attempt + 1 == NETWORK_RETRIES:
                 raise ShipError(f"{method} {url} unreachable: {error}") from None
-            time.sleep(POLL_SECONDS)
+            time.sleep(RETRY_SECONDS)
     raise ShipError(f"{method} {url} unreachable")
 
 
@@ -413,7 +415,7 @@ class Shipper:
                         f"PR #{number} conflicts with main; merge origin/main into "
                         "the branch, resolve, commit, and rerun just ship"
                     )
-                time.sleep(POLL_SECONDS)
+                time.sleep(RETRY_SECONDS)
                 continue
             raise ShipError(f"Merge of PR #{number} rejected: HTTP {code} {message}")
 
@@ -533,7 +535,7 @@ class Shipper:
                     )
                     if logs and (PATCH_BEGIN not in logs or PATCH_END in logs):
                         break
-                    time.sleep(POLL_SECONDS)
+                    time.sleep(RETRY_SECONDS)
                 return {"operation": operation, "pipeline": number, "log": logs}
             if state in {"failure", "error", "killed", "declined"}:
                 raise ShipError(
