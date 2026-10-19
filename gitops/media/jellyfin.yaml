@@ -65,7 +65,12 @@ spec:
             - name: config
               mountPath: /config
             - name: media
-              mountPath: /data
+              mountPath: /data/movies
+              subPath: movies
+              readOnly: true
+            - name: media
+              mountPath: /data/tv
+              subPath: tv
               readOnly: true
             - name: tmp
               mountPath: /tmp
