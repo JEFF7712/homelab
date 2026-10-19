@@ -292,9 +292,18 @@ def operations() -> tuple[Operation, ...]:
             ("deployed_enrollment",),
         ),
         Operation(
+            "protection",
+            "forgejo.protection.ensure",
+            ("policy",),
+            (repo,),
+            (),
+            ("deployed_enrollment",),
+            ("branch_protection",),
+        ),
+        Operation(
             "ci",
             "ci.trigger",
-            ("source", "policy"),
+            ("source", "policy", "protection"),
             (repo, enrollment),
             (Port("pipeline_id", "id"),),
             ("exact_source", "deployed_enrollment"),
@@ -312,7 +321,7 @@ def operations() -> tuple[Operation, ...]:
     )
 
 
-MUTATIONS = frozenset({"repository", "clone", "enrollment", "pull", "ci"})
+MUTATIONS = frozenset({"repository", "clone", "enrollment", "pull", "protection", "ci"})
 
 
 @dataclass(frozen=True)

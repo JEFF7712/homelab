@@ -15,7 +15,7 @@ from .authorization import Policy
 from .codec import MAX_BYTES, digest, loads
 from .errors import Code, ProtocolError
 from .http import Api
-from .models import DIGEST, REPOSITORY, Platform, Project, obj, string
+from .models import DIGEST, REPOSITORY, Platform, Project, number, obj, string
 
 SECRET_NAMES = {
     "forgejo-read",
@@ -87,6 +87,7 @@ class Scope:
     project_key: str
     repository: str
     visibility: str
+    routine: dict[str, Any] | None
 
 
 class Configuration:
@@ -126,13 +127,20 @@ class Configuration:
             raise ProtocolError(Code.INVALID_SPEC) from None
         self.scopes = []
         for item in row["scopes"]:
-            scope = obj(item, "principal project_key repository visibility")
+            scope = obj(item, "principal project_key repository visibility routine")
+            routine = scope["routine"]
+            if routine is not None:
+                routine = obj(routine, "repository_id default_branch ci_contract")
+                number(routine["repository_id"])
+                string(routine["default_branch"], r"[a-zA-Z0-9][a-zA-Z0-9_./-]{0,127}")
+                string(routine["ci_contract"], "python-uv-v1")
             self.scopes.append(
                 Scope(
                     string(scope["principal"]),
                     string(scope["project_key"]),
                     string(scope["repository"], REPOSITORY),
                     string(scope["visibility"], "private|public"),
+                    routine,
                 )
             )
         identities = [(scope.principal, scope.project_key) for scope in self.scopes]
@@ -200,6 +208,12 @@ class Configuration:
         ]
         if len(matches) != 1:
             raise ProtocolError(Code.AUTHORIZATION_REQUIRED)
+        routine = matches[0].routine
+        if routine is not None and (
+            project.default_branch != routine["default_branch"]
+            or project.ci_contract != routine["ci_contract"]
+        ):
+            raise ProtocolError(Code.AUTHORIZATION_REQUIRED)
         return Policy(
             self.platform,
             principal,
@@ -210,6 +224,8 @@ class Configuration:
                 {
                     "implementation": implementation_digest(self.expected_ci_digest),
                     "bindings": self.bindings,
+                    "routine": routine,
                 }
             ),
+            routine_onboarding=routine is not None,
         )

@@ -214,6 +214,8 @@ class Worker:
             raise ProtocolError(Code.RESOURCE_CONFLICT, operation)
         if operation == "pull" and evidence.get("pull_read_only") is not True:
             raise ProtocolError(Code.RESOURCE_CONFLICT, operation)
+        if operation == "protection" and evidence.get("branch_protection") is not True:
+            raise ProtocolError(Code.RESOURCE_CONFLICT, operation)
         if (
             operation in {"source", "ci", "readiness"}
             and evidence.get("source_sha") != project.source_sha
@@ -252,9 +254,9 @@ class Worker:
             or any(
                 evidence.get(key) is not True
                 for key in (
-                    "webhook_delivered",
-                    "branch_protection",
-                    "protection_probe",
+                    ("webhook_delivered", "branch_protection")
+                    if policy.routine_onboarding
+                    else ("webhook_delivered", "branch_protection", "protection_probe")
                 )
             )
         ):

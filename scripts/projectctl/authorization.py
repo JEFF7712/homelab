@@ -39,6 +39,7 @@ class Policy:
     max_discovery_age_seconds: int = 300
     max_grant_seconds: int = 3600
     max_evidence_age_seconds: int = 300
+    routine_onboarding: bool = False
 
     @property
     def policy_digest(self) -> str:
@@ -132,6 +133,7 @@ class AuthoritySnapshot:
     policy: Policy
     protected_revision: str
     approval: SignedApproval | None
+    routine: bool = False
 
 
 class Authority(Protocol):
@@ -178,6 +180,15 @@ def verify(
     plan = plan.validated()
     snapshot.policy.check(plan, principal)
     string(snapshot.protected_revision, SHA)
+    if snapshot.routine and snapshot.policy.routine_onboarding:
+        if operation_id not in {"clone", "enrollment", "pull", "protection", "ci"}:
+            raise ProtocolError(Code.AUTHORIZATION_REQUIRED, operation_id)
+        return GrantEvidence(
+            "routine-onboarding",
+            digest({"request_id": request_id, "plan": document(plan)}),
+            snapshot.protected_revision,
+            snapshot.policy.policy_digest,
+        )
     if snapshot.approval is None:
         raise ProtocolError(Code.AUTHORIZATION_REVOKED, operation_id)
     approval = verify_signature(snapshot.approval, trusted_keys)

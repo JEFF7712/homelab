@@ -10,6 +10,7 @@
         "catalog",
         "source",
         "policy",
+        "protection",
         "ci",
         "readiness"
       ],
@@ -18,20 +19,20 @@
       "expires_at": "2026-10-15T12:02:00Z",
       "grant_id": "grant-1",
       "not_before": "2026-10-15T11:59:59Z",
-      "plan_digest": "sha256:077f60a8b9412f8d8e54f6c2688d7555249dac500b18778ad06375fb08cbf863",
+      "plan_digest": "sha256:6013882ab72d4b987c4d7dc3c94e3a8b483c61097709d983eb2eb165d1520634",
       "platform": {
         "forgejo": "forgejo-local",
         "homelab_repository": "JEFF7712/homelab",
         "woodpecker": "woodpecker-local"
       },
-      "policy_digest": "sha256:9d673268b23fb40ce48ac921a57cac9ff197e6a74fe6b98d533e83b68d26d8fd",
+      "policy_digest": "sha256:61f330587c979ba78fb9eb656b48bf3f1881c6359c9decf4ebc64b876d4206ea",
       "principal": "agent-test",
       "project_key": "molecular-ml",
       "request_id": "req-vector",
       "schema_version": 1
     },
     "schema_version": 1,
-    "signature": "75ZVRyMfpsbEEAbp0HZjurxoq4begY/SWWPAaiPQ7nCCeaX8Qc4eLifMB5mnSW9tIeLCeZHHBwqLH69LvM60Cg=="
+    "signature": "ZeEqvSUHLrh0a8gKx9pRkRW2Rn/on9KQ9n5W58k6nAANuF8c6DurNdAPWuHNkPxZrM9p70+uDA8uWLyMbii6Dg=="
   },
   "public_key": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
 }

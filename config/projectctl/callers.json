@@ -5,7 +5,12 @@
       {
         "project_key": "autocompress",
         "repository": "JEFF7712/autocompress",
-        "visibility": "private"
+        "visibility": "private",
+        "routine": {
+          "repository_id": 24,
+          "default_branch": "main",
+          "ci_contract": "python-uv-v1"
+        }
       }
     ]
   }

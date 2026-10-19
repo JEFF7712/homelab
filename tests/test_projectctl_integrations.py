@@ -273,6 +273,8 @@ class ApiState:
             self.registry = body
             return 200, {key: value for key, value in body.items() if key != "password"}
         if path == "/api/repos/73/registries/registry.internal":
+            if method == "PATCH" and self.registry is not None:
+                self.registry.update(body)
             return (
                 (
                     200,
@@ -304,7 +306,12 @@ class ApiState:
                 if int(suffix) in self.pipelines
                 else (404, {})
             )
+        if path == project + "/branch_protections" and method == "POST":
+            self.protection = body
+            return 201, self.protection
         if path == project + "/branch_protections/main":
+            if method == "PATCH" and self.protection is not None:
+                self.protection.update(body)
             return (200, self.protection) if self.protection else (404, {})
         if path.startswith(project + "/statuses/"):
             return 200, self.statuses.get(path.removeprefix(project + "/statuses/"), [])
@@ -350,6 +357,7 @@ class Handler(BaseHTTPRequestHandler):
             and "/registries/" not in path
             and not path.endswith("/registries")
             and "/branch_protections/" not in path
+            and "/collaborators/" not in path
         ):
             allowed.add(f"{prefix} fixture-{service}-read")
         if self.headers.get("Authorization") not in allowed:
@@ -444,6 +452,7 @@ class IntegrationTest(unittest.TestCase):
                     "project_key": "probe-py",
                     "repository": "JEFF7712/probe-py",
                     "visibility": "private",
+                    "routine": None,
                 }
             ],
             "trusted_keys": {
@@ -518,6 +527,273 @@ class IntegrationTest(unittest.TestCase):
     def dispatch(self, request_id: str) -> dict[str, Any]:
         with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": str(self.credentials)}):
             return self.runtime.worker.run(request_id, "agent-test")
+
+    def enable_routine(self) -> None:
+        scope = self.config_document["scopes"][0]
+        scope["routine"] = {
+            "repository_id": 41,
+            "default_branch": "main",
+            "ci_contract": "python-uv-v1",
+        }
+        self.state.files["config/projectctl/callers.json"] = {
+            "agent-test": {
+                "projects": [
+                    {key: value for key, value in scope.items() if key != "principal"}
+                ]
+            }
+        }
+        self.state.repository = {
+            "id": 41,
+            "full_name": self.project.repository,
+            "private": True,
+            "default_branch": "main",
+        }
+        self.state.source_sha = self.project.source_sha
+        self.runtime = Runtime(Configuration(self.config_document))
+        self.client = LocalClient(self.runtime)
+
+    def configure_protection(self) -> None:
+        self.state.protection = {
+            "branch_name": "main",
+            "enable_push": False,
+            "enable_push_whitelist": False,
+            "enable_status_check": True,
+            "status_check_contexts": [CONTEXT],
+            "apply_to_admins": True,
+        }
+
+    def test_routine_onboarding_reconciles_without_signature_or_dispatch(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        self.assertEqual(status["state"], "queued")
+        request_id = status["request_id"]
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": str(self.credentials)}):
+            first = self.runtime.reconcile()
+            self.assertEqual(first["requests"][0]["state"], "waiting", first)
+            self.deploy_catalog(request_id)
+            self.state.pipeline(10, self.project.source_sha)
+            final = self.runtime.reconcile()
+        self.assertEqual(final["requests"][0]["state"], "succeeded", final)
+        self.assertIsNotNone(self.state.protection)
+        self.assertTrue(self.state.protection["apply_to_admins"])
+        self.assertFalse(
+            any("approvals/" in name or "probes/" in name for name in self.state.files)
+        )
+        with self.runtime.journal.connection() as db:
+            grants = [loads(row[0]) for row in db.execute("SELECT grant FROM attempts")]
+        self.assertTrue(grants)
+        self.assertTrue(
+            all(grant["grant_id"] == "routine-onboarding" for grant in grants)
+        )
+        self.assertFalse(
+            any(
+                path.startswith("/api/v1/") and path.endswith("/repos")
+                for _, path, _ in self.state.writes
+            )
+        )
+
+    def test_routine_revocation_stops_second_write_in_enrollment(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        original = self.runtime.config.apis["woodpecker"].request
+
+        def revoke(path: str, **kwargs: Any) -> Any:
+            result = original(path, **kwargs)
+            if path.startswith("/api/repos?forge_remote_id="):
+                self.state.files["config/projectctl/callers.json"] = {}
+            return result
+
+        with patch.object(
+            self.runtime.config.apis["woodpecker"], "request", side_effect=revoke
+        ):
+            result = self.dispatch(status["request_id"])
+        self.assertEqual(result["code"], "OUTCOME_UNCERTAIN", result)
+        with self.assertRaises(ProtocolError) as error:
+            self.runtime.authority.current(status["request_id"])
+        self.assertEqual(error.exception.code, Code.AUTHORIZATION_REVOKED)
+        self.assertFalse(
+            any(
+                method == "PATCH" and path == "/api/repos/73"
+                for method, path, _ in self.state.writes
+            )
+        )
+
+    def test_routine_migrates_legacy_node_registry(
+        self,
+    ) -> None:
+        self.enable_routine()
+        self.runtime.config.registry_username = "dedicated-reader"
+        self.state.registry = {"address": "registry.internal", "username": "node"}
+        status = self.submit()
+        first = self.dispatch(status["request_id"])
+        self.assertEqual(first["state"], "waiting", first)
+        self.assertEqual(self.state.registry["username"], "dedicated-reader")
+        self.assertEqual(
+            len(
+                [
+                    row
+                    for row in self.state.writes
+                    if row[0] == "PATCH" and "/registries/" in row[1]
+                ]
+            ),
+            1,
+        )
+
+    def test_null_trusted_plugin_list_does_not_cause_reenrollment(self) -> None:
+        self.enable_routine()
+        self.state.enrollment = {
+            "id": 73,
+            "full_name": self.project.repository,
+            "forge_remote_id": "41",
+            "private": True,
+            "visibility": "private",
+            "active": True,
+            **copy.deepcopy(DEVELOPMENT_SETTINGS),
+            "netrc_trusted": None,
+        }
+        status = self.submit()
+        result = self.dispatch(status["request_id"])
+        self.assertEqual(result["state"], "waiting", result)
+        self.assertFalse(
+            any(
+                path == "/api/repos/73" or path.endswith("/repair")
+                for _, path, _ in self.state.writes
+            )
+        )
+        self.state.enrollment["netrc_trusted"] = ["unapproved-plugin"]
+        self.assertFalse(
+            self.runtime.adapter._enrollment_ready(self.state.enrollment, True)
+        )
+
+    def test_routine_does_not_replace_an_unrelated_registry_identity(self) -> None:
+        self.enable_routine()
+        self.state.registry = {
+            "address": "registry.internal",
+            "username": "another-project-account",
+        }
+        status = self.submit()
+        result = self.dispatch(status["request_id"])
+        self.assertEqual(result["code"], "RESOURCE_CONFLICT", result)
+        self.assertEqual(self.state.registry["username"], "another-project-account")
+        self.assertFalse(any("/registries" in path for _, path, _ in self.state.writes))
+
+    def test_routine_scope_cannot_expand_or_replace_repository(self) -> None:
+        from dataclasses import replace
+
+        self.enable_routine()
+        for project in (
+            replace(self.project, default_branch="other"),
+            replace(self.project, repository="JEFF7712/other"),
+            replace(self.project, visibility="public"),
+        ):
+            with self.subTest(project=project), self.assertRaises(ProtocolError):
+                self.call("plan", document(project))
+        self.state.repository["id"] = 42
+        with self.assertRaises(ProtocolError) as error:
+            self.call("plan", document(self.project))
+        self.assertEqual(error.exception.code, Code.RESOURCE_CONFLICT)
+        self.state.repository = None
+        with self.assertRaises(ProtocolError):
+            self.call("plan", document(self.project))
+        self.assertEqual(self.state.writes, [])
+
+    def test_routine_context_is_immutable_and_catalog_drift_blocks_resume(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        original = self.call("approval-context", {"request_id": request_id})
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.assertEqual(
+            self.call("approval-context", {"request_id": request_id}), original
+        )
+        self.state.catalogs[self.state.revision]["projects"][0]["ci"]["tier"] = (
+            "privileged"
+        )
+        count = len(self.state.writes)
+        result = self.dispatch(request_id)
+        self.assertEqual(result["code"], "PLAN_STALE", result)
+        self.assertEqual(len(self.state.writes), count)
+
+    def test_routine_readiness_still_requires_push_and_admin_protection(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha, event="manual")
+        self.configure_protection()
+        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
+        self.runtime.worker.clock = lambda: (
+            datetime.now(timezone.utc) + timedelta(seconds=10)
+        )
+        self.state.pipeline(9, self.project.source_sha)
+        self.state.protection["apply_to_admins"] = False
+        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
+        self.state.protection["apply_to_admins"] = True
+        self.runtime.worker.clock = lambda: (
+            datetime.now(timezone.utc) + timedelta(seconds=20)
+        )
+        self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
+
+    def test_routine_strengthens_protection_without_removing_extra_requirements(
+        self,
+    ) -> None:
+        self.enable_routine()
+        self.configure_protection()
+        self.state.protection.update(
+            apply_to_admins=False,
+            required_approvals=2,
+            require_signed_commits=True,
+            status_check_contexts=["independent-check"],
+        )
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.assertFalse(
+            any("branch_protections" in path for _, path, _ in self.state.writes)
+        )
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha)
+        result = self.dispatch(request_id)
+        self.assertEqual(result["state"], "succeeded", result)
+        rule = self.state.protection
+        self.assertTrue(rule["apply_to_admins"])
+        self.assertEqual(rule["required_approvals"], 2)
+        self.assertTrue(rule["require_signed_commits"])
+        self.assertEqual(
+            set(rule["status_check_contexts"]), {CONTEXT, "independent-check"}
+        )
+
+    def test_automatic_reconciliation_ignores_signed_requests(self) -> None:
+        status = self.submit()
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": str(self.credentials)}):
+            self.assertEqual(self.runtime.reconcile(), {"requests": []})
+        self.assertEqual(self.state.writes, [])
+        self.assertEqual(
+            self.call("status", {"request_id": status["request_id"]})["state"],
+            "awaiting_authorization",
+        )
+
+    def test_reconciler_does_not_change_state_when_execution_lock_is_held(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        with self.runtime.journal.execution():
+            result = self.runtime.reconcile()
+        self.assertEqual(result["requests"][0]["code"], "RESOURCE_CONFLICT")
+        self.assertEqual(
+            self.call("status", {"request_id": status["request_id"]})["state"], "queued"
+        )
+        self.assertEqual(self.state.writes, [])
+
+    def test_journal_v2_migration_preserves_pending_requests(self) -> None:
+        status = self.submit()
+        with self.runtime.journal.connection() as db:
+            db.execute("DROP TABLE authorization_contexts")
+            db.execute("PRAGMA user_version=2")
+        journal = Journal(self.runtime.journal.path)
+        self.assertEqual(journal.status(status["request_id"], "agent-test"), status)
+        self.assertIsNone(journal.authorization_context(status["request_id"]))
 
     def deploy_catalog(self, request_id: str) -> None:
         artifact = loads(
@@ -1046,6 +1322,26 @@ class IntegrationTest(unittest.TestCase):
                 "/api/repos/73/registries/registry.internal", missing=True
             )
         self.assertEqual(raised.exception.code, Code.AUTHORIZATION_REQUIRED)
+        self.assertEqual(self.state.writes, [])
+
+    def test_clone_permission_observation_requires_worker_credentials(self) -> None:
+        self.state.repository = {
+            "id": 41,
+            "full_name": self.project.repository,
+            "private": True,
+            "default_branch": "main",
+        }
+        with self.assertRaises(ProtocolError) as error:
+            self.runtime.config.apis["forgejo"].request(
+                "/api/v1/repos/JEFF7712/probe-py/collaborators/clone-reader/permission"
+            )
+        self.assertEqual(error.exception.code, Code.AUTHORIZATION_REQUIRED)
+        with patch.dict(os.environ):
+            os.environ.pop("CREDENTIALS_DIRECTORY", None)
+            with self.assertRaises(ProtocolError):
+                self.runtime.adapter.repository_admin_api.request(
+                    "/api/v1/repos/JEFF7712/probe-py/collaborators/clone-reader/permission"
+                )
         self.assertEqual(self.state.writes, [])
 
     def test_registry_observation_credentials_are_unavailable_to_gateway(self) -> None:

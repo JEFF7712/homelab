@@ -1,5 +1,12 @@
 # projectctl v0.1 plan and authorization protocol
 
+2026-10-19 amendment: the operator approved preauthorized routine onboarding
+for exact existing repository identities and sandbox contracts. Those requests
+reconcile automatically without per-request signatures or signed protection
+probes. Scope expansion still requires protected platform review. The current
+[runbook](../../runbooks/projectctl.md#routine-onboarding) supersedes the original
+signed-only execution and acceptance requirements below for routine scopes.
+
 Status: implementation contract, 2026-10-16. The CLI, worker, service adapters,
 signing tools and disabled Nix profile are implemented locally. No live worker
 activation or pilot enrollment has occurred. The

@@ -57,9 +57,9 @@ class Journal:
         os.close(_secure_file(self.lock_path))
         with self.connection() as db:
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            if version == 2:
+            if version == 3:
                 return
-            if version != 0:
+            if version not in {0, 2}:
                 raise ProtocolError(Code.INVALID_SPEC)
         with self.execution(), self.connection() as db:
             db.executescript("""
@@ -89,7 +89,11 @@ class Journal:
                     request_id TEXT NOT NULL, operation_id TEXT NOT NULL, attempt INTEGER NOT NULL,
                     resource_id INTEGER NOT NULL, PRIMARY KEY(request_id, operation_id, attempt)
                 );
-                PRAGMA user_version=2;
+                CREATE TABLE IF NOT EXISTS authorization_contexts (
+                    request_id TEXT PRIMARY KEY REFERENCES requests(id),
+                    context TEXT NOT NULL
+                );
+                PRAGMA user_version=3;
             """)
 
     @contextmanager
@@ -161,6 +165,32 @@ class Journal:
                 [(request_id, operation.operation_id) for operation in plan.operations],
             )
         return request_id
+
+    def authorization_context(
+        self, request_id: str, value: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        with self.connection() as db:
+            if value is not None:
+                db.execute(
+                    "INSERT OR IGNORE INTO authorization_contexts VALUES(?,?)",
+                    (request_id, canonical(value).decode()),
+                )
+            row = db.execute(
+                "SELECT context FROM authorization_contexts WHERE request_id=?",
+                (request_id,),
+            ).fetchone()
+            return loads(row["context"]) if row else None
+
+    def pending(self) -> list[tuple[str, str]]:
+        with self.connection() as db:
+            return [
+                (row["id"], row["principal"])
+                for row in db.execute(
+                    "SELECT id,principal FROM requests "
+                    "WHERE state IN ('awaiting_authorization','queued','running','waiting') "
+                    "ORDER BY rowid"
+                )
+            ]
 
     def lookup(
         self, principal: str, submission_key: str, fingerprint: str

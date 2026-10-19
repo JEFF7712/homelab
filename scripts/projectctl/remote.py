@@ -57,30 +57,47 @@ class RemoteAuthority:
 
     def baseline(
         self, status: dict[str, Any]
-    ) -> tuple[SignedApproval | None, str, dict[str, Any] | None, dict[str, Any]]:
+    ) -> tuple[
+        SignedApproval | dict[str, Any] | None,
+        str,
+        dict[str, Any] | None,
+        dict[str, Any],
+    ]:
         request_id = string(status["request_id"])
         project = Plan.parse(status["plan"]).project
         revision = self.main_revision()
-        raw = self.contents(
-            f"config/projectctl/approvals/{request_id}.json", revision, missing=True
-        )
         catalog = self.catalog(revision)
-        if raw is None:
-            return None, revision, None, catalog
-        approval = SignedApproval.parse(raw)
-        payload = verify_signature(approval, self.config.trusted_keys)
-        if (
-            payload.request_id != request_id
-            or payload.principal != status["principal"]
-            or payload.project_key != project.project_key
-            or payload.platform != self.config.platform
-            or payload.plan_digest != status["plan_digest"]
-            or payload.policy_digest
-            != self.config.policy(status["principal"], project).policy_digest
-        ):
-            raise ProtocolError(Code.AUTHORIZATION_REQUIRED)
-        baseline = entry(self.catalog(approval.payload.catalog_revision), project)
-        if digest(baseline) != approval.payload.catalog_entry_digest:
+        approval: SignedApproval | dict[str, Any] | None
+        policy = self.config.policy(status["principal"], project)
+        if policy.routine_onboarding:
+            self.check_routine(status, revision)
+            context = self.journal.authorization_context(request_id)
+            if context is None:
+                raise ProtocolError(Code.AUTHORIZATION_REQUIRED)
+            approval = context
+            catalog_revision = context["catalog_revision"]
+            entry_digest = context["catalog_entry_digest"]
+        else:
+            raw = self.contents(
+                f"config/projectctl/approvals/{request_id}.json", revision, missing=True
+            )
+            if raw is None:
+                return None, revision, None, catalog
+            approval = SignedApproval.parse(raw)
+            payload = verify_signature(approval, self.config.trusted_keys)
+            if (
+                payload.request_id != request_id
+                or payload.principal != status["principal"]
+                or payload.project_key != project.project_key
+                or payload.platform != self.config.platform
+                or payload.plan_digest != status["plan_digest"]
+                or payload.policy_digest != policy.policy_digest
+            ):
+                raise ProtocolError(Code.AUTHORIZATION_REQUIRED)
+            catalog_revision = payload.catalog_revision
+            entry_digest = payload.catalog_entry_digest
+        baseline = entry(self.catalog(catalog_revision), project)
+        if digest(baseline) != entry_digest:
             raise ProtocolError(Code.PLAN_STALE)
         enrollment = next(
             (
@@ -93,6 +110,35 @@ class RemoteAuthority:
         verify_transition(project, baseline, entry(catalog, project), enrollment)
         return approval, revision, baseline, catalog
 
+    def check_routine(self, status: dict[str, Any], revision: str) -> None:
+        project = Plan.parse(status["plan"]).project
+        scope = next(
+            row
+            for row in self.config.scopes
+            if row.principal == status["principal"]
+            and row.project_key == project.project_key
+        )
+        callers = self.contents(
+            "config/projectctl/callers.json", revision, missing=True
+        )
+        expected = {
+            "project_key": scope.project_key,
+            "repository": scope.repository,
+            "visibility": scope.visibility,
+            "routine": scope.routine,
+        }
+        if (
+            scope.routine is None
+            or not isinstance(callers, dict)
+            or expected not in callers.get(scope.principal, {}).get("projects", [])
+        ):
+            raise ProtocolError(Code.AUTHORIZATION_REVOKED)
+        if (
+            status["plan"]["discovery"]["repository_id"]
+            != scope.routine["repository_id"]
+        ):
+            raise ProtocolError(Code.RESOURCE_CONFLICT)
+
     def current(self, request_id: str) -> AuthoritySnapshot:
         with self.journal.connection() as db:
             row = db.execute(
@@ -104,11 +150,17 @@ class RemoteAuthority:
         project = Plan.parse(status["plan"]).project
         approval, revision, _, _ = self.baseline(status)
         return AuthoritySnapshot(
-            self.admit(row["principal"], project), revision, approval
+            self.admit(row["principal"], project),
+            revision,
+            approval if isinstance(approval, SignedApproval) else None,
+            routine=isinstance(approval, dict),
         )
 
     def approval_context(self, request_id: str, principal: str) -> dict[str, Any]:
         status = self.journal.status(request_id, principal)
+        saved = self.journal.authorization_context(request_id)
+        if saved is not None:
+            return saved
         project = Plan.parse(status["plan"]).project
         revision = self.main_revision()
         target = entry(self.catalog(revision), project)
@@ -118,6 +170,16 @@ class RemoteAuthority:
             "catalog_revision": revision,
             "catalog_entry_digest": digest(target),
         }
+
+    def capture_context(self, request_id: str, principal: str) -> None:
+        status = self.journal.status(request_id, principal)
+        if not self.admit(
+            principal, Plan.parse(status["plan"]).project
+        ).routine_onboarding:
+            return
+        context = self.approval_context(request_id, principal)
+        self.check_routine(status, context["catalog_revision"])
+        self.journal.authorization_context(request_id, context)
 
 
 def discover(config: Configuration, project: Project) -> Discovery:

@@ -85,6 +85,8 @@ def build_parser() -> Parser:
     dispatch = commands.add_parser("dispatch")
     dispatch.add_argument("request_id")
     dispatch.add_argument("--config", required=True, type=Path)
+    reconciliation = commands.add_parser("reconcile")
+    reconciliation.add_argument("--config", required=True, type=Path)
     backup = commands.add_parser("backup")
     backup.add_argument("destination", type=Path)
     backup.add_argument("--config", required=True, type=Path)
@@ -164,7 +166,10 @@ def main(argv: list[str] | None = None) -> int:
             data = signed(payload, PROBE_DOMAIN, args.key_file, args.key_id)
         else:
             runtime = Runtime(Configuration.load(args.config))
-            if args.command == "backup":
+            if args.command == "reconcile":
+                verify_identities(runtime.config)
+                data = runtime.reconcile()
+            elif args.command == "backup":
                 runtime.journal.backup(args.destination)
                 data = {"backup": str(args.destination)}
             elif args.command == "enrollment":
