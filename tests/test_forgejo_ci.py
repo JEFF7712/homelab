@@ -905,6 +905,13 @@ class PolicyTest(unittest.TestCase):
         ):
             self.assertNotIn("CI_SCOPE_FILES", environment(result))
 
+    def test_lock_import_verifies_each_record_once(self) -> None:
+        # copy already verifies every record it reuses or copies; a second
+        # serial verify pass doubled the main pipeline's lock-import time.
+        commands = "\n".join(self.catalog["registry-lock-import"]["commands"])
+        self.assertIn("scripts.registry copy", commands)
+        self.assertNotIn("scripts.registry verify", commands)
+
     def test_catalog_commands_parse_and_predecessors_exist(self) -> None:
         import subprocess
 
