@@ -31,6 +31,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/gotchas/nix-heredoc-indentation.md` — Nix `''` heredoc indentation stripping trap. Symptom is a runtime `IndentationError` on a service you just edited. `nixfmt` does not catch it.
 
 ### Networking
+- [Network outage monitor](runbooks/network-monitor.md): local connectivity checks and ntfy outage/recovery alerts.
 - `docs/network/opnsense-nat.md` — OPNsense NAT rules.
 - `docs/network/switch-port-map.md` — physical switch port layout.
 

@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - network-monitor
   - kube-prometheus-stack/repository.yaml
   - kube-prometheus-stack/secret.yaml
   - kube-prometheus-stack/release.yaml
