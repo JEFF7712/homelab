@@ -539,8 +539,14 @@ def coordinate(name: str) -> None:
         text=True,
     )
     if result.returncode:
+        # The worker never prints credentials; its stderr carries the
+        # failing check or traceback, which otherwise only lives on the
+        # builder when the failure happens before a release log exists.
+        detail = "\n".join(result.stderr.strip().splitlines()[-15:])
         raise RuntimeError(
-            f"{release.name} builder failed; inspect /persist/service-release-ci/{release.name}-*/release.log on homelab-04"
+            f"{release.name} builder failed; inspect "
+            f"/persist/service-release-ci/{release.name}-*/release.log on homelab-04\n"
+            + detail
         )
     receipt = json.loads(result.stdout.splitlines()[-1])
     if receipt["source_revision"] != sha or receipt["pipeline"] != request["number"]:
