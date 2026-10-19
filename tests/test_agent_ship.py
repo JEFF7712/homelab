@@ -204,9 +204,16 @@ class ShipRolloutTest(unittest.TestCase):
         self.assertEqual(required_status([]), "missing")
 
     def test_promotion_patch_extraction(self) -> None:
-        log = f"noise\n{PATCH_BEGIN}\n--- a/x\n+++ b/x\n{PATCH_END}\nmore"
+        log = f"noise\n{PATCH_BEGIN} -----\n--- a/x\n+++ b/x\n{PATCH_END}\nmore"
         self.assertEqual(extract_patch(log), "--- a/x\n+++ b/x\n")
         self.assertIsNone(extract_patch("no patch here"))
+        import base64
+
+        patch = "--- a/x\n+++ b/x\n-  },\n+  {\n"
+        encoded = base64.b64encode(patch.encode()).decode()
+        chunks = "\n".join(encoded[i : i + 8] for i in range(0, len(encoded), 8))
+        log = f"noise\n{PATCH_BEGIN} (base64) -----\n{chunks}\n{PATCH_END}\n"
+        self.assertEqual(extract_patch(log), patch)
 
 
 if __name__ == "__main__":
