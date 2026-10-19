@@ -10,17 +10,12 @@ from pathlib import Path
 
 logger = logging.getLogger("arcade_high_scores")
 
-DEFAULT_SCORES: dict[str, int] = {
-    "tetris": 0,
-    "snake": 0,
-    "breakout": 0,
-    "pong": 0,
-    "tron": 0,
-    "air_hockey": 0,
-    "asteroids": 0,
-    "flappy": 0,
-    "2048": 0,
-}
+
+def default_scores() -> dict[str, int]:
+    """Zero entry for every registered game so /scores lists new games immediately."""
+    from .registry import GAME_REGISTRY
+
+    return {spec.id: 0 for spec in GAME_REGISTRY.list_games()}
 
 
 class HighScoreManager:
@@ -36,7 +31,7 @@ class HighScoreManager:
             self.fallback_path = fallback_path or "/tmp/arcade_high_scores.json"
         self.active_path = self.primary_path
         self._lock = threading.Lock()
-        self.scores: dict[str, int] = dict(DEFAULT_SCORES)
+        self.scores: dict[str, int] = default_scores()
         self._load()
 
     def _load(self) -> None:

@@ -1674,6 +1674,11 @@ class HubModeAndRendererTests(unittest.TestCase):
             self.assertEqual(mgr.get_score("tetris"), 0)
             self.assertEqual(mgr.get_score("snake"), 0)
 
+            from modes.multiplayer import GAME_REGISTRY
+
+            registered = {spec.id for spec in GAME_REGISTRY.list_games()}
+            self.assertEqual(set(mgr.get_all()), registered)
+
             # Record higher score
             is_new, best = mgr.update_score("tetris", 1200)
             self.assertTrue(is_new)
