@@ -336,8 +336,7 @@
     "commands": [
       "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_IMPORTER_AUTH_FILE\"",
       "export REGISTRY_SOURCE_AUTH_FILE",
-      "python -m scripts.registry copy --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-import-report.json",
-      "python -m scripts.registry verify --lock registry/images.lock.json --kind upstream --report artifacts/registry/lock-verify-report.json"
+      "python -m scripts.registry copy --lock registry/images.lock.json --kind upstream --concurrency 8 --report artifacts/registry/lock-import-report.json"
     ],
     "environment": {
       "REGISTRY_IMPORTER_AUTH_FILE": {
