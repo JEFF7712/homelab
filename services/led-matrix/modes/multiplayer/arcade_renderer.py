@@ -110,6 +110,8 @@ class MultiplayerArcadeRenderer(ModeRenderer):
             elif phase == "playing" and game:
                 p1_events = self.hub.consume_events(1)
                 p2_events = self.hub.consume_events(2)
+                game.p1_analog = self.hub.p1_analog
+                game.p2_analog = self.hub.p2_analog
                 try:
                     game.update(
                         dt,

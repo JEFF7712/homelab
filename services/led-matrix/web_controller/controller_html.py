@@ -542,6 +542,7 @@ CONTROLLER_HTML = """<!DOCTYPE html>
 
     ws.onclose = () => {
       connDot.classList.add('offline');
+      lastAnalog = null;
       setTimeout(connect, 1500);
     };
   }
@@ -595,6 +596,24 @@ CONTROLLER_HTML = """<!DOCTYPE html>
   const tiltToggle = document.getElementById('tilt-toggle');
   let tiltEnabled = localStorage.getItem('arcade_tilt_enabled') === '1';
   let activeTiltAction = null;
+  let lastAnalog = null;
+  let lastAnalogAt = 0;
+  const TILT_FULL_DEG = 22;
+  const TILT_DEADZONE_DEG = 1.5;
+
+  function tiltAxis(roll) {
+    const mag = Math.max(0, Math.abs(roll) - TILT_DEADZONE_DEG) / (TILT_FULL_DEG - TILT_DEADZONE_DEG);
+    return Math.sign(roll) * Math.min(1, mag);
+  }
+
+  function sendAnalog(x) {
+    if (x === lastAnalog) return;
+    const now = performance.now();
+    if (x !== null && lastAnalog !== null && (Math.abs(x - lastAnalog) < 0.02 || now - lastAnalogAt < 33)) return;
+    lastAnalog = x;
+    lastAnalogAt = now;
+    send({ type: 'analog', x: x === null ? null : Math.round(x * 1000) / 1000 });
+  }
   let orientationListenerActive = false;
 
   function updateTiltUI() {
@@ -615,16 +634,17 @@ CONTROLLER_HTML = """<!DOCTYPE html>
       send({ type: 'input', action: activeTiltAction, state: 'up' });
       activeTiltAction = null;
     }
+    sendAnalog(null);
   }
 
   function handleOrientation(e) {
     if (!tiltEnabled || currentPhase !== 'playing') {
-      if (activeTiltAction) clearTilt();
+      clearTilt();
       return;
     }
     // If player is actively touching on-screen D-pad, touch overrides tilt
     if (dpadPointerId !== null) {
-      if (activeTiltAction) clearTilt();
+      clearTilt();
       return;
     }
 
@@ -645,9 +665,14 @@ CONTROLLER_HTML = """<!DOCTYPE html>
     let tiltAction = null;
 
     if (selectedGame === 'breakout') {
-      if (roll < -7) tiltAction = 'left';
-      else if (roll > 7) tiltAction = 'right';
-    } else if (selectedGame === 'snake' || selectedGame === 'tron') {
+      if (activeTiltAction) clearTilt();
+      sendAnalog(tiltAxis(roll));
+      return;
+    }
+
+    if (lastAnalog !== null) sendAnalog(null);
+
+    if (selectedGame === 'snake' || selectedGame === 'tron') {
       const dPitch = pitch - 42;
       if (Math.abs(roll) > Math.abs(dPitch)) {
         if (roll < -13) tiltAction = 'left';

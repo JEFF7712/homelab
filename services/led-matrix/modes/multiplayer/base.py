@@ -12,6 +12,9 @@ class MultiplayerGame(ABC):
         self.solo_vs_ai = solo_vs_ai
         self.winner: int = 0  # 0: ongoing, 1: P1, 2: P2
         self.sfx_callback: Callable[[str], None] | None = None
+        # Continuous tilt axis in [-1, 1] from the controller, None when inactive
+        self.p1_analog: float | None = None
+        self.p2_analog: float | None = None
 
     def play_sfx(self, name: str) -> None:
         """Trigger an 8-bit sound effect broadcast."""

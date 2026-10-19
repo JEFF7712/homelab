@@ -67,6 +67,7 @@ class InteractiveBreakout(MultiplayerGame):
         self.paddle_y = 59.0
         self.paddle_x = 32.0
         self.paddle_speed = 52.0
+        self.analog_speed = 160.0
 
         self.ball_x = 32.0
         self.ball_y = 35.0
@@ -139,13 +140,19 @@ class InteractiveBreakout(MultiplayerGame):
         move_left = "left" in p1_inputs or (p1_events and "left" in p1_events)
         move_right = "right" in p1_inputs or (p1_events and "right" in p1_events)
 
-        if move_left:
-            self.paddle_x -= self.paddle_speed * dt
-        if move_right:
-            self.paddle_x += self.paddle_speed * dt
-
         half_w = self.paddle_w / 2.0
-        self.paddle_x = max(half_w + 1, min(63 - half_w, self.paddle_x))
+        lo, hi = half_w + 1, 63 - half_w
+        if self.p1_analog is not None:
+            target = lo + (self.p1_analog + 1.0) / 2.0 * (hi - lo)
+            step = self.analog_speed * dt
+            self.paddle_x += max(-step, min(step, target - self.paddle_x))
+        else:
+            if move_left:
+                self.paddle_x -= self.paddle_speed * dt
+            if move_right:
+                self.paddle_x += self.paddle_speed * dt
+
+        self.paddle_x = max(lo, min(hi, self.paddle_x))
 
         # Ball movement
         self.ball_x += self.ball_vx * dt
