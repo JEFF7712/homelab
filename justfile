@@ -1,7 +1,8 @@
 # Every recipe line runs in the pinned dev shell. Lines run directly when
-# already inside it (direnv, nix develop, CI), from latency-bounded hooks, or
-# outside a checkout carrying the flake.
-set shell := ["bash", "-c", 'if [[ -n "${IN_NIX_SHELL:-}" || -n "${AGENT_HOOK_ACTIVE:-}" || ! -f flake/flake.nix ]]; then exec bash -c "$@"; fi; exec nix develop ./flake -c bash -c "$@"', "just-shell"]
+# already inside it (direnv, nix develop, CI; any of the repo's shells sets
+# HOMELAB_DEV_SHELL, unlike IN_NIX_SHELL, which an unrelated nix shell also
+# sets), from latency-bounded hooks, or outside a checkout carrying the flake.
+set shell := ["bash", "-c", 'if [[ -n "${HOMELAB_DEV_SHELL:-}" || -n "${AGENT_HOOK_ACTIVE:-}" || ! -f flake/flake.nix ]]; then exec bash -c "$@"; fi; exec nix develop ./flake -c bash -c "$@"', "just-shell"]
 
 agent-context *args:
     python -m scripts.agent context {{args}}
