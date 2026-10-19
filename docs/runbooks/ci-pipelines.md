@@ -116,6 +116,13 @@ installs reuse the shared plugin cache instead of re-downloading.
 
 ### Dependency caching and timing visibility
 
+Attic stores its chunks on `zroot/attic` (`/srv/attic`), the system SSD
+mirror on nas-01, with a 120G quota. It moved off the single `tank` HDD on
+2026-10-19: CI containers fetch shells as many small random reads, and on a
+disk shared with media and NFS that held IO pressure above 80% and made
+every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
+remove it once the SSD store has run cleanly for a while.
+
 All pipelines resolve the dev shell and build outputs from the local Attic
 substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
 ensures the local cache takes precedence over `cache.nixos.org` (priority 40).

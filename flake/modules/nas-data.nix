@@ -88,7 +88,7 @@
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     unitConfig.RequiresMountsFor = [
-      "/tank/attic"
+      "/srv/attic"
       "/persist/attic"
     ];
     serviceConfig = {
@@ -100,8 +100,8 @@
       ExecStartPre = [
         "+${pkgs.writeShellScript "ensure-attic-storage-permissions" ''
           set -eu
-          ${pkgs.coreutils}/bin/install -d -m 0750 -o atticd -g atticd /tank/attic
-          ${pkgs.coreutils}/bin/chown -R atticd:atticd /tank/attic
+          ${pkgs.coreutils}/bin/install -d -m 0750 -o atticd -g atticd /srv/attic
+          ${pkgs.coreutils}/bin/chown -R atticd:atticd /srv/attic
           ${pkgs.coreutils}/bin/install -d -m 0700 -o atticd -g atticd /persist/attic
           if [ -f /persist/attic/server.db ]; then
             ${pkgs.coreutils}/bin/chown atticd:atticd /persist/attic/server.db
@@ -125,7 +125,7 @@
       listen = "[::]:8080";
       storage = {
         type = "local";
-        path = "/tank/attic";
+        path = "/srv/attic";
       };
       database = {
         url = "sqlite:///persist/attic/server.db?mode=rwc";

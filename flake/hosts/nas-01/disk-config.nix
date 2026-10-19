@@ -102,6 +102,19 @@
           mountpoint = "/var/log";
           options.mountpoint = "legacy";
         };
+        # The Nix binary cache serves many small random reads to every CI
+        # container. On the single tank HDD, shared with media and NFS, it
+        # saturated the disk (IO pressure above 80% full) and turned a one
+        # minute CI step into fifteen. The quota keeps the cache from
+        # crowding the system pool; Attic's own GC bounds its growth.
+        attic = {
+          type = "zfs_fs";
+          mountpoint = "/srv/attic";
+          options = {
+            mountpoint = "legacy";
+            quota = "120G";
+          };
+        };
       };
     };
   };
