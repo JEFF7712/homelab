@@ -548,6 +548,9 @@ def configuration(
             "NIX_CONFIG": NIX_CONFIG,
             "CI_LINT_EXTERNAL": "1",
             "TF_PLUGIN_CACHE_DIR": "/tmp/tofu-plugin-cache",
+            # The flake lane copies the tree while Python lanes run; a .pyc
+            # temp file vanishing mid-copy fails the gate (pipeline #3089).
+            "PYTHONDONTWRITEBYTECODE": "1",
         }
         if main or event in {"cron", "tag"}:
             validation_env["CI_FULL_VALIDATION"] = "1"
