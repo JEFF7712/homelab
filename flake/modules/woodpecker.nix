@@ -99,9 +99,16 @@ in
       daemon.settings."cgroup-parent" = "ci.slice";
       daemon.settings."data-root" = "/persist/docker";
       daemon.settings.dns = [ "10.0.30.10" ];
+      # Without --all, system prune only drops dangling images, so tagged CI
+      # build images accumulated to ~90G on the shared /persist disk.
       autoPrune = {
         enable = true;
         dates = "weekly";
+        flags = [
+          "--all"
+          "--filter"
+          "until=168h"
+        ];
       };
     };
     users.users.woodpecker = {
