@@ -177,6 +177,10 @@ class CiResult:
     stuck: bool
     context: str
     detail: str = ""
+    # Other Woodpecker workflows (operations, schedules) whose latest status
+    # on the head commit failed. The required context alone stays green while
+    # post-merge and scheduled work fails, which hid ten days of failures.
+    failing_workflows: tuple[str, ...] = ()
 
 
 @dataclass
@@ -597,6 +601,21 @@ def expected_context(project: Project, applications: frozenset[str]) -> str:
     return WOODPECKER_CONTEXT_PREFIX
 
 
+def failing_workflows(statuses: list[dict[str, Any]], required: str) -> tuple[str, ...]:
+    """Woodpecker contexts other than the required one whose latest status failed."""
+    latest: dict[str, dict[str, Any]] = {}
+    for item in sorted(statuses, key=lambda entry: str(entry.get("created_at") or "")):
+        latest[str(item.get("context", ""))] = item
+    return tuple(
+        sorted(
+            name.removeprefix(WOODPECKER_CONTEXT_PREFIX)
+            for name, item in latest.items()
+            if name != required
+            and str(item.get("status", "")).lower() in ("failure", "error")
+        )
+    )
+
+
 def check_ci(
     client: Client,
     settings: Settings,
@@ -605,6 +624,8 @@ def check_ci(
     now: float,
 ) -> CiResult:
     context = expected_context(project, applications)
+
+    failing: tuple[str, ...] = ()
 
     def result(
         state: str,
@@ -623,6 +644,7 @@ def check_ci(
             stuck=stuck,
             context=context,
             detail=detail,
+            failing_workflows=failing,
         )
 
     try:
@@ -647,6 +669,7 @@ def check_ci(
         if isinstance(item, dict)
         and str(item.get("context", "")).startswith(WOODPECKER_CONTEXT_PREFIX)
     ]
+    failing = failing_workflows(relevant, context)
     if context != WOODPECKER_CONTEXT_PREFIX:
         # A specific context is expected; an unrelated Woodpecker workflow (for
         # example a release pipeline) must not stand in for it.
@@ -1162,6 +1185,19 @@ def render(
         emit(
             "repo_ci_state", 1, {"repository": result.repository, "state": result.state}
         )
+
+    meta(
+        "repo_ci_workflow_failed",
+        "gauge",
+        "1 for each non-required Woodpecker workflow whose latest status on the head commit failed.",
+    )
+    for result in snapshot.ci:
+        for workflow in result.failing_workflows:
+            emit(
+                "repo_ci_workflow_failed",
+                1,
+                {"repository": result.repository, "workflow": workflow},
+            )
 
     return "\n".join(lines) + "\n"
 

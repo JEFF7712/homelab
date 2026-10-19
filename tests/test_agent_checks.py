@@ -142,6 +142,8 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "tests/test_bus_display.py": ("python-lint", "unit-test_bus_display"),
             "services/bus-display/display.py": ("python",),
             "scripts/deploy_fleet.py": ("python",),
+            "flake/modules/repo_monitor.py": ("python",),
+            "tofu/cloudflare/.terraform.lock.hcl": ("tofu",),
         }
         for path, checks in expected.items():
             with self.subTest(path=path):

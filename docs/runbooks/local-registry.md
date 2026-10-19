@@ -187,6 +187,19 @@ just registry-inventory
 just registry-check
 ```
 
+Promotion enforces observed drift only while the snapshot is under a day old.
+An older snapshot describes itself rather than the cluster, so promotion
+prints a warning naming its age instead of failing; before this, manual digest
+bumps left the snapshot pinning superseded digests and blocked every
+first-party promotion. `just doctor --live` flags a snapshot older than a week.
+
+Provision or rotate a scoped publisher with
+`just registry-provision-publisher apps/<name> [...]`. The lock-rendered
+access policy must already grant exactly one `publisher-*` identity write
+access; the recipe sets a fresh password, restarts zot once, verifies the
+credential, installs the deployment-scoped Woodpecker secret
+`registry_<name>_publisher_auth_file`, and prints the rollback htpasswd path.
+
 The snapshot command is read-only against the cluster. Review the generated
 snapshot diff before updating or resolving the lock.
 

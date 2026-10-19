@@ -21,6 +21,14 @@ agent-smoke id client *args:
 doctor *args:
     python -m scripts.agent doctor {{args}}
 
+# Remove .worktrees/ checkouts that are clean and fully merged into main.
+worktree-gc *args:
+    python -m scripts.agent.worktree_gc {{args}}
+
+# Read-only one-shot diagnosis of a Flux Kustomization or namespace.
+diag name *args:
+    python -m scripts.agent.diag {{name}} {{args}}
+
 check-changed *args:
     python -m scripts.agent check-changed {{args}}
 
@@ -111,6 +119,12 @@ registry-check-auth report="artifacts/registry/auth-report.json":
 registry-gc-fixture report="artifacts/registry/gc-fixture-report.json":
     python -m scripts.registry.gc_fixture --report {{report}}
 
+# Creates or rotates scoped publisher credentials for repositories whose
+# lock-rendered policy already grants a publisher, and installs their
+# deployment-scoped Woodpecker secrets. Restarts zot once.
+registry-provision-publisher +repositories:
+    python -m scripts.registry.provision_publisher {{repositories}}
+
 registry-access-control output="artifacts/registry/access-control.json":
     python -m scripts.registry access-control --lock registry/images.lock.json --output {{output}}
 
@@ -128,6 +142,10 @@ check-tofu:
 
 check-docs:
     python -m scripts.checks.docs
+
+# Move the Nix provider mirror CI uses to the versions the tofu locks pin.
+tofu-providers-sync:
+    python scripts/ci/sync_providers.py
 
 provision-check-deps:
     export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/opentofu/plugins}"; mkdir -p "$TF_PLUGIN_CACHE_DIR"; pids=""; for stack in tofu/*/; do tofu -chdir="$stack" init -backend=false -lockfile=readonly & pids="$pids $!"; done; rc=0; for pid in $pids; do wait "$pid" || rc=1; done; exit "$rc"

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -90,6 +91,59 @@ def _assert_nix_agent_only(changed: list[str]) -> None:
         raise ValueError("Automatic promotion changed unrelated lock policy")
 
 
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def _assert_first_party_digests_only(changed: list[str]) -> None:
+    """Automatic first-party promotion may only move first-party digests.
+
+    GitOps consumers must differ from HEAD only in digests, the lock only in
+    records for first-party (apps/) repositories, and the inventory, which
+    is derived from both, only in digests and tags. Anything else, such as a
+    new repository, a policy field, or another image, needs a human.
+    """
+    allowed_static = {"registry/images.lock.json", "registry/images.inventory.json"}
+    for path in changed:
+        if path in allowed_static:
+            continue
+        if not (path.startswith("gitops/") and path.endswith((".yaml", ".yml"))):
+            raise ValueError(f"Automatic promotion may not change {path}")
+        previous = subprocess.check_output(["git", "show", f"HEAD:{path}"], text=True)
+        if DIGEST.sub("sha256:", previous) != DIGEST.sub(
+            "sha256:", Path(path).read_text()
+        ):
+            raise ValueError(f"Automatic promotion changed more than digests in {path}")
+    if "registry/images.lock.json" in changed:
+        previous = json.loads(
+            subprocess.check_output(
+                ["git", "show", "HEAD:registry/images.lock.json"], text=True
+            )
+        )
+        current = json.loads(Path("registry/images.lock.json").read_text())
+
+        def others(lock: dict) -> tuple[list[str], dict]:
+            lock = dict(lock)
+            lock.pop("generated_at", None)
+            images = lock.pop("images", [])
+            first_party = sorted(
+                item["id"]
+                for item in images
+                if item.get("destination_repository", "").startswith("apps/")
+            )
+            lock["images"] = sorted(
+                (
+                    item
+                    for item in images
+                    if not item.get("destination_repository", "").startswith("apps/")
+                ),
+                key=lambda item: json.dumps(item, sort_keys=True),
+            )
+            return first_party, lock
+
+        if others(previous) != others(current):
+            raise ValueError("Automatic promotion changed non-first-party lock policy")
+
+
 def _auto_merge_pull(token: str, pull: dict) -> None:
     number = int(pull["number"])
     _api(token, f"/pulls/{number}/update?style=rebase", data={})
@@ -129,9 +183,7 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
                 expected_base_sha = updated["base"]["sha"]
                 time.sleep(15)
                 continue
-            print(
-                f"Required validation passed; merged nix-agent promotion PR #{number}"
-            )
+            print(f"Required validation passed; merged promotion PR #{number}")
             return
         if latest and latest.get("status") in {"failure", "error"}:
             raise ValueError("Required homelab validation failed for promotion PR")
@@ -153,9 +205,12 @@ def main() -> None:
     ).splitlines()
     if not changed:
         return
-    auto_merge = os.environ.get("CI_AUTO_MERGE_PROMOTION") == "nix-agent-site"
-    if auto_merge:
+    scope = os.environ.get("CI_AUTO_MERGE_PROMOTION", "")
+    auto_merge = scope in {"nix-agent-site", "first-party"}
+    if scope == "nix-agent-site":
         _assert_nix_agent_only(changed)
+    elif scope == "first-party":
+        _assert_first_party_digests_only(changed)
     if any(not Path(path).is_file() for path in changed):
         raise ValueError("Promotion cannot delete files")
     content = b"".join(

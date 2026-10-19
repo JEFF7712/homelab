@@ -47,7 +47,8 @@ spec:
             "JEFF7712/homelab"
           ],
           "onboarding": false,
-          "requireConfig": "optional"
+          "requireConfig": "optional",
+          "allowedCommands": ["^python3 scripts/ci/sync_providers\\.py$"]
         }
     cronjob:
       schedule: "0 * * * *"

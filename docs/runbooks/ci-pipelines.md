@@ -20,12 +20,12 @@ the restriction. Its offline behavior tests are
 All three agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
 have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
-Sandbox and trusted agents have two workflow slots each; deploy has one.
-Mutating operations share the production-authority concurrency group with
-limit one. Read-only operations serialize per operation
-(`read-only-<operation>`), and scheduled read-only work shares the single
-`scheduled-read-only` group, so maintenance holds at most one trusted slot
-and never queues an operator's plan or deployment behind it.
+Every agent has two workflow slots. Operations serialize on the resource
+they act on: the catalog `group` becomes the concurrency group
+`resource-<group>` with limit one, so two OpenTofu applies on the same stack
+never overlap while a cache push and a Home Assistant apply can. Scheduled
+read-only work shares the single `scheduled-read-only` group, so maintenance
+holds at most one trusted slot and never queues an operator's plan behind it.
 
 The immutable server configuration extension verifies the signed request,
 repository, event, current main SHA, deployment operator, and successful
@@ -123,8 +123,11 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
 - Individual lanes (`fmt`, `jev`, `gate`) and substeps (`provision`, `gate-checks`)
   report resource usage and execution times under `[EXECUTION BREAKDOWN]`.
 
-A current main push additionally runs opnsense-plan, cloudflare-plan, and
-sync-to-github and cache-publish after validation. A push that changes
+A current main push additionally runs opnsense-plan and cloudflare-plan
+after validation, the plans that apply operations consume. GitHub sync and
+cache publication run on the maintenance schedule instead, so a merge's
+pipeline, which deployment operations require to have succeeded, ends a
+minute or two after validation. A push that changes
 registry/images.lock.json or registry/images.inventory.json also runs
 registry-lock-import after validation, so a reviewed lock entry is copied
 into the registry by the same pipeline that lands it; when the push diff
@@ -134,17 +137,36 @@ Cron schedules are owned by `config/ci/woodpecker-crons.json`, repository
 settings by `config/ci/woodpecker-repository.json`, and the operations each
 schedule runs by `SCHEDULES` in `scripts/ci/policy.py`. Reconcile the live
 server with `just woodpecker-settings plan` and `just woodpecker-settings apply`.
-`maintenance` runs twice an hour and carries only the short work: webhook
+`maintenance` runs twice an hour and carries the short work: webhook
 watchdog, registry lock import, drift, retention, resolve, auth consistency,
-and first-party and nix-agent promotion. Promotion creates a PR. `nightly`
+GitHub sync, and cache publication. `promote` runs every 15 minutes with
+first-party and nix-agent promotion only; it is the application release
+path. Promotion opens a PR and, when the diff only moves first-party digests
+(`CI_AUTO_MERGE_PROMOTION=first-party`), merges it after required validation.
+`nightly`
 runs the slow proofs once a day: the GC fixture, OPNsense plan, dataplane
 and inventory, NAS proof, and the fleet, agent-workspace, and Home Assistant
 dry runs. A schedule must finish well inside its interval; before the split,
 the 30 minute schedule took about 100 minutes, queued behind itself, and every
 queued operation then failed the current-main check.
 
+A schedule run reuses main validation when a push, manual, or cron pipeline
+already passed validation-v2 for the same commit within 24 hours, so it
+spends no sandbox time revalidating an unchanged main. When the previous run
+of the same schedule (Woodpecker records the cron name as the sender) is
+still pending or running, the new run emits only a failing
+`schedule-overlap` workflow: the schedule outlives its interval and needs
+attention, and the repository monitor alerts on it.
+
+A pull request from a branch of this repository never validates in its own
+pipeline: Forgejo also sends the branch push, which reports the same
+required status on the same commit, so the PR pipeline only records
+`pr-validation-reused`. Fork PRs validate in the PR pipeline.
+
 Woodpecker cancels a superseded pending or running pipeline for the same
-branch on push, pull request, and cron events. An automatic push or cron
+branch on push and pull request events. Cron is excluded because Woodpecker
+treats every schedule on main as the same branch and would cancel one
+schedule with another. An automatic push or cron
 operation that starts after main has moved exits successfully with a skip
 message, since the newer main runs the same work; operator-requested
 deployments still fail when their commit is no longer main.

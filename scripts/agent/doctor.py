@@ -10,7 +10,7 @@ from typing import Any
 import tomllib
 
 
-def run_doctor(root: Path) -> dict[str, Any]:
+def run_doctor(root: Path, live: bool = False) -> dict[str, Any]:
     checks: list[dict[str, str]] = []
     for command in (
         "git",
@@ -142,6 +142,18 @@ def run_doctor(root: Path) -> dict[str, Any]:
                 if not present
                 else "",
             }
+        )
+    if live:
+        from scripts.deploy_fleet import FLEET_HOSTS
+
+        from .access import access_checks
+
+        checks.extend(
+            access_checks(
+                root,
+                Path.home(),
+                {name: host.ip for name, host in FLEET_HOSTS.items()},
+            )
         )
     status = (
         "fail"

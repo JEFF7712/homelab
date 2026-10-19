@@ -1,4 +1,5 @@
 {
   "maintenance": {"schedule": "7,37 * * * *", "branch": "main"},
-  "nightly": {"schedule": "17 8 * * *", "branch": "main"}
+  "nightly": {"schedule": "17 8 * * *", "branch": "main"},
+  "promote": {"schedule": "2,17,32,47 * * * *", "branch": "main"}
 }

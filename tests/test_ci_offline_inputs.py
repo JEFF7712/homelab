@@ -19,7 +19,11 @@ class OfflineInputsTest(unittest.TestCase):
             stack = entry["address"].split("/")[-1]
             lock = (ROOT / "tofu" / stack / ".terraform.lock.hcl").read_text()
             self.assertIn(f'provider "{entry["address"]}"', lock)
-            self.assertIn(f'version     = "{entry["version"]}"', lock)
+            self.assertIn(
+                f'version     = "{entry["version"]}"',
+                lock,
+                "provider mirror lags the lock; run just tofu-providers-sync",
+            )
             checksum = base64.b64decode(entry["hash"].removeprefix("sha256-")).hex()
             self.assertIn("zh:" + checksum, lock)
 
@@ -54,3 +58,58 @@ class OfflineInputsTest(unittest.TestCase):
                 self.assertEqual(
                     result.returncode, expected, result.stdout + result.stderr
                 )
+
+
+class ProviderSyncTest(unittest.TestCase):
+    def test_sync_moves_only_changed_providers_to_registry_checksums(self) -> None:
+        from scripts.ci.sync_providers import sync
+
+        entries = [
+            {
+                "address": "registry.opentofu.org/a/x",
+                "version": "1.0.0",
+                "platform": "linux_amd64",
+                "filename": "old",
+                "url": "old",
+                "hash": "old",
+                "system": "x86_64-linux",
+            },
+            {
+                "address": "registry.opentofu.org/b/y",
+                "version": "2.0.0",
+                "platform": "darwin_arm64",
+                "filename": "keep",
+                "url": "keep",
+                "hash": "keep",
+                "system": "aarch64-darwin",
+            },
+        ]
+        requested = []
+
+        def fetch(url: str) -> dict:
+            requested.append(url)
+            return {
+                "filename": "x_1.1.0.zip",
+                "download_url": "https://example/x.zip",
+                "shasum": "00" * 32,
+            }
+
+        updated = sync(
+            entries,
+            {
+                "registry.opentofu.org/a/x": "1.1.0",
+                "registry.opentofu.org/b/y": "2.0.0",
+            },
+            fetch,
+        )
+        self.assertEqual(
+            requested,
+            [
+                "https://registry.opentofu.org/v1/providers/a/x/1.1.0/download/linux/amd64"
+            ],
+        )
+        self.assertEqual(updated[0]["version"], "1.1.0")
+        self.assertEqual(
+            updated[0]["hash"], "sha256-" + base64.b64encode(bytes(32)).decode()
+        )
+        self.assertEqual(updated[1], entries[1])
