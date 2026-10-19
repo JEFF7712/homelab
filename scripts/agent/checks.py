@@ -40,6 +40,7 @@ class CheckSelection:
 
 
 COMMANDS = {
+    "led-matrix": ("bash", "scripts/checks/led-matrix.sh"),
     "python": ("bash", "scripts/checks/python.sh"),
     "gitops": ("bash", "scripts/checks/gitops.sh"),
     "tofu": ("bash", "scripts/checks/tofu.sh"),
@@ -69,6 +70,8 @@ COMMANDS = {
 
 
 def _route(path: str) -> list[tuple[str, str]]:
+    if path.startswith("services/led-matrix/"):
+        return [("led-matrix", f"{path} changes the matrix service")]
     if path in {
         "flake/flake.nix",
         "flake/flake.lock",

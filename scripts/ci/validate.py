@@ -8,6 +8,28 @@ from scripts.ci.contract import build_report
 from scripts.ci.scope import Scope, determine
 
 
+def matrix_checks() -> int:
+    for command in (
+        [
+            "env",
+            "-u",
+            "PYTHONPATH",
+            "uv",
+            "--directory",
+            "services/led-matrix",
+            "sync",
+            "--frozen",
+            "--no-dev",
+            "--no-install-project",
+        ],
+        ["bash", "scripts/checks/led-matrix.sh"],
+    ):
+        code = subprocess.call(command)
+        if code:
+            return code
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("gate", choices=("repository", "flake", "cache", "fleet"))
@@ -47,7 +69,25 @@ def main(argv: list[str] | None = None) -> int:
             if code:
                 return code
         return 0
+    if scope.mode == "matrix":
+        if args.gate != "repository":
+            return 0
+        code = matrix_checks()
+        if code:
+            return code
+        for command in (
+            ["python", "-m", "scripts.checks.docs"],
+            ["python", "scripts/checks/whitespace.py"],
+        ):
+            code = subprocess.call(command)
+            if code:
+                return code
+        return 0
     if args.gate == "repository":
+        if Path("services/led-matrix").is_dir():
+            code = matrix_checks()
+            if code:
+                return code
         code = subprocess.call(["just", "provision-check-deps"])
         if code:
             return code

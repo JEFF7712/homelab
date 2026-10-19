@@ -28,11 +28,15 @@ def classify(paths: Sequence[str]) -> Scope:
         "CLAUDE.md",
     }
     application = False
+    matrix = False
     for name in paths:
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts or path.suffix == ".nix":
             return Scope("full", "unmapped or infrastructure path", tuple(paths))
         if name in documentation or (name.startswith("docs/") and path.suffix == ".md"):
+            continue
+        if name.startswith("services/led-matrix/"):
+            matrix = True
             continue
         if name.startswith(("gitops/voice/", "home-assistant/www/")):
             application = True
@@ -51,6 +55,10 @@ def classify(paths: Sequence[str]) -> Scope:
             application = True
             continue
         return Scope("full", "unmapped or infrastructure path", tuple(paths))
+    if matrix and not application:
+        return Scope("matrix", "only matrix service and documentation", tuple(paths))
+    if matrix:
+        return Scope("full", "matrix and other application changes", tuple(paths))
     return Scope(
         "application" if application else "documentation",
         "only allowlisted application assets and documentation"

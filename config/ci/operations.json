@@ -2005,5 +2005,50 @@
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
+  },
+  "matrix-publish": {
+    "commands": [
+      "export NIX_SSHOPTS=\"-i $SSH_DEPLOY_KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOSTS_KNOWN -o StrictHostKeyChecking=yes -o BatchMode=yes\"",
+      "python -m scripts.ci.matrix_release coordinate"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "REGISTRY_READ_PASSWORD": {
+        "from_secret": "registry_read_password"
+      },
+      "REGISTRY_MATRIX_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_matrix_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "REGISTRY_MATRIX_PUBLISHER_AUTH_FILE",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [
+      "artifacts/matrix-release/"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
   }
 }
