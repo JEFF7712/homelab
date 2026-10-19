@@ -182,17 +182,25 @@ def find_reusable_validation(
 # The frequent schedule carries only short registry and watchdog work so it
 # finishes well inside its interval; slow host dry runs and proofs run nightly.
 # A schedule that outlives its interval queues behind itself and every queued
-# operation then fails the current-main check.
+# operation then fails the current-main check, so an overlapping run reports
+# a failing schedule-overlap workflow instead of queueing more work.
 SCHEDULES: dict[str, tuple[str, ...]] = {
     "maintenance": (
         "webhook-watchdog",
         "registry-lock-import",
         "registry-drift-check",
         "registry-retention-reconcile",
-        "registry-promote-first-party",
-        "registry-promote-nix-agent",
         "registry-resolve",
         "registry-auth-consistency",
+        # Post-merge housekeeping lives here rather than on every main push,
+        # so a merge's pipeline (the parent deployments need) ends quickly.
+        "sync-to-github",
+        "cache-publish",
+    ),
+    # Promotion is the application release path, so it runs often and alone.
+    "promote": (
+        "registry-promote-first-party",
+        "registry-promote-nix-agent",
     ),
     "nightly": (
         "registry-gc-fixture",
@@ -205,6 +213,65 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         "deploy-home-assistant-dry-run",
     ),
 }
+
+
+def schedule_state(
+    request: dict[str, Any],
+    pipelines: list[dict[str, Any]],
+    details: Any,
+    now: int,
+) -> tuple[bool, bool]:
+    """(overlap, validated) for a cron request on the current main commit.
+
+    Overlap: another run of the same schedule (Woodpecker records the cron
+    name as the sender) is still pending or running. Validated: a push,
+    manual, or cron pipeline already passed validation-v2 for this commit
+    within 24 hours.
+    """
+    pipeline = request["pipeline"]
+    name, commit = pipeline.get("cron"), pipeline.get("commit")
+    overlap = any(
+        item.get("event") == "cron"
+        and item.get("sender") == name
+        and item.get("status") in {"pending", "running"}
+        and item.get("number") != pipeline.get("number")
+        for item in pipelines
+    )
+    validated = False
+    for item in pipelines:
+        if (
+            item.get("commit") != commit
+            or item.get("event") not in {"push", "manual", "cron"}
+            or item.get("branch") != "main"
+            or now - item.get("created", 0) > 86400
+            or item.get("number") == pipeline.get("number")
+        ):
+            continue
+        workflows = details(item["number"]).get("workflows") or []
+        if any(
+            w.get("name") == VALIDATION and w.get("state") == "success"
+            for w in workflows
+        ):
+            validated = True
+            break
+    return overlap, validated
+
+
+def defers_to_branch_push(pipeline: dict[str, Any], pull: dict[str, Any]) -> bool:
+    """A same-repository PR is validated by its branch push pipeline.
+
+    Forgejo sends both events for every PR commit, and the branch push
+    reports the same required status on the same commit, so validating the
+    PR event again only doubles sandbox load. Forks never get a branch push
+    here and always validate in the PR pipeline.
+    """
+    return (
+        not pipeline.get("from_fork")
+        and pull.get("state") == "open"
+        and pull.get("base", {}).get("ref") == "main"
+        and pull.get("head", {}).get("sha") == pipeline.get("commit")
+        and pull.get("head", {}).get("repo", {}).get("full_name") == "JEFF7712/homelab"
+    )
 
 
 REGISTRY_LOCK_PATHS = frozenset(
@@ -254,6 +321,8 @@ def configuration(
     reusable: dict[str, Any] | None = None,
     merge_base: str = "",
     changed_files: tuple[str, ...] | None = None,
+    schedule_overlap: bool = False,
+    validated_main: bool = False,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -317,16 +386,14 @@ def configuration(
             CI_DEFAULT_BRANCH="main",
             CI_OPERATION=target,
         )
-        # Mutations serialize on one production authority. Read-only work
-        # serializes per operation, and scheduled read-only work shares one
-        # group, so maintenance never occupies more than one trusted slot and
-        # never queues an operator's deployment behind a plan it does not need.
-        if operation["mutation"]:
-            group = "production-authority"
-        elif event == "cron":
+        # Operations serialize on the resource they act on (the catalog
+        # group), so unrelated work runs in parallel. Scheduled read-only
+        # work shares one group, so maintenance never holds more than one
+        # trusted slot or queues an operator's plan behind it.
+        if event == "cron" and not operation["mutation"]:
             group = "scheduled-read-only"
         else:
-            group = "read-only-" + target
+            group = "resource-" + operation["group"]
         workflow: dict[str, Any] = {
             "when": [{"event": event}],
             "labels": {
@@ -369,6 +436,27 @@ def configuration(
             )
             return {"configs": configs}
 
+        if event == "cron" and schedule_overlap:
+            add(
+                "schedule-overlap",
+                {
+                    "when": [{"event": "cron"}],
+                    "labels": {"tier": "sandbox", "type": "docker"},
+                    "steps": [
+                        {
+                            "name": "schedule-overlap",
+                            "image": IMAGE,
+                            "commands": [
+                                "echo 'The previous run of this schedule is still active;"
+                                " it outlives its interval' >&2",
+                                "exit 1",
+                            ],
+                        }
+                    ],
+                },
+            )
+            return {"configs": configs}
+        reuse_main_validation = event == "cron" and validated_main
         validation_env = {
             "NIX_CONFIG": NIX_CONFIG,
             "CI_LINT_EXTERNAL": "1",
@@ -379,29 +467,26 @@ def configuration(
         if event == "pull_request" and merge_base:
             validation_env["CI_MERGE_BASE"] = merge_base
 
-        add(
-            VALIDATION,
-            {
-                "when": [{"event": event}],
-                "labels": {"tier": "sandbox", "type": "docker"},
-                "steps": [
-                    {
-                        "name": VALIDATION,
-                        "image": IMAGE,
-                        "environment": validation_env,
-                        "commands": [VALIDATION_COMMAND],
-                    }
-                ],
-            },
-        )
+        if not reuse_main_validation:
+            add(
+                VALIDATION,
+                {
+                    "when": [{"event": event}],
+                    "labels": {"tier": "sandbox", "type": "docker"},
+                    "steps": [
+                        {
+                            "name": VALIDATION,
+                            "image": IMAGE,
+                            "environment": validation_env,
+                            "commands": [VALIDATION_COMMAND],
+                        }
+                    ],
+                },
+            )
         if main and current == pipeline.get("commit"):
             if event == "push":
-                for target in [
-                    "opnsense-plan",
-                    "cloudflare-plan",
-                    "sync-to-github",
-                    "cache-publish",
-                ]:
+                # Only the plans that apply operations consume run here.
+                for target in ["opnsense-plan", "cloudflare-plan"]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
                 # A committed lock asserts its content is in the registry;
                 # nothing else fetches it, so the push that changes the lock
@@ -421,11 +506,12 @@ def configuration(
                 # the outage it watches for.
                 if "webhook-watchdog" in schedule:
                     operation_workflow("webhook-watchdog", "${CI_PIPELINE_NUMBER}", [])
+                # Main validation of this exact commit already passed, so a
+                # schedule reuses it instead of revalidating every run.
+                gate = [] if reuse_main_validation else [VALIDATION]
                 for target in schedule:
                     if target != "webhook-watchdog":
-                        operation_workflow(
-                            target, "${CI_PIPELINE_NUMBER}", [VALIDATION]
-                        )
+                        operation_workflow(target, "${CI_PIPELINE_NUMBER}", gate)
         return {"configs": configs}
 
     if not main or pipeline.get("author") not in DEPLOY_AUTHORS:
@@ -494,6 +580,18 @@ def resolve_configuration(
     reusable = None
     merge_base = ""
     changed_files = None
+    schedule_overlap = validated_main = False
+    if request["pipeline"].get("event") == "cron":
+        token = os.environ["POLICY_API_TOKEN"]
+        recent = api("http://127.0.0.1:8000/api/repos/1/pipelines?perPage=50", token)
+        schedule_overlap, validated_main = schedule_state(
+            request,
+            recent,
+            lambda number: api(
+                f"http://127.0.0.1:8000/api/repos/1/pipelines/{number}", token
+            ),
+            int(time.time()),
+        )
     if (
         request["pipeline"].get("event") == "push"
         and request["pipeline"].get("ref") == "refs/heads/main"
@@ -524,6 +622,8 @@ def resolve_configuration(
                         request["netrc"]["password"],
                     )
                     merge_base = pr_info.get("merge_base", "")
+                    if defers_to_branch_push(request["pipeline"], pr_info):
+                        reusable = {"number": "the branch push"}
                 except Exception:
                     pass
     return configuration(
@@ -534,6 +634,8 @@ def resolve_configuration(
         reusable=reusable,
         merge_base=merge_base,
         changed_files=changed_files,
+        schedule_overlap=schedule_overlap,
+        validated_main=validated_main,
     )
 
 

@@ -25,6 +25,12 @@ from scripts.ci.applications import load_catalog
 
 SCHEMA_VERSION = 1
 DEFAULT_REGISTRY = "registry.rupan.dev"
+PROJECTCTL_PULL_REPOSITORIES = frozenset(
+    {
+        "upstream/ghcr.io/astral-sh/uv",
+        "upstream/docker.io/woodpeckerci/plugin-git",
+    }
+)
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _REPOSITORY_RE = re.compile(
     r"[a-z0-9]+(?:[._]|__|[-]*[a-z0-9]+)*(?:/[a-z0-9]+(?:[._]|__|[-]*[a-z0-9]+)*)*\Z"
@@ -1829,6 +1835,24 @@ def promote_first_party_lock(
     return {"promoted": promoted, "skipped": skipped, "migrated": migrated}
 
 
+OBSERVED_MAX_AGE_SECONDS = 24 * 3600
+
+
+def observed_snapshot_age(root: pathlib.Path, now: float) -> float | None:
+    """Seconds since the committed live snapshot was captured, if known."""
+    path = root / "registry/observed-images.json"
+    if not path.exists():
+        return None
+    observed_at = read_json(path).get("observed_at")
+    if not isinstance(observed_at, str):
+        return None
+    try:
+        captured = dt.datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max(0.0, now - captured.timestamp())
+
+
 def filter_transient_observed_errors(
     errors: Sequence[Mapping[str, str]], previous_digests: set[str]
 ) -> list[Mapping[str, str]]:
@@ -2581,9 +2605,17 @@ def render_access_control(lock: Mapping[str, Any]) -> dict[str, Any]:
     for record in sorted(
         lock["images"], key=lambda item: item["destination_repository"]
     ):
+        repository = record["destination_repository"]
+        if record["kind"] == "upstream" and repository in PROJECTCTL_PULL_REPOSITORIES:
+            repositories[repository] = {
+                "policies": [
+                    {"users": ["node", "projectctl-pull"], "actions": read},
+                    {"users": ["importer"], "actions": write},
+                ],
+                "defaultPolicy": [],
+            }
         if record["kind"] != "first-party":
             continue
-        repository = record["destination_repository"]
         project = repository.removeprefix("apps/")
         publishers = [f"publisher-{project}"]
         local_publisher = (record.get("producer") or {}).get("local_publisher")

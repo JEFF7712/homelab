@@ -2,38 +2,38 @@
   {
     "system": "x86_64-linux",
     "address": "registry.opentofu.org/cloudflare/cloudflare",
-    "version": "5.27.0",
+    "version": "5.28.0",
     "platform": "linux_amd64",
-    "filename": "terraform-provider-cloudflare_5.27.0_linux_amd64.zip",
-    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_linux_amd64.zip",
-    "hash": "sha256-rkep8pWU1X5jTMC1uWoY2lo2T0PL1zViLOX+gIcoBl8="
+    "filename": "terraform-provider-cloudflare_5.28.0_linux_amd64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.28.0/terraform-provider-cloudflare_5.28.0_linux_amd64.zip",
+    "hash": "sha256-IW4D4N1wL0vikoBYQpA4jH/tDUvrCpmPPBIpy3QWa3s="
   },
   {
     "system": "aarch64-linux",
     "address": "registry.opentofu.org/cloudflare/cloudflare",
-    "version": "5.27.0",
+    "version": "5.28.0",
     "platform": "linux_arm64",
-    "filename": "terraform-provider-cloudflare_5.27.0_linux_arm64.zip",
-    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_linux_arm64.zip",
-    "hash": "sha256-dLYQJeRWuUR5QBe6a2BA9HgUmWSkX10yjR3CQLQ7gVM="
+    "filename": "terraform-provider-cloudflare_5.28.0_linux_arm64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.28.0/terraform-provider-cloudflare_5.28.0_linux_arm64.zip",
+    "hash": "sha256-nBiT1No3k5qItihq54bRKTsWCmMjC23TlgZ1k/0k7rQ="
   },
   {
     "system": "x86_64-darwin",
     "address": "registry.opentofu.org/cloudflare/cloudflare",
-    "version": "5.27.0",
+    "version": "5.28.0",
     "platform": "darwin_amd64",
-    "filename": "terraform-provider-cloudflare_5.27.0_darwin_amd64.zip",
-    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_darwin_amd64.zip",
-    "hash": "sha256-p4k6je9x5Uc/a0YqzK0C/H8PhCyvA7zUnTRDdo14ub4="
+    "filename": "terraform-provider-cloudflare_5.28.0_darwin_amd64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.28.0/terraform-provider-cloudflare_5.28.0_darwin_amd64.zip",
+    "hash": "sha256-1WwiCtSuqc2HddEMu3iMBFCHBTPzzMYF79wlTccYbdQ="
   },
   {
     "system": "aarch64-darwin",
     "address": "registry.opentofu.org/cloudflare/cloudflare",
-    "version": "5.27.0",
+    "version": "5.28.0",
     "platform": "darwin_arm64",
-    "filename": "terraform-provider-cloudflare_5.27.0_darwin_arm64.zip",
-    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.27.0/terraform-provider-cloudflare_5.27.0_darwin_arm64.zip",
-    "hash": "sha256-cyPRB7Rt2xRWwvHZOeryjoE3YgPeSC0Vwc/hiBkDyW4="
+    "filename": "terraform-provider-cloudflare_5.28.0_darwin_arm64.zip",
+    "url": "https://github.com/cloudflare/terraform-provider-cloudflare/releases/download/v5.28.0/terraform-provider-cloudflare_5.28.0_darwin_arm64.zip",
+    "hash": "sha256-iGcUz9mtp4dt057YV2YXZtm3W6IFB5w7cMTVtW6ZVbg="
   },
   {
     "system": "x86_64-linux",

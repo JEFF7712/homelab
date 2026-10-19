@@ -35,7 +35,9 @@ from scripts.ci.policy import (
     VALIDATION,
     VALIDATION_COMMAND,
     configuration,
+    defers_to_branch_push,
     find_reusable_validation,
+    schedule_state,
     verify_request,
 )
 from scripts.ci.prepare_platform import certificate, clone_environment
@@ -224,8 +226,6 @@ class PolicyTest(unittest.TestCase):
                 VALIDATION + ".yaml",
                 "opnsense-plan.yaml",
                 "cloudflare-plan.yaml",
-                "sync-to-github.yaml",
-                "cache-publish.yaml",
                 "registry-lock-import.yaml",
             ],
         )
@@ -349,26 +349,116 @@ class PolicyTest(unittest.TestCase):
                 workflow = yaml.safe_load(item["data"])
                 operation = self.catalog[item["name"].removesuffix(".yaml")]
                 expected = (
-                    "production-authority"
+                    "resource-" + operation["group"]
                     if operation["mutation"]
                     else "scheduled-read-only"
                 )
                 self.assertEqual(workflow["concurrency"]["group"], expected)
         self.assertNotIn("deploy-fleet-dry-run", SCHEDULES["maintenance"])
-        self.assertIn("registry-promote-first-party", SCHEDULES["maintenance"])
+        self.assertIn("registry-promote-first-party", SCHEDULES["promote"])
+        self.assertIn("cache-publish", SCHEDULES["maintenance"])
         self.request["pipeline"].update(event="cron", cron="unknown")
         self.assertEqual(
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
-    def test_read_only_operations_do_not_hold_production_authority(self) -> None:
+    def test_operations_serialize_per_resource(self) -> None:
         result = configuration(self.request, self.catalog, current=SHA)
         groups = {
             item["name"]: yaml.safe_load(item["data"])["concurrency"]["group"]
             for item in result["configs"][1:]
         }
-        self.assertEqual(groups["opnsense-plan.yaml"], "read-only-opnsense-plan")
-        self.assertEqual(groups["cache-publish.yaml"], "production-authority")
+        self.assertEqual(
+            groups["opnsense-plan.yaml"], "resource-opnsense-control-plane"
+        )
+        self.assertEqual(groups["cloudflare-plan.yaml"], "resource-cloudflare-tunnel")
+        self.assertEqual(
+            groups["registry-lock-import.yaml"], "resource-registry-content"
+        )
+
+    def test_cron_reuses_main_validation_and_reports_overlap(self) -> None:
+        self.request["pipeline"].update(event="cron", cron="promote")
+        reused = configuration(
+            self.request, self.catalog, current=SHA, validated_main=True
+        )
+        names = [item["name"] for item in reused["configs"]]
+        self.assertNotIn(VALIDATION + ".yaml", names)
+        for item in reused["configs"]:
+            self.assertNotIn("depends_on", yaml.safe_load(item["data"]))
+        overlap = configuration(
+            self.request, self.catalog, current=SHA, schedule_overlap=True
+        )
+        self.assertEqual(
+            [item["name"] for item in overlap["configs"]], ["schedule-overlap.yaml"]
+        )
+        step = yaml.safe_load(overlap["configs"][0]["data"])["steps"][0]
+        self.assertEqual(step["commands"][-1], "exit 1")
+
+    def test_schedule_state_reads_sender_and_validation(self) -> None:
+        request = {
+            "pipeline": {"cron": "promote", "commit": SHA, "number": 9, "event": "cron"}
+        }
+        pipelines = [
+            {
+                "number": 8,
+                "event": "cron",
+                "sender": "promote",
+                "status": "running",
+                "commit": SHA,
+                "branch": "main",
+                "created": 990,
+            },
+            {
+                "number": 7,
+                "event": "cron",
+                "sender": "maintenance",
+                "status": "running",
+                "commit": SHA,
+                "branch": "main",
+                "created": 980,
+            },
+            {
+                "number": 6,
+                "event": "push",
+                "sender": "rupan",
+                "status": "success",
+                "commit": SHA,
+                "branch": "main",
+                "created": 970,
+            },
+        ]
+        details = {
+            8: {"workflows": [{"name": VALIDATION, "state": "running"}]},
+            7: {"workflows": [{"name": VALIDATION, "state": "failure"}]},
+            6: {"workflows": [{"name": VALIDATION, "state": "success"}]},
+        }
+        self.assertEqual(
+            schedule_state(request, pipelines, details.__getitem__, 1000), (True, True)
+        )
+        idle = [dict(item, status="success") for item in pipelines]
+        idle[2]["created"] = 1000 - 90000
+        self.assertEqual(
+            schedule_state(request, idle, details.__getitem__, 1000), (False, False)
+        )
+
+    def test_same_repository_prs_defer_to_the_branch_push(self) -> None:
+        pull = {
+            "state": "open",
+            "base": {"ref": "main"},
+            "head": {"sha": SHA, "repo": {"full_name": "JEFF7712/homelab"}},
+        }
+        pipeline = {"commit": SHA, "from_fork": False}
+        self.assertTrue(defers_to_branch_push(pipeline, pull))
+        for change in (
+            {"from_fork": True},
+            {"commit": "b" * 40},
+        ):
+            self.assertFalse(defers_to_branch_push(dict(pipeline, **change), pull))
+        fork = copy.deepcopy(pull)
+        fork["head"]["repo"]["full_name"] = "someone/homelab"
+        self.assertFalse(defers_to_branch_push(pipeline, fork))
+        closed = dict(pull, state="closed")
+        self.assertFalse(defers_to_branch_push(pipeline, closed))
 
     def test_scheduled_crons_match_policy(self) -> None:
         crons = json.loads((ROOT / "config/ci/woodpecker-crons.json").read_text())
@@ -376,7 +466,9 @@ class PolicyTest(unittest.TestCase):
         settings = json.loads(
             (ROOT / "config/ci/woodpecker-repository.json").read_text()
         )
-        self.assertIn("cron", settings["cancel_previous_pipeline_events"])
+        # Woodpecker cancels across schedules on the same branch, so overlap
+        # is detected per schedule by the policy instead.
+        self.assertNotIn("cron", settings["cancel_previous_pipeline_events"])
 
     def test_cron_reconciliation_creates_enabled_and_removes_unowned(self) -> None:
         desired = {"nightly": {"schedule": "17 8 * * *", "branch": "main"}}
@@ -402,7 +494,10 @@ class PolicyTest(unittest.TestCase):
         result = self.deployment()
         workflow = yaml.safe_load(result["configs"][0]["data"])
         self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
-        self.assertEqual(workflow["concurrency"]["group"], "production-authority")
+        self.assertEqual(
+            workflow["concurrency"]["group"],
+            "resource-" + self.catalog["opnsense-apply"]["group"],
+        )
         for field, value in [
             ("ref", "refs/heads/feature"),
             ("author", "attacker"),
@@ -745,7 +840,7 @@ class PolicyTest(unittest.TestCase):
         self.request["pipeline"].update(
             event="cron",
             ref="refs/heads/main",
-            cron="maintenance",
+            cron="promote",
             from_fork=False,
         )
         result = configuration(self.request, self.catalog, current=SHA)

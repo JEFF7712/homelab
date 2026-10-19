@@ -21,6 +21,7 @@ from cryptography.x509.oid import NameOID
 
 from scripts.ci.authority import select
 from scripts.ci.migrate_secrets import ROOT, variables
+from scripts.ci.policy import SCHEDULES
 from scripts.ci.state import Store
 
 RECIPIENT = "age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl"
@@ -132,12 +133,8 @@ def main() -> None:
     }
     automatic_events: dict[str, set[str]] = {}
     for event, targets in {
-        "push": ["opnsense-plan", "cloudflare-plan", "sync-to-github", "cache-publish"],
-        "cron": [
-            "registry-drift-check",
-            "registry-retention-reconcile",
-            "registry-promote-first-party",
-        ],
+        "push": ["opnsense-plan", "cloudflare-plan", "registry-lock-import"],
+        "cron": sorted({target for names in SCHEDULES.values() for target in names}),
     }.items():
         for target in targets:
             for value in catalog[target]["environment"].values():

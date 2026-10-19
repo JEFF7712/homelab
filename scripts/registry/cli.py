@@ -5,10 +5,12 @@ import json
 import os
 import pathlib
 import sys
+import time
 from collections.abc import Sequence
 
 from .core import (
     DEFAULT_REGISTRY,
+    OBSERVED_MAX_AGE_SECONDS,
     OciClient,
     RegistryError,
     access_control_users,
@@ -24,6 +26,7 @@ from .core import (
     filter_transient_observed_errors,
     load_inventory,
     load_lock,
+    observed_snapshot_age,
     promote_first_party_lock,
     reconcile_retention,
     refresh_live_snapshot,
@@ -327,7 +330,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 atomic_write_json(args.inventory, discover_inventory(args.root))
                 report = check_consumers(args.root, lock)
                 errors = report["errors"]
-                if not args.allow_observed_drift:
+                # The observed snapshot is committed evidence, not a live read.
+                # Once it is older than a day, drift against it describes the
+                # snapshot rather than the cluster, so it is reported instead
+                # of blocking every promotion behind a stale file.
+                age = observed_snapshot_age(args.root, time.time())
+                stale_observation = age is None or age > OBSERVED_MAX_AGE_SECONDS
+                if stale_observation and report["drift"]:
+                    print(
+                        "warning: registry/observed-images.json is "
+                        + ("undated" if age is None else f"{age / 3600:.0f}h old")
+                        + "; observed drift is not enforced. Refresh it with "
+                        "just registry-snapshot-live.",
+                        file=sys.stderr,
+                    )
+                if not args.allow_observed_drift and not stale_observation:
                     previous = {item["previous_digest"] for item in summary["promoted"]}
                     errors = (
                         filter_transient_observed_errors(report["drift"], previous)

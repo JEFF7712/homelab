@@ -532,6 +532,54 @@ class CiTests(PatchedNetwork):
         self.assertEqual(result.state, rm.CI_FAILURE)
         self.assertFalse(result.healthy)
 
+    def test_failing_operations_are_reported_beside_green_validation(self):
+        self.net.add(*forgejo_branch("JEFF7712/alpha", "sha1", self.now - 3600))
+        self.net.add(
+            *statuses(
+                "JEFF7712/alpha",
+                "sha1",
+                [
+                    {
+                        "context": rm.DEVELOPMENT_CONTEXT,
+                        "status": "success",
+                        "created_at": iso(self.now - 1800),
+                    },
+                    {
+                        "context": "ci/woodpecker/cache-publish",
+                        "status": "pending",
+                        "created_at": iso(self.now - 1700),
+                    },
+                    {
+                        "context": "ci/woodpecker/cache-publish",
+                        "status": "failure",
+                        "created_at": iso(self.now - 1600),
+                    },
+                    {
+                        "context": "ci/woodpecker/registry-drift-check",
+                        "status": "failure",
+                        "created_at": iso(self.now - 1500),
+                    },
+                    {
+                        "context": "ci/woodpecker/registry-drift-check",
+                        "status": "success",
+                        "created_at": iso(self.now - 1400),
+                    },
+                ],
+            )
+        )
+        result = rm.check_ci(
+            rm.Client(self.settings), self.settings, project(), frozenset(), self.now
+        )
+        self.assertTrue(result.healthy)
+        self.assertEqual(result.failing_workflows, ("cache-publish",))
+        snapshot = rm.Snapshot(started_at=0.0, finished_at=0.0, success=True)
+        snapshot.ci.append(result)
+        rendered = rm.render(snapshot, 0.0, 0.0, 0.0)
+        self.assertIn(
+            'repo_ci_workflow_failed{repository="JEFF7712/alpha",workflow="cache-publish"} 1',
+            rendered,
+        )
+
     def test_stuck_pipeline(self):
         settings = Settings(retries=0, ci_stuck_seconds=5400)
         self.net.add(*forgejo_branch("JEFF7712/alpha", "sha1", self.now - 9000))

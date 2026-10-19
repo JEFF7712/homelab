@@ -16,6 +16,7 @@ from scripts.ci.development_projects import (
     TINYGO_VALIDATION_IMAGE,
     UV_VALIDATION_IMAGE,
     DevelopmentProject,
+    contract_digest,
     load_development_projects,
 )
 from scripts.ci.development_projects import (
@@ -185,6 +186,9 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         self.assertEqual(configs[0]["name"], "development-validation.yaml")
 
         workflow = yaml.safe_load(configs[0]["data"])
+        self.assertEqual(
+            workflow["environment"]["PROJECTCTL_CONTRACT_DIGEST"], contract_digest()
+        )
         self.assertEqual(workflow["when"], [{"event": "push"}])
         self.assertEqual(
             workflow["labels"],

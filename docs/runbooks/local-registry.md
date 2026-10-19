@@ -55,7 +55,14 @@ jq -r '[.adminPolicy.users[], .repositories[].policies[]?.users[]] | unique[]' \
   /tmp/zot-access-control.json
 ```
 
-The generated policy identities are `node`, `importer`, `maintenance`, and one
+The generated policy also grants the dedicated `projectctl-pull` identity read
+access to the locked uv validation and Woodpecker clone image repositories.
+It has no wildcard, application, publication, or administrative permissions.
+Provision its credential only through the reviewed
+[projectctl setup](projectctl.md). Exact repository entries retain node reader
+and importer permissions because Zot uses the longest matching policy.
+
+The other generated policy identities are `node`, `importer`, `maintenance`, and one
 `publisher-<project>` identity for each first-party destination in the lock.
 Initially create htpasswd entries only for `node`, `importer`, and
 `maintenance`. Add a project publisher's
@@ -179,6 +186,19 @@ just registry-snapshot-live
 just registry-inventory
 just registry-check
 ```
+
+Promotion enforces observed drift only while the snapshot is under a day old.
+An older snapshot describes itself rather than the cluster, so promotion
+prints a warning naming its age instead of failing; before this, manual digest
+bumps left the snapshot pinning superseded digests and blocked every
+first-party promotion. `just doctor --live` flags a snapshot older than a week.
+
+Provision or rotate a scoped publisher with
+`just registry-provision-publisher apps/<name> [...]`. The lock-rendered
+access policy must already grant exactly one `publisher-*` identity write
+access; the recipe sets a fresh password, restarts zot once, verifies the
+credential, installs the deployment-scoped Woodpecker secret
+`registry_<name>_publisher_auth_file`, and prints the rollback htpasswd path.
 
 The snapshot command is read-only against the cluster. Review the generated
 snapshot diff before updating or resolving the lock.

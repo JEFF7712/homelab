@@ -363,6 +363,7 @@ class Shipper:
 
     def merge(self, pull: dict[str, Any]) -> str:
         number = pull["number"]
+        transient = 0
         while True:
             self.remaining()
             current = self.forgejo.call("GET", f"/pulls/{number}")
@@ -382,6 +383,18 @@ class Shipper:
             if code in {405, 409} and "behind" in message:
                 self.say("head is behind main; updating the PR branch and revalidating")
                 self.forgejo.call("POST", f"/pulls/{number}/update?style=merge")
+                time.sleep(POLL_SECONDS)
+                continue
+            if code == 405 and "try again later" in message.lower():
+                # Forgejo answers this while it recomputes mergeability, and
+                # keeps answering it when the PR conflicts with main.
+                transient += 1
+                refreshed = self.forgejo.call("GET", f"/pulls/{number}")
+                if transient >= 8 and refreshed.get("mergeable") is False:
+                    raise ShipError(
+                        f"PR #{number} conflicts with main; merge origin/main into "
+                        "the branch, resolve, commit, and rerun just ship"
+                    )
                 time.sleep(POLL_SECONDS)
                 continue
             raise ShipError(f"Merge of PR #{number} rejected: HTTP {code} {message}")

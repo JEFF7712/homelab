@@ -156,3 +156,18 @@ spec:
               A Woodpecker validation for {{ $labels.repository }} has been
               pending or running past the stuck threshold. Inspect the
               Woodpecker queue and agent capacity on homelab-04.
+
+        - alert: RepoCiWorkflowFailing
+          expr: repo_ci_workflow_failed == 1
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.workflow }} keeps failing on {{ $labels.repository }}"
+            description: >-
+              The latest {{ $labels.workflow }} run on the head of
+              {{ $labels.repository }} failed and has not recovered for an hour.
+              Required validation can stay green while operations and schedules
+              fail. A failing schedule-overlap workflow means a schedule
+              outlives its interval. Inspect the pipeline in Woodpecker and
+              docs/runbooks/ci-pipelines.md.

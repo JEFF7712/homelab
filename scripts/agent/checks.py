@@ -124,8 +124,10 @@ def _route(path: str) -> list[tuple[str, str]]:
         return [("python", f"{path} changes Python reconciliation")]
     if path.startswith("gitops/"):
         return [("gitops", f"{path} changes Kubernetes desired state")]
-    if path.startswith("tofu/opnsense/"):
+    if path.startswith("tofu/"):
         return [("tofu", f"{path} changes OpenTofu configuration")]
+    if path.startswith("flake/modules/") and path.endswith(".py"):
+        return [("python", f"{path} is a host service covered by the unit suite")]
     if path.startswith(
         ("scripts/home_assistant/", "home-assistant/", "tests/test_home_assistant_")
     ):

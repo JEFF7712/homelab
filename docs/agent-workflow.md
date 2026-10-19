@@ -76,6 +76,8 @@ Troubleshoot by the failing step:
 - PR creation says the head branch is missing: push the current branch first, then retry. The PR head must be the branch containing the reviewed commit.
 - PR is open but cannot merge: inspect `ci/woodpecker/validation-v2` in Forgejo and resolve or wait for that status. Do not bypass branch protection.
 
+Run `just doctor --live` before a task that will ship: it checks the Forgejo token and push identity, the Woodpecker token, Kubernetes, the SOPS key, SSH to every fleet host, and the age of the observed image snapshot. Diagnose a live app with `just diag <kustomization-or-namespace>` (Flux state, workloads, unhealthy pods with log tails, warning events, running digests versus the lock, matching runbooks). `just worktree-gc` lists `.worktrees/` checkouts that are clean and merged into main; `--apply` removes them.
+
 The default delivery path is `just ship` ([ship runbook](runbooks/ship.md)): from a committed feature branch it runs `check-changed`, pushes as `homelab-agent`, opens or reuses the PR, blocks until `ci/woodpecker/validation-v2` is green (printing the failing step log otherwise), merges, waits for main validation, runs the deployment operations routed from the changed paths, ships any promotion patch an operation emits, and waits for the affected Flux Kustomizations. Use the manual steps below only when `ship` cannot run.
 
 After authorization and passing preflight, commit and push the reviewed branch, then open its PR:

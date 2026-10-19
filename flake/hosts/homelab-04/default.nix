@@ -10,6 +10,7 @@
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
+    ../../profiles/projectctl-pilot.nix
     ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
     ../../modules/repo-monitor.nix
