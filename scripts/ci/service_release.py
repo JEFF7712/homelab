@@ -167,8 +167,12 @@ def verify_publication(
     raw = registry_get(token, f"{repository}/manifests/{tag}")
     digest = "sha256:" + hashlib.sha256(raw).hexdigest()
     manifest = json.loads(raw)
+    if "config" not in manifest:
+        raise ValueError("Published reference is an index, not a single image")
     config_digest = manifest["config"]["digest"]
-    if config_digest != image_id:
+    # Docker's classic store identifies an image by its config digest; the
+    # containerd image store (homelab-04) by its manifest digest.
+    if image_id not in {config_digest, digest}:
         raise ValueError("Published image differs from the tested local image")
     config_raw = registry_get(token, f"{repository}/blobs/{config_digest}")
     if "sha256:" + hashlib.sha256(config_raw).hexdigest() != config_digest:
