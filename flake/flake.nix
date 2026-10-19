@@ -110,6 +110,9 @@
           };
 
         devShells.default = pkgs.mkShell {
+          MATRIX_LD_LIBRARY_PATH = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
+            pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
+          );
           packages = with pkgs; [
             age
             apacheHttpd
@@ -145,6 +148,7 @@
             skopeo
             sops
             tea
+            uv
             yamllint
             # The registry serves this exact build and the GC fixture asserts
             # the version it runs, so both share nix/zot-release.nix.

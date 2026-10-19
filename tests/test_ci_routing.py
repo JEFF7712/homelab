@@ -18,6 +18,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ScopeTest(unittest.TestCase):
+    def test_matrix_changes_are_scoped_but_mixed_infrastructure_is_not(self) -> None:
+        self.assertEqual(
+            classify(["services/led-matrix/ha_matrix_streamer.py", "README.md"]).mode,
+            "matrix",
+        )
+        self.assertEqual(
+            classify(["services/led-matrix/Dockerfile", "flake/flake.nix"]).mode, "full"
+        )
+        self.assertEqual(
+            classify(
+                [
+                    "services/led-matrix/ha_source.py",
+                    "home-assistant/www/jarvis/index.html",
+                ]
+            ).mode,
+            "full",
+        )
+
     def test_documentation_and_application_allowlist(self) -> None:
         for paths, expected in (
             (["README.md", "docs/runbooks/example.md"], "documentation"),
@@ -246,6 +264,16 @@ class SandboxReportTest(unittest.TestCase):
 
 
 class ValidationLaneTest(unittest.TestCase):
+    def test_matrix_runs_service_tests_without_providers_or_fleet_build(self) -> None:
+        code, commands, builds = self.invoke("repository", "matrix")
+        self.assertEqual(code, 0)
+        self.assertIn(["bash", "scripts/checks/led-matrix.sh"], commands)
+        self.assertFalse(any("provision-check-deps" in command for command in commands))
+        self.assertEqual(builds, 0)
+        self.assertEqual(self.invoke("repository", "matrix", 7)[0], 7)
+        for gate in ("cache", "flake"):
+            self.assertEqual(self.invoke(gate, "matrix"), (0, [], 0))
+
     def invoke(
         self, gate: str, mode: str, failure: int = 0
     ) -> tuple[int, list[list[str]], int]:

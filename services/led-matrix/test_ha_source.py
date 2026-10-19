@@ -1104,7 +1104,6 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes.arcade import AsteroidsGame
 
         game = AsteroidsGame()
-        initial_rocks = len(game.asteroids)
         for _ in range(100):
             game.update(0.04)
         # Simulation runs smoothly with active ship and asteroids
@@ -1470,7 +1469,8 @@ class HubModeAndRendererTests(unittest.TestCase):
 
     def test_ledfx_receiver_audio_packet(self) -> None:
         import struct
-        from modes.ledfx_mode import AudioFrame, LedFxReceiver
+
+        from modes.ledfx_mode import LedFxReceiver
 
         receiver = LedFxReceiver(size=64)
         self.assertIsNone(receiver.get_latest_audio())
@@ -1656,6 +1656,7 @@ class HubModeAndRendererTests(unittest.TestCase):
 
     def test_arcade_high_scores_persistence_and_records(self) -> None:
         import tempfile
+
         from modes.multiplayer.high_scores import HighScoreManager
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1684,6 +1685,7 @@ class HubModeAndRendererTests(unittest.TestCase):
 
     def test_multiplayer_hub_sfx_and_high_score_recording(self) -> None:
         import tempfile
+
         from modes.multiplayer.high_scores import HighScoreManager
         from web_controller.server import MultiplayerHub
 
@@ -1710,9 +1712,9 @@ class HubModeAndRendererTests(unittest.TestCase):
             self.assertEqual(state["high_scores"]["snake"], 50)
 
     def test_games_sfx_triggers_and_score_reporting(self) -> None:
+        from modes.multiplayer.breakout_game import InteractiveBreakout
         from modes.multiplayer.snake_game import InteractiveSnake
         from modes.multiplayer.tetris_game import InteractiveTetris
-        from modes.multiplayer.breakout_game import InteractiveBreakout
 
         # Test Snake
         snake = InteractiveSnake()
@@ -1784,6 +1786,7 @@ class HubModeAndRendererTests(unittest.TestCase):
     def test_scores_http_endpoint(self) -> None:
         import json
         import tempfile
+
         from modes.multiplayer.high_scores import HighScoreManager
         from web_controller.server import MultiplayerHub, WebControllerServer
 
@@ -1791,7 +1794,9 @@ class HubModeAndRendererTests(unittest.TestCase):
             tmp.write(b"{}")
             tmp.flush()
             hub = MultiplayerHub()
-            hub.high_score_manager = HighScoreManager(primary_path=tmp.name, fallback_path=tmp.name)
+            hub.high_score_manager = HighScoreManager(
+                primary_path=tmp.name, fallback_path=tmp.name
+            )
             hub.high_score_manager.update_score("pong", 7)
             hub.high_score_manager.update_score("snake", 42)
 
@@ -1811,7 +1816,9 @@ class HubModeAndRendererTests(unittest.TestCase):
 
     def test_headless_game_fuzz_and_invariants(self) -> None:
         import random
+
         from PIL import Image, ImageDraw
+
         from modes.multiplayer import GAME_REGISTRY
 
         actions_pool = ["up", "down", "left", "right", "action_a", "action_b"]
@@ -1873,7 +1880,9 @@ class HubModeAndRendererTests(unittest.TestCase):
                     self.assertLess(game.p2_pos[1], 64)
                 elif spec.id == "air_hockey":
                     # Mallets clamped inside their respective rink halves
-                    self.assertGreaterEqual(game.p1_x, game.RINK_L + game.MALLET_R - 0.1)
+                    self.assertGreaterEqual(
+                        game.p1_x, game.RINK_L + game.MALLET_R - 0.1
+                    )
                     self.assertLessEqual(game.p1_x, 29.0 - game.MALLET_R + 0.1)
                     self.assertGreaterEqual(game.p2_x, 34.0 + game.MALLET_R - 0.1)
                     self.assertLessEqual(game.p2_x, game.RINK_R - game.MALLET_R + 0.1)
@@ -1894,7 +1903,12 @@ class HubModeAndRendererTests(unittest.TestCase):
                     self.assertTrue(all(len(row) == 4 for row in game.grid))
 
     def test_classic_arcade_new_games_mechanics(self) -> None:
-        from modes.multiplayer import AirHockeyGame, AsteroidsGame, FlappyBirdGame, Game2048
+        from modes.multiplayer import (
+            AirHockeyGame,
+            AsteroidsGame,
+            FlappyBirdGame,
+            Game2048,
+        )
 
         # 1. Air Hockey puck bounce & goal mechanics
         hockey = AirHockeyGame(solo_vs_ai=True)
@@ -1919,7 +1933,9 @@ class HubModeAndRendererTests(unittest.TestCase):
         # 3. Flappy Bird flap and jump impulse
         flappy = FlappyBirdGame()
         flappy.update(0.016, {"action_a"}, set())
-        self.assertAlmostEqual(flappy.bird_vy, flappy.FLAP_IMPULSE + flappy.GRAVITY * 0.016, places=2)
+        self.assertAlmostEqual(
+            flappy.bird_vy, flappy.FLAP_IMPULSE + flappy.GRAVITY * 0.016, places=2
+        )
 
         # 4. 2048 slide left and merge
         g2048 = Game2048()

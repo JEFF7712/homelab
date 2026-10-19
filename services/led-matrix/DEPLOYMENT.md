@@ -39,6 +39,11 @@ its relative artwork proxy URLs, while retaining HA backend failover.
 
 ## Publication and rollout
 
+For subsequent fixes, use the protected `matrix-publish` operation described in
+[Matrix releases](../../docs/runbooks/matrix-release.md). It uses the matrix's
+explicit publisher credential, verifies the image digest, and emits a focused
+Flux promotion patch. It does not use the laptop's default Docker login.
+
 Repository `AGENTS.md` requires authorization before publishing or changing
 shared infrastructure. The local build and qualification do not constitute a
 deployment. Deployment was authorized on 2026-10-16:
