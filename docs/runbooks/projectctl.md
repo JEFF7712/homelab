@@ -151,8 +151,8 @@ the successful temporary activation:
 
 | File | Required authority |
 | --- | --- |
-| forgejo-read | Nonadministrator observer; homelab and pilot read access; read:repository, read:user, read:organization where required |
-| forgejo-write | Nonadministrator provisioner; repository admin on this pilot only; write:repository and read:user API scopes |
+| forgejo-read | Nonadministrator observer; homelab and scoped project read access; read:repository, read:user, read:organization where required |
+| forgejo-write | Nonadministrator provisioner; repository admin on scoped projects only; write:repository and read:user API scopes |
 | woodpecker-read | Dedicated nonadministrator observer with pilot read access, using the supported profile PAT |
 | woodpecker-write | Dedicated nonadministrator provisioner with pilot repository administration, using its profile PAT |
 | registry-password | New Zot identity projectctl-pull, read only on required validation and clone image repositories |
@@ -178,9 +178,10 @@ also cannot use read:user, which the worker's identity check requires. For this
 implementation, select All (public, private, and limited) as the repository
 access category, then select only the API scopes listed above. That category
 does not mean selecting every API scope. The account's own permissions form
-the repository boundary: observer read access to homelab and the pilot;
-provisioner administration on the pilot only. Give neither account organization
-ownership or other repository grants. Set each account's repository creation
+the repository boundary: observer read access to homelab and each project
+scoped in config/projectctl/callers.json; provisioner administration on those
+projects only. Give neither account organization ownership or other repository
+grants. Adding a scope requires granting both collaborators on that repository. Set each account's repository creation
 limit to zero and disable organization creation. A future project-creation
 identity requires separate review. See [Forgejo token scopes](https://forgejo.org/docs/v15.0/user/authentication/token-scope/)
 and [Woodpecker's API](https://woodpecker-ci.org/api).
