@@ -99,6 +99,24 @@
         "deploy-fleet"
       ],
       "auto": false
+    },
+    {
+      "name": "ci-host",
+      "paths": [
+        "scripts/ci/policy.py",
+        "scripts/ci/applications.py",
+        "scripts/ci/development_projects.py",
+        "config/ci/operations.json",
+        "config/ci/applications.json",
+        "config/ci/projects.json",
+        "flake/modules/woodpecker.nix",
+        "flake/hosts/homelab-04/"
+      ],
+      "operations": [
+        "deploy-ci-host-dry-run",
+        "deploy-ci-host"
+      ],
+      "auto": false
     }
   ]
 }

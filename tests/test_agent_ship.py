@@ -57,7 +57,7 @@ class ShipPlanTest(unittest.TestCase):
         changed = ["flake/hosts/homelab-04/default.nix", "tofu/opnsense/rules.tf"]
         plan = plan_operations(changed, self.routes, "auto", self.catalog)
         self.assertEqual(plan.run, [])
-        self.assertEqual(set(plan.held), {"fleet", "opnsense"})
+        self.assertEqual(set(plan.held), {"fleet", "ci-host", "opnsense"})
         explicit = plan_operations(changed, self.routes, "opnsense-apply", self.catalog)
         self.assertEqual(explicit.run, ["opnsense-plan", "opnsense-apply"])
         self.assertEqual(
