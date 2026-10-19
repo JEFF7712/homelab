@@ -267,6 +267,9 @@ class Woodpecker:
                     sections.append(f"--- {step['name']} ({step['state']})\n{excerpt}")
         return "\n".join(sections) or "no failing step log available"
 
+    def restart(self, number: int) -> dict[str, Any]:
+        return self.call("POST", f"/repos/{WOODPECKER_REPO}/pipelines/{number}")
+
     def deploy(self, parent: int, operation: str) -> dict[str, Any]:
         query = urllib.parse.urlencode({"event": "deployment", "deploy_to": operation})
         return self.call("POST", f"/repos/{WOODPECKER_REPO}/pipelines/{parent}?{query}")
@@ -439,9 +442,12 @@ class Shipper:
         Woodpecker reports validation-v2 as running until the pipeline ends,
         so this waits for the pipeline's terminal state. When main advances
         past sha, the superseded pipeline is cancelled and the newer tip,
-        which contains sha, becomes the target.
+        which contains sha, becomes the target. A pipeline killed while sha
+        is still the tip was cancelled by a restart of an older main
+        pipeline, which nothing else recovers, so it is restarted once.
         """
         last = ""
+        restarted = False
         while True:
             self.remaining()
             tip = self.forgejo.call("GET", "/branches/main")["commit"]["id"]
@@ -461,6 +467,19 @@ class Shipper:
                 last = state
             if pipeline and state == "success":
                 return sha, int(pipeline["number"])
+            if pipeline and state == "killed" and tip == sha:
+                if restarted:
+                    raise ShipError(
+                        f"Main pipeline #{pipeline['number']} for {sha[:12]} was "
+                        "killed again after a restart; check who cancels it"
+                    )
+                created = self.woodpecker.restart(int(pipeline["number"]))
+                self.say(
+                    f"main {sha[:12]} pipeline #{pipeline['number']} was killed; "
+                    f"restarted as #{created['number']}"
+                )
+                restarted, last = True, ""
+                continue
             if pipeline and state in {"failure", "error"}:
                 raise ShipError(
                     f"Main pipeline #{pipeline['number']} failed; deployment operations "
