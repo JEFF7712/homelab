@@ -38,6 +38,7 @@ from scripts.ci.policy import (
     VALIDATION,
     VALIDATION_COMMAND,
     SourceMirror,
+    StaleMainPush,
     configuration,
     defers_to_branch_push,
     find_reusable_validation,
@@ -904,6 +905,30 @@ class PolicyTest(unittest.TestCase):
             ),
         ):
             self.assertNotIn("CI_SCOPE_FILES", environment(result))
+
+    def test_push_for_a_superseded_main_commit_is_rejected(self) -> None:
+        def request(event: str) -> dict[str, Any]:
+            return {
+                "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+                "pipeline": {
+                    "id": 445,
+                    "event": event,
+                    "ref": "refs/heads/main",
+                    "branch": "main",
+                    "commit": SHA,
+                    "author": "homelab-agent",
+                    "sender": "nightly",
+                },
+            }
+
+        with self.assertRaises(StaleMainPush):
+            configuration(request("push"), self.catalog, current="b" * 40)
+        self.assertTrue(
+            configuration(request("push"), self.catalog, current=SHA)["configs"]
+        )
+        self.assertTrue(
+            configuration(request("cron"), self.catalog, current="b" * 40)["configs"]
+        )
 
     def test_catalog_commands_parse_and_predecessors_exist(self) -> None:
         import subprocess

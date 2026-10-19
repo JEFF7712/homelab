@@ -190,7 +190,12 @@ required status on the same commit, so the PR pipeline only records
 Woodpecker cancels a superseded pending or running pipeline for the same
 branch on push and pull request events. Cron is excluded because Woodpecker
 treats every schedule on main as the same branch and would cancel one
-schedule with another. An automatic push or cron
+schedule with another. Because any new push pipeline on main cancels the
+running one, the policy rejects the config (HTTP 409) for a main push whose
+commit is no longer the tip: restarting an older main pipeline fails
+instead of killing the current main's run, and a late webhook for a
+superseded merge ends in error without starting. Restart the current
+main's pipeline instead. An automatic push or cron
 operation that starts after main has moved exits successfully with a skip
 message, since the newer main runs the same work; operator-requested
 deployments still fail when their commit is no longer main.
