@@ -2032,7 +2032,7 @@
         "from_secret": "registry_read_password"
       },
       "REGISTRY_MATRIX_PUBLISHER_AUTH_FILE": {
-        "from_secret": "registry_matrix_publisher_auth_file"
+        "from_secret": "registry_spotify_matrix_publisher_auth_file"
       }
     },
     "file_secrets": [

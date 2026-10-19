@@ -17,7 +17,7 @@ immutable Woodpecker operation catalog using the existing CI platform procedure.
 Merely merging the operation JSON does not activate the server-owned catalog.
 
 Provision the protected Woodpecker file secret
-`registry_matrix_publisher_auth_file` with an OCI auth document naming only
+`registry_spotify_matrix_publisher_auth_file` with an OCI auth document naming only
 `registry.rupan.dev`, authenticated as `publisher-spotify-matrix`. Scope it to
 the protected homelab deployment workflow using the same event and image-filter
 settings as `registry_jarvis_publisher_auth_file`. Do not replace the global
