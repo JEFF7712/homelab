@@ -45,6 +45,8 @@ bash scripts/checks/led-matrix.sh
 The first command may download locked dependencies. The check itself runs
 offline, using the frozen service lock, and runs all service unit tests plus
 the core streamer's Ruff and Pyright checks. It does not contact HA or the Pico.
+The pinned shell supplies the Linux C++ runtime needed by NumPy's binary wheel;
+the check sets that library path explicitly, including in clean CI containers.
 `just check-changed` routes matrix source changes to this check. Matrix-only CI
 changes prepare the environment and run this check, docs, and whitespace checks
 without initializing unrelated OpenTofu providers or building the NixOS fleet.

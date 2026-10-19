@@ -110,6 +110,9 @@
           };
 
         devShells.default = pkgs.mkShell {
+          MATRIX_LD_LIBRARY_PATH = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
+            pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
+          );
           packages = with pkgs; [
             age
             apacheHttpd
