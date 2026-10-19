@@ -26,6 +26,24 @@ def refs(repository: Path, remote: str | None = None) -> dict[str, str]:
     }
 
 
+REBASED_BRANCHES = "refs/heads/renovate/"
+
+
+def refspecs(source: dict[str, str]) -> list[str]:
+    """Fast-forward everything except bot branches that are rebased in place.
+
+    A diverged main or human branch may hold recovery-only commits, so it
+    must fail the push rather than be overwritten. Renovate rebases its
+    branches on every base change, and the bot recreates them on demand.
+    """
+    branches = [
+        f"+{name}:{name}" if name.startswith(REBASED_BRANCHES) else f"{name}:{name}"
+        for name in sorted(source)
+        if name.startswith("refs/heads/")
+    ]
+    return [*branches, "refs/tags/*:refs/tags/*"]
+
+
 def mirror(repository: Path, remote: str) -> None:
     source = refs(repository)
     if not source:
@@ -40,8 +58,7 @@ def mirror(repository: Path, remote: str) -> None:
             "push",
             "--atomic",
             remote,
-            "refs/heads/*:refs/heads/*",
-            "refs/tags/*:refs/tags/*",
+            *refspecs(source),
         ],
         check=True,
     )
