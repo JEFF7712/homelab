@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import json
 import unittest
+import unittest.mock
+import urllib.error
 from pathlib import Path
+from unittest.mock import patch
 
+from scripts.agent import ship
 from scripts.agent.ship import (
     PATCH_BEGIN,
     PATCH_END,
@@ -67,6 +71,27 @@ class ShipPlanTest(unittest.TestCase):
     def test_docs_only_change_deploys_nothing(self) -> None:
         plan = plan_operations(["docs/a.md"], self.routes, "auto", self.catalog)
         self.assertEqual((plan.run, plan.held), ([], {}))
+
+
+class ShipNetworkTest(unittest.TestCase):
+    def test_refused_connections_are_retried_then_reported(self) -> None:
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value.status = 200
+        response.__enter__.return_value.read.return_value = b'{"ok": true}'
+        refused = urllib.error.URLError(ConnectionRefusedError(111, "refused"))
+        with (
+            patch.object(
+                ship.urllib.request, "urlopen", side_effect=[refused, refused, response]
+            ),
+            patch.object(ship.time, "sleep"),
+        ):
+            self.assertEqual(ship.http("GET", "http://x", {}), (200, {"ok": True}))
+        with (
+            patch.object(ship.urllib.request, "urlopen", side_effect=refused),
+            patch.object(ship.time, "sleep"),
+            self.assertRaisesRegex(ShipError, "unreachable"),
+        ):
+            ship.http("GET", "http://x", {})
 
 
 class ShipRolloutTest(unittest.TestCase):

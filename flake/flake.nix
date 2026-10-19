@@ -95,6 +95,14 @@
           ]
         );
         ciPackages = with pkgs; [
+          # Scoped validation lanes run unit tests directly in this shell,
+          # not inside checks.repository-contract, so they need the same
+          # test tools: node for the client plugin tests, htpasswd, php, and
+          # patchelf for registry, OPNsense, and zot fixtures.
+          apacheHttpd
+          nodejs
+          patchelf
+          php
           age
           git
           gitleaks
@@ -154,7 +162,6 @@
           packages =
             ciPackages
             ++ (with pkgs; [
-              apacheHttpd
               attic-client
               cosign
               cloud-utils
@@ -162,10 +169,7 @@
               dnsutils
               glab
               libvirt
-              nodejs
               oras
-              patchelf
-              php
               prometheus.cli
               qemu_kvm
               skopeo

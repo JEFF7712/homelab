@@ -36,6 +36,7 @@ AGENT_REMOTE = "git-agent:JEFF7712/homelab.git"
 PATCH_BEGIN = "----- BEGIN PROMOTION PATCH -----"
 PATCH_END = "----- END PROMOTION PATCH -----"
 POLL_SECONDS = 15
+NETWORK_RETRIES = 20
 
 
 class ShipError(RuntimeError):
@@ -163,16 +164,28 @@ def http(
         method=method,
         headers={**headers, "Content-Type": "application/json"},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            payload = response.read()
-            return response.status, json.loads(payload) if payload else None
-    except urllib.error.HTTPError as error:
-        text = error.read().decode(errors="replace")
+    # Forgejo and Woodpecker restart during deploys; a refused or dropped
+    # connection is retried for a few minutes instead of aborting a ship
+    # that may already have merged.
+    for attempt in range(NETWORK_RETRIES):
         try:
-            return error.code, json.loads(text)
-        except ValueError:
-            return error.code, {"message": text}
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = response.read()
+                return response.status, json.loads(payload) if payload else None
+        except urllib.error.HTTPError as error:
+            if error.code in {502, 503, 504} and attempt + 1 < NETWORK_RETRIES:
+                time.sleep(POLL_SECONDS)
+                continue
+            text = error.read().decode(errors="replace")
+            try:
+                return error.code, json.loads(text)
+            except ValueError:
+                return error.code, {"message": text}
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as error:
+            if attempt + 1 == NETWORK_RETRIES:
+                raise ShipError(f"{method} {url} unreachable: {error}") from None
+            time.sleep(POLL_SECONDS)
+    raise ShipError(f"{method} {url} unreachable")
 
 
 class Forgejo:
