@@ -152,7 +152,10 @@ queued operation then failed the current-main check.
 
 A schedule run reuses main validation when a push, manual, or cron pipeline
 already passed validation-v2 for the same commit within 24 hours, so it
-spends no sandbox time revalidating an unchanged main. When the previous run
+spends no sandbox time revalidating an unchanged main. While main's own
+validation of the commit is still running, a schedule runs only its ungated
+watchdog and defers the rest to its next run rather than starting a second
+full validation beside it. When the previous run
 of the same schedule (Woodpecker records the cron name as the sender) is
 still pending or running, the new run emits only a failing
 `schedule-overlap` workflow: the schedule outlives its interval and needs
