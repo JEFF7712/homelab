@@ -8,7 +8,7 @@
   "images": [
     {
       "consumers": [
-        "music-assistant/music-assistant-79d6cb97cd-n9rb8/pot-provider"
+        "music-assistant/music-assistant-79d6cb97cd-52l48/pot-provider"
       ],
       "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.1@sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d"
     },
@@ -114,33 +114,33 @@
     },
     {
       "consumers": [
-        "apolline/website-deploy-65bb5fbfb6-8d4gc/web"
+        "apolline/website-deploy-65bb5fbfb6-brnnz/web"
       ],
       "reference": "registry.rupan.dev/apps/apolline@sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45"
     },
     {
       "consumers": [
-        "media/bookshelf-7858cfc6b-ltbrh/bookshelf"
+        "media/bookshelf-7799db9db4-hcs2t/bookshelf"
       ],
-      "reference": "registry.rupan.dev/apps/bookshelf@sha256:4b8da8a72ea0b00f4313900b7974dbad505ef870cff54b6a3cd7fab77f0792ec"
+      "reference": "registry.rupan.dev/apps/bookshelf@sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0"
     },
     {
       "consumers": [
-        "bus-display/website-deploy-748cfd564-wwvws/web"
+        "bus-display/website-deploy-c8b9c8d68-vpg76/web"
       ],
-      "reference": "registry.rupan.dev/apps/bus-display@sha256:6da28826b8304ada63e75d866a233f6aff901cbce21c6c1ab58055865f55948d"
+      "reference": "registry.rupan.dev/apps/bus-display@sha256:6106c04d1cb634a0ea0c4383c51ce260cafd28236155cf2b73b19f323dc0a961"
     },
     {
       "consumers": [
-        "cr-demo/website-deploy-5d74fd4998-wbjxb/web"
+        "cr-demo/website-deploy-5d74fd4998-vnxd6/web"
       ],
       "reference": "registry.rupan.dev/apps/cr-demo@sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363"
     },
     {
       "consumers": [
-        "darkbit/website-deploy-f9465b449-t4ztb/web"
+        "darkbit/website-deploy-6bd7d5bff-dx7q2/web"
       ],
-      "reference": "registry.rupan.dev/apps/darkbit@sha256:9387340adce2259a4918a7ab5c243e64f557d99f51fc27f2c340a4a56d960623"
+      "reference": "registry.rupan.dev/apps/darkbit@sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6"
     },
     {
       "consumers": [
@@ -156,7 +156,7 @@
     },
     {
       "consumers": [
-        "voice/wyoming-nemotron-d7f589d4-ncr4c/bridge"
+        "voice/wyoming-nemotron-d7f589d4-k285l/bridge"
       ],
       "reference": "registry.rupan.dev/apps/jarvis-nemotron@sha256:1133a10e4cea066a025633fd419b76390fef4d0d9bfc685c37c17a1b98208f8d"
     },
@@ -168,7 +168,7 @@
     },
     {
       "consumers": [
-        "majorfinder/website-deploy-66f987d54d-9m8rz/web"
+        "majorfinder/website-deploy-66f987d54d-564fd/web"
       ],
       "reference": "registry.rupan.dev/apps/majorfinder@sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6"
     },
@@ -211,17 +211,17 @@
         "pod-agent/cronjob-pod-agent-veto-sweep/veto-sweep",
         "pod-agent/cronjob-pod-agent-veto-sweep/wait-for-network",
         "pod-agent/cronjob-pod-agent-watchdog/watchdog",
-        "pod-agent/pod-agent-antigravity-keyring-679f6ffc5d-x5xs6/keyring",
-        "pod-agent/pod-agent-antigravity-keyring-679f6ffc5d-x5xs6/prepare-profile",
-        "pod-agent/pod-agent-dashboard-c7cd7dd58-wvnbm/dashboard",
-        "pod-agent/pod-agent-dashboard-c7cd7dd58-wvnbm/seed-memory",
-        "pod-agent/pod-agent-discord-bot-7c6bfd6d5f-v76vh/bot"
+        "pod-agent/pod-agent-antigravity-keyring-56cf889544-kqvk7/keyring",
+        "pod-agent/pod-agent-antigravity-keyring-56cf889544-kqvk7/prepare-profile",
+        "pod-agent/pod-agent-dashboard-6cc9d96dd8-wz289/dashboard",
+        "pod-agent/pod-agent-dashboard-6cc9d96dd8-wz289/seed-memory",
+        "pod-agent/pod-agent-discord-bot-b58dff468-25thn/bot"
       ],
-      "reference": "registry.rupan.dev/apps/pod-agent@sha256:a67755b6b71aaa8906610ef323a9bfff77ee3faf3c48073b56eb2d16bf5c0f47"
+      "reference": "registry.rupan.dev/apps/pod-agent@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb"
     },
     {
       "consumers": [
-        "pulse/website-deploy-597874748c-5sfm9/web"
+        "pulse/website-deploy-597874748c-b2fxp/web"
       ],
       "reference": "registry.rupan.dev/apps/pulse-site@sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466"
     },
@@ -234,7 +234,7 @@
     },
     {
       "consumers": [
-        "rupan-dev/website-deploy-55fb8bd8d4-lxvrh/web"
+        "rupan-dev/website-deploy-55fb8bd8d4-lrxqg/web"
       ],
       "reference": "registry.rupan.dev/apps/rupan-dev@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8"
     },
@@ -246,7 +246,7 @@
     },
     {
       "consumers": [
-        "soluble-rupan/website-deploy-6b9cc894f7-cg2lv/web",
+        "soluble-rupan/website-deploy-6b9cc894f7-7k96c/web",
         "soluble-rupan/website-deploy-6b9cc894f7-h7qwd/web"
       ],
       "reference": "registry.rupan.dev/apps/solubility-gnn@sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab"
@@ -265,16 +265,24 @@
     },
     {
       "consumers": [
-        "led-matrix/led-matrix-96666f8d7-qhr7c/renderer"
+        "led-matrix/led-matrix-7c4ff4499-gzjg4/renderer"
       ],
-      "reference": "registry.rupan.dev/apps/spotify-matrix@sha256:85596b5a83d60ab7f8e28c249574c3dc54bb027d6ff940bf484804c9450f8b91"
+      "reference": "registry.rupan.dev/apps/spotify-matrix@sha256:f224830e2a7b3353e705f24a7e918f74fe8b7d2d8e4a760fa6b30df8f2a2bd74"
+    },
+    {
+      "consumers": [
+        "uwagent/website-deploy-5b5d7fd6c7-hxnb8/web"
+      ],
+      "reference": "registry.rupan.dev/apps/uwagent@sha256:6ffd2ff5cf6066f439ebff9a4ab31bf78b1b8d5f30fec1a28fe02b5efe42a62d"
     },
     {
       "consumers": [
         "automation/cronjob-cluster-sentinel/cluster-sentinel",
         "automation/cronjob-dockerhub-retention/dockerhub-retention",
         "automation/cronjob-website-healthcheck/healthcheck",
-        "automation/cronjob-website-image-watch/image-watch"
+        "automation/cronjob-website-image-watch/image-watch",
+        "automation/job-website-healthcheck-29874185/healthcheck",
+        "automation/website-healthcheck-29874185-brf92/healthcheck"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47"
     },
@@ -286,8 +294,8 @@
     },
     {
       "consumers": [
-        "cloudflare/cloudflared-679976f65-hvrbm/cloudflared",
-        "cloudflare/cloudflared-679976f65-wzvpc/cloudflared"
+        "cloudflare/cloudflared-8667587465-cmg58/cloudflared",
+        "cloudflare/cloudflared-8667587465-rfkt8/cloudflared"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9"
     },
@@ -355,7 +363,7 @@
     },
     {
       "consumers": [
-        "media/download-8c86d6bd9-6w2mr/seed-slskd"
+        "media/download-8c86d6bd9-l5r9k/seed-slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     },
@@ -365,11 +373,11 @@
         "home-assistant/home-assistant-59dbc66c64-hl7wq/install-hacs",
         "kube-system/intel-gpu-plugin-zm5n5/registration-watchdog",
         "media/bazarr-86cd66ff97-d7qjl/fix-permissions",
-        "media/bookshelf-7858cfc6b-ltbrh/fix-permissions",
+        "media/bookshelf-7799db9db4-hcs2t/fix-permissions",
         "media/calibre-web-9c6b87dff-2pzrd/fix-permissions",
-        "media/download-8c86d6bd9-6w2mr/configure-qbittorrent",
-        "media/download-8c86d6bd9-6w2mr/fix-permissions",
-        "media/jellyfin-7785bc86-fl8mk/fix-permissions",
+        "media/download-8c86d6bd9-l5r9k/configure-qbittorrent",
+        "media/download-8c86d6bd9-l5r9k/fix-permissions",
+        "media/jellyfin-67ccf7849b-6ht6p/fix-permissions",
         "media/lidarr-5cf6f9cd67-gpnx5/fix-permissions",
         "media/prowlarr-7c59445999-s47q6/fix-permissions",
         "media/radarr-67bcbdf494-ft9m7/fix-permissions",
@@ -389,10 +397,10 @@
     },
     {
       "consumers": [
-        "automation/github-runner-bookshelf-7f5c9b6679-qbhcl/dind",
-        "automation/github-runner-darkbit-7bb4c5696-rwz89/dind",
-        "automation/github-runner-pod-agent-85dd9d9c8b-ghqq2/dind",
-        "automation/github-runner-soluble-8595cd994b-qhcbz/dind"
+        "automation/github-runner-bookshelf-7f5c9b6679-gdcr8/dind",
+        "automation/github-runner-darkbit-7bb4c5696-dmldh/dind",
+        "automation/github-runner-pod-agent-85dd9d9c8b-fkdxq/dind",
+        "automation/github-runner-soluble-8595cd994b-m8p9t/dind"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/docker@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce"
     },
@@ -427,8 +435,9 @@
         "media/cronjob-jellyfin-backup/backup",
         "media/cronjob-soularr/soularr",
         "media/cronjob-spotify-sync/sync",
-        "media/job-soularr-29872997/soularr",
-        "media/soularr-29872997-kgwkh/soularr",
+        "media/job-soularr-29874077/soularr",
+        "media/soularr-29874077-7mnj6/soularr",
+        "observability/network-monitor-585d987954-mtr7j/monitor",
         "sovereign/sovereign-inquiry-84cddfc8bd-86cwk/receiver"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc"
@@ -447,7 +456,7 @@
     },
     {
       "consumers": [
-        "media/download-8c86d6bd9-6w2mr/gluetun"
+        "media/download-8c86d6bd9-l5r9k/gluetun"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/qmcgaw/gluetun@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4"
     },
@@ -460,14 +469,14 @@
     },
     {
       "consumers": [
-        "voice/wyoming-piper-dc4d7cb55-ktt26/piper"
+        "voice/wyoming-piper-dc4d7cb55-h29jp/piper"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a"
     },
     {
       "consumers": [
-        "voice/wyoming-whisper-747d784788-fxj7f/voice-id",
-        "voice/wyoming-whisper-747d784788-fxj7f/whisper"
+        "voice/wyoming-whisper-747d784788-s47ng/voice-id",
+        "voice/wyoming-whisper-747d784788-s47ng/whisper"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-whisper@sha256:ba6fcb6056ebe237d15a325381763a80af2fc8fcedaa04f6a714a7375eb20d80"
     },
@@ -479,7 +488,7 @@
     },
     {
       "consumers": [
-        "media/download-8c86d6bd9-6w2mr/slskd"
+        "media/download-8c86d6bd9-l5r9k/slskd"
       ],
       "reference": "registry.rupan.dev/upstream/docker.io/slskd/slskd@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6"
     },
@@ -491,18 +500,18 @@
     },
     {
       "consumers": [
-        "automation/github-runner-bookshelf-7f5c9b6679-qbhcl/runner",
-        "automation/github-runner-darkbit-7bb4c5696-rwz89/runner",
-        "automation/github-runner-pod-agent-85dd9d9c8b-ghqq2/runner",
-        "automation/github-runner-soluble-8595cd994b-qhcbz/runner"
+        "automation/github-runner-bookshelf-7f5c9b6679-gdcr8/runner",
+        "automation/github-runner-darkbit-7bb4c5696-dmldh/runner",
+        "automation/github-runner-pod-agent-85dd9d9c8b-fkdxq/runner",
+        "automation/github-runner-soluble-8595cd994b-m8p9t/runner"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4"
     },
     {
       "consumers": [
-        "voice/wyoming-chatterbox-67b67c8bbb-jct92/chatterbox",
-        "voice/wyoming-chatterbox-67b67c8bbb-jct92/prepare-permissions",
-        "voice/wyoming-chatterbox-67b67c8bbb-jct92/prepare-runtime"
+        "voice/wyoming-chatterbox-67b67c8bbb-n5vts/chatterbox",
+        "voice/wyoming-chatterbox-67b67c8bbb-n5vts/prepare-permissions",
+        "voice/wyoming-chatterbox-67b67c8bbb-n5vts/prepare-runtime"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
     },
@@ -552,7 +561,7 @@
     },
     {
       "consumers": [
-        "immich/immich-machine-learning-cf6cb8cb-9l24s/immich-machine-learning"
+        "immich/immich-machine-learning-cf6cb8cb-srwnf/immich-machine-learning"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e"
     },
@@ -564,19 +573,19 @@
     },
     {
       "consumers": [
-        "media/recommender-backend-6b5b5746bb-zsqrx/backend"
+        "media/recommender-backend-55d56bc758-4c5jk/backend"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/jessepesse/jellyfin-ai-recommender-backend@sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b"
     },
     {
       "consumers": [
-        "media/recommender-frontend-6dbf7646db-2fjjh/frontend"
+        "media/recommender-frontend-6dbf7646db-b54lb/frontend"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/jessepesse/jellyfin-ai-recommender-frontend@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30"
     },
     {
       "consumers": [
-        "music-assistant/ledfx-5c4d95ff5f-pp7l6/ledfx"
+        "music-assistant/ledfx-5c4d95ff5f-zdg7d/ledfx"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036"
     },
@@ -588,13 +597,13 @@
     },
     {
       "consumers": [
-        "music-assistant/music-assistant-79d6cb97cd-n9rb8/server"
+        "music-assistant/music-assistant-79d6cb97cd-52l48/server"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de"
     },
     {
       "consumers": [
-        "voice/linux-voice-assistant-5847b79d6b-6g8j9/satellite"
+        "voice/linux-voice-assistant-5847b79d6b-97pvh/satellite"
       ],
       "reference": "registry.rupan.dev/upstream/ghcr.io/ohf-voice/linux-voice-assistant@sha256:5a6ecf5ad5ee871851331c47885b0b0fdf81b2a5e6e33824093b557028d619b6"
     },
@@ -631,7 +640,7 @@
     },
     {
       "consumers": [
-        "media/jellyfin-7785bc86-fl8mk/jellyfin"
+        "media/jellyfin-67ccf7849b-6ht6p/jellyfin"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/jellyfin@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f"
     },
@@ -643,7 +652,7 @@
     },
     {
       "consumers": [
-        "media/download-8c86d6bd9-6w2mr/qbittorrent"
+        "media/download-8c86d6bd9-l5r9k/qbittorrent"
       ],
       "reference": "registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:304b19cf94bf4fda534e0b086cab9c5f1a9e139a8180c05c0ad7d2ba1526fa99"
     },
@@ -752,6 +761,6 @@
     }
   ],
   "kind": "registry-observed-images",
-  "observed_at": "2026-10-19T03:29:23+00:00",
+  "observed_at": "2026-10-19T23:05:05+00:00",
   "schema_version": 1
 }
