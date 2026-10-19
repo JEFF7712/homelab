@@ -76,8 +76,9 @@ continue to apply according to their normal scope.
 6. The scoped writer publishes a pipeline-specific tag. Registry reads verify
    the tag's manifest, its immutable digest lookup, its configuration checksum,
    the tested local image ID, source revision label, platform, user, and entrypoint.
-7. The operation prints the promotion patch between `BEGIN/END PROMOTION
-   PATCH` markers and keeps it with the receipt under
+7. The operation prints the promotion patch base64 encoded between
+   `BEGIN/END PROMOTION PATCH` markers (Woodpecker masks lines of multi-line
+   secrets, which a raw JSON patch can contain) and keeps it with the receipt under
    `artifacts/service-release/spotify-matrix/`. The patch updates the matrix
    Deployment and its inventory and lock records together. `just ship` applies
    it on a fresh branch and ships it as the promotion PR.

@@ -562,9 +562,13 @@ def coordinate(name: str) -> None:
     (output / "promotion.patch").write_text(patch)
     print(f"{release.name} image publication verified: " + receipt["image"])
     # The patch holds only public digests and tags. `just ship` reads it from
-    # this log and ships it as the Flux promotion PR.
-    print("----- BEGIN PROMOTION PATCH -----")
-    print(patch, end="")
+    # this log and ships it as the Flux promotion PR. It is base64 encoded
+    # because Woodpecker masks every line of multi-line secrets, and lines of
+    # pretty-printed JSON secrets ("{", "},") also occur in a lock patch.
+    print("----- BEGIN PROMOTION PATCH (base64) -----")
+    encoded = base64.b64encode(patch.encode()).decode()
+    for start in range(0, len(encoded), 76):
+        print(encoded[start : start + 76])
     print("----- END PROMOTION PATCH -----")
 
 
