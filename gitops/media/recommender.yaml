@@ -54,6 +54,10 @@ spec:
               value: file:/app/data/dev.db
             - name: PORT
               value: "3001"
+            # Upstream CORS allows only private IPs plus this one origin; the
+            # tunnel hostname must be listed or browser logins fail with 500.
+            - name: CORS_ORIGIN
+              value: https://recommender.rupan.dev
             - name: INITIAL_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
