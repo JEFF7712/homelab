@@ -104,6 +104,10 @@ in
         "10.0.30.10"
         "10.0.30.1"
       ];
+      # Containers have no IPv6, so AAAA answers are never used. Under
+      # concurrent lookups the parallel AAAA query is intermittently lost and
+      # glibc waits out a 4s timeout per lookup; A-only lookups never stall.
+      daemon.settings."dns-opts" = [ "no-aaaa" ];
       # Without --all, system prune only drops dangling images, so tagged CI
       # build images accumulated to ~90G on the shared /persist disk.
       autoPrune = {

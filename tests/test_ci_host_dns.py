@@ -23,6 +23,8 @@ class CiContainerDnsTest(unittest.TestCase):
                     f"path:{ROOT / 'flake'}#{config}",
                     "--apply",
                     "c: { docker = c.virtualisation.docker.daemon.settings.dns;"
+                    ' options = c.virtualisation.docker.daemon.settings."dns-opts";'
+                    " ipv6 = c.virtualisation.docker.daemon.settings.ipv6 or false;"
                     ' host = c.systemd.network.networks."30-infrastructure"'
                     ".networkConfig.DNS; }",
                 ],
@@ -35,6 +37,10 @@ class CiContainerDnsTest(unittest.TestCase):
         # for every CI job while the host itself fell back to OPNsense.
         self.assertEqual(evaluated["docker"], evaluated["host"])
         self.assertGreater(len(evaluated["docker"]), 1)
+        # Lost parallel AAAA queries cost 4s per lookup; without IPv6 in the
+        # containers the answer is never used, so it is not asked for.
+        self.assertFalse(evaluated["ipv6"])
+        self.assertIn("no-aaaa", evaluated["options"])
 
     def test_adguard_rate_limits_clients_individually(self) -> None:
         if shutil.which("nix") is None:
