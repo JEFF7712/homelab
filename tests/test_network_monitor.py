@@ -32,6 +32,34 @@ def probes(*failed: str) -> dict[str, bool]:
 
 
 class NetworkMonitorTests(unittest.TestCase):
+    def test_heartbeat_posts_only_when_layers_are_healthy(self) -> None:
+        with (
+            patch.object(
+                monitor.Path, "read_text", return_value="https://hc-ping.com/test\n"
+            ),
+            patch.object(monitor.urllib.request, "urlopen") as urlopen,
+        ):
+            monitor.heartbeat(probes("dns"))
+            urlopen.assert_not_called()
+            monitor.heartbeat(probes("tcp:1.1.1.1", "https:1.1.1.1"))
+            request = urlopen.call_args.args[0]
+            self.assertEqual(request.full_url, "https://hc-ping.com/test")
+            self.assertEqual(request.get_method(), "POST")
+            self.assertEqual(urlopen.call_args.kwargs["timeout"], monitor.TIMEOUT)
+
+    def test_heartbeat_failure_does_not_leak_url_or_raise(self) -> None:
+        with (
+            patch.object(
+                monitor.Path, "read_text", return_value="https://hc-ping.com/test"
+            ),
+            patch.object(
+                monitor.urllib.request, "urlopen", side_effect=OSError("secret URL")
+            ),
+            patch("builtins.print") as output,
+        ):
+            monitor.heartbeat(probes())
+            output.assert_called_once_with("external heartbeat failed", flush=True)
+
     def test_truncated_dns_response_is_a_failed_probe(self) -> None:
         with patch.object(monitor, "dns", side_effect=struct.error("short reply")):
             self.assertFalse(monitor.safe_probe("dns"))

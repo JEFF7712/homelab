@@ -163,6 +163,18 @@ def deliver(path: Path, state: dict[str, Any]) -> None:
         save(path, state)
 
 
+def heartbeat(probes: dict[str, bool]) -> None:
+    if failures(probes):
+        return
+    try:
+        url = Path("/heartbeat/url").read_text().strip()
+        request = urllib.request.Request(url, data=b"", method="POST")
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            response.read(4096)
+    except (OSError, ValueError, http.client.HTTPException):
+        print("external heartbeat failed", flush=True)
+
+
 def run() -> None:
     path = Path("/state/state.json")
     state = json.loads(path.read_text()) if path.exists() else {}
@@ -172,6 +184,7 @@ def run() -> None:
         update(state, probes, time.time())
         save(path, state)
         print(json.dumps(state["last_probe"]), flush=True)
+        heartbeat(probes)
         deliver(path, state)
         time.sleep(max(0, INTERVAL - (time.monotonic() - started)))
 
