@@ -4,3 +4,4 @@ metadata:
   name: media
   labels:
     managed-by: flux
+    pod-security.kubernetes.io/enforce: privileged

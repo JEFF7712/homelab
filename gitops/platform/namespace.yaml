@@ -4,6 +4,7 @@ metadata:
   name: external-secrets
   labels:
     app.kubernetes.io/managed-by: flux
+    pod-security.kubernetes.io/enforce: restricted
 ---
 apiVersion: v1
 kind: Namespace
@@ -11,6 +12,7 @@ metadata:
   name: observability
   labels:
     app.kubernetes.io/managed-by: flux
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: Namespace
@@ -18,3 +20,4 @@ metadata:
   name: cnpg-system
   labels:
     app.kubernetes.io/managed-by: flux
+    pod-security.kubernetes.io/enforce: restricted
