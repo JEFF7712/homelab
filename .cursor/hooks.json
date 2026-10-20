@@ -1,1 +1,1 @@
-{"version":1,"hooks":{"sessionStart":[{"command":"hooks/session-start","timeout":10}],"postToolUseFailure":[{"command":"hooks/validation-result","matcher":"Shell","timeout":5}],"stop":[{"command":"hooks/stop","timeout":10,"loop_limit":1}]}}
+{"version":1,"hooks":{"sessionStart":[{"command":"hooks/session-start","timeout":10}],"beforeShellExecution":[{"command":"hooks/pre-tool-use","timeout":5}],"postToolUseFailure":[{"command":"hooks/validation-result","matcher":"Shell","timeout":5}],"stop":[{"command":"hooks/stop","timeout":10,"loop_limit":1}]}}
