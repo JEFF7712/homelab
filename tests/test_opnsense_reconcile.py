@@ -926,6 +926,53 @@ class OutboundNatReconciliationTests(unittest.TestCase):
             ],
         )
 
+    def test_host_rule_matches_live_protocol_case_and_bare_address(self) -> None:
+        desired = dict(
+            self._DESIRED_RULE,
+            protocol="UDP",
+            source_net="10.0.30.10/32",
+            source_port="51820",
+            staticnatport="1",
+            description="NetBird WireGuard static port",
+        )
+
+        class NatClient:
+            def get(self, path: str) -> object:
+                return {
+                    "rows": [
+                        dict(
+                            desired,
+                            uuid="uuid-nat",
+                            protocol="udp",
+                            source_net="10.0.30.10",
+                        )
+                    ]
+                }
+
+            def post(self, path: str, payload: object) -> object:
+                raise AssertionError(f"normalized match must not write: {path}")
+
+        reconcile_outbound_nat(NatClient(), [desired])
+
+    def test_verification_failure_names_mismatched_fields(self) -> None:
+        rule = self._DESIRED_RULE
+
+        class NatClient:
+            def __init__(self) -> None:
+                self.reads = 0
+
+            def get(self, path: str) -> object:
+                self.reads += 1
+                if self.reads == 1:
+                    return {"rows": []}
+                return {"rows": [dict(rule, uuid="uuid-nat", target="lanip")]}
+
+            def post(self, path: str, payload: object) -> object:
+                return {"result": "saved"}
+
+        with self.assertRaisesRegex(RuntimeError, "target='lanip' want 'wanip'"):
+            reconcile_outbound_nat(NatClient(), self.desired())
+
     def test_verification_normalizes_bool_to_string_enabled(self) -> None:
         rule = self._DESIRED_RULE
 
@@ -1107,6 +1154,7 @@ class OutboundNatReconciliationTests(unittest.TestCase):
             with self.subTest(description=rule.get("description")):
                 self.assertEqual(rule["interface"], "wan")
                 self.assertEqual(rule["ipprotocol"], "inet")
+                self.assertIn(rule["protocol"], ("any", "TCP", "UDP", "TCP/UDP"))
                 source_net = ipaddress.ip_network(rule["source_net"])
                 self.assertIn(source_net.prefixlen, (24, 32))
                 self.assertTrue(

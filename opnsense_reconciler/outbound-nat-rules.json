@@ -2,7 +2,7 @@
   {
     "interface": "wan",
     "ipprotocol": "inet",
-    "protocol": "udp",
+    "protocol": "UDP",
     "source_net": "10.0.30.10/32",
     "source_not": "0",
     "source_port": "51820",
