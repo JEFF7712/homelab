@@ -119,14 +119,14 @@ Exports omit raw task logs and redact common secrets and credential paths. An ex
 
 `hooks/` holds the shared lifecycle scripts; each client directory wires the events it supports:
 
-| Client | Config | Session start | Validation failure | Stop |
-| --- | --- | --- | --- | --- |
-| Claude Code | `.claude/settings.json` | SessionStart | PostToolUseFailure (Bash) | Stop |
-| Codex | `.codex/hooks.json` | SessionStart | PostToolUse (Bash), reliable exit status through structured verification output | Stop |
-| Cursor | `.cursor/hooks.json` | sessionStart | postToolUseFailure (Shell) | stop |
-| OpenCode | `opencode.json`, `.opencode/plugins/agent-harness.js` | shared context via `experimental.chat.system.transform` | plugin `tool.execute.after` (Bash), failures via the shared hook | shared reminder on `session.idle` |
-| Antigravity CLI | `.agents/plugins/homelab-workflow/` (installed plugin) | shared context as an ephemeral message on first `PreInvocation` | `PostToolUse` (`run_command`), records explicit runtime errors; shell exit failures require explicit verification | advisory shared Stop, never continues the model |
-| Meta Muse Code | `.muse/harness/` (installed and approved native plugin) | SessionStart | PostToolUse and PostToolUseFailure adapters; shell failure delivery unverified on 1.0.2 | shared Stop |
+| Client | Config | Session start | Mutation guard | Validation failure | Stop |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | `.claude/settings.json` | SessionStart | PreToolUse (Bash) | PostToolUseFailure (Bash) | Stop |
+| Codex | `.codex/hooks.json` | SessionStart | PreToolUse (Bash) | PostToolUse (Bash), reliable exit status through structured verification output | Stop |
+| Cursor | `.cursor/hooks.json` | sessionStart | beforeShellExecution | postToolUseFailure (Shell) | stop |
+| OpenCode | `opencode.json`, `.opencode/plugins/agent-harness.js` | shared context via `experimental.chat.system.transform` | plugin `tool.execute.before` (Bash) | plugin `tool.execute.after` (Bash), failures via the shared hook | shared reminder on `session.idle` |
+| Antigravity CLI | `.agents/plugins/homelab-workflow/` (installed plugin) | shared context as an ephemeral message on first `PreInvocation` | none | `PostToolUse` (`run_command`), records explicit runtime errors; shell exit failures require explicit verification | advisory shared Stop, never continues the model |
+| Meta Muse Code | `.muse/harness/` (installed and approved native plugin) | SessionStart | none | PostToolUse and PostToolUseFailure adapters; shell failure delivery unverified on 1.0.2 | shared Stop |
 
 Session start injects the bounded context packet without selecting a task. Text context limits path and task lists so navigation and validation remain visible; `--json` returns the complete lists. Selected tasks include their objective, next action, and unresolved failure count; export `AGENT_TASK_ID` to scope context to one task.
 
@@ -176,6 +176,33 @@ fail open. These experimental model hooks are covered by the installed-client
 smoke probe, which now requires all three stages for OpenCode too.
 
 Failing `just`, `nix`, `tofu`, `ruff`, `pyright`, `yamllint`, `kubeconform`, `kubectl`, `python`, `bash`, and `gh` commands are recorded with schema version and UTC timestamp as one JSON object per line in sanitized JSONL under `.agent-state/evidence/hooks/`. Claude/Cursor failure events with no numeric status are recorded with a null exit code and their reported failure type; no numeric code is invented. Claude error strings containing an explicit exit code are recognized. The installed Codex passes raw stdout as `tool_response`, so an empty failed command cannot be distinguished from success by the hook. Use `agent-verify --json` or `check-changed --json` for an explicit result. Command redaction runs before truncation to 200 characters; OpenCode forwards the full command to the shared recorder. Evidence paths from `check-changed` are unique per execution so later runs cannot overwrite earlier proof.
+
+### Mutation guard
+
+`hooks/pre-tool-use` runs `scripts/agent/guard.py` on every shell command
+before it executes and is the only hook that blocks. It enforces the
+authorization contract in `AGENTS.md` rather than adding policy:
+
+- Forbidden, with no override: `--no-verify` (or `git commit -n`), any push to
+  `main`, a force push without an explicit branch, and Forgejo `force_merge`,
+  which bypasses required status checks for an instance admin.
+- Authorization required: live mutations outside `just ship`'s automatic
+  routes. These are `kubectl` writes (apply, create, delete, edit, patch,
+  replace, scale, label, annotate, drain, cordon, taint, rollout restart and
+  similar), `flux suspend|resume|delete|create`, `helm` installs and upgrades,
+  `tofu`/`terraform` apply, destroy, import and state edits, remote
+  `nixos-rebuild` or `switch-to-configuration`, `deploy-fleet`, `ha-apply`,
+  `ha-revert`, registry writes, workspace provisioning, and `just ship
+  --deploy` with anything other than `auto` or `none`. Dry runs pass.
+
+An authorization-required command passes once it carries
+`HOMELAB_AUTHORIZED=1`, for example `HOMELAB_AUTHORIZED=1 kubectl -n immich
+delete pod immich-cluster-2`. Add the marker only after the user explicitly
+authorized that operation. Denials are recorded under
+`.agent-state/evidence/guard/`. The guard parses quoting, separators, heredoc
+bodies, `bash -c` scripts and `ssh` remote commands; it is a guard against
+mistakes, not a sandbox, and the server-side policy in `scripts/ci/policy.py`
+remains the authority for CI operations.
 
 Hooks fail open: missing `jq`, a timeout, recursive invocation, or an unwritable evidence directory exits silently so sessions are never blocked. Where a client has no wired event, use the explicit `just` command instead. Opt-in `AGENT_HOOK_TRACE=1` records bounded metadata receipts under `.agent-state/evidence/hook-integration/`, including event, phase, task selection, input keys, and normalized failure status. It does not record raw hook payloads or stdout. Codex smoke tests bypass hook trust only for that vetted invocation; normal client sessions retain their hook review/trust flow.
 

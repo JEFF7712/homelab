@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .git_state import collect_git_state
+from .guard import assess, explain
 from .redact import redact
 from .tasks import TaskError, inspect_verifications, task_path, validate_task_record
 
@@ -156,12 +157,66 @@ def tasks_needing_attention(root: Path, selected: str | None = None) -> list[str
     ][:5]
 
 
+def guard_response(payload: dict[str, Any]) -> dict[str, Any]:
+    event = payload.get("hook_event_name", payload.get("event"))
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    command = command if command is not None else payload.get("command")
+    verdict = assess(command) if isinstance(command, str) else None
+    if event == "beforeShellExecution":
+        if verdict is None:
+            return {"permission": "allow"}
+        message = explain(verdict)
+        return {"permission": "deny", "user_message": message, "agent_message": message}
+    if verdict is None:
+        return {}
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": explain(verdict),
+        }
+    }
+
+
+def record_guard(root: Path, payload: dict[str, Any], response: dict[str, Any]) -> None:
+    decision = response.get("permission") or response.get("hookSpecificOutput", {}).get(
+        "permissionDecision"
+    )
+    if decision != "deny":
+        return
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    command = command if command is not None else payload.get("command")
+    identity = str(payload.get("session_id", payload.get("conversation_id", "unknown")))
+    identity = re.sub(r"[^A-Za-z0-9._-]", "", identity)[:64] or "unknown"
+    directory = root / ".agent-state" / "evidence" / "guard"
+    directory.mkdir(parents=True, exist_ok=True)
+    record = {
+        "schema_version": 1,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "client": os.environ.get("AGENT_HOOK_CLIENT", "unspecified"),
+        "command": redact(str(command))[:200],
+    }
+    with (directory / f"{identity}.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=True) + "\n")
+
+
 def main() -> None:
     try:
         if sys.argv[1] == "failure":
             payload = json.load(sys.stdin)
             if isinstance(payload, dict):
                 record_failure(Path.cwd(), payload)
+        elif sys.argv[1] == "guard":
+            payload = json.load(sys.stdin)
+            response = guard_response(payload) if isinstance(payload, dict) else {}
+            print(json.dumps(response))
+            if isinstance(payload, dict):
+                try:
+                    record_guard(Path.cwd(), payload, response)
+                except OSError:
+                    pass
         elif sys.argv[1] == "stop":
             print(
                 json.dumps(

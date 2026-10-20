@@ -91,6 +91,22 @@ export const AgentHarness = async ({ worktree, directory, client }) => {
       contexts.clear();
       active.clear();
     },
+    "tool.execute.before": async (input, output) => {
+      if (input?.tool !== "bash" || typeof output?.args?.command !== "string") return;
+      let result;
+      try {
+        result = sharedHook(root, "pre-tool-use", {
+          session_id: sessionIdentity(input.sessionID),
+          hook_event_name: "PreToolUse",
+          tool_name: "Bash",
+          tool_input: { command: output.args.command },
+        }, 5000);
+      } catch {
+        return;
+      }
+      const decision = result?.hookSpecificOutput;
+      if (decision?.permissionDecision === "deny") throw new Error(decision.permissionDecisionReason);
+    },
     "tool.execute.after": async (input, output) => {
       try {
         const record = validationFailureRecord(input, output);
