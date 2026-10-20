@@ -201,7 +201,9 @@ class Runtime:
                     f"/api/repos/{enrollment['id']}/pipelines/{latest['number']}"
                 )
                 passed = (
-                    self.adapter.validation_passed(detail)
+                    self.adapter.validation_passed(
+                        detail, (scope.routine or {}).get("ci_contract")
+                    )
                     and self.adapter._commit_status(scope.repository, sha) == "success"
                 )
                 report["capabilities"]["ci_validation"] = {
@@ -222,11 +224,20 @@ class Runtime:
             except ProtocolError as error:
                 if error.code != Code.AUTHORIZATION_REQUIRED:
                     raise
-                report["capabilities"]["branch_protection"] = {
-                    "state": "unknown",
-                    "reason": "observer_cannot_read_protection",
-                    "requires_operator_verification": True,
-                }
+                receipt = self.journal.readiness_receipt(principal, scope.repository)
+                if receipt and receipt[1].get("branch_protection") is True:
+                    report["capabilities"]["branch_protection"] = {
+                        "state": "configured",
+                        "source": "worker_readiness_receipt",
+                        "request_id": receipt[0],
+                        "observed_at": receipt[1]["observed_at"],
+                    }
+                else:
+                    report["capabilities"]["branch_protection"] = {
+                        "state": "unknown",
+                        "reason": "observer_cannot_read_protection",
+                        "requires_operator_verification": True,
+                    }
             else:
                 report["capabilities"]["branch_protection"] = {
                     "state": "configured"

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 import stat
+import time
+import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,7 +18,7 @@ from .config import Configuration
 from .errors import Code, ProtocolError
 from .http import Api, segment
 from .journal import Journal
-from .models import SHA, number, stamp, string
+from .models import CI_STEPS, SHA, Project, number, stamp, string
 from .proofs import PROTECTION_FIELDS, verify_probe
 from .remote import RemoteAuthority
 from .worker import CONTEXT, WORKFLOW, Observation, OperationContext
@@ -32,6 +35,8 @@ DEVELOPMENT_SETTINGS = {
 
 
 class ServiceAdapter:
+    delivery_timeout = 30.0
+
     def __init__(
         self, config: Configuration, journal: Journal, authority: RemoteAuthority
     ):
@@ -115,7 +120,8 @@ class ServiceAdapter:
         return self.config.apis[service].request(path, method=method, body=body)
 
     @staticmethod
-    def validation_passed(pipeline: dict[str, Any]) -> bool:
+    def validation_passed(pipeline: dict[str, Any], ci_contract: str | None) -> bool:
+        steps = {CI_STEPS[ci_contract]} if ci_contract else set(CI_STEPS.values())
         workflows = [
             row for row in pipeline.get("workflows", []) if row.get("name") == WORKFLOW
         ]
@@ -124,8 +130,7 @@ class ServiceAdapter:
             and len(workflows) == 1
             and workflows[0].get("state") == "success"
             and any(
-                child.get("name") == "python-uv-test"
-                and child.get("state") == "success"
+                child.get("name") in steps and child.get("state") == "success"
                 for child in workflows[0].get("children", [])
             )
         )
@@ -233,7 +238,9 @@ class ServiceAdapter:
     def _pipeline(
         self, context: OperationContext, enrollment_id: int
     ) -> dict[str, Any] | None:
-        allocation = self.journal.allocation(context.request_id, "ci")
+        allocation = context.inputs.get(
+            "pipeline_id", self.journal.allocation(context.request_id, "ci")
+        )
         if allocation is not None:
             candidates = [
                 self.woodpecker.request(
@@ -244,8 +251,12 @@ class ServiceAdapter:
             candidates = self.woodpecker.pages(
                 f"/api/repos/{enrollment_id}/pipelines?branch={segment(context.plan.project.default_branch)}"
             )
+        # Readiness delivers push events, so preferring manual runs keeps the
+        # discovered ci pipeline stable after that delivery.
         for pipeline in sorted(
-            candidates, key=lambda row: number(row.get("number")), reverse=True
+            candidates,
+            key=lambda row: (row.get("event") == "manual", number(row.get("number"))),
+            reverse=True,
         ):
             if (
                 pipeline.get("commit") != context.plan.project.source_sha
@@ -478,21 +489,12 @@ class ServiceAdapter:
                 "verified", evidence, {"pipeline_id": pipeline["number"]}
             )
         if (
-            not self.validation_passed(pipeline)
+            not self.validation_passed(pipeline, project.ci_contract)
             or self._commit_status(project.repository, project.source_sha) != "success"
         ):
             return Observation("pending", evidence)
         protection = self._protection(context)
-        pushes = self.woodpecker.pages(
-            f"/api/repos/{enrollment_id}/pipelines?branch={segment(project.default_branch)}&event=push"
-        )
-        webhook = any(
-            row.get("commit") == project.source_sha
-            and row.get("event") == "push"
-            and row.get("ref") == f"refs/heads/{project.default_branch}"
-            and self._configuration_matches(enrollment_id, number(row["number"]))
-            for row in pushes
-        )
+        webhook = self._push_delivered(enrollment_id, project)
         evidence.update(
             webhook_delivered=webhook,
             branch_protection=protection is not None,
@@ -503,7 +505,55 @@ class ServiceAdapter:
             ).routine_onboarding
             else False,
         )
+        if protection is not None and not webhook:
+            return Observation("absent", evidence)
         return Observation("verified", evidence)
+
+    def _push_delivered(self, enrollment_id: int, project: Project) -> bool:
+        pushes = self.woodpecker.pages(
+            f"/api/repos/{enrollment_id}/pipelines?branch={segment(project.default_branch)}&event=push"
+        )
+        return any(
+            row.get("commit") == project.source_sha
+            and row.get("event") == "push"
+            and row.get("ref") == f"refs/heads/{project.default_branch}"
+            and self._configuration_matches(enrollment_id, number(row["number"]))
+            for row in pushes
+        )
+
+    def _push_hook(self, project: Project, repository_id: int) -> int:
+        hooks = self.repository_admin_api.request(
+            f"/api/v1/repos/{project.repository}/hooks"
+        )
+        if not isinstance(hooks, list):
+            raise ProtocolError(Code.DEPENDENCY_UNAVAILABLE)
+        matches = []
+        for hook in hooks:
+            config = hook.get("config") if isinstance(hook, dict) else None
+            if (
+                not isinstance(config, dict)
+                or hook.get("active") is not True
+                or "push" not in hook.get("events", [])
+            ):
+                continue
+            url = urllib.parse.urlsplit(str(config.get("url", "")))
+            token = urllib.parse.parse_qs(url.query).get("access_token", [""])[0]
+            try:
+                claims = json.loads(
+                    base64.urlsafe_b64decode(token.split(".")[1] + "==")
+                )
+            except (IndexError, ValueError):
+                continue
+            if (
+                url.path == "/api/hook"
+                and isinstance(claims, dict)
+                and claims.get("type") == "hook"
+                and claims.get("repo-forge-remote-id") == str(repository_id)
+            ):
+                matches.append(number(hook.get("id")))
+        if len(matches) != 1:
+            raise ProtocolError(Code.RESOURCE_CONFLICT)
+        return matches[0]
 
     def _save_artifact(self, request_id: str, artifact: dict[str, Any]) -> None:
         directory = self.config.state_directory / "artifacts"
@@ -653,6 +703,26 @@ class ServiceAdapter:
             self.journal.allocate(
                 context.request_id, operation, context.attempt, number(result["number"])
             )
+            return
+        if operation == "readiness":
+            branch = self.forgejo.request(
+                f"/api/v1/repos/{project.repository}/branches/{segment(project.default_branch)}"
+            )
+            if branch["commit"]["id"] != project.source_sha:
+                raise ProtocolError(Code.SOURCE_MOVED)
+            hook = self._push_hook(project, repo["id"])
+            self._write(
+                context,
+                "forgejo",
+                f"/api/v1/repos/{project.repository}/hooks/{hook}/tests?ref="
+                + segment(f"refs/heads/{project.default_branch}"),
+                method="POST",
+            )
+            deadline = time.monotonic() + self.delivery_timeout
+            while not self._push_delivered(enrollment["id"], project):
+                if time.monotonic() >= deadline:
+                    return
+                time.sleep(1)
             return
         if operation == "protection":
             path = f"/api/v1/repos/{project.repository}/branch_protections"

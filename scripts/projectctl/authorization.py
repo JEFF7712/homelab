@@ -181,7 +181,14 @@ def verify(
     snapshot.policy.check(plan, principal)
     string(snapshot.protected_revision, SHA)
     if snapshot.routine and snapshot.policy.routine_onboarding:
-        if operation_id not in {"clone", "enrollment", "pull", "protection", "ci"}:
+        if operation_id not in {
+            "clone",
+            "enrollment",
+            "pull",
+            "protection",
+            "ci",
+            "readiness",
+        }:
             raise ProtocolError(Code.AUTHORIZATION_REQUIRED, operation_id)
         return GrantEvidence(
             "routine-onboarding",

@@ -15,7 +15,16 @@ from .authorization import Policy
 from .codec import MAX_BYTES, digest, loads
 from .errors import Code, ProtocolError
 from .http import Api
-from .models import DIGEST, REPOSITORY, Platform, Project, number, obj, string
+from .models import (
+    CI_CONTRACT,
+    DIGEST,
+    REPOSITORY,
+    Platform,
+    Project,
+    number,
+    obj,
+    string,
+)
 
 SECRET_NAMES = {
     "forgejo-read",
@@ -133,7 +142,7 @@ class Configuration:
                 routine = obj(routine, "repository_id default_branch ci_contract")
                 number(routine["repository_id"])
                 string(routine["default_branch"], r"[a-zA-Z0-9][a-zA-Z0-9_./-]{0,127}")
-                string(routine["ci_contract"], "python-uv-v1")
+                string(routine["ci_contract"], CI_CONTRACT)
             self.scopes.append(
                 Scope(
                     string(scope["principal"]),

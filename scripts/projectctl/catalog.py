@@ -67,6 +67,8 @@ def desired(
     ci = result.setdefault("ci", {})
     if not isinstance(ci, dict):
         raise ProtocolError(Code.INVALID_SPEC)
+    if ci.get("tier", "none") not in {"sandbox", "none"}:
+        raise ProtocolError(Code.RESOURCE_CONFLICT)
     ci.update(kind=project.ci_contract, tier="sandbox")
     result.update(
         visibility=project.visibility,

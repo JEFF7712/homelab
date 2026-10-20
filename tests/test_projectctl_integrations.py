@@ -160,6 +160,25 @@ class ApiState:
         self.statuses: dict[str, list[dict[str, Any]]] = {}
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.administrator_roles: set[str] = set()
+        self.hooks: list[dict[str, Any]] = [self.hook(5, "41")]
+        self.step = "python-uv-test"
+
+    @staticmethod
+    def hook(identifier: int, remote_id: str) -> dict[str, Any]:
+        claims = {"forge-id": "1", "repo-forge-remote-id": remote_id, "type": "hook"}
+        token = ".".join(
+            base64.urlsafe_b64encode(json.dumps(part).encode()).decode().rstrip("=")
+            for part in ({"alg": "HS256", "typ": "JWT"}, claims)
+        )
+        return {
+            "id": identifier,
+            "type": "gitea",
+            "active": True,
+            "events": ["push", "pull_request"],
+            "config": {
+                "url": f"http://ci.example:8000/api/hook?access_token={token}.sig"
+            },
+        }
 
     def pipeline(
         self, number: int, sha: str, event: str = "push", status: str = "success"
@@ -176,7 +195,7 @@ class ApiState:
                 {
                     "name": WORKFLOW,
                     "state": status,
-                    "children": [{"name": "python-uv-test", "state": status}],
+                    "children": [{"name": self.step, "state": status}],
                 }
             ],
         }
@@ -306,6 +325,17 @@ class ApiState:
                 if int(suffix) in self.pipelines
                 else (404, {})
             )
+        if path == project + "/hooks":
+            return 200, self.hooks
+        if path.startswith(project + "/hooks/") and path.endswith("/tests"):
+            identifier = int(path.split("/")[-2])
+            if method != "POST" or identifier not in {
+                hook["id"] for hook in self.hooks
+            }:
+                return 404, {}
+            if self.source_sha and query.get("ref") == ["refs/heads/main"]:
+                self.pipeline(max(self.pipelines, default=0) + 1, self.source_sha)
+            return 204, None
         if path == project + "/branch_protections" and method == "POST":
             self.protection = body
             return 201, self.protection
@@ -533,7 +563,7 @@ class IntegrationTest(unittest.TestCase):
         scope["routine"] = {
             "repository_id": 41,
             "default_branch": "main",
-            "ci_contract": "python-uv-v1",
+            "ci_contract": self.project.ci_contract,
         }
         self.state.files["config/projectctl/callers.json"] = {
             "agent-test": {
@@ -590,6 +620,66 @@ class IntegrationTest(unittest.TestCase):
                 path.startswith("/api/v1/") and path.endswith("/repos")
                 for _, path, _ in self.state.writes
             )
+        )
+
+    def test_routine_onboards_a_node_contract(self) -> None:
+        from dataclasses import replace
+
+        self.project = replace(self.project, ci_contract="node-build-v1")
+        self.state.step = "node-build"
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": str(self.credentials)}):
+            self.runtime.reconcile()
+            self.deploy_catalog(request_id)
+            self.state.pipeline(10, self.project.source_sha)
+            final = self.runtime.reconcile()
+        self.assertEqual(final["requests"][0]["state"], "succeeded", final)
+        artifact = loads(
+            (
+                self.runtime.config.state_directory
+                / "artifacts"
+                / (request_id + ".json")
+            ).read_bytes()
+        )
+        self.assertEqual(
+            artifact["catalog"]["projects"][0]["ci"],
+            {"kind": "node-build-v1", "tier": "sandbox"},
+        )
+
+    def test_routine_validation_requires_the_contract_step(self) -> None:
+        self.enable_routine()
+        self.state.step = "node-build"
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha)
+        self.assertNotEqual(self.dispatch(request_id)["state"], "succeeded")
+
+    def test_routine_refuses_to_demote_a_deployed_application(self) -> None:
+        self.enable_routine()
+        catalog = self.state.catalogs[self.state.revision]
+        catalog["projects"].append(
+            {
+                "name": self.project.project_key,
+                "forgejo_repo": self.project.repository,
+                "ci": {"kind": "node-service-v1", "tier": "deploy"},
+            }
+        )
+        with self.assertRaises(ProtocolError) as error:
+            desired(self.project, catalog["projects"][-1], 73)
+        self.assertEqual(error.exception.code, Code.RESOURCE_CONFLICT)
+        status = self.submit()
+        result = self.dispatch(status["request_id"])
+        self.assertNotEqual(result["state"], "succeeded", result)
+        self.assertFalse(
+            (
+                self.runtime.config.state_directory
+                / "artifacts"
+                / (status["request_id"] + ".json")
+            ).exists()
         )
 
     def test_routine_revocation_stops_second_write_in_enrollment(self) -> None:
@@ -715,7 +805,10 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(result["code"], "PLAN_STALE", result)
         self.assertEqual(len(self.state.writes), count)
 
-    def test_routine_readiness_still_requires_push_and_admin_protection(self) -> None:
+    def hook_tests(self) -> list[tuple[str, str, dict[str, Any]]]:
+        return [row for row in self.state.writes if row[1].endswith("/tests")]
+
+    def test_routine_readiness_delivers_the_push_event_itself(self) -> None:
         self.enable_routine()
         status = self.submit()
         request_id = status["request_id"]
@@ -723,18 +816,27 @@ class IntegrationTest(unittest.TestCase):
         self.deploy_catalog(request_id)
         self.state.pipeline(10, self.project.source_sha, event="manual")
         self.configure_protection()
-        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
-        self.runtime.worker.clock = lambda: (
-            datetime.now(timezone.utc) + timedelta(seconds=10)
-        )
-        self.state.pipeline(9, self.project.source_sha)
-        self.state.protection["apply_to_admins"] = False
-        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
-        self.state.protection["apply_to_admins"] = True
-        self.runtime.worker.clock = lambda: (
-            datetime.now(timezone.utc) + timedelta(seconds=20)
-        )
+        result = self.dispatch(request_id)
+        self.assertEqual(result["state"], "succeeded", result)
+        self.assertEqual(len(self.hook_tests()), 1)
+        self.assertEqual(self.state.pipelines[11]["event"], "push")
+        count = len(self.state.writes)
         self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
+        self.assertEqual(len(self.state.writes), count)
+
+    def test_routine_readiness_refuses_a_hook_for_another_repository(self) -> None:
+        self.enable_routine()
+        self.state.hooks = [ApiState.hook(5, "99")]
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha, event="manual")
+        self.configure_protection()
+        result = self.dispatch(request_id)
+        self.assertNotEqual(result["state"], "succeeded", result)
+        self.assertEqual(self.hook_tests(), [])
+        self.assertNotIn(11, self.state.pipelines)
 
     def test_routine_strengthens_protection_without_removing_extra_requirements(
         self,
@@ -1138,6 +1240,32 @@ class IntegrationTest(unittest.TestCase):
             all(call.args[1] is False for call in authorization.call_args_list)
         )
 
+    def test_doctor_reports_protection_from_the_worker_readiness_receipt(
+        self,
+    ) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha)
+        self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
+        writes = len(self.state.writes)
+        with patch.object(
+            self.runtime.config,
+            "authorization",
+            wraps=self.runtime.config.authorization,
+        ) as authorization:
+            report = self.call("doctor", {"project_key": self.project.project_key})
+        protection = report["capabilities"]["branch_protection"]
+        self.assertEqual(protection["state"], "configured", protection)
+        self.assertEqual(protection["source"], "worker_readiness_receipt")
+        self.assertEqual(protection["request_id"], request_id)
+        self.assertEqual(len(self.state.writes), writes)
+        self.assertTrue(
+            all(call.args[1] is False for call in authorization.call_args_list)
+        )
+
     def test_credential_collection_never_outputs_plaintext(self) -> None:
         output = self.root / "projectctl.sops.json"
         result = subprocess.CompletedProcess(
@@ -1387,6 +1515,8 @@ class IntegrationTest(unittest.TestCase):
                     str(checkout),
                     "--repository",
                     self.project.repository,
+                    "--ci",
+                    "python-uv-v1",
                     "--plan",
                     "--json",
                 ],

@@ -35,6 +35,22 @@ journal. Retries cannot silently replace that baseline. Removed or changed
 protected scopes stop subsequent writes, and policy changes invalidate old plans.
 The journal upgrades existing version-2 databases without dropping requests.
 
+A plan's policy digest binds the projectctl modules, the deployed bindings, the
+routine scope and the CI contract digest. The contract digest is the SHA-256 of
+config/ci/projectctl-contracts.json, which declares the step, image and commands
+of each contract the worker can enroll. The policy service renders and stamps
+those workflows from that file, so unrelated CI policy deployments no longer
+invalidate waiting requests. Editing the contract file, the projectctl modules
+or the scopes still does, and those requests must be cancelled and re-planned.
+
+Supported contracts are the sandbox lanes declared in that file: python-uv-v1,
+node-build-v1, node-lint-build-v1 and node-vitest-v1. adopt defaults to
+python-uv-v1 only when the checkout has a pyproject.toml; pass --ci otherwise.
+Repositories already in the application lane (a catalog tier other than
+sandbox or none, such as static-site-v1 or node-service-v1) are refused with
+RESOURCE_CONFLICT rather than demoted. Those ship through the application
+release workflow, not projectctl.
+
 The worker still emits catalog artifacts for the normal protected review and
 deployment workflow. The agent handles that promotion, then the worker resumes
 automatically. Worker credentials cannot merge platform PRs or deploy hosts.
@@ -44,7 +60,11 @@ resources. Blocked requests require diagnosis and explicit resubmission or dispa
 
 Routine readiness checks exact-SHA stamped CI, matching commit status, a real
 push webhook, and configured status checks applying to administrators with direct
-push disabled. The worker creates or strengthens the standard branch rule only
+push disabled. When CI and protection pass but no push pipeline exists for the
+exact SHA, readiness replays the repository's Woodpecker push hook through
+Forgejo's hook test delivery, using the provisioner. It selects the hook whose
+/api/hook token names the repository's Forgejo id and refuses any other, so an
+agent never needs to push or replay webhooks by hand. The worker creates or strengthens the standard branch rule only
 after CI admission is deployed. It preserves additional status contexts, approval
 requirements and signed-commit restrictions. It does not claim independent proof
 of merge rejection. The signed
@@ -339,9 +359,18 @@ set request_id (jq -r '.data.request_id' /tmp/projectctl-request.json)
 python -m scripts.projectctl status $request_id --json
 ~~~
 
-For the routine pilot scope, the worker now proceeds automatically. Inspect and
-promote its enrollment artifact through protected review, deploy the CI policy,
-and monitor status. No operator signature is needed. If an older signed request
+For a routine scope, the worker proceeds automatically. When a request waits at
+policy, export its enrollment artifact (below), apply only the target entry to
+current main's config/ci/projects.json (the artifact is a whole catalog at an
+older base revision), and ship it with `just ship --deploy
+deploy-ci-host-dry-run,deploy-ci-host`. Scope changes in config/projectctl/ route
+to the same deployment. The policy service only accepts a deployment against the
+current main tip, so when main is busy, retry from the newest main pipeline that
+contains the merge rather than an older one. No operator signature is needed.
+
+Doctor runs with read-only credentials, which Forgejo will not show branch
+protection to. It reports protection from the latest verified readiness receipt
+for that repository, naming the request and observation time. If an older signed request
 is still pending, cancel it and generate a fresh plan after the worker upgrade;
 implementation changes deliberately invalidate its policy digest.
 
