@@ -396,6 +396,10 @@ class SourceMirror:
         return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
 
 
+class StaleMainPush(ValueError):
+    pass
+
+
 def configuration(
     request: dict[str, Any],
     operations: dict[str, Any],
@@ -454,6 +458,12 @@ def configuration(
             ],
         }
     main = pipeline.get("ref") == "refs/heads/main" and not pipeline.get("from_fork")
+    if main and event == "push" and current and current != pipeline.get("commit"):
+        # Woodpecker cancels every other running push pipeline on main when
+        # one starts, so a restart of an older main pipeline (or a late
+        # webhook for a superseded merge) would kill the current tip's run.
+        # Rejecting the config stops it before it starts.
+        raise StaleMainPush("Main has moved past this commit; run the current main")
     configs: list[dict[str, str]] = []
 
     def add(name: str, workflow: dict[str, Any]) -> None:
@@ -809,6 +819,9 @@ def main() -> None:
                 result = resolve_configuration(
                     request, catalog, applications, development_projects, mirror
                 )
+            except StaleMainPush as error:
+                self.send_error(409, str(error))
+                return
             except Exception:
                 # Never include a request body, netrc, or API exception in responses or logs.
                 self.send_error(403, "CI policy rejected request")
