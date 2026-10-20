@@ -4,3 +4,4 @@ metadata:
   name: immich
   labels:
     app.kubernetes.io/managed-by: flux
+    pod-security.kubernetes.io/enforce: baseline

@@ -4,3 +4,4 @@ metadata:
   name: storage
   labels:
     app.kubernetes.io/managed-by: flux
+    pod-security.kubernetes.io/enforce: baseline
