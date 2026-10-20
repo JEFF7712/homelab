@@ -877,7 +877,7 @@ firewall_filters = {
       action      = "pass"
       direction   = "in"
       ip_protocol = "inet"
-      protocol    = "udp"
+      protocol    = "UDP"
       quick       = true
       log         = false
       source      = { net = "any", port = "" }
@@ -893,7 +893,7 @@ firewall_nat_port_forwards = {
     sequence       = 100
     interface      = ["wan"]
     ip_protocol    = "inet"
-    protocol       = "tcp"
+    protocol       = "TCP"
     log            = false
     nat_reflection = "default"
     source         = { net = "any" }
@@ -906,7 +906,7 @@ firewall_nat_port_forwards = {
     sequence       = 110
     interface      = ["wan"]
     ip_protocol    = "inet"
-    protocol       = "udp"
+    protocol       = "UDP"
     log            = false
     nat_reflection = "default"
     source         = { net = "any" }
