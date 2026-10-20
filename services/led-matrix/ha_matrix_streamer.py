@@ -34,7 +34,7 @@ from spotify_matrix_streamer import (
 )
 from web_controller import MultiplayerHub, start_background_server
 
-SPOTIFY_VINYL_BRIGHTNESS = 0.85
+SPOTIFY_VINYL_BRIGHTNESS = 0.7
 
 
 def effective_brightness(mode: str, configured_brightness: float) -> float:

@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-20T00:02:55+00:00",
+  "generated_at": "2026-10-20T05:47:52+00:00",
   "images": [
     {
       "authenticity": {
@@ -137,10 +137,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "ci-3209-e25e6034f31d",
-        "retention-candidate-635570d08cd73b8f"
+        "ci-3299-b3793db7fd42",
+        "retention-candidate-5e45438fa726b177"
       ],
-      "digest": "sha256:635570d08cd73b8fab6393774f7ccf77530fc4e8d8db3a2247f98a4c3c2941e7",
+      "digest": "sha256:5e45438fa726b1775b1b945f459f6c5241b44aee1300ca6167a562f581f2d5d3",
       "id": "first-party-apps-spotify-matrix",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -161,11 +161,11 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:635570d08cd73b8fab6393774f7ccf77530fc4e8d8db3a2247f98a4c3c2941e7",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-3209-e25e6034f31d@sha256:635570d08cd73b8fab6393774f7ccf77530fc4e8d8db3a2247f98a4c3c2941e7",
+        "digest": "sha256:5e45438fa726b1775b1b945f459f6c5241b44aee1300ca6167a562f581f2d5d3",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-3299-b3793db7fd42@sha256:5e45438fa726b1775b1b945f459f6c5241b44aee1300ca6167a562f581f2d5d3",
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ci-3209-e25e6034f31d"
+        "tag": "ci-3299-b3793db7fd42"
       }
     },
     {
@@ -178,16 +178,14 @@
       ],
       "destination_repository": "apps/uwagent",
       "destination_tags": [
-        "0.0.1000013",
-        "retention-deployed-e9e76d01842462cb"
+        "0.0.1000015",
+        "retention-deployed-55c04af1609d41c9"
       ],
-      "digest": "sha256:e9e76d01842462cb10e266eecea291567aded193f86c970a3c76d239cbf52628",
+      "digest": "sha256:55c04af1609d41c995e22d34680ffeda89af1d34f23c3c619314aea7ead523f8",
       "id": "first-party-apps-uwagent-9af52aa77c22",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-uwagent",
         "location": "forgejo:JEFF7712/uwagent",
@@ -203,11 +201,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:e9e76d01842462cb10e266eecea291567aded193f86c970a3c76d239cbf52628",
-        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000013@sha256:e9e76d01842462cb10e266eecea291567aded193f86c970a3c76d239cbf52628",
+        "digest": "sha256:55c04af1609d41c995e22d34680ffeda89af1d34f23c3c619314aea7ead523f8",
+        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000015@sha256:55c04af1609d41c995e22d34680ffeda89af1d34f23c3c619314aea7ead523f8",
         "registry": "registry.rupan.dev",
         "repository": "apps/uwagent",
-        "tag": "0.0.1000013"
+        "tag": "0.0.1000015"
       }
     },
     {

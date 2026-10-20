@@ -56,7 +56,7 @@ class HomeAssistantTests(unittest.TestCase):
     def test_spotify_vinyl_uses_locked_brightness(self) -> None:
         from ha_matrix_streamer import effective_brightness
 
-        self.assertEqual(effective_brightness("Spotify", 0.35), 0.85)
+        self.assertEqual(effective_brightness("Spotify", 0.35), 0.7)
         self.assertEqual(effective_brightness("Clock & Weather", 0.35), 0.35)
         self.assertEqual(effective_brightness("Off", 0.35), 0.0)
 
