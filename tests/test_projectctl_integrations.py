@@ -824,6 +824,23 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
         self.assertEqual(len(self.state.writes), count)
 
+    def test_routine_readiness_fails_when_the_pinned_ci_run_fails(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.configure_protection()
+        self.state.pipeline(10, self.project.source_sha, "manual", "running")
+        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
+        self.state.pipeline(10, self.project.source_sha, "manual", "failure")
+        self.runtime.worker.clock = lambda: (
+            datetime.now(timezone.utc) + timedelta(seconds=10)
+        )
+        result = self.dispatch(request_id)
+        self.assertEqual((result["state"], result["code"]), ("failed", "CI_FAILED"))
+        self.assertEqual(self.hook_tests(), [])
+
     def test_routine_readiness_refuses_a_hook_for_another_repository(self) -> None:
         self.enable_routine()
         self.state.hooks = [ApiState.hook(5, "99")]

@@ -2353,6 +2353,7 @@ class PolicyAndNodeConfigTest(unittest.TestCase):
             granted,
             {
                 "upstream/ghcr.io/astral-sh/uv": ["read"],
+                "upstream/docker.io/library/node": ["read"],
                 "upstream/docker.io/woodpeckerci/plugin-git": ["read"],
             },
         )

@@ -488,6 +488,8 @@ class ServiceAdapter:
             return Observation(
                 "verified", evidence, {"pipeline_id": pipeline["number"]}
             )
+        if evidence["ci_status"] in {"failure", "error", "killed"}:
+            raise ProtocolError(Code.CI_FAILED, operation)
         if (
             not self.validation_passed(pipeline, project.ci_contract)
             or self._commit_status(project.repository, project.source_sha) != "success"
