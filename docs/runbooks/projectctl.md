@@ -60,7 +60,11 @@ resources. Blocked requests require diagnosis and explicit resubmission or dispa
 
 Routine readiness checks exact-SHA stamped CI, matching commit status, a real
 push webhook, and configured status checks applying to administrators with direct
-push disabled. The worker creates or strengthens the standard branch rule only
+push disabled. When CI and protection pass but no push pipeline exists for the
+exact SHA, readiness replays the repository's Woodpecker push hook through
+Forgejo's hook test delivery, using the provisioner. It selects the hook whose
+/api/hook token names the repository's Forgejo id and refuses any other, so an
+agent never needs to push or replay webhooks by hand. The worker creates or strengthens the standard branch rule only
 after CI admission is deployed. It preserves additional status contexts, approval
 requirements and signed-commit restrictions. It does not claim independent proof
 of merge rejection. The signed
@@ -355,9 +359,18 @@ set request_id (jq -r '.data.request_id' /tmp/projectctl-request.json)
 python -m scripts.projectctl status $request_id --json
 ~~~
 
-For the routine pilot scope, the worker now proceeds automatically. Inspect and
-promote its enrollment artifact through protected review, deploy the CI policy,
-and monitor status. No operator signature is needed. If an older signed request
+For a routine scope, the worker proceeds automatically. When a request waits at
+policy, export its enrollment artifact (below), apply only the target entry to
+current main's config/ci/projects.json (the artifact is a whole catalog at an
+older base revision), and ship it with `just ship --deploy
+deploy-ci-host-dry-run,deploy-ci-host`. Scope changes in config/projectctl/ route
+to the same deployment. The policy service only accepts a deployment against the
+current main tip, so when main is busy, retry from the newest main pipeline that
+contains the merge rather than an older one. No operator signature is needed.
+
+Doctor runs with read-only credentials, which Forgejo will not show branch
+protection to. It reports protection from the latest verified readiness receipt
+for that repository, naming the request and observation time. If an older signed request
 is still pending, cancel it and generate a fresh plan after the worker upgrade;
 implementation changes deliberately invalidate its policy digest.
 
