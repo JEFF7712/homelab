@@ -2449,8 +2449,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:83561858201e19dc59c41d744f7e8c0c401f68b8f1fb1f98d5968217cec2c939",
-        "reference": "registry.rupan.dev/apps/uwagent@sha256:83561858201e19dc59c41d744f7e8c0c401f68b8f1fb1f98d5968217cec2c939",
+        "digest": "sha256:e9e76d01842462cb10e266eecea291567aded193f86c970a3c76d239cbf52628",
+        "reference": "registry.rupan.dev/apps/uwagent@sha256:e9e76d01842462cb10e266eecea291567aded193f86c970a3c76d239cbf52628",
         "registry": "registry.rupan.dev",
         "repository": "apps/uwagent",
         "tag": null
@@ -2684,7 +2684,7 @@
       "class": "producer-pipeline",
       "consumer": "gitops/websites/uwagent/deployment.yaml:26",
       "id": "producer:first-party-apps-uwagent-9af52aa77c22",
-      "input": "registry.rupan.dev/apps/uwagent@sha256:83561858201e19dc59c41d744f7e8c0c401f68b8f1fb1f98d5968217cec2c939",
+      "input": "registry.rupan.dev/apps/uwagent@sha256:e9e76d01842462cb10e266eecea291567aded193f86c970a3c76d239cbf52628",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     }
   ]

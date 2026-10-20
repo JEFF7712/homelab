@@ -76,21 +76,20 @@ class ProjectctlModuleTest(unittest.TestCase):
     def test_pilot_scope_and_contract_are_exact(self) -> None:
         self.assertEqual(self.evaluated["assertions"], [])
         settings = self.evaluated["settings"]
+        callers = json.loads((ROOT / "config/projectctl/callers.json").read_text())
         self.assertEqual(
             settings["scopes"],
             [
-                {
-                    "principal": "projectctl-caller",
-                    "project_key": "autocompress",
-                    "repository": "JEFF7712/autocompress",
-                    "visibility": "private",
-                    "routine": {
-                        "repository_id": 24,
-                        "default_branch": "main",
-                        "ci_contract": "python-uv-v1",
-                    },
-                }
+                {"principal": principal, **project}
+                for principal, caller in sorted(callers.items())
+                for project in caller["projects"]
             ],
+        )
+        self.assertTrue(
+            all(
+                scope["routine"]["ci_contract"] == "python-uv-v1"
+                for scope in settings["scopes"]
+            )
         )
         self.assertEqual(settings["expected_ci_digest"], contract_digest())
         self.assertEqual(settings["registry"]["actions"], ["read"])

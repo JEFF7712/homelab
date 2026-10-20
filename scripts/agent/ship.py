@@ -506,6 +506,14 @@ class Shipper:
         retries = 0
         while index < len(operations):
             operation = operations[index]
+            if operation in self.completed_operations(parent):
+                self.say(f"{operation}: already succeeded in main pipeline #{parent}")
+                self.summary.update(main=main_sha, validation_pipeline=parent)
+                self.summary["operations"].append(
+                    {"operation": operation, "pipeline": parent}
+                )
+                index += 1
+                continue
             try:
                 result = self.run_operation(parent, operation)
             except ShipError as error:
@@ -526,6 +534,19 @@ class Shipper:
             if patch:
                 self.promote(patch, operation.removesuffix("-publish"))
             index += 1
+
+    def completed_operations(self, parent: int) -> set[str]:
+        """Operations the main pipeline already ran as its own workflows.
+
+        Push pipelines run plan operations for routed paths themselves, and
+        CI refuses a second run for the same validation, so these count as
+        done for any later operation that needs their receipt.
+        """
+        return {
+            workflow["name"]
+            for workflow in self.woodpecker.pipeline(parent).get("workflows") or []
+            if workflow.get("state") == "success"
+        }
 
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         created = self.woodpecker.deploy(parent, operation)
