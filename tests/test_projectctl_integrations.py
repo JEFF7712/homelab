@@ -824,6 +824,20 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
         self.assertEqual(len(self.state.writes), count)
 
+    def test_routine_ci_triggers_its_own_run_over_an_older_failure(self) -> None:
+        self.enable_routine()
+        self.state.pipeline(10, self.project.source_sha, "manual", "failure")
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.configure_protection()
+        result = self.dispatch(request_id)
+        self.assertEqual(result["state"], "succeeded", result)
+        ci = next(row for row in result["operations"] if row["id"] == "ci")
+        self.assertEqual(ci["outputs"]["pipeline_id"], 11)
+        self.assertEqual(self.state.pipelines[11]["event"], "manual")
+
     def test_routine_readiness_fails_when_the_pinned_ci_run_fails(self) -> None:
         self.enable_routine()
         status = self.submit()

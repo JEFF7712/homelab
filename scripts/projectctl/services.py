@@ -272,6 +272,14 @@ class ServiceAdapter:
                 f"/api/repos/{enrollment_id}/pipelines/{pipeline['number']}"
             )
             if self._configuration_matches(enrollment_id, pipeline["number"]):
+                # A failed run this request did not start may predate a fix,
+                # so ci triggers its own instead of adopting it.
+                if allocation is None and detail.get("status") in {
+                    "failure",
+                    "error",
+                    "killed",
+                }:
+                    continue
                 return detail
             if detail.get("status") in {"pending", "running", "blocked"}:
                 raise ProtocolError(Code.VERIFICATION_PENDING)
