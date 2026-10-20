@@ -35,6 +35,14 @@ journal. Retries cannot silently replace that baseline. Removed or changed
 protected scopes stop subsequent writes, and policy changes invalidate old plans.
 The journal upgrades existing version-2 databases without dropping requests.
 
+A plan's policy digest binds the projectctl modules, the deployed bindings, the
+routine scope and the CI contract digest. The contract digest is the SHA-256 of
+config/ci/projectctl-contracts.json, which declares the step, image and commands
+of each contract the worker can enroll. The policy service renders and stamps
+those workflows from that file, so unrelated CI policy deployments no longer
+invalidate waiting requests. Editing the contract file, the projectctl modules
+or the scopes still does, and those requests must be cancelled and re-planned.
+
 The worker still emits catalog artifacts for the normal protected review and
 deployment workflow. The agent handles that promotion, then the worker resumes
 automatically. Worker credentials cannot merge platform PRs or deploy hosts.

@@ -11,7 +11,8 @@ let
     p.cryptography
   ]);
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
-    mkdir -p $out/scripts/ci
+    mkdir -p $out/scripts/ci $out/config/ci
+    cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
     cp ${../../scripts/ci/development_projects.py} $out/scripts/ci/development_projects.py
@@ -186,13 +187,7 @@ in
       builtins.toJSON {
         schema_version = 1;
         exclusive = true;
-        contract_digest =
-          "sha256:"
-          + builtins.hashString "sha256" (
-            builtins.readFile ../../scripts/ci/policy.py
-            + "\n"
-            + builtins.readFile ../../scripts/ci/development_projects.py
-          );
+        contract_digest = "sha256:" + builtins.hashFile "sha256" ../../config/ci/projectctl-contracts.json;
         package_digest = "sha256:" + builtins.hashString "sha256" (toString policySource);
         catalog = builtins.fromJSON (builtins.readFile ../../config/ci/projects.json);
       }

@@ -10,7 +10,6 @@ from typing import Any
 import yaml
 
 UV_VALIDATION_IMAGE = "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58"
-NODE_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20"
 GCC_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/library/gcc@sha256:a689e29bc3adf4663ef9a141d23081252764d1319c63f591a027bd6fd676f4c1"
 TINYGO_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/tinygo/tinygo@sha256:5ae115628bd9201dc019ed60756f72f71cb36e3960dace48fa71bbbbfc2913a9"
 CUDA_VALIDATION_IMAGE = "registry.rupan.dev/upstream/docker.io/nvidia/cuda@sha256:553412f87cc757a932712f2a1dfb8cafdada576806d388bae524654b5d51f8ee"
@@ -32,14 +31,20 @@ SUPPORTED_KINDS = frozenset(
 )
 
 
+CONTRACTS_PATH = Path(__file__).parents[2] / "config/ci/projectctl-contracts.json"
+
+
 def contract_digest() -> str:
-    directory = Path(__file__).parent
-    payload = (
-        (directory / "policy.py").read_bytes()
-        + b"\n"
-        + (directory / "development_projects.py").read_bytes()
-    )
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+    return "sha256:" + hashlib.sha256(CONTRACTS_PATH.read_bytes()).hexdigest()
+
+
+def contracts() -> dict[str, dict[str, Any]]:
+    document = json.loads(CONTRACTS_PATH.read_text(encoding="utf-8"))
+    if document.get("schema_version") != 1 or not isinstance(
+        document.get("contracts"), dict
+    ):
+        raise ValueError("projectctl contracts must use schema_version 1")
+    return document["contracts"]
 
 
 ALLOWED_EVENTS = frozenset(
@@ -231,19 +236,8 @@ def configuration(
             ]
         }
 
-    if project.kind in {"python-uv-v1", "python-test-v1", "python-syntax-v1"}:
-        if project.kind == "python-uv-v1":
-            step_name = "python-uv-test"
-            commands = [f"uv run --frozen --all-groups pytest {project.test_path}"]
-        elif project.kind == "python-test-v1":
-            step_name = "python-test"
-            commands = [
-                f"uv run --with pytest --with pyyaml pytest {project.test_path}"
-            ]
-        else:
-            step_name = "python-syntax-check"
-            commands = ["python3 -m compileall -q ."]
-
+    contract = contracts().get(project.kind)
+    if contract is not None:
         workflow = {
             "when": [{"event": event}],
             "environment": {"PROJECTCTL_CONTRACT_DIGEST": contract_digest()},
@@ -254,9 +248,12 @@ def configuration(
             },
             "steps": [
                 {
-                    "name": step_name,
-                    "image": UV_VALIDATION_IMAGE,
-                    "commands": commands,
+                    "name": contract["step"],
+                    "image": contract["image"],
+                    "commands": [
+                        command.format(test_path=project.test_path)
+                        for command in contract["commands"]
+                    ],
                 }
             ],
         }
@@ -269,31 +266,15 @@ def configuration(
             ]
         }
 
-    if project.kind in {"node-lint-build-v1", "node-vitest-v1", "node-build-v1"}:
-        if project.kind == "node-lint-build-v1":
-            step_name = "node-lint-build"
+    if project.kind in {"python-test-v1", "python-syntax-v1"}:
+        if project.kind == "python-test-v1":
+            step_name = "python-test"
             commands = [
-                "npm ci",
-                "npm run lint",
-                "npx tsc --noEmit",
-                "npm run build",
-            ]
-        elif project.kind == "node-vitest-v1":
-            step_name = "node-vitest-build"
-            commands = [
-                "npm ci",
-                "npm run lint",
-                "npm test",
-                "npx tsc --noEmit",
-                "npm run build",
+                f"uv run --with pytest --with pyyaml pytest {project.test_path}"
             ]
         else:
-            step_name = "node-build"
-            commands = [
-                "npm ci",
-                "npx tsc --noEmit",
-                "npm run build",
-            ]
+            step_name = "python-syntax-check"
+            commands = ["python3 -m compileall -q ."]
 
         workflow = {
             "when": [{"event": event}],
@@ -305,7 +286,7 @@ def configuration(
             "steps": [
                 {
                     "name": step_name,
-                    "image": NODE_VALIDATION_IMAGE,
+                    "image": UV_VALIDATION_IMAGE,
                     "commands": commands,
                 }
             ],

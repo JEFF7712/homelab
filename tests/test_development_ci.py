@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import tempfile
 import unittest
@@ -12,11 +13,12 @@ from scripts.ci.applications import Application
 from scripts.ci.development_projects import (
     CUDA_VALIDATION_IMAGE,
     GCC_VALIDATION_IMAGE,
-    NODE_VALIDATION_IMAGE,
     TINYGO_VALIDATION_IMAGE,
     UV_VALIDATION_IMAGE,
+    CONTRACTS_PATH,
     DevelopmentProject,
     contract_digest,
+    contracts,
     load_development_projects,
 )
 from scripts.ci.development_projects import (
@@ -58,16 +60,22 @@ class DevelopmentCatalogTest(unittest.TestCase):
             f"{UV_VALIDATION_IMAGE} not found in registry/images.lock.json",
         )
 
-    def test_node_validation_image_is_pinned_in_registry_lock(self) -> None:
+    def test_projectctl_contract_images_are_pinned_in_registry_lock(self) -> None:
         lock = json.loads((ROOT / "registry/images.lock.json").read_text())
-        self.assertTrue(
-            any(
-                NODE_VALIDATION_IMAGE
-                == f"{lock['destination_registry']}/{record['destination_repository']}@{record['digest']}"
-                for record in lock["images"]
-            ),
-            f"{NODE_VALIDATION_IMAGE} not found in registry/images.lock.json",
+        pinned = {
+            f"{lock['destination_registry']}/{record['destination_repository']}@{record['digest']}"
+            for record in lock["images"]
+        }
+        for kind, contract in contracts().items():
+            with self.subTest(kind=kind):
+                self.assertIn(contract["image"], pinned)
+
+    def test_contract_digest_covers_only_the_contract_declaration(self) -> None:
+        self.assertEqual(
+            contract_digest(),
+            "sha256:" + hashlib.sha256(CONTRACTS_PATH.read_bytes()).hexdigest(),
         )
+        self.assertEqual(CONTRACTS_PATH, ROOT / "config/ci/projectctl-contracts.json")
 
     def test_project_type_development_remains_enrolled_when_state_changes(self) -> None:
         test_data = copy.deepcopy(self.data)
@@ -352,7 +360,7 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         self.assertEqual(workflow["labels"]["tier"], "sandbox")
         step = workflow["steps"][0]
         self.assertEqual(step["name"], "node-lint-build")
-        self.assertEqual(step["image"], NODE_VALIDATION_IMAGE)
+        self.assertEqual(step["image"], contracts()[proj.kind]["image"])
         self.assertEqual(
             step["commands"],
             ["npm ci", "npm run lint", "npx tsc --noEmit", "npm run build"],
@@ -388,7 +396,7 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         self.assertEqual(workflow["labels"]["tier"], "sandbox")
         step = workflow["steps"][0]
         self.assertEqual(step["name"], "node-vitest-build")
-        self.assertEqual(step["image"], NODE_VALIDATION_IMAGE)
+        self.assertEqual(step["image"], contracts()[proj.kind]["image"])
         self.assertEqual(
             step["commands"],
             ["npm ci", "npm run lint", "npm test", "npx tsc --noEmit", "npm run build"],
@@ -424,7 +432,7 @@ class DevelopmentPipelineGenerationTest(unittest.TestCase):
         self.assertEqual(workflow["labels"]["tier"], "sandbox")
         step = workflow["steps"][0]
         self.assertEqual(step["name"], "node-build")
-        self.assertEqual(step["image"], NODE_VALIDATION_IMAGE)
+        self.assertEqual(step["image"], contracts()[proj.kind]["image"])
         self.assertEqual(
             step["commands"],
             ["npm ci", "npx tsc --noEmit", "npm run build"],

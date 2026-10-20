@@ -48,13 +48,7 @@ let
       principal: value: map (project: project // { inherit principal; }) value.projects
     ) cfg.principals
   );
-  contractDigest =
-    "sha256:"
-    + builtins.hashString "sha256" (
-      builtins.readFile ../../scripts/ci/policy.py
-      + "\n"
-      + builtins.readFile ../../scripts/ci/development_projects.py
-    );
+  contractDigest = "sha256:" + builtins.hashFile "sha256" ../../config/ci/projectctl-contracts.json;
   settings = pkgs.writeText "projectctl-config.json" (
     builtins.toJSON {
       schema_version = 1;

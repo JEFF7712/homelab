@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "contracts": {
+    "python-uv-v1": {
+      "step": "python-uv-test",
+      "image": "registry.rupan.dev/upstream/ghcr.io/astral-sh/uv@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58",
+      "commands": [
+        "uv run --frozen --all-groups pytest {test_path}"
+      ]
+    },
+    "node-lint-build-v1": {
+      "step": "node-lint-build",
+      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+      "commands": [
+        "npm ci",
+        "npm run lint",
+        "npx tsc --noEmit",
+        "npm run build"
+      ]
+    },
+    "node-vitest-v1": {
+      "step": "node-vitest-build",
+      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+      "commands": [
+        "npm ci",
+        "npm run lint",
+        "npm test",
+        "npx tsc --noEmit",
+        "npm run build"
+      ]
+    },
+    "node-build-v1": {
+      "step": "node-build",
+      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+      "commands": [
+        "npm ci",
+        "npx tsc --noEmit",
+        "npm run build"
+      ]
+    }
+  }
+}
