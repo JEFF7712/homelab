@@ -101,6 +101,7 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper.say = lambda message: None
         parents = iter([("a" * 40, 10), ("b" * 40, 11)])
         shipper.main_pipeline = lambda merged: next(parents)
+        shipper.completed_operations = lambda parent: set()
         calls = []
 
         def run_operation(parent, operation):
@@ -122,6 +123,7 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper.summary = {"operations": [], "promotions": []}
         shipper.say = lambda message: None
         shipper.main_pipeline = lambda merged: ("a" * 40, 10)
+        shipper.completed_operations = lambda parent: set()
 
         def run_operation(parent, operation):
             raise ShipError("deploy failed: HTTP 401")
@@ -129,6 +131,40 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper.run_operation = run_operation
         with self.assertRaisesRegex(ShipError, "401"):
             shipper.run_plan(["deploy"], "c" * 40, {"deploy": {}})
+
+    def test_prerequisite_already_run_by_main_pipeline_is_skipped(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.summary = {"operations": [], "promotions": []}
+        shipper.say = lambda message: None
+        shipper.main_pipeline = lambda merged: ("a" * 40, 10)
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipeline.return_value = {
+            "workflows": [
+                {"name": "validation-v2", "state": "success"},
+                {"name": "opnsense-plan", "state": "success"},
+                {"name": "cloudflare-plan", "state": "failure"},
+            ]
+        }
+        calls = []
+
+        def run_operation(parent, operation):
+            calls.append((parent, operation))
+            return {"pipeline": 20, "log": ""}
+
+        shipper.run_operation = run_operation
+        catalog = {
+            "opnsense-plan": {},
+            "opnsense-apply": {"prerequisite": "opnsense-plan"},
+            "cloudflare-plan": {},
+        }
+        shipper.run_plan(
+            ["opnsense-plan", "opnsense-apply", "cloudflare-plan"], "c" * 40, catalog
+        )
+        self.assertEqual(calls, [(10, "opnsense-apply"), (10, "cloudflare-plan")])
+        self.assertEqual(
+            shipper.summary["operations"][0],
+            {"operation": "opnsense-plan", "pipeline": 10},
+        )
 
 
 class ShipMainPipelineTest(unittest.TestCase):
