@@ -86,6 +86,9 @@ class ZotRegistryModuleTests(unittest.TestCase):
             exporter = cfg.services.prometheus.exporters.node;
             metricsService = cfg.systemd.services.zot-platform-metrics.serviceConfig;
             metricsTimer = cfg.systemd.timers.zot-platform-metrics.timerConfig;
+            credentialPath = cfg.systemd.paths.zot-credentials.pathConfig;
+            credentialPathWantedBy = cfg.systemd.paths.zot-credentials.wantedBy;
+            credentialRestart = cfg.systemd.services.zot-credentials.script;
           }}
         """
         completed = subprocess.run(
@@ -139,6 +142,18 @@ class ZotRegistryModuleTests(unittest.TestCase):
         )
         self.assertIn("/run/zot/config.json", service_config["ExecStart"])
         self.assertNotIn("/nix/store", " ".join(service_config["LoadCredential"]))
+
+    def test_credential_changes_restart_zot(self) -> None:
+        self.assertEqual(
+            self.evaluated["credentialPath"]["PathChanged"],
+            ["/persist/zot/htpasswd", "/persist/zot/access-control.json"],
+        )
+        self.assertIn("multi-user.target", self.evaluated["credentialPathWantedBy"])
+        self.assertTrue(
+            self.evaluated["credentialRestart"]
+            .strip()
+            .endswith("systemctl try-restart zot.service")
+        )
 
     def test_tls_proxy_and_dns01_use_runtime_token(self) -> None:
         nginx = self.evaluated["nginx"]
