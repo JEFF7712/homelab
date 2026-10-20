@@ -621,6 +621,30 @@ class IntegrationTest(unittest.TestCase):
             )
         )
 
+    def test_routine_refuses_to_demote_a_deployed_application(self) -> None:
+        self.enable_routine()
+        catalog = self.state.catalogs[self.state.revision]
+        catalog["projects"].append(
+            {
+                "name": self.project.project_key,
+                "forgejo_repo": self.project.repository,
+                "ci": {"kind": "node-service-v1", "tier": "deploy"},
+            }
+        )
+        with self.assertRaises(ProtocolError) as error:
+            desired(self.project, catalog["projects"][-1], 73)
+        self.assertEqual(error.exception.code, Code.RESOURCE_CONFLICT)
+        status = self.submit()
+        result = self.dispatch(status["request_id"])
+        self.assertNotEqual(result["state"], "succeeded", result)
+        self.assertFalse(
+            (
+                self.runtime.config.state_directory
+                / "artifacts"
+                / (status["request_id"] + ".json")
+            ).exists()
+        )
+
     def test_routine_revocation_stops_second_write_in_enrollment(self) -> None:
         self.enable_routine()
         status = self.submit()
