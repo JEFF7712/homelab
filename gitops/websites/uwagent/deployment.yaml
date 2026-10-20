@@ -23,11 +23,13 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/uwagent@sha256:1a81420b6f570b9cbd54ef524755e85f83e74e31b9a7dd76b66761534fa1e352  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/uwagent@sha256:83561858201e19dc59c41d744f7e8c0c401f68b8f1fb1f98d5968217cec2c939  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           env:
             - name: UWAGENT_PUBLIC_URL
               value: https://uwagent.rupan.dev
+            - name: UWAGENT_CONTACT
+              value: rupanpandyan@gmail.com
           ports:
             - containerPort: 8080
           livenessProbe:
