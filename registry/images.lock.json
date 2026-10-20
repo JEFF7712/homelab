@@ -3643,8 +3643,8 @@
         "status": "unsupported"
       },
       "consumers": [
-        "gitops/automation/renovate-github.yaml:21",
-        "gitops/automation/renovate-gitlab.yaml:21"
+        "gitops/automation/renovate-forgejo.yaml:21",
+        "gitops/automation/renovate-github.yaml:21"
       ],
       "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
       "destination_tags": [
