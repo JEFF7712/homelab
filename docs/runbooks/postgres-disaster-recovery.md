@@ -53,12 +53,17 @@ standby until the replica is rebuilt from the primary.
    kubectl -n immich delete pod immich-cluster-2
    ```
 4. The PV is `Retain`, so it becomes `Released` with the old data still on
-   disk. Clear the old data on that node, then release the claim so the new
-   instance's PVC can bind it:
+   disk. Move that data aside rather than deleting it, then release the claim
+   so the new instance's PVC can bind the empty directory:
    ```sh
-   ssh homelab-05 'sudo find /persist/postgres/cnpg/immich-postgres-2 -mindepth 1 -delete'
+   ssh homelab-05 'cd /persist/postgres/cnpg && sudo mv immich-postgres-2 immich-postgres-2.diverged-$(date +%Y%m%d) && sudo install -d -o 0 -g 26 -m 2777 immich-postgres-2'
    kubectl patch pv immich-postgres-nvme-05 --type=json -p '[{"op":"remove","path":"/spec/claimRef"}]'
    ```
+   A replica that cannot `pg_rewind` was usually a primary on the old
+   timeline after the failover, so it can hold writes the new primary never
+   received. Compare `pg_controldata` on both: if the old instance's latest
+   checkpoint is past the fork point in the primary's newest `.history` file,
+   keep the moved copy until those writes are judged expendable or recovered.
 5. Wait for the new instance (`immich-cluster-3`) to finish its join job and
    for the cluster to report `READY 2`.
 
