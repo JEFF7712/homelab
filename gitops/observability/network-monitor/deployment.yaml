@@ -81,6 +81,9 @@ spec:
             - name: token
               mountPath: /secret
               readOnly: true
+            - name: heartbeat
+              mountPath: /heartbeat
+              readOnly: true
       volumes:
         - name: code
           configMap:
@@ -91,3 +94,6 @@ spec:
         - name: token
           secret:
             secretName: alertmanager-ntfy-token
+        - name: heartbeat
+          secret:
+            secretName: network-monitor-heartbeat
