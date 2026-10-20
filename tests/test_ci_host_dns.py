@@ -36,6 +36,31 @@ class CiContainerDnsTest(unittest.TestCase):
         self.assertEqual(evaluated["docker"], evaluated["host"])
         self.assertGreater(len(evaluated["docker"]), 1)
 
+    def test_adguard_rate_limits_clients_individually(self) -> None:
+        if shutil.which("nix") is None:
+            self.skipTest("nix is required for configuration evaluation")
+        dns = json.loads(
+            subprocess.run(
+                [
+                    "nix",
+                    "eval",
+                    "--json",
+                    f"path:{ROOT / 'flake'}#nixosConfigurations.adguard-netbird-01"
+                    ".config.services.adguardhome.settings.dns",
+                    "--apply",
+                    "d: { inherit (d) ratelimit ratelimit_subnet_len_ipv4"
+                    " ratelimit_whitelist; }",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+        )
+        # A /24 budget made every infrastructure server share 20 queries/s,
+        # and the CI host NATs all job containers behind one address.
+        self.assertEqual(dns["ratelimit_subnet_len_ipv4"], 32)
+        self.assertIn("10.0.30.14", dns["ratelimit_whitelist"])
+
 
 if __name__ == "__main__":
     unittest.main()
