@@ -729,9 +729,15 @@ class ServiceAdapter:
                 method="POST",
             )
             deadline = time.monotonic() + self.delivery_timeout
-            while not self._push_delivered(enrollment["id"], project):
-                if time.monotonic() >= deadline:
-                    return
+            while time.monotonic() < deadline:
+                try:
+                    if self._push_delivered(enrollment["id"], project):
+                        return
+                except ProtocolError as error:
+                    # Woodpecker can list a just-created pipeline before it
+                    # stores the pipeline's config.
+                    if error.code != Code.DEPENDENCY_UNAVAILABLE:
+                        raise
                 time.sleep(1)
             return
         if operation == "protection":
