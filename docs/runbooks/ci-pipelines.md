@@ -1,7 +1,7 @@
 # CI pipelines
 
-Forgejo is primary; Woodpecker runs on homelab-04. This describes the migration
-branch implementation. Live acceptance is tracked in
+Forgejo is primary and Woodpecker runs on homelab-04. GitLab is a mirror kept
+for disaster recovery only; see
 [Forgejo disaster recovery](forgejo-disaster-recovery.md).
 
 ## Execution and authority
@@ -120,7 +120,7 @@ lane order, aggregating every lane failure instead of stopping at the first;
 dominates, so concurrency is roughly wall-neutral there, but no lane waits on
 an unrelated slow lane in CI. OpenTofu provisioning
 (`just provision-check-deps`) exports `TF_PLUGIN_CACHE_DIR`
-(`/tmp/tofu-plugin-cache` in CI, matching the GitLab lane) so repeat provider
+(`/tmp/tofu-plugin-cache` in CI) so repeat provider
 installs reuse the shared plugin cache instead of re-downloading.
 
 ### Dependency caching and timing visibility
