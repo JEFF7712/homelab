@@ -1108,7 +1108,10 @@ class OutboundNatReconciliationTests(unittest.TestCase):
                 self.assertEqual(rule["interface"], "wan")
                 self.assertEqual(rule["ipprotocol"], "inet")
                 source_net = ipaddress.ip_network(rule["source_net"])
-                self.assertIn(source_net.prefixlen, (24,), "management source is /24")
+                self.assertIn(source_net.prefixlen, (24, 32))
+                self.assertTrue(
+                    source_net.subnet_of(ipaddress.ip_network("10.0.0.0/16"))
+                )
                 self.assertEqual(rule["destination_net"], "any")
                 self.assertEqual(rule["target"], "wanip")
 

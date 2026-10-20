@@ -397,6 +397,12 @@ class PolicyTest(unittest.TestCase):
                 self.assertEqual(workflow["concurrency"]["group"], expected)
         self.assertNotIn("deploy-fleet-dry-run", SCHEDULES["maintenance"])
         self.assertIn("registry-promote-first-party", SCHEDULES["promote"])
+        # Each promotion leaves the committed live snapshot behind the lock,
+        # so enforcing drift would block every later scheduled promotion.
+        self.assertIn(
+            "--allow-observed-drift",
+            "\n".join(self.catalog["registry-promote-first-party"]["commands"]),
+        )
         self.assertIn("cache-publish", SCHEDULES["maintenance"])
         self.request["pipeline"].update(event="cron", cron="unknown")
         self.assertEqual(
@@ -904,6 +910,55 @@ class PolicyTest(unittest.TestCase):
             ),
         ):
             self.assertNotIn("CI_SCOPE_FILES", environment(result))
+
+    def test_ci_nix_bounds_unreachable_substituter_stalls(self) -> None:
+        request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 446,
+                "event": "push",
+                "ref": "refs/heads/feat/x",
+                "commit": SHA,
+                "author": "homelab-agent",
+            },
+        }
+        workflow = yaml.safe_load(
+            configuration(request, self.catalog)["configs"][0]["data"]
+        )
+        settings = dict(
+            line.split(" = ", 1)
+            for line in workflow["steps"][0]["environment"]["NIX_CONFIG"].splitlines()
+        )
+        # A dead resolver costs connect-timeout * download-attempts per nix
+        # invocation before the local cache takes over; Nix defaults to 75s.
+        self.assertLessEqual(
+            int(settings["connect-timeout"]) * int(settings["download-attempts"]), 15
+        )
+
+    def test_validation_writes_no_bytecode_into_the_flake_source(self) -> None:
+        request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "id": 447,
+                "event": "push",
+                "ref": "refs/heads/feat/x",
+                "commit": SHA,
+                "author": "homelab-agent",
+            },
+        }
+        workflow = yaml.safe_load(
+            configuration(request, self.catalog)["configs"][0]["data"]
+        )
+        self.assertEqual(
+            workflow["steps"][0]["environment"]["PYTHONDONTWRITEBYTECODE"], "1"
+        )
+
+    def test_lock_import_verifies_each_record_once(self) -> None:
+        # copy already verifies every record it reuses or copies; a second
+        # serial verify pass doubled the main pipeline's lock-import time.
+        commands = "\n".join(self.catalog["registry-lock-import"]["commands"])
+        self.assertIn("scripts.registry copy", commands)
+        self.assertNotIn("scripts.registry verify", commands)
 
     def test_catalog_commands_parse_and_predecessors_exist(self) -> None:
         import subprocess

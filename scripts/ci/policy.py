@@ -34,6 +34,8 @@ NIX_CONFIG = (
     "sandbox = false\n"
     "max-jobs = 2\n"
     "cores = 2\n"
+    "connect-timeout = 5\n"
+    "download-attempts = 3\n"
     "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
     "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
 )
@@ -548,6 +550,9 @@ def configuration(
             "NIX_CONFIG": NIX_CONFIG,
             "CI_LINT_EXTERNAL": "1",
             "TF_PLUGIN_CACHE_DIR": "/tmp/tofu-plugin-cache",
+            # The flake lane copies the tree while Python lanes run; a .pyc
+            # temp file vanishing mid-copy fails the gate (pipeline #3089).
+            "PYTHONDONTWRITEBYTECODE": "1",
         }
         if main or event in {"cron", "tag"}:
             validation_env["CI_FULL_VALIDATION"] = "1"
