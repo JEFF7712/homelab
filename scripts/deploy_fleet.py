@@ -43,6 +43,8 @@ class HostConfig:
     order: int
 
 
+# k3s servers (homelab-01..03) precede the agents: a kubelet must never be
+# newer than any API server, which matters when nixpkgs moves k3s a minor.
 FLEET_HOSTS: dict[str, HostConfig] = {
     "homelab-02": HostConfig(
         name="homelab-02",
@@ -60,19 +62,19 @@ FLEET_HOSTS: dict[str, HostConfig] = {
         name="homelab-04",
         ip="10.0.30.14",
         host_type="k3s-worker",
-        order=3,
+        order=4,
     ),
     "homelab-05": HostConfig(
         name="homelab-05",
         ip="10.0.30.15",
         host_type="k3s-worker",
-        order=4,
+        order=5,
     ),
     "homelab-01": HostConfig(
         name="homelab-01",
         ip="10.0.30.11",
         host_type="k3s-stateful",
-        order=5,
+        order=3,
     ),
     "adguard-netbird-01": HostConfig(
         name="adguard-netbird-01",

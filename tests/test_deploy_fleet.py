@@ -104,9 +104,9 @@ class DeployFleetTest(unittest.TestCase):
             [
                 "homelab-02",
                 "homelab-03",
+                "homelab-01",
                 "homelab-04",
                 "homelab-05",
-                "homelab-01",
                 "adguard-netbird-01",
                 "nas-01",
             ],
