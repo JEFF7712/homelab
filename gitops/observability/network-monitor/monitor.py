@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import concurrent.futures
 import http.client
 import json
@@ -13,8 +14,14 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-INTERVAL = 30
+INTERVAL = 5
+HEARTBEAT_INTERVAL = 30
+OUTAGE_DELAY = 60
+RECOVERY_DELAY = 30
 TIMEOUT = 4
+HISTORY_RETENTION = 30 * 86400
+HISTORY_LIMIT = 16 * 1024 * 1024
+HISTORY_CHUNK = 1024 * 1024
 
 
 def tcp(address: str) -> bool:
@@ -85,17 +92,43 @@ def failures(probes: dict[str, bool]) -> list[str]:
     return failed
 
 
-def update(state: dict[str, Any], probes: dict[str, bool], now: float) -> None:
+def update(
+    state: dict[str, Any],
+    probes: dict[str, bool],
+    now: float,
+    *,
+    restarted: bool = False,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
     failed = failures(probes)
+    previous = state.get("last_probe", {}).get("time")
+    gap = previous is not None and (
+        restarted or now - previous > 3 * INTERVAL or now < previous
+    )
+    if gap:
+        records.append({"type": "gap", "start": previous, "end": now})
+        if "brief_event" in state:
+            state["brief_event"]["observation_gaps"] += 1
+        if "outage" in state:
+            state["observation_interrupted"] = True
+        state.pop("first_failure", None)
+        state.pop("healthy_since", None)
     state["last_probe"] = {"time": now, "results": probes}
+    if not all(probes.values()):
+        records.append({"type": "sample", "time": now, "results": probes})
     if failed:
-        state["good"] = 0
-        state["bad"] = state.get("bad", 0) + 1
+        state.pop("healthy_since", None)
         state.setdefault("first_failure", now)
         state["failed_layers"] = sorted(
             set(state.get("failed_layers", [])) | set(failed)
         )
-        if state["bad"] >= 3 and "outage" not in state:
+        event = state.setdefault(
+            "brief_event",
+            {"start": now, "failed_layers": [], "observation_gaps": 0},
+        )
+        event["last_failure"] = now
+        event["failed_layers"] = sorted(set(event["failed_layers"]) | set(failed))
+        if now - state["first_failure"] >= OUTAGE_DELAY and "outage" not in state:
             state["outage"] = state["first_failure"]
             state.setdefault("pending", []).append(
                 {
@@ -107,23 +140,75 @@ def update(state: dict[str, Any], probes: dict[str, bool], now: float) -> None:
                 }
             )
     else:
-        state["bad"] = 0
-        state["good"] = state.get("good", 0) + 1
-        if state["good"] >= 2:
+        event = state.pop("brief_event", None)
+        if event is not None:
+            span = max(0, now - event["start"])
+            records.append(
+                {
+                    "type": "outage",
+                    **event,
+                    "end": now,
+                    "observed_span_seconds": span,
+                    "duration_seconds": span if not event["observation_gaps"] else None,
+                }
+            )
+        state.pop("first_failure", None)
+        state.setdefault("healthy_since", now)
+        if now - state["healthy_since"] >= RECOVERY_DELAY:
             started = state.pop("outage", None)
             if started is not None:
+                duration = (
+                    "Duration uncertain because monitoring was interrupted. "
+                    if state.pop("observation_interrupted", False)
+                    else f"Outage lasted approximately {int(max(0, now - started))} seconds. "
+                )
                 state.setdefault("pending", []).append(
                     {
                         "title": "Homelab network recovered",
-                        "message": f"All layers healthy twice. Outage lasted approximately {int(now - started)} seconds. "
+                        "message": "All layers healthy for 30 seconds. "
+                        + duration
                         + "Affected layers: "
                         + ", ".join(state.get("failed_layers", []))
                         + ".",
                         "priority": "default",
                     }
                 )
-            state.pop("first_failure", None)
             state.pop("failed_layers", None)
+    state.pop("bad", None)
+    state.pop("good", None)
+    return records
+
+
+def record_history(directory: Path, records: list[dict[str, Any]], now: float) -> None:
+    directory.mkdir(exist_ok=True)
+    files = sorted(directory.glob("*.jsonl"))
+    for path in files.copy():
+        if int(path.stem) / 1_000_000 < now - HISTORY_RETENTION:
+            path.unlink()
+            files.remove(path)
+    for record in records:
+        line = json.dumps(record, separators=(",", ":")) + "\n"
+        target = files[-1] if files else None
+        if target is None or target.stat().st_size + len(line.encode()) > HISTORY_CHUNK:
+            stamp = max(int(now * 1_000_000), int(files[-1].stem) + 1 if files else 0)
+            target = directory / f"{stamp:020d}.jsonl"
+            files.append(target)
+        with target.open("a") as stream:
+            stream.write(line)
+            stream.flush()
+            os.fsync(stream.fileno())
+    size = sum(path.stat().st_size for path in files)
+    while size > HISTORY_LIMIT and files:
+        oldest = files.pop(0)
+        size -= oldest.stat().st_size
+        oldest.unlink()
+
+
+def scheduled_heartbeat(probes: dict[str, bool], now: float, due: float) -> float:
+    if now < due:
+        return due
+    heartbeat(probes)
+    return now + HEARTBEAT_INTERVAL
 
 
 def save(path: Path, state: dict[str, Any]) -> None:
@@ -163,18 +248,45 @@ def deliver(path: Path, state: dict[str, Any]) -> None:
         save(path, state)
 
 
+def heartbeat(probes: dict[str, bool]) -> None:
+    if failures(probes):
+        return
+    try:
+        url = Path("/heartbeat/url").read_text().strip()
+        request = urllib.request.Request(url, data=b"", method="POST")
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            response.read(4096)
+    except (OSError, ValueError, http.client.HTTPException):
+        print("external heartbeat failed", flush=True)
+
+
 def run() -> None:
     path = Path("/state/state.json")
     state = json.loads(path.read_text()) if path.exists() else {}
+    restarted = bool(state)
+    next_heartbeat = 0.0
     while True:
         started = time.monotonic()
         probes = collect()
-        update(state, probes, time.time())
+        now = time.time()
+        records = update(state, probes, now, restarted=restarted)
+        restarted = False
+        record_history(path.parent / "history", records, now)
         save(path, state)
         print(json.dumps(state["last_probe"]), flush=True)
+        next_heartbeat = scheduled_heartbeat(probes, time.monotonic(), next_heartbeat)
         deliver(path, state)
         time.sleep(max(0, INTERVAL - (time.monotonic() - started)))
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--history", action="store_true", help="print retained outage history"
+    )
+    arguments = parser.parse_args()
+    if arguments.history:
+        for file in sorted(Path("/state/history").glob("*.jsonl")):
+            print(file.read_text(), end="")
+    else:
+        run()
