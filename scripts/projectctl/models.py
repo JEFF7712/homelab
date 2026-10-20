@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .codec import canonical, document
@@ -54,9 +54,7 @@ def strings(value: Any) -> tuple[str, ...]:
 def timestamp(value: Any) -> datetime:
     string(value, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
     try:
-        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(
-            tzinfo=timezone.utc
-        )
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     except ValueError:
         raise ProtocolError(Code.INVALID_SPEC) from None
 
@@ -64,7 +62,7 @@ def timestamp(value: Any) -> datetime:
 def stamp(now: datetime) -> str:
     if now.tzinfo is None:
         raise ProtocolError(Code.INVALID_SPEC)
-    return now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass(frozen=True)

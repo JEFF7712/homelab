@@ -5,12 +5,12 @@ import json
 import os
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from contextlib import chdir
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import tomllib
 import yaml
 
 from scripts.ci import gitlab_operation, promote_commit

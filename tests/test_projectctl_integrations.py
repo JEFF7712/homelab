@@ -14,7 +14,7 @@ import tempfile
 import threading
 import unittest
 import urllib.parse
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -927,7 +927,7 @@ class IntegrationTest(unittest.TestCase):
             "apply_to_admins": True,
         }
         self.state.pipeline(8, "f" * 40, "pull_request", "failure")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "schema_version": 1,
             "request_id": request_id,

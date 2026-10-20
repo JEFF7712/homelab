@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .canonical import canonical_hash
 from .models import ComparisonItem, DiffReport, DiffStatus, ResourceDocument
@@ -176,7 +176,7 @@ def compare_three_way(
         s_val = it.status.value
         summary[s_val] = summary.get(s_val, 0) + 1
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     return DiffReport(
         instance=instance, timestamp=now_iso, summary=summary, items=items
     )

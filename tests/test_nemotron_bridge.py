@@ -212,7 +212,7 @@ async def drive(
                 chunk = await asyncio.wait_for(reader.read(65536), timeout=0.05)
                 if chunk:
                     got += chunk
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             if b'"transcript"' in got or b'"error"' in got:
                 await asyncio.sleep(0.3)
@@ -222,7 +222,7 @@ async def drive(
                         if not chunk:
                             break
                         got += chunk
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
                 break
         writer.close()

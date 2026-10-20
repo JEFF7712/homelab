@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .codec import digest, document
@@ -26,7 +26,7 @@ class Runtime:
             self.authority,
             config.trusted_keys,
             self.adapter,
-            lambda: datetime.now(timezone.utc),
+            lambda: datetime.now(UTC),
         )
 
     def handle(self, principal: str, request: Any) -> dict[str, Any]:
@@ -40,7 +40,7 @@ class Runtime:
                 project,
                 discover(self.config, project),
                 policy,
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
             )
             if policy.routine_onboarding:
                 self.authority.check_routine(
@@ -141,7 +141,7 @@ class Runtime:
         report: dict[str, Any] = {
             "schema_version": 1,
             "project_key": project_key,
-            "observed_at": stamp(datetime.now(timezone.utc)),
+            "observed_at": stamp(datetime.now(UTC)),
             "capabilities": {key: {"state": "unknown"} for key in CAPABILITIES},
         }
         repository = self.config.apis["forgejo"].request(

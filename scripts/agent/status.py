@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -166,7 +166,7 @@ def status_payload(
         "schema_version": 1,
         "command": "status",
         "target": target,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "selected_targets": targets,
         "status": "pass" if complete else "incomplete",
         "probes": probes,

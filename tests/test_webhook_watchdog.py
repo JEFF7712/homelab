@@ -15,8 +15,7 @@ OTHER = "b" * 40
 
 def stamp(minutes: float) -> str:
     return (
-        datetime.datetime.now(datetime.timezone.utc)
-        - datetime.timedelta(minutes=minutes)
+        datetime.datetime.now(datetime.UTC) - datetime.timedelta(minutes=minutes)
     ).isoformat()
 
 

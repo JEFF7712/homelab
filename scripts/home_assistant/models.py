@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 
-class OwnerMode(str, Enum):
+class OwnerMode(StrEnum):
     GIT_OWNED = "git-owned"
     UI_EDITABLE = "ui-editable"
     OBSERVE_ONLY = "observe-only"
@@ -13,7 +13,7 @@ class OwnerMode(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
-class DiffStatus(str, Enum):
+class DiffStatus(StrEnum):
     CLEAN = "clean"
     EXPERIMENT = "experiment"
     GIT_CHANGE = "git-change"
@@ -23,7 +23,7 @@ class DiffStatus(str, Enum):
     UNINITIALIZED = "uninitialized"
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"

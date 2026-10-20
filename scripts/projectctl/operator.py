@@ -7,7 +7,7 @@ import os
 import secrets
 import stat
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
                 or status["plan_digest"] != digest(document(plan))
             ):
                 raise ProtocolError(Code.INVALID_SPEC)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             approval = Approval(
                 1,
                 "grant-" + secrets.token_hex(16),

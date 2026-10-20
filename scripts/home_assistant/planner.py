@@ -5,7 +5,7 @@ import json
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .adapters import get_adapter
@@ -268,7 +268,7 @@ class Planner:
                         )
                     )
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         return ApplyPlan(
             plan_id=plan_id,
             timestamp=now_iso,
@@ -301,7 +301,7 @@ class Planner:
         # 2. Validate plan age TTL (plans expire after 30 minutes)
         try:
             plan_dt = datetime.fromisoformat(plan.timestamp)
-            age = (datetime.now(timezone.utc) - plan_dt).total_seconds()
+            age = (datetime.now(UTC) - plan_dt).total_seconds()
             if age > 1800:
                 raise StalePlanError(
                     f"Plan '{plan.plan_id}' expired ({int(age)}s old > 1800s TTL). Please generate a fresh plan."
@@ -329,7 +329,7 @@ class Planner:
                     instance=self.instance,
                     source_commit=plan.git_revision,
                     content_hash=plan.baseline_hash,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                     resources={},
                 )
             elif (
@@ -402,7 +402,7 @@ class Planner:
             for action in plan.actions:
                 self.renew_lock(plan_id=plan.plan_id, owner=owner)
                 rk_str = f"{action.kind}/{action.key}"
-                now_str = datetime.now(timezone.utc).isoformat()
+                now_str = datetime.now(UTC).isoformat()
                 adapter = get_adapter(action.kind)
 
                 # Record start
@@ -438,7 +438,7 @@ class Planner:
                         resource=rk_str,
                         action=action.action.value,
                         status="failed",
-                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        timestamp=datetime.now(UTC).isoformat(),
                         error=err_msg,
                     )
                     self.record_journal(entry_fail)
@@ -453,7 +453,7 @@ class Planner:
                         resource=rk_str,
                         action=action.action.value,
                         status="applied",
-                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        timestamp=datetime.now(UTC).isoformat(),
                     )
                     self.record_journal(entry_applied)
                     journal.append(entry_applied)
@@ -463,7 +463,7 @@ class Planner:
                         resource=rk_str,
                         action=action.action.value,
                         status="failed",
-                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        timestamp=datetime.now(UTC).isoformat(),
                         error=str(exc),
                     )
                     self.record_journal(entry_fail)
@@ -492,7 +492,7 @@ class Planner:
                         resource=rk_str,
                         action=action.action.value,
                         status="failed",
-                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        timestamp=datetime.now(UTC).isoformat(),
                         error=err_msg,
                     )
                     self.record_journal(entry_unverified)
@@ -511,9 +511,9 @@ class Planner:
                     baseline.resources[rk_str] = {
                         "canonical_hash": canonical_hash(norm_desired),
                         "desired": norm_desired,
-                        "verified_at": datetime.now(timezone.utc).isoformat(),
+                        "verified_at": datetime.now(UTC).isoformat(),
                     }
-                baseline.timestamp = datetime.now(timezone.utc).isoformat()
+                baseline.timestamp = datetime.now(UTC).isoformat()
                 self.save_baseline(baseline)
 
                 entry_verified = JournalEntry(
@@ -521,7 +521,7 @@ class Planner:
                     resource=rk_str,
                     action=action.action.value,
                     status="verified",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
                 self.record_journal(entry_verified)
                 journal.append(entry_verified)

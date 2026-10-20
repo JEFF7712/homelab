@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class ChangeKind(str, Enum):
+class ChangeKind(StrEnum):
     ADDED = "added"
     COPIED = "copied"
     DELETED = "deleted"
@@ -16,14 +16,14 @@ class ChangeKind(str, Enum):
     UNTRACKED = "untracked"
 
 
-class ChangeSource(str, Enum):
+class ChangeSource(StrEnum):
     INDEX = "index"
     WORKTREE = "worktree"
     UNTRACKED = "untracked"
     COMMITTED = "committed"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     ACTIVE = "active"
     BLOCKED = "blocked"
     COMPLETE = "complete"

@@ -5,7 +5,7 @@ import shlex
 import subprocess
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -221,12 +221,12 @@ def run_selection(root: Path, selection: CheckSelection) -> dict[str, Any]:
     results = []
     for item in selection.checks:
         before = collect_git_state(root)
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
         result = subprocess.run(
             item.command, cwd=root, capture_output=True, text=True, check=False
         )
         after = collect_git_state(root)
-        finished_at = datetime.now(timezone.utc).isoformat()
+        finished_at = datetime.now(UTC).isoformat()
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",

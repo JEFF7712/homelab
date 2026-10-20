@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from contextlib import ExitStack, closing
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +49,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class Clock:
     def __init__(self) -> None:
-        self.now = datetime(2026, 10, 15, 12, tzinfo=timezone.utc)
+        self.now = datetime(2026, 10, 15, 12, tzinfo=UTC)
 
     def __call__(self) -> datetime:
         return self.now

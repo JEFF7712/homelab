@@ -26,7 +26,7 @@ def load_module():
 
 
 MOD = load_module()
-UTC = datetime.timezone.utc
+UTC = datetime.UTC
 
 
 def record(

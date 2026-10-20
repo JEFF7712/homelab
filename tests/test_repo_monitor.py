@@ -45,7 +45,7 @@ Client = rm.Client
 
 def iso(when: float) -> str:
     return (
-        datetime.datetime.fromtimestamp(when, datetime.timezone.utc)
+        datetime.datetime.fromtimestamp(when, datetime.UTC)
         .isoformat()
         .replace("+00:00", "Z")
     )

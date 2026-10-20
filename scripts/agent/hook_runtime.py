@@ -4,7 +4,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,7 @@ def record_receipt(root: Path, payload: dict[str, Any], phase: str) -> None:
     )
     record = {
         "schema_version": 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "client": os.environ.get("AGENT_HOOK_CLIENT", "unspecified"),
         "session_id": identity,
         "event": payload.get("hook_event_name", payload.get("event")),
@@ -107,7 +107,7 @@ def record_failure(root: Path, payload: dict[str, Any]) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     record = {
         "schema_version": 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "check": redact(command)[:200],
         "exit_code": code,
         "failure_type": payload.get(
