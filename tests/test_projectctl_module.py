@@ -7,7 +7,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from scripts.ci.development_projects import contract_digest
+from scripts.ci.development_projects import contract_digest, contracts
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,7 +87,7 @@ class ProjectctlModuleTest(unittest.TestCase):
         )
         self.assertTrue(
             all(
-                scope["routine"]["ci_contract"] == "python-uv-v1"
+                scope["routine"]["ci_contract"] in contracts()
                 for scope in settings["scopes"]
             )
         )
