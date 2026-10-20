@@ -2,14 +2,36 @@
 
 from __future__ import annotations
 
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 
 from modes.base import ModeRenderer, RenderContext
 
+# The 64x64 panel's four-bit color depth mutes album art, so the fitted disc
+# art gets a fixed saturation/contrast lift before rotation. Pure primaries
+# are unaffected (they clamp), while muted photographic art reads as vivid.
+VINYL_SATURATION = 1.35
+VINYL_CONTRAST = 1.12
+
+
+def compensate_disc_color(
+    art: Image.Image, saturation: float, contrast: float
+) -> Image.Image:
+    if saturation != 1.0:
+        art = ImageEnhance.Color(art).enhance(saturation)
+    if contrast != 1.0:
+        art = ImageEnhance.Contrast(art).enhance(contrast)
+    return art
+
 
 class SpotifyVinylRenderer(ModeRenderer):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        saturation: float = VINYL_SATURATION,
+        contrast: float = VINYL_CONTRAST,
+    ) -> None:
         self.angle = 0.0
+        self.saturation = saturation
+        self.contrast = contrast
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
         # Advance angle if music is playing
@@ -30,10 +52,12 @@ class SpotifyVinylRenderer(ModeRenderer):
         margin = max(2, size // 32)
         disc_size = size - margin * 2
 
-        # Crop album art to disk, rotate by angle
+        # Crop album art to disk, compensate for the panel's narrow color
+        # depth, then rotate by angle
         art_square = ImageOps.fit(
             art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
         )
+        art_square = compensate_disc_color(art_square, self.saturation, self.contrast)
         rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
 
         # Circular mask
