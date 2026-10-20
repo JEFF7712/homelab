@@ -17,6 +17,8 @@ steps:
         sandbox = false
         max-jobs = 2
         cores = 2
+        connect-timeout = 5
+        download-attempts = 3
         extra-substituters = http://10.0.30.20:8080/homelab?priority=30
         extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=
     commands:

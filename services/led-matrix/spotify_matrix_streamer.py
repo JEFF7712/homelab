@@ -24,7 +24,7 @@ from typing import Any
 import numpy as np
 import requests
 import serial
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 from serial.tools import list_ports
 
 try:
@@ -199,6 +199,12 @@ class TCPMatrixStreamer:
 
 
 # --- Album Art Rendering (Spinning Record) ---
+# Keep in sync with modes/spotify_vinyl.py: the panel's four-bit color depth
+# mutes album art, so both vinyl paths apply the same fixed lift.
+VINYL_SATURATION = 1.35
+VINYL_CONTRAST = 1.12
+
+
 def render_record(art: Image.Image | None, angle: float, size: int = 64) -> Image.Image:
     frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))
     if art is None:
@@ -207,10 +213,15 @@ def render_record(art: Image.Image | None, angle: float, size: int = 64) -> Imag
     margin = max(2, size // 32)
     disc_size = size - margin * 2
 
-    # Crop album art to disk, rotate by angle
+    # Crop album art to disk, compensate for the panel's narrow color depth,
+    # then rotate by angle
     art_square = ImageOps.fit(
         art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
     )
+    if VINYL_SATURATION != 1.0:
+        art_square = ImageEnhance.Color(art_square).enhance(VINYL_SATURATION)
+    if VINYL_CONTRAST != 1.0:
+        art_square = ImageEnhance.Contrast(art_square).enhance(VINYL_CONTRAST)
     rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
 
     # Circular mask
