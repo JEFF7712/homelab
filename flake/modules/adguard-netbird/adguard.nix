@@ -25,6 +25,14 @@
         ];
         fallback_dns = [ "1.1.1.1" ];
         protection_enabled = true;
+        # The default limits 20 queries/s per /24, so every server on
+        # 10.0.30.0/24 shared one budget. Dropped queries stalled each lookup
+        # in Docker's embedded resolver for 4s and failed ~15% of them under CI
+        # load. Limit per client instead, and exempt the CI host, which NATs
+        # every job container behind one address.
+        ratelimit = 100;
+        ratelimit_subnet_len_ipv4 = 32;
+        ratelimit_whitelist = [ "10.0.30.14" ];
       };
       dhcp.enabled = false;
       filtering = {
