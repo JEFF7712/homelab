@@ -98,7 +98,12 @@ in
       enable = true;
       daemon.settings."cgroup-parent" = "ci.slice";
       daemon.settings."data-root" = "/persist/docker";
-      daemon.settings.dns = [ "10.0.30.10" ];
+      # Every other host keeps OPNsense as the second resolver; with AdGuard
+      # alone, an AdGuard outage took name resolution from every CI job.
+      daemon.settings.dns = [
+        "10.0.30.10"
+        "10.0.30.1"
+      ];
       # Without --all, system prune only drops dangling images, so tagged CI
       # build images accumulated to ~90G on the shared /persist disk.
       autoPrune = {
