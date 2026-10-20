@@ -553,17 +553,22 @@ def reconcile_outbound_nat(
     if changed:
         client.post("/api/firewall/filter/apply", {})
     verified = _live_outbound_nat(client.get("/api/firewall/source_nat/search_rule"))
-    mismatches = sorted(
-        description
-        for description, desired in desired_by_description.items()
-        if _normalize_outbound_nat(
+    mismatches = []
+    for description, desired in sorted(desired_by_description.items()):
+        live = _normalize_outbound_nat(
             _outbound_nat_verify_fields(verified.get(description, {}))
         )
-        != _normalize_outbound_nat(_outbound_nat_verify_fields(desired))
-    )
+        want = _normalize_outbound_nat(_outbound_nat_verify_fields(desired))
+        fields = [
+            f"{key}={live.get(key)!r} want {want[key]!r}"
+            for key in want
+            if live.get(key) != want[key]
+        ]
+        if fields:
+            mismatches.append(f"{description} ({', '.join(fields)})")
     if mismatches:
         raise RuntimeError(
-            "outbound NAT verification failed for " + ", ".join(mismatches)
+            "outbound NAT verification failed for " + "; ".join(mismatches)
         )
 
 
@@ -576,6 +581,10 @@ def _normalize_outbound_nat(rule: dict[str, object]) -> dict[str, object]:
             normalized[key] = (
                 int(value) if isinstance(value, str) and value.isdigit() else value
             )
+        elif key == "protocol" and isinstance(value, str) and value != "any":
+            normalized[key] = value.upper()
+        elif key in ("source_net", "destination_net") and isinstance(value, str):
+            normalized[key] = value.removesuffix("/32")
         else:
             normalized[key] = value
     return normalized
