@@ -1240,6 +1240,32 @@ class IntegrationTest(unittest.TestCase):
             all(call.args[1] is False for call in authorization.call_args_list)
         )
 
+    def test_doctor_reports_protection_from_the_worker_readiness_receipt(
+        self,
+    ) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha)
+        self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
+        writes = len(self.state.writes)
+        with patch.object(
+            self.runtime.config,
+            "authorization",
+            wraps=self.runtime.config.authorization,
+        ) as authorization:
+            report = self.call("doctor", {"project_key": self.project.project_key})
+        protection = report["capabilities"]["branch_protection"]
+        self.assertEqual(protection["state"], "configured", protection)
+        self.assertEqual(protection["source"], "worker_readiness_receipt")
+        self.assertEqual(protection["request_id"], request_id)
+        self.assertEqual(len(self.state.writes), writes)
+        self.assertTrue(
+            all(call.args[1] is False for call in authorization.call_args_list)
+        )
+
     def test_credential_collection_never_outputs_plaintext(self) -> None:
         output = self.root / "projectctl.sops.json"
         result = subprocess.CompletedProcess(

@@ -386,6 +386,21 @@ class Journal:
             ).fetchone()
             return row["resource_id"] if row else None
 
+    def readiness_receipt(
+        self, principal: str, repository: str
+    ) -> tuple[str, dict[str, Any]] | None:
+        with self.connection() as db:
+            rows = db.execute(
+                "SELECT r.id, r.plan, o.evidence FROM requests r JOIN operations o ON o.request_id=r.id WHERE r.principal=? AND r.state='succeeded' AND o.id='readiness' AND o.state='verified'",
+                (principal,),
+            ).fetchall()
+        receipts = [
+            (row["id"], loads(row["evidence"]))
+            for row in rows
+            if Plan.parse(loads(row["plan"])).project.repository == repository
+        ]
+        return max(receipts, key=lambda item: item[1]["observed_at"], default=None)
+
     def backup(self, destination: Path) -> None:
         destination.parent.mkdir(mode=0o700, exist_ok=True)
         info = destination.parent.lstat()
