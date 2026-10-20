@@ -321,7 +321,9 @@ def operations() -> tuple[Operation, ...]:
     )
 
 
-MUTATIONS = frozenset({"repository", "clone", "enrollment", "pull", "protection", "ci"})
+MUTATIONS = frozenset(
+    {"repository", "clone", "enrollment", "pull", "protection", "ci", "readiness"}
+)
 
 
 @dataclass(frozen=True)

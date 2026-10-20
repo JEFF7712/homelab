@@ -160,6 +160,24 @@ class ApiState:
         self.statuses: dict[str, list[dict[str, Any]]] = {}
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.administrator_roles: set[str] = set()
+        self.hooks: list[dict[str, Any]] = [self.hook(5, "41")]
+
+    @staticmethod
+    def hook(identifier: int, remote_id: str) -> dict[str, Any]:
+        claims = {"forge-id": "1", "repo-forge-remote-id": remote_id, "type": "hook"}
+        token = ".".join(
+            base64.urlsafe_b64encode(json.dumps(part).encode()).decode().rstrip("=")
+            for part in ({"alg": "HS256", "typ": "JWT"}, claims)
+        )
+        return {
+            "id": identifier,
+            "type": "gitea",
+            "active": True,
+            "events": ["push", "pull_request"],
+            "config": {
+                "url": f"http://ci.example:8000/api/hook?access_token={token}.sig"
+            },
+        }
 
     def pipeline(
         self, number: int, sha: str, event: str = "push", status: str = "success"
@@ -306,6 +324,17 @@ class ApiState:
                 if int(suffix) in self.pipelines
                 else (404, {})
             )
+        if path == project + "/hooks":
+            return 200, self.hooks
+        if path.startswith(project + "/hooks/") and path.endswith("/tests"):
+            identifier = int(path.split("/")[-2])
+            if method != "POST" or identifier not in {
+                hook["id"] for hook in self.hooks
+            }:
+                return 404, {}
+            if self.source_sha and query.get("ref") == ["refs/heads/main"]:
+                self.pipeline(max(self.pipelines, default=0) + 1, self.source_sha)
+            return 204, None
         if path == project + "/branch_protections" and method == "POST":
             self.protection = body
             return 201, self.protection
@@ -715,7 +744,10 @@ class IntegrationTest(unittest.TestCase):
         self.assertEqual(result["code"], "PLAN_STALE", result)
         self.assertEqual(len(self.state.writes), count)
 
-    def test_routine_readiness_still_requires_push_and_admin_protection(self) -> None:
+    def hook_tests(self) -> list[tuple[str, str, dict[str, Any]]]:
+        return [row for row in self.state.writes if row[1].endswith("/tests")]
+
+    def test_routine_readiness_delivers_the_push_event_itself(self) -> None:
         self.enable_routine()
         status = self.submit()
         request_id = status["request_id"]
@@ -723,18 +755,27 @@ class IntegrationTest(unittest.TestCase):
         self.deploy_catalog(request_id)
         self.state.pipeline(10, self.project.source_sha, event="manual")
         self.configure_protection()
-        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
-        self.runtime.worker.clock = lambda: (
-            datetime.now(timezone.utc) + timedelta(seconds=10)
-        )
-        self.state.pipeline(9, self.project.source_sha)
-        self.state.protection["apply_to_admins"] = False
-        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
-        self.state.protection["apply_to_admins"] = True
-        self.runtime.worker.clock = lambda: (
-            datetime.now(timezone.utc) + timedelta(seconds=20)
-        )
+        result = self.dispatch(request_id)
+        self.assertEqual(result["state"], "succeeded", result)
+        self.assertEqual(len(self.hook_tests()), 1)
+        self.assertEqual(self.state.pipelines[11]["event"], "push")
+        count = len(self.state.writes)
         self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
+        self.assertEqual(len(self.state.writes), count)
+
+    def test_routine_readiness_refuses_a_hook_for_another_repository(self) -> None:
+        self.enable_routine()
+        self.state.hooks = [ApiState.hook(5, "99")]
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha, event="manual")
+        self.configure_protection()
+        result = self.dispatch(request_id)
+        self.assertNotEqual(result["state"], "succeeded", result)
+        self.assertEqual(self.hook_tests(), [])
+        self.assertNotIn(11, self.state.pipelines)
 
     def test_routine_strengthens_protection_without_removing_extra_requirements(
         self,
