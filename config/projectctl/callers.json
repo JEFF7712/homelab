@@ -41,6 +41,16 @@
           "default_branch": "main",
           "ci_contract": "python-uv-v1"
         }
+      },
+      {
+        "project_key": "spotify-clone-temp-name",
+        "repository": "JEFF7712/spotify-clone-temp-name",
+        "visibility": "private",
+        "routine": {
+          "repository_id": 32,
+          "default_branch": "main",
+          "ci_contract": "node-vitest-v1"
+        }
       }
     ]
   }

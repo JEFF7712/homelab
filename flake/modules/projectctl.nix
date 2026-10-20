@@ -8,6 +8,9 @@ let
   cfg = config.homelab.projectctl;
   package = import ../packages/projectctl.nix { inherit pkgs; };
   stateDirectory = "/persist/projectctl";
+  contractNames = builtins.attrNames (builtins.fromJSON (
+    builtins.readFile ../../config/ci/projectctl-contracts.json
+  )).contracts;
   principalType = lib.types.submodule {
     options = {
       publicKey = lib.mkOption { type = lib.types.str; };
@@ -32,7 +35,7 @@ let
                     options = {
                       repository_id = lib.mkOption { type = lib.types.ints.positive; };
                       default_branch = lib.mkOption { type = lib.types.str; };
-                      ci_contract = lib.mkOption { type = lib.types.enum [ "python-uv-v1" ]; };
+                      ci_contract = lib.mkOption { type = lib.types.enum contractNames; };
                     };
                   }
                 );
