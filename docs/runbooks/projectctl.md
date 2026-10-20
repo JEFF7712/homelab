@@ -43,6 +43,14 @@ those workflows from that file, so unrelated CI policy deployments no longer
 invalidate waiting requests. Editing the contract file, the projectctl modules
 or the scopes still does, and those requests must be cancelled and re-planned.
 
+Supported contracts are the sandbox lanes declared in that file: python-uv-v1,
+node-build-v1, node-lint-build-v1 and node-vitest-v1. adopt defaults to
+python-uv-v1 only when the checkout has a pyproject.toml; pass --ci otherwise.
+Repositories already in the application lane (a catalog tier other than
+sandbox or none, such as static-site-v1 or node-service-v1) are refused with
+RESOURCE_CONFLICT rather than demoted. Those ship through the application
+release workflow, not projectctl.
+
 The worker still emits catalog artifacts for the normal protected review and
 deployment workflow. The agent handles that promotion, then the worker resumes
 automatically. Worker credentials cannot merge platform PRs or deploy hosts.

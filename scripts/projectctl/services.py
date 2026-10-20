@@ -18,7 +18,7 @@ from .config import Configuration
 from .errors import Code, ProtocolError
 from .http import Api, segment
 from .journal import Journal
-from .models import SHA, Project, number, stamp, string
+from .models import CI_STEPS, SHA, Project, number, stamp, string
 from .proofs import PROTECTION_FIELDS, verify_probe
 from .remote import RemoteAuthority
 from .worker import CONTEXT, WORKFLOW, Observation, OperationContext
@@ -120,7 +120,8 @@ class ServiceAdapter:
         return self.config.apis[service].request(path, method=method, body=body)
 
     @staticmethod
-    def validation_passed(pipeline: dict[str, Any]) -> bool:
+    def validation_passed(pipeline: dict[str, Any], ci_contract: str | None) -> bool:
+        steps = {CI_STEPS[ci_contract]} if ci_contract else set(CI_STEPS.values())
         workflows = [
             row for row in pipeline.get("workflows", []) if row.get("name") == WORKFLOW
         ]
@@ -129,8 +130,7 @@ class ServiceAdapter:
             and len(workflows) == 1
             and workflows[0].get("state") == "success"
             and any(
-                child.get("name") == "python-uv-test"
-                and child.get("state") == "success"
+                child.get("name") in steps and child.get("state") == "success"
                 for child in workflows[0].get("children", [])
             )
         )
@@ -489,7 +489,7 @@ class ServiceAdapter:
                 "verified", evidence, {"pipeline_id": pipeline["number"]}
             )
         if (
-            not self.validation_passed(pipeline)
+            not self.validation_passed(pipeline, project.ci_contract)
             or self._commit_status(project.repository, project.source_sha) != "success"
         ):
             return Observation("pending", evidence)

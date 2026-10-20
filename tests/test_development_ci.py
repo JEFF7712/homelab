@@ -11,11 +11,11 @@ import yaml
 
 from scripts.ci.applications import Application
 from scripts.ci.development_projects import (
+    CONTRACTS_PATH,
     CUDA_VALIDATION_IMAGE,
     GCC_VALIDATION_IMAGE,
     TINYGO_VALIDATION_IMAGE,
     UV_VALIDATION_IMAGE,
-    CONTRACTS_PATH,
     DevelopmentProject,
     contract_digest,
     contracts,
@@ -25,6 +25,7 @@ from scripts.ci.development_projects import (
     configuration as development_configuration,
 )
 from scripts.ci.policy import resolve_configuration
+from scripts.projectctl.models import CI_STEPS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,6 +70,12 @@ class DevelopmentCatalogTest(unittest.TestCase):
         for kind, contract in contracts().items():
             with self.subTest(kind=kind):
                 self.assertIn(contract["image"], pinned)
+
+    def test_projectctl_accepts_exactly_the_declared_contracts(self) -> None:
+        self.assertEqual(
+            {kind: contract["step"] for kind, contract in contracts().items()},
+            CI_STEPS,
+        )
 
     def test_contract_digest_covers_only_the_contract_declaration(self) -> None:
         self.assertEqual(

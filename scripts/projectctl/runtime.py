@@ -201,7 +201,9 @@ class Runtime:
                     f"/api/repos/{enrollment['id']}/pipelines/{latest['number']}"
                 )
                 passed = (
-                    self.adapter.validation_passed(detail)
+                    self.adapter.validation_passed(
+                        detail, (scope.routine or {}).get("ci_contract")
+                    )
                     and self.adapter._commit_status(scope.repository, sha) == "success"
                 )
                 report["capabilities"]["ci_validation"] = {

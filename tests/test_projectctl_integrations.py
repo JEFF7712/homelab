@@ -161,6 +161,7 @@ class ApiState:
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.administrator_roles: set[str] = set()
         self.hooks: list[dict[str, Any]] = [self.hook(5, "41")]
+        self.step = "python-uv-test"
 
     @staticmethod
     def hook(identifier: int, remote_id: str) -> dict[str, Any]:
@@ -194,7 +195,7 @@ class ApiState:
                 {
                     "name": WORKFLOW,
                     "state": status,
-                    "children": [{"name": "python-uv-test", "state": status}],
+                    "children": [{"name": self.step, "state": status}],
                 }
             ],
         }
@@ -562,7 +563,7 @@ class IntegrationTest(unittest.TestCase):
         scope["routine"] = {
             "repository_id": 41,
             "default_branch": "main",
-            "ci_contract": "python-uv-v1",
+            "ci_contract": self.project.ci_contract,
         }
         self.state.files["config/projectctl/callers.json"] = {
             "agent-test": {
@@ -620,6 +621,42 @@ class IntegrationTest(unittest.TestCase):
                 for _, path, _ in self.state.writes
             )
         )
+
+    def test_routine_onboards_a_node_contract(self) -> None:
+        from dataclasses import replace
+
+        self.project = replace(self.project, ci_contract="node-build-v1")
+        self.state.step = "node-build"
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": str(self.credentials)}):
+            self.runtime.reconcile()
+            self.deploy_catalog(request_id)
+            self.state.pipeline(10, self.project.source_sha)
+            final = self.runtime.reconcile()
+        self.assertEqual(final["requests"][0]["state"], "succeeded", final)
+        artifact = loads(
+            (
+                self.runtime.config.state_directory
+                / "artifacts"
+                / (request_id + ".json")
+            ).read_bytes()
+        )
+        self.assertEqual(
+            artifact["catalog"]["projects"][0]["ci"],
+            {"kind": "node-build-v1", "tier": "sandbox"},
+        )
+
+    def test_routine_validation_requires_the_contract_step(self) -> None:
+        self.enable_routine()
+        self.state.step = "node-build"
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha)
+        self.assertNotEqual(self.dispatch(request_id)["state"], "succeeded")
 
     def test_routine_refuses_to_demote_a_deployed_application(self) -> None:
         self.enable_routine()
@@ -1452,6 +1489,8 @@ class IntegrationTest(unittest.TestCase):
                     str(checkout),
                     "--repository",
                     self.project.repository,
+                    "--ci",
+                    "python-uv-v1",
                     "--plan",
                     "--json",
                 ],

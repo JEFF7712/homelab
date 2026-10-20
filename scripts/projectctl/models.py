@@ -12,6 +12,13 @@ CAPABILITIES = ("repository", "ci_enrollment", "ci_validation", "branch_protecti
 ID = r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}"
 DIGEST = r"sha256:[0-9a-f]{64}"
 SHA = r"[0-9a-f]{40}"
+CI_STEPS = {
+    "python-uv-v1": "python-uv-test",
+    "node-lint-build-v1": "node-lint-build",
+    "node-vitest-v1": "node-vitest-build",
+    "node-build-v1": "node-build",
+}
+CI_CONTRACT = "|".join(sorted(CI_STEPS))
 REPOSITORY = rf"{ID}/{ID}"
 
 
@@ -116,7 +123,7 @@ class Project:
             branch,
             string(row["object_format"], "sha1"),
             string(row["source_sha"], SHA),
-            string(row["ci_contract"], "python-uv-v1"),
+            string(row["ci_contract"], CI_CONTRACT),
             capabilities,
         )
 

@@ -13,7 +13,7 @@ import tomllib
 
 from .codec import MAX_BYTES, canonical, digest, document, loads
 from .errors import Code, ProtocolError, success
-from .models import CAPABILITIES, Plan, Project
+from .models import CAPABILITIES, CI_STEPS, Plan, Project
 
 
 class Client(Protocol):
@@ -158,7 +158,9 @@ def local_project(args: argparse.Namespace) -> tuple[Project, dict[str, Any]]:
             "--end-of-options",
             f"refs/heads/{branch}^{{commit}}",
         ),
-        "ci_contract": args.ci or settings.get("ci_contract", "python-uv-v1"),
+        "ci_contract": args.ci
+        or settings.get("ci_contract")
+        or ("python-uv-v1" if pyproject.exists() else None),
         "capabilities": list(CAPABILITIES),
     }
     project = Project.parse(candidate)
@@ -176,7 +178,7 @@ def build_parser() -> Parser:
     adopt.add_argument("--repository")
     adopt.add_argument("--visibility", choices=("private", "public"))
     adopt.add_argument("--branch")
-    adopt.add_argument("--ci", choices=("python-uv-v1",))
+    adopt.add_argument("--ci", choices=sorted(CI_STEPS))
     adopt.add_argument("--plan", action="store_true", required=True)
     commands.add_parser("plan").add_argument("spec", type=Path)
     request = commands.add_parser("request")
