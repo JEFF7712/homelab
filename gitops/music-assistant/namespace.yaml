@@ -4,3 +4,4 @@ metadata:
   name: music-assistant
   labels:
     app.kubernetes.io/part-of: homelab
+    pod-security.kubernetes.io/enforce: privileged
