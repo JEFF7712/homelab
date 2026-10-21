@@ -2,8 +2,9 @@ id: jarvis_voice_music_mode
 alias: "Jarvis: Voice Music Mode"
 description: >-
   Deterministically enables or disables Govee and Bedroom Music Mode via voice.
-  Bare "music mode" phrases target the shared-spaces Govee toggle; bedroom
-  phrases target the bedroom Roku toggle.
+  Bare "music mode" phrases target the shared-spaces Govee toggle, which is
+  disabled while the shared bulbs are Zigbee; bedroom phrases target the
+  bedroom Roku toggle.
 mode: restart
 triggers:
   - trigger: conversation
@@ -59,10 +60,7 @@ actions:
           - condition: trigger
             id: "on"
         sequence:
-          - action: input_boolean.turn_on
-            target:
-              entity_id: input_boolean.govee_music_mode
-          - set_conversation_response: "Done."
+          - set_conversation_response: "Shared music mode is disabled."
       - conditions:
           - condition: trigger
             id: "off"
