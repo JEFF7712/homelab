@@ -40,6 +40,7 @@ POLL_SECONDS = 5
 # Outage, log-storage, and mergeability retries keep their original window.
 RETRY_SECONDS = 15
 SUPERSEDED = "Operation source must be the current main commit"
+ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
 
 
@@ -519,6 +520,17 @@ class Shipper:
             try:
                 result = self.run_operation(parent, operation)
             except ShipError as error:
+                if ALREADY_COMPLETED in str(error):
+                    # Another agent ran it against the same validation first.
+                    self.say(
+                        f"{operation}: already completed for main pipeline #{parent}"
+                    )
+                    self.summary.update(main=main_sha, validation_pipeline=parent)
+                    self.summary["operations"].append(
+                        {"operation": operation, "pipeline": parent}
+                    )
+                    index += 1
+                    continue
                 if SUPERSEDED not in str(error) or retries >= 3:
                     raise
                 retries += 1
@@ -538,17 +550,28 @@ class Shipper:
             index += 1
 
     def completed_operations(self, parent: int) -> set[str]:
-        """Operations the main pipeline already ran as its own workflows.
+        """Operations already run for the main pipeline's validation.
 
         Push pipelines run plan operations for routed paths themselves, and
-        CI refuses a second run for the same validation, so these count as
-        done for any later operation that needs their receipt.
+        other agents deploy against the same parent, and CI refuses a second
+        run for the same validation, so these count as done for any later
+        operation that needs their receipt.
         """
-        return {
+        pipeline = self.woodpecker.pipeline(parent)
+        done = {
             workflow["name"]
-            for workflow in self.woodpecker.pipeline(parent).get("workflows") or []
+            for workflow in pipeline.get("workflows") or []
             if workflow.get("state") == "success"
         }
+        for item in self.woodpecker.pipelines_for(pipeline.get("commit", "")):
+            if (
+                item.get("event") == "deployment"
+                and item.get("parent") == parent
+                and item.get("status") == "success"
+                and item.get("deploy_to")
+            ):
+                done.add(item["deploy_to"])
+        return done
 
     def operator_token(self) -> str | None:
         token = os.environ.get("WOODPECKER_OPERATOR_TOKEN")

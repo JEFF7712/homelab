@@ -230,6 +230,7 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper.say = lambda message: None
         shipper.main_pipeline = lambda merged: ("a" * 40, 10)
         shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipelines_for.return_value = []
         shipper.woodpecker.pipeline.return_value = {
             "workflows": [
                 {"name": "validation-v2", "state": "success"},
@@ -256,6 +257,54 @@ class ShipPlanRetryTest(unittest.TestCase):
         self.assertEqual(
             shipper.summary["operations"][0],
             {"operation": "opnsense-plan", "pipeline": 10},
+        )
+
+    def test_operations_another_agent_completed_are_skipped(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipeline.return_value = {"commit": "c" * 40, "workflows": []}
+        shipper.woodpecker.pipelines_for.return_value = [
+            {
+                "event": "deployment",
+                "parent": 10,
+                "status": "success",
+                "deploy_to": "deploy-ci-host-dry-run",
+            },
+            {
+                "event": "deployment",
+                "parent": 10,
+                "status": "failure",
+                "deploy_to": "deploy-ci-host",
+            },
+            {
+                "event": "deployment",
+                "parent": 9,
+                "status": "success",
+                "deploy_to": "deploy-fleet",
+            },
+        ]
+        self.assertEqual(shipper.completed_operations(10), {"deploy-ci-host-dry-run"})
+
+    def test_a_concurrent_duplicate_run_counts_as_completed(self) -> None:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.summary = {"operations": [], "promotions": []}
+        shipper.say = lambda message: None
+        shipper.main_pipeline = lambda merged: ("a" * 40, 10)
+        shipper.completed_operations = lambda parent: set()
+        calls = []
+
+        def run_operation(parent, operation):
+            calls.append(operation)
+            if operation == "dry-run":
+                raise ShipError("dry-run failed\nValueError: " + ship.ALREADY_COMPLETED)
+            return {"pipeline": 21, "log": ""}
+
+        shipper.run_operation = run_operation
+        catalog = {"dry-run": {}, "deploy": {"prerequisite": "dry-run"}}
+        shipper.run_plan(["dry-run", "deploy"], "c" * 40, catalog)
+        self.assertEqual(calls, ["dry-run", "deploy"])
+        self.assertEqual(
+            shipper.summary["operations"][0], {"operation": "dry-run", "pipeline": 10}
         )
 
 
