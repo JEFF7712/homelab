@@ -611,7 +611,7 @@
       "rm -rf \"$stage\"",
       "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo systemctl restart roku-bridge-secrets roku-cloud-bridge-secrets roku-bridge roku-cloud-bridge'",
-      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge'"
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge ledfx-zigbee-bridge'"
     ],
     "environment": {
       "HOSTS_KNOWN": {
