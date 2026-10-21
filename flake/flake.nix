@@ -196,11 +196,16 @@
               cloud-utils
               glab
               libvirt
-              mcp-nixos
               nixos-anywhere
               prometheus.cli
               qemu_kvm
-            ]);
+            ])
+            # Exposed as a wrapper: the Python 3.14 application package would
+            # put its site-packages on PYTHONPATH and break the repository's
+            # Python 3.13 interpreter.
+            ++ [
+              (pkgs.writeShellScriptBin "mcp-nixos" ''exec ${pkgs.mcp-nixos}/bin/mcp-nixos "$@"'')
+            ];
         };
 
         checks.repository-contract =
