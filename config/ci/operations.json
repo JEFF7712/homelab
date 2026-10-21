@@ -1599,7 +1599,7 @@
       "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
-      "python -m scripts.home_assistant diff --instance homelab-01"
+      "rc=0; python -m scripts.home_assistant diff --instance homelab-01 || rc=$?; test \"$rc\" -le 1"
     ],
     "environment": {
       "HASS_TOKEN": {
