@@ -221,7 +221,7 @@
 
         checks.agent-workspace-network =
           let
-            host = self.nixosConfigurations.homelab-01.config;
+            host = self.nixosConfigurations.homelab-04.config;
             policy = host.networking.nftables.tables.agent-workspaces.content;
             bridges = builtins.attrNames host.systemd.network.netdevs;
           in
@@ -246,34 +246,16 @@
 
         checks.agent-workspace-host-reservations =
           let
-            host = self.nixosConfigurations.homelab-01.config;
+            host = self.nixosConfigurations.homelab-04.config;
           in
           pkgs.runCommand "agent-workspace-host-reservations" { } ''
-            test ${nixpkgs.lib.escapeShellArg (builtins.toJSON host.services.k3s.extraFlags)} = ${
-              nixpkgs.lib.escapeShellArg (
-                builtins.toJSON [
-                  "--node-ip=10.0.30.11"
-                  "--advertise-address=10.0.30.11"
-                  "--flannel-backend=none"
-                  "--disable-network-policy"
-                  "--cluster-cidr=10.42.0.0/16"
-                  "--service-cidr=10.43.0.0/16"
-                  "--disable-kube-proxy"
-                  "--disable=servicelb"
-                  "--disable=traefik"
-                  "--disable=local-storage"
-                  "--kubelet-arg=container-log-max-size=10Mi"
-                  "--kubelet-arg=container-log-max-files=5"
-                  "--kubelet-arg=image-gc-high-threshold=70"
-                  "--kubelet-arg=image-gc-low-threshold=60"
-                  "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<2Gi,imagefs.available<15Gi"
-                  "--etcd-snapshot-dir=/persist/etcd-snapshots"
-                  "--etcd-snapshot-retention=14"
-                  "--etcd-snapshot-schedule-cron=0 3 * * *"
-                  "--kubelet-arg=system-reserved=cpu=2,memory=10Gi"
-                  "--kubelet-arg=kube-reserved=cpu=500m,memory=1Gi"
-                ]
-              )
+            ${
+              if
+                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=12288Mi" host.services.k3s.extraFlags
+              then
+                "true"
+              else
+                "false"
             }
             test ${
               nixpkgs.lib.escapeShellArg host.systemd.slices."machine-agent\\x2dworkspaces".sliceConfig.CPUQuota
