@@ -32,6 +32,7 @@ OWNER_REPO = "JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
+APPROVALS = "http://ci.internal:8020"
 AGENT_REMOTE = "git-agent:JEFF7712/homelab.git"
 PATCH_BEGIN = "----- BEGIN PROMOTION PATCH"
 PATCH_END = "----- END PROMOTION PATCH -----"
@@ -549,31 +550,63 @@ class Shipper:
             if workflow.get("state") == "success"
         }
 
-    def operator(self, parent: int, operation: str) -> Woodpecker:
-        """Client for operations CI accepts only from a human operator."""
+    def operator_token(self) -> str | None:
         token = os.environ.get("WOODPECKER_OPERATOR_TOKEN")
         path = Path.home() / ".config/woodpecker/operator-token"
         if not token and path.is_file():
             token = path.read_text()
-        if not token:
-            raise ShipError(
-                f"{operation} requires a human operator and CI refuses it from "
-                f"homelab-agent. Deploy target {operation} from main pipeline "
-                f"#{parent} in {WOODPECKER}/repos/{WOODPECKER_REPO}, or set "
-                "WOODPECKER_OPERATOR_TOKEN."
-            )
-        return Woodpecker(token)
+        return token or None
+
+    def approved(self, parent: int, operation: str) -> int:
+        """Deployment pipeline of a held operation once the operator approves it.
+
+        CI accepts held operations only from a human operator, so without an
+        operator token the request goes to the approvals dashboard, where the
+        operator confirms it with a passkey and the dashboard triggers it.
+        """
+        code, filed = http(
+            "POST",
+            f"{APPROVALS}/api/requests",
+            self.woodpecker.headers,
+            {
+                "operation": operation,
+                "parent": parent,
+                "reason": f"just ship {self.summary.get('branch', '')}: "
+                f"{self.summary.get('pull_request', 'no pull request')}",
+                "evidence": [item["pipeline"] for item in self.summary["operations"]],
+            },
+        )
+        if code >= 400:
+            raise ShipError(f"Approvals refused {operation}: HTTP {code} {filed}")
+        self.say(f"{operation}: waiting for approval at {filed['url']}")
+        while True:
+            self.remaining()
+            code, request = http("GET", f"{APPROVALS}/api/requests/{filed['id']}", {})
+            if code >= 400:
+                raise ShipError(
+                    f"Approvals lookup for {operation}: HTTP {code} {request}"
+                )
+            if request["state"] == "approved":
+                return int(request["pipeline"])
+            if request["state"] in {"declined", "expired", "failed"}:
+                detail = f": {request['error']}" if request.get("error") else ""
+                raise ShipError(
+                    f"{operation} {request['state']} on the approvals dashboard{detail}"
+                )
+            time.sleep(POLL_SECONDS)
 
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
         spec = catalog.get(operation, {})
-        client = (
-            self.operator(parent, operation)
-            if spec.get("mutation") and not spec.get("agent")
-            else self.woodpecker
-        )
-        created = client.deploy(parent, operation)
-        number = int(created["number"])
+        if spec.get("mutation") and not spec.get("agent"):
+            token = self.operator_token()
+            number = (
+                int(Woodpecker(token).deploy(parent, operation)["number"])
+                if token
+                else self.approved(parent, operation)
+            )
+        else:
+            number = int(self.woodpecker.deploy(parent, operation)["number"])
         self.say(
             f"{operation}: pipeline #{number} {WOODPECKER}/repos/{WOODPECKER_REPO}/pipeline/{number}"
         )
@@ -707,7 +740,7 @@ class Shipper:
             for route, operations in plan.held.items():
                 self.say(
                     f"holding {route} ({', '.join(operations)}): infrastructure route; "
-                    f"rerun with --deploy {','.join(operations)} once authorized"
+                    f"rerun with --deploy {','.join(operations)} to request approval"
                 )
         if not self.args.no_checks:
             self.local_checks(cwd)
