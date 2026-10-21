@@ -1,6 +1,6 @@
 alias: 'Effects: Music Mode'
-description: Toggle or activate real-time LedFx music mode across all Govee lights
-  and manage Adaptive Lighting lock.
+description: Toggle LedFx ambient music mode on the shared Zigbee bulbs and manage
+  the Adaptive Lighting lock.
 mode: single
 sequence:
   - action: input_boolean.toggle

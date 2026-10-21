@@ -105,24 +105,25 @@ class TestGoveeMusicMode(unittest.TestCase):
         self.assertIn("on", trigger_ids)
         self.assertIn("off", trigger_ids)
 
-    def test_automation_starts_disabled(self) -> None:
+    def test_automation_is_enabled_and_leaves_the_apollo_strip_alone(self) -> None:
         auto_file = (
             REPO_ROOT / "home-assistant" / "automations" / "govee_music_mode.yaml"
         )
-        data = yaml.safe_load(auto_file.read_text(encoding="utf-8"))
-        self.assertIs(data.get("initial_state"), False)
+        raw_text = auto_file.read_text(encoding="utf-8")
+        self.assertNotIn("initial_state", yaml.safe_load(raw_text))
+        self.assertNotIn("light.apollo_led_strip_apollo_led_strip", raw_text)
 
-    def test_dashboards_hide_disabled_music_mode(self) -> None:
+    def test_dashboards_contain_music_mode(self) -> None:
         shared_spaces = (
             REPO_ROOT / "home-assistant" / "dashboards" / "shared-spaces.yaml"
         ).read_text(encoding="utf-8")
-        self.assertNotIn("script.effects_music_mode", shared_spaces)
-        self.assertNotIn("input_boolean.govee_music_mode", shared_spaces)
+        self.assertIn("script.effects_music_mode", shared_spaces)
+        self.assertIn("input_boolean.govee_music_mode", shared_spaces)
 
         lovelace_jarvis = (
             REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
         ).read_text(encoding="utf-8")
-        self.assertNotIn("input_boolean.govee_music_mode", lovelace_jarvis)
+        self.assertIn("input_boolean.govee_music_mode", lovelace_jarvis)
 
 
 if __name__ == "__main__":
