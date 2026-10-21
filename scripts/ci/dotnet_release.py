@@ -90,6 +90,12 @@ def copy_build_source(source: Path, destination: Path) -> None:
     )
 
 
+def check_runtime_host(runtime: Path) -> None:
+    host = runtime / "dotnet/dotnet"
+    if not host.is_file() or not host.stat().st_mode & 0o111:
+        raise ValueError("Dotnet runtime host must be an executable file")
+
+
 def build(
     source: Path,
     base: Path,
@@ -215,6 +221,7 @@ def build(
     ):
         if not (app / name).is_file():
             raise ValueError(f"Dotnet release output missing: {name}")
+    check_runtime_host(runtime)
     receipt = {
         "source": commit,
         "sdk_image": image,
