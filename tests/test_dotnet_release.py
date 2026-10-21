@@ -55,6 +55,20 @@ class DotnetReleaseTests(unittest.TestCase):
             finally:
                 private.chmod(0o600)
 
+    def test_runtime_host_must_be_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            (runtime / "dotnet").mkdir()
+            host = runtime / "dotnet/dotnet"
+            with self.assertRaisesRegex(ValueError, "executable"):
+                release.check_runtime_host(runtime)
+            host.write_bytes(b"host")
+            host.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "executable"):
+                release.check_runtime_host(runtime)
+            host.chmod(0o755)
+            release.check_runtime_host(runtime)
+
     def test_missing_retained_feed_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "retain NuGet"):
             release.check_contract(supply()[1:], SDK)
