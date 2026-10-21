@@ -1,6 +1,8 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: home-assistant-cluster
   namespace: home-assistant
 spec:

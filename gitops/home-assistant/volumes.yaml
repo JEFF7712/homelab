@@ -1,6 +1,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: home-assistant-config
   namespace: home-assistant
 spec:
@@ -15,6 +17,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: home-assistant-matter-server
   namespace: home-assistant
 spec:
@@ -28,6 +32,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: home-assistant-postgres-nvme
 spec:
   capacity:
@@ -51,6 +57,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: home-assistant-postgres-data
   namespace: home-assistant
 spec:
@@ -65,6 +73,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: ha-postgres-nvme-01
 spec:
   capacity:
@@ -87,6 +97,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: ha-postgres-nvme-05
 spec:
   capacity:
