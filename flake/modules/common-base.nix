@@ -1,5 +1,7 @@
 { config, lib, ... }:
 {
+  imports = [ ./host-secrets.nix ];
+
   options.homelab.base = {
     tmpfsSize = lib.mkOption {
       type = lib.types.str;

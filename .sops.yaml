@@ -1,3 +1,15 @@
+# Host recipients derive from each host's persisted SSH host key with
+# ssh-to-age; see docs/runbooks/secrets.md.
+keys:
+  - &operator_flux age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl
+  - &operator_recovery age1ckzw40ndw6v98ctczzw99lv7k257h4tx7xq6k9f0f5mltq9z9gtq36achw
+  - &adguard-netbird-01 age1k5u30g46e89fv4kz2wpm2kl3q42dkhyl3gy7duf970ly2txyldgsrfh5sz
+  - &homelab-01 age19c0gtfh0ftfeynds3trhea835tarj4lkdkd0p6druc464rzfl40qgt59fc
+  - &homelab-02 age189gkj56k6xzz39q7vkx7jppgl6syksm3cay7g5zs7cduzhaxjc7qd9xggj
+  - &homelab-03 age1kzukt4raf99rf0rvllc74ylzpp8nsmy9d9t5e0xxha4mswynlc6qxked4s
+  - &homelab-04 age1z65e9nyzje93st4ms247d6604fgux2fmc5dxzt6daks40tp0ze3qqvv7jq
+  - &homelab-05 age1gesrec4u0nhnav74q8wg8yaacg7nvnxgl0gmg88fec6fg0vdzvfqgtw94v
+  - &nas-01 age1z7u0dtdxac286jaqyup0hslz53wgygw3ydfl0vt8p8ksqjhh890sp240x3
 creation_rules:
   - path_regex: gitops/secrets/.*\.sops\.yaml$
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl

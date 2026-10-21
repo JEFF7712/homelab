@@ -25,6 +25,7 @@ class ProjectctlModuleTest(unittest.TestCase):
               system = "x86_64-linux";
               modules = [
                 flake.inputs.sops-nix.nixosModules.sops
+                ROOT_HOST_SECRETS
                 ROOT_PROFILE
                 ({lib, ...}: {
                   options.homelab.woodpecker.enable = lib.mkOption { type = lib.types.bool; default = true; };
@@ -65,8 +66,11 @@ class ProjectctlModuleTest(unittest.TestCase):
             ageKeys = cfg.sops.age.sshKeyPaths;
             gnupgKeys = cfg.sops.gnupg.sshKeyPaths;
           }
-        """.replace("ROOT_FLAKE", json.dumps(str(ROOT / "flake"))).replace(
-            "ROOT_PROFILE", str(ROOT / "flake/profiles/projectctl-pilot.nix")
+        """
+        expression = (
+            expression.replace("ROOT_FLAKE", json.dumps(str(ROOT / "flake")))
+            .replace("ROOT_PROFILE", str(ROOT / "flake/profiles/projectctl-pilot.nix"))
+            .replace("ROOT_HOST_SECRETS", str(ROOT / "flake/modules/host-secrets.nix"))
         )
         result = subprocess.run(
             ["nix", "eval", "--impure", "--json", "--expr", expression],
