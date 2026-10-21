@@ -106,6 +106,47 @@ class ReconcileInterfaceTests(unittest.TestCase):
             all("service/restart" not in path for _, path, _ in client.calls)
         )
 
+    def test_reconcile_udp_broadcast_relays_disables_without_requiring_running(
+        self,
+    ) -> None:
+        relay = {
+            "InstanceID": "1",
+            "RevertTTL": "0",
+            "description": "Govee LAN discovery",
+            "enabled": "0",
+            "interfaces": "opt1,opt3",
+            "listenport": "4002",
+            "multicastaddress": "239.255.255.250",
+            "sourceaddress": "",
+        }
+
+        class DisableClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, object | None]] = []
+                self.rows = [dict(relay, enabled="1", uuid="relay-1")]
+
+            def get(self, path: str) -> object:
+                self.calls.append(("GET", path, None))
+                if path.startswith("/api/udpbroadcastrelay/service/status/"):
+                    return {"result": "Error (1)", "function": "status"}
+                return {"rows": self.rows}
+
+            def post(self, path: str, payload: object) -> object:
+                self.calls.append(("POST", path, payload))
+                self.rows = [dict(relay, uuid="relay-1")]
+                return {"result": "saved"}
+
+        client = DisableClient()
+        reconcile_udp_broadcast_relays(client, [relay])
+
+        self.assertIn(
+            ("GET", "/api/udpbroadcastrelay/service/restart/relay-1", None),
+            client.calls,
+        )
+        self.assertTrue(
+            all("service/status" not in path for _, path, _ in client.calls)
+        )
+
     def test_main_loads_protected_environment_and_desired_assignments(self) -> None:
         seen: dict[str, object] = {}
 
