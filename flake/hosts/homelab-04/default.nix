@@ -95,7 +95,6 @@ in
     primaryInterface = "enp0s31f6";
     nodeIp = "10.0.30.14";
     serverAddress = "https://10.0.30.11:6443";
-    tokenFile = "/persist/secrets/k3s-token";
   };
 
   services.k3s.extraFlags = [

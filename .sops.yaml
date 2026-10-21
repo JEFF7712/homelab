@@ -32,6 +32,9 @@ creation_rules:
   - path_regex: secrets/shared/platform-backup\.sops\.yaml$
     key_groups:
       - age: [*operator_flux, *operator_recovery, *homelab-04, *nas-01]
+  - path_regex: secrets/shared/k3s\.sops\.yaml$
+    key_groups:
+      - age: [*operator_flux, *operator_recovery, *homelab-02, *homelab-03, *homelab-04, *homelab-05]
   - path_regex: secrets/shared/mqtt-roku-bridge\.sops\.yaml$
     key_groups:
       - age: [*operator_flux, *operator_recovery, *adguard-netbird-01, *homelab-05]

@@ -10,9 +10,15 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-HOSTS = ["adguard-netbird-01", "homelab-04", "homelab-05", "nas-01"]
 # scripts/deploy_fleet.py activates the registry variant on k3s nodes.
-K3S_NODES = {"homelab-04", "homelab-05"}
+K3S_NODES = {"homelab-01", "homelab-02", "homelab-03", "homelab-04", "homelab-05"}
+HOSTS = ["adguard-netbird-01", "nas-01", *sorted(K3S_NODES)]
+# Registry pull credentials are rendered from the image lock by the registry
+# rollout operations after registry-verify, so CI keeps owning them.
+CI_OWNED = {
+    "/persist/secrets/k3s-registries.yaml",
+    "/persist/secrets/registry-auth.json",
+}
 OPERATORS = {"operator_flux", "operator_recovery"}
 
 
@@ -55,7 +61,9 @@ class HostSecretsTest(unittest.TestCase):
             flake = builtins.getFlake ROOT_FLAKE;
             lib = flake.inputs.nixpkgs.lib;
             describe = cfg: {
-              defaultSopsFile = toString cfg.sops.defaultSopsFile;
+              defaultSopsFile =
+                let attempt = builtins.tryEval (toString cfg.sops.defaultSopsFile);
+                in if attempt.success then attempt.value else null;
               ageKeys = cfg.sops.age.sshKeyPaths;
               secrets = lib.mapAttrs (_: s: {
                 inherit (s) key path owner mode restartUnits;
@@ -98,10 +106,14 @@ class HostSecretsTest(unittest.TestCase):
                 self.assertEqual(
                     config["ageKeys"], ["/persist/etc/ssh/ssh_host_ed25519_key"]
                 )
-                self.assertEqual(
-                    repository_path(config["defaultSopsFile"]),
-                    f"secrets/hosts/{host}.sops.yaml",
-                )
+                own = ROOT / f"secrets/hosts/{host}.sops.yaml"
+                if own.exists():
+                    self.assertEqual(
+                        repository_path(config["defaultSopsFile"]),
+                        f"secrets/hosts/{host}.sops.yaml",
+                    )
+                else:
+                    self.assertIsNone(config["defaultSopsFile"])
 
     def test_file_recipients_are_operators_plus_consuming_hosts(self) -> None:
         anchors = recipient_anchors()
@@ -141,18 +153,25 @@ class HostSecretsTest(unittest.TestCase):
                     self.assertEqual(secret["path"], f"/run/secrets/{name}")
 
     def test_no_unit_reads_hand_placed_secrets(self) -> None:
-        # The k3s token and registry pull credentials move with the cluster.
-        pending = {
-            ("homelab-04", "k3s"),
-            ("homelab-05", "k3s"),
-            ("nas-01", "ledfx-bedroom"),
-        }
         for host in HOSTS:
             for unit, text in self.evaluated[host]["units"].items():
-                if (host, unit) in pending:
-                    continue
                 with self.subTest(host=host, unit=unit):
-                    self.assertNotIn("/persist/secrets", text)
+                    paths = set(re.findall(r"/persist/secrets/[A-Za-z0-9._-]+", text))
+                    self.assertLessEqual(paths, CI_OWNED)
+
+    def test_joining_k3s_nodes_share_one_token(self) -> None:
+        for host in sorted(K3S_NODES - {"homelab-01"}):
+            with self.subTest(host=host):
+                secret = self.evaluated[host]["secrets"]["k3s-token"]
+                self.assertEqual(
+                    repository_path(secret["sopsFile"]), "secrets/shared/k3s.sops.yaml"
+                )
+                self.assertEqual(secret["restartUnits"], [])
+                self.assertIn(
+                    "--token-file /run/secrets/k3s-token",
+                    self.evaluated[host]["units"]["k3s"],
+                )
+        self.assertNotIn("k3s-token", self.evaluated["homelab-01"]["secrets"])
 
     def test_secret_changes_restart_their_consumers(self) -> None:
         config = self.evaluated["adguard-netbird-01"]
