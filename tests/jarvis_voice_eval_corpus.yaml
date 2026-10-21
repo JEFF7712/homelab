@@ -149,11 +149,11 @@
   intent: HassTurnOn
   targets: [light.living_room_good_vibes_sign]
   response: Done.
-- id: stairs-light-off
-  say: Turn off the stairs light.
+- id: exit-sign-off
+  say: Turn off the exit sign.
   path: local
   intent: HassTurnOff
-  targets: [switch.stairs_light]
+  targets: [switch.exit_sign]
   response: Done.
 - id: music-play-artist
   say: Play some MF DOOM.

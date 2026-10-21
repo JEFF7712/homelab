@@ -38,7 +38,7 @@ _LIGHT = (
     r"|(?:the\s+)?bedrooms\s+lights?"
     r"|(?:the\s+)?livingroom\s+lights?"
 )
-_WIRED = r"(?:the\s+)?stairs\s+lights?"
+_WIRED = r"(?:the\s+)?exit\s+sign"
 _SIGN = r"(?:the\s+)?good\s+vibes\s+sign"
 _LAMP = r"(?:the\s+)?kitchen\s+mushroom\s+lamp"
 _PLUG = r"(?:the\s+)?bedroom\s+(?:mushroom\s+plug|window\s+plug)"
@@ -163,7 +163,7 @@ _TARGET_KEY: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^bedrooms\s+lights?$"), "bedroom_lights"),
     (re.compile(r"^livingroom\s+lights?$"), "living_room_lights"),
     (re.compile(rf"^(?:the\s+)?(?:all\s+the\s+)?{_AREA}\s+lights?$"), "area"),
-    (re.compile(r"^stairs\s+lights?$"), "stairs_light"),
+    (re.compile(r"^exit\s+sign$"), "stairs_light"),
     (re.compile(r"^good\s+vibes\s+sign$"), "good_vibes_sign"),
     (re.compile(r"^kitchen\s+mushroom\s+lamp$"), "kitchen_mushroom_lamp"),
     (re.compile(r"^bedroom\s+mushroom\s+plug$"), "bedroom_mushroom_plug"),
