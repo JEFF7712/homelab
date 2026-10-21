@@ -719,9 +719,11 @@ transitions per turn, and counts `call_service` bus events seen while the
 satellite is processing. Scraped via the `jarvis-exporter` ServiceMonitor
 into the kube-prometheus-stack Prometheus; visualized by the Jarvis Voice
 Grafana dashboard (`grafana-dashboard-jarvis` ConfigMap).
-The exporter reaches Home Assistant through a Cilium policy for the
-`kube-apiserver` entity, restricted to TCP port 8123: HA uses host networking,
-so ordinary NetworkPolicy IP blocks do not match its node identity.
+The exporter reaches Home Assistant through a Cilium policy for the `host`,
+`remote-node` and `kube-apiserver` entities, restricted to TCP port 8123: HA
+uses host networking and can schedule on any node except homelab-05, so
+ordinary NetworkPolicy IP blocks do not match its node identity and the
+`kube-apiserver` entity alone only covers the control-plane nodes.
 
 Metrics and their exact semantics:
 
