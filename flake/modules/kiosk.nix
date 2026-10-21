@@ -153,6 +153,10 @@ in
       gid = 1001;
     };
 
+    # PAM resets XCURSOR_PATH to the profile icon dirs, so the theme has to
+    # live in the system profile rather than be pointed at directly.
+    environment.systemPackages = [ invisibleCursorTheme ];
+
     fonts.packages = with pkgs; [
       dejavu_fonts
       freefont_ttf
@@ -167,7 +171,6 @@ in
       environment = {
         WLR_LIBINPUT_NO_DEVICES = "1";
         WLR_NO_HARDWARE_CURSORS = "1";
-        XCURSOR_PATH = "${invisibleCursorTheme}/share/icons";
         XCURSOR_THEME = "invisible";
         XDG_RUNTIME_DIR = "/run/user/1001";
       }
