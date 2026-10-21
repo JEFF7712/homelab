@@ -13,6 +13,7 @@ import re
 import shlex
 import stat
 import subprocess
+import tarfile
 import tempfile
 import unittest
 import urllib.error
@@ -31,6 +32,7 @@ from scripts.registry.core import (
     OciClient,
     RegistryError,
     SemVer,
+    SmokeUnverifiable,
     access_control_users,
     audit_cves,
     build_live_snapshot,
@@ -55,6 +57,7 @@ from scripts.registry.core import (
     rewrite_consumer_digests,
     rewrite_observed_digests,
     select_promotion_candidate,
+    smoke_test_image,
     validate_lock,
     verify_lock,
 )
@@ -2696,7 +2699,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             {"ghcr.io/jeff7712/rupan-dev:0.0.11": raw},
             {"ghcr.io/jeff7712/rupan-dev": ["0.0.10", "0.0.11"]},
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(len(summary["skipped"]), 1)
         self.assertEqual(client.copies, [])
@@ -2714,7 +2717,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             },
             {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(len(summary["promoted"]), 1)
         item = summary["promoted"][0]
         self.assertEqual(item["tag"], "0.0.12")
@@ -2776,6 +2779,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             inventory_path.write_text("{}")
             with (
                 patch("scripts.registry.cli._client", return_value=client),
+                patch("scripts.registry.core.smoke_test_image"),
                 redirect_stdout(io.StringIO()),
             ):
                 result = main(
@@ -2807,7 +2811,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
                 "registry.rupan.dev/apps/rupan-dev": ["0.0.11"],
             },
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(summary["migrated"], ["apps/rupan-dev"])
         record = lock["images"][0]
@@ -2829,7 +2833,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             {"registry.rupan.dev/apps/rupan-dev:0.0.3": new},
             {"registry.rupan.dev/apps/rupan-dev": ["0.0.3", "latest"]},
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(summary["migrated"], ["apps/rupan-dev"])
         self.assertEqual(len(summary["promoted"]), 1)
         self.assertEqual(summary["promoted"][0]["tag"], "0.0.3")
@@ -2853,7 +2857,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             },
             {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(len(summary["skipped"]), 1)
         self.assertIn("refusing to overwrite", summary["skipped"][0]["reason"])
@@ -2917,7 +2921,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             {"ghcr.io/jeff7712/rupan-dev:0.0.12": new},
             {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(len(summary["skipped"]), 1)
         self.assertIn("has not published", summary["skipped"][0]["reason"])
@@ -2936,7 +2940,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
             },
             {"ghcr.io/jeff7712/rupan-dev": ["latest", "0.0.99"]},
         )
-        summary = promote_first_party_lock(client, lock)
+        summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(len(summary["promoted"]), 1)
         self.assertEqual(summary["promoted"][0]["tag"], "latest")
         self.assertEqual(lock["images"][0]["digest"], new_digest)
@@ -3058,7 +3062,9 @@ class PromoteFirstPartyTests(unittest.TestCase):
         raw = manifest()
         lock = first_party_lock(raw)
         client = PromoteFakeClient({}, {"ghcr.io/jeff7712/rupan-dev": ["0.0.11"]})
-        summary = promote_first_party_lock(client, lock, only={"apps/other"})
+        summary = promote_first_party_lock(
+            client, lock, smoke_test=False, only={"apps/other"}
+        )
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(summary["skipped"], [])
         self.assertEqual(client.listed, [])
@@ -3067,7 +3073,9 @@ class PromoteFirstPartyTests(unittest.TestCase):
         raw = manifest()
         lock = first_party_lock(raw)
         client = PromoteFakeClient({}, {"ghcr.io/jeff7712/rupan-dev": ["0.0.12"]})
-        summary = promote_first_party_lock(client, lock, exclude={"apps/rupan-dev"})
+        summary = promote_first_party_lock(
+            client, lock, smoke_test=False, exclude={"apps/rupan-dev"}
+        )
         self.assertEqual(summary["promoted"], [])
         self.assertEqual(summary["skipped"], [])
         self.assertEqual(client.listed, [])
@@ -4110,3 +4118,242 @@ class ObservedSnapshotAgeTest(unittest.TestCase):
             self.assertEqual(observed_snapshot_age(root, captured + 7200), 7200)
             path.write_text(json.dumps({"observed_at": "not a time"}))
             self.assertIsNone(observed_snapshot_age(root, captured))
+
+
+REPOSITORY = "registry.rupan.dev/apps/demo"
+ELF = b"\x7fELF"
+
+
+def layer(files: list[tuple[str, int | str, bytes]]) -> bytes:
+    """A gzip tar layer; an int is a mode, a str is a symlink target."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        for name, spec, content in files:
+            entry = tarfile.TarInfo(name)
+            if isinstance(spec, str):
+                entry.type = tarfile.SYMTYPE
+                entry.linkname = spec
+            else:
+                entry.mode = spec
+                entry.size = len(content)
+            archive.addfile(entry, io.BytesIO(content) if content else None)
+    return buffer.getvalue()
+
+
+class ImageClient:
+    def __init__(
+        self,
+        layers: list[bytes],
+        *,
+        entrypoint: list[str] | None = None,
+        cmd: list[str] | None = None,
+        env: list[str] | None = None,
+        workdir: str = "/",
+        layer_type: str = "application/vnd.oci.image.layer.v1.tar+gzip",
+    ) -> None:
+        config = json.dumps(
+            {
+                "config": {
+                    "Entrypoint": entrypoint,
+                    "Cmd": cmd,
+                    "Env": env or [],
+                    "WorkingDir": workdir,
+                }
+            }
+        ).encode()
+        self.blobs = {digest(config): config}
+        descriptors = []
+        for raw in layers:
+            self.blobs[digest(raw)] = raw
+            descriptors.append(
+                {"mediaType": layer_type, "digest": digest(raw), "size": len(raw)}
+            )
+        self.manifest = json.dumps(
+            {
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                "config": {"digest": digest(config)},
+                "layers": descriptors,
+            }
+        ).encode()
+
+    def raw_manifest(self, reference: str, *, destination: bool = False) -> bytes:
+        del destination
+        return self.manifest
+
+    def blob(
+        self, repository: str, digest_value: str, *, destination: bool = False
+    ) -> bytes:
+        del repository, destination
+        return self.blobs[digest_value]
+
+
+class SmokeTestImageTests(unittest.TestCase):
+    def check(self, client: ImageClient) -> str:
+        return smoke_test_image(client, REPOSITORY, digest(client.manifest))
+
+    def test_executable_entrypoint_passes(self) -> None:
+        client = ImageClient(
+            [layer([("app/dotnet/dotnet", 0o755, ELF)])],
+            entrypoint=["/app/dotnet/dotnet", "/app/bin/x.dll"],
+        )
+        self.assertIn("executable", self.check(client))
+
+    def test_non_executable_entrypoint_is_rejected(self) -> None:
+        client = ImageClient(
+            [layer([("app/dotnet/dotnet", 0o644, ELF)])],
+            entrypoint=["/app/dotnet/dotnet"],
+        )
+        with self.assertRaisesRegex(RegistryError, "0644.*not executable"):
+            self.check(client)
+
+    def test_upper_layer_mode_overrides_lower_layer(self) -> None:
+        client = ImageClient(
+            [
+                layer([("app/run", 0o755, ELF)]),
+                layer([("app/run", 0o644, ELF)]),
+            ],
+            entrypoint=["/app/run"],
+        )
+        with self.assertRaisesRegex(RegistryError, "not executable"):
+            self.check(client)
+
+    def test_whiteout_removes_the_entrypoint(self) -> None:
+        client = ImageClient(
+            [
+                layer([("app/run", 0o755, ELF)]),
+                layer([("app/.wh.run", 0o644, b"")]),
+            ],
+            entrypoint=["/app/run"],
+        )
+        with self.assertRaisesRegex(RegistryError, "not found"):
+            self.check(client)
+
+    def test_symlinked_directory_and_binary_are_followed(self) -> None:
+        client = ImageClient(
+            [
+                layer(
+                    [
+                        ("usr/bin/real", 0o755, ELF),
+                        ("bin", "usr/bin", b""),
+                        ("usr/bin/tool", "real", b""),
+                    ]
+                )
+            ],
+            entrypoint=["/bin/tool"],
+        )
+        self.assertIn("/usr/bin/real", self.check(client))
+
+    def test_symlink_to_a_non_executable_file_is_rejected(self) -> None:
+        client = ImageClient(
+            [layer([("opt/real", 0o600, ELF), ("usr/bin/tool", "/opt/real", b"")])],
+            entrypoint=["/usr/bin/tool"],
+        )
+        with self.assertRaisesRegex(RegistryError, "/opt/real"):
+            self.check(client)
+
+    def test_bare_command_is_searched_on_path(self) -> None:
+        client = ImageClient(
+            [layer([("opt/bin/serve", 0o755, ELF)])],
+            cmd=["serve"],
+            env=["PATH=/missing:/opt/bin"],
+        )
+        self.assertIn("/opt/bin/serve", self.check(client))
+
+    def test_relative_command_uses_working_directory(self) -> None:
+        client = ImageClient(
+            [layer([("srv/run.sh", 0o755, b"#!/bin/sh")])],
+            entrypoint=["./run.sh"],
+            workdir="/srv",
+        )
+        self.assertIn("/srv/run.sh", self.check(client))
+
+    def test_image_without_command_is_unverifiable(self) -> None:
+        with self.assertRaises(SmokeUnverifiable):
+            self.check(ImageClient([layer([("a", 0o644, b"x")])]))
+
+    def test_unreadable_layer_media_type_is_unverifiable(self) -> None:
+        client = ImageClient(
+            [layer([("run", 0o755, ELF)])],
+            entrypoint=["/run"],
+            layer_type="application/vnd.oci.image.layer.v1.tar+zstd",
+        )
+        with self.assertRaises(SmokeUnverifiable):
+            self.check(client)
+
+    def test_index_selects_the_linux_amd64_manifest(self) -> None:
+        child = ImageClient([layer([("run", 0o644, ELF)])], entrypoint=["/run"])
+        index = json.dumps(
+            {
+                "mediaType": "application/vnd.oci.image.index.v1+json",
+                "manifests": [
+                    {
+                        "digest": digest(child.manifest),
+                        "platform": {"os": "linux", "architecture": "amd64"},
+                    }
+                ],
+            }
+        ).encode()
+
+        class Indexed(ImageClient):
+            def raw_manifest(
+                self, reference: str, *, destination: bool = False
+            ) -> bytes:
+                del destination
+                return (
+                    self.manifest
+                    if reference.endswith(digest(self.manifest))
+                    else index
+                )
+
+        child.__class__ = Indexed
+        with self.assertRaisesRegex(RegistryError, "not executable"):
+            smoke_test_image(child, REPOSITORY, digest(index))
+
+
+class PromoteSmokeTests(unittest.TestCase):
+    def promote(self, mode: int) -> tuple[dict[str, Any], dict[str, Any]]:
+        old = manifest()
+        new = manifest([("linux", "amd64"), ("linux", "arm64")])
+        lock = first_party_lock(old)
+        client = PromoteFakeClient(
+            {
+                "ghcr.io/jeff7712/rupan-dev:0.0.12": new,
+                "registry.rupan.dev/apps/rupan-dev:0.0.12": new,
+            },
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
+        )
+        image = ImageClient([layer([("run", mode, ELF)])], entrypoint=["/run"])
+        with patch.object(core, "smoke_test_image", wraps=None) as smoke:
+            smoke.side_effect = lambda c, repo, dig: smoke_test_image(image, repo, dig)
+            return promote_first_party_lock(client, lock), lock
+
+    def test_broken_candidate_is_skipped_and_lock_untouched(self) -> None:
+        summary, lock = self.promote(0o644)
+        self.assertEqual(summary["promoted"], [])
+        self.assertIn("smoke test failed", summary["skipped"][0]["reason"])
+        self.assertEqual(lock["images"][0]["source"]["tag"], "0.0.11")
+
+    def test_healthy_candidate_is_promoted(self) -> None:
+        summary, lock = self.promote(0o755)
+        self.assertEqual(len(summary["promoted"]), 1)
+        self.assertEqual(summary["unverified"], [])
+        self.assertEqual(lock["images"][0]["source"]["tag"], "0.0.12")
+
+    def test_unverifiable_candidate_is_promoted_and_reported(self) -> None:
+        old = manifest()
+        new = manifest([("linux", "amd64")])
+        lock = first_party_lock(old)
+        client = PromoteFakeClient(
+            {
+                "ghcr.io/jeff7712/rupan-dev:0.0.12": new,
+                "registry.rupan.dev/apps/rupan-dev:0.0.12": new,
+            },
+            {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
+        )
+        with patch.object(
+            core, "smoke_test_image", side_effect=SmokeUnverifiable("too large")
+        ):
+            summary = promote_first_party_lock(client, lock)
+        self.assertEqual(len(summary["promoted"]), 1)
+        self.assertEqual(summary["unverified"][0]["reason"], "too large")
