@@ -58,11 +58,11 @@ class ApprovalError(ValueError):
 
 
 def held(catalog: dict[str, Any], operation: str) -> bool:
-    """Whether CI accepts the operation only from a human operator."""
+    """Whether an operation can require operator approval for a risky change."""
     spec = catalog.get(operation)
     if spec is None:
         raise ApprovalError(f"Unknown operation {operation}")
-    return bool(spec.get("mutation")) and not spec.get("agent")
+    return bool(spec.get("mutation"))
 
 
 @dataclass(frozen=True)

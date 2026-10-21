@@ -9,7 +9,8 @@ leaving a sleep loop running.
 just ship                          # deliver with automatic routes
 just ship --no-merge               # stop once the PR is green
 just ship --deploy none            # merge and wait for Flux, run no operations
-just ship --deploy opnsense-apply  # also run a held infrastructure route
+just ship --deploy opnsense-apply  # explicitly select an operation
+just ship --resume <merge-sha>     # finish an already merged deployment
 just ship --json                   # machine-readable summary on stdout
 ```
 
@@ -25,10 +26,9 @@ just ship --json                   # machine-readable summary on stdout
    the tail of each failing Woodpecker step and exits nonzero.
 6. Merges. When Forgejo reports the head is behind main, it updates the PR
    branch and waits for validation again.
-7. When operations are planned, waits for the main push pipeline of the
-   merge commit to succeed. Deployment policy requires a successful parent
-   pipeline, and Woodpecker reports `validation-v2` as running until the
-   whole pipeline ends. If main advances to a commit that contains the
+7. When operations are planned, waits for the main push pipeline covering the
+   merge commit to finish with successful source validation. Unrelated failed
+   operations do not invalidate that validation. If main advances to a commit that contains the
    merge, it follows the newer tip, because the superseded pipeline is
    cancelled. A pipeline killed while the merge is still the tip (a restart
    of an older main pipeline cancels it) is restarted once; a second kill
@@ -47,28 +47,45 @@ The default overall timeout is 90 minutes (`--timeout`).
 
 ## Routes
 
-`config/ci/ship-routes.json` maps path prefixes to operations from
-`config/ci/operations.json`. Automatic routes run under the standing
-delivery authorization in `AGENTS.md`. The others are held: `ship` prints the
-exact `--deploy` value, and rerunning with it files the held operations on
-the approvals dashboard for the user's passkey approval. Add a route when a new service gains a protected publish operation;
-`tests/test_agent_ship.py` checks every route names a catalog operation.
+`config/ci/ship-routes.json` maps changed paths to catalog operations. All
+current routes are automatic, including fleet, CI-host, workspaces, OPNsense,
+Cloudflare and application releases. CI-host-only paths select that host instead
+of also deploying the entire fleet. `--deploy` selects an explicit operation
+list and includes prerequisites; `--deploy none` merges without operations.
 
-| Route | Paths | Operations | Automatic |
-|---|---|---|---|
-| led-matrix-image | `services/led-matrix/` | `matrix-publish`, then its promotion PR | yes |
-| bus-display-image | `services/bus-display/` | `bus-display-publish`, then its promotion PR | yes |
-| lidarr-extended-image | `services/lidarr-extended/` | `lidarr-extended-publish`, then its promotion PR | yes |
-| voice-asr-image | `services/voice-supply/` | `native-asr-publish` | no (not exercised since the Forgejo migration) |
-| home-assistant | `home-assistant/` | `deploy-home-assistant-dry-run`, `deploy-home-assistant` | yes |
-| opnsense | `tofu/opnsense/`, `opnsense_reconciler/` | `opnsense-plan`, `opnsense-apply` | no |
-| cloudflare | `tofu/cloudflare/` | `cloudflare-plan`, `cloudflare-apply` | no |
-| agent-workspace-host | workspace modules and manifest | dry run, then apply | no |
-| fleet | `flake/hosts/`, `flake/modules/`, flake inputs | `deploy-fleet-dry-run`, `deploy-fleet` | no |
-| ci-host | CI policy, catalogs, `woodpecker.nix`, `flake/hosts/homelab-04/`, projectctl worker, scopes, contracts and pilot profile | `deploy-ci-host-dry-run`, `deploy-ci-host` | no |
+The deployed policy checks agent mutations against the authorization and storage
+source baseline captured in its active NixOS generation. A caller cannot grant
+itself permission by editing the checked-out catalog. The check is scoped to what
+the operation activates: every operation is gated on the operation runner and risk
+module it executes from its own commit; host deployments (anything that runs
+`deploy-fleet`) are also gated on CI policy, the operation catalog, approvals,
+projectctl authorization and scopes, workspace and NetBird access, SSH/sudo/Nix
+trust settings, registry ACLs, state credentials, disk layouts and SOPS
+recipients, plus newly changed Nix lines that touch those settings;
+`opnsense-apply` is also gated on the agent ACL. Ordinary service code, release
+scripts, checks, hooks and application catalogs are not authority, so a pending
+policy change never blocks unrelated releases. The full lists and saved-plan rules
+live in `scripts/ci/deployment_risk.py`.
 
-GitOps-only changes need no operation: merging deploys them, and `ship`
-verifies the Flux result.
+OpenTofu applies inspect the exact saved plan after loading its prerequisite
+artifacts. Authorization-resource changes, persistent-data deletion/replacement,
+interface/gateway deletion and bulk destruction (50 or more resources) require
+approval. Ordinary DNS edits and small firewall/reservation cleanup do not.
+A risk rejection makes `ship` file an approval request automatically. Do not
+retry with an operator token or change catalog permissions to evade the decision.
+
+These checks govern supported delivery and assume trusted configuration authors.
+They are not a sandbox for hostile NixOS code with root authority, nor a complete
+semantic classifier for arbitrary commands or manifests. Keep direct mutations
+within the existing authorization contract and obtain human approval for
+high-risk changes even when a source classifier does not recognize them.
+
+`just ship --resume <merge-sha>` verifies that the commit is already in main,
+selects its routes and follows deployment without pushing or opening another PR.
+Pass `--deploy <ops>` to recover only selected operations. Source validation must
+pass, but unrelated failed main-pipeline operations do not block deployment.
+Required operation prerequisites and exact source/artifact checks still apply.
+Main advancing triggers revalidation and a retry within the overall deadline.
 
 The Woodpecker policy service on homelab-04 runs the policy and operation
 catalog from its deployed NixOS generation, not from main. A merged change
@@ -81,7 +98,7 @@ deploy locally with `just deploy-fleet --target homelab-04` instead.
 ## Credentials
 
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
-token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. CI accepts held
+token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. CI accepts high-risk
 operations only from a human operator, so for those `ship` uses
 `WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token` when
 present. Without one, which is every agent machine, it files the operation on

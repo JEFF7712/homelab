@@ -14,6 +14,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from scripts.ci.deployment_risk import require_plan_approval
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -205,6 +207,9 @@ def run(name: str, catalog: dict[str, Any]) -> None:
                 prerequisite,
                 outputs,
             )
+        require_plan_approval(
+            ROOT, name, environment.get("CI_OPERATION_OPERATOR") == "1", environment
+        )
         subprocess.run(
             [
                 "nix",

@@ -1,7 +1,9 @@
 # Approvals dashboard
 
-`https://approvals.rupan.dev` is the one place the operator approves held CI
-operations (fleet, `ci-host`, OPNsense, Cloudflare, agent-workspace host).
+`https://approvals.rupan.dev` handles exceptional high-risk CI operations.
+Routine fleet, CI-host, OPNsense, Cloudflare and workspace deployments are
+automatic. Authorization-system changes and destructive changes still require
+the operator.
 An agent running `just ship --deploy <ops>` without an operator token files a
 request, prints its link, and waits. ntfy pushes the same link. Approving
 asks for the operator's passkey; the dashboard then triggers the deployment
@@ -13,10 +15,11 @@ as the operator and `ship` follows the pipeline.
   `flake/modules/approvals.nix`, port 8020, state in
   `/persist/approvals/approvals.sqlite`.
 - **Filing:** `POST /api/requests` with the caller's own Woodpecker token as
-  the bearer. The service resolves the login through Woodpecker, refuses
-  operations that do not need an operator (`config/ci/operations.json`
-  `mutation` without `agent`), and requires the parent to be a successful
-  main pipeline. One pending request exists per operation and parent.
+  the bearer. The service resolves the login through Woodpecker, accepts
+  catalog mutations, including otherwise automatic operations rejected by the
+  deployed source-baseline or saved-plan risk checks. The parent must be a main
+  pipeline with successful source validation; unrelated operation failures do
+  not invalidate that validation. One pending request exists per operation and parent.
 - **Approving:** needs a WebAuthn assertion with user verification from an
   enrolled passkey, made on the public origin against a single-use challenge
   bound to that request. An agent driving the operator's browser can click

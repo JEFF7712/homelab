@@ -122,7 +122,7 @@ class HeldOperationTest(unittest.TestCase):
         self.assertTrue(held(CATALOG, "deploy-ci-host"))
         self.assertTrue(held(CATALOG, "deploy-fleet"))
         self.assertFalse(held(CATALOG, "deploy-ci-host-dry-run"))
-        self.assertFalse(held(CATALOG, "matrix-publish"))
+        self.assertTrue(held(CATALOG, "matrix-publish"))
         with self.assertRaisesRegex(ApprovalError, "Unknown operation"):
             held(CATALOG, "no-such-operation")
 
@@ -154,7 +154,7 @@ class ApprovalFlowTest(unittest.TestCase):
 
     def test_filing_refuses_unheld_operations_and_bad_parents(self) -> None:
         with self.assertRaisesRegex(ApprovalError, "no approval needed"):
-            self.h.file("matrix-publish")
+            self.h.file("deploy-ci-host-dry-run")
         self.h.woodpecker.parent.return_value = {
             "branch": "feat/x",
             "status": "success",

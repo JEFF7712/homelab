@@ -20,7 +20,7 @@ class CiContainerDnsTest(unittest.TestCase):
                     "nix",
                     "eval",
                     "--json",
-                    f"{ROOT / 'flake'}#{config}",
+                    f"path:{ROOT}?dir=flake#{config}",
                     "--apply",
                     "c: { docker = c.virtualisation.docker.daemon.settings.dns;"
                     ' options = c.virtualisation.docker.daemon.settings."dns-opts";'
@@ -51,7 +51,7 @@ class CiContainerDnsTest(unittest.TestCase):
                     "nix",
                     "eval",
                     "--json",
-                    f"{ROOT / 'flake'}#nixosConfigurations.adguard-netbird-01"
+                    f"path:{ROOT}?dir=flake#nixosConfigurations.adguard-netbird-01"
                     ".config.services.adguardhome.settings.dns",
                     "--apply",
                     "d: { inherit (d) ratelimit ratelimit_subnet_len_ipv4"

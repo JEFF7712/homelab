@@ -27,6 +27,8 @@ from typing import Any
 
 import yaml
 
+from scripts.ci.deployment_risk import APPROVAL_REQUIRED
+
 ROOT = Path(__file__).resolve().parents[2]
 OWNER_REPO = "JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
@@ -40,6 +42,7 @@ POLL_SECONDS = 5
 # Outage, log-storage, and mergeability retries keep their original window.
 RETRY_SECONDS = 15
 SUPERSEDED = "Operation source must be the current main commit"
+ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
 
 
@@ -100,9 +103,22 @@ def plan_operations(
         for operation in filter(None, (item.strip() for item in deploy.split(","))):
             add(operation)
         return plan
-    for route in routes:
-        if not any(path.startswith(route.paths) for path in changed):
-            continue
+    matched = [
+        route
+        for route in routes
+        if any(path.startswith(route.paths) for path in changed)
+    ]
+    fleet = next((route for route in matched if route.name == "fleet"), None)
+    ci_host = next((route for route in matched if route.name == "ci-host"), None)
+    if fleet is not None and ci_host is not None:
+        fleet_paths = [path for path in changed if path.startswith(fleet.paths)]
+        redundant = (
+            fleet
+            if all(path.startswith(ci_host.paths) for path in fleet_paths)
+            else ci_host
+        )
+        matched.remove(redundant)
+    for route in matched:
         if route.auto:
             for operation in route.operations:
                 add(operation)
@@ -483,6 +499,16 @@ class Shipper:
                 restarted, last = True, ""
                 continue
             if pipeline and state in {"failure", "error"}:
+                details = self.woodpecker.pipeline(pipeline["number"])
+                if state == "failure" and any(
+                    w.get("name") in {"validation-v2", "validation-v2.yaml"}
+                    and w.get("state", w.get("status")) == "success"
+                    for w in details.get("workflows", [])
+                ):
+                    self.say(
+                        "source validation passed; unrelated main operations do not block deployment"
+                    )
+                    return sha, int(pipeline["number"])
                 raise ShipError(
                     f"Main pipeline #{pipeline['number']} failed; deployment operations "
                     "need a successful parent\n"
@@ -505,8 +531,8 @@ class Shipper:
         """
         main_sha, parent = self.main_pipeline(merged)
         index = 0
-        retries = 0
         while index < len(operations):
+            self.remaining()
             operation = operations[index]
             if operation in self.completed_operations(parent):
                 self.say(f"{operation}: already succeeded in main pipeline #{parent}")
@@ -519,9 +545,19 @@ class Shipper:
             try:
                 result = self.run_operation(parent, operation)
             except ShipError as error:
-                if SUPERSEDED not in str(error) or retries >= 3:
+                if ALREADY_COMPLETED in str(error):
+                    # Another agent ran it against the same validation first.
+                    self.say(
+                        f"{operation}: already completed for main pipeline #{parent}"
+                    )
+                    self.summary.update(main=main_sha, validation_pipeline=parent)
+                    self.summary["operations"].append(
+                        {"operation": operation, "pipeline": parent}
+                    )
+                    index += 1
+                    continue
+                if SUPERSEDED not in str(error):
                     raise
-                retries += 1
                 prerequisite = catalog[operation].get("prerequisite")
                 if prerequisite in operations[:index]:
                     index = operations.index(prerequisite)
@@ -538,17 +574,28 @@ class Shipper:
             index += 1
 
     def completed_operations(self, parent: int) -> set[str]:
-        """Operations the main pipeline already ran as its own workflows.
+        """Operations already run for the main pipeline's validation.
 
         Push pipelines run plan operations for routed paths themselves, and
-        CI refuses a second run for the same validation, so these count as
-        done for any later operation that needs their receipt.
+        other agents deploy against the same parent, and CI refuses a second
+        run for the same validation, so these count as done for any later
+        operation that needs their receipt.
         """
-        return {
+        pipeline = self.woodpecker.pipeline(parent)
+        done = {
             workflow["name"]
-            for workflow in self.woodpecker.pipeline(parent).get("workflows") or []
+            for workflow in pipeline.get("workflows") or []
             if workflow.get("state") == "success"
         }
+        for item in self.woodpecker.pipelines_for(pipeline.get("commit", "")):
+            if (
+                item.get("event") == "deployment"
+                and item.get("parent") == parent
+                and item.get("status") == "success"
+                and item.get("deploy_to")
+            ):
+                done.add(item["deploy_to"])
+        return done
 
     def operator_token(self) -> str | None:
         token = os.environ.get("WOODPECKER_OPERATOR_TOKEN")
@@ -602,7 +649,8 @@ class Shipper:
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
         spec = catalog.get(operation, {})
-        if spec.get("mutation") and not spec.get("agent"):
+        operator = bool(spec.get("mutation") and not spec.get("agent"))
+        if operator:
             token = self.operator_token()
             number = (
                 int(Woodpecker(token).deploy(parent, operation)["number"])
@@ -610,7 +658,14 @@ class Shipper:
                 else self.approved(parent, operation)
             )
         else:
-            number = int(self.woodpecker.deploy(parent, operation)["number"])
+            try:
+                number = int(self.woodpecker.deploy(parent, operation)["number"])
+            except ShipError as error:
+                if APPROVAL_REQUIRED not in str(error):
+                    raise
+                self.say(f"{operation}: {error}")
+                operator = True
+                number = self.approved(parent, operation)
         self.say(
             f"{operation}: pipeline #{number} {WOODPECKER}/repos/{WOODPECKER_REPO}/pipeline/{number}"
         )
@@ -638,10 +693,14 @@ class Shipper:
                     time.sleep(RETRY_SECONDS)
                 return {"operation": operation, "pipeline": number, "log": logs}
             if state in {"failure", "error", "killed", "declined"}:
-                raise ShipError(
-                    f"{operation} failed in pipeline #{number}\n"
-                    + self.woodpecker.failure_report(pipeline)
-                )
+                report = self.woodpecker.failure_report(pipeline)
+                if not operator and APPROVAL_REQUIRED in report:
+                    self.say(f"{operation}: saved plan requires human approval")
+                    operator = True
+                    number = self.approved(parent, operation)
+                    last = ""
+                    continue
+                raise ShipError(f"{operation} failed in pipeline #{number}\n" + report)
             time.sleep(POLL_SECONDS)
 
     # Rollout side ----------------------------------------------------------
@@ -730,6 +789,30 @@ class Shipper:
 
     # Orchestration ---------------------------------------------------------
 
+    def resume(self, cwd: Path, revision: str) -> dict[str, Any]:
+        if self.git("status", "--porcelain", "--untracked-files=no", cwd=cwd):
+            raise ShipError("Commit or discard tracked changes before resuming")
+        self.git("fetch", "--quiet", "origin", "main", cwd=cwd)
+        merged = self.git("rev-parse", "--verify", f"{revision}^{{commit}}", cwd=cwd)
+        if not self.contains(merged, self.git("rev-parse", "origin/main", cwd=cwd)):
+            raise ShipError("Resume requires a commit already merged into main")
+        changed = self.git(
+            "diff", "--name-only", f"{merged}^", merged, cwd=cwd
+        ).splitlines()
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        plan = plan_operations(changed, load_routes(), self.args.deploy, catalog)
+        self.summary.update(
+            merged=merged, changed=changed, planned=plan.run, held=plan.held
+        )
+        if plan.run:
+            self.run_plan(plan.run, merged, catalog)
+        gitops = [p for p in changed if p.startswith("gitops/")]
+        if gitops or any(p.startswith("registry/") for p in changed):
+            self.wait_flux(merged, gitops)
+        self.summary["state"] = "deployed"
+        self.say("done")
+        return self.summary
+
     def ship(self, cwd: Path) -> dict[str, Any]:
         branch, head = self.preflight(cwd)
         changed = self.git(
@@ -772,9 +855,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--title", help="PR title (default: oldest commit subject)")
     parser.add_argument("--body", help="PR body (default: commit list)")
     parser.add_argument(
+        "--resume",
+        metavar="MERGED_COMMIT",
+        help="resume deployment of an already merged commit without creating a PR",
+    )
+    parser.add_argument(
         "--deploy",
         default="auto",
-        help="auto (default: run auto routes, hold infrastructure routes), none, or a comma-separated operation list",
+        help="auto (default: run routed operations; risk exceptions request approval), none, or a comma-separated operation list",
     )
     parser.add_argument(
         "--no-checks", action="store_true", help="skip local just check-changed"
@@ -790,7 +878,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     shipper = Shipper(args)
     try:
-        summary = shipper.ship(Path.cwd())
+        summary = (
+            shipper.resume(Path.cwd(), args.resume)
+            if args.resume
+            else shipper.ship(Path.cwd())
+        )
     except ShipError as error:
         print(f"[ship] FAILED: {error}", file=sys.stderr)
         if args.json:
