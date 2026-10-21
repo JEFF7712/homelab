@@ -227,11 +227,8 @@ class NixContractTests(unittest.TestCase):
     def test_module_runs_as_own_user_with_staged_broker_credential(self) -> None:
         nix = NIX.read_text()
         self.assertIn("users.users.ledfx-roku-bridge", nix)
-        self.assertIn("systemd.services.ledfx-roku-bridge-secrets", nix)
-        self.assertIn(
-            "/persist/secrets/mosquitto-roku-bridge-password",
-            nix,
-        )
+        self.assertIn('sops.templates."ledfx-roku-bridge-mqtt.env"', nix)
+        self.assertIn('config.sops.placeholder."mosquitto-roku-bridge-password"', nix)
         self.assertIn('User = "ledfx-roku-bridge"', nix)
         self.assertIn("builtins.readFile ./ledfx-roku-bridge.py", nix)
         self.assertIn("--osc-port 9000 --osc-path /bedroom", nix)

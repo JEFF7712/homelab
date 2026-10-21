@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 let
   # Cloud MQTT bridge for Roku bulbs whose firmware closed the LAN port-88
   # server (LS1016X strip on 1.2.1.13). Speaks the same topics/discovery as
@@ -17,24 +17,6 @@ let
     destination = "/bin/roku-cloud-bridge";
     text = builtins.readFile ./roku-cloud-bridge.py;
   };
-  cloudBridgeStage = pkgs.writeShellScriptBin "roku-cloud-bridge-stage" ''
-    ${pkgs.coreutils}/bin/install -d -m 0700 -o roku-cloud-bridge -g roku-cloud-bridge /var/lib/roku-cloud-bridge
-    ${pkgs.coreutils}/bin/install -m 0600 -o roku-cloud-bridge -g roku-cloud-bridge \
-      /persist/secrets/roku-cloud-bulbs.yaml /var/lib/roku-cloud-bridge/bulbs.yaml
-    if ! ${pkgs.coreutils}/bin/test -s /var/lib/roku-cloud-bridge/cookies.json; then
-      ${pkgs.coreutils}/bin/install -m 0600 -o roku-cloud-bridge -g roku-cloud-bridge \
-        /persist/secrets/roku-cloud-cookies.json /var/lib/roku-cloud-bridge/cookies.json
-    fi
-    {
-      echo "MQTT_HOST=10.0.30.10"
-      echo "MQTT_PORT=1883"
-      echo "MQTT_USER=roku-bridge"
-      ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
-      ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-roku-bridge-password
-    } > /var/lib/roku-cloud-bridge/mqtt.env
-    ${pkgs.coreutils}/bin/chown roku-cloud-bridge:roku-cloud-bridge /var/lib/roku-cloud-bridge/mqtt.env
-    ${pkgs.coreutils}/bin/chmod 0600 /var/lib/roku-cloud-bridge/mqtt.env
-  '';
 in
 {
   users.users.roku-cloud-bridge = {
@@ -44,25 +26,29 @@ in
   };
   users.groups.roku-cloud-bridge = { };
 
-  systemd.services.roku-cloud-bridge-secrets = {
-    before = [ "roku-cloud-bridge.service" ];
-    requiredBy = [ "roku-cloud-bridge.service" ];
-    unitConfig.ConditionPathExists = [
-      "/persist/secrets/roku-cloud-bulbs.yaml"
-      "/persist/secrets/roku-cloud-cookies.json"
-      "/persist/secrets/mosquitto-roku-bridge-password"
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      ${cloudBridgeStage}/bin/roku-cloud-bridge-stage
-    '';
+  sops.secrets.roku-cloud-bulbs = {
+    owner = "roku-cloud-bridge";
+    restartUnits = [ "roku-cloud-bridge.service" ];
   };
 
-  # See roku-bridge.nix: the bulb list arrives out of band, so the deploy job
-  # restarts these daemons after writing new secrets.
+  # Only a seed: the daemon renews its session into its own state file and
+  # reads the seed only when that state is missing or invalid.
+  sops.secrets.roku-cloud-cookies.owner = "roku-cloud-bridge";
+
+  sops.templates."roku-cloud-bridge-mqtt.env" = {
+    content = ''
+      MQTT_HOST=10.0.30.10
+      MQTT_PORT=1883
+      MQTT_USER=roku-bridge
+      MQTT_PASS=${config.sops.placeholder."mosquitto-roku-bridge-password"}
+    '';
+    restartUnits = [ "roku-cloud-bridge.service" ];
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /var/lib/roku-cloud-bridge 0700 roku-cloud-bridge roku-cloud-bridge -"
+  ];
+
   systemd.services.roku-cloud-bridge = {
     after = [
       "network-online.target"
@@ -72,9 +58,8 @@ in
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       User = "roku-cloud-bridge";
-      EnvironmentFile = "/var/lib/roku-cloud-bridge/mqtt.env";
-      ExecStartPre = "+${cloudBridgeStage}/bin/roku-cloud-bridge-stage";
-      ExecStart = "${cloudBridgePython}/bin/python3 -u ${cloudBridgeDaemon}/bin/roku-cloud-bridge --config /var/lib/roku-cloud-bridge/bulbs.yaml --cookies /var/lib/roku-cloud-bridge/cookies.json --cookie-seed /persist/secrets/roku-cloud-cookies.json";
+      EnvironmentFile = config.sops.templates."roku-cloud-bridge-mqtt.env".path;
+      ExecStart = "${cloudBridgePython}/bin/python3 -u ${cloudBridgeDaemon}/bin/roku-cloud-bridge --config ${config.sops.secrets.roku-cloud-bulbs.path} --cookies /var/lib/roku-cloud-bridge/cookies.json --cookie-seed ${config.sops.secrets.roku-cloud-cookies.path}";
       Restart = "always";
       RestartSec = "5s";
       NoNewPrivileges = true;

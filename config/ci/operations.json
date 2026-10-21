@@ -605,19 +605,7 @@
       "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
-      "stage=\"$(mktemp -d)\"",
-      "python -m scripts.zigbee_gateway > \"$stage/zigbee2mqtt-secret.yaml\"",
-      "printf '%s' \"$HOME_ASSISTANT_MQTT_PASSWORD\" > \"$stage/mosquitto-home-assistant-password\"",
-      "printf '%s' \"$ZIGBEE2MQTT_MQTT_PASSWORD\" > \"$stage/mosquitto-zigbee2mqtt-password\"",
-      "python -m scripts.roku_bridge > \"$stage/roku-bridge-bulbs.yaml\"",
-      "printf '%s' \"$ROKU_BRIDGE_MQTT_PASSWORD\" > \"$stage/mosquitto-roku-bridge-password\"",
-      "python -m scripts.roku_cloud_bridge > \"$stage/roku-cloud-bulbs.yaml\"",
-      "ROKU_CLOUD_RENDER_MODE=cookies python -m scripts.roku_cloud_bridge > \"$stage/roku-cloud-cookies.json\"",
-      "for name in zigbee2mqtt-secret.yaml mosquitto-home-assistant-password mosquitto-zigbee2mqtt-password roku-bridge-bulbs.yaml mosquitto-roku-bridge-password roku-cloud-bulbs.yaml roku-cloud-cookies.json; do test -s \"$stage/$name\"; done",
-      "for name in zigbee2mqtt-secret.yaml mosquitto-home-assistant-password mosquitto-zigbee2mqtt-password roku-bridge-bulbs.yaml mosquitto-roku-bridge-password roku-cloud-bulbs.yaml roku-cloud-cookies.json; do ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 \"sudo install -m 0600 -o root -g root /dev/stdin /persist/secrets/$name\" < \"$stage/$name\"; done",
-      "rm -rf \"$stage\"",
       "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
-      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo systemctl restart roku-bridge-secrets roku-cloud-bridge-secrets roku-bridge roku-cloud-bridge'",
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge ledfx-zigbee-bridge'"
     ],
     "environment": {
@@ -626,15 +614,6 @@
       },
       "SSH_DEPLOY_KEY": {
         "from_secret": "ssh_deploy_key"
-      },
-      "HOME_ASSISTANT_MQTT_PASSWORD": {
-        "from_secret": "home_assistant_mqtt_password"
-      },
-      "ROKU_BRIDGE_MQTT_PASSWORD": {
-        "from_secret": "roku_bridge_mqtt_password"
-      },
-      "ZIGBEE2MQTT_MQTT_PASSWORD": {
-        "from_secret": "zigbee2mqtt_mqtt_password"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -645,18 +624,6 @@
       },
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
-      },
-      "ZIGBEE2MQTT_NETWORK_KEY": {
-        "from_secret": "zigbee2mqtt_network_key"
-      },
-      "ROKU_BRIDGE_BULBS_JSON": {
-        "from_secret": "roku_bridge_bulbs_json"
-      },
-      "ROKU_CLOUD_BULBS_JSON": {
-        "from_secret": "roku_cloud_bulbs_json"
-      },
-      "ROKU_CLOUD_COOKIES_JSON": {
-        "from_secret": "roku_cloud_cookies_json"
       }
     },
     "file_secrets": [

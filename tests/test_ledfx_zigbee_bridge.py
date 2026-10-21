@@ -132,8 +132,8 @@ class NixContractTests(unittest.TestCase):
     def test_module_runs_as_own_user_with_staged_broker_credential(self) -> None:
         nix = NIX.read_text()
         self.assertIn("users.users.ledfx-zigbee-bridge", nix)
-        self.assertIn("systemd.services.ledfx-zigbee-bridge-secrets", nix)
-        self.assertIn("/persist/secrets/mosquitto-zigbee2mqtt-password", nix)
+        self.assertIn('sops.templates."ledfx-zigbee-bridge-mqtt.env"', nix)
+        self.assertIn('config.sops.placeholder."mosquitto-zigbee2mqtt-password"', nix)
         self.assertIn('User = "ledfx-zigbee-bridge"', nix)
         self.assertIn("builtins.readFile ./ledfx-zigbee-bridge.py", nix)
         self.assertIn("--osc-port 9001 --osc-path /shared", nix)

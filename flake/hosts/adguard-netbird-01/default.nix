@@ -9,4 +9,6 @@
   networking.hostName = "adguard-netbird-01";
 
   homelab.base.tmpfsSize = "2G";
+
+  sops.defaultSopsFile = ../../../secrets/hosts/adguard-netbird-01.sops.yaml;
 }

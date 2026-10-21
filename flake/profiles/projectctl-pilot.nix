@@ -11,8 +11,6 @@ in
 {
   imports = [ ../modules/projectctl.nix ];
   sops = {
-    age.sshKeyPaths = [ "/persist/etc/ssh/ssh_host_ed25519_key" ];
-    gnupg.sshKeyPaths = [ ];
     secrets = lib.genAttrs credentials (name: {
       sopsFile = ../../secrets/projectctl.sops.json;
       format = "json";
