@@ -3933,10 +3933,10 @@
       ],
       "destination_repository": "upstream/docker.io/cloudflare/cloudflared",
       "destination_tags": [
-        "retention-deployed-ff69a2225ad7c6f8"
+        "retention-deployed-0e56c13c7058fcef"
       ],
-      "digest": "sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9",
-      "id": "upstream-upstream-docker-io-cloudflare-cloudflared-57ed599514a1",
+      "digest": "sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2",
+      "id": "upstream-upstream-docker-io-cloudflare-cloudflared-e1808ef0d192",
       "kind": "upstream",
       "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
       "platforms": [
@@ -3953,8 +3953,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9",
-        "reference": "docker.io/cloudflare/cloudflared@sha256:ff69a2225ad7c6f85ed84fbd5f3087df46202426b2388ec60214098e0adf05e9",
+        "digest": "sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2",
+        "reference": "docker.io/cloudflare/cloudflared@sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2",
         "registry": "docker.io",
         "repository": "cloudflare/cloudflared",
         "tag": null
