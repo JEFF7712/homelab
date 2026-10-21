@@ -108,6 +108,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: sovereign-inquiry-data
   namespace: sovereign
 spec:

@@ -4,6 +4,7 @@ metadata:
   name: ntfy-ntfy-data
   namespace: observability
   annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
     helm.sh/resource-policy: keep
 spec:
   volumeName: pvc-700e8502-6736-427d-8c84-3b53c766fbe5

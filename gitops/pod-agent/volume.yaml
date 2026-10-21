@@ -1,6 +1,8 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: pod-agent-data-nvme
   labels:
     app.kubernetes.io/name: pod-agent
@@ -26,6 +28,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: pod-agent-data
   namespace: pod-agent
   labels:

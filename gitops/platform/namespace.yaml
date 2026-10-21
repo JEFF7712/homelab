@@ -9,6 +9,8 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
   name: observability
   labels:
     app.kubernetes.io/managed-by: flux
