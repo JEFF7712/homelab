@@ -368,6 +368,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "promoted": summary["promoted"],
                     "skipped": summary["skipped"],
                     "migrated": summary["migrated"],
+                    "unverified": summary["unverified"],
                     "observed_drift": report["drift"] if summary["promoted"] else [],
                 }
             )

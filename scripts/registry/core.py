@@ -6,12 +6,14 @@ import dataclasses
 import datetime as dt
 import fnmatch
 import hashlib
+import io
 import json
 import os
 import pathlib
 import re
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import time
 import urllib.error
@@ -1373,6 +1375,24 @@ class OciClient:
             f"{operation} failed with HTTP {status} for {registry}/{path}"
         )
 
+    def blob(
+        self, repository: str, digest_value: str, *, destination: bool = False
+    ) -> bytes:
+        if not _DIGEST_RE.fullmatch(digest_value):
+            raise RegistryError(f"invalid blob digest {digest_value!r}")
+        registry, path = _manifest_url(f"{repository}@{digest_value}")
+        _, _, raw = self._get(
+            registry,
+            path.replace("/manifests/", "/blobs/", 1),
+            destination=destination,
+            accept="application/octet-stream",
+            timeout=max(self.timeout, 300),
+            operation="blob read",
+        )
+        if "sha256:" + hashlib.sha256(raw).hexdigest() != digest_value:
+            raise RegistryError(f"blob {digest_value} failed digest verification")
+        return raw
+
     def list_tags(self, repository: str, *, destination: bool = False) -> list[str]:
         """Every tag in a repository, following the registry's pagination.
 
@@ -1664,6 +1684,208 @@ def select_promotion_candidate(
     return best
 
 
+_SMOKE_LAYER_TYPES = frozenset(
+    {
+        "application/vnd.oci.image.layer.v1.tar",
+        "application/vnd.oci.image.layer.v1.tar+gzip",
+        "application/vnd.docker.image.rootfs.diff.tar.gzip",
+    }
+)
+_SMOKE_MAX_IMAGE_BYTES = 2 * 1024**3
+_SMOKE_DEFAULT_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+_SMOKE_MAX_LINKS = 40
+
+
+class SmokeUnverifiable(RegistryError):
+    """The image cannot be inspected here, which says nothing about its health."""
+
+
+class _LayerView:
+    """Lazily indexed layer stack answering what a path resolves to at runtime."""
+
+    def __init__(
+        self,
+        client: Any,
+        repository: str,
+        layers: Sequence[Mapping[str, Any]],
+    ) -> None:
+        self._client = client
+        self._repository = repository
+        self._layers = list(reversed(layers))
+        self._indexes: dict[
+            int, tuple[dict[str, tarfile.TarInfo], set[str], set[str]]
+        ] = {}
+
+    def _index(
+        self, position: int
+    ) -> tuple[dict[str, tarfile.TarInfo], set[str], set[str]]:
+        cached = self._indexes.get(position)
+        if cached is not None:
+            return cached
+        layer = self._layers[position]
+        raw = self._client.blob(
+            self._repository, str(layer["digest"]), destination=True
+        )
+        entries: dict[str, tarfile.TarInfo] = {}
+        whiteouts: set[str] = set()
+        opaque: set[str] = set()
+        try:
+            with tarfile.open(fileobj=io.BytesIO(raw), mode="r:*") as archive:
+                for member in archive:
+                    name = "/" + member.name.lstrip("./").rstrip("/")
+                    directory, _, base = name.rpartition("/")
+                    if base == ".wh..wh..opq":
+                        opaque.add(directory or "/")
+                    elif base.startswith(".wh."):
+                        whiteouts.add(f"{directory}/{base[4:]}")
+                    else:
+                        entries[name] = member
+        except (tarfile.TarError, EOFError, OSError) as error:
+            raise RegistryError(
+                f"layer {layer['digest']} is not a readable tar archive: {error}"
+            ) from error
+        self._indexes[position] = (entries, whiteouts, opaque)
+        return self._indexes[position]
+
+    def lookup(self, path: str) -> tarfile.TarInfo | None:
+        parents = [
+            "/".join(path.split("/")[:depth]) or "/"
+            for depth in range(1, len(path.split("/")))
+        ]
+        for position in range(len(self._layers)):
+            entries, whiteouts, opaque = self._index(position)
+            if path in entries:
+                return entries[path]
+            if path in whiteouts or any(
+                parent in whiteouts or parent in opaque for parent in parents
+            ):
+                return None
+        return None
+
+    def resolve(self, path: str) -> tuple[str, tarfile.TarInfo | None]:
+        pending = [part for part in path.split("/") if part]
+        resolved: list[str] = []
+        links = 0
+        while pending:
+            part = pending.pop(0)
+            if part == ".":
+                continue
+            if part == "..":
+                if resolved:
+                    resolved.pop()
+                continue
+            current = "/" + "/".join([*resolved, part])
+            member = self.lookup(current)
+            if member is None:
+                if pending:
+                    resolved.append(part)
+                    continue
+                return current, None
+            if member.issym() or (member.islnk() and pending):
+                links += 1
+                if links > _SMOKE_MAX_LINKS:
+                    raise RegistryError(f"too many symlinks resolving {path}")
+                target = member.linkname
+                if member.islnk() or target.startswith("/"):
+                    resolved = []
+                pending = [p for p in target.split("/") if p] + pending
+                continue
+            resolved.append(part)
+            if not pending:
+                return current, member
+        return "/" + "/".join(resolved), self.lookup("/" + "/".join(resolved))
+
+
+def _smoke_manifest(client: Any, repository: str, reference: str) -> dict[str, Any]:
+    raw = client.raw_manifest(f"{repository}@{reference}", destination=True)
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise RegistryError(
+            f"{repository}@{reference} has invalid manifest JSON"
+        ) from error
+    if not isinstance(value, dict):
+        raise RegistryError(f"{repository}@{reference} manifest is not an object")
+    return value
+
+
+def smoke_test_image(client: Any, repository: str, digest_value: str) -> str:
+    """Prove the image's entrypoint binary exists and is executable.
+
+    Reads the manifest, config and layers from the registry and walks the
+    layer stack the way a container runtime would, following symlinks and
+    whiteouts. This catches the failure that shipped a bookshelf release with a
+    mode 0644 /app/dotnet/dotnet, which only surfaced as `permission denied`
+    after the pod rolled out. Returns a short description of what was checked.
+    Raises SmokeUnverifiable when the image cannot be inspected this way, and
+    RegistryError when it is provably broken.
+    """
+    manifest = _smoke_manifest(client, repository, digest_value)
+    if manifest.get("mediaType") in _INDEX_MEDIA_TYPES:
+        children = [
+            item
+            for item in manifest.get("manifests", [])
+            if isinstance(item, dict)
+            and (item.get("platform") or {}).get("os") == "linux"
+            and (item.get("platform") or {}).get("architecture") == "amd64"
+        ]
+        if not children:
+            raise SmokeUnverifiable("no linux/amd64 manifest to inspect")
+        manifest = _smoke_manifest(client, repository, str(children[0]["digest"]))
+    config_descriptor = manifest.get("config")
+    layers = manifest.get("layers")
+    if not isinstance(config_descriptor, dict) or not isinstance(layers, list):
+        raise SmokeUnverifiable("manifest has no config and layers")
+    try:
+        config = json.loads(
+            client.blob(repository, str(config_descriptor["digest"]), destination=True)
+        )["config"]
+    except (KeyError, TypeError, json.JSONDecodeError) as error:
+        raise RegistryError(
+            f"{repository}@{digest_value} has an unreadable config"
+        ) from error
+    argv = list(config.get("Entrypoint") or []) or list(config.get("Cmd") or [])
+    if not argv or not isinstance(argv[0], str):
+        raise SmokeUnverifiable("image declares no entrypoint or command")
+    if any(layer.get("mediaType") not in _SMOKE_LAYER_TYPES for layer in layers):
+        raise SmokeUnverifiable("image has layers this check cannot read")
+    if sum(int(layer.get("size", 0)) for layer in layers) > _SMOKE_MAX_IMAGE_BYTES:
+        raise SmokeUnverifiable("image is too large to inspect")
+
+    program = argv[0]
+    workdir = config.get("WorkingDir") or "/"
+    if "/" not in program:
+        env = dict(
+            item.split("=", 1) for item in config.get("Env") or [] if "=" in item
+        )
+        candidates = [
+            f"{directory}/{program}"
+            for directory in env.get("PATH", _SMOKE_DEFAULT_PATH).split(":")
+            if directory
+        ]
+    elif program.startswith("/"):
+        candidates = [program]
+    else:
+        candidates = [f"{workdir.rstrip('/')}/{program}"]
+
+    view = _LayerView(client, repository, layers)
+    found: list[str] = []
+    for candidate in candidates:
+        resolved, member = view.resolve(candidate)
+        if member is None or member.isdir():
+            continue
+        if not member.mode & 0o111:
+            raise RegistryError(
+                f"entrypoint {candidate} resolves to {resolved} with mode "
+                f"{member.mode & 0o7777:04o}, which is not executable"
+            )
+        found.append(resolved)
+        break
+    if not found:
+        raise RegistryError(f"entrypoint {program} was not found in the image")
+    return f"entrypoint {found[0]} is executable"
+
+
 def _migrate_record_source_to_local(
     client: OciClient, record: dict[str, Any], destination_registry: str
 ) -> bool:
@@ -1702,6 +1924,7 @@ def promote_first_party_lock(
     *,
     only: set[str] | None = None,
     exclude: set[str] | None = None,
+    smoke_test: bool = True,
 ) -> dict[str, Any]:
     """Promote first-party lock records to newest producer tags.
 
@@ -1709,6 +1932,11 @@ def promote_first_party_lock(
     published the candidate tag to the destination registry (only
     publisher-<project> holds a write grant there). Candidates the producer
     has not published are reported as skipped, never mirrored.
+
+    A candidate whose entrypoint is missing or not executable is skipped
+    rather than promoted, because the scheduled job otherwise applies whatever
+    tag is newest and Flux rolls it out unseen. Images the check cannot read are
+    promoted and listed under `unverified`.
 
     Records still pointing at an external producer registry migrate to the
     local registry once the pinned digest is verified there, so GHCR remains
@@ -1720,6 +1948,7 @@ def promote_first_party_lock(
     promoted: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
     migrated: list[str] = []
+    unverified: list[dict[str, str]] = []
     records: list[dict[str, Any]] = []
     for record in lock["images"]:
         if (
@@ -1803,6 +2032,34 @@ def promote_first_party_lock(
             )
             records.append(record)
             continue
+        if smoke_test:
+            try:
+                smoke_test_image(
+                    client,
+                    f"{destination_registry}/{destination_repository_name}",
+                    new_digest,
+                )
+            except SmokeUnverifiable as error:
+                unverified.append(
+                    {
+                        "destination_repository": destination_repository_name,
+                        "reason": str(error),
+                    }
+                )
+            except TransientRegistryError:
+                raise
+            except RegistryError as error:
+                skipped.append(
+                    {
+                        "destination_repository": destination_repository_name,
+                        "reason": (
+                            f"smoke test failed for {destination_tagged}"
+                            f"@{new_digest}: {error}"
+                        ),
+                    }
+                )
+                records.append(record)
+                continue
         retention_class = str(record.get("retention_class", "deployed"))
         updated = dict(record)
         updated["source"] = {
@@ -1839,7 +2096,12 @@ def promote_first_party_lock(
     errors = validate_lock(lock)
     if errors:
         raise RegistryError("promoted lock is invalid: " + "; ".join(errors))
-    return {"promoted": promoted, "skipped": skipped, "migrated": migrated}
+    return {
+        "promoted": promoted,
+        "skipped": skipped,
+        "migrated": migrated,
+        "unverified": unverified,
+    }
 
 
 OBSERVED_MAX_AGE_SECONDS = 24 * 3600

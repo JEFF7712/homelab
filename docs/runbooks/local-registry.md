@@ -401,6 +401,17 @@ verification-only: it never mirrors content, because only `publisher-<project>`
 holds a write grant on its destination repository. Candidates the producer has
 not published are reported as skipped.
 
+Before a candidate is promoted, `smoke_test_image` reads its manifest, config
+and layers from the registry and walks the layer stack (symlinks and
+whiteouts included) to confirm the entrypoint or command resolves to a file
+with an execute bit. A candidate that fails is skipped with a `smoke test
+failed` reason and the lock keeps the previous digest. This is the check that
+would have stopped the bookshelf release whose `/app/dotnet/dotnet` was mode
+0644, which otherwise rolled out as `permission denied` crash loops. Images the
+check cannot read (zstd layers, no declared command, over 2 GiB) are promoted
+and listed under `unverified` in the promote report. It proves the entrypoint
+is executable, not that the application starts.
+
 The local registry is the source of truth for first-party images. Lock records
 point at `registry.rupan.dev/apps/<project>` and GHCR stays a backup push from
 the producer pipelines, not a promotion dependency. Promotion migrates
