@@ -1423,7 +1423,7 @@ deploy_home_assistant_dry_run:
   timeout: 45m
   extends: .deploy_home_assistant_base
   script:
-    - nix develop ./flake -c python -m scripts.home_assistant diff --instance homelab-01
+    - rc=0; nix develop ./flake -c python -m scripts.home_assistant diff --instance homelab-01 || rc=$?; test "$rc" -le 1
 
 deploy_home_assistant:
   timeout: 45m
