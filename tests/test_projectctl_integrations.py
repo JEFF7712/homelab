@@ -855,9 +855,7 @@ class IntegrationTest(unittest.TestCase):
         self.state.pipeline(10, self.project.source_sha, "manual", "running")
         self.assertEqual(self.dispatch(request_id)["state"], "waiting")
         self.state.pipeline(10, self.project.source_sha, "manual", "failure")
-        self.runtime.worker.clock = lambda: (
-            datetime.now(timezone.utc) + timedelta(seconds=10)
-        )
+        self.runtime.worker.clock = lambda: datetime.now(UTC) + timedelta(seconds=10)
         result = self.dispatch(request_id)
         self.assertEqual((result["state"], result["code"]), ("failed", "CI_FAILED"))
         self.assertEqual(self.hook_tests(), [])

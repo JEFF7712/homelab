@@ -194,7 +194,7 @@ def record_guard(root: Path, payload: dict[str, Any], response: dict[str, Any]) 
     directory.mkdir(parents=True, exist_ok=True)
     record = {
         "schema_version": 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "client": os.environ.get("AGENT_HOOK_CLIENT", "unspecified"),
         "command": redact(str(command))[:200],
     }
