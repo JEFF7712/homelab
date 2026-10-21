@@ -321,7 +321,7 @@ homekit:
         - light.living_room_good_vibes_sign
         - light.kitchen_mushroom_lamp
         - light.kitchen_fuck_off_sign
-        - switch.stairs_light
+        - switch.exit_sign
         - climate.living_room_ac_living_room_ac_thermostat
 recorder:
   db_url: !secret recorder_db_url
