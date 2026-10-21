@@ -11,4 +11,5 @@ resources:
   - monitoring.yaml
   - spotify-credentials.yaml
   - postgres-cluster.yaml
+  - deployer-access.yaml
   - postgres-podmonitor.yaml
