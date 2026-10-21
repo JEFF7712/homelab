@@ -11,13 +11,12 @@
 # installer step. Resource caps keep two concurrent jobs from crowding out
 # GPU and k3s duties on this 14C/20T, 32G box.
 #
-# Provision once (classic PAT with `repo` scope on JEFF7712/nixos-config, or a
-# fine-grained PAT with Administration read/write on that repo; the file must
-# hold exactly the token, no trailing newline):
-#   install -d -m 0750 -o root -g github-runner-nixos /persist/github-runner-nixos
-#   printf '%s' "$TOKEN" > /persist/github-runner-nixos/token
-#   chmod 600 /persist/github-runner-nixos/token
-{ pkgs, lib, ... }:
+# The registration token (classic PAT with `repo` scope on
+# JEFF7712/nixos-config, or a fine-grained PAT with Administration read/write
+# on that repo, no trailing newline) is the github-runner-nixos-token host
+# secret. Ephemeral runners re-register on every job, so a rotated token is
+# picked up without a restart.
+{ config, pkgs, ... }:
 let
   user = "github-runner-nixos";
   baseDir = "/persist/github-runner-nixos";
@@ -28,7 +27,7 @@ let
     enable = true;
     url = "https://github.com/JEFF7712/nixos-config";
     name = "homelab-nixos-${toString n}";
-    tokenFile = "${baseDir}/token";
+    tokenFile = config.sops.secrets.github-runner-nixos-token.path;
     extraLabels = [
       "homelab"
       "nixos"
@@ -74,6 +73,8 @@ in
     description = "nixos-config CI runner";
   };
   users.groups.${user} = { };
+
+  sops.secrets.github-runner-nixos-token = { };
 
   systemd.tmpfiles.rules = [
     "d ${baseDir} 0750 root ${user} -"

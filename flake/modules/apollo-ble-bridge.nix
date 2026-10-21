@@ -53,8 +53,7 @@ in
 
     passwordFile = lib.mkOption {
       type = lib.types.path;
-      default = "/persist/secrets/mosquitto-apollo-bridge-password";
-      description = "Path to MQTT broker password file";
+      description = "Runtime path of the MQTT broker password file, outside the store.";
     };
 
     udpPort = lib.mkOption {

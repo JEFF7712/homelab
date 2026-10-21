@@ -51,11 +51,12 @@ These steps are the operator's, once:
 1. Deploy homelab-04 with the module: the `ci-host` route
    (`deploy-ci-host-dry-run`, `deploy-ci-host`) from the Woodpecker UI.
 2. Create a Woodpecker token while signed in as the operator and store it
-   on homelab-04 as `/persist/secrets/approvals-operator-token`
-   (root, 0600). systemd passes the service a private copy.
-3. Optional ntfy delivery: `/persist/secrets/approvals.env` (root, 0600)
-   with `NTFY_TOPIC=<topic>` and `NTFY_TOKEN=<token with publish access>`.
-   Then `sudo systemctl restart approvals`.
+   as `approvals-operator-token` with
+   `sops secrets/hosts/homelab-04.sops.yaml`. systemd passes the service a
+   private copy of `/run/secrets/approvals-operator-token`.
+3. ntfy delivery: `approvals.env` in the same file, with
+   `NTFY_TOPIC=<topic>` and `NTFY_TOKEN=<token with publish access>`.
+   Ship the change; activation restarts `approvals`.
 4. DNS `CNAME approvals.rupan.dev ->
    0f08d8c5-6f2c-409e-ba80-dc0601e0227e.cfargotunnel.com` and the Access app
    above, in the Cloudflare dashboard; then the `cloudflare` route

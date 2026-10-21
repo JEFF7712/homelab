@@ -28,6 +28,9 @@ in
 
   networking.hostName = "homelab-04";
 
+  sops.defaultSopsFile = ../../../secrets/hosts/homelab-04.sops.yaml;
+  sops.secrets.kiosk-ha-token.restartUnits = [ "kiosk-rotate.service" ];
+
   homelab.kiosk = {
     enable = true;
     url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
@@ -52,7 +55,7 @@ in
     # Home Assistant is behind a trusted-proxy config, so the dashboard cannot
     # borrow the Jarvis trusted-network bypass. Instead seed the browser's own
     # session from a long-lived access token, re-applied after each boot.
-    haDashboardTokenFile = "/persist/secrets/kiosk-ha-token";
+    haDashboardTokenFile = config.sops.secrets.kiosk-ha-token.path;
     haDashboardUrl = "http://10.0.40.13:8123";
   };
 

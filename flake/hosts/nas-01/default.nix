@@ -25,6 +25,8 @@
 
   networking.hostName = "nas-01";
 
+  sops.defaultSopsFile = ../../../secrets/hosts/nas-01.sops.yaml;
+
   # Bedroom-only LedFx. It analyses the Bluetooth tap that carries bedroom
   # playback and streams to the relay. Deliberately separate from the
   # shared-spaces LedFx instance: no shared device, virtual, or scene.
