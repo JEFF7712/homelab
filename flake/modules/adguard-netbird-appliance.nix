@@ -65,11 +65,11 @@
         routes = [
           {
             Destination = "172.31.10.2/32";
-            Gateway = "10.0.30.11";
+            Gateway = "10.0.30.14";
           }
           {
             Destination = "172.31.10.6/32";
-            Gateway = "10.0.30.11";
+            Gateway = "10.0.30.14";
           }
         ];
         linkConfig.RequiredForOnline = "routable";
