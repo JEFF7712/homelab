@@ -15,6 +15,22 @@ let
   # systemd delivers the token as a credential so the file stays root-only;
   # the seeder reads it from $CREDENTIALS_DIRECTORY inside the service.
   seedArgs = lib.optionalString seedHa " --ha-token-file \"$CREDENTIALS_DIRECTORY/kiosk-ha-token\" --ha-url ${cfg.haDashboardUrl}";
+  # cage draws a pointer at boot even with no pointer device, and the page's
+  # cursor: none only applies after pointer enter, so swap in a blank theme.
+  invisibleCursorTheme = pkgs.runCommand "invisible-cursor-theme" { } ''
+    dir=$out/share/icons/invisible/cursors
+    mkdir -p $dir
+    ${pkgs.python3}/bin/python3 -c '
+    import struct, sys
+    image = struct.pack("<9I", 36, 0xFFFD0002, 1, 1, 1, 1, 0, 0, 0) + struct.pack("<I", 0)
+    toc = struct.pack("<3I", 0xFFFD0002, 1, 28)
+    sys.stdout.buffer.write(struct.pack("<4sIII", b"Xcur", 16, 0x10000, 1) + toc + image)
+    ' > $dir/default
+    for name in left_ptr arrow pointer hand2 text xterm watch wait progress crosshair; do
+      ln -s default $dir/$name
+    done
+    printf '[Icon Theme]\nName=invisible\n' > $out/share/icons/invisible/index.theme
+  '';
   kioskBrowser = pkgs.writeShellScript "kiosk-browser" ''
     ${lib.concatMapStringsSep "\n" (
       output: "${pkgs.wlr-randr}/bin/wlr-randr --output ${output} --off || true"
@@ -148,6 +164,8 @@ in
       environment = {
         WLR_LIBINPUT_NO_DEVICES = "1";
         WLR_NO_HARDWARE_CURSORS = "1";
+        XCURSOR_PATH = "${invisibleCursorTheme}/share/icons";
+        XCURSOR_THEME = "invisible";
         XDG_RUNTIME_DIR = "/run/user/1001";
       }
       // (lib.optionalAttrs (cfg.drmDevice != null) {
@@ -205,16 +223,12 @@ in
       description = "Seed Home Assistant token into kiosk browser";
       after = [ "cage-tty1.service" ];
       wantedBy = [ "multi-user.target" ];
-      # Parked while no display is connected (all DRM outputs on homelab-05
-      # disconnected since 2026-09-25; last successful seed that day). The
-      # seeder fails without a Jarvis page target, and any failed unit marks
-      # every nixos-rebuild switch failed (status 4), reddening fleet
-      # deploys. To re-enable after reconnecting the display, delete this
-      # line, redeploy, and the boot-time seeding resumes automatically.
-      enable = false;
+      # A simple unit that waits without a deadline: with no display attached
+      # cage never opens the Jarvis page, and a failing oneshot would mark
+      # every nixos-rebuild switch failed. It seeds whenever a monitor shows up.
       unitConfig.ConditionPathExists = [ cfg.haTokenFile ];
       serviceConfig = {
-        Type = "oneshot";
+        Type = "simple";
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "30s";
@@ -222,7 +236,7 @@ in
       path = [ pkgs.python3 ];
       script = ''
         exec ${pkgs.python3}/bin/python3 ${./kiosk-ha-token-seed.py} \
-          --token-file ${cfg.haTokenFile}
+          --token-file ${cfg.haTokenFile} --wait-seconds inf
       '';
     };
 
