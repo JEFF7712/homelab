@@ -18,6 +18,10 @@ to strip the site's own chrome, hold for `duration` seconds, advance, repeat.
 With zero views the single `url` is shown and no driver runs. The tmpfs root
 wipes the Chromium profile every boot, so rotation always starts clean.
 
+Cage draws a pointer at boot even with no pointer device attached, and a page's
+`cursor: none` only applies after the pointer enters the surface, so the module
+points cage at a blank Xcursor theme (`XCURSOR_THEME=invisible`).
+
 `kiosk-rotate.py` is standard-library only and reconnects if the browser
 restarts. Debug it with `journalctl -u kiosk-rotate -f` on the host; it logs
 `showing view N/M: <url>` per step.
