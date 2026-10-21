@@ -51,6 +51,30 @@ creation, rotation, and revocation follow the service-specific procedure
 because the safe order depends on whether the consumer can overlap old and new
 credentials.
 
+## NixOS host secrets
+
+The fleet imports sops-nix. The first consumer is the projectctl profile on
+homelab-04: its five credentials come from `secrets/projectctl.sops.json`,
+decrypt into mode-0400 files under `/run/secrets`. The two observer tokens
+belong to `projectctl-worker` for direct read-only API discovery; write tokens
+and the registry password belong to root and reach privileged invocations
+through systemd `LoadCredential`. Plaintext is never evaluated into the Nix
+store. Kubernetes secrets retain their existing Flux/ESO ownership.
+
+The projectctl SOPS rule retains both operator recovery recipients and adds
+homelab-04's age recipient derived from its public Ed25519 SSH host key.
+Decryption uses `/persist/etc/ssh/ssh_host_ed25519_key`; persistence is required
+because the host has a tmpfs root. Never install an operator recovery identity
+on a host. When replacing a host key, update the recipient policy, rewrap the
+bundle with `sops updatekeys`, and verify recovery access before deployment.
+
+Credential changes ship as encrypted source through the held CI-host deployment
+route. Boot or activation installs the secrets before normal services start;
+subsequent projectctl invocations load the current files. Preserve existing
+root-only credential backups until the new generation and read-only credential
+verification pass. A host rollback also rolls back its encrypted secret source;
+revoked upstream credentials still require service-specific recovery.
+
 ## Apply and verify
 
 Merging an authorized GitOps change can cause Flux to apply it. Treat that merge

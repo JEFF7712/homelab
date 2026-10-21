@@ -1,6 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
+    "mcp-nixos": {
+      "type": "local",
+      "command": ["mcp-nixos"]
+    },
     "nix-agent": {
       "type": "local",
       "command": ["nix-agent"]

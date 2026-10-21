@@ -1177,7 +1177,7 @@ class RegistryCiContractTests(unittest.TestCase):
         # different zot than the one holding the images.
         release = (root / "nix" / "zot-release.nix").read_text()
         self.assertIn('version = "2.1.20"', release)
-        self.assertIn("zot-release.nix", (root / "flake.nix").read_text())
+        self.assertIn("zot-release.nix", (root / "flake" / "flake.nix").read_text())
         self.assertIn(
             "zot-release.nix",
             (root / "flake" / "modules" / "zot-registry.nix").read_text(),
@@ -1190,16 +1190,9 @@ class RegistryCiContractTests(unittest.TestCase):
         root = pathlib.Path(__file__).resolve().parents[1]
         pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
         script = "\n".join(pipeline[".registry_gc_fixture"]["script"])
-        # CI enters the NixOS flake's devShell via `nix develop ./flake`, which
-        # is a different shell from the repository root flake. Adding zot to
-        # only the root flake leaves the job failing with "zot is not on PATH",
-        # so both are checked here.
         self.assertIn("nix develop ./flake", script)
-        for flake in (root / "flake.nix", root / "flake" / "flake.nix"):
-            with self.subTest(flake=flake.name):
-                self.assertIn(
-                    "zot-release.nix", flake.read_text(), f"{flake} lacks zot"
-                )
+        self.assertIn("use flake ./flake", (root / ".envrc").read_text())
+        self.assertIn("zot-release.nix", (root / "flake" / "flake.nix").read_text())
 
     def test_promotion_pins_its_own_retention_tags(self) -> None:
         root = pathlib.Path(__file__).resolve().parents[1]

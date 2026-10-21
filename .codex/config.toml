@@ -11,3 +11,7 @@ url = "https://mcp.cloudflare.com/mcp"
 
 [mcp_servers.cloudflare-docs]
 url = "https://docs.mcp.cloudflare.com/mcp"
+
+[mcp_servers.mcp-nixos]
+command = "mcp-nixos"
+args = []

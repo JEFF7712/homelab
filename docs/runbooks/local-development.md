@@ -14,6 +14,14 @@ just agent-context
 just check-changed
 ```
 
+`flake/` is the only flake. Direnv uses `use flake ./flake`, and `just`
+enters the same pinned environment. The default shell includes `mcp-nixos`
+for package and option discovery and `nixos-anywhere` for initial installation
+and recovery. Fleet updates use `nixos-rebuild-ng` through the fleet deployer;
+deploy-rs is not part of the toolchain. Repository MCP configuration connects
+`mcp-nixos` for Claude, Codex, Cursor, and OpenCode. Restart an existing client session
+to discover the new server.
+
 ## Git and Sovereign Infrastructure
 
 - **Primary Git Remote (`origin`):** `ssh://forgejo@git.internal:2222/JEFF7712/homelab.git`
