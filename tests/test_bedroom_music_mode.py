@@ -127,7 +127,7 @@ class TestBedroomMusicMode(unittest.TestCase):
             REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("input_boolean.bedroom_music_mode", lovelace_jarvis)
-        self.assertNotIn("input_boolean.govee_music_mode", lovelace_jarvis)
+        self.assertIn("input_boolean.govee_music_mode", lovelace_jarvis)
 
 
 if __name__ == "__main__":
