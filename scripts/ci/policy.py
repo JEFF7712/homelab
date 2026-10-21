@@ -61,10 +61,12 @@ REPOSITORY_URL = "https://git.rupan.dev/JEFF7712/homelab.git"
 SCOPE_FILES_LIMIT = 1000
 
 # Forgejo identities permitted to trigger manual deployments. The machine user
-# holds operator rights by explicit decision: its token is scoped, revocable,
-# and documented in docs/runbooks/ci-pipelines.md. Branch protection and the
-# fresh-validation requirements below apply to it unchanged.
-DEPLOY_AUTHORS = frozenset({"rupan", "JEFF7712", "homelab-agent"})
+# may run read-only operations and the mutations a catalog entry marks
+# "agent" (the automatic just ship routes); fleet, firewall, edge and CI-host
+# changes need a human operator, so a leaked agent token cannot apply them.
+OPERATOR_AUTHORS = frozenset({"rupan", "JEFF7712"})
+AGENT_AUTHOR = "homelab-agent"
+DEPLOY_AUTHORS = OPERATOR_AUTHORS | {AGENT_AUTHOR}
 
 
 def verify_request(headers: Any, body: bytes, public_key: bytes, now: int) -> None:
@@ -648,6 +650,12 @@ def configuration(
     target = pipeline.get("deploy_to", "")
     if target not in operations:
         raise ValueError("Unknown deployment target")
+    if (
+        pipeline["author"] == AGENT_AUTHOR
+        and operations[target]["mutation"]
+        and not operations[target].get("agent")
+    ):
+        raise ValueError("This operation requires a human operator")
     if current != pipeline["commit"]:
         raise ValueError("Deployment commit is no longer main")
     if (

@@ -218,9 +218,10 @@ class Forgejo:
 
 
 class Woodpecker:
-    def __init__(self) -> None:
+    def __init__(self, token: str | None = None) -> None:
         token = (
-            os.environ.get("WOODPECKER_TOKEN")
+            token
+            or os.environ.get("WOODPECKER_TOKEN")
             or (Path.home() / ".config/woodpecker/token").read_text()
         )
         self.headers = {"Authorization": "Bearer " + token.strip()}
@@ -548,8 +549,30 @@ class Shipper:
             if workflow.get("state") == "success"
         }
 
+    def operator(self, parent: int, operation: str) -> Woodpecker:
+        """Client for operations CI accepts only from a human operator."""
+        token = os.environ.get("WOODPECKER_OPERATOR_TOKEN")
+        path = Path.home() / ".config/woodpecker/operator-token"
+        if not token and path.is_file():
+            token = path.read_text()
+        if not token:
+            raise ShipError(
+                f"{operation} requires a human operator and CI refuses it from "
+                f"homelab-agent. Deploy target {operation} from main pipeline "
+                f"#{parent} in {WOODPECKER}/repos/{WOODPECKER_REPO}, or set "
+                "WOODPECKER_OPERATOR_TOKEN."
+            )
+        return Woodpecker(token)
+
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
-        created = self.woodpecker.deploy(parent, operation)
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        spec = catalog.get(operation, {})
+        client = (
+            self.operator(parent, operation)
+            if spec.get("mutation") and not spec.get("agent")
+            else self.woodpecker
+        )
+        created = client.deploy(parent, operation)
         number = int(created["number"])
         self.say(
             f"{operation}: pipeline #{number} {WOODPECKER}/repos/{WOODPECKER_REPO}/pipeline/{number}"

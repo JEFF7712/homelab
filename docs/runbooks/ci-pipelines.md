@@ -313,14 +313,22 @@ same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
 The deploy policy (`scripts/ci/policy.py`) admits `homelab-agent` as a
-deployment author alongside the human operators. Fresh green main validation
-and the operations catalog gates still apply unchanged, so the bot can only
-trigger reviewed, validated commits. Triggering a Woodpecker manual deploy
-(for example `deploy_to=opnsense-apply`) additionally needs the bot's own
-Woodpecker API token: sign in to Woodpecker once as `homelab-agent` via
-Forgejo, create a token from that profile, and store it as
-`~/.config/woodpecker/token` (mode 0600) on each agent machine. Never commit
-either token.
+deployment author for read-only operations and for the mutations a catalog
+entry marks `"agent": true`, which are exactly the automatic `just ship`
+routes (`tests/test_forgejo_ci.py` pins that). Fleet, firewall, Cloudflare,
+CI-host and every other mutation are refused unless a human operator
+(`rupan` or `JEFF7712`) triggers them, so a leaked bot token cannot change
+infrastructure. Fresh green main validation and the catalog gates apply to
+everyone. Neither machine account holds Forgejo or Woodpecker admin rights.
+
+Triggering a deployment needs the bot's own Woodpecker API token: sign in to
+Woodpecker once as `homelab-agent` via Forgejo, create a token from that
+profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
+agent machine. Held operations run from the Woodpecker UI as the operator, or
+through `just ship --deploy` with an operator token in
+`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token`. Keep the
+operator token off machines where agents run unattended. Never commit either
+token.
 
 ## Recovery
 

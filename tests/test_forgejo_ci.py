@@ -587,14 +587,38 @@ class PolicyTest(unittest.TestCase):
                 configuration(self.request, self.catalog, self.parent, SHA)
             self.request = saved
 
-    def test_machine_user_is_an_authorized_deploy_operator(self) -> None:
+    def test_machine_user_runs_only_read_only_and_agent_marked_operations(self) -> None:
         self.assertEqual(DEPLOY_AUTHORS, {"rupan", "JEFF7712", "homelab-agent"})
         saved = copy.deepcopy(self.request)
-        self.request["pipeline"]["author"] = "homelab-agent"
-        result = self.deployment()
-        workflow = yaml.safe_load(result["configs"][0]["data"])
-        self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
+        self.request["pipeline"].update(author="homelab-agent", event="deployment")
+        for operation in ["opnsense-apply", "deploy-fleet", "cloudflare-apply"]:
+            with self.subTest(operation=operation):
+                self.request["pipeline"]["deploy_to"] = operation
+                with self.assertRaisesRegex(ValueError, "human operator"):
+                    configuration(self.request, self.catalog, self.parent, SHA)
+        for operation in ["opnsense-plan", "matrix-publish", "deploy-home-assistant"]:
+            with self.subTest(operation=operation):
+                self.request["pipeline"]["deploy_to"] = operation
+                result = configuration(self.request, self.catalog, self.parent, SHA)
+                self.assertTrue(result["configs"])
+        self.request["pipeline"]["author"] = "JEFF7712"
+        self.request["pipeline"]["deploy_to"] = "deploy-fleet"
+        self.assertTrue(
+            configuration(self.request, self.catalog, self.parent, SHA)["configs"]
+        )
         self.request = saved
+
+    def test_agent_operations_are_exactly_the_automatic_ship_mutations(self) -> None:
+        routes = json.loads((ROOT / "config/ci/ship-routes.json").read_text())
+        automatic = {
+            operation
+            for route in routes["routes"]
+            if route["auto"]
+            for operation in route["operations"]
+            if self.catalog[operation]["mutation"]
+        }
+        marked = {name for name, spec in self.catalog.items() if spec.get("agent")}
+        self.assertEqual(marked, automatic)
 
     def test_old_or_incomplete_validation_cannot_authorize_deployment(self) -> None:
         for field, value in [
