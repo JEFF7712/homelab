@@ -197,6 +197,8 @@ def reconcile_udp_broadcast_relays(
         uuid = row.get("uuid")
         if not isinstance(uuid, str) or not uuid:
             raise RuntimeError(f"UDP broadcast relay {description} has no UUID")
+        if row.get("enabled") != "1":
+            continue
         status = client.get(f"/api/udpbroadcastrelay/service/status/{uuid}")
         if not isinstance(status, dict) or status.get("result") != "OK":
             raise RuntimeError(
