@@ -206,7 +206,7 @@ def _git(words: list[str]) -> Verdict | None:
     return None
 
 
-def _classify(words: list[str]) -> Verdict | None:
+def _classify(words: list[str], remote: bool = False) -> Verdict | None:
     words = _strip_prefix(words)
     if not words:
         return None
@@ -261,7 +261,7 @@ def _classify(words: list[str]) -> Verdict | None:
         return None
     if program == "nixos-rebuild":
         if any(word in NIXOS_REBUILD_MUTATIONS for word in words[1:]) and (
-            "--target-host" in words
+            remote or "--target-host" in words
         ):
             return Verdict(
                 "authorize", "`nixos-rebuild --target-host` activates a fleet host"
@@ -271,12 +271,10 @@ def _classify(words: list[str]) -> Verdict | None:
         return Verdict("authorize", "activating a NixOS generation on a fleet host")
     if program in SHELLS and "-c" in words[1:]:
         script = words[words.index("-c") + 1 : words.index("-c") + 2]
-        return _assess_all(script[0]) if script else None
+        return _assess_all(script[0], remote) if script else None
     if program == "ssh":
-        remote = " ".join(_positionals(words[1:], SSH_VALUE_FLAGS)[1:])
-        if re.search(r"\bnixos-rebuild\b.*\b(?:switch|boot|test)\b", remote):
-            return Verdict("authorize", "remote `nixos-rebuild` activates a fleet host")
-        return _assess_all(remote) if remote else None
+        command = " ".join(_positionals(words[1:], SSH_VALUE_FLAGS)[1:])
+        return _assess_all(command, remote=True) if command else None
     if program in {"python", "python3"} and words[1:3] == ["-m", "scripts.agent.ship"]:
         return _ship(words, "python -m scripts.agent.ship")
     if program in {"python", "python3"} and words[1:3] == [
@@ -317,7 +315,7 @@ def _option_value(words: list[str], option: str) -> str | None:
     return None
 
 
-def _assess_all(command: str) -> Verdict | None:
+def _assess_all(command: str, remote: bool = False) -> Verdict | None:
     if re.search(r"""["']?force_merge["']?\s*[:=]\s*true""", command, re.IGNORECASE):
         return Verdict(
             "forbidden",
@@ -326,7 +324,7 @@ def _assess_all(command: str) -> Verdict | None:
     verdicts = [
         verdict
         for words in _segments(command)
-        if (verdict := _classify(words)) is not None
+        if (verdict := _classify(words, remote)) is not None
     ]
     forbidden = next((item for item in verdicts if item.kind == "forbidden"), None)
     return forbidden or (verdicts[0] if verdicts else None)
