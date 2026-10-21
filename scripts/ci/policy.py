@@ -221,7 +221,10 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         "deploy-fleet-dry-run",
         "deploy-agent-workspace-host-dry-run",
         "deploy-home-assistant-dry-run",
+        # Retries the open laptop lock update and delivers new main commits.
+        "nixos-deploy",
     ),
+    "weekly": ("nixos-lock-update",),
 }
 
 
