@@ -85,12 +85,12 @@ views:
         cards:
           - type: tile
             entity: light.all_govee_lights
-            name: All Govee Lights
+            name: Shared Bulbs
             features:
               - type: light-brightness
           - type: tile
             entity: input_boolean.govee_music_mode
-            name: Govee Music Mode
+            name: Music Mode
             icon: mdi:music
           - type: tile
             entity: input_boolean.bedroom_music_mode

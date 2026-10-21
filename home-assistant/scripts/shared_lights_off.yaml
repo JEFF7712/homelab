@@ -25,7 +25,7 @@ sequence:
             - switch.fuck_off_sign
             - switch.kitchen_mushroom_lamp
             - switch.living_room_good_vibes_sign
-            - switch.stairs_light
+            - switch.exit_sign
             - light.apollo_led_strip_apollo_led_strip
             - light.kitchen_kitchen_led_strip
   - action: homeassistant.turn_off

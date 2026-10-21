@@ -301,10 +301,10 @@
       ],
       "destination_repository": "apps/bookshelf",
       "destination_tags": [
-        "0.0.1000009",
-        "retention-deployed-47c5d9de2f63191e"
+        "0.0.1000012",
+        "retention-deployed-15ad0081604ee63c"
       ],
-      "digest": "sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0",
+      "digest": "sha256:15ad0081604ee63c4a5bd09fff697fa5a9dea07ba82d4141cce4acfad42e49b6",
       "id": "first-party-jeff7712-bookshelf-eae2399244a0",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -324,11 +324,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0",
-        "reference": "registry.rupan.dev/apps/bookshelf:0.0.1000009@sha256:47c5d9de2f63191e8f3b33721952eb87cc4b290bfc6a52d16d8b8be6c186b7d0",
+        "digest": "sha256:15ad0081604ee63c4a5bd09fff697fa5a9dea07ba82d4141cce4acfad42e49b6",
+        "reference": "registry.rupan.dev/apps/bookshelf:0.0.1000012@sha256:15ad0081604ee63c4a5bd09fff697fa5a9dea07ba82d4141cce4acfad42e49b6",
         "registry": "registry.rupan.dev",
         "repository": "apps/bookshelf",
-        "tag": "0.0.1000009"
+        "tag": "0.0.1000012"
       }
     },
     {
@@ -4127,58 +4127,6 @@
         "status": "unsupported"
       },
       "consumers": [
-        "gitops/automation/github-runner/deployment.yaml:1086",
-        "gitops/automation/github-runner/deployment.yaml:1235",
-        "gitops/automation/github-runner/deployment.yaml:1384",
-        "gitops/automation/github-runner/deployment.yaml:1533",
-        "gitops/automation/github-runner/deployment.yaml:1682",
-        "gitops/automation/github-runner/deployment.yaml:1831",
-        "gitops/automation/github-runner/deployment.yaml:192",
-        "gitops/automation/github-runner/deployment.yaml:341",
-        "gitops/automation/github-runner/deployment.yaml:43",
-        "gitops/automation/github-runner/deployment.yaml:490",
-        "gitops/automation/github-runner/deployment.yaml:639",
-        "gitops/automation/github-runner/deployment.yaml:788",
-        "gitops/automation/github-runner/deployment.yaml:937"
-      ],
-      "destination_repository": "upstream/docker.io/library/docker",
-      "destination_tags": [
-        "retention-deployed-aa3df78ecf320f5f"
-      ],
-      "digest": "sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce",
-      "id": "upstream-upstream-docker-io-library-docker-e1c1a858d6dc",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "linux/arm/v6",
-        "linux/arm/v7",
-        "linux/arm64/v8",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce",
-        "reference": "docker.io/library/docker@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce",
-        "registry": "docker.io",
-        "repository": "library/docker",
-        "tag": null
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
         "gitops/backups/db-dump.yaml:23"
       ],
       "destination_repository": "upstream/docker.io/library/postgres",
@@ -4408,56 +4356,6 @@
         "reference": "docker.io/valkey/valkey@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d",
         "registry": "docker.io",
         "repository": "valkey/valkey",
-        "tag": null
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/automation/github-runner/deployment.yaml:1115",
-        "gitops/automation/github-runner/deployment.yaml:1264",
-        "gitops/automation/github-runner/deployment.yaml:1413",
-        "gitops/automation/github-runner/deployment.yaml:1562",
-        "gitops/automation/github-runner/deployment.yaml:1711",
-        "gitops/automation/github-runner/deployment.yaml:1860",
-        "gitops/automation/github-runner/deployment.yaml:221",
-        "gitops/automation/github-runner/deployment.yaml:370",
-        "gitops/automation/github-runner/deployment.yaml:519",
-        "gitops/automation/github-runner/deployment.yaml:668",
-        "gitops/automation/github-runner/deployment.yaml:72",
-        "gitops/automation/github-runner/deployment.yaml:817",
-        "gitops/automation/github-runner/deployment.yaml:966"
-      ],
-      "destination_repository": "upstream/ghcr.io/actions/actions-runner",
-      "destination_tags": [
-        "retention-deployed-e5496277be5d09bc"
-      ],
-      "digest": "sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4",
-      "id": "upstream-upstream-ghcr-io-actions-actions-runner-90a689290bc6",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "linux/arm64",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4",
-        "reference": "ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4",
-        "registry": "ghcr.io",
-        "repository": "actions/actions-runner",
         "tag": null
       }
     },

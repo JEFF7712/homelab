@@ -1,20 +1,17 @@
+- id: 0245b394e1c06383e00ea74937d4a329
+  area_id: living_room
+  name_by_user: Living Room Tulip Lamp
 - id: 03cc6ef2aa99f21e506432218e6dcd31
   area_id: kitchen
   name_by_user: Fuck Off Sign
 - id: 08545633dd6cf91a152ceb0fb920aecc
   area_id: living_room
-- id: 15f836412b2cf37f53821e0085f776a6
+- id: 1923373a39b170aac04046b3754b3e6f
   area_id: kitchen
-  name_by_user: Ceiling Light 1
-- id: 2fbb8dce9dad8760b4d40e387a536d59
-  area_id: kitchen
-  name_by_user: Ceiling Light 2
-- id: 33a37c90447096c0165be4a62a9f0ca0
-  area_id: living_room
-  name_by_user: Floor Lamp
+  name_by_user: Kitchen Ceiling Light 2
 - id: 3f7e34015a3ad4c9017dafb46d877923
   area_id: stairs
-  name_by_user: Stairs Light
+  name_by_user: Exit Sign
 - id: 4db59ab7a80811ad3c1fc395e0a28bbf
   area_id: bedroom
   name_by_user: Bedroom Mushroom Lamp
@@ -23,20 +20,28 @@
   name_by_user: Good Vibes Sign
 - id: 7e312943737102071dcfa3e9c891699d
   area_id: living_room
+- id: 83f375363ac2b3bf83ac21c5aff7689a
+  area_id: kitchen
 - id: 8795d1e844dce2c2049491c4d48d0514
   area_id: bedroom
   name_by_user: Bose Speaker
 - id: a1ba1d50c624f629824c4e9b36cb0035
   area_id: kitchen
   name_by_user: Kitchen Mushroom Lamp
-- id: b38dd4760f140b1976c36873c41339a3
+- id: a39797a7668d032b14f4ee437f58a2c3
+  area_id: kitchen
+  name_by_user: Kitchen Ceiling Light 1
+- id: ac08aff7901c44686ad52ec33ebb9d1f
   area_id: living_room
-  name_by_user: Tulip Lamp
+  name_by_user: Living Room Floor Lamp
 - id: b966252d167f43dcb2b94a6e35194ee3
   area_id: bedroom
   name_by_user: Bedroom Window Light
 - id: bdcb71dd19e662d59efa0bac03c9d368
   area_id: living_room
+- id: cecfd0c383c76c96602dd80303616c98
+  area_id: living_room
+  name_by_user: Apollo Light Strip
 - id: e0a2aee78ec665c88edce0d2cd9e4d46
   area_id: bedroom
   name_by_user: Desk Lamp

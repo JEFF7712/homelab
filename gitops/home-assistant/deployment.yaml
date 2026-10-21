@@ -15,7 +15,7 @@ spec:
       labels:
         app: home-assistant
       annotations:
-        checksum/config: 81d96cbec42821c35498a1c356aab48ba16f4faa7e8d1e4760b03480d2198973
+        checksum/config: f18340d39c6d5b485c248a54e6b8eeee5cf9bfdea53164cc8186ff34fe70f53d
         checksum/dependencies: 8eac350ea6f0dc5b311c3b363345bb99229e5efa193aa69111e630103301751e
         reloader.stakater.com/auto: 'true'
     spec:
@@ -29,6 +29,16 @@ spec:
                     operator: NotIn
                     values:
                       - homelab-05
+          # homelab-01 already carries etcd, both Postgres primaries by
+          # preference, and the agent workspace VMs.
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - homelab-01
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       securityContext:

@@ -403,7 +403,7 @@
   targets: [media_player.homelab_05_satellite_media_player_2]
   service: media_player.media_pause
 - id: stairs-on
-  say: Turn on the stairs light.
+  say: Turn on the exit sign.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -411,10 +411,10 @@
     action: turn_on
     color: none_or_unknown
     reference: explicit_target
-  targets: [switch.stairs_light]
+  targets: [switch.exit_sign]
   service: switch.turn_on
 - id: stairs-off
-  say: Switch off the stairs light.
+  say: Switch off the exit sign.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -422,10 +422,10 @@
     action: turn_off
     color: none_or_unknown
     reference: explicit_target
-  targets: [switch.stairs_light]
+  targets: [switch.exit_sign]
   service: switch.turn_off
 - id: stairs-toggle
-  say: Toggle the stairs light.
+  say: Toggle the exit sign.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -433,7 +433,7 @@
     action: toggle
     color: none_or_unknown
     reference: explicit_target
-  targets: [switch.stairs_light]
+  targets: [switch.exit_sign]
   service: homeassistant.toggle
 - id: sign-off
   say: Turn off the good vibes sign.
@@ -615,7 +615,7 @@
   targets: [climate.living_room_ac_living_room_ac_thermostat]
   service: climate.set_temperature
 - id: canon-stairs-on
-  say: Turn on the stairs light.
+  say: Turn on the exit sign.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -623,7 +623,7 @@
     action: turn_on
     color: none_or_unknown
     reference: explicit_target
-  targets: [switch.stairs_light]
+  targets: [switch.exit_sign]
   service: switch.turn_on
 - id: canon-movie
   say: Activate movie mode.
@@ -808,7 +808,7 @@
   expected:
     request_kind: compound
 - id: comp-toggle-set
-  say: Toggle the stairs light and set the kitchen lights to 40 percent.
+  say: Toggle the exit sign and set the kitchen lights to 40 percent.
   expected_route: clarify
   expected:
     request_kind: compound
@@ -912,7 +912,7 @@
     target: good_vibes_sign
     reference: explicit_target
 - id: mis-bright-switch
-  say: Set the stairs light to 50 percent.
+  say: Set the exit sign to 50 percent.
   expected_route: clarify
   expected:
     request_kind: home_command
@@ -1862,7 +1862,7 @@
     request_kind: compound
   notes: Two or more actions; L1 must not execute the first and drop the rest.
 - id: compx-011
-  say: Turn on both the stairs light and the porch light.
+  say: Turn on both the exit sign and the porch light.
   expected_route: clarify
   expected:
     request_kind: compound
@@ -1928,7 +1928,7 @@
     request_kind: compound
   notes: Two or more actions; L1 must not execute the first and drop the rest.
 - id: compx-022
-  say: Turn on the good vibes sign and the stairs light.
+  say: Turn on the good vibes sign and the exit sign.
   expected_route: clarify
   expected:
     request_kind: compound
@@ -1964,7 +1964,7 @@
     request_kind: compound
   notes: Two or more actions; L1 must not execute the first and drop the rest.
 - id: compx-028
-  say: Flip the living room lights and toggle the stairs light.
+  say: Flip the living room lights and toggle the exit sign.
   expected_route: clarify
   expected:
     request_kind: compound
@@ -2009,7 +2009,7 @@
   service: light.turn_on
   notes: "Lenient policy: `start` has no scene-vocabulary collision, unlike `activate`; unambiguous turn_on."
 - id: misx-004
-  say: Make the stairs light red.
+  say: Make the exit sign red.
   expected_route: clarify
   expected:
     request_kind: home_command
@@ -2081,7 +2081,7 @@
     target: living_room_thermostat
   notes: Unsupported action for the domain.
 - id: misx-013
-  say: Activate the stairs light.
+  say: Activate the exit sign.
   expected_route: clarify
   expected:
     request_kind: home_command
@@ -2162,7 +2162,7 @@
     target: kitchen_lights
   notes: Unsupported action for the domain.
 - id: misx-023
-  say: Move the stairs light.
+  say: Move the exit sign.
   expected_route: clarify
   expected:
     request_kind: home_command
@@ -2262,7 +2262,7 @@
     request_kind: home_command
   notes: Negation is unsupported; executing would do the opposite.
 - id: neg-007
-  say: Don't turn on the stairs light.
+  say: Don't turn on the exit sign.
   expected_route: clarify
   expected:
     request_kind: home_command
@@ -3176,7 +3176,7 @@
   targets: [light.kitchen_lights]
   service: light.turn_off
 - id: fz-005
-  say: Power the stairs light on.
+  say: Power the exit sign on.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -3185,7 +3185,7 @@
     color: none_or_unknown
     reference: explicit_target
   notes: Valid fuzzy form L0 skips by design; L1 must accept exactly.
-  targets: [switch.stairs_light]
+  targets: [switch.exit_sign]
   service: switch.turn_on
 - id: fz-006
   say: Turn the kitchen lights back on.

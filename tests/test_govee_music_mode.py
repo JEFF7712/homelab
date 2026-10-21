@@ -105,6 +105,14 @@ class TestGoveeMusicMode(unittest.TestCase):
         self.assertIn("on", trigger_ids)
         self.assertIn("off", trigger_ids)
 
+    def test_automation_is_enabled_and_leaves_the_apollo_strip_alone(self) -> None:
+        auto_file = (
+            REPO_ROOT / "home-assistant" / "automations" / "govee_music_mode.yaml"
+        )
+        raw_text = auto_file.read_text(encoding="utf-8")
+        self.assertNotIn("initial_state", yaml.safe_load(raw_text))
+        self.assertNotIn("light.apollo_led_strip_apollo_led_strip", raw_text)
+
     def test_dashboards_contain_music_mode(self) -> None:
         shared_spaces = (
             REPO_ROOT / "home-assistant" / "dashboards" / "shared-spaces.yaml"

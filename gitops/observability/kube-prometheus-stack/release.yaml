@@ -50,6 +50,18 @@ spec:
     prometheus:
       prometheusSpec:
         priorityClassName: homelab-critical
+        # Keep off homelab-01, which carries etcd, the Postgres primaries and
+        # the agent workspace VMs.
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: NotIn
+                      values:
+                        - homelab-01
         image:
           registry: registry.rupan.dev
           repository: upstream/quay.io/prometheus/prometheus

@@ -11,7 +11,7 @@ triggers:
     entity_id:
       - switch.bedroom_window_plug
       - switch.bedroom_mushroom_plug
-      - switch.stairs_light
+      - switch.exit_sign
       - light.desk_lamp_desk_lamp
       - light.floor_lamp_floor_lamp
       - light.light_strip_light_strip

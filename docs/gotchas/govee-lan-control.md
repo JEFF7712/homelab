@@ -2,8 +2,11 @@
 
 Retired 2026-10-20: the four shared bulbs are now Third Reality ZL1 Zigbee
 bulbs on Zigbee2MQTT under the same entity IDs, and the `govee_lan` platform
-is no longer configured. Shared Govee Music Mode is disabled because Zigbee
-cannot carry LedFx streaming. Kept for reference if H6004 bulbs return.
+is no longer configured. Shared music mode now runs as slow ambient colour
+through `ledfx-zigbee-bridge` (see `docs/runbooks/roku-bridge-architecture.md`).
+The `govee_lan` integration, the LedFx driver patch, and the probe tools
+were removed on 2026-10-21; recover them from Git history before commit
+`chore: remove the retired Govee LAN code` if H6004 bulbs return.
 
 Verified 2026-09-27 against four H6004 bulbs at `10.0.20.166`-`.169`
 (see static reservations in `tofu/opnsense/homelab.auto.tfvars`).
@@ -65,15 +68,13 @@ the H6004. Nothing in the UI surfaces this: `get_device_status()` only checks
 that a `devStatus` reply arrived, so every health indicator stays green while
 the color path is dead.
 
-The fix is a local driver patch at
-`gitops/music-assistant/ledfx-patches/govee.py`, mounted over the installed
-module by `gitops/music-assistant/ledfx.yaml` via ConfigMap `subPath`. It
+The fix was a local driver patch (`gitops/music-assistant/ledfx-patches/govee.py`),
+mounted over the installed module via ConfigMap `subPath`. It
 replaces `flush()` with a `colorwc` write and drops the tunnel handshake and
 packet helpers. `flush()` caps sends at 10 Hz and skips near-duplicate
 colors: the H6004 drops off the LAN when flooded at full render rate, and
 Govee flags that flood as abnormal. The mount is deliberate: the upstream
 image digest stays immutable, and the patch is reviewable as one file.
-Covered by `tests/test_ledfx_govee_patch.py`.
 
 Upstream file is `ledfx/devices/govee.py` at v2.1.9, GPL-3.0. The patch is
 derivative work of a copy already in use here; it changes no licensing
@@ -84,6 +85,6 @@ release may add real `colorwc` support and make the patch redundant.
   `_matter._tcp` on IPv6, but commissioning from HA fails because Matter
   discovery is link-local mDNS and the bulbs sit on the clients VLAN while
   HA sits on infrastructure, with no mDNS relay between them. Instead,
-  normal control runs through the `govee_lan` custom integration
-  (`home-assistant/custom_components/govee_lan/`), which speaks this same
+  normal control ran through a `govee_lan` custom integration
+  (`home-assistant/custom_components/govee_lan/`), which spoke this same
   LAN API as YAML-configured light entities.

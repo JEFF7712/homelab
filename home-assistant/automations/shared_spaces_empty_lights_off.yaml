@@ -3,7 +3,7 @@ alias: "Shared Spaces: Lights Off When Empty"
 description: >-
   Shared spaces only. Snapshot and switch shared lights off when the last
   person leaves, keep them off while nobody is home, restore the snapshot on
-  daytime return. Dark returns re-apply the sunset-driven stairs light, since
+  daytime return. Dark returns re-apply the sunset-driven exit sign, since
   the snapshot alone would leave it off all night. Skipped while Guest Mode
   is on, so guests are never left in the dark.
 triggers:
@@ -25,7 +25,7 @@ triggers:
     entity_id:
       - switch.fuck_off_sign
       - switch.living_room_good_vibes_sign
-      - switch.stairs_light
+      - switch.exit_sign
       - light.kitchen_ceiling_light_1
       - light.kitchen_ceiling_light_2
       - light.living_room_floor_lamp
@@ -54,7 +54,7 @@ actions:
               snapshot_entities:
                 - switch.fuck_off_sign
                 - switch.living_room_good_vibes_sign
-                - switch.stairs_light
+                - switch.exit_sign
                 - switch.kitchen_mushroom_lamp
                 - light.kitchen_ceiling_light_1
                 - light.kitchen_ceiling_light_2
@@ -68,7 +68,7 @@ actions:
               entity_id:
                 - switch.fuck_off_sign
                 - switch.living_room_good_vibes_sign
-                - switch.stairs_light
+                - switch.exit_sign
                 - switch.kitchen_mushroom_lamp
           - action: light.turn_off
             target:
@@ -106,7 +106,7 @@ actions:
               entity_id:
                 - switch.fuck_off_sign
                 - switch.living_room_good_vibes_sign
-                - switch.stairs_light
+                - switch.exit_sign
                 - switch.kitchen_mushroom_lamp
           - action: light.turn_off
             target:
@@ -136,5 +136,5 @@ actions:
         sequence:
           - action: switch.turn_on
             target:
-              entity_id: switch.stairs_light
+              entity_id: switch.exit_sign
 mode: queued

@@ -71,6 +71,16 @@
     "d /run/pulse 0755 pipewire pipewire -"
   ];
 
+  # smartctl_exporter 0.15.0 emits SAS verify error counters without describing
+  # them, which fails every scrape on nas-01's sdb.
+  nixpkgs.overlays = [
+    (_: prev: {
+      prometheus-smartctl-exporter = prev.prometheus-smartctl-exporter.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ../patches/smartctl-exporter-verify-describe.patch ];
+      });
+    })
+  ];
+
   services.prometheus.exporters.smartctl = {
     enable = true;
     port = 9633;

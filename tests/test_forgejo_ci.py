@@ -608,6 +608,26 @@ class PolicyTest(unittest.TestCase):
         )
         self.request = saved
 
+    def test_home_assistant_dry_run_passes_pending_changes_but_not_conflicts(
+        self,
+    ) -> None:
+        command = self.catalog["deploy-home-assistant-dry-run"]["commands"][-1]
+        with tempfile.TemporaryDirectory() as tmp:
+            stub = Path(tmp) / "python"
+            stub.write_text('#!/bin/sh\nexit "$DIFF_EXIT"\n')
+            stub.chmod(0o755)
+            for diff_exit, passes in [(0, True), (1, True), (2, False), (3, False)]:
+                with self.subTest(diff_exit=diff_exit):
+                    result = subprocess.run(
+                        ["bash", "-euo", "pipefail", "-c", command],
+                        env={
+                            "PATH": f"{tmp}:{os.environ['PATH']}",
+                            "DIFF_EXIT": str(diff_exit),
+                        },
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode == 0, passes)
+
     def test_agent_operations_are_exactly_the_automatic_ship_mutations(self) -> None:
         routes = json.loads((ROOT / "config/ci/ship-routes.json").read_text())
         automatic = {

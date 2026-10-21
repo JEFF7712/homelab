@@ -1,11 +1,11 @@
 alias: "Effects: Party Mode"
 description: >-
-  Run the Govee Dance Party effect on all shared bulbs. Re-tap any static
+  Run the Zigbee color loop effect on all shared bulbs. Re-tap any static
   scene or toggle a bulb off and on to return it to Adaptive Lighting.
 sequence:
   - action: light.turn_on
     target:
       entity_id: light.all_govee_lights
     data:
-      effect: Dance Party
+      effect: colorloop
 mode: single

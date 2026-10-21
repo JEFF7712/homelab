@@ -232,7 +232,7 @@ views:
           - heading: All Lights
             type: heading
           - entity: light.all_govee_lights
-            name: All Govee Lights
+            name: Shared Bulbs
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -248,6 +248,9 @@ views:
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
             tap_action:
               action: toggle
             hold_action:
@@ -257,6 +260,9 @@ views:
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
             tap_action:
               action: toggle
             hold_action:
@@ -266,6 +272,9 @@ views:
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
             tap_action:
               action: toggle
             hold_action:
@@ -275,6 +284,9 @@ views:
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
             tap_action:
               action: toggle
             hold_action:
@@ -307,7 +319,7 @@ views:
             hold_action:
               action: more-info
           - entity: light.kitchen_kitchen_led_strip
-            name: Kitchen LED Strip
+            name: 8-Light LED Strip
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -394,8 +406,8 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - name: Stairs Light
-            entity: switch.stairs_light
+          - name: Exit Sign
+            entity: switch.exit_sign
             features:
               - type: toggle
             type: tile
@@ -425,7 +437,7 @@ views:
           - heading: Adaptive Lighting
             type: heading
           - entity: input_boolean.govee_music_mode
-            name: Govee Music Mode
+            name: Music Mode
             icon: mdi:music
             features:
               - type: toggle

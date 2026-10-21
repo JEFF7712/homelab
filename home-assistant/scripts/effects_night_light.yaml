@@ -1,12 +1,15 @@
 alias: "Effects: Night Light"
 description: >-
-  Run the dim warm Govee Night Light effect on the kitchen bulbs for the
+  Set the kitchen ceiling bulbs to a dim warm night light for the
   late-night path. Re-tap any static scene or toggle a bulb off and on
   to return it to Adaptive Lighting.
 sequence:
   - action: light.turn_on
     target:
-      entity_id: light.kitchen_lights
+      entity_id:
+        - light.kitchen_ceiling_light_1
+        - light.kitchen_ceiling_light_2
     data:
-      effect: Night Light
+      color_temp_kelvin: 2202
+      brightness_pct: 5
 mode: single
