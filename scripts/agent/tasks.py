@@ -6,7 +6,7 @@ import re
 import secrets
 import time
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Self
 
@@ -102,7 +102,7 @@ def creation_template() -> dict[str, Any]:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _require_string(record: Mapping[str, Any], field: str) -> str:

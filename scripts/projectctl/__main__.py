@@ -5,11 +5,10 @@ import json
 import os
 import re
 import subprocess
+import tomllib
 import urllib.parse
 from pathlib import Path
 from typing import Any, NoReturn, Protocol
-
-import tomllib
 
 from .codec import MAX_BYTES, canonical, digest, document, loads
 from .errors import Code, ProtocolError, success

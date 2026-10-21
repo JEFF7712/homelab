@@ -14,7 +14,7 @@ import tempfile
 import threading
 import unittest
 import urllib.parse
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -855,9 +855,7 @@ class IntegrationTest(unittest.TestCase):
         self.state.pipeline(10, self.project.source_sha, "manual", "running")
         self.assertEqual(self.dispatch(request_id)["state"], "waiting")
         self.state.pipeline(10, self.project.source_sha, "manual", "failure")
-        self.runtime.worker.clock = lambda: (
-            datetime.now(timezone.utc) + timedelta(seconds=10)
-        )
+        self.runtime.worker.clock = lambda: datetime.now(UTC) + timedelta(seconds=10)
         result = self.dispatch(request_id)
         self.assertEqual((result["state"], result["code"]), ("failed", "CI_FAILED"))
         self.assertEqual(self.hook_tests(), [])
@@ -981,7 +979,7 @@ class IntegrationTest(unittest.TestCase):
             "apply_to_admins": True,
         }
         self.state.pipeline(8, "f" * 40, "pull_request", "failure")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "schema_version": 1,
             "request_id": request_id,

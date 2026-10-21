@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .authorization import AuthoritySnapshot, Policy, SignedApproval, verify_signature
@@ -185,7 +185,7 @@ class RemoteAuthority:
 def discover(config: Configuration, project: Project) -> Discovery:
     api = config.apis["forgejo"]
     repo = api.request(f"/api/v1/repos/{project.repository}", missing=True)
-    observed = stamp(datetime.now(timezone.utc))
+    observed = stamp(datetime.now(UTC))
     if repo is None:
         return Discovery(1, observed, "absent", None, None, None, None)
     if repo.get("full_name") != project.repository:

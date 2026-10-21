@@ -38,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
         directory.mkdir(parents=True, exist_ok=True)
         report = {
             "label": args.label,
-            "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "time": datetime.datetime.now(datetime.UTC).isoformat(),
             "exit_code": code,
             "elapsed_seconds": time.monotonic() - started,
             "user_seconds": after.ru_utime - before.ru_utime,

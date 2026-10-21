@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .git_state import collect_git_state
@@ -13,7 +13,7 @@ from .redact import redact
 def write_evidence(
     root: Path, probe: str, target: str, result: str, details: str
 ) -> Path:
-    timestamp = datetime.now(timezone.utc)
+    timestamp = datetime.now(UTC)
     directory = root / ".agent-state" / "evidence" / probe
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{timestamp.strftime('%Y%m%dT%H%M%S.%fZ')}.json"

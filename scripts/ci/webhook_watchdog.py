@@ -39,7 +39,7 @@ def parse_time(value: object) -> datetime.datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        parsed = parsed.replace(tzinfo=datetime.UTC)
     return parsed
 
 
@@ -57,7 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("FORGEJO_SOURCE_READ_TOKEN is not set", file=sys.stderr)
         return 2
     base = f"{args.forgejo_url.rstrip('/')}/api/v1/repos/{args.repo}"
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     try:
         branches = api_get(base, token, "/branches?limit=100")
         pulls = api_get(base, token, "/pulls?state=open&limit=50")

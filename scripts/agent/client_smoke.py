@@ -7,7 +7,7 @@ import signal
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,7 +70,7 @@ def run_smoke(
         raise TaskError("smoke tests require an active or blocked task")
     state = collect_git_state(root)
     root = state.root
-    started_at = datetime.now(timezone.utc).isoformat()
+    started_at = datetime.now(UTC).isoformat()
     directory = root / ".agent-state/evidence/client-smoke"
     directory.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(
@@ -165,7 +165,7 @@ def run_smoke(
         "version": version.stdout.strip(),
         "task": task,
         "started_at": started_at,
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
         "source_fingerprint": state.fingerprint,
         "mode": "loopback API fixture, no provider inference"
         if client == "claude"

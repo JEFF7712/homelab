@@ -6,7 +6,7 @@ import os
 import stat
 import time
 import urllib.parse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import yaml
@@ -100,7 +100,7 @@ class ServiceAdapter:
             context.plan.principal,
             self.authority.current(context.request_id),
             self.config.trusted_keys,
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
         )
         repo = self._repo(context)
         if context.operation.operation_id != "repository":
@@ -323,9 +323,7 @@ class ServiceAdapter:
         )
         if raw is None:
             return False
-        payload = verify_probe(
-            raw, self.config.trusted_keys, datetime.now(timezone.utc)
-        )
+        payload = verify_probe(raw, self.config.trusted_keys, datetime.now(UTC))
         project = context.plan.project
         if any(
             payload[key] != value
@@ -358,7 +356,7 @@ class ServiceAdapter:
 
     def inspect(self, context: OperationContext) -> Observation:
         project, operation = context.plan.project, context.operation.operation_id
-        evidence: dict[str, Any] = {"observed_at": stamp(datetime.now(timezone.utc))}
+        evidence: dict[str, Any] = {"observed_at": stamp(datetime.now(UTC))}
         repo = self._repo(context)
         if repo is None:
             return Observation(

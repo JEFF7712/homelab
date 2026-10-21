@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -104,7 +104,7 @@ class TestHomeAssistantReviewFindings(unittest.TestCase):
             instance="test-instance",
             source_commit="commit1",
             content_hash="basehash",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             resources={
                 "automation/conflicted_auto": {
                     "canonical_hash": canonical_hash(base_desired),
@@ -242,12 +242,12 @@ class TestHomeAssistantReviewFindings(unittest.TestCase):
             instance="target-01",
             source_commit="rev1",
             content_hash="correct_hash",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             resources={},
         )
         planner.save_baseline(base_rec)
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         plan = ApplyPlan(
             plan_id="plan-1",
             timestamp=now,
@@ -471,7 +471,7 @@ class TestHomeAssistantReviewFindings(unittest.TestCase):
             instance="test-instance",
             source_commit="c1",
             content_hash="h1",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             resources={
                 "automation/deleted_auto": {
                     "canonical_hash": canonical_hash(doc.desired),
@@ -536,7 +536,7 @@ class TestHomeAssistantReviewFindings(unittest.TestCase):
                 instance="test-instance",
                 source_commit="c1",
                 content_hash="h1",
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 resources={
                     "script/turn_off_fan": {
                         "canonical_hash": canonical_hash(script_doc.desired),
@@ -770,12 +770,12 @@ class TestHomeAssistantReviewFindings(unittest.TestCase):
             content_hash=compute_baseline_hash(
                 {"automation/shared_auto": {"desired": doc_base.desired}}
             ),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             resources={
                 "automation/shared_auto": {
                     "canonical_hash": canonical_hash(doc_base.desired),
                     "desired": doc_base.desired,
-                    "verified_at": datetime.now(timezone.utc).isoformat(),
+                    "verified_at": datetime.now(UTC).isoformat(),
                 }
             },
         )
@@ -838,12 +838,12 @@ class TestHomeAssistantReviewFindings(unittest.TestCase):
             content_hash=compute_baseline_hash(
                 {"automation/work_light": {"desired": live_desired}}
             ),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             resources={
                 "automation/work_light": {
                     "canonical_hash": canonical_hash(live_desired),
                     "desired": live_desired,
-                    "verified_at": datetime.now(timezone.utc).isoformat(),
+                    "verified_at": datetime.now(UTC).isoformat(),
                 }
             },
         )

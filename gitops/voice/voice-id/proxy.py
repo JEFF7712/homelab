@@ -360,7 +360,7 @@ async def handle_client(
                         await asyncio.wait_for(
                             session.recognition_done.wait(), timeout=1.5
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning(
                             "Timed out waiting for speaker recognition to finish"
                         )

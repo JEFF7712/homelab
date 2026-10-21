@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -231,7 +231,7 @@ def cmd_inventory(args: argparse.Namespace, repo_root: Path) -> int:
     report = InventoryReport(
         instance=args.instance,
         ha_version=health.get("version", "unknown"),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         capabilities={
             "status": "online",
             "writable_apis": [
@@ -285,7 +285,7 @@ def cmd_capture(args: argparse.Namespace, repo_root: Path) -> int:
         )
         return ExitCode.UNAVAILABLE.value
 
-    capture_id = f"cap-{int(datetime.now(timezone.utc).timestamp())}"
+    capture_id = f"cap-{int(datetime.now(UTC).timestamp())}"
     capture_dir = (
         repo_root
         / ".agent-state"
@@ -333,7 +333,7 @@ def cmd_capture(args: argparse.Namespace, repo_root: Path) -> int:
     meta = {
         "capture_id": capture_id,
         "instance": args.instance,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "resources": to_json_compatible(captured_docs),
     }
     out_file.write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -1139,7 +1139,7 @@ def cmd_verify(args: argparse.Namespace, repo_root: Path) -> int:
 
         planner = Planner(repo_root, args.instance, client=client)
         git_rev = get_git_revision(repo_root)
-        now_str = datetime.now(timezone.utc).isoformat()
+        now_str = datetime.now(UTC).isoformat()
         owner = f"verify-{os.getpid()}"
         try:
             planner.acquire_lock(owner=owner, plan_id="checkpoint")
@@ -1296,8 +1296,8 @@ def cmd_revert(args: argparse.Namespace, repo_root: Path) -> int:
             )
 
     plan = ApplyPlan(
-        plan_id=f"revert-{int(datetime.now(timezone.utc).timestamp())}",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        plan_id=f"revert-{int(datetime.now(UTC).timestamp())}",
+        timestamp=datetime.now(UTC).isoformat(),
         instance=args.instance,
         git_revision=get_git_revision(repo_root),
         baseline_hash="revert",

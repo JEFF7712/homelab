@@ -3,11 +3,10 @@ from __future__ import annotations
 import json
 import os
 import shutil
-from datetime import datetime, timezone
+import tomllib
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 
 def run_doctor(root: Path, live: bool = False) -> dict[str, Any]:
@@ -167,7 +166,7 @@ def run_doctor(root: Path, live: bool = False) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "command": "doctor",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "status": status,
         "checks": checks,
     }
