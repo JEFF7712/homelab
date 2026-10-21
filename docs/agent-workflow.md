@@ -192,8 +192,9 @@ authorization contract in `AGENTS.md` rather than adding policy:
   similar), `flux suspend|resume|delete|create`, `helm` installs and upgrades,
   `tofu`/`terraform` apply, destroy, import and state edits, remote
   `nixos-rebuild` or `switch-to-configuration`, `deploy-fleet`, `ha-apply`,
-  `ha-revert`, registry writes, workspace provisioning, and `just ship
-  --deploy` with anything other than `auto` or `none`. Dry runs pass.
+  `ha-revert`, registry writes, and workspace provisioning. Dry runs pass.
+  `just ship --deploy` is not gated here: its held operations wait for a
+  passkey approval on the [approvals dashboard](runbooks/approvals.md).
 
 An authorization-required command passes once it carries
 `HOMELAB_AUTHORIZED=1`, for example `HOMELAB_AUTHORIZED=1 kubectl -n immich

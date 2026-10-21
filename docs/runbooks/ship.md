@@ -50,8 +50,8 @@ The default overall timeout is 90 minutes (`--timeout`).
 `config/ci/ship-routes.json` maps path prefixes to operations from
 `config/ci/operations.json`. Automatic routes run under the standing
 delivery authorization in `AGENTS.md`. The others are held: `ship` prints the
-exact `--deploy` value to use once the user authorizes that infrastructure
-change. Add a route when a new service gains a protected publish operation;
+exact `--deploy` value, and rerunning with it files the held operations on
+the approvals dashboard for the user's passkey approval. Add a route when a new service gains a protected publish operation;
 `tests/test_agent_ship.py` checks every route names a catalog operation.
 
 | Route | Paths | Operations | Automatic |
@@ -83,8 +83,11 @@ deploy locally with `just deploy-fleet --target homelab-04` instead.
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
 token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. CI accepts held
 operations only from a human operator, so for those `ship` uses
-`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token`, and
-without one stops with the main pipeline to deploy from in the Woodpecker UI.
+`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token` when
+present. Without one, which is every agent machine, it files the operation on
+the [approvals dashboard](approvals.md), prints the request link, and waits
+for the operator's passkey approval; the dashboard triggers the operation and
+`ship` follows its pipeline. A declined or expired request fails the ship.
 It never prints a token. Deployment operations run in CI with CI-held credentials, so a
 service publish never depends on the caller's Docker login.
 

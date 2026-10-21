@@ -2,9 +2,10 @@
 
 A command is either forbidden outright (it defeats a protection no
 authorization can grant) or requires the user's explicit authorization for a
-live mutation outside `just ship`'s automatic routes. The latter passes once
-the command carries `HOMELAB_AUTHORIZED=1`, so granting it stays an explicit,
-recorded act rather than a silent default.
+live mutation outside `just ship`. The latter passes once the command carries
+`HOMELAB_AUTHORIZED=1`, so granting it stays an explicit, recorded act rather
+than a silent default. `just ship --deploy` is not gated here: held routes in
+it wait for a passkey approval on the approvals dashboard.
 """
 
 from __future__ import annotations
@@ -70,7 +71,6 @@ JUST_MUTATIONS = {
     "workspace-deprovision",
     "workspace-provision",
 }
-SHIP_AUTOMATIC = {"auto", "none"}
 
 
 @dataclass(frozen=True)
@@ -275,8 +275,6 @@ def _classify(words: list[str], remote: bool = False) -> Verdict | None:
     if program == "ssh":
         command = " ".join(_positionals(words[1:], SSH_VALUE_FLAGS)[1:])
         return _assess_all(command, remote=True) if command else None
-    if program in {"python", "python3"} and words[1:3] == ["-m", "scripts.agent.ship"]:
-        return _ship(words, "python -m scripts.agent.ship")
     if program in {"python", "python3"} and words[1:3] == [
         "-m",
         "scripts.deploy_fleet",
@@ -291,27 +289,7 @@ def _classify(words: list[str], remote: bool = False) -> Verdict | None:
         recipe = positionals[0] if positionals else ""
         if recipe in JUST_MUTATIONS and "--dry-run" not in words:
             return Verdict("authorize", f"`just {recipe}` mutates live infrastructure")
-        if recipe == "ship":
-            return _ship(words, "just ship")
         return None
-    return None
-
-
-def _ship(words: list[str], name: str) -> Verdict | None:
-    deploy = _option_value(words, "--deploy")
-    if deploy is None or deploy in SHIP_AUTOMATIC:
-        return None
-    return Verdict(
-        "authorize", f"`{name} --deploy {deploy}` runs held infrastructure routes"
-    )
-
-
-def _option_value(words: list[str], option: str) -> str | None:
-    for index, word in enumerate(words):
-        if word == option and index + 1 < len(words):
-            return words[index + 1]
-        if word.startswith(option + "="):
-            return word.split("=", 1)[1]
     return None
 
 
