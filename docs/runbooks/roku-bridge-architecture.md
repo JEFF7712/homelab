@@ -186,7 +186,15 @@ Live LedFx objects. The bedroom trio lives on the **nas-01** instance
 - scene `bedroom-music-mode` (energy)
 
 The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) holds only
-the Govee devices, the `music-mode-bulbs` virtual, and the `music-mode` scene.
+the `shared-osc` device, the `music-mode-bulbs` virtual, and the `music-mode`
+scene. `shared-osc` (type `osc`, `10.0.30.10:9001`, 4 pixels, All_To_One,
+`/shared`, 10Hz) feeds `ledfx-zigbee-bridge` on the Zigbee gateway, which
+averages each pixel over 2.5s and fades the matching Zigbee bulb (pixel order:
+kitchen ceiling 1, kitchen ceiling 2, floor lamp, tulip lamp; see
+`flake/modules/adguard-netbird/ledfx-zigbee-bridge.nix`). It is ambient by
+design: Zigbee carries about one command per bulb per second, so beat-level
+reactiveness belongs on a WLED strip added to the same virtual. The Apollo
+strip is deliberately not in the music virtual.
 Bedroom objects were removed from it so the two instances cannot address each
 other's bulbs.
 
