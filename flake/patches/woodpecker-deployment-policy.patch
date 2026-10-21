@@ -1,7 +1,7 @@
 diff --git a/server/api/pipeline.go b/server/api/pipeline.go
 --- a/server/api/pipeline.go
 +++ b/server/api/pipeline.go
-@@ -593,6 +593,7 @@ func PostPipeline(c *gin.Context) {
+@@ -586,6 +586,7 @@ func PostPipeline(c *gin.Context) {
  		}
  
  		pl.DeployTo = c.DefaultQuery("deploy_to", pl.DeployTo)
@@ -9,7 +9,20 @@ diff --git a/server/api/pipeline.go b/server/api/pipeline.go
  	}
  
  	// Read query string parameters into pipelineParams, exclude reserved params
-@@ -610,6 +611,11 @@ func PostPipeline(c *gin.Context) {
+@@ -595,6 +596,12 @@ func PostPipeline(c *gin.Context) {
+ 		// Skip some options of the endpoint
+ 		case "fork", "event", "deploy_to":
+ 			continue
++		// The web UI always sends deploy_task, empty when the field is left blank.
++		case "deploy_task":
++			if val[0] == "" {
++				continue
++			}
++			envs[key] = val[0]
+ 		default:
+ 			// We only accept string literals, because pipeline parameters will be
+ 			// injected as environment variables
+@@ -603,6 +610,11 @@ func PostPipeline(c *gin.Context) {
  		}
  	}
  
