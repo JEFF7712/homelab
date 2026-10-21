@@ -19,7 +19,7 @@ from typing import Any
 REQUEST_TTL_SECONDS = 6 * 3600
 ENROLLMENT_TTL_SECONDS = 15 * 60
 REASON_LIMIT = 2000
-TERMINAL = {"approved", "declined", "expired", "failed"}
+TERMINAL = {"approved", "declined", "expired", "failed", "superseded"}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS requests (
@@ -220,7 +220,7 @@ class Store:
     ) -> None:
         if state not in TERMINAL:
             raise ValueError(f"Not a terminal state: {state}")
-        source = "pending" if state == "declined" else "approving"
+        source = "pending" if state in {"declined", "superseded"} else "approving"
         with self.lock:
             self._expire(now)
             updated = self.db.execute(

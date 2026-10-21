@@ -138,6 +138,20 @@ class ShipOperatorTest(unittest.TestCase):
         self.assertEqual(body["parent"], 10)
         self.assertEqual(body["evidence"], [41])
 
+    def test_superseded_approvals_retry_on_the_new_main(self) -> None:
+        shipper = self.approval_shipper()
+        responses = [
+            (201, {"id": "abc", "url": "https://approvals/r/abc"}),
+            (200, {"state": "superseded"}),
+        ]
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch.object(ship.Path, "home", return_value=Path("/nonexistent")),
+            patch.object(ship, "http", side_effect=responses),
+            self.assertRaisesRegex(ShipError, ship.SUPERSEDED),
+        ):
+            shipper.run_operation(10, "deploy-ci-host")
+
     def test_declined_approvals_stop_the_ship(self) -> None:
         shipper = self.approval_shipper()
         responses = [
