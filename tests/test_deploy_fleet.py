@@ -22,6 +22,18 @@ from scripts.deploy_fleet import (
 
 
 class DeployFleetTest(unittest.TestCase):
+    def test_k3s_hosts_deploy_the_registry_variant(self) -> None:
+        for name in (
+            "homelab-01",
+            "homelab-02",
+            "homelab-03",
+            "homelab-04",
+            "homelab-05",
+        ):
+            self.assertEqual(FLEET_HOSTS[name].flake_attr, name + "-registry")
+        for name in ("nas-01", "adguard-netbird-01"):
+            self.assertEqual(FLEET_HOSTS[name].flake_attr, name)
+
     def test_nas_missing_dataset_blocks_rebuild_even_when_preflight_skipped(
         self,
     ) -> None:
@@ -466,7 +478,7 @@ class DeployFleetTest(unittest.TestCase):
         hosts_targeted = [
             c[c.index("--flake") + 1] for c in executed_commands if "--flake" in c
         ]
-        self.assertEqual(hosts_targeted, ["./flake#homelab-02"])
+        self.assertEqual(hosts_targeted, ["./flake#homelab-02-registry"])
 
         # Check that uncordon was attempted during recovery of homelab-02
         uncordon_cmds = [
