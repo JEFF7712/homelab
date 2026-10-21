@@ -205,16 +205,12 @@ in
       description = "Seed Home Assistant token into kiosk browser";
       after = [ "cage-tty1.service" ];
       wantedBy = [ "multi-user.target" ];
-      # Parked while no display is connected (all DRM outputs on homelab-05
-      # disconnected since 2026-09-25; last successful seed that day). The
-      # seeder fails without a Jarvis page target, and any failed unit marks
-      # every nixos-rebuild switch failed (status 4), reddening fleet
-      # deploys. To re-enable after reconnecting the display, delete this
-      # line, redeploy, and the boot-time seeding resumes automatically.
-      enable = false;
+      # A simple unit that waits without a deadline: with no display attached
+      # cage never opens the Jarvis page, and a failing oneshot would mark
+      # every nixos-rebuild switch failed. It seeds whenever a monitor shows up.
       unitConfig.ConditionPathExists = [ cfg.haTokenFile ];
       serviceConfig = {
-        Type = "oneshot";
+        Type = "simple";
         RemainAfterExit = true;
         Restart = "on-failure";
         RestartSec = "30s";
@@ -222,7 +218,7 @@ in
       path = [ pkgs.python3 ];
       script = ''
         exec ${pkgs.python3}/bin/python3 ${./kiosk-ha-token-seed.py} \
-          --token-file ${cfg.haTokenFile}
+          --token-file ${cfg.haTokenFile} --wait-seconds inf
       '';
     };
 
