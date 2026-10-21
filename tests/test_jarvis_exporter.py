@@ -45,7 +45,10 @@ class ExporterNetworkPolicyTest(unittest.TestCase):
             policy["spec"]["endpointSelector"]["matchLabels"]["app"],
             "jarvis-exporter",
         )
-        self.assertEqual(policy["spec"]["egress"][0]["toEntities"], ["kube-apiserver"])
+        self.assertEqual(
+            policy["spec"]["egress"][0]["toEntities"],
+            ["host", "remote-node", "kube-apiserver"],
+        )
         self.assertEqual(
             policy["spec"]["egress"][0]["toPorts"][0]["ports"],
             [{"port": "8123", "protocol": "TCP"}],
