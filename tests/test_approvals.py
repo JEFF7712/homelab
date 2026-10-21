@@ -104,6 +104,7 @@ class Harness:
             "commit": "a" * 40,
         }
         self.woodpecker.deploy.return_value = 501
+        self.woodpecker.main_commit.return_value = "a" * 40
         self.service = server.Service(self.config, self.store, self.woodpecker)
         self.passkey = Passkey()
         self.store.add_credential(self.passkey.id, self.passkey.cose, 0, "test", 0)
@@ -230,6 +231,22 @@ class ApprovalFlowTest(unittest.TestCase):
         self.assertEqual(self.h.store.get(stale, later).state, "expired")
         with self.assertRaisesRegex(ApprovalError, "not pending"):
             self.h.service.approval_options(stale, later)
+
+    def test_requests_for_an_old_main_are_superseded(self) -> None:
+        identifier = self.h.file()["id"]
+        self.h.woodpecker.main_commit.return_value = "b" * 40
+        [request] = self.h.service.recent(110)
+        self.assertEqual(request.state, "superseded")
+        self.assertIn("bbbbbbbbbbbb", request.error)
+        with self.assertRaisesRegex(ApprovalError, "not pending"):
+            self.h.service.request(identifier, 111)
+            self.h.service.approval_options(identifier, 111)
+        self.h.woodpecker.deploy.assert_not_called()
+
+    def test_an_unknown_main_leaves_requests_pending(self) -> None:
+        identifier = self.h.file()["id"]
+        self.h.woodpecker.main_commit.return_value = None
+        self.assertEqual(self.h.service.request(identifier, 110).state, "pending")
 
     def test_enrollment_tokens_are_single_use_and_expire(self) -> None:
         token = self.h.store.create_enrollment(0)
