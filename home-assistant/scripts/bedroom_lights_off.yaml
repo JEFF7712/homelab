@@ -1,13 +1,13 @@
 alias: "Bedroom: Lights Off"
 description: >-
   Snapshot current bedroom plug, lamp, and bus display state, then turn
-  everything off and release Adaptive Lighting manual control so the next
-  turn-on is adapted again. "Bedroom: Evening Lights On" restores this
-  snapshot. The snapshot is only taken when something is on, so pressing
-  Off twice (or an automation firing while already off) cannot overwrite a
-  good snapshot with an all-off one that would make the next All On do
-  nothing. Clears the auto-on flag so sunrise leaves manually turned-on
-  lights alone.
+  everything off, including the bedroom LED matrix display, and release
+  Adaptive Lighting manual control so the next turn-on is adapted again.
+  "Bedroom: Evening Lights On" restores this snapshot. The snapshot is only
+  taken when something is on, so pressing Off twice (or an automation firing
+  while already off) cannot overwrite a good snapshot with an all-off one
+  that would make the next All On do nothing. Clears the auto-on flag so
+  sunrise leaves manually turned-on lights alone.
 sequence:
   - action: input_boolean.turn_off
     target:
@@ -42,6 +42,9 @@ sequence:
         - light.floor_lamp_floor_lamp
         - light.light_strip_light_strip
         - light.bus_display
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.bedroom_matrix_power
   - action: adaptive_lighting.set_manual_control
     data:
       entity_id: switch.adaptive_lighting_all_dimmable_lights

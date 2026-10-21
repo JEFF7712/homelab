@@ -9,7 +9,9 @@ description: >-
   mode) leaves them alone until the next off/on cycle. Falls back to plain
   turn_on (brightness and color temperature owned by Adaptive Lighting)
   when no snapshot exists yet, e.g. after a restart. Sets the auto-on flag
-  so the lighting director knows sunrise may turn these off again.
+  so the lighting director knows sunrise may turn these off again. The
+  bedroom LED matrix display is powered on with the room, in both the
+  snapshot-restore and the plain turn-on path.
 sequence:
   - action: input_boolean.turn_on
     target:
@@ -48,4 +50,7 @@ sequence:
             - light.floor_lamp_floor_lamp
             - light.light_strip_light_strip
             - light.bus_display
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.bedroom_matrix_power
 mode: single
