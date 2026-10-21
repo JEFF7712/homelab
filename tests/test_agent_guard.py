@@ -75,6 +75,8 @@ class GuardClassificationTest(unittest.TestCase):
             "git commit -m 'docs: explain why kubectl apply and git push origin main are blocked'",
             "rg -n 'kubectl delete' docs",
             "ssh homelab-01 'uptime; systemctl status k3s'",
+            "ssh homelab-04 'pgrep -af \"switch-to-conf|nixos-rebuild\" | head'",
+            "ssh homelab-04 'journalctl -u nixos-rebuild-switch-to-configuration -n 5'",
             "cat > notes.md <<'EOF'\nkubectl delete ns media\ntofu apply\nEOF\nwc -l notes.md",
             'python -m x <<<"$HOOK_INPUT"\nkubectl get nodes',
             "echo done # kubectl delete ns media",
