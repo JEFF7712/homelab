@@ -277,24 +277,6 @@ light:
       - light.desk_lamp_desk_lamp
       - light.floor_lamp_floor_lamp
       - light.light_strip_light_strip
-  # Local Govee H6004 control over the UDP LAN API (see
-  # docs/gotchas/govee-lan-control.md). MAC-verified mapping: .167 is
-  # Kitchen Ceiling 1, .168 is Kitchen Ceiling 2, .166 is the floor lamp,
-  # .169 is the tulip lamp.
-  - platform: govee_lan
-    lights:
-      kitchen_ceiling_light_1:
-        name: Kitchen Ceiling Light 1
-        host: 10.0.20.167
-      kitchen_ceiling_light_2:
-        name: Kitchen Ceiling Light 2
-        host: 10.0.20.168
-      living_room_floor_lamp:
-        name: Living Room Floor Lamp
-        host: 10.0.20.166
-      living_room_tulip_lamp:
-        name: Living Room Tulip Lamp
-        host: 10.0.20.169
   - platform: group
     name: Downstairs Lights
     entities:

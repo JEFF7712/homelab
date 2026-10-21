@@ -113,21 +113,29 @@
   icon: mdi:cellphone-charging
   entity_id: input_number.phone_bedtime_battery_threshold
   labels: []
-- entity_id: light.kitchen_ceiling_light_1
+- area_id: kitchen
+  entity_id: light.kitchen_ceiling_light_1
   labels:
     - shared_space
-- entity_id: light.kitchen_ceiling_light_2
+  name: Kitchen Ceiling Light 1
+- area_id: kitchen
+  entity_id: light.kitchen_ceiling_light_2
   labels:
     - shared_space
+  name: Kitchen Ceiling Light 2
 - area_id: kitchen
   entity_id: light.kitchen_mushroom_lamp
   labels: []
-- entity_id: light.living_room_floor_lamp
+- area_id: living_room
+  entity_id: light.living_room_floor_lamp
   labels:
     - shared_space
-- entity_id: light.living_room_tulip_lamp
+  name: Living Room Floor Lamp
+- area_id: living_room
+  entity_id: light.living_room_tulip_lamp
   labels:
     - shared_space
+  name: Living Room Tulip Lamp
 - area_id: living_room
   entity_id: light.apollo_led_strip_apollo_led_strip
   labels:
