@@ -11,3 +11,4 @@ resources:
   - server.yaml
   - machine-learning.yaml
   - postgres-cluster.yaml
+  - postgres-podmonitor.yaml

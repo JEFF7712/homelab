@@ -222,3 +222,57 @@ spec:
           annotations:
             summary: "NVMe available spare below 15% on {{ $labels.device }}"
             description: "NVMe drive {{ $labels.device }} available spare is {{ $value }}% on {{ $labels.host }}."
+
+    # Replaces the chart's KubeJobFailed, which keeps firing for as long as
+    # any failed Job object exists, so CronJob history buried real alerts.
+    - name: jobs.rules
+      rules:
+        - alert: CronJobLastRunFailed
+          expr: |
+            (kube_cronjob_status_last_schedule_time > kube_cronjob_status_last_successful_time)
+            and on (namespace, cronjob) (time() - kube_cronjob_status_last_schedule_time > 1800)
+            unless on (namespace, cronjob) (kube_cronjob_status_active > 0)
+            unless on (namespace, cronjob) (kube_cronjob_spec_suspend == 1)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} failed its latest run"
+            description: >-
+              The most recent scheduled run of {{ $labels.namespace }}/{{ $labels.cronjob }}
+              did not succeed and none is running. Clears on the next successful run.
+
+        - alert: JobFailed
+          expr: |
+            (kube_job_failed{condition="true"} > 0)
+            and on (namespace, job_name) (time() - kube_job_created < 86400)
+            unless on (namespace, job_name) kube_job_owner{owner_kind="CronJob"}
+          labels:
+            severity: warning
+          annotations:
+            summary: "Job {{ $labels.namespace }}/{{ $labels.job_name }} failed"
+            description: "A standalone Job failed within the last day. CronJob runs alert through CronJobLastRunFailed."
+
+    - name: cnpg.rules
+      rules:
+        - alert: PostgresPrimaryWithoutReplica
+          expr: |
+            (cnpg_pg_replication_in_recovery == 0)
+            and on (namespace, pod) (cnpg_pg_replication_streaming_replicas < 1)
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Postgres {{ $labels.namespace }}/{{ $labels.cluster }} has no streaming replica"
+            description: >-
+              Primary {{ $labels.pod }} has had no streaming replica for 15 minutes, so losing its node
+              would lose the database. See docs/runbooks/postgres-disaster-recovery.md.
+
+        - alert: PostgresInstanceMetricsDown
+          expr: cnpg_collector_up == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Postgres instance {{ $labels.namespace }}/{{ $labels.pod }} is not reporting"
+            description: "The CloudNativePG exporter on {{ $labels.pod }} reports its collector down."
