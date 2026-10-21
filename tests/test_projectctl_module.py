@@ -24,6 +24,7 @@ class ProjectctlModuleTest(unittest.TestCase):
             make = extra: lib.nixosSystem {
               system = "x86_64-linux";
               modules = [
+                flake.inputs.sops-nix.nixosModules.sops
                 ROOT_PROFILE
                 ({lib, ...}: {
                   options.homelab.woodpecker.enable = lib.mkOption { type = lib.types.bool; default = true; };
@@ -57,6 +58,12 @@ class ProjectctlModuleTest(unittest.TestCase):
             timer = cfg.systemd.timers.projectctl-reconcile.timerConfig;
             mounts = cfg.systemd.services."projectctl-dispatch@".unitConfig.RequiresMountsFor;
             tmpfiles = cfg.systemd.tmpfiles.rules;
+            secrets = lib.mapAttrs (_: secret: {
+              inherit (secret) path key format mode owner group;
+              sopsFile = toString secret.sopsFile;
+            }) cfg.sops.secrets;
+            ageKeys = cfg.sops.age.sshKeyPaths;
+            gnupgKeys = cfg.sops.gnupg.sshKeyPaths;
           }
         """.replace("ROOT_FLAKE", json.dumps(str(ROOT / "flake"))).replace(
             "ROOT_PROFILE", str(ROOT / "flake/profiles/projectctl-pilot.nix")
@@ -72,6 +79,32 @@ class ProjectctlModuleTest(unittest.TestCase):
         if result.returncode:
             raise RuntimeError(result.stderr)
         cls.evaluated = json.loads(result.stdout)
+
+    def test_credentials_use_host_decryption_and_systemd_delivery(self) -> None:
+        bundle = json.loads((ROOT / "secrets/projectctl.sops.json").read_text())
+        names = set(bundle) - {"sops"}
+        self.assertEqual(set(self.evaluated["secrets"]), names)
+        self.assertEqual(
+            self.evaluated["ageKeys"],
+            ["/persist/etc/ssh/ssh_host_ed25519_key"],
+        )
+        self.assertEqual(self.evaluated["gnupgKeys"], [])
+        for name, secret in self.evaluated["secrets"].items():
+            with self.subTest(name=name):
+                self.assertEqual(secret["key"], name)
+                self.assertEqual(secret["format"], "json")
+                self.assertEqual(secret["mode"], "0400")
+                owner = "projectctl-worker" if name.endswith("-read") else "root"
+                self.assertEqual(secret["owner"], owner)
+                self.assertEqual(secret["group"], owner)
+                self.assertEqual(secret["path"], f"/run/secrets/{name}")
+                self.assertTrue(
+                    secret["sopsFile"].endswith("/secrets/projectctl.sops.json")
+                )
+                self.assertIn(
+                    f"{name}:{secret['path']}",
+                    self.evaluated["service"]["LoadCredential"],
+                )
 
     def test_pilot_scope_and_contract_are_exact(self) -> None:
         self.assertEqual(self.evaluated["assertions"], [])

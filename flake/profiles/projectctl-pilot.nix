@@ -1,6 +1,27 @@
-{ ... }:
+{ config, lib, ... }:
+let
+  credentials = [
+    "forgejo-read"
+    "forgejo-write"
+    "woodpecker-read"
+    "woodpecker-write"
+    "registry-password"
+  ];
+in
 {
   imports = [ ../modules/projectctl.nix ];
+  sops = {
+    age.sshKeyPaths = [ "/persist/etc/ssh/ssh_host_ed25519_key" ];
+    gnupg.sshKeyPaths = [ ];
+    secrets = lib.genAttrs credentials (name: {
+      sopsFile = ../../secrets/projectctl.sops.json;
+      format = "json";
+      key = name;
+      mode = "0400";
+      owner = if lib.hasSuffix "-read" name then "projectctl-worker" else "root";
+      group = if lib.hasSuffix "-read" name then "projectctl-worker" else "root";
+    });
+  };
   homelab.projectctl = {
     enable = true;
     principals = builtins.fromJSON (builtins.readFile ../../config/projectctl/callers.json);
@@ -16,12 +37,6 @@
         allow_plaintext = false;
       };
     };
-    credentialFiles = {
-      forgejo-read = "/persist/projectctl-credentials/forgejo-read";
-      forgejo-write = "/persist/projectctl-credentials/forgejo-write";
-      woodpecker-read = "/persist/projectctl-credentials/woodpecker-read";
-      woodpecker-write = "/persist/projectctl-credentials/woodpecker-write";
-      registry-password = "/persist/projectctl-credentials/registry-password";
-    };
+    credentialFiles = lib.genAttrs credentials (name: config.sops.secrets.${name}.path);
   };
 }

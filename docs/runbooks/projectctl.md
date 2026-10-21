@@ -294,42 +294,45 @@ on homelab-04.
 
    The command prompts for all five values, encrypts in memory through SOPS,
    and writes only ciphertext. It refuses an existing destination and identical
-   read/write tokens. The new .sops.yaml rule uses the existing recovery
-   recipients. Retain the ciphertext through the protected repository workflow.
+   read/write tokens. The .sops.yaml rule uses both operator recovery recipients and the
+   target host recipient. Retain the ciphertext through the protected repository workflow.
 4. Review the prepared homelab-04 import and enabled pilot profile. Dispatch has
    no automatic timer or activation hook. The profile uses verified HTTPS at
    https://git.rupan.dev for Forgejo and loopback HTTP for Woodpecker. TLS
    verification is never disabled. Obtain worker deployment authorization before
    activation; Zot reader provisioning approval does not cover the worker.
 5. Drain active builds before the policy restart. Review the full host change
-   and rollback generation, then build and temporarily activate:
+   and recovery generation, then ship through the protected CI-host route:
 
    ~~~fish
-   nix build 'path:.?dir=flake#nixosConfigurations.homelab-04.config.system.build.toplevel' --out-link /tmp/projectctl-homelab-04
-   set system_path (realpath /tmp/projectctl-homelab-04)
-   nix copy --to ssh://homelab-04 $system_path
-   ssh homelab-04 sudo $system_path/bin/switch-to-configuration test
+   just ship --deploy deploy-ci-host
    ~~~
 
-   Temporary activation also installs the immutable CI attestation and updated
-   workflow stamp. Use the normal approved deployment workflow to make the
-   generation persistent after acceptance.
-6. Decrypt on the operator machine and install through a direct pipe:
+   The shipper runs the matching dry-run prerequisite and files held operations
+   on the approvals dashboard. Approve the printed request before activation.
+   A successful build alone does not establish host decryption or service health.
+6. Deploy the reviewed host generation through the held CI-host route. The
+   profile uses sops-nix to decrypt `secrets/projectctl.sops.json` on homelab-04
+   using `/persist/etc/ssh/ssh_host_ed25519_key`. Its public age recipient is
+   recorded alongside both operator recovery recipients in `.sops.yaml`.
+   Credentials are mode-0400 files under `/run/secrets`. Observer tokens belong
+   to projectctl-worker for direct API discovery; write tokens and the registry
+   password belong to root. Systemd `LoadCredential` gives privileged invocations
+   their private credential copies.
+   No operator-side plaintext installation is required.
 
    ~~~fish
-   sops --decrypt --output-type json secrets/projectctl.sops.json | ssh homelab-04 'sudo -n projectctl-operator install-credentials --directory /persist/projectctl-credentials'
    ssh homelab-04 'sudo -n systemctl start projectctl-verify-credentials.service'
    ssh homelab-04 'sudo -n journalctl -u projectctl-verify-credentials.service -n 10 --no-pager'
    ~~~
 
-   The installer requires root and refuses an existing directory. Files are
-   0600. Read tokens belong to projectctl-worker; write tokens and registry
-   password belong to root. The 0750 directory belongs to root:projectctl-worker.
-   Verification and each operator dispatch reject administrator identities and require
-   distinct observer/provisioner accounts matching between both services. It does not
-   certify write scopes or registry ACLs. Verify account/token settings and
-   independent access tests before any live enrollment. Rotation uses a new
-   protected directory, reviewed path changes, verification, then revocation.
+   Preserve the historical root-only credential backups. Verification and each
+   operator dispatch reject administrator identities and require distinct
+   observer/provisioner accounts matching between both services. Verification
+   does not certify write scopes or registry ACLs. Verify account/token settings
+   and independent access tests before live enrollment. Rotate by updating the
+   encrypted bundle, deploying, verifying, and only then revoking old tokens.
+
 7. Verify the restricted caller using stdin JSON:
 
    ~~~fish
