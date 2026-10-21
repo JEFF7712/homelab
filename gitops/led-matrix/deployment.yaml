@@ -67,6 +67,8 @@ spec:
               containerPort: 4048
               protocol: UDP
           env:
+            - name: TZ
+              value: America/Chicago
             - name: SPOTIFY_CLIENT_ID
               valueFrom:
                 secretKeyRef:
