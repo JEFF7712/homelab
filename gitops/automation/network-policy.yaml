@@ -1,0 +1,68 @@
+# Renovate, the reviewers and the dashboards hold Forgejo and GitHub tokens,
+# and the GitHub runners execute repository workflows, so the namespace may
+# reach only what a 70-minute Hubble capture (2026-10-20) and the manifests
+# show it uses: DNS, the API server, the NAS reverse proxy for Forgejo and the
+# registry, ntfy, and the public Internet. Everything else private is denied.
+# Ingress is not restricted here.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: automation
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # dockerd in the GitHub runners resolves through AdGuard directly.
+    - toCIDR:
+        - 10.0.30.10/32
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+    # git.rupan.dev and registry.rupan.dev on nas-01.
+    - toCIDR:
+        - 10.0.30.20/32
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: ntfy
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 100.64.0.0/10
+            - 169.254.0.0/16
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "80"
+              protocol: TCP
