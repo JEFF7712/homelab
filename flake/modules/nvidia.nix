@@ -26,7 +26,15 @@
     powerManagement.enable = true;
   };
 
-  hardware.nvidia-container-toolkit.enable = true;
+  hardware.nvidia-container-toolkit = {
+    enable = true;
+    # The device plugin hands containers GPU UUIDs, so the spec needs UUID
+    # names alongside the default index names.
+    extraArgs = [
+      "--device-name-strategy"
+      "uuid"
+    ];
+  };
 
   environment.systemPackages = [
     pkgs.libnvidia-container
@@ -48,7 +56,10 @@
 
     [nvidia-container-runtime]
     log-level = "info"
-    mode = "auto"
+    # Inject GPUs from the spec the NixOS generator writes. Toolkit 1.20 turns
+    # "auto" into just-in-time CDI, whose driver library search cannot see
+    # /run/opengl-driver and fails every GPU container.
+    mode = "cdi"
     runtimes = ["runc", "crun"]
 
     [nvidia-container-runtime.modes.cdi]
