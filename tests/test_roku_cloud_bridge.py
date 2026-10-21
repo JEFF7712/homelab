@@ -4,8 +4,6 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-from scripts.roku_cloud_bridge import render_cloud_bulbs, render_cookies
-
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "flake/modules/adguard-netbird/roku-cloud-bridge.nix"
 DAEMON = ROOT / "flake/modules/adguard-netbird/roku-cloud-bridge.py"
@@ -145,58 +143,38 @@ class CloudModuleContractTests(unittest.TestCase):
     def test_appliance_imports_cloud_bridge(self) -> None:
         self.assertIn("./adguard-netbird/roku-cloud-bridge.nix", APPLIANCE.read_text())
 
-    def test_cloud_bridge_runs_as_own_user_with_staged_secrets(self) -> None:
+    def test_cloud_bridge_runs_as_own_user_with_sops_secrets(self) -> None:
         module = MODULE.read_text()
         self.assertIn("users.users.roku-cloud-bridge", module)
-        self.assertIn("systemd.services.roku-cloud-bridge-secrets", module)
-        self.assertIn("/persist/secrets/roku-cloud-bulbs.yaml", module)
-        self.assertIn("/persist/secrets/roku-cloud-cookies.json", module)
+        self.assertIn("sops.secrets.roku-cloud-bulbs", module)
+        self.assertIn("sops.secrets.roku-cloud-cookies", module)
         self.assertIn("systemd.services.roku-cloud-bridge", module)
         self.assertIn('User = "roku-cloud-bridge"', module)
         self.assertIn("builtins.readFile ./roku-cloud-bridge.py", module)
 
     def test_cloud_bridge_reuses_lan_broker_credential(self) -> None:
         module = MODULE.read_text()
-        self.assertIn("/persist/secrets/mosquitto-roku-bridge-password", module)
+        self.assertIn(
+            'config.sops.placeholder."mosquitto-roku-bridge-password"', module
+        )
         self.assertIn("MQTT_USER=roku-bridge", module)
         self.assertNotIn("mosquitto-roku-cloud", module)
 
     def test_cookie_seed_never_overwrites_renewed_state(self) -> None:
-        module = MODULE.read_text()
-        self.assertIn(
-            "if ! ${pkgs.coreutils}/bin/test -s "
-            "/var/lib/roku-cloud-bridge/cookies.json",
-            module,
-        )
+        import json
+        import tempfile
 
-    def test_ci_provisions_cloud_secrets_before_activation(self) -> None:
-        pipeline = (ROOT / ".gitlab-ci.yml").read_text()
-        self.assertIn("python -m scripts.roku_cloud_bridge", pipeline)
-        self.assertIn("roku-cloud-bulbs.yaml", pipeline)
-        self.assertIn("roku-cloud-cookies.json", pipeline)
-        self.assertIn("ROKU_CLOUD_RENDER_MODE=cookies", pipeline)
-
-
-class CloudRendererTests(unittest.TestCase):
-    def test_renders_name_and_mac_only(self) -> None:
-        self.assertEqual(
-            render_cloud_bulbs('[{"name": "Light Strip", "mac": "7C67AB2A0505"}]'),
-            "bulbs:\n  - name: Light Strip\n    mac: 7C67AB2A0505\n",
-        )
-        with self.assertRaises(ValueError):
-            render_cloud_bulbs('[{"name": "Bad", "mac": "XYZ"}]')
-        with self.assertRaises(ValueError):
-            render_cloud_bulbs("not json")
-
-    def test_cookies_require_session(self) -> None:
-        self.assertEqual(
-            render_cookies('{"ks.session": "abc", "other": "1"}'),
-            '{"ks.session": "abc", "other": "1"}',
-        )
-        with self.assertRaises(ValueError):
-            render_cookies('{"other": "1"}')
-        with self.assertRaises(ValueError):
-            render_cookies("not json")
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "cookies.json"
+            seed = Path(directory) / "seed.json"
+            seed.write_text(json.dumps({"ks.session": "seed"}))
+            self.assertEqual(
+                CLOUD.load_cookies(str(state), str(seed)), {"ks.session": "seed"}
+            )
+            state.write_text(json.dumps({"ks.session": "renewed"}))
+            self.assertEqual(
+                CLOUD.load_cookies(str(state), str(seed)), {"ks.session": "renewed"}
+            )
 
 
 if __name__ == "__main__":

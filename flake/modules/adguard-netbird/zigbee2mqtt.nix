@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
   services.zigbee2mqtt = {
     enable = true;
@@ -22,17 +22,31 @@
     };
   };
 
+  sops.secrets.zigbee2mqtt-network-key = { };
+
+  # JSON is valid YAML. The password is a URL-safe token and the network key a
+  # JSON byte list, so the placeholders need no escaping.
+  sops.templates."zigbee2mqtt-secret.yaml" = {
+    content = ''
+      {"mqtt_user": "zigbee2mqtt", "mqtt_password": "${
+        config.sops.placeholder."mosquitto-zigbee2mqtt-password"
+      }", "network_key": ${config.sops.placeholder.zigbee2mqtt-network-key}}
+    '';
+    restartUnits = [ "zigbee2mqtt-secrets.service" ];
+  };
+
+  # Zigbee2MQTT resolves !secret.yaml inside its state directory, so the
+  # rendered file is copied there for the service user.
   systemd.services.zigbee2mqtt-secrets = {
     before = [ "zigbee2mqtt.service" ];
     requiredBy = [ "zigbee2mqtt.service" ];
-    unitConfig.ConditionPathExists = "/persist/secrets/zigbee2mqtt-secret.yaml";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
     script = ''
       ${pkgs.coreutils}/bin/install -m 0600 -o zigbee2mqtt -g zigbee2mqtt \
-        /persist/secrets/zigbee2mqtt-secret.yaml /var/lib/zigbee2mqtt/secret.yaml
+        ${config.sops.templates."zigbee2mqtt-secret.yaml".path} /var/lib/zigbee2mqtt/secret.yaml
     '';
   };
 

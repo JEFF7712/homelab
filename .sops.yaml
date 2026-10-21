@@ -17,6 +17,12 @@ creation_rules:
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl,age1ckzw40ndw6v98ctczzw99lv7k257h4tx7xq6k9f0f5mltq9z9gtq36achw
   - path_regex: secrets/projectctl\.sops\.json$
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl,age1ckzw40ndw6v98ctczzw99lv7k257h4tx7xq6k9f0f5mltq9z9gtq36achw,age1z65e9nyzje93st4ms247d6604fgux2fmc5dxzt6daks40tp0ze3qqvv7jq
+  - path_regex: secrets/hosts/adguard-netbird-01\.sops\.yaml$
+    key_groups:
+      - age: [*operator_flux, *operator_recovery, *adguard-netbird-01]
+  - path_regex: secrets/shared/mqtt-roku-bridge\.sops\.yaml$
+    key_groups:
+      - age: [*operator_flux, *operator_recovery, *adguard-netbird-01, *homelab-05]
   - path_regex: secrets/registry-node\.sops\.json$
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl,age1ckzw40ndw6v98ctczzw99lv7k257h4tx7xq6k9f0f5mltq9z9gtq36achw
   - path_regex: secrets/registry-importer\.sops\.json$

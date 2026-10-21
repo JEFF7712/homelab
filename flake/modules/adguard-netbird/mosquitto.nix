@@ -1,5 +1,26 @@
-{ ... }:
+{ config, lib, ... }:
+let
+  users = [
+    "home-assistant"
+    "zigbee2mqtt"
+    "roku-bridge"
+    "bus-display"
+  ];
+  passwordFile = user: config.sops.secrets."mosquitto-${user}-password".path;
+in
 {
+  sops.secrets =
+    lib.genAttrs (map (user: "mosquitto-${user}-password") users) (_: {
+      restartUnits = [ "mosquitto.service" ];
+    })
+    // {
+      # homelab-05's Apollo bridge shares this broker user.
+      mosquitto-roku-bridge-password = {
+        sopsFile = ../../../secrets/shared/mqtt-roku-bridge.sops.yaml;
+        restartUnits = [ "mosquitto.service" ];
+      };
+    };
+
   services.mosquitto = {
     enable = true;
     listeners = [
@@ -8,7 +29,7 @@
         port = 1883;
         users = {
           "home-assistant" = {
-            passwordFile = "/persist/secrets/mosquitto-home-assistant-password";
+            passwordFile = passwordFile "home-assistant";
             acl = [
               "readwrite homeassistant/#"
               "readwrite zigbee2mqtt/#"
@@ -17,21 +38,21 @@
             ];
           };
           zigbee2mqtt = {
-            passwordFile = "/persist/secrets/mosquitto-zigbee2mqtt-password";
+            passwordFile = passwordFile "zigbee2mqtt";
             acl = [
               "readwrite homeassistant/#"
               "readwrite zigbee2mqtt/#"
             ];
           };
           roku-bridge = {
-            passwordFile = "/persist/secrets/mosquitto-roku-bridge-password";
+            passwordFile = passwordFile "roku-bridge";
             acl = [
               "readwrite homeassistant/#"
               "readwrite roku/#"
             ];
           };
           bus-display = {
-            passwordFile = "/persist/secrets/mosquitto-bus-display-password";
+            passwordFile = passwordFile "bus-display";
             acl = [
               "readwrite bus-display/#"
               "write homeassistant/light/bus_display/config"
@@ -41,11 +62,4 @@
       }
     ];
   };
-
-  systemd.services.mosquitto.unitConfig.ConditionPathExists = [
-    "/persist/secrets/mosquitto-home-assistant-password"
-    "/persist/secrets/mosquitto-zigbee2mqtt-password"
-    "/persist/secrets/mosquitto-roku-bridge-password"
-    "/persist/secrets/mosquitto-bus-display-password"
-  ];
 }

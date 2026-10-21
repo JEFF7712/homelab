@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 let
   # LedFx OSC relay for the bedroom Roku bulbs. LedFx has no device type that
   # speaks the bulbs' encrypted HTTP API, so one OSC device (pixel_count 2,
@@ -42,28 +42,14 @@ in
   };
   users.groups.ledfx-roku-bridge = { };
 
-  systemd.services.ledfx-roku-bridge-secrets = {
-    before = [ "ledfx-roku-bridge.service" ];
-    requiredBy = [ "ledfx-roku-bridge.service" ];
-    unitConfig.ConditionPathExists = [
-      "/persist/secrets/mosquitto-roku-bridge-password"
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      ${pkgs.coreutils}/bin/install -d -m 0700 -o ledfx-roku-bridge -g ledfx-roku-bridge /var/lib/ledfx-roku-bridge
-      {
-        echo "MQTT_HOST=10.0.30.10"
-        echo "MQTT_PORT=1883"
-        echo "MQTT_USER=roku-bridge"
-        ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
-        ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-roku-bridge-password
-      } > /var/lib/ledfx-roku-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chown ledfx-roku-bridge:ledfx-roku-bridge /var/lib/ledfx-roku-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chmod 0600 /var/lib/ledfx-roku-bridge/mqtt.env
+  sops.templates."ledfx-roku-bridge-mqtt.env" = {
+    content = ''
+      MQTT_HOST=10.0.30.10
+      MQTT_PORT=1883
+      MQTT_USER=roku-bridge
+      MQTT_PASS=${config.sops.placeholder."mosquitto-roku-bridge-password"}
     '';
+    restartUnits = [ "ledfx-roku-bridge.service" ];
   };
 
   systemd.services.ledfx-roku-bridge = {
@@ -75,7 +61,7 @@ in
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       User = "ledfx-roku-bridge";
-      EnvironmentFile = "/var/lib/ledfx-roku-bridge/mqtt.env";
+      EnvironmentFile = config.sops.templates."ledfx-roku-bridge-mqtt.env".path;
       ExecStart = "${relayPython}/bin/python3 -u ${relayDaemon}/bin/ledfx-roku-bridge --config ${relayConfig} --osc-port 9000 --osc-path /bedroom --min-interval 0.1 --delta 6";
       Restart = "always";
       RestartSec = "5s";

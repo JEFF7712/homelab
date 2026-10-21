@@ -7,7 +7,7 @@ source without checking the consumer and its deployment path.
 
 ## SOPS-encrypted Kubernetes Secrets
 
-`.sops.yaml` currently applies to `gitops/secrets/*.sops.yaml`. Keep new
+For Kubernetes, `.sops.yaml` applies to `gitops/secrets/*.sops.yaml`. Keep new
 encrypted manifests under that path unless the repository's SOPS policy is
 deliberately changed and reviewed. The configured age recipient is public; the
 private age identity is never stored in this repository.
@@ -53,26 +53,39 @@ credentials.
 
 ## NixOS host secrets
 
-The fleet imports sops-nix. The first consumer is the projectctl profile on
-homelab-04: its five credentials come from `secrets/projectctl.sops.json`,
-decrypt into mode-0400 files under `/run/secrets`. The two observer tokens
-belong to `projectctl-worker` for direct read-only API discovery; write tokens
-and the registry password belong to root and reach privileged invocations
-through systemd `LoadCredential`. Plaintext is never evaluated into the Nix
-store. Kubernetes secrets retain their existing Flux/ESO ownership.
+Host secrets are owned by sops-nix. Each host decrypts
+`secrets/hosts/<host>.sops.yaml` (set as `sops.defaultSopsFile` in its host
+directory) into mode-0400 files under `/run/secrets`, plus rendered templates
+under `/run/secrets/rendered`. `flake/modules/host-secrets.nix` points every
+host at its persisted SSH host key, `/persist/etc/ssh/ssh_host_ed25519_key`,
+because the root filesystem is a tmpfs. Plaintext is never evaluated into the
+Nix store. A value that several hosts need, such as a broker credential with
+a consumer on another host, lives once in `secrets/shared/<purpose>.sops.yaml`
+and its consumers set `sopsFile` to it. Kubernetes secrets keep their Flux/ESO
+ownership. The projectctl credentials predate this layout and stay in
+`secrets/projectctl.sops.json`.
 
-The projectctl SOPS rule retains both operator recovery recipients and adds
-homelab-04's age recipient derived from its public Ed25519 SSH host key.
-Decryption uses `/persist/etc/ssh/ssh_host_ed25519_key`; persistence is required
-because the host has a tmpfs root. Never install an operator recovery identity
-on a host. When replacing a host key, update the recipient policy, rewrap the
-bundle with `sops updatekeys`, and verify recovery access before deployment.
+Consumers read the sops path directly, or a `sops.templates` file when a
+service needs a composed file such as an `EnvironmentFile`. Declare
+`restartUnits` on each secret or template so that activation restarts the
+consumer when the value changes; deploy jobs do not restart services for
+secret changes. Do not reintroduce files under `/persist/secrets` or CI steps
+that copy secrets onto a host.
 
-Credential changes ship as encrypted source through the held CI-host deployment
-route. Boot or activation installs the secrets before normal services start;
-subsequent projectctl invocations load the current files. Preserve existing
-root-only credential backups until the new generation and read-only credential
-verification pass. A host rollback also rolls back its encrypted secret source;
+Recipients are the anchored `keys` in `.sops.yaml`: the two operator
+recovery identities plus one age recipient per host, derived with `ssh-to-age`
+from the public half of the persisted host key. A host file's rule lists the
+operators and that host; a shared file's rule lists the operators and only the
+hosts that consume it. Never install an operator recovery identity on a host.
+`tests/test_host_secrets.py` checks that the encrypted recipients match the
+policy and that every declared key exists. When replacing a host key, update
+the rule, rewrap with `sops updatekeys secrets/hosts/<host>.sops.yaml`, and
+verify recovery access before deployment. Rewrap every shared file that lists
+the host as well.
+
+To change a value, run `sops` on the file that owns it, then ship the deploy
+route of each consuming host. Activation installs the new value before the
+restarted units start. A host rollback also rolls back its encrypted secret source;
 revoked upstream credentials still require service-specific recovery.
 
 ## Apply and verify

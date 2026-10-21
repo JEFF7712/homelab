@@ -46,9 +46,9 @@ HA's MQTT JSON light integration drifted from `rgb_color: [r, g, b]` (flat list)
 
 ## Files
 
-- `flake/modules/adguard-netbird/roku-bridge.nix` — systemd unit, secrets staging, and bridge user; loads the pinned script below. `mosquitto.nix` in the same directory sets up the broker user/ACL.
+- `flake/modules/adguard-netbird/roku-bridge.nix` — systemd unit, sops-nix secrets, and bridge user; loads the pinned script below. `mosquitto.nix` in the same directory sets up the broker user/ACL.
 - `flake/modules/adguard-netbird/roku-bridge.py` — bridge Python vendored from `github.com/JEFF7712/roku-bulb-local@7b71741` (`scripts/bridge.py`); canonical source for the deployed closure. Re-pin by copying the file and updating the rev in `roku-bridge.nix` (`tests/test_roku_bridge_contract.py` enforces the hash).
-- `flake/modules/adguard-netbird/roku-cloud-bridge.nix` + `roku-cloud-bridge.py` — cloud fallback for bulbs whose firmware closed the LAN port-88 server (LS1016X strip on 1.2.1.13, zero LAN ports on a full 1-1024 sweep). Speaks the same MQTT topics and discovery identity as the LAN bridge, so HA needs no changes. Only list a bulb here after REMOVING it from the LAN bridge config. Reuses the roku-bridge broker credential. Session cookies self-renew into `/var/lib/roku-cloud-bridge/cookies.json`; the seed in `/persist/secrets/roku-cloud-cookies.json` is only copied when state is missing. `scripts/roku_cloud_bridge.py` renders both secret files from `ROKU_CLOUD_BULBS_JSON` / `ROKU_CLOUD_COOKIES_JSON`.
+- `flake/modules/adguard-netbird/roku-cloud-bridge.nix` + `roku-cloud-bridge.py` — cloud fallback for bulbs whose firmware closed the LAN port-88 server (LS1016X strip on 1.2.1.13, zero LAN ports on a full 1-1024 sweep). Speaks the same MQTT topics and discovery identity as the LAN bridge, so HA needs no changes. Only list a bulb here after REMOVING it from the LAN bridge config. Reuses the roku-bridge broker credential. Session cookies self-renew into `/var/lib/roku-cloud-bridge/cookies.json`; the daemon falls back to the `roku-cloud-cookies` seed only when that state is missing or invalid.
 - `/home/rupan/projects/roku-bulb-local/scripts/local_set.py` — single-PID tester, useful for bypassing HA and the bridge entirely.
 - `/home/rupan/projects/roku-bulb-local/tests/test_bridge.py` — unit tests for `ha_to_plist` and `commanded_state`.
 - `/home/rupan/projects/roku-bulb-local/docs/local-http-api.md` — full protocol reference (encryption, pids, OUI checks, crash warning about nested-object `characteristics`).
@@ -230,27 +230,25 @@ twice, which is expected and not a duplicate-registration bug.
 
 ## Bulb ownership must stay disjoint
 
-A MAC belongs to exactly one bridge. The local bridge serves
-`ROKU_BRIDGE_BULBS_JSON`, the cloud bridge serves `ROKU_CLOUD_BULBS_JSON`, and
+A MAC belongs to exactly one bridge. The local bridge serves the
+`roku-bridge-bulbs` secret, the cloud bridge serves `roku-cloud-bulbs`, and
 they must not overlap: both subscribe to `roku/light/<slug>/set` and publish
 `roku/light/<slug>/state`, so an overlap means two writers on one bulb and
 flapping optimistic state. Current split: desk and floor on the local bridge,
 the LS1016X strip on the cloud bridge.
 
-The list is delivered out of band, so a redeploy does not by itself reload it.
-Both daemons therefore re-stage their config in `ExecStartPre` (the `+` prefix
-runs it as root, since the source secret is root-owned), and
-`deploy_zigbee_gateway` restarts both after writing new secrets. Without that,
-a `RemainAfterExit` staging oneshot leaves the daemon serving the previous list
-from memory: this happened once, the strip stayed double-answered after being
-moved to the cloud bridge, and the local bridge logged a 3s timeout per command
-for every strip command the cloud bridge handled correctly.
+Both lists live in `secrets/hosts/adguard-netbird-01.sops.yaml` (edit with
+`sops` on that path) and reach the daemons through sops-nix. Each secret's
+`restartUnits` restarts its bridge whenever activation changes the list. Before
+that, a `RemainAfterExit` staging oneshot left a daemon serving the previous
+list from memory: the strip stayed double-answered after being moved to the
+cloud bridge, and the local bridge logged a 3s timeout per command for every
+strip command the cloud bridge handled correctly.
 
 To confirm the split on a live box:
 
 ```bash
-ssh adguard "sudo cat /persist/secrets/roku-bridge-bulbs.yaml \
-  /persist/secrets/roku-cloud-bulbs.yaml"
+ssh adguard "sudo cat /run/secrets/roku-bridge-bulbs /run/secrets/roku-cloud-bulbs"
 ssh adguard "sudo journalctl -u roku-bridge -n 20 --no-pager | grep <mac>"
 ```
 

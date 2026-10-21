@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 let
   # Slow ambient music colour for the four shared Zigbee bulbs. The shared
   # LedFx instance on homelab-05 streams one OSC device (pixel_count 4, "All To
@@ -40,28 +40,14 @@ in
   };
   users.groups.ledfx-zigbee-bridge = { };
 
-  systemd.services.ledfx-zigbee-bridge-secrets = {
-    before = [ "ledfx-zigbee-bridge.service" ];
-    requiredBy = [ "ledfx-zigbee-bridge.service" ];
-    unitConfig.ConditionPathExists = [
-      "/persist/secrets/mosquitto-zigbee2mqtt-password"
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      ${pkgs.coreutils}/bin/install -d -m 0700 -o ledfx-zigbee-bridge -g ledfx-zigbee-bridge /var/lib/ledfx-zigbee-bridge
-      {
-        echo "MQTT_HOST=10.0.30.10"
-        echo "MQTT_PORT=1883"
-        echo "MQTT_USER=zigbee2mqtt"
-        ${pkgs.coreutils}/bin/printf 'MQTT_PASS='
-        ${pkgs.coreutils}/bin/cat /persist/secrets/mosquitto-zigbee2mqtt-password
-      } > /var/lib/ledfx-zigbee-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chown ledfx-zigbee-bridge:ledfx-zigbee-bridge /var/lib/ledfx-zigbee-bridge/mqtt.env
-      ${pkgs.coreutils}/bin/chmod 0600 /var/lib/ledfx-zigbee-bridge/mqtt.env
+  sops.templates."ledfx-zigbee-bridge-mqtt.env" = {
+    content = ''
+      MQTT_HOST=10.0.30.10
+      MQTT_PORT=1883
+      MQTT_USER=zigbee2mqtt
+      MQTT_PASS=${config.sops.placeholder."mosquitto-zigbee2mqtt-password"}
     '';
+    restartUnits = [ "ledfx-zigbee-bridge.service" ];
   };
 
   systemd.services.ledfx-zigbee-bridge = {
@@ -73,7 +59,7 @@ in
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       User = "ledfx-zigbee-bridge";
-      EnvironmentFile = "/var/lib/ledfx-zigbee-bridge/mqtt.env";
+      EnvironmentFile = config.sops.templates."ledfx-zigbee-bridge-mqtt.env".path;
       ExecStart = "${relayPython}/bin/python3 -u ${relayDaemon}/bin/ledfx-zigbee-bridge --config ${relayConfig} --osc-port 9001 --osc-path /shared --window 2.5 --min-brightness 60 --delta 10";
       Restart = "always";
       RestartSec = "5s";
