@@ -1,14 +1,17 @@
 alias: "Effects: Candlelight Dinner"
 description: >-
-  Run the Govee Candlelight effect on kitchen and living room bulbs.
-  Re-tap any static scene or toggle a bulb off and on to return it to
-  Adaptive Lighting.
+  Set the shared kitchen and living room bulbs to a dim, very warm
+  candlelight level. Re-tap any static scene or toggle a bulb off and on
+  to return it to Adaptive Lighting.
 sequence:
   - action: light.turn_on
     target:
       entity_id:
-        - light.kitchen_lights
-        - light.living_room_lights
+        - light.kitchen_ceiling_light_1
+        - light.kitchen_ceiling_light_2
+        - light.living_room_floor_lamp
+        - light.living_room_tulip_lamp
     data:
-      effect: Candlelight
+      color_temp_kelvin: 2202
+      brightness_pct: 30
 mode: single
