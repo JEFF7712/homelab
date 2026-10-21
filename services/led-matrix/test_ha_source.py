@@ -527,7 +527,7 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         ha_mock = Mock(spec=HomeAssistantSource)
         from modes.base import HAState
 
-        dummy_state = HAState(power=True, mode="Night Clock", brightness=0.4)
+        dummy_state = HAState(power=True, mode="Clock & Weather", brightness=0.4)
         ha_mock.hub_state.return_value = dummy_state
         hybrid = HybridPlaybackSource(ha_mock, Mock())
         self.assertEqual(hybrid.hub_state(), dummy_state)
@@ -553,7 +553,6 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         # Unrelated modes should not poll
         for mode in (
             "Clock & Weather",
-            "Night Clock",
             "AI Arcade",
             "Retro Arcade",
             "Arcade",
@@ -696,7 +695,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertAlmostEqual(hub.weather_temp, 75.5, places=1)
         self.assertEqual(hub.weather_unit, "°F")
 
-        # Delta event: power turned off, mode changed to Night Clock
+        # Delta event: power turned off, mode changed to Visualizer
         source.handle_event(
             {
                 "id": 1,
@@ -704,7 +703,7 @@ class HubModeAndRendererTests(unittest.TestCase):
                 "event": {
                     "c": {
                         "input_boolean.bedroom_matrix_power": {"+": {"s": "off"}},
-                        "input_select.bedroom_matrix_mode": {"+": {"s": "Night Clock"}},
+                        "input_select.bedroom_matrix_mode": {"+": {"s": "Visualizer"}},
                         "weather.forecast_home": {
                             "+": {
                                 "s": "rainy",
@@ -718,7 +717,7 @@ class HubModeAndRendererTests(unittest.TestCase):
 
         updated_hub = source.hub_state()
         self.assertFalse(updated_hub.power)
-        self.assertEqual(updated_hub.mode, "Night Clock")
+        self.assertEqual(updated_hub.mode, "Visualizer")
         self.assertEqual(updated_hub.weather_condition, "rainy")
         self.assertAlmostEqual(updated_hub.weather_temp, 62.0, places=1)
 
@@ -771,7 +770,6 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes import (
             BlankRenderer,
             ClockWeatherRenderer,
-            NightClockRenderer,
             SpotifyVinylRenderer,
         )
         from modes.base import HAState, PlaybackState, RenderContext
@@ -818,11 +816,6 @@ class HubModeAndRendererTests(unittest.TestCase):
         cw_frame = ClockWeatherRenderer().render(ctx, size=64)
         self.assertEqual(cw_frame.size, (64, 64))
         self.assertEqual(cw_frame.mode, "RGB")
-
-        # 4. Night Clock
-        nc_frame = NightClockRenderer().render(ctx, size=64)
-        self.assertEqual(nc_frame.size, (64, 64))
-        self.assertEqual(nc_frame.mode, "RGB")
 
         # 5. Retro Arcade
         from modes import RetroArcadeRenderer

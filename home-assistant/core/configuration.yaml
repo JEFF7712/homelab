@@ -216,7 +216,6 @@ input_select:
       - "Auto"
       - "Spotify"
       - "Clock & Weather"
-      - "Night Clock"
       - "AI Arcade"
       - "Game of Life"
       - "Arcade"
