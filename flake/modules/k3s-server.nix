@@ -84,6 +84,14 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
+        # k3s stops parsing flags at the first bare word, so an unquoted space
+        # silently drops every later flag.
+        assertion = builtins.all (
+          flag: builtins.match ".*[[:space:]].*" flag == null || builtins.match "\"[^\"]*\"" flag != null
+        ) (lib.flatten config.services.k3s.extraFlags);
+        message = "k3s extraFlags containing whitespace must be wrapped in double quotes.";
+      }
+      {
         assertion = cfg.clusterInit || (cfg.serverAddress != null && cfg.tokenFile != null);
         message = "Joining k3s servers require serverAddress and tokenFile.";
       }
@@ -211,7 +219,8 @@ in
         ++ lib.optionals (cfg.role == "server") [
           "--etcd-snapshot-dir=/persist/etcd-snapshots"
           "--etcd-snapshot-retention=14"
-          "--etcd-snapshot-schedule-cron=0 3 * * *"
+          # The unit joins flags unescaped, so quote the whole word for systemd.
+          "\"--etcd-snapshot-schedule-cron=0 3 * * *\""
         ]
         ++ lib.optional cfg.registry.enforceLocalImages "--disable-default-registry-endpoint"
         ++ lib.optional (
