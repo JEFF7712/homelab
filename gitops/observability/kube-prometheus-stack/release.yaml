@@ -44,6 +44,9 @@ spec:
             newName: registry.rupan.dev/upstream/registry.k8s.io/kube-state-metrics/kube-state-metrics  # yamllint disable-line rule:line-length
             digest: sha256:6b2f0b6f2f86ac5b1aa883a033a8dd55bb96c16d191ec973393bdaadaddac914
   values:
+    defaultRules:
+      disabled:
+        KubeJobFailed: true
     prometheus:
       prometheusSpec:
         priorityClassName: homelab-critical
