@@ -105,34 +105,6 @@ dhcpv4_reservations = {
     mac_address = "70:89:76:5c:2d:7e"
     subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
   }
-  govee_floor_lamp = {
-    description = "Govee H6004 floor lamp"
-    hostname    = "govee-floor-lamp"
-    ip_address  = "10.0.20.166"
-    mac_address = "d4:13:68:01:65:91"
-    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
-  }
-  govee_ceiling_1 = {
-    description = "Govee H6004 ceiling light 1"
-    hostname    = "govee-ceiling-1"
-    ip_address  = "10.0.20.167"
-    mac_address = "d4:13:68:01:65:ab"
-    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
-  }
-  govee_ceiling_2 = {
-    description = "Govee H6004 ceiling light 2"
-    hostname    = "govee-ceiling-2"
-    ip_address  = "10.0.20.168"
-    mac_address = "d4:13:68:78:d5:36"
-    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
-  }
-  govee_tulip_lamp = {
-    description = "Govee H6004 tulip lamp"
-    hostname    = "govee-tulip-lamp"
-    ip_address  = "10.0.20.169"
-    mac_address = "d4:13:68:4d:d9:d4"
-    subnet_id   = "542fde27-1972-42e1-9376-057b5cae2f5e"
-  }
   roku_desk_lamp = {
     description = "Roku BC1000X desk lamp (LAN control, WAN blocked)"
     hostname    = "roku-desk-lamp"
@@ -211,20 +183,6 @@ firewall_aliases = {
     type        = "network"
     content     = ["10.0.10.0/24", "10.0.20.0/24", "10.0.30.0/24", "10.0.40.0/24"]
     description = "NetBird peers may reach management, clients, infrastructure, and load-balancer VIPs"
-    enabled     = true
-  }
-  govee_lan_ports = {
-    name        = "govee_lan_ports"
-    type        = "port"
-    content     = ["4001", "4002", "4003"]
-    description = "Govee LAN discovery, response, and control ports"
-    enabled     = true
-  }
-  govee_bulbs = {
-    name        = "govee_bulbs"
-    type        = "host"
-    content     = ["10.0.20.166", "10.0.20.167", "10.0.20.168", "10.0.20.169"]
-    description = "Govee H6004 smart bulbs"
     enabled     = true
   }
   spotify_connect_ports = {
@@ -322,22 +280,6 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.20.120/32", port = "" }
       destination = { net = "10.0.30.10/32", port = "1883" }
-    }
-  }
-  clients-allow-govee-responses = {
-    description = "Allow Govee LAN responses to Home Assistant"
-    enabled     = true
-    sequence    = 215
-    interface   = { interface = ["opt1"] }
-    filter = {
-      action      = "pass"
-      direction   = "in"
-      ip_protocol = "inet"
-      protocol    = "UDP"
-      quick       = true
-      log         = false
-      source      = { net = "govee_bulbs", port = "" }
-      destination = { net = "10.0.30.0/24", port = "4002" }
     }
   }
   clients-allow-spotify-connect = {
@@ -468,22 +410,6 @@ firewall_filters = {
       destination = { net = "any", port = "" }
     }
   }
-  clients-block-govee-bulbs-internet = {
-    description = "Block LAN-only Govee bulbs from the Internet (local control via govee_lan)"
-    enabled     = true
-    sequence    = 226
-    interface   = { interface = ["opt1"] }
-    filter = {
-      action      = "block"
-      direction   = "in"
-      ip_protocol = "inet"
-      protocol    = "any"
-      quick       = true
-      log         = true
-      source      = { net = "govee_bulbs", port = "" }
-      destination = { net = "any", port = "" }
-    }
-  }
   clients-block-bambu-internet = {
     description = "Block Bambu Lab A1 printer from the Internet (LAN mode only)"
     enabled     = true
@@ -610,38 +536,6 @@ firewall_filters = {
       log         = false
       source      = { net = "10.0.20.0/24", port = "5353" }
       destination = { net = "224.0.0.251/32", port = "5353" }
-    }
-  }
-  infrastructure-allow-govee-queries = {
-    description = "Allow Home Assistant Govee LAN queries"
-    enabled     = true
-    sequence    = 312
-    interface   = { interface = ["opt3"] }
-    filter = {
-      action      = "pass"
-      direction   = "in"
-      ip_protocol = "inet"
-      protocol    = "UDP"
-      quick       = true
-      log         = false
-      source      = { net = "10.0.30.0/24", port = "" }
-      destination = { net = "10.0.20.0/24", port = "govee_lan_ports" }
-    }
-  }
-  infrastructure-allow-govee-multicast = {
-    description = "Allow Home Assistant Govee multicast discovery"
-    enabled     = true
-    sequence    = 313
-    interface   = { interface = ["opt3"] }
-    filter = {
-      action      = "pass"
-      direction   = "in"
-      ip_protocol = "inet"
-      protocol    = "UDP"
-      quick       = true
-      log         = false
-      source      = { net = "10.0.30.0/24", port = "" }
-      destination = { net = "239.255.255.250/32", port = "4001" }
     }
   }
   infrastructure-allow-matter-bulbs = {

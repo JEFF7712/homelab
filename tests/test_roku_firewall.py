@@ -132,8 +132,6 @@ class IotAliasConsolidationTests(unittest.TestCase):
         for name in (
             "infrastructure-allow-bambu-lan",
             "infrastructure-allow-tuya-local",
-            "infrastructure-allow-govee-queries",
-            "infrastructure-allow-govee-multicast",
             "infrastructure-allow-matter-bulbs",
         ):
             rule = rule_block(name)
