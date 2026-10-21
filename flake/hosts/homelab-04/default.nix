@@ -10,6 +10,7 @@
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
+    ../../modules/approvals.nix
     ../../profiles/projectctl-pilot.nix
     ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
@@ -48,6 +49,7 @@
   };
 
   homelab.woodpecker.enable = true;
+  homelab.approvals.enable = true;
   homelab.platformBackup.enable = true;
 
   homelab.releaseMirror = {
