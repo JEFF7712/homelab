@@ -153,7 +153,8 @@
     "legacy_job": "registry_retention_reconcile",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "registry-resolve": {
     "commands": [
@@ -242,7 +243,8 @@
     "legacy_job": "registry_promote_first_party",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "registry-promote-nix-agent": {
     "commands": [
@@ -288,7 +290,8 @@
     "legacy_job": "registry_promote_nix_agent",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "registry-update-import": {
     "commands": [
@@ -330,7 +333,8 @@
     "legacy_job": "registry_update_import",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "registry-lock-import": {
     "commands": [
@@ -369,7 +373,8 @@
     "legacy_job": "registry_lock_import",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "provision-jarvis-publisher": {
     "commands": [
@@ -537,7 +542,8 @@
     "legacy_job": "deploy_registry_platform",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-dns": {
     "commands": [
@@ -585,7 +591,8 @@
     "legacy_job": "deploy_registry_dns",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-zigbee-gateway": {
     "commands": [
@@ -663,7 +670,8 @@
     "legacy_job": "deploy_zigbee_gateway",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-nas-ledfx-bedroom": {
     "commands": [
@@ -716,7 +724,8 @@
     "legacy_job": "deploy_nas_ledfx_bedroom",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-node-01": {
     "commands": [
@@ -774,7 +783,8 @@
     "legacy_job": "deploy_registry_node_01",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-node-02": {
     "commands": [
@@ -832,7 +842,8 @@
     "legacy_job": "deploy_registry_node_02",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-node-03": {
     "commands": [
@@ -890,7 +901,8 @@
     "legacy_job": "deploy_registry_node_03",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-node-04": {
     "commands": [
@@ -948,7 +960,8 @@
     "legacy_job": "deploy_registry_node_04",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-node-05": {
     "commands": [
@@ -1006,7 +1019,8 @@
     "legacy_job": "deploy_registry_node_05",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "opnsense-inventory": {
     "commands": [
@@ -1233,7 +1247,8 @@
     "legacy_job": "opnsense_apply",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "opnsense-plan"
+    "prerequisite": "opnsense-plan",
+    "agent": true
   },
   "cloudflare-plan": {
     "commands": [
@@ -1362,7 +1377,8 @@
     "legacy_job": "cloudflare_apply",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "cloudflare-plan"
+    "prerequisite": "cloudflare-plan",
+    "agent": true
   },
   "nas-proof": {
     "commands": [
@@ -1495,7 +1511,8 @@
     "legacy_job": "deploy_fleet",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-fleet-dry-run"
+    "prerequisite": "deploy-fleet-dry-run",
+    "agent": true
   },
   "deploy-agent-workspace-host-dry-run": {
     "commands": [
@@ -1591,7 +1608,8 @@
     "legacy_job": "deploy_agent_workspace_host",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-agent-workspace-host-dry-run"
+    "prerequisite": "deploy-agent-workspace-host-dry-run",
+    "agent": true
   },
   "deploy-home-assistant-dry-run": {
     "commands": [
@@ -1750,7 +1768,8 @@
     "legacy_job": "",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-home-assistant-matrix-dashboard-dry-run"
+    "prerequisite": "deploy-home-assistant-matrix-dashboard-dry-run",
+    "agent": true
   },
   "sync-to-github": {
     "commands": [
@@ -1780,7 +1799,8 @@
     "legacy_job": "sync_to_github",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "cache-publish": {
     "commands": [
@@ -1810,7 +1830,8 @@
     "legacy_job": "nix_cache",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "webhook-watchdog": {
     "commands": [
@@ -1918,7 +1939,8 @@
     "legacy_job": "build-toplevel/build-iso",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "nixos-lock-update": {
     "commands": [
@@ -1951,7 +1973,8 @@
     "legacy_job": "nixos-lock-update",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "nixos-deploy": {
     "commands": [
@@ -2032,7 +2055,8 @@
     "legacy_job": "",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "matrix-publish": {
     "commands": [
@@ -2269,6 +2293,7 @@
     "legacy_job": "",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-ci-host-dry-run"
+    "prerequisite": "deploy-ci-host-dry-run",
+    "agent": true
   }
 }

@@ -38,7 +38,7 @@
       "operations": [
         "native-asr-publish"
       ],
-      "auto": false
+      "auto": true
     },
     {
       "name": "home-assistant",
@@ -61,7 +61,7 @@
         "opnsense-plan",
         "opnsense-apply"
       ],
-      "auto": false
+      "auto": true
     },
     {
       "name": "cloudflare",
@@ -72,7 +72,7 @@
         "cloudflare-plan",
         "cloudflare-apply"
       ],
-      "auto": false
+      "auto": true
     },
     {
       "name": "agent-workspace-host",
@@ -84,7 +84,7 @@
         "deploy-agent-workspace-host-dry-run",
         "deploy-agent-workspace-host"
       ],
-      "auto": false
+      "auto": true
     },
     {
       "name": "fleet",
@@ -98,12 +98,13 @@
         "deploy-fleet-dry-run",
         "deploy-fleet"
       ],
-      "auto": false
+      "auto": true
     },
     {
       "name": "ci-host",
       "paths": [
         "scripts/ci/policy.py",
+        "scripts/ci/deployment_risk.py",
         "scripts/ci/applications.py",
         "scripts/ci/development_projects.py",
         "config/ci/operations.json",
@@ -123,7 +124,7 @@
         "deploy-ci-host-dry-run",
         "deploy-ci-host"
       ],
-      "auto": false
+      "auto": true
     }
   ]
 }

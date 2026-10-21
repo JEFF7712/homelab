@@ -20,6 +20,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from scripts.ci.applications import Application, load_catalog
 from scripts.ci.applications import configuration as application_configuration
+from scripts.ci.deployment_risk import (
+    APPROVAL_REQUIRED,
+    changed_authority,
+    host_operation,
+    nix_authority_change,
+    protected_paths,
+)
 from scripts.ci.development_projects import (
     DevelopmentProject,
     load_development_projects,
@@ -60,10 +67,6 @@ REPOSITORY_URL = "https://git.rupan.dev/JEFF7712/homelab.git"
 # gate anyway, and the list travels in the step environment.
 SCOPE_FILES_LIMIT = 1000
 
-# Forgejo identities permitted to trigger manual deployments. The machine user
-# may run read-only operations and the mutations a catalog entry marks
-# "agent" (the automatic just ship routes); fleet, firewall, edge and CI-host
-# changes need a human operator, so a leaked agent token cannot apply them.
 OPERATOR_AUTHORS = frozenset({"rupan", "JEFF7712"})
 AGENT_AUTHOR = "homelab-agent"
 DEPLOY_AUTHORS = OPERATOR_AUTHORS | {AGENT_AUTHOR}
@@ -400,8 +403,64 @@ class SourceMirror:
             self.lock.release()
         return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
 
+    def authority_changes(
+        self,
+        commit: str,
+        credentials: dict[str, Any],
+        baseline: dict[str, str],
+        paths: tuple[str, ...],
+        host: bool,
+    ) -> list[str]:
+        if self.branch_changes(commit, credentials) is None:
+            raise HumanApprovalRequired("cannot verify deployed authorization baseline")
+        with self.lock:
+            tree = self.git("ls-tree", "-r", "-z", commit)
+        candidate = {}
+        for entry in tree.split(b"\0"):
+            if not entry:
+                continue
+            metadata, name = entry.split(b"\t", 1)
+            mode, _, digest = metadata.decode().split()
+            candidate[os.fsdecode(name)] = mode + " " + digest
+        changes = changed_authority(baseline, candidate, paths)
+        for path in baseline.keys() | candidate.keys():
+            if (
+                not host
+                or not path.endswith(".nix")
+                or path in changes
+                or baseline.get(path) == candidate.get(path)
+            ):
+                continue
+            texts = []
+            for identity in (baseline.get(path), candidate.get(path)):
+                if identity is None:
+                    texts.append("")
+                    continue
+                digest = identity.split()[1]
+                try:
+                    blob = api(
+                        f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/git/blobs/{digest}",
+                        credentials["password"],
+                    )
+                    texts.append(base64.b64decode(blob["content"]).decode())
+                except Exception as error:
+                    raise HumanApprovalRequired(
+                        f"cannot read {path} to compare authorization"
+                    ) from error
+            if nix_authority_change(*texts):
+                changes.append(path)
+        return sorted(changes)
+
 
 class StaleMainPush(ValueError):
+    pass
+
+
+class StaleDeployment(ValueError):
+    pass
+
+
+class HumanApprovalRequired(ValueError):
     pass
 
 
@@ -417,6 +476,7 @@ def configuration(
     schedule_overlap: bool = False,
     main_validation: str = "none",
     branch_files: tuple[str, ...] | None = None,
+    authority_changes: list[str] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -485,6 +545,9 @@ def configuration(
             CI_OPERATION_PARENT=parent_number,
             CI_DEFAULT_BRANCH="main",
             CI_OPERATION=target,
+            CI_OPERATION_OPERATOR="1"
+            if pipeline.get("author") in OPERATOR_AUTHORS and event == "deployment"
+            else "0",
         )
         # Operations serialize on the resource they act on (the catalog
         # group), so unrelated work runs in parallel. Scheduled read-only
@@ -653,17 +716,21 @@ def configuration(
     target = pipeline.get("deploy_to", "")
     if target not in operations:
         raise ValueError("Unknown deployment target")
-    if (
-        pipeline["author"] == AGENT_AUTHOR
-        and operations[target]["mutation"]
-        and not operations[target].get("agent")
-    ):
-        raise ValueError("This operation requires a human operator")
+    if pipeline["author"] == AGENT_AUTHOR and operations[target]["mutation"]:
+        if not operations[target].get("agent"):
+            raise HumanApprovalRequired("operation changes authority or is destructive")
+        if authority_changes is None:
+            raise HumanApprovalRequired("cannot verify deployed authorization baseline")
+        if authority_changes:
+            raise HumanApprovalRequired(
+                "authorization or storage source changed: "
+                + ", ".join(authority_changes[:12])
+            )
     if current != pipeline["commit"]:
-        raise ValueError("Deployment commit is no longer main")
+        raise StaleDeployment("Operation source must be the current main commit")
     if (
         not parent
-        or parent.get("status") != "success"
+        or parent.get("status") not in {"success", "failure"}
         or parent.get("commit") != current
     ):
         raise ValueError("Successful validation of this commit is required")
@@ -693,6 +760,7 @@ def resolve_configuration(
     applications: tuple[Application, ...],
     development_projects: tuple[DevelopmentProject, ...] = (),
     mirror: SourceMirror | None = None,
+    authority_baseline: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     repo = request["repo"]
     if not (
@@ -740,6 +808,23 @@ def resolve_configuration(
     ):
         changed_files = push_changed_files(request)
     branch_files = None
+    authority_changes = None
+    if (
+        request["pipeline"].get("event") == "deployment"
+        and request["pipeline"].get("author") == AGENT_AUTHOR
+        and operations.get(request["pipeline"].get("deploy_to", ""), {}).get("mutation")
+        and mirror is not None
+        and authority_baseline is not None
+    ):
+        target = request["pipeline"]["deploy_to"]
+        host = host_operation(operations[target])
+        authority_changes = mirror.authority_changes(
+            request["pipeline"].get("commit", ""),
+            request.get("netrc", {}),
+            authority_baseline,
+            protected_paths(target, host),
+            host,
+        )
     if (
         mirror is not None
         and request["pipeline"].get("event") == "push"
@@ -789,6 +874,7 @@ def resolve_configuration(
         schedule_overlap=schedule_overlap,
         main_validation=main_validation,
         branch_files=branch_files,
+        authority_changes=authority_changes,
     )
 
 
@@ -799,6 +885,7 @@ def main() -> None:
     parser.add_argument("--projects", type=Path, required=False, default=None)
     parser.add_argument("--public-key", type=Path, required=True)
     parser.add_argument("--mirror", type=Path, default=None)
+    parser.add_argument("--authority-baseline", type=Path, required=True)
     args = parser.parse_args()
     catalog = json.loads(args.catalog.read_text())
     applications = load_catalog(args.applications)
@@ -814,6 +901,7 @@ def main() -> None:
     )
     key = args.public_key.read_bytes()
     mirror = SourceMirror(args.mirror) if args.mirror else None
+    authority_baseline = json.loads(args.authority_baseline.read_text())
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -828,9 +916,20 @@ def main() -> None:
                 verify_request(self.headers, body, key, int(time.time()))
                 request = json.loads(body)
                 result = resolve_configuration(
-                    request, catalog, applications, development_projects, mirror
+                    request,
+                    catalog,
+                    applications,
+                    development_projects,
+                    mirror,
+                    authority_baseline,
                 )
+            except HumanApprovalRequired as error:
+                self.send_error(403, f"{APPROVAL_REQUIRED}: {error}")
+                return
             except StaleMainPush as error:
+                self.send_error(409, str(error))
+                return
+            except StaleDeployment as error:
                 self.send_error(409, str(error))
                 return
             except Exception:

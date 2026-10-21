@@ -53,11 +53,12 @@ class ShipPlanTest(unittest.TestCase):
         )
         self.assertEqual(plan.held, {})
 
-    def test_infrastructure_routes_are_held_unless_named(self) -> None:
+    def test_infrastructure_routes_run_automatically(self) -> None:
         changed = ["flake/hosts/homelab-04/default.nix", "tofu/opnsense/rules.tf"]
         plan = plan_operations(changed, self.routes, "auto", self.catalog)
-        self.assertEqual(plan.run, [])
-        self.assertEqual(set(plan.held), {"fleet", "ci-host", "opnsense"})
+        self.assertIn("deploy-ci-host", plan.run)
+        self.assertIn("opnsense-apply", plan.run)
+        self.assertEqual(plan.held, {})
         explicit = plan_operations(changed, self.routes, "opnsense-apply", self.catalog)
         self.assertEqual(explicit.run, ["opnsense-plan", "opnsense-apply"])
         self.assertEqual(
@@ -71,6 +72,19 @@ class ShipPlanTest(unittest.TestCase):
     def test_docs_only_change_deploys_nothing(self) -> None:
         plan = plan_operations(["docs/a.md"], self.routes, "auto", self.catalog)
         self.assertEqual((plan.run, plan.held), ([], {}))
+
+    def test_ci_host_changes_do_not_also_deploy_the_fleet(self) -> None:
+        plan = plan_operations(
+            ["flake/modules/woodpecker.nix"], self.routes, "auto", self.catalog
+        )
+        self.assertEqual(plan.run, ["deploy-ci-host-dry-run", "deploy-ci-host"])
+        plan = plan_operations(
+            ["flake/modules/woodpecker.nix", "flake/modules/k3s-server.nix"],
+            self.routes,
+            "auto",
+            self.catalog,
+        )
+        self.assertEqual(plan.run, ["deploy-fleet-dry-run", "deploy-fleet"])
 
 
 class ShipNetworkTest(unittest.TestCase):
@@ -128,13 +142,13 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship.time, "sleep"),
             self.assertRaisesRegex(ShipError, "following deployment"),
         ):
-            shipper.run_operation(10, "deploy-fleet")
+            shipper.run_operation(10, "provision-darkbit-publisher")
         shipper.woodpecker.deploy.assert_not_called()
         shipper.woodpecker.pipeline.assert_called_once_with(77)
         method, url, headers, body = http.call_args_list[0].args
         self.assertEqual((method, url), ("POST", f"{ship.APPROVALS}/api/requests"))
         self.assertEqual(headers, {"Authorization": "Bearer agent"})
-        self.assertEqual(body["operation"], "deploy-fleet")
+        self.assertEqual(body["operation"], "provision-darkbit-publisher")
         self.assertEqual(body["parent"], 10)
         self.assertEqual(body["evidence"], [41])
 
@@ -150,7 +164,7 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship, "http", side_effect=responses),
             self.assertRaisesRegex(ShipError, ship.SUPERSEDED),
         ):
-            shipper.run_operation(10, "deploy-ci-host")
+            shipper.run_operation(10, "provision-darkbit-publisher")
 
     def test_declined_approvals_stop_the_ship(self) -> None:
         shipper = self.approval_shipper()
@@ -164,7 +178,7 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship, "http", side_effect=responses),
             self.assertRaisesRegex(ShipError, "declined on the approvals dashboard"),
         ):
-            shipper.run_operation(10, "deploy-ci-host")
+            shipper.run_operation(10, "provision-darkbit-publisher")
         shipper.woodpecker.pipeline.assert_not_called()
 
     def test_held_operations_use_the_operator_token(self) -> None:
@@ -176,7 +190,7 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship, "Woodpecker", return_value=operator),
             self.assertRaisesRegex(ShipError, "operator deployed"),
         ):
-            shipper.run_operation(10, "opnsense-apply")
+            shipper.run_operation(10, "provision-darkbit-publisher")
         shipper.woodpecker.deploy.assert_not_called()
 
     def test_agent_operations_use_the_agent_token(self) -> None:
@@ -185,12 +199,30 @@ class ShipOperatorTest(unittest.TestCase):
             shipper.run_operation(10, "matrix-publish")
         shipper.woodpecker.deploy.assert_called_once_with(10, "matrix-publish")
 
+    def test_risky_routine_operation_falls_back_to_passkey_approval(self) -> None:
+        shipper = self.approval_shipper()
+        shipper.woodpecker.deploy.side_effect = ShipError(
+            "Human approval required: authorization source changed"
+        )
+        responses = [
+            (201, {"id": "abc", "url": "https://approvals/r/abc"}),
+            (200, {"state": "approved", "pipeline": 77}),
+        ]
+        with (
+            patch.object(ship, "http", side_effect=responses),
+            self.assertRaisesRegex(ShipError, "following deployment"),
+        ):
+            shipper.run_operation(10, "deploy-fleet")
+        shipper.woodpecker.deploy.assert_called_once_with(10, "deploy-fleet")
+        shipper.woodpecker.pipeline.assert_called_once_with(77)
+
 
 class ShipPlanRetryTest(unittest.TestCase):
     def test_superseded_operations_resume_on_the_new_main(self) -> None:
         shipper = ship.Shipper.__new__(ship.Shipper)
         shipper.summary = {"operations": [], "promotions": []}
         shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
         parents = iter([("a" * 40, 10), ("b" * 40, 11)])
         shipper.main_pipeline = lambda merged: next(parents)
         shipper.completed_operations = lambda parent: set()
@@ -214,6 +246,7 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper = ship.Shipper.__new__(ship.Shipper)
         shipper.summary = {"operations": [], "promotions": []}
         shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
         shipper.main_pipeline = lambda merged: ("a" * 40, 10)
         shipper.completed_operations = lambda parent: set()
 
@@ -228,6 +261,7 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper = ship.Shipper.__new__(ship.Shipper)
         shipper.summary = {"operations": [], "promotions": []}
         shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
         shipper.main_pipeline = lambda merged: ("a" * 40, 10)
         shipper.woodpecker = unittest.mock.Mock()
         shipper.woodpecker.pipeline.return_value = {
@@ -303,6 +337,62 @@ class ShipMainPipelineTest(unittest.TestCase):
         ):
             shipper.main_pipeline(SHA)
         self.assertEqual(restarts, [10])
+
+    def test_failed_unrelated_plan_does_not_block_successful_source_validation(
+        self,
+    ) -> None:
+        shipper, _ = self.shipper(["failure"])
+        shipper.woodpecker.failure_report.return_value = "source validation failed"
+        shipper.woodpecker.pipeline.return_value = {
+            "workflows": [
+                {"name": "validation-v2", "state": "success"},
+                {"name": "cloudflare-plan", "state": "failure"},
+            ]
+        }
+        self.assertEqual(shipper.main_pipeline(SHA), (SHA, 10))
+        shipper.woodpecker.pipeline.return_value["workflows"][0]["state"] = "failure"
+        with self.assertRaisesRegex(ShipError, "successful parent"):
+            shipper.main_pipeline(SHA)
+
+
+class ShipResumeTest(unittest.TestCase):
+    def shipper(self) -> ship.Shipper:
+        from argparse import Namespace
+
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.args = Namespace(deploy="auto")
+        shipper.summary = {"operations": []}
+        shipper.say = unittest.mock.Mock()
+        shipper.git = unittest.mock.Mock(
+            side_effect=["", "", SHA, "b" * 40, "services/led-matrix/server.py"]
+        )
+        shipper.contains = unittest.mock.Mock(return_value=True)
+        shipper.run_plan = unittest.mock.Mock()
+        shipper.push = unittest.mock.Mock()
+        shipper.pull_request = unittest.mock.Mock()
+        return shipper
+
+    def test_merged_deployment_resumes_without_push_or_new_pr(self) -> None:
+        shipper = self.shipper()
+        summary = shipper.resume(Path("/repo"), SHA)
+        self.assertEqual(summary["state"], "deployed")
+        self.assertEqual(shipper.run_plan.call_args.args[:2], (["matrix-publish"], SHA))
+        shipper.push.assert_not_called()
+        shipper.pull_request.assert_not_called()
+
+    def test_unmerged_revision_is_rejected(self) -> None:
+        shipper = self.shipper()
+        shipper.contains.return_value = False
+        with self.assertRaisesRegex(ShipError, "already merged"):
+            shipper.resume(Path("/repo"), SHA)
+        shipper.run_plan.assert_not_called()
+
+    def test_dirty_checkout_is_rejected_before_delivery(self) -> None:
+        shipper = self.shipper()
+        shipper.git.side_effect = [" M scripts/ci/policy.py"]
+        with self.assertRaisesRegex(ShipError, "tracked changes"):
+            shipper.resume(Path("/repo"), SHA)
+        shipper.run_plan.assert_not_called()
 
 
 class ShipRolloutTest(unittest.TestCase):

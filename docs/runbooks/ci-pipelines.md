@@ -314,14 +314,21 @@ Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-The deploy policy (`scripts/ci/policy.py`) admits `homelab-agent` as a
-deployment author for read-only operations and for the mutations a catalog
-entry marks `"agent": true`, which are exactly the automatic `just ship`
-routes (`tests/test_forgejo_ci.py` pins that). Fleet, firewall, Cloudflare,
-CI-host and every other mutation are refused unless a human operator
-(`rupan` or `JEFF7712`) triggers them, so a leaked bot token cannot change
-infrastructure. Fresh green main validation and the catalog gates apply to
-everyone. Neither machine account holds Forgejo or Woodpecker admin rights.
+The deploy policy admits `homelab-agent` for read-only operations and catalog
+mutations marked `"agent": true`. Routine infrastructure and application routes
+are automatic. The active policy compares authorization/storage source identities
+with an immutable baseline built into its deployed NixOS generation. Changed
+protected source, newly changed Nix authorization statements, unknown baselines,
+and operator-only operations require human approval. Apply operations also
+inspect saved plans for authority changes and destructive data/connectivity
+changes. `ship` sends those exceptions to the passkey dashboard.
+
+The operator identity is injected by the deployed policy as
+`CI_OPERATION_OPERATOR`, never accepted from repository variables. It authorizes
+the reviewed exception; no operator token is handed to an agent. Source validation
+must pass for the exact current main SHA. A failed unrelated main operation does
+not block deployment; the operation's own prerequisites remain mandatory. Source
+checks govern supported delivery, not adversarial root-capable NixOS authors.
 
 Triggering a deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
