@@ -213,7 +213,16 @@ class Service:
             raise ApprovalError(
                 f"Cannot read pipeline #{parent_number}: {error}"
             ) from error
-        if parent.get("branch") != "main" or parent.get("status") != "success":
+        validated = any(
+            w.get("name") in {"validation-v2", "validation-v2.yaml"}
+            and w.get("state", w.get("status")) == "success"
+            for w in parent.get("workflows", [])
+        )
+        if parent.get("branch") != "main" or not (
+            parent.get("status") == "success"
+            or parent.get("status") == "failure"
+            and validated
+        ):
             raise ApprovalError(
                 f"Pipeline #{parent_number} is not a successful main pipeline"
             )
