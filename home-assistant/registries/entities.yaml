@@ -801,6 +801,7 @@
 - entity_id: switch.stairs_light
   labels:
     - shared_space
+  name: Exit Sign
 - disabled_by: integration
   entity_id: switch.watchman_pre_release
   labels: []
