@@ -32,9 +32,12 @@ let
     printf '[Icon Theme]\nName=invisible\n' > $out/share/icons/invisible/index.theme
   '';
   kioskBrowser = pkgs.writeShellScript "kiosk-browser" ''
-    ${lib.concatMapStringsSep "\n" (
-      output: "${pkgs.wlr-randr}/bin/wlr-randr --output ${output} --off || true"
-    ) cfg.disableOutputs}
+    ${lib.concatMapStringsSep "\n" (output: ''
+      if ${pkgs.wlr-randr}/bin/wlr-randr --json \
+        | ${pkgs.jq}/bin/jq -e --arg o ${output} 'any(.[]; .enabled and .name != $o)' >/dev/null; then
+        ${pkgs.wlr-randr}/bin/wlr-randr --output ${output} --off || true
+      fi
+    '') cfg.disableOutputs}
     exec ${pkgs.chromium}/bin/chromium \
       --ozone-platform=wayland \
       --enable-features=UseOzonePlatform \
@@ -111,7 +114,7 @@ in
     disableOutputs = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
-      description = "List of output names to disable via wlr-randr before launching Chromium";
+      description = "Output names to disable via wlr-randr before launching Chromium. An output is left on when no other output is enabled, so a display moved to a listed port still lights.";
     };
 
     haTokenFile = lib.mkOption {
