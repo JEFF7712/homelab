@@ -29,6 +29,16 @@ spec:
                     operator: NotIn
                     values:
                       - homelab-05
+          # homelab-01 already carries etcd, both Postgres primaries by
+          # preference, and the agent workspace VMs.
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - homelab-01
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       securityContext:
