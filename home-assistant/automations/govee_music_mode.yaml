@@ -6,7 +6,9 @@ description: >-
   pre-music state is snapshotted first; when turned off, the snapshot is
   restored so bulbs never keep LedFx's last frame (black when the audio tap
   is silent), then Adaptive Lighting control and circadian state resume
-  without API spam.
+  without API spam. Disabled since the shared bulbs moved to Zigbee, which
+  is too slow for LedFx streaming.
+initial_state: false
 mode: restart
 triggers:
   - trigger: state

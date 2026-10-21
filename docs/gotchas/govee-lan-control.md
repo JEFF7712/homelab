@@ -1,5 +1,10 @@
 # Govee H6004 LAN control
 
+Retired 2026-10-20: the four shared bulbs are now Third Reality ZL1 Zigbee
+bulbs on Zigbee2MQTT under the same entity IDs, and the `govee_lan` platform
+is no longer configured. Shared Govee Music Mode is disabled because Zigbee
+cannot carry LedFx streaming. Kept for reference if H6004 bulbs return.
+
 Verified 2026-09-27 against four H6004 bulbs at `10.0.20.166`-`.169`
 (see static reservations in `tofu/opnsense/homelab.auto.tfvars`).
 
