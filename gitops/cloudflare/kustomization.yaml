@@ -6,3 +6,4 @@ resources:
   - ingress-config.yaml
   - pdb.yaml
   - forgejo-service.yaml
+  - approvals-service.yaml
