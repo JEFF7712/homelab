@@ -1,14 +1,12 @@
 id: govee_music_mode
 alias: "Lighting: Govee Music Mode"
 description: >-
-  Activates real-time LedFx audio-reactive lighting across all shared Govee
-  bulbs when Govee Music Mode is turned on, locking Adaptive Lighting. The
-  pre-music state is snapshotted first; when turned off, the snapshot is
-  restored so bulbs never keep LedFx's last frame (black when the audio tap
-  is silent), then Adaptive Lighting control and circadian state resume
-  without API spam. Disabled since the shared bulbs moved to Zigbee, which
-  is too slow for LedFx streaming.
-initial_state: false
+  Activates slow ambient LedFx music colour on the four shared Zigbee bulbs
+  when Music Mode is turned on, locking Adaptive Lighting. LedFx streams to
+  ledfx-zigbee-bridge on the Zigbee gateway, which fades each bulb toward a
+  2.5s average of the music. The pre-music state is snapshotted first; when
+  turned off, the snapshot is restored so bulbs never keep LedFx's last
+  colour, then Adaptive Lighting control and circadian state resume.
 mode: restart
 triggers:
   - trigger: state
@@ -34,7 +32,6 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
-                - light.apollo_led_strip_apollo_led_strip
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights

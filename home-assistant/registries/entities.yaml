@@ -5,6 +5,15 @@
   entity_id: binary_sensor.jayanth_phone_camera_motion
   labels: []
 - disabled_by: integration
+  entity_id: binary_sensor.jayanth_phone_focus
+  labels: []
+- disabled_by: integration
+  entity_id: binary_sensor.jayanth_phone_kiosk_mode
+  labels: []
+- disabled_by: integration
+  entity_id: binary_sensor.jayanth_phone_kiosk_screensaver
+  labels: []
+- disabled_by: integration
   entity_id: binary_sensor.sm_s948u1_android_auto
   labels: []
 - disabled_by: integration
@@ -145,7 +154,7 @@
   entity_id: light.kitchen_kitchen_led_strip
   labels:
     - shared_space
-  name: Kitchen LED Strip
+  name: 8-Light LED Strip
 - name: Soundbar
   entity_id: media_player.homelab_05_satellite_media_player_2
   labels: []
@@ -660,6 +669,90 @@
   entity_id: sensor.zones
   labels: []
 - disabled_by: integration
+  entity_id: sensor.0xb4e8428fcc940000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e8428fe2a50000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e84290119a0000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e84291785a0000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_activity
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_app_version
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_audio_output
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_average_active_pace
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_battery_level
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_battery_state
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_bssid
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_connection_type
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_current_cadence
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_current_pace
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_distance
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_floors_ascended
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_floors_descended
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_geocoded_location
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_kiosk_brightness
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_kiosk_volume
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_last_update_trigger
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_location_permission
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_pressure
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_sim_1
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_sim_2
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_ssid
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_steps
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_storage
+  labels: []
+- disabled_by: integration
   entity_id: switch.adaptive_lighting_pre_release
   labels: []
 - disabled_by: integration
@@ -708,6 +801,19 @@
 - entity_id: switch.stairs_light
   labels:
     - shared_space
+  name: Exit Sign
 - disabled_by: integration
   entity_id: switch.watchman_pre_release
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e8428fcc940000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e8428fe2a50000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e84290119a0000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e84291785a0000_effect
   labels: []

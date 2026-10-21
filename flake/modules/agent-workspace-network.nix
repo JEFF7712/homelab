@@ -164,6 +164,35 @@ in
         "systemd-networkd.service"
       ];
     };
+    # homelab-01's root is ephemeral and /etc/libvirt is not persisted, so a
+    # reboot forgets the domains; the saved XML under /persist is their source
+    # of truth. Define any missing domain from it and start it once the
+    # firewall and bridges that libvirtd requires are up.
+    systemd.services.agent-workspace-domains = {
+      description = "Define and start agent workspace domains from persisted XML";
+      wantedBy = [ "multi-user.target" ];
+      requires = [ "libvirtd.service" ];
+      after = [
+        "libvirtd.service"
+        "nftables.service"
+        "systemd-networkd.service"
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      path = [ config.virtualisation.libvirtd.package ];
+      script = lib.concatMapStringsSep "\n" (workspace: ''
+        domain="agent-${workspace.id}"
+        xml="/persist/agent-workspaces/${workspace.id}/control/domain.xml"
+        if [ -f "$xml" ]; then
+          virsh dominfo "$domain" >/dev/null 2>&1 || virsh define "$xml"
+          virsh domstate "$domain" | grep -q running || virsh start "$domain"
+        else
+          echo "$domain: no persisted definition at $xml" >&2
+        fi
+      '') enabledWorkspaces;
+    };
     systemd.services.nftables.preStop = lib.concatMapStringsSep "\n" (workspace: ''
       domain="agent-${workspace.id}"
       tap="${workspace.network.tap}"

@@ -49,7 +49,7 @@ spec:
             - name: PULSECLIENTMODE
               value: "true"
             - name: PULSE_SERVER
-              value: unix:/run/user/1001/pulse/native
+              value: unix:/run/pulse/native
             - name: PULSE_SOURCE
               value: alsa_output.usb-Generic_USB_SPDIF_Adapter_202110200032-00.analog-stereo.monitor
           ports:
@@ -65,8 +65,11 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /home/ledfx/ledfx-config
+            # Only the socket is mounted: the kiosk user's pulse directory is
+            # 0700, so a uid 1000 container cannot traverse it, while the
+            # socket itself is 0666.
             - name: pulse-socket
-              mountPath: /run/user/1001/pulse
+              mountPath: /run/pulse/native
             # Upstream drives Govee bulbs through a reverse engineered Razer
             # Chroma tunnel that the H6004 silently ignores while still
             # answering devStatus. This mount swaps in a colorwc driver so the
@@ -94,8 +97,8 @@ spec:
             claimName: ledfx-data
         - name: pulse-socket
           hostPath:
-            path: /run/user/1001/pulse
-            type: Directory
+            path: /run/user/1001/pulse/native
+            type: Socket
         - name: ledfx-govee-patch
           configMap:
             name: ledfx-govee-patch-code

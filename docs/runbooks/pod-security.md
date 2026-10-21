@@ -22,12 +22,13 @@ covered too.
 
 - `restricted`: every other namespace.
 - `baseline`:
+  - `automation`: tightened from `privileged` on 2026-10-21 when the GitHub
+    Actions runners (privileged Docker-in-Docker) were retired.
   - `flux-system`: Reloader lacks `allowPrivilegeEscalation: false` and dropped capabilities.
   - `immich`: the server and machine-learning images run as root.
   - `obsidian`: CouchDB runs as root.
   - `storage`: the NFS provisioner chart sets no security context.
 - `privileged`:
-  - `automation`: GitHub Actions runners use privileged Docker-in-Docker with hostPath storage.
   - `home-assistant`: host networking, D-Bus hostPath and host ports for HomeKit and discovery.
   - `media`: Gluetun needs `NET_ADMIN`; Jellyfin mounts `/dev/dri`.
   - `music-assistant`: host networking for Spotify Connect and LedFx audio.

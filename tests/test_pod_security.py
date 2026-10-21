@@ -12,7 +12,6 @@ LEVELS = {"restricted", "baseline", "privileged"}
 # containers or added capabilities for a concrete workload; see
 # docs/runbooks/pod-security.md before adding one.
 PRIVILEGED = {
-    "automation",
     "home-assistant",
     "media",
     "music-assistant",

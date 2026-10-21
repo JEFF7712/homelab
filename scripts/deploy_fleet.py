@@ -42,6 +42,14 @@ class HostConfig:
     host_type: str  # "k3s-worker", "k3s-stateful", "appliance-dns", "appliance-nas"
     order: int
 
+    @property
+    def flake_attr(self) -> str:
+        # The plain k3s configuration has no registries.yaml, and /etc is tmpfs,
+        # so the next restart leaves containerd without registry credentials.
+        if self.host_type in ("k3s-worker", "k3s-stateful"):
+            return f"{self.name}-registry"
+        return self.name
+
 
 # k3s servers (homelab-01..03) precede the agents: a kubelet must never be
 # newer than any API server, which matters when nixpkgs moves k3s a minor.
@@ -537,7 +545,7 @@ class FleetDeployer:
             "nixos-rebuild",
             action,
             "--flake",
-            f"{self.flake_path}#{host.name}",
+            f"{self.flake_path}#{host.flake_attr}",
             "--target-host",
             f"{self.ssh_user}@{host.ip}",
             "--build-host",
