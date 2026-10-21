@@ -145,7 +145,7 @@
   entity_id: light.kitchen_kitchen_led_strip
   labels:
     - shared_space
-  name: Kitchen LED Strip
+  name: 8-Light LED Strip
 - name: Soundbar
   entity_id: media_player.homelab_05_satellite_media_player_2
   labels: []

@@ -307,7 +307,7 @@ views:
             hold_action:
               action: more-info
           - entity: light.kitchen_kitchen_led_strip
-            name: Kitchen LED Strip
+            name: 8-Light LED Strip
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
