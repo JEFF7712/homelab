@@ -101,15 +101,57 @@ class ShipOperatorTest(unittest.TestCase):
         shipper.woodpecker.deploy.side_effect = ShipError("stop after deploy")
         return shipper
 
-    def test_held_operations_need_an_operator_token(self) -> None:
+    def approval_shipper(self) -> ship.Shipper:
         shipper = self.shipper()
+        shipper.summary = {
+            "branch": "feat/x",
+            "pull_request": "https://git/pulls/9",
+            "operations": [{"operation": "deploy-fleet-dry-run", "pipeline": 41}],
+        }
+        shipper.deadline = ship.time.monotonic() + 60
+        shipper.say = unittest.mock.Mock()
+        shipper.woodpecker.headers = {"Authorization": "Bearer agent"}
+        shipper.woodpecker.pipeline.side_effect = ShipError("following deployment")
+        return shipper
+
+    def test_held_operations_wait_for_dashboard_approval(self) -> None:
+        shipper = self.approval_shipper()
+        responses = [
+            (201, {"id": "abc", "url": "https://approvals/r/abc"}),
+            (200, {"state": "pending"}),
+            (200, {"state": "approved", "pipeline": 77}),
+        ]
         with (
             patch.dict("os.environ", {}, clear=True),
             patch.object(ship.Path, "home", return_value=Path("/nonexistent")),
-            self.assertRaisesRegex(ShipError, "requires a human operator"),
+            patch.object(ship, "http", side_effect=responses) as http,
+            patch.object(ship.time, "sleep"),
+            self.assertRaisesRegex(ShipError, "following deployment"),
         ):
             shipper.run_operation(10, "deploy-fleet")
         shipper.woodpecker.deploy.assert_not_called()
+        shipper.woodpecker.pipeline.assert_called_once_with(77)
+        method, url, headers, body = http.call_args_list[0].args
+        self.assertEqual((method, url), ("POST", f"{ship.APPROVALS}/api/requests"))
+        self.assertEqual(headers, {"Authorization": "Bearer agent"})
+        self.assertEqual(body["operation"], "deploy-fleet")
+        self.assertEqual(body["parent"], 10)
+        self.assertEqual(body["evidence"], [41])
+
+    def test_declined_approvals_stop_the_ship(self) -> None:
+        shipper = self.approval_shipper()
+        responses = [
+            (201, {"id": "abc", "url": "https://approvals/r/abc"}),
+            (200, {"state": "declined"}),
+        ]
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch.object(ship.Path, "home", return_value=Path("/nonexistent")),
+            patch.object(ship, "http", side_effect=responses),
+            self.assertRaisesRegex(ShipError, "declined on the approvals dashboard"),
+        ):
+            shipper.run_operation(10, "deploy-ci-host")
+        shipper.woodpecker.pipeline.assert_not_called()
 
     def test_held_operations_use_the_operator_token(self) -> None:
         shipper = self.shipper()

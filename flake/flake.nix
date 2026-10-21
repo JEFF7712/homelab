@@ -87,6 +87,7 @@
           pythonPackages.pyyaml
           pythonPackages.jinja2
           pythonPackages.cryptography
+          pythonPackages.webauthn
         ]);
         matrixLibraryPath = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
           pkgs.lib.makeLibraryPath [

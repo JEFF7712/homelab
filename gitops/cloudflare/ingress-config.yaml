@@ -106,4 +106,6 @@ data:
         service: http://forgejo.cloudflare:3000
       - hostname: arcade.rupan.dev
         service: http://led-matrix.led-matrix:8000
+      - hostname: approvals.rupan.dev
+        service: http://approvals.cloudflare:8020
       - service: http_status:404

@@ -90,7 +90,8 @@ Cloudflare Access public bypass configured.
 47. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
 48. `git.rupan.dev -> http://forgejo.cloudflare:3000`
 49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
-50. `http_status:404`
+50. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
+51. `http_status:404`
 
 
 Removed 2026-09-15 (v72):

@@ -324,8 +324,10 @@ everyone. Neither machine account holds Forgejo or Woodpecker admin rights.
 Triggering a deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
 profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
-agent machine. Held operations run from the Woodpecker UI as the operator, or
-through `just ship --deploy` with an operator token in
+agent machine. Held operations run from the Woodpecker UI as the operator, through
+the [approvals dashboard](approvals.md) (which holds an operator token on
+homelab-04 and triggers only after a passkey approval), or through
+`just ship --deploy` with an operator token in
 `WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token`. Keep the
 operator token off machines where agents run unattended. Never commit either
 token.

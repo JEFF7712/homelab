@@ -110,6 +110,8 @@
         "config/ci/applications.json",
         "config/ci/projects.json",
         "flake/modules/woodpecker.nix",
+        "flake/modules/approvals.nix",
+        "scripts/approvals/",
         "flake/hosts/homelab-04/",
         "config/projectctl/",
         "flake/profiles/projectctl-pilot.nix",

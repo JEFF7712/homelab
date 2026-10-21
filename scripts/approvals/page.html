@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homelab Approvals</title>
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66;
+  --line: #e2e2dc; --accent: #1f6f4a; --accent-ink: #ffffff;
+  --danger: #a23b2a; --warn: #8a6100; --code: #efefea;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413; --panel: #1d1d1b; --ink: #ecece6; --muted: #9a9a92;
+    --line: #2f2f2c; --accent: #4fb385; --accent-ink: #0d1f16;
+    --danger: #e0806f; --warn: #e2b54f; --code: #262624;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 24px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; margin-bottom: 12px;
+}
+.card.focus { border-color: var(--accent); }
+.row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.op { font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.state { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.state.pending { color: var(--warn); }
+.state.approved { color: var(--accent); }
+.state.failed, .state.declined { color: var(--danger); }
+.meta { color: var(--muted); font-size: 13px; margin: 6px 0; }
+.meta a { color: inherit; }
+.reason {
+  white-space: pre-wrap; background: var(--code); border-radius: 6px;
+  padding: 8px 10px; font-size: 13px; margin: 8px 0; overflow-wrap: anywhere;
+}
+.error { color: var(--danger); font-size: 13px; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 8px; margin-top: 10px; }
+button {
+  font: inherit; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 28px 0 10px; }
+.empty { color: var(--muted); }
+#notice { min-height: 20px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Homelab approvals</h1>
+  <p class="sub">Held CI operations waiting on you. Approving asks for your passkey.</p>
+  <div id="notice"></div>
+  <section id="enroll" hidden>
+    <div class="card">
+      <div class="op">Enroll a passkey</div>
+      <p class="meta">This link registers a passkey that can approve operations. It works once.</p>
+      <div class="actions"><button class="primary" id="enroll-button">Create passkey</button></div>
+    </div>
+  </section>
+  <h2>Pending</h2>
+  <div id="pending"></div>
+  <h2>Recent</h2>
+  <div id="recent"></div>
+</main>
+<script>
+const FORGEJO = "https://git.rupan.dev/JEFF7712/homelab/commit/";
+const WOODPECKER = "http://ci.internal:8000/repos/1/pipeline/";
+const focusId = (location.pathname.match(/^\/r\/([A-Za-z0-9_-]+)$/) || [])[1];
+const busy = new Set();
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "class") node.className = value;
+    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) if (child != null) node.append(child);
+  return node;
+}
+
+function notice(text, isError) {
+  const box = document.getElementById("notice");
+  box.replaceChildren(text ? el("div", { class: isError ? "error" : "meta" }, text) : "");
+}
+
+async function api(path, body) {
+  const response = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || response.statusText);
+  return payload;
+}
+
+function age(seconds) {
+  const delta = Math.max(0, Date.now() / 1000 - seconds);
+  if (delta < 90) return "just now";
+  if (delta < 5400) return Math.round(delta / 60) + " min ago";
+  return Math.round(delta / 3600) + " h ago";
+}
+
+function pipelineLink(number) {
+  return el("a", { href: WOODPECKER + number, target: "_blank", rel: "noopener" }, "#" + number);
+}
+
+function card(request) {
+  const meta = el("div", { class: "meta" },
+    "requested by " + request.requester + ", " + age(request.created) + ", main ",
+    el("a", { href: FORGEJO + request.commit_sha, target: "_blank", rel: "noopener" }, request.commit_sha.slice(0, 12)),
+    ", parent pipeline ", pipelineLink(request.parent));
+  const evidence = request.evidence.length
+    ? el("div", { class: "meta" }, "evidence: ", ...request.evidence.flatMap((n, i) => i ? [", ", pipelineLink(n)] : [pipelineLink(n)]))
+    : null;
+  const outcome = request.pipeline
+    ? el("div", { class: "meta" }, "deployment pipeline ", pipelineLink(request.pipeline))
+    : null;
+  const error = request.error ? el("div", { class: "error" }, request.error) : null;
+  let actions = null;
+  if (request.state === "pending") {
+    const disabled = busy.has(request.id) ? { disabled: "" } : {};
+    actions = el("div", { class: "actions" },
+      el("button", { class: "primary", onclick: () => approve(request.id), ...disabled }, "Approve"),
+      el("button", { onclick: () => decline(request.id), ...disabled }, "Decline"));
+  }
+  return el("div", { class: "card" + (request.id === focusId ? " focus" : ""), id: "r-" + request.id },
+    el("div", { class: "row" },
+      el("span", { class: "op" }, request.operation),
+      el("span", { class: "state " + request.state }, request.state)),
+    meta,
+    request.reason ? el("div", { class: "reason" }, request.reason) : null,
+    evidence, outcome, error, actions);
+}
+
+async function refresh() {
+  try {
+    const data = await api("/api/requests");
+    const pending = data.requests.filter(r => r.state === "pending" || r.state === "approving");
+    const recent = data.requests.filter(r => !pending.includes(r));
+    document.getElementById("pending").replaceChildren(
+      ...(pending.length ? pending.map(card) : [el("p", { class: "empty" }, "Nothing waiting.")]));
+    document.getElementById("recent").replaceChildren(
+      ...(recent.length ? recent.slice(0, 20).map(card) : [el("p", { class: "empty" }, "No history yet.")]));
+    if (!data.enrolled && !enrollToken) notice("No passkey enrolled yet. Run sudo approvals-enroll on homelab-04.", true);
+  } catch (error) {
+    notice("Could not load requests: " + error.message, true);
+  }
+}
+
+async function approve(id) {
+  busy.add(id); refresh();
+  try {
+    const options = await api(`/api/requests/${id}/options`, {});
+    const credential = await navigator.credentials.get({
+      publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(options),
+    });
+    const result = await api(`/api/requests/${id}/approve`, credential.toJSON());
+    notice(result.state === "approved"
+      ? `${result.operation} approved; deployment pipeline #${result.pipeline}.`
+      : `${result.operation}: ${result.error}`, result.state !== "approved");
+  } catch (error) {
+    notice("Approval did not complete: " + error.message, true);
+  } finally {
+    busy.delete(id); refresh();
+  }
+}
+
+async function decline(id) {
+  busy.add(id); refresh();
+  try {
+    const result = await api(`/api/requests/${id}/decline`, {});
+    notice(`${result.operation} declined.`);
+  } catch (error) {
+    notice("Decline failed: " + error.message, true);
+  } finally {
+    busy.delete(id); refresh();
+  }
+}
+
+const enrollToken = location.pathname === "/enroll" ? new URLSearchParams(location.search).get("token") : null;
+if (enrollToken) {
+  document.getElementById("enroll").hidden = false;
+  document.getElementById("enroll-button").addEventListener("click", async () => {
+    try {
+      const options = await api("/api/enroll/options", { token: enrollToken });
+      const credential = await navigator.credentials.create({
+        publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(options),
+      });
+      const label = navigator.userAgentData?.platform || navigator.platform || "passkey";
+      await api("/api/enroll", { token: enrollToken, credential: credential.toJSON(), label });
+      document.getElementById("enroll").hidden = true;
+      history.replaceState(null, "", "/");
+      notice("Passkey enrolled.");
+    } catch (error) {
+      notice("Enrollment failed: " + error.message, true);
+    }
+  });
+}
+
+refresh();
+setInterval(() => { if (!busy.size) refresh(); }, 5000);
+</script>
+</body>
+</html>
