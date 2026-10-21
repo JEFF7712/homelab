@@ -22,16 +22,16 @@ It accepts only a domain whose UUID, manifest hash, receipt, and disks agree. It
 
 `flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
 
-The host modules are enabled on `homelab-01`. Kubernetes reserves 2 CPUs and 10 GiB of memory for the host and cluster. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 9 GiB memory pressure threshold, and has a 10 GiB hard memory limit. The versioned inventory remains empty, so no user is enrolled and no persistent workspace VM is defined.
+The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 10 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 9 GiB memory pressure threshold, and has a 10 GiB hard memory limit. The versioned inventory remains empty, so no user is enrolled and no persistent workspace VM is defined.
 
-For recovery of the previously accepted `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-01/default.nix` contains only their existing network settings under `recoveryManifest`. This recovery input creates host bridges and filtering rules but does not provision guests, add enrollment records, or grant HA access. The saved XML and disks under `/persist/agent-workspaces/` remain the guest source of truth. Keep this input limited to those existing guests and remove it only after an independently accepted replacement or decommissioning; the backup restore and HA capability gates remain open.
+For recovery of the previously accepted `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-04/default.nix` contains only their existing network settings under `recoveryManifest`. This recovery input creates host bridges and filtering rules but does not provision guests, add enrollment records, or grant HA access. The saved XML and disks under `/persist/agent-workspaces/` remain the guest source of truth. Keep this input limited to those existing guests and remove it only after an independently accepted replacement or decommissioning; the backup restore and HA capability gates remain open.
 
-Each recovery guest is narrowly routed: `adguard-netbird-01` has host routes to `172.31.10.2/32` and `172.31.10.6/32` via `homelab-01`, and the host permits that router as an ingress source. NetBird grants each workspace only to its owner's specific peer on TCP 22 and 443. The account configuration is reconciled from `config/netbird/agent-workspaces.json`.
+Each recovery guest is narrowly routed: `adguard-netbird-01` has host routes to `172.31.10.2/32` and `172.31.10.6/32` via `homelab-04`, and the host permits that router as an ingress source. NetBird grants each workspace only to its owner's specific peer on TCP 22 and 443. The account configuration is reconciled from `config/netbird/agent-workspaces.json`.
 
 For LAN access, use the host as an SSH jump:
 
 ```sh
-ssh -J rupan@10.0.30.11 developer@172.31.10.2
+ssh -J rupan@10.0.30.14 developer@172.31.10.2
 ```
 
 Use the workspace owner's existing SSH key for each guest. A different owner's key must remain rejected. NetBird access uses per-peer resource policies; do not grant the VM subnet to a broad peer group.

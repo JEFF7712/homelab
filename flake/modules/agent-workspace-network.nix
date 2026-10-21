@@ -164,7 +164,7 @@ in
         "systemd-networkd.service"
       ];
     };
-    # homelab-01's root is ephemeral and /etc/libvirt is not persisted, so a
+    # The host's root is ephemeral and /etc/libvirt is not persisted, so a
     # reboot forgets the domains; the saved XML under /persist is their source
     # of truth. Define any missing domain from it and start it once the
     # firewall and bridges that libvirtd requires are up.
