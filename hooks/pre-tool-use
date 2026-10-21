@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# shellcheck source=hooks/common.sh
+source "$(dirname "$0")/common.sh"
+allow() {
+  [[ -v HOOK_INPUT ]] || HOOK_INPUT=$(cat)
+  if [[ ${HOOK_INPUT:-} == *'"beforeShellExecution"'* ]]; then
+    printf '%s\n' '{"permission":"allow"}'
+  else
+    printf '%s\n' '{}'
+  fi
+  exit 0
+}
+hook_load || allow
+cd "$REPO_ROOT"
+response=$(AGENT_HOOK_ACTIVE=1 timeout 3 python -m scripts.agent.hook_runtime guard <<<"$HOOK_INPUT" 2>/dev/null) || allow
+[[ -n $response ]] || allow
+hook_trace guard
+printf '%s\n' "$response"

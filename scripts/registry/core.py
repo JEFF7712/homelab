@@ -25,10 +25,17 @@ from scripts.ci.applications import load_catalog
 
 SCHEMA_VERSION = 1
 DEFAULT_REGISTRY = "registry.rupan.dev"
+# projectctl-pull reads the clone plugin plus every image a projectctl contract runs.
 PROJECTCTL_PULL_REPOSITORIES = frozenset(
-    {
-        "upstream/ghcr.io/astral-sh/uv",
-        "upstream/docker.io/woodpeckerci/plugin-git",
+    {"upstream/docker.io/woodpeckerci/plugin-git"}
+    | {
+        contract["image"].split("/", 1)[1].split("@", 1)[0]
+        for contract in json.loads(
+            (
+                pathlib.Path(__file__).resolve().parents[2]
+                / "config/ci/projectctl-contracts.json"
+            ).read_text(encoding="utf-8")
+        )["contracts"].values()
     }
 )
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")

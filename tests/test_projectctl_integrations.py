@@ -161,6 +161,8 @@ class ApiState:
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.administrator_roles: set[str] = set()
         self.hooks: list[dict[str, Any]] = [self.hook(5, "41")]
+        self.config_unavailable = 0
+        self.delivery_config_delay = 0
         self.step = "python-uv-test"
 
     @staticmethod
@@ -319,7 +321,11 @@ class ApiState:
         if path.startswith("/api/repos/73/pipelines/"):
             suffix = path.removeprefix("/api/repos/73/pipelines/")
             if suffix.endswith("/config"):
-                return 200, self.configs.get(int(suffix.removesuffix("/config")), [])
+                number = int(suffix.removesuffix("/config"))
+                if number == max(self.pipelines) and self.config_unavailable:
+                    self.config_unavailable -= 1
+                    return 404, {}
+                return 200, self.configs.get(number, [])
             return (
                 (200, self.pipelines[int(suffix)])
                 if int(suffix) in self.pipelines
@@ -335,6 +341,7 @@ class ApiState:
                 return 404, {}
             if self.source_sha and query.get("ref") == ["refs/heads/main"]:
                 self.pipeline(max(self.pipelines, default=0) + 1, self.source_sha)
+                self.config_unavailable = self.delivery_config_delay
             return 204, None
         if path == project + "/branch_protections" and method == "POST":
             self.protection = body
@@ -823,6 +830,53 @@ class IntegrationTest(unittest.TestCase):
         count = len(self.state.writes)
         self.assertEqual(self.dispatch(request_id)["state"], "succeeded")
         self.assertEqual(len(self.state.writes), count)
+
+    def test_routine_ci_triggers_its_own_run_over_an_older_failure(self) -> None:
+        self.enable_routine()
+        self.state.pipeline(10, self.project.source_sha, "manual", "failure")
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.configure_protection()
+        result = self.dispatch(request_id)
+        self.assertEqual(result["state"], "succeeded", result)
+        ci = next(row for row in result["operations"] if row["id"] == "ci")
+        self.assertEqual(ci["outputs"]["pipeline_id"], 11)
+        self.assertEqual(self.state.pipelines[11]["event"], "manual")
+
+    def test_routine_readiness_fails_when_the_pinned_ci_run_fails(self) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.configure_protection()
+        self.state.pipeline(10, self.project.source_sha, "manual", "running")
+        self.assertEqual(self.dispatch(request_id)["state"], "waiting")
+        self.state.pipeline(10, self.project.source_sha, "manual", "failure")
+        self.runtime.worker.clock = lambda: (
+            datetime.now(timezone.utc) + timedelta(seconds=10)
+        )
+        result = self.dispatch(request_id)
+        self.assertEqual((result["state"], result["code"]), ("failed", "CI_FAILED"))
+        self.assertEqual(self.hook_tests(), [])
+
+    def test_routine_readiness_waits_for_the_delivered_pipeline_config(
+        self,
+    ) -> None:
+        self.enable_routine()
+        status = self.submit()
+        request_id = status["request_id"]
+        self.dispatch(request_id)
+        self.deploy_catalog(request_id)
+        self.state.pipeline(10, self.project.source_sha, event="manual")
+        self.configure_protection()
+        self.state.delivery_config_delay = 2
+        self.runtime.adapter.delivery_timeout = 10
+        result = self.dispatch(request_id)
+        self.assertEqual(result["state"], "succeeded", result)
+        self.assertEqual(len(self.hook_tests()), 1)
 
     def test_routine_readiness_refuses_a_hook_for_another_repository(self) -> None:
         self.enable_routine()

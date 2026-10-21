@@ -49,6 +49,15 @@
       "^tofu/.+\\.tf$"
     ]
   },
+  "nix": {
+    "enabled": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on monday"
+    ]
+  },
   "packageRules": [
     {
       "description": "Group GitLab CI and Dockerfile image updates",
@@ -120,6 +129,24 @@
         "kubernetes",
         "dockerfile",
         "gitlabci"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Lock maintenance is for the Nix flakes only; uv and provider locks move with their dependency updates",
+      "matchUpdateTypes": [
+        "lockFileMaintenance"
+      ],
+      "matchManagers": [
+        "pep621",
+        "terraform"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Never automerge Nix inputs: a merged flake bump is undeployed fleet drift until deploy-fleet runs, and nixpkgs can carry a k3s minor upgrade",
+      "matchManagers": [
+        "nix"
       ],
       "automerge": false
     }

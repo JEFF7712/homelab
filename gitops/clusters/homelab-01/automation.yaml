@@ -23,7 +23,7 @@ spec:
       namespace: automation
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
-      name: renovate-gitlab
+      name: renovate-forgejo
       namespace: automation
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease

@@ -4,3 +4,4 @@ metadata:
   name: pod-agent
   labels:
     app.kubernetes.io/name: pod-agent
+    pod-security.kubernetes.io/enforce: restricted

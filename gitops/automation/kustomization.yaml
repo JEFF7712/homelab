@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - namespace.yaml
+  - network-policy.yaml
   - repository.yaml
   - secrets.yaml
   - config.yaml
@@ -18,6 +19,6 @@ resources:
   - renovate-approval-webhook-script.yaml
   - renovate-dashboard.yaml
   - forgejo-dashboard-script.yaml
-  - renovate-gitlab.yaml
+  - renovate-forgejo.yaml
   - renovate-github.yaml
   - github-runner

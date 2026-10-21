@@ -16,13 +16,10 @@ next apply.
 - Connectors: 2 replicas from `gitops/cloudflare/tunnel.yaml` (`cloudflared 2026.8.3`)
 - Health: `healthy`, 8 connections on `ord10, mci03, ord15, ord06, mci01, ord02`
 - Public origin IP seen by edge: `50.93.213.22` (connector pods live in `10.0.30.0/24`)
-- Apply job: `cloudflare_apply` (manual, `production` environment, `resource_group: cloudflare-tunnel`)
-- Stage order: `cloudflare` runs before `registry`, deliberately. The `registry`
-  stage holds four blocking manual jobs (`registry_retention_reconcile`,
-  `registry_lock_import`, and the two `provision_*_publisher` jobs), and a
-  blocking manual job holds every later stage, so a cloudflare job placed after
-  it would never start on a busy `main`. Nothing in this stack depends on
-  registry work.
+- Apply: Woodpecker operations `cloudflare-plan` and `cloudflare-apply` from
+  `config/ci/operations.json`, serialized in the `resource-cloudflare-tunnel`
+  concurrency group. `cloudflare-plan` also runs after validation on every
+  current main push; `cloudflare-apply` consumes that plan.
 
 ## Traffic path for `photos.rupan.dev`
 
@@ -72,7 +69,7 @@ Cloudflare Access public bypass configured.
 26. `apollinestore.com -> http://apolline-svc.apolline:80`
 27. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
 28. `pulseagent.dev -> http://pulse-svc.pulse:80`
-29. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux GitLab push receiver, 2026-09-20; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
+29. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux push receiver, added 2026-09-20 for GitLab and now fed by Forgejo; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
 30. `jellyfin.rupan.dev -> http://jellyfin.media:80`
 31. `navidrome.rupan.dev -> http://navidrome.media:80`
 32. `music.rupan.dev -> http://navidrome.media:80`
@@ -119,11 +116,12 @@ affect remote ingress.
    numbered list above in the same position.
 2. Run `python -m unittest tests.test_cloudflare_tunnel` — asserts config order
    matches this runbook and every origin Service exists.
-3. Commit and push. `cloudflare_plan` runs on `main` and prints the resource
-   changes; read them in the job log before continuing.
-4. Run `cloudflare_apply` (manual) from the pipeline. It reports the new
-   `config_version` as an artifact.
-5. Verify the public hostname serves the expected origin.
+3. Deliver with `just ship --deploy cloudflare-plan,cloudflare-apply` once the
+   user has authorized the edge change. The `cloudflare` ship route is held, and
+   it is keyed on `tofu/cloudflare/`, so a change to the ingress list alone does
+   not prompt for it. Read the `cloudflare-plan` summary before the apply runs.
+   The apply prints the new `config_version`.
+4. Verify the public hostname serves the expected origin.
 
 Do not edit ingress rules in the Zero Trust dashboard. The dashboard is where
 the applied state is *read*, and a hand edit there is reverted by the next apply.
@@ -131,41 +129,26 @@ the applied state is *read*, and a hand edit there is reverted by the next apply
 DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` is still created by hand in
 the dashboard, once per hostname. It is not managed by this stack.
 
-## First apply (one-time, before trusting the pipeline)
+## State and credentials
 
-The stack must be imported, not created. Creating it would 409 against the live
-tunnel and fight the connector Deployment. This runs in CI, not locally, because
-the state backend is GitLab's HTTP state API and a local run has no job token.
+The stack was imported, not created, on 2026-09-29: creating it would 409
+against the live tunnel. Its state lives on the nas-01 HTTP state backend at
+`https://s3.internal:3902/state/cloudflare`, separate from `tofu/opnsense`.
+Local runs have no state credentials; plan and apply only through the
+operations above.
 
-1. Add the GitLab variables (below) and push this stack.
-2. Run `cloudflare_import` from the pipeline. It imports
-   `cloudflare_zero_trust_tunnel_cloudflared_config.homelab` and then plans with
-   `-detailed-exitcode`, which returns 0 for a no-op, 2 for changes, or 1 for
-   error. **Anything other than 0 here means the imported state and the mirror
-   disagree**; stop and reconcile by hand rather than applying, because this one
-   resource is the entire public edge of the cluster.
-3. Let the next `cloudflare_plan` run and confirm
-   `python -m scripts.cloudflare.plan_summary` prints `no changes: the edge
-   already matches git`.
-4. `cloudflare_apply` then has nothing to do until a hostname changes.
+If the stack is ever re-imported, `cloudflare-import` imports
+`cloudflare_zero_trust_tunnel_cloudflared_config.homelab` and plans with
+`-detailed-exitcode`. Anything other than exit 0 means the imported state and
+git disagree; reconcile by hand rather than applying, because this one resource
+is the entire public edge of the cluster. A permanent `originRequest` diff means
+the provider fills defaults the mirror does not set; fix that in `main.tf`'s
+`ingress` local, not in the dashboard.
 
-Until step 2, `cloudflare_plan` reports a `create`, which is the expected
-artefact of an unimported singleton and is not a reason to apply.
-
-The one thing to watch in that first plan is `originRequest`. The mirror sets no
-origin options, and if the provider fills defaults in for them, the plan will
-show a permanent diff that no apply can settle. That is the failure mode this
-step exists to catch; if it appears, the fix is in `main.tf`'s `ingress` local,
-not in the dashboard.
-
-GitLab variables, both protected and environment-scoped to `*`, added as a pair:
-`CLOUDFLARE_API_TOKEN` (secret, masked) and `CLOUDFLARE_ACCOUNT_ID`. The
-`cloudflare` jobs read them by those names; `tofu` picks the token up from the
-environment, so it never enters HCL or state. The token needs `Account >
-Cloudflare Tunnel > Edit` on the account and nothing else. The `cloudflare` stack
-uses its own state namespace (`cloudflare-production`); `tofu/opnsense` is
-untouched.
-
+Woodpecker secrets: `cloudflare_account_id`, `cloudflare_plan_api_token` (plan)
+and `cloudflare_deploy_api_token` (apply). `tofu` reads the token from
+`CLOUDFLARE_API_TOKEN`, so it never enters HCL or state. The apply token needs
+`Account > Cloudflare Tunnel > Edit` and nothing else.
 
 ## `pod.rupan.dev` (owner desk)
 
@@ -178,7 +161,8 @@ be in place before the hostname serves anything useful.
    `pod.rupan.dev`, with an **Allow** policy on the owner email. Do not give it
    a Bypass policy the way `rupan.dev` and `flux-webhook-bypass` have one:
    Bypass on this hostname would put the storefront on the public internet.
-2. `DASHBOARD_TOKEN` (GitLab `POD_AGENT_DASHBOARD_TOKEN`, hex 32) is already
+2. `DASHBOARD_TOKEN` (`POD_AGENT_DASHBOARD_TOKEN` in
+   `gitops/secrets/homelab-values.sops.yaml`, hex 32) is already
    set on the Deployment, and `serve_forever` refuses a non-loopback bind
    without it. Every request still needs it, so the Access login is followed
    by a token prompt. First visit with
@@ -187,7 +171,7 @@ be in place before the hostname serves anything useful.
 
 Access is the outer gate and the token is the inner one, deliberately. A
 wildcard `*` Access app or a mis-scoped policy change cannot publish a
-product on its own, and a token leaked from the GitLab project still only works
+product on its own, and a leaked token still only works
 from behind an authenticated Access session.
 
 Origin reachability is restricted in-cluster by
@@ -210,7 +194,7 @@ application, dashboard managed like DNS (see "Known gaps"):
    0f08d8c5-6f2c-409e-ba80-dc0601e0227e.cfargotunnel.com`, created by hand in
    the dashboard once, like every other hostname here.
 3. The tunnel rule itself (`gitops/cloudflare/ingress-config.yaml`) is applied
-   by `cloudflare_apply` like any other hostname; Access sits in front of it
+   by `cloudflare-apply` like any other hostname; Access sits in front of it
    at the edge, so an unauthenticated visitor never reaches the origin.
 
 The producer repository (`JEFF7712/sovereign`) is private.

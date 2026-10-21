@@ -297,6 +297,21 @@ in
       };
     };
 
+    # zot copies both files in through LoadCredential at start, so a deploy
+    # that rewrites them would otherwise leave the old access rules live.
+    systemd.paths.zot-credentials = {
+      wantedBy = [ "multi-user.target" ];
+      pathConfig.PathChanged = [
+        cfg.htpasswdFile
+        cfg.accessControlFile
+      ];
+    };
+    systemd.services.zot-credentials = {
+      description = "Restart zot after its htpasswd or access control changes";
+      serviceConfig.Type = "oneshot";
+      script = "${config.systemd.package}/bin/systemctl try-restart zot.service";
+    };
+
     services.nginx = {
       enable = true;
       recommendedOptimisation = true;

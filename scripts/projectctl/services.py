@@ -272,6 +272,14 @@ class ServiceAdapter:
                 f"/api/repos/{enrollment_id}/pipelines/{pipeline['number']}"
             )
             if self._configuration_matches(enrollment_id, pipeline["number"]):
+                # A failed run this request did not start may predate a fix,
+                # so ci triggers its own instead of adopting it.
+                if allocation is None and detail.get("status") in {
+                    "failure",
+                    "error",
+                    "killed",
+                }:
+                    continue
                 return detail
             if detail.get("status") in {"pending", "running", "blocked"}:
                 raise ProtocolError(Code.VERIFICATION_PENDING)
@@ -486,6 +494,8 @@ class ServiceAdapter:
             return Observation(
                 "verified", evidence, {"pipeline_id": pipeline["number"]}
             )
+        if evidence["ci_status"] in {"failure", "error", "killed"}:
+            raise ProtocolError(Code.CI_FAILED, operation)
         if (
             not self.validation_passed(pipeline, project.ci_contract)
             or self._commit_status(project.repository, project.source_sha) != "success"
@@ -717,9 +727,15 @@ class ServiceAdapter:
                 method="POST",
             )
             deadline = time.monotonic() + self.delivery_timeout
-            while not self._push_delivered(enrollment["id"], project):
-                if time.monotonic() >= deadline:
-                    return
+            while time.monotonic() < deadline:
+                try:
+                    if self._push_delivered(enrollment["id"], project):
+                        return
+                except ProtocolError as error:
+                    # Woodpecker can list a just-created pipeline before it
+                    # stores the pipeline's config.
+                    if error.code != Code.DEPENDENCY_UNAVAILABLE:
+                        raise
                 time.sleep(1)
             return
         if operation == "protection":
