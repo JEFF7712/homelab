@@ -20,3 +20,26 @@ publication only from freshly validated current main. Retain source SHA,
 the successful operation number, both publication markers, and its signed
 operation receipt. A longer time budget does not establish offline build
 or independent restoration acceptance.
+
+## Laptop deployment branch
+
+The laptop runs comin against `deploy/laptop` in `JEFF7712/nixos-config` with
+local builds disabled, so that branch may only name a commit whose laptop
+closure is already in Attic. `scripts/ci/nixos_deploy.py` owns it:
+
+- `nixos-lock-update` (`weekly` cron) runs `nix flake update` on main, evaluates
+  the laptop toplevel, and defers when `nix-cascade-guard` reports an uncached
+  nixpkgs. It opens a single `flake-lock/weekly` PR and never replaces an open
+  one. Then it does what `nixos-deploy` does.
+- `nixos-deploy` (`nightly` cron) finishes the open update PR: it waits for
+  `ci/woodpecker/application-validation`, publishes the PR head's closure,
+  and merges. A failed or unmergeable candidate is closed and the run fails;
+  the next weekly run proposes a fresh one. It then publishes the validated
+  main tip and fast-forwards `deploy/laptop` to it. It never force-pushes, and a
+  deploy branch that is not an ancestor of main fails the run.
+
+Both push as `homelab-publisher` with `forgejo_publish_token`, which needs
+write access to `JEFF7712/nixos-config`. Branch protection on `deploy/*` must
+restrict pushes to that identity, because comin deploys whatever the branch
+names. For an urgent fix, trigger `deploy_to=nixos-lock-update` from a
+successful main validation instead of waiting for Sunday.

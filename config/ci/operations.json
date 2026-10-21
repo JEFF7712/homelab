@@ -1920,6 +1920,72 @@
     "mutation": true,
     "prerequisite": ""
   },
+  "nixos-lock-update": {
+    "commands": [
+      "python -m scripts.ci.nixos_deploy weekly"
+    ],
+    "environment": {
+      "ATTIC_TOKEN": {
+        "from_secret": "attic_token"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "nix-cache",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "nixos-lock-update",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
+  "nixos-deploy": {
+    "commands": [
+      "python -m scripts.ci.nixos_deploy nightly"
+    ],
+    "environment": {
+      "ATTIC_TOKEN": {
+        "from_secret": "attic_token"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "nix-cache",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "nixos-deploy",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": ""
+  },
   "native-asr-publish": {
     "commands": [
       "export NIX_SSHOPTS=\"-i $SSH_DEPLOY_KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOSTS_KNOWN -o StrictHostKeyChecking=yes -o BatchMode=yes\"",
