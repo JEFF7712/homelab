@@ -19,7 +19,6 @@ import io
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 import tarfile
@@ -507,8 +506,11 @@ def source_archive(release: Release, sha: str) -> bytes:
     return buffer.getvalue()
 
 
+BUILDER = "service-release@10.0.30.14"
+
+
 def coordinate(name: str) -> None:
-    from scripts.ci.native_release import BUILDER, ssh_command
+    from scripts.ci.native_release import ssh_command
 
     release = RELEASES[name]
     sha = os.environ["CI_COMMIT_SHA"]
@@ -527,17 +529,12 @@ def coordinate(name: str) -> None:
     check_request(request)
     preflight(release, request["publisher_auth"])
     request["source_archive"] = base64.b64encode(source_archive(release, sha)).decode()
-    program = base64.b64encode(Path(__file__).read_bytes()).decode()
-    code = f"import base64,sys;sys.argv=['service-release','worker'];exec(compile(base64.b64decode({program!r}),'<protected-service-release>','exec'))"
-    bootstrap = (
-        "set -eu; release_python=''; "
-        "for release_path in $(nix-store -q --requisites /run/current-system); do "
-        'if test -x "$release_path/bin/python3"; then release_python=$release_path/bin/python3; break; fi; done; '
-        'test -n "$release_python"; exec sudo -n "$release_python" -c '
-        + shlex.quote(code)
-    )
+    # The builder account's forced command runs the worker deployed on
+    # homelab-04; no code or command travels with the request.
+    command = ssh_command(BUILDER)
+    command.insert(1, "-T")
     result = subprocess.run(
-        [*ssh_command(BUILDER, relay=True), bootstrap],
+        command,
         input=json.dumps(request),
         capture_output=True,
         text=True,

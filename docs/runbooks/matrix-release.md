@@ -7,8 +7,13 @@ The service source is `services/led-matrix`. Its registry repository remains
 Flux owns `gitops/led-matrix/deployment.yaml`.
 
 The `matrix-publish` protected CI operation builds an exact validated main SHA
-on the existing native Docker builder, `homelab-04`, through the same pinned
-SSH route used by `native-asr-publish`. It does not modify the running matrix,
+on the native Docker builder, `homelab-04`, as the `service-release` account.
+That account's key (`service_release_ssh_key`) has a forced command that runs
+the worker deployed with homelab-04's NixOS generation, in the `docker` group
+and without sudo, so a change to the worker side of `scripts/ci/service_release.py`
+takes effect only after the held `ci-host` route deploys homelab-04. The same
+applies to `bus-display-publish` and `lidarr-extended-publish`. It does not
+modify the running matrix,
 publish a Git branch, open a PR, or merge changes.
 
 Before activating this operation, obtain authorization for publication and
@@ -28,10 +33,11 @@ available. If it cannot be recovered, rotate only this publisher using
 Preserve all other identities, ACL entries, and file ownership.
 
 The operation also uses the existing node reader password for pulling the
-pinned Python base and the existing deployment SSH identity for its builder.
+pinned Python base and `service_release_ssh_key` for its builder; it never
+receives the fleet deployment key.
 Reader and writer Docker configurations are separate temporary mode-0600
 files outside the build context. They are deleted on completion or failure.
-Failed build logs remain under `/persist/matrix-ci/` on `homelab-04`.
+Failed build logs remain under `/persist/service-release-ci/` on `homelab-04`.
 
 ## Local checks
 

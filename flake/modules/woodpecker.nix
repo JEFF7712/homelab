@@ -10,6 +10,18 @@ let
     p.pyyaml
     p.cryptography
   ]);
+  # Publish operations reach this host only through this forced command, so
+  # their key runs the deployed worker and nothing else, never root.
+  serviceReleaseSource = pkgs.runCommand "service-release-source" { } ''
+    mkdir -p $out/scripts/ci
+    cp ${../../scripts/ci/service_release.py} $out/scripts/ci/service_release.py
+    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
+  '';
+  serviceReleaseWorker = pkgs.writeShellScript "service-release-worker" ''
+    export PATH=/run/current-system/sw/bin
+    cd /persist/service-release-ci
+    exec env PYTHONPATH=${serviceReleaseSource} ${pkgs.python3}/bin/python3 -m scripts.ci.service_release worker
+  '';
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
     mkdir -p $out/scripts/ci $out/config/ci
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
@@ -127,6 +139,17 @@ in
       home = "/persist/woodpecker";
     };
     users.groups.woodpecker = { };
+    users.users.service-release = {
+      isSystemUser = true;
+      group = "service-release";
+      extraGroups = [ "docker" ];
+      home = "/persist/service-release-ci";
+      shell = pkgs.bash;
+      openssh.authorizedKeys.keys = [
+        "restrict,command=\"${serviceReleaseWorker}\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBwyZ04cW036w14eDJ4QHjRrVxYfp0bvSzVumZdVWK8C service-release-ci"
+      ];
+    };
+    users.groups.service-release = { };
     systemd.tmpfiles.rules = [
       "d /persist/woodpecker 0750 woodpecker woodpecker -"
       "d /persist/woodpecker/server-data 0700 woodpecker woodpecker -"
@@ -142,6 +165,7 @@ in
       "z /persist/woodpecker/agent-trusted.env 0600 root root -"
       "z /persist/woodpecker/agent-deploy.env 0600 root root -"
       "z /persist/woodpecker/policy.env 0600 root root -"
+      "d /persist/service-release-ci 0700 service-release service-release -"
     ];
     services.woodpecker-server = {
       enable = true;
@@ -235,6 +259,18 @@ in
     networking.firewall.extraInputRules = ''
       iifname { "docker0", "br-*" } tcp dport 22 accept
     '';
+    # CI containers masquerade as this host, which every NFS export trusts
+    # with AUTH_SYS and no_root_squash. No job needs NFS, so a sandbox step
+    # cannot read or write cluster volumes as root.
+    networking.nftables.tables.ci-container-egress = {
+      family = "inet";
+      content = ''
+        chain forward {
+          type filter hook forward priority filter - 10; policy accept;
+          iifname { "docker0", "br-*" } ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } meta l4proto { tcp, udp } th dport { 111, 2049 } counter drop
+        }
+      '';
+    };
     networking.hosts = {
       "192.168.1.1" = [ "OPNsense.internal" ];
       # registry.rupan.dev is pinned in k3s-server.nix, which every
