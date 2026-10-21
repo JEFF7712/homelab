@@ -335,16 +335,6 @@ views:
                   data:
                     option: Clock & Weather
               - type: action
-                name: Night
-                icon: mdi:weather-night
-                tap_action:
-                  action: perform-action
-                  perform_action: input_select.select_option
-                  target:
-                    entity_id: input_select.bedroom_matrix_mode
-                  data:
-                    option: Night Clock
-              - type: action
                 name: AI Arcade
                 icon: mdi:robot
                 tap_action:
