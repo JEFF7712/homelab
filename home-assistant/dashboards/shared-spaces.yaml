@@ -407,7 +407,7 @@ views:
             hold_action:
               action: more-info
           - name: Exit Sign
-            entity: switch.stairs_light
+            entity: switch.exit_sign
             features:
               - type: toggle
             type: tile

@@ -120,8 +120,9 @@ TARGETS = {
         "light.living_room_good_vibes_sign",
         frozenset({"turn_on", "turn_off", "toggle"}),
     ),
+    # The Jev label predates this switch moving from the stairs to the exit sign.
     "stairs_light": Target(
-        "switch.stairs_light", frozenset({"turn_on", "turn_off", "toggle"})
+        "switch.exit_sign", frozenset({"turn_on", "turn_off", "toggle"})
     ),
     "living_room_thermostat": Target(
         "climate.living_room_ac_living_room_ac_thermostat",
@@ -187,7 +188,7 @@ _TARGET_EVIDENCE = {
     "bedroom_window_plug": re.compile(r"\bbedroom window plug\b"),
     "bedroom_mushroom_plug": re.compile(r"\bbedroom mushroom plug\b"),
     "good_vibes_sign": re.compile(r"\bgood vibes sign\b"),
-    "stairs_light": re.compile(r"\bstairs lights?\b"),
+    "stairs_light": re.compile(r"\bexit sign\b"),
     "living_room_thermostat": re.compile(
         r"\b(?:living room )?(?:thermostat|temperature)\b|\bheat in the living room\b"
     ),

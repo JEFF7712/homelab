@@ -63,10 +63,10 @@ class CanonicalParseTest(unittest.TestCase):
     def test_verb_orders(self) -> None:
         cases = {
             "Switch the good vibes sign on.": ("good_vibes_sign", "turn_on"),
-            "Switch off the stairs light.": ("stairs_light", "turn_off"),
+            "Switch off the exit sign.": ("stairs_light", "turn_off"),
             "Turn the downstairs lights on.": ("downstairs_lights", "turn_on"),
             "Turn the lights off in the kitchen.": ("kitchen_lights", "turn_off"),
-            "Toggle the stairs light.": ("stairs_light", "toggle"),
+            "Toggle the exit sign.": ("stairs_light", "toggle"),
         }
         for say, (target, action) in cases.items():
             command = l0.parse_canonical(say)
@@ -160,7 +160,7 @@ class CanonicalParseTest(unittest.TestCase):
 
     def test_domain_action_mismatch_is_none(self) -> None:
         for say in (
-            "Set the stairs light to 50 percent.",
+            "Set the exit sign to 50 percent.",
             "Make the kitchen mushroom lamp blue.",
             "Pause the kitchen lights.",
             "Make movie mode blue.",

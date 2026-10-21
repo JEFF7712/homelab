@@ -328,7 +328,7 @@ data:
             - light.living_room_good_vibes_sign
             - light.kitchen_mushroom_lamp
             - light.kitchen_fuck_off_sign
-            - switch.stairs_light
+            - switch.exit_sign
             - climate.living_room_ac_living_room_ac_thermostat
     recorder:
       db_url: !secret recorder_db_url
@@ -1674,7 +1674,7 @@ data:
         r"|(?:the\s+)?bedrooms\s+lights?"
         r"|(?:the\s+)?livingroom\s+lights?"
     )
-    _WIRED = r"(?:the\s+)?stairs\s+lights?"
+    _WIRED = r"(?:the\s+)?exit\s+sign"
     _SIGN = r"(?:the\s+)?good\s+vibes\s+sign"
     _LAMP = r"(?:the\s+)?kitchen\s+mushroom\s+lamp"
     _PLUG = r"(?:the\s+)?bedroom\s+(?:mushroom\s+plug|window\s+plug)"
@@ -1799,7 +1799,7 @@ data:
         (re.compile(r"^bedrooms\s+lights?$"), "bedroom_lights"),
         (re.compile(r"^livingroom\s+lights?$"), "living_room_lights"),
         (re.compile(rf"^(?:the\s+)?(?:all\s+the\s+)?{_AREA}\s+lights?$"), "area"),
-        (re.compile(r"^stairs\s+lights?$"), "stairs_light"),
+        (re.compile(r"^exit\s+sign$"), "stairs_light"),
         (re.compile(r"^good\s+vibes\s+sign$"), "good_vibes_sign"),
         (re.compile(r"^kitchen\s+mushroom\s+lamp$"), "kitchen_mushroom_lamp"),
         (re.compile(r"^bedroom\s+mushroom\s+plug$"), "bedroom_mushroom_plug"),
@@ -2107,8 +2107,9 @@ data:
             "light.living_room_good_vibes_sign",
             frozenset({"turn_on", "turn_off", "toggle"}),
         ),
+        # The Jev label predates this switch moving from the stairs to the exit sign.
         "stairs_light": Target(
-            "switch.stairs_light", frozenset({"turn_on", "turn_off", "toggle"})
+            "switch.exit_sign", frozenset({"turn_on", "turn_off", "toggle"})
         ),
         "living_room_thermostat": Target(
             "climate.living_room_ac_living_room_ac_thermostat",
@@ -2174,7 +2175,7 @@ data:
         "bedroom_window_plug": re.compile(r"\bbedroom window plug\b"),
         "bedroom_mushroom_plug": re.compile(r"\bbedroom mushroom plug\b"),
         "good_vibes_sign": re.compile(r"\bgood vibes sign\b"),
-        "stairs_light": re.compile(r"\bstairs lights?\b"),
+        "stairs_light": re.compile(r"\bexit sign\b"),
         "living_room_thermostat": re.compile(
             r"\b(?:living room )?(?:thermostat|temperature)\b|\bheat in the living room\b"
         ),

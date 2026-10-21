@@ -798,7 +798,7 @@
 - disabled_by: integration
   entity_id: switch.spook_your_homie_pre_release
   labels: []
-- entity_id: switch.stairs_light
+- entity_id: switch.exit_sign
   labels:
     - shared_space
   name: Exit Sign
