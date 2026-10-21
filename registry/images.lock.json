@@ -137,10 +137,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "ci-3299-b3793db7fd42",
-        "retention-candidate-5e45438fa726b177"
+        "ci-4035-94e41469952b",
+        "retention-candidate-4f192410100bae20"
       ],
-      "digest": "sha256:5e45438fa726b1775b1b945f459f6c5241b44aee1300ca6167a562f581f2d5d3",
+      "digest": "sha256:4f192410100bae20ab505d29a01c71add559f0cfa4a4b4e17cc32bed179715c3",
       "id": "first-party-apps-spotify-matrix",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -161,11 +161,11 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:5e45438fa726b1775b1b945f459f6c5241b44aee1300ca6167a562f581f2d5d3",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-3299-b3793db7fd42@sha256:5e45438fa726b1775b1b945f459f6c5241b44aee1300ca6167a562f581f2d5d3",
+        "digest": "sha256:4f192410100bae20ab505d29a01c71add559f0cfa4a4b4e17cc32bed179715c3",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-4035-94e41469952b@sha256:4f192410100bae20ab505d29a01c71add559f0cfa4a4b4e17cc32bed179715c3",
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ci-3299-b3793db7fd42"
+        "tag": "ci-4035-94e41469952b"
       }
     },
     {
