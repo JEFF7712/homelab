@@ -323,6 +323,7 @@ class ShipPlanRetryTest(unittest.TestCase):
         shipper = ship.Shipper.__new__(ship.Shipper)
         shipper.summary = {"operations": [], "promotions": []}
         shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
         shipper.main_pipeline = lambda merged: ("a" * 40, 10)
         shipper.completed_operations = lambda parent: set()
         calls = []
