@@ -122,9 +122,9 @@ the producer's `REGISTRY_PASSWORD` (GitHub repo secret) both hold the same
 generated password. The GitHub workflow's zot push initially never landed:
 `registry.rupan.dev` is behind Cloudflare Access from the public internet, so
 `ubuntu-latest` login succeeds yet blob/manifest writes die at a 302. The
-existing producers avoid this by building on the self-hosted `homelab`
-runner, which pod-agent now has: `homelab-pod-agent` (repo-scoped,
-`gitops/automation/github-runner`) builds `image.yml`, pulls digest-pinned
+existing producers avoided this by building on the self-hosted `homelab`
+runner (retired 2026-10-21; Woodpecker now publishes pod-agent as
+`forgejo-pod-agent`). The runner `homelab-pod-agent` built `image.yml`, pulled digest-pinned
 base images from `registry.rupan.dev/upstream` as the read-only `node`
 identity (`REGISTRY_NODE_PASSWORD` repo secret), and pushes to both ghcr.io
 (backup) and `registry.rupan.dev/apps/pod-agent` as `publisher-pod-agent`.
