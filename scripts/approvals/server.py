@@ -48,6 +48,7 @@ REQUEST_PATH = re.compile(
     r"^/api/requests/([A-Za-z0-9_-]+)(?:/(options|approve|decline))?$"
 )
 IDENTITY_CACHE_SECONDS = 300
+MAIN_CACHE_SECONDS = 15
 BODY_LIMIT = 64 * 1024
 
 
@@ -91,6 +92,7 @@ class Woodpecker:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.identities: dict[str, tuple[str, float]] = {}
+        self.main: tuple[str | None, float] = (None, 0.0)
 
     def call(self, method: str, path: str, token: str) -> Any:
         return http(
@@ -120,6 +122,29 @@ class Woodpecker:
         return self.call(
             "GET", f"/repos/{repo}/pipelines/{number}", self.operator_token()
         )
+
+    def main_commit(self, now: float) -> str | None:
+        """Commit of the newest main push pipeline, or None when unknown."""
+        if self.main[1] > now:
+            return self.main[0]
+        repo = self.config.repository
+        try:
+            pipelines = self.call(
+                "GET", f"/repos/{repo}/pipelines?perPage=25", self.operator_token()
+            )
+        except UpstreamError:
+            return None
+        commit = next(
+            (
+                str(item["commit"])
+                for item in pipelines or []
+                if item.get("event") in {"push", "manual"}
+                and item.get("branch") == "main"
+            ),
+            None,
+        )
+        self.main = (commit, now + MAIN_CACHE_SECONDS)
+        return commit
 
     def deploy(self, parent: int, operation: str) -> int:
         repo = self.config.repository
@@ -205,11 +230,38 @@ class Service:
             notify(self.config, request)
         return self.describe(request)
 
+    def supersede(self, now: float) -> None:
+        """Close pending requests whose commit main has moved past.
+
+        CI refuses to deploy anything but the current main commit, so such a
+        request can no longer run; the agent files a new one on the new main.
+        """
+        main = self.woodpecker.main_commit(now)
+        if main is None:
+            return
+        for request in self.store.recent(now):
+            if request.state == "pending" and request.commit_sha != main:
+                try:
+                    self.store.finish(
+                        request.id,
+                        "superseded",
+                        now,
+                        "main moved",
+                        error=f"main moved to {main[:12]}; the agent refiles on the new main",
+                    )
+                except ApprovalError:
+                    continue
+
     def request(self, identifier: str, now: float) -> Request:
+        self.supersede(now)
         request = self.store.get(identifier, now)
         if request is None:
             raise LookupError(identifier)
         return request
+
+    def recent(self, now: float) -> list[Request]:
+        self.supersede(now)
+        return self.store.recent(now)
 
     def approval_options(self, identifier: str, now: float) -> str:
         credentials = self.store.credentials()
@@ -384,8 +436,7 @@ def handler(service: Service) -> type[BaseHTTPRequestHandler]:
                         200,
                         {
                             "requests": [
-                                service.describe(item)
-                                for item in service.store.recent(now)
+                                service.describe(item) for item in service.recent(now)
                             ],
                             "enrolled": bool(service.store.credentials()),
                         },

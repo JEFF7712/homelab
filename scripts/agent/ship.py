@@ -588,6 +588,10 @@ class Shipper:
                 )
             if request["state"] == "approved":
                 return int(request["pipeline"])
+            if request["state"] == "superseded":
+                raise ShipError(
+                    f"{SUPERSEDED}: {operation} approval request superseded"
+                )
             if request["state"] in {"declined", "expired", "failed"}:
                 detail = f": {request['error']}" if request.get("error") else ""
                 raise ShipError(
