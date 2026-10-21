@@ -1698,7 +1698,8 @@
     "legacy_job": "deploy_home_assistant",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-home-assistant-dry-run"
+    "prerequisite": "deploy-home-assistant-dry-run",
+    "agent": true
   },
   "deploy-home-assistant-matrix-dashboard-dry-run": {
     "commands": [
@@ -2066,7 +2067,8 @@
     "legacy_job": "",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "bus-display-publish": {
     "commands": [
@@ -2114,7 +2116,8 @@
     "legacy_job": "",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "lidarr-extended-publish": {
     "commands": [
@@ -2159,7 +2162,8 @@
     "legacy_job": "",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-ci-host-dry-run": {
     "commands": [

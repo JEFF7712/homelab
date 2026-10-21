@@ -94,6 +94,42 @@ class ShipNetworkTest(unittest.TestCase):
             ship.http("GET", "http://x", {})
 
 
+class ShipOperatorTest(unittest.TestCase):
+    def shipper(self) -> ship.Shipper:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.deploy.side_effect = ShipError("stop after deploy")
+        return shipper
+
+    def test_held_operations_need_an_operator_token(self) -> None:
+        shipper = self.shipper()
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch.object(ship.Path, "home", return_value=Path("/nonexistent")),
+            self.assertRaisesRegex(ShipError, "requires a human operator"),
+        ):
+            shipper.run_operation(10, "deploy-fleet")
+        shipper.woodpecker.deploy.assert_not_called()
+
+    def test_held_operations_use_the_operator_token(self) -> None:
+        shipper = self.shipper()
+        operator = unittest.mock.Mock()
+        operator.deploy.side_effect = ShipError("operator deployed")
+        with (
+            patch.dict("os.environ", {"WOODPECKER_OPERATOR_TOKEN": "t"}),
+            patch.object(ship, "Woodpecker", return_value=operator),
+            self.assertRaisesRegex(ShipError, "operator deployed"),
+        ):
+            shipper.run_operation(10, "opnsense-apply")
+        shipper.woodpecker.deploy.assert_not_called()
+
+    def test_agent_operations_use_the_agent_token(self) -> None:
+        shipper = self.shipper()
+        with self.assertRaisesRegex(ShipError, "stop after deploy"):
+            shipper.run_operation(10, "matrix-publish")
+        shipper.woodpecker.deploy.assert_called_once_with(10, "matrix-publish")
+
+
 class ShipPlanRetryTest(unittest.TestCase):
     def test_superseded_operations_resume_on_the_new_main(self) -> None:
         shipper = ship.Shipper.__new__(ship.Shipper)

@@ -81,8 +81,11 @@ deploy locally with `just deploy-fleet --target homelab-04` instead.
 ## Credentials
 
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
-token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. It never prints
-either. Deployment operations run in CI with CI-held credentials, so a
+token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. CI accepts held
+operations only from a human operator, so for those `ship` uses
+`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token`, and
+without one stops with the main pipeline to deploy from in the Woodpecker UI.
+It never prints a token. Deployment operations run in CI with CI-held credentials, so a
 service publish never depends on the caller's Docker login.
 
 ## Acceptance
