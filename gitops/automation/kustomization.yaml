@@ -21,4 +21,3 @@ resources:
   - forgejo-dashboard-script.yaml
   - renovate-forgejo.yaml
   - renovate-github.yaml
-  - github-runner

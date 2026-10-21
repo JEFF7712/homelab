@@ -225,14 +225,16 @@ offline validation run and independent platform recovery are separate gates.
 
 ## GitHub runner retirement
 
-Dedicated GitHub runners for the migrated websites and Quartz remain declared
-with zero replicas in `gitops/automation/github-runner/deployment.yaml`.
-Forgejo and Woodpecker own their delivery. Retirement was gated on GitHub
-reporting every targeted runner idle.
+All in-cluster GitHub Actions runners were removed on 2026-10-21, including
+the last four (Darkbit, Pod Agent, Soluble, Bookshelf). Each of those images was
+already published by its `forgejo-<id>` publisher through Woodpecker, and the
+runners ran privileged Docker-in-Docker with hostPath storage, which gave any
+workflow root on its node. `automation` now enforces the `baseline` Pod
+Security level, so a privileged runner cannot return without changing that.
+Workflows triggered on the GitHub mirrors stay queued without a runner.
 
-Darkbit, Pod Agent, Soluble, Bookshelf and the NixOS host runners remain enabled
-pending separate owner verification. Restore a retired runner by reverting its
-replica count through a protected homelab PR and Flux.
+The NixOS host runners on homelab-04 are separate; see
+[CI pipelines](ci-pipelines.md).
 
 ## NixOS artifact publishing
 
