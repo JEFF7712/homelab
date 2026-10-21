@@ -106,12 +106,13 @@
     description = "NVIDIA GPU Prometheus Exporter";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
-    path = [
-      config.boot.kernelPackages.nvidiaPackages.stable
-      pkgs.coreutils
-    ];
+    # nvidia-smi segfaults under glibc 2.44, so the exporter reads NVML from
+    # the driver's libnvidia-ml directly.
+    environment.LD_LIBRARY_PATH = "/run/opengl-driver/lib";
     serviceConfig = {
-      ExecStart = "${pkgs.python3}/bin/python3 ${./nvidia_gpu_exporter.py}";
+      ExecStart = "${
+        pkgs.python3.withPackages (p: [ p.nvidia-ml-py ])
+      }/bin/python3 ${./nvidia_gpu_exporter.py}";
       Restart = "always";
       RestartSec = "5s";
       DynamicUser = true;

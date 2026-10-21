@@ -1,72 +1,65 @@
 #!/usr/bin/env python3
-"""Prometheus exporter for NVIDIA GPU metrics using nvidia-smi."""
+"""Prometheus exporter for NVIDIA GPU metrics, read through NVML."""
 
 import os
-import subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any
 
-QUERY_CMD = [
-    "nvidia-smi",
-    (
-        "--query-gpu=index,name,temperature.gpu,utilization.gpu,utilization.memory,"
-        "memory.total,memory.used,memory.free,fan.speed"
-    ),
-    "--format=csv,noheader,nounits",
+HEADER = [
+    "# HELP nvidia_smi_gpu_temp_celsius GPU temperature in Celsius",
+    "# TYPE nvidia_smi_gpu_temp_celsius gauge",
+    "# HELP nvidia_smi_utilization_gpu_ratio GPU utilization ratio (0 to 1)",
+    "# TYPE nvidia_smi_utilization_gpu_ratio gauge",
+    "# HELP nvidia_smi_utilization_memory_ratio GPU memory utilization ratio (0 to 1)",
+    "# TYPE nvidia_smi_utilization_memory_ratio gauge",
+    "# HELP nvidia_smi_memory_total_bytes Total GPU memory in bytes",
+    "# TYPE nvidia_smi_memory_total_bytes gauge",
+    "# HELP nvidia_smi_memory_used_bytes Used GPU memory in bytes",
+    "# TYPE nvidia_smi_memory_used_bytes gauge",
+    "# HELP nvidia_smi_memory_free_bytes Free GPU memory in bytes",
+    "# TYPE nvidia_smi_memory_free_bytes gauge",
+    "# HELP nvidia_smi_fan_speed_ratio GPU fan speed ratio (0 to 1)",
+    "# TYPE nvidia_smi_fan_speed_ratio gauge",
 ]
 
 
-def safe_float(v: str, scale: float = 1.0) -> float:
+def optional(nvml: Any, read: Any, *args: Any) -> float:
+    """Passive-cooled cards report fan speed as NotSupported; export 0."""
     try:
-        return float(v.strip()) * scale
-    except (ValueError, TypeError):
+        return float(read(*args))
+    except nvml.NVMLError:
         return 0.0
 
 
-def collect_metrics() -> str:
-    lines = [
-        "# HELP nvidia_smi_gpu_temp_celsius GPU temperature in Celsius",
-        "# TYPE nvidia_smi_gpu_temp_celsius gauge",
-        "# HELP nvidia_smi_utilization_gpu_ratio GPU utilization ratio (0 to 1)",
-        "# TYPE nvidia_smi_utilization_gpu_ratio gauge",
-        "# HELP nvidia_smi_utilization_memory_ratio GPU memory utilization ratio (0 to 1)",
-        "# TYPE nvidia_smi_utilization_memory_ratio gauge",
-        "# HELP nvidia_smi_memory_total_bytes Total GPU memory in bytes",
-        "# TYPE nvidia_smi_memory_total_bytes gauge",
-        "# HELP nvidia_smi_memory_used_bytes Used GPU memory in bytes",
-        "# TYPE nvidia_smi_memory_used_bytes gauge",
-        "# HELP nvidia_smi_memory_free_bytes Free GPU memory in bytes",
-        "# TYPE nvidia_smi_memory_free_bytes gauge",
-        "# HELP nvidia_smi_fan_speed_ratio GPU fan speed ratio (0 to 1)",
-        "# TYPE nvidia_smi_fan_speed_ratio gauge",
-    ]
-    output = subprocess.check_output(QUERY_CMD, text=True).strip()
-    for row in output.splitlines():
-        parts = [p.strip() for p in row.split(",")]
-        if len(parts) < 9:
-            continue
-        idx, name, temp, gpu_util, mem_util, mem_tot, mem_used, mem_free, fan = parts[
-            :9
-        ]
-        labels = f'gpu="{idx}",name="{name}"'
-        lines.append(f"nvidia_smi_gpu_temp_celsius{{{labels}}} {safe_float(temp)}")
-        lines.append(
-            f"nvidia_smi_utilization_gpu_ratio{{{labels}}} {safe_float(gpu_util, 0.01):.4f}"
-        )
-        lines.append(
-            f"nvidia_smi_utilization_memory_ratio{{{labels}}} {safe_float(mem_util, 0.01):.4f}"
-        )
-        lines.append(
-            f"nvidia_smi_memory_total_bytes{{{labels}}} {safe_float(mem_tot, 1024 * 1024):.0f}"
-        )
-        lines.append(
-            f"nvidia_smi_memory_used_bytes{{{labels}}} {safe_float(mem_used, 1024 * 1024):.0f}"
-        )
-        lines.append(
-            f"nvidia_smi_memory_free_bytes{{{labels}}} {safe_float(mem_free, 1024 * 1024):.0f}"
-        )
-        lines.append(
-            f"nvidia_smi_fan_speed_ratio{{{labels}}} {safe_float(fan, 0.01):.4f}"
-        )
+def collect_metrics(nvml: Any = None) -> str:
+    if nvml is None:
+        import pynvml as nvml
+    lines = list(HEADER)
+    nvml.nvmlInit()
+    try:
+        for index in range(nvml.nvmlDeviceGetCount()):
+            handle = nvml.nvmlDeviceGetHandleByIndex(index)
+            name = nvml.nvmlDeviceGetName(handle)
+            if isinstance(name, bytes):
+                name = name.decode()
+            temperature = nvml.nvmlDeviceGetTemperature(
+                handle, nvml.NVML_TEMPERATURE_GPU
+            )
+            rates = nvml.nvmlDeviceGetUtilizationRates(handle)
+            memory = nvml.nvmlDeviceGetMemoryInfo(handle)
+            fan = optional(nvml, nvml.nvmlDeviceGetFanSpeed, handle)
+            labels = f'gpu="{index}",name="{name}"'
+            lines += [
+                f"nvidia_smi_gpu_temp_celsius{{{labels}}} {float(temperature)}",
+                f"nvidia_smi_utilization_gpu_ratio{{{labels}}} {rates.gpu / 100:.4f}",
+                f"nvidia_smi_utilization_memory_ratio{{{labels}}} {rates.memory / 100:.4f}",
+                f"nvidia_smi_memory_total_bytes{{{labels}}} {memory.total:.0f}",
+                f"nvidia_smi_memory_used_bytes{{{labels}}} {memory.used:.0f}",
+                f"nvidia_smi_memory_free_bytes{{{labels}}} {memory.free:.0f}",
+                f"nvidia_smi_fan_speed_ratio{{{labels}}} {fan / 100:.4f}",
+            ]
+    finally:
+        nvml.nvmlShutdown()
     return "\n".join(lines) + "\n"
 
 
