@@ -316,6 +316,11 @@
           '';
 
         checks.zot-registry = self.nixosConfigurations.nas-01.config.services.homelab-zot-registry.package;
+        checks.zot-registry-service = vmCheck (
+          import ./tests/zot-registry.nix {
+            inherit nixpkgs impermanence system;
+          }
+        );
       }
     );
 }

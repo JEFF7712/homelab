@@ -6,6 +6,20 @@
 
 The registry uses explicit imports, not pull-through synchronization. An imported image is addressed by its destination digest before a consumer is changed. Public registries, Helm repositories, Git repositories, ACME, and application egress remain separate dependencies.
 
+## Isolated service contract
+
+`nix build ./flake#checks.x86_64-linux.zot-registry-service` boots the actual Zot
+NixOS module with nginx, runtime credentials and a mounted disposable registry
+filesystem. It rejects anonymous and incorrect credentials, denies reader
+writes and publisher writes outside its namespace, then pushes and pulls a
+locally generated OCI image through verified test TLS. The test checks the
+manifest digest and every blob's size, hash and content before and after
+restarting Zot, and checks that authentication and reader permissions persist.
+
+The fixture uses a tmpfs mount, disposable credentials and a local certificate;
+it contacts no production service or external ACME provider. It verifies service
+restart persistence, not disk-reboot persistence, ZFS recovery or backup restore.
+
 ## Current baseline
 
 The 2026-09-06 and 2026-09-07 preflight observed:
