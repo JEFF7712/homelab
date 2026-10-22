@@ -233,7 +233,7 @@
       }
       trap cleanup EXIT
 
-      restic backup --exclude=/persist/zot/restic-password "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
+      restic backup "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
       restic forget --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
       restic check --read-data-subset=5%
       date +%s > /persist/zot/status/backup-last-success.tmp

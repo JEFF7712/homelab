@@ -71,7 +71,7 @@ spec:
             description: >-
               The configured read token for {{ $labels.service }} was rejected.
               This is a monitoring error, not a repository fault. Rotate or
-              correct the credential in /persist/repo-monitor.env.
+              correct repo-monitor.env in secrets/hosts/homelab-04.sops.yaml.
 
         - alert: RepoMonitorGithubRateLimited
           expr: repo_monitor_github_rate_limited == 1
