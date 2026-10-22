@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate-ingress
+  namespace: analytics
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1. Allow pods within the namespace (umami, postgres instances)
+    - from:
+        - podSelector: {}
+    # 2. Allow ingress from Cloudflare Tunnel connector pods
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+    # 3. Allow ingress from Observability (Prometheus/Alloy scrapers)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+    # 4. Allow ingress from Backups namespace (umami-db-dump CronJob)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: backups
+    # 5. Allow ingress from CloudNativePG operator (instance probes and metrics)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
