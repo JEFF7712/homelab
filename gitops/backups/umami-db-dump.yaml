@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: umami-db-dump
+  namespace: backups
+spec:
+  schedule: "45 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: pg-dump
+              image: registry.rupan.dev/upstream/docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 70
+                runAsGroup: 70
+              env:
+                - name: PGHOST
+                  value: umami-cluster-rw.analytics
+                - name: PGUSER
+                  value: umami
+                - name: PGDATABASE
+                  value: umami
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: umami-db-credentials
+                      key: password
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  stamp=$(date +%Y%m%d)
+                  pg_dump --format=custom --file=/dumps/umami-$stamp.dump
+                  gzip -f /dumps/umami-$stamp.dump
+                  find /dumps -name 'umami-*.dump.gz' -mtime +7 -delete
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: dumps
+              persistentVolumeClaim:
+                claimName: db-dumps
+            - name: tmp
+              emptyDir: {}
