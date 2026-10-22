@@ -133,8 +133,10 @@
   # bedroom_music_pre_delay, so LedFx and the Bose chain hear it exactly like
   # Shairport audio. It must be the only path into that sink: a second copy
   # (a loopback from this node) doubled the level and clipped the tap. The
-  # target is pinned with no fallback so it never plays into another sink
-  # while the tap is being recreated. Deliberately RTP
+  # target is pinned, but node.dont-fallback must stay off: the receiver loads
+  # before pipewire-pulse creates the tap, and with no fallback WirePlumber
+  # reports "defined target not found" and the receiver drops its stream for
+  # good instead of retrying until the tap exists. Deliberately RTP
   # and not RAOP/AirPlay: PipeWire 1.6.8's RAOP sender aborts the whole
   # daemon on this shairport-sync's handshake (rtsp-client.c:397), while RTP
   # has no handshake to crash on. source.ip 0.0.0.0 accepts any sender; the
@@ -161,7 +163,6 @@
             "node.name" = "bedroom-rtp-in";
             "node.description" = "Laptop RTP in";
             "target.object" = "bedroom_music_pre_delay";
-            "node.dont-fallback" = true;
           };
         };
       }
