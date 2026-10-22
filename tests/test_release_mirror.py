@@ -6,6 +6,7 @@ import io
 import tempfile
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -97,14 +98,22 @@ class GitHub(API):
             }
         if method == "GET" and "/git/tags/" in path:
             return {"object": {"type": "commit", "sha": self.commit}}
+        if method == "GET" and "/releases/tags/" in path:
+            tag = urllib.parse.unquote(path.rsplit("/", 1)[1])
+            for release in self.releases:
+                if release["tag_name"] == tag and not release.get("draft"):
+                    return copy.deepcopy(release)
+            raise APIError(method, path, 404)
         self.writes.append((method, path, copy.deepcopy(data)))
         if method == "POST" and path.endswith("/releases"):
             release = {"id": 100, **(data or {})}
             self.releases.append(release)
             return copy.deepcopy(release)
         if method == "PATCH" and data is not None:
-            self.releases[0].update(data)
-            return copy.deepcopy(self.releases[0])
+            release_id = int(path.rsplit("/", 1)[1])
+            release = next(r for r in self.releases if r["id"] == release_id)
+            release.update(data)
+            return copy.deepcopy(release)
         if method == "DELETE":
             self.assets = [
                 asset
@@ -166,6 +175,18 @@ class MirrorTest(unittest.TestCase):
         self.assertEqual(
             self.github.releases[0]["body"], self.forgejo.releases[0]["body"]
         )
+
+    def test_published_release_wins_over_a_stray_draft_for_its_tag(self) -> None:
+        self.run_sync()
+        published = copy.deepcopy(self.github.releases[0])
+        self.github.releases.insert(
+            0, {**published, "id": 99, "draft": True, "published_at": None}
+        )
+        self.github.writes.clear()
+        result = self.run_sync()
+        self.assertEqual(self.github.writes, [])
+        self.assertFalse(result[0]["created"])
+        self.assertFalse(result[0]["updated"])
 
     def test_second_run_does_not_write(self) -> None:
         self.run_sync()
