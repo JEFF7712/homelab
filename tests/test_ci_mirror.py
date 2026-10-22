@@ -285,3 +285,66 @@ class CacheBuildTest(unittest.TestCase):
                         (repo / "build.log").read_text(),
                     )
                     self.assertEqual(list(repo.glob("attic-ci-*")), [])
+
+    def test_one_rejected_path_does_not_stop_the_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            (repo / "scripts/ci").mkdir(parents=True)
+            shutil.copy(ROOT / "scripts/ci/cache.sh", repo / "scripts/ci")
+            shutil.copy(ROOT / "scripts/ci/cache_sources.py", repo / "scripts/ci")
+            (repo / "scripts/__init__.py").touch()
+            (repo / "scripts/ci/__init__.py").touch()
+            binaries = repo / "bin"
+            binaries.mkdir()
+            bash = shutil.which("bash")
+            (binaries / "nix").write_text(
+                f"#!{bash}\n"
+                'case "$1 $2" in\n'
+                '  "build --no-link") printf "/nix/store/a-good\\n/nix/store/b-bad\\n" ;;\n'
+                '  "flake archive") echo \'{"path": "/nix/store/c-source"}\' ;;\n'
+                '  "path-info --derivation") echo /nix/store/d.drv ;;\n'
+                "esac\n"
+            )
+            (binaries / "nix-store").write_text(f"#!{bash}\necho /nix/store/e-dep\n")
+            (binaries / "attic").write_text(
+                f"#!{bash}\n"
+                '[ "$1" = login ] && exit 0\n'
+                "input=$(cat)\n"
+                'grep -q "$REJECT" <<< "$input" && exit 1\n'
+                'printf "%s\\n" "$input" >> "$PUSHED"\n'
+            )
+            for tool in ("nix", "nix-store", "attic"):
+                (binaries / tool).chmod(0o755)
+            env = dict(
+                os.environ,
+                PATH=f"{binaries}:{os.environ['PATH']}",
+                ATTIC_TOKEN="fixture",
+                PUSHED=str(repo / "pushed"),
+                TMPDIR=temporary,
+            )
+            for reject, status in (("b-bad", 0), ("nix/store", 1)):
+                with self.subTest(reject=reject):
+                    (repo / "pushed").unlink(missing_ok=True)
+                    (repo / "pushed").touch()
+                    result = subprocess.run(
+                        ["bash", "scripts/ci/cache.sh"],
+                        cwd=repo,
+                        env={**env, "REJECT": reject},
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, status, result.stderr)
+                    pushed = (repo / "pushed").read_text().split()
+                    if status == 0:
+                        self.assertEqual(
+                            sorted(pushed),
+                            [
+                                "/nix/store/a-good",
+                                "/nix/store/c-source",
+                                "/nix/store/e-dep",
+                            ],
+                        )
+                        self.assertIn("/nix/store/b-bad", result.stderr)
+                    else:
+                        self.assertEqual(pushed, [])

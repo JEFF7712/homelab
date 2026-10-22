@@ -52,4 +52,35 @@ nix path-info --derivation "${build_targets[@]}" > "$cache_work/derivations"
 mapfile -t build_derivations < "$cache_work/derivations"
 nix-store --query --requisites --include-outputs "${build_derivations[@]}" >> "$cache_work/paths"
 attic login local http://10.0.30.20:8080/ "$ATTIC_TOKEN"
-attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin < "$cache_work/paths"
+awk '!seen[$0]++' "$cache_work/paths" > "$cache_work/unique"
+
+# One path Attic rejects (it has refused single NARs with "Bad NAR Hash or
+# Size") aborts a whole push, so push in batches and retry a failed batch one
+# path at a time. Skipped paths are reported; only a push where nothing at all
+# succeeds fails the job.
+push() {
+  attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
+}
+split -l 200 "$cache_work/unique" "$cache_work/batch."
+pushed=0
+skipped=()
+for batch in "$cache_work"/batch.*; do
+  if push < "$batch"; then
+    pushed=$((pushed + 1))
+    continue
+  fi
+  while read -r path; do
+    if push <<< "$path"; then
+      pushed=$((pushed + 1))
+    else
+      skipped+=("$path")
+    fi
+  done < "$batch"
+done
+if ((${#skipped[@]})); then
+  printf 'Attic rejected %d path(s); they stay uncached:\n' "${#skipped[@]}" >&2
+  printf '  %s\n' "${skipped[@]}" >&2
+  if ((pushed == 0)); then
+    exit 1
+  fi
+fi

@@ -27,6 +27,9 @@ HttpChecker = Callable[[str, float], bool]
 Notifier = Callable[[str, str, str, list[str] | None], bool]
 
 
+APPLIANCE_SETTLE_ATTEMPTS = 20
+
+
 class FleetDeploymentError(Exception):
     """Raised when a fleet deployment step fails."""
 
@@ -692,6 +695,19 @@ class FleetDeployer:
             )
         logger.info("DNS verification passed via port 53 socket check for %s", ip)
 
+    def settled(self, check: Callable[[], bool]) -> bool:
+        """Retry a post-switch probe while activation restarts its services.
+
+        A single probe right after switch-to-configuration can land while
+        systemd is still restarting units, which failed a healthy NAS deploy.
+        """
+        for attempt in range(APPLIANCE_SETTLE_ATTEMPTS):
+            if check():
+                return True
+            if attempt + 1 < APPLIANCE_SETTLE_ATTEMPTS:
+                self.sleeper(3.0)
+        return False
+
     def verify_nas_appliance(self, ip: str) -> None:
         if self.dry_run:
             logger.info(
@@ -701,14 +717,14 @@ class FleetDeployer:
             return
 
         logger.info("Verifying NFS port 2049 on %s...", ip)
-        if not self.socket_checker(ip, 2049, 3.0):
+        if not self.settled(lambda: self.socket_checker(ip, 2049, 3.0)):
             raise FleetDeploymentError(
                 f"NAS verification failed: NFS port 2049 not reachable on {ip}"
             )
         logger.info("NFS port 2049 check passed for %s", ip)
 
         logger.info("Verifying Attic binary cache on http://%s:8080/...", ip)
-        if not self.http_checker(f"http://{ip}:8080/", 5.0):
+        if not self.settled(lambda: self.http_checker(f"http://{ip}:8080/", 5.0)):
             raise FleetDeploymentError(
                 f"NAS verification failed: Attic HTTP endpoint on http://{ip}:8080/ not responding"
             )

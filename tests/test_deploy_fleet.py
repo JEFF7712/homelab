@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from scripts.deploy_fleet import (
+    APPLIANCE_SETTLE_ATTEMPTS,
     FLEET_HOSTS,
     FleetDeployer,
     FleetDeploymentError,
@@ -448,6 +449,43 @@ class DeployFleetTest(unittest.TestCase):
         # NAS appliance should check port 2049 and Attic URL
         self.assertIn(("10.0.30.20", 2049), checked_sockets)
         self.assertIn("http://10.0.30.20:8080/", checked_urls)
+
+    def test_nas_probes_wait_for_activation_to_settle(self) -> None:
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            del kwargs
+            if argv[:2] == ["nix", "eval"]:
+                return subprocess.CompletedProcess(argv, 0, "[]", "")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        for failures in (3, 100):
+            with self.subTest(failures=failures):
+                probes: list[int] = []
+                sleeps: list[float] = []
+
+                def socket(host: str, port: int, timeout: float) -> bool:
+                    del host, timeout
+                    probes.append(port)
+                    return len(probes) > failures
+
+                deployer = FleetDeployer(
+                    targets=[FLEET_HOSTS["nas-01"]],
+                    skip_preflight=True,
+                    skip_cooldown=True,
+                    runner=runner,
+                    socket_checker=socket,
+                    http_checker=lambda url, timeout: True,
+                    sleeper=sleeps.append,
+                )
+                if failures < APPLIANCE_SETTLE_ATTEMPTS:
+                    self.assertEqual(deployer.execute()["status"], "success")
+                else:
+                    with self.assertRaisesRegex(FleetDeploymentError, "NFS port"):
+                        deployer.execute()
+                self.assertEqual(
+                    len(probes), min(failures + 1, APPLIANCE_SETTLE_ATTEMPTS)
+                )
 
     def test_circuit_breaker_halts_on_failure_and_uncordons(self) -> None:
         executed_commands: list[list[str]] = []
