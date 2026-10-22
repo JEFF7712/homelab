@@ -10,6 +10,7 @@ import subprocess
 import threading
 import time
 import urllib.request
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from scripts.ci.applications import Application, load_catalog
 from scripts.ci.applications import configuration as application_configuration
 from scripts.ci.deployment_risk import (
     APPROVAL_REQUIRED,
+    authority_digest,
     changed_authority,
     host_operation,
     nix_authority_change,
@@ -62,6 +64,7 @@ VALIDATION_COMMAND = (
     "python -m scripts.ci.timings_report || true; exit $rc'"
 )
 START_TIME = int(time.time())
+GRANTS_URL = "http://127.0.0.1:8020/api/grants"
 REPOSITORY_URL = "https://git.rupan.dev/JEFF7712/homelab.git"
 # A branch touching more paths than this almost certainly needs the full
 # gate anyway, and the list travels in the step environment.
@@ -100,6 +103,19 @@ def verify_request(headers: Any, body: bytes, public_key: bytes, now: int) -> No
         raise ValueError("Expected Ed25519 key")
     signed = f'"@request-target": /config\n"content-digest": {digest}\n"@signature-params": {parameters}'
     key.verify(base64.b64decode(signature[1], validate=True), signed.encode())
+
+
+def grant_approved(digest: str) -> bool:
+    """Whether the approvals service holds a passkey grant for this digest.
+
+    Any failure to ask counts as no grant, so an unreachable dashboard holds
+    the deployment rather than admitting it.
+    """
+    try:
+        with urllib.request.urlopen(f"{GRANTS_URL}/{digest}", timeout=5) as response:
+            return json.load(response).get("approved") is True
+    except Exception:
+        return False
 
 
 def api(url: str, token: str) -> Any:
@@ -410,7 +426,7 @@ class SourceMirror:
         baseline: dict[str, str],
         paths: tuple[str, ...],
         host: bool,
-    ) -> list[str]:
+    ) -> tuple[list[str], str]:
         if self.branch_changes(commit, credentials) is None:
             raise HumanApprovalRequired("cannot verify deployed authorization baseline")
         with self.lock:
@@ -449,7 +465,7 @@ class SourceMirror:
                     ) from error
             if nix_authority_change(*texts):
                 changes.append(path)
-        return sorted(changes)
+        return sorted(changes), authority_digest(changes, candidate)
 
 
 class StaleMainPush(ValueError):
@@ -477,6 +493,7 @@ def configuration(
     main_validation: str = "none",
     branch_files: tuple[str, ...] | None = None,
     authority_changes: list[str] | None = None,
+    authority_grant: str = "",
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -722,8 +739,9 @@ def configuration(
         if authority_changes is None:
             raise HumanApprovalRequired("cannot verify deployed authorization baseline")
         if authority_changes:
+            grant = f" (grant {authority_grant})" if authority_grant else ""
             raise HumanApprovalRequired(
-                "authorization or storage source changed: "
+                f"authorization or storage source changed{grant}: "
                 + ", ".join(authority_changes[:12])
             )
     if current != pipeline["commit"]:
@@ -761,7 +779,9 @@ def resolve_configuration(
     development_projects: tuple[DevelopmentProject, ...] = (),
     mirror: SourceMirror | None = None,
     authority_baseline: dict[str, str] | None = None,
+    grant_lookup: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
+    grant_lookup = grant_lookup or grant_approved
     repo = request["repo"]
     if not (
         type(repo.get("id")) is int
@@ -809,6 +829,7 @@ def resolve_configuration(
         changed_files = push_changed_files(request)
     branch_files = None
     authority_changes = None
+    authority_grant = ""
     if (
         request["pipeline"].get("event") == "deployment"
         and request["pipeline"].get("author") == AGENT_AUTHOR
@@ -818,13 +839,14 @@ def resolve_configuration(
     ):
         target = request["pipeline"]["deploy_to"]
         host = host_operation(operations[target])
-        authority_changes = mirror.authority_changes(
+        changes, authority_grant = mirror.authority_changes(
             request["pipeline"].get("commit", ""),
             request.get("netrc", {}),
             authority_baseline,
             protected_paths(target, host),
             host,
         )
+        authority_changes = [] if changes and grant_lookup(authority_grant) else changes
     if (
         mirror is not None
         and request["pipeline"].get("event") == "push"
@@ -875,6 +897,7 @@ def resolve_configuration(
         main_validation=main_validation,
         branch_files=branch_files,
         authority_changes=authority_changes,
+        authority_grant=authority_grant,
     )
 
 

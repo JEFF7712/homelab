@@ -261,6 +261,61 @@ class ApprovalFlowTest(unittest.TestCase):
             )
 
 
+class GrantFlowTest(unittest.TestCase):
+    DIGEST = "d" * 64
+
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory()
+        self.h = Harness(Path(self.directory.name))
+
+    def tearDown(self) -> None:
+        self.h.store.close()
+        self.directory.cleanup()
+
+    def file(self, digest: str = DIGEST, now: float = 100) -> dict:
+        return self.h.service.file(
+            "agent-token",
+            {
+                "operation": "deploy-ci-host",
+                "parent": 40,
+                "reason": "ship",
+                "digest": digest,
+                "paths": ["scripts/ci/policy.py", ".sops.yaml"],
+            },
+            now,
+        )
+
+    def test_grant_approval_triggers_nothing_and_survives_main_moving(self) -> None:
+        filed = self.file()
+        self.assertEqual(filed["paths"], ["scripts/ci/policy.py", ".sops.yaml"])
+        self.assertEqual(self.file()["id"], filed["id"])
+        self.h.woodpecker.main_commit.return_value = "b" * 40
+        self.assertEqual(self.h.service.request(filed["id"], 105).state, "pending")
+        options = json.loads(self.h.service.approval_options(filed["id"], 110))
+        approved = self.h.service.approve(
+            filed["id"], self.h.passkey.assert_(options), 110
+        )
+        self.assertEqual(approved.state, "approved")
+        self.assertIsNone(approved.pipeline)
+        self.h.woodpecker.deploy.assert_not_called()
+        self.assertTrue(self.h.store.granted(self.DIGEST, 120))
+        self.assertFalse(self.h.store.granted("e" * 64, 120))
+        self.assertFalse(
+            self.h.store.granted(self.DIGEST, 110 + core.GRANT_TTL_SECONDS + 1)
+        )
+
+    def test_pending_or_declined_grants_do_not_count(self) -> None:
+        filed = self.file()
+        self.assertFalse(self.h.store.granted(self.DIGEST, 101))
+        self.h.service.decline(filed["id"], 102)
+        self.assertFalse(self.h.store.granted(self.DIGEST, 103))
+
+    def test_malformed_grants_are_refused(self) -> None:
+        for digest in ["short", "D" * 64, 7]:
+            with self.subTest(digest=digest), self.assertRaises(ApprovalError):
+                self.file(digest)  # type: ignore[arg-type]
+
+
 class HandlerTest(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
@@ -290,6 +345,21 @@ class HandlerTest(unittest.TestCase):
                 return response.status, response.headers, response.read()
         except urllib.error.HTTPError as error:
             return error.code, error.headers, error.read()
+
+    def test_grant_lookup_reports_only_approved_digests(self) -> None:
+        digest = "d" * 64
+        status, _, body = self.call("GET", f"/api/grants/{digest}")
+        self.assertEqual((status, json.loads(body)), (200, {"approved": False}))
+        identifier, _ = self.h.store.create(
+            "deploy-ci-host", 40, "a" * 40, "homelab-agent", "", [], 100, digest, ["x"]
+        )
+        self.h.store.set_challenge(identifier.id, b"c", 100)
+        self.h.store.claim(identifier.id, 100)
+        self.h.store.finish(identifier.id, "approved", time.time(), "passkey")
+        status, _, body = self.call("GET", f"/api/grants/{digest}")
+        self.assertEqual((status, json.loads(body)), (200, {"approved": True}))
+        status, _, _ = self.call("GET", "/api/grants/not-a-digest")
+        self.assertEqual(status, 404)
 
     def test_the_page_redirects_to_the_public_origin(self) -> None:
         status, headers, _ = self.call("GET", "/r/abc")

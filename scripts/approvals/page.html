@@ -122,6 +122,10 @@ function card(request) {
   const evidence = request.evidence.length
     ? el("div", { class: "meta" }, "evidence: ", ...request.evidence.flatMap((n, i) => i ? [", ", pipelineLink(n)] : [pipelineLink(n)]))
     : null;
+  const paths = request.digest
+    ? el("div", { class: "meta" }, "approves these exact file versions (later edits need a new approval): ",
+        ...request.paths.flatMap((path, i) => i ? [", ", el("code", {}, path)] : [el("code", {}, path)]))
+    : null;
   const outcome = request.pipeline
     ? el("div", { class: "meta" }, "deployment pipeline ", pipelineLink(request.pipeline))
     : null;
@@ -139,7 +143,7 @@ function card(request) {
       el("span", { class: "state " + request.state }, request.state)),
     meta,
     request.reason ? el("div", { class: "reason" }, request.reason) : null,
-    evidence, outcome, error, actions);
+    paths, evidence, outcome, error, actions);
 }
 
 async function refresh() {
@@ -166,7 +170,9 @@ async function approve(id) {
     });
     const result = await api(`/api/requests/${id}/approve`, credential.toJSON());
     notice(result.state === "approved"
-      ? `${result.operation} approved; deployment pipeline #${result.pipeline}.`
+      ? result.digest
+        ? `${result.operation} approved; the agent's deployment continues on its own.`
+        : `${result.operation} approved; deployment pipeline #${result.pipeline}.`
       : `${result.operation}: ${result.error}`, result.state !== "approved");
   } catch (error) {
     notice("Approval did not complete: " + error.message, true);
