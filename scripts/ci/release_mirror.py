@@ -186,10 +186,22 @@ def mirror_release(
         for name in names
     ):
         raise RuntimeError(f"{tag}: unsafe source asset name")
-    releases = github.pages(f"/repos/{repository}/releases")
-    destination = next(
-        (release for release in releases if release["tag_name"] == tag), None
-    )
+    # The tag endpoint returns only the published release. The release list
+    # puts drafts first, so a stray draft for a published tag would otherwise
+    # be chosen and its publish rejected with 422 on every run.
+    try:
+        destination = github.json(f"/repos/{repository}/releases/tags/{encoded_tag}")
+    except APIError as error:
+        if error.status != 404:
+            raise
+        destination = next(
+            (
+                release
+                for release in github.pages(f"/repos/{repository}/releases")
+                if release["tag_name"] == tag and release["draft"]
+            ),
+            None,
+        )
     created = destination is None
     metadata = {
         "tag_name": tag,
