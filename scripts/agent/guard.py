@@ -60,6 +60,7 @@ HELM_MUTATIONS = {"install", "uninstall", "upgrade", "rollback", "delete"}
 TOFU_MUTATIONS = {"apply", "destroy", "import", "force-unlock"}
 TOFU_STATE_MUTATIONS = {"mv", "push", "replace-provider", "rm"}
 NIXOS_REBUILD_MUTATIONS = {"boot", "switch", "test"}
+STDOUT_REDIRECT = re.compile(r"^1?>>?")
 JUST_MUTATIONS = {
     "deploy-fleet",
     "ha-apply",
@@ -206,6 +207,26 @@ def _git(words: list[str]) -> Verdict | None:
     return None
 
 
+def _sops(words: list[str]) -> Verdict | None:
+    if not (
+        {"-d", "--decrypt"} & set(words)
+        or _positionals(words[1:], set())[:1] == ["decrypt"]
+    ):
+        return None
+    if {"-i", "--in-place"} & set(words):
+        return Verdict(
+            "authorize", "an in-place SOPS decrypt leaves plaintext in the working tree"
+        )
+    if "--output" in words or any(STDOUT_REDIRECT.match(word) for word in words):
+        return None
+    return Verdict(
+        "authorize",
+        "a SOPS decrypt to stdout puts plaintext secrets in the agent transcript; "
+        "redirect it to /dev/null or a file, or check a key with `--extract` "
+        "and `>/dev/null`",
+    )
+
+
 def _classify(words: list[str], remote: bool = False) -> Verdict | None:
     words = _strip_prefix(words)
     if not words:
@@ -272,6 +293,8 @@ def _classify(words: list[str], remote: bool = False) -> Verdict | None:
     if program in SHELLS and "-c" in words[1:]:
         script = words[words.index("-c") + 1 : words.index("-c") + 2]
         return _assess_all(script[0], remote) if script else None
+    if program == "sops":
+        return _sops(words)
     if program == "ssh":
         command = " ".join(_positionals(words[1:], SSH_VALUE_FLAGS)[1:])
         return _assess_all(command, remote=True) if command else None

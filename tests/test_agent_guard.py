@@ -49,6 +49,12 @@ class GuardClassificationTest(unittest.TestCase):
             "timeout 60 sudo kubectl label ns media a=b",
             "bash -c 'cd /srv && kubectl delete ns old'",
             "echo start && kubectl patch pv x --type=json -p '[]'",
+            "sops -d gitops/secrets/homelab-values.sops.yaml",
+            "sops --decrypt x.sops.yaml | yq .stringData",
+            "sops decrypt x.sops.yaml",
+            "SOPS_AGE_KEY_FILE=k sops -d x.sops.yaml | grep -c TOKEN",
+            "sops -d -i x.sops.yaml",
+            "ssh homelab-04 'sops -d /etc/x.sops.yaml'",
         ):
             with self.subTest(command=command):
                 self.assert_kind(command, "authorize")
@@ -80,6 +86,13 @@ class GuardClassificationTest(unittest.TestCase):
             "cat > notes.md <<'EOF'\nkubectl delete ns media\ntofu apply\nEOF\nwc -l notes.md",
             'python -m x <<<"$HOOK_INPUT"\nkubectl get nodes',
             "echo done # kubectl delete ns media",
+            "sops -d gitops/secrets/groq-stt.sops.yaml >/dev/null",
+            "sops -d x.sops.yaml > /tmp/voice-id.dec.yaml",
+            'sops -d --extract \'["stringData"]["K"]\' x.sops.yaml >/dev/null',
+            "sops --decrypt --output .agent-state/x.yaml x.sops.yaml",
+            "sops gitops/secrets/homelab-values.sops.yaml",
+            'sops --set \'["a"] "b"\' x.sops.yaml',
+            "sops -e -i x.sops.yaml",
         ):
             with self.subTest(command=command):
                 self.assert_kind(command, None)
