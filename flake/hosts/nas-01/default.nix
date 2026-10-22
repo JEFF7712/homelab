@@ -137,6 +137,12 @@
           "source.ip" = "0.0.0.0";
           "source.port" = 46100;
           "sess.latency.msec" = 100;
+          # The receiver locks onto the first sender's SSRC and drops every
+          # later one, and the laptop picks a new random SSRC each time its
+          # sender restarts, so a restart left this tap silent until nas-01
+          # pipewire restarted. There is one sender and the firewall limits
+          # the port to home ranges.
+          "sess.ignore-ssrc" = true;
           "audio.rate" = 48000;
           "audio.channels" = 2;
           "stream.props" = {
