@@ -241,6 +241,38 @@ and model, and `--session-dir <attempt>/pi-session`. The backend refuses the
 `extension_ui_response` (`value`, `confirmed`, or `cancelled`); abort is the
 `abort` command.
 
+### Native CLIs: Codex and Claude Code
+
+`scripts/orchestrator/worker_cli.py` runs one non-interactive turn per
+attempt. The brief goes to stdin. Questions reach the controller through
+`scripts/orchestrator/ask_mcp.py`, a standard-library stdio MCP server that
+the CLI launches as server `supervisor`. Each tool call opens the attempt's
+private Unix socket (`QuestionBroker`, a fresh 0700 directory) and blocks until
+the runner answers. The broker turns each call into a `question` event; when
+the broker closes, any waiting call receives a tool error.
+
+| | Codex CLI (pinned 0.163.0) | Claude Code (pinned 2.1.301) |
+| --- | --- | --- |
+| Command | `codex exec --json --model M --cd W --skip-git-repo-check --ignore-user-config --ignore-rules -c approval_policy="never" -c mcp_servers.supervisor.{command,args,tool_timeout_sec,required} -` | `claude -p --output-format stream-json --verbose --model M --session-id <uuid5(attempt)> --setting-sources user --strict-mcp-config --mcp-config <json> --permission-prompts none` |
+| Sandbox `external` (pod is the boundary) | `--dangerously-bypass-approvals-and-sandbox` | `--permission-mode bypassPermissions` |
+| Sandbox `host` (development) | `--sandbox workspace-write` | `--permission-mode acceptEdits --allowedTools mcp__supervisor__ask_supervisor` |
+| Credential | ChatGPT login in a dedicated `CODEX_HOME` | `CLAUDE_CODE_OAUTH_TOKEN` read from a token file at launch |
+| Refused in the backend env | `OPENAI_API_KEY`, `CODEX_API_KEY`, `OPENAI_BASE_URL` | `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_{BEDROCK,VERTEX,FOUNDRY}` |
+| `session` | `thread.started.thread_id` | `system/init.session_id` |
+| `settled` | `turn.completed`, text of the last `agent_message` item | `result` with `subtype: success`, `is_error: false` |
+| `failed` (retryable) | `turn.failed` | `result` with an error subtype or `is_error: true` |
+| Abort | SIGTERM | SIGTERM |
+
+Codex exposes MCP tools to the model as namespace `mcp__supervisor`; Claude
+Code names the tool `mcp__supervisor__ask_supervisor`. Both were verified with
+the real binaries against scripted loopback models
+(`tests/test_orchestrator_cli_e2e.py`). The Claude run authenticated with the
+OAuth token as a bearer credential and sent no API key. `--setting-sources
+user` keeps a repository's `.claude/settings.json` hooks from loading.
+`--ignore-user-config` and `--ignore-rules` do the same for Codex user
+configuration and exec-policy rules. A `test_endpoint` override exists only
+for loopback URLs.
+
 ## Approvals
 
 An approval binds the SHA-256 of the canonical JSON of task id, attempt id
