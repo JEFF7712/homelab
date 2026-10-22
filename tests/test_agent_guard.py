@@ -49,12 +49,26 @@ class GuardClassificationTest(unittest.TestCase):
             "timeout 60 sudo kubectl label ns media a=b",
             "bash -c 'cd /srv && kubectl delete ns old'",
             "echo start && kubectl patch pv x --type=json -p '[]'",
+            "kubectl get pods 2>&1 | true; kubectl delete pod x",
+            "false || kubectl delete pod x",
             "sops -d gitops/secrets/homelab-values.sops.yaml",
             "sops --decrypt x.sops.yaml | yq .stringData",
             "sops decrypt x.sops.yaml",
-            "SOPS_AGE_KEY_FILE=k sops -d x.sops.yaml | grep -c TOKEN",
+            "sops -d x.sops.yaml 2>&1 | head -3",
+            "nix develop ./flake -c sops -d x.json 2>/dev/null | jq .",
+            "sops -d x.sops.yaml || true",
             "sops -d -i x.sops.yaml",
             "ssh homelab-04 'sops -d /etc/x.sops.yaml'",
+            "ssh homelab-01 systemctl restart k3s",
+            "ssh homelab-01 'sudo systemctl stop k3s'",
+            "ssh -J jump nas-01 sudo reboot",
+            "ssh homelab-02 'sudo systemctl --no-block poweroff'",
+            "python3 -c \"import subprocess; subprocess.run(['kubectl', 'delete', 'pod', 'x'])\"",
+            "python -c 'import os; os.system(\"kubectl delete ns media\")'",
+            'node -e \'require("child_process").execSync("tofu apply")\'',
+            "echo pod/x | xargs kubectl delete",
+            "fd -e yaml | xargs -I{} kubectl apply -f {}",
+            "k=kubectl; $k delete pod x",
         ):
             with self.subTest(command=command):
                 self.assert_kind(command, "authorize")
@@ -93,6 +107,15 @@ class GuardClassificationTest(unittest.TestCase):
             "sops gitops/secrets/homelab-values.sops.yaml",
             'sops --set \'["a"] "b"\' x.sops.yaml',
             "sops -e -i x.sops.yaml",
+            "sops -d x.json | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))'",
+            "sops -d x.json 2>&1 | python3 -I -c 'import sys'",
+            "sops -d x.sops.yaml &>/dev/null",
+            "systemctl --user restart pipewire",
+            "ssh homelab-01 'systemctl status k3s; journalctl -u k3s -n 20'",
+            "python3 -c 'import json; print(json.dumps({\"a\": 1}))'",
+            "python -c 'print(\"kubectl get pods\")'",
+            "fd -e py | xargs rg -n guard",
+            "$EDITOR notes.md",
         ):
             with self.subTest(command=command):
                 self.assert_kind(command, None)

@@ -35,8 +35,9 @@ Before changing a secret:
    The last command checks that SOPS can decrypt the file while discarding its
    plaintext output. Use the changed manifest's path in this example command.
    Never replace `/dev/null` with a terminal or captured log. The agent guard
-   (`hooks/pre-tool-use`) holds any SOPS decrypt whose stdout is not redirected
-   to a file or `/dev/null`, including one piped into another command.
+   (`hooks/pre-tool-use`) holds a SOPS decrypt whose stdout reaches the terminal
+   or a display filter such as `cat`, `head`, `jq`, or `yq`; redirect it, or
+   pipe it into a program that prints only what it derives.
 
 For a new secret or recipient change, first update the reviewed SOPS policy and
 the relevant service runbook. Confirm recipient access and the manifest's
