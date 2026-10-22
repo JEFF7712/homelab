@@ -54,9 +54,14 @@ release workflow, not projectctl.
 The worker still emits catalog artifacts for the normal protected review and
 deployment workflow. The agent handles that promotion, then the worker resumes
 automatically. Worker credentials cannot merge platform PRs or deploy hosts.
-Status distinguishes waiting for policy or CI from success; uncertain outcomes
-remain blocked for inspection instead of blindly retrying. Cancellation retains
-resources. Blocked requests require diagnosis and explicit resubmission or dispatch.
+Status distinguishes waiting for policy or CI from success. An uncertain write
+outcome returns the request to waiting with backoff, and the reconciler retries
+it up to five attempts; each retry inspects actual state first and creation is
+bound to an allocation receipt, so a lost response is reconciled rather than
+replayed. After the last attempt the request blocks for inspection. Resource
+conflicts, revoked authority and changed policy block immediately. Cancellation
+retains resources. Blocked requests require diagnosis and explicit resubmission
+or dispatch.
 
 Routine readiness checks exact-SHA stamped CI, matching commit status, a real
 push webhook, and configured status checks applying to administrators with direct
