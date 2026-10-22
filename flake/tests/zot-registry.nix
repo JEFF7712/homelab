@@ -1,6 +1,7 @@
 {
   nixpkgs,
   impermanence,
+  sops-nix,
   system,
 }:
 let
@@ -79,6 +80,7 @@ pkgs.testers.nixosTest {
     {
       imports = [
         impermanence.nixosModules.impermanence
+        sops-nix.nixosModules.sops
         ../modules/zot-registry.nix
       ];
       services.homelab-zot-registry = {
@@ -87,7 +89,9 @@ pkgs.testers.nixosTest {
         acmeEmail = "drill@example.invalid";
         htpasswdFile = "/run/zot-test/htpasswd";
         accessControlFile = "/run/zot-test/access-control.json";
+        cloudflareTokenFile = "/dev/null";
       };
+      sops.secrets = lib.mkForce { };
       networking.hosts = lib.mkForce { "127.0.0.1" = [ "registry.test" ]; };
       security.acme.certs = lib.mkForce { };
       services.nginx.virtualHosts."registry.test" = {
