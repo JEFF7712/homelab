@@ -208,7 +208,11 @@ in
       after = [
         "network-online.target"
         "pipewire.service"
+        "pipewire-pulse.service"
       ];
+      # PortAudio keeps a dead stream when pipewire-pulse restarts and never
+      # reopens it, so LedFx analyses silence until it restarts too.
+      partOf = [ "pipewire-pulse.service" ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
       unitConfig.ConditionPathExists = [ cfg.authFile ];
