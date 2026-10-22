@@ -42,6 +42,7 @@ from scripts.ci.policy import (
     configuration,
     defers_to_branch_push,
     find_reusable_validation,
+    grant_approved,
     resolve_configuration,
     schedule_state,
     verify_request,
@@ -1233,6 +1234,70 @@ class SourceMirrorTest(unittest.TestCase):
             json.loads(steps[0]["environment"]["CI_SCOPE_FILES"]),
             ["gitops/site.yaml"],
         )
+
+
+class GrantPolicyTest(unittest.TestCase):
+    DIGEST = "d" * 64
+
+    def resolve(self, granted: bool) -> dict:
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        request = {
+            "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
+            "pipeline": {
+                "number": 7,
+                "event": "deployment",
+                "deploy_to": "deploy-ci-host",
+                "ref": "refs/heads/main",
+                "commit": SHA,
+                "author": "homelab-agent",
+            },
+            "netrc": {"login": "reader", "password": "token"},
+        }
+        parent = {
+            "number": 7,
+            "event": "push",
+            "ref": "refs/heads/main",
+            "status": "success",
+            "commit": SHA,
+            "finished": int(time.time()),
+            "workflows": [{"name": VALIDATION, "state": "success"}],
+        }
+        mirror = unittest.mock.Mock()
+        mirror.authority_changes.return_value = (["scripts/ci/policy.py"], self.DIGEST)
+        asked: list[str] = []
+
+        def lookup(digest: str) -> bool:
+            asked.append(digest)
+            return granted
+
+        def fake_api(url: str, token: str) -> dict:
+            del token
+            return {"commit": {"id": SHA}} if "branches/main" in url else parent
+
+        with (
+            unittest.mock.patch("scripts.ci.policy.api", side_effect=fake_api),
+            unittest.mock.patch.dict(os.environ, {"POLICY_API_TOKEN": "t"}),
+        ):
+            result = resolve_configuration(
+                request, catalog, (), (), mirror, {}, grant_lookup=lookup
+            )
+        self.assertEqual(asked, [self.DIGEST])
+        return result
+
+    def test_granted_protected_changes_deploy_as_the_agent(self) -> None:
+        self.assertTrue(self.resolve(True)["configs"])
+
+    def test_ungranted_changes_name_their_grant_digest(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, rf"grant {self.DIGEST}\): scripts/ci/policy.py"
+        ):
+            self.resolve(False)
+
+    def test_unreachable_approvals_service_is_no_grant(self) -> None:
+        with unittest.mock.patch(
+            "scripts.ci.policy.GRANTS_URL", "http://127.0.0.1:9/api/grants"
+        ):
+            self.assertFalse(grant_approved(self.DIGEST))
 
 
 class StateTest(unittest.TestCase):

@@ -3,9 +3,14 @@
 Agents file requests with their own Woodpecker token. The page is served on
 the public approvals origin, and an approval needs a WebAuthn assertion with
 user verification from an enrolled passkey, so an agent driving the
-operator's browser cannot approve on its own. The service then triggers the
-deployment with the operator token it alone holds; CI's deployment policy
-still checks the parent pipeline and current main.
+operator's browser cannot approve on its own.
+
+A deployment request is triggered with the operator token the service alone
+holds; CI's deployment policy still checks the parent pipeline and current
+main. A grant request instead approves exact protected file versions (the
+policy's authority digest). Approving it triggers nothing: the CI policy asks
+/api/grants/<digest> on its next agent deployment, so unrelated merges to
+main do not invalidate the approval.
 """
 
 from __future__ import annotations
@@ -47,6 +52,8 @@ PAGE = (Path(__file__).parent / "page.html").read_text(encoding="utf-8")
 REQUEST_PATH = re.compile(
     r"^/api/requests/([A-Za-z0-9_-]+)(?:/(options|approve|decline))?$"
 )
+GRANT_PATH = re.compile(r"^/api/grants/([0-9a-f]{64})$")
+GRANT_PATHS_LIMIT = 200
 IDENTITY_CACHE_SECONDS = 300
 MAIN_CACHE_SECONDS = 15
 BODY_LIMIT = 64 * 1024
@@ -226,6 +233,19 @@ class Service:
             raise ApprovalError(
                 f"Pipeline #{parent_number} is not a successful main pipeline"
             )
+        digest = body.get("digest")
+        paths = body.get("paths") or []
+        if digest is not None and not (
+            isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)
+        ):
+            raise ApprovalError("digest must be a SHA-256 hex digest")
+        if not (
+            isinstance(paths, list)
+            and len(paths) <= GRANT_PATHS_LIMIT
+            and all(isinstance(item, str) and 0 < len(item) <= 512 for item in paths)
+            and all("\n" not in item for item in paths)
+        ):
+            raise ApprovalError("paths must be a short list of repository paths")
         request, created = self.store.create(
             operation,
             parent_number,
@@ -234,6 +254,8 @@ class Service:
             str(body.get("reason") or ""),
             evidence,
             now,
+            digest=digest,
+            paths=paths if digest else None,
         )
         if created:
             notify(self.config, request)
@@ -249,7 +271,11 @@ class Service:
         if main is None:
             return
         for request in self.store.recent(now):
-            if request.state == "pending" and request.commit_sha != main:
+            if (
+                request.state == "pending"
+                and not request.digest
+                and request.commit_sha != main
+            ):
                 try:
                     self.store.finish(
                         request.id,
@@ -320,6 +346,9 @@ class Service:
             raise ApprovalError(f"Passkey verification failed: {error}") from error
         self.store.update_sign_count(stored.id, verified.new_sign_count)
         request = self.request(identifier, now)
+        if request.digest:
+            self.store.finish(identifier, "approved", now, "passkey")
+            return self.request(identifier, now)
         try:
             pipeline = self.woodpecker.deploy(request.parent, request.operation)
         except (UpstreamError, KeyError, TypeError, ValueError) as error:
@@ -436,6 +465,10 @@ def handler(service: Service) -> type[BaseHTTPRequestHandler]:
                         self.end_headers()
                         return
                     self.send(200, PAGE.encode(), "text/html; charset=utf-8")
+                    return
+                grant = GRANT_PATH.match(path)
+                if method == "GET" and grant:
+                    self.json(200, {"approved": service.store.granted(grant[1], now)})
                     return
                 if method == "GET" and path == "/healthz":
                     self.json(200, {"ok": True})

@@ -71,7 +71,10 @@ OpenTofu applies inspect the exact saved plan after loading its prerequisite
 artifacts. Authorization-resource changes, persistent-data deletion/replacement,
 interface/gateway deletion and bulk destruction (50 or more resources) require
 approval. Ordinary DNS edits and small firewall/reservation cleanup do not.
-A risk rejection makes `ship` file an approval request automatically. Do not
+A risk rejection makes `ship` file an approval request automatically. A
+protected-source rejection files a grant for the exact file versions and, once
+approved, retries as the agent, so main moving in between costs nothing; see
+[approvals](approvals.md). Do not
 retry with an operator token or change catalog permissions to evade the decision.
 
 These checks govern supported delivery and assume trusted configuration authors.

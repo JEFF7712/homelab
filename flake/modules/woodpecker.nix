@@ -82,7 +82,7 @@ let
       WOODPECKER_BACKEND_DOCKER_LIMIT_MEM = "8589934592";
       WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "200000";
     };
-    environmentFile = [ "/persist/woodpecker/agent-${tier}.env" ];
+    environmentFile = [ config.sops.secrets."woodpecker-agent-${tier}.env".path ];
   };
 in
 {
@@ -138,6 +138,25 @@ in
         ];
       };
     };
+    sops.secrets =
+      lib.listToAttrs (
+        map (
+          tier:
+          lib.nameValuePair "woodpecker-agent-${tier}.env" {
+            restartUnits = [ "woodpecker-agent-${tier}.service" ];
+          }
+        ) (builtins.attrNames config.services.woodpecker-agents.agents)
+      )
+      // {
+        "woodpecker-server.env".restartUnits = [ "woodpecker-server.service" ];
+        "woodpecker-clone.env" = {
+          sopsFile = ../../secrets/woodpecker-clone.sops.env;
+          format = "dotenv";
+          key = "";
+          restartUnits = [ "woodpecker-server.service" ];
+        };
+        "woodpecker-policy.env".restartUnits = [ "woodpecker-policy.service" ];
+      };
     users.users.woodpecker = {
       isSystemUser = true;
       group = "woodpecker";
@@ -163,13 +182,6 @@ in
       # is tmpfs: 2.6G of them caused the 2026-10-09 homelab-04 DiskPressure
       # outage. Stage intentional copies under /persist/woodpecker/manual-backups.
       "r /root/woodpecker.sqlite.before-enroll-*"
-      "z /persist/woodpecker/server.env 0600 root root -"
-      "z /persist/woodpecker/clone.env 0600 root root -"
-      "z /persist/woodpecker/agent.env 0600 root root -"
-      "z /persist/woodpecker/agent-sandbox.env 0600 root root -"
-      "z /persist/woodpecker/agent-trusted.env 0600 root root -"
-      "z /persist/woodpecker/agent-deploy.env 0600 root root -"
-      "z /persist/woodpecker/policy.env 0600 root root -"
       "d /persist/service-release-ci 0700 service-release service-release -"
     ];
     services.woodpecker-server = {
@@ -209,8 +221,8 @@ in
         WOODPECKER_EXTENSIONS_ALLOWED_HOSTS = "loopback";
       };
       environmentFile = [
-        "/persist/woodpecker/server.env"
-        "/persist/woodpecker/clone.env"
+        config.sops.secrets."woodpecker-server.env".path
+        config.sops.secrets."woodpecker-clone.env".path
       ];
     };
     systemd.services.woodpecker-server.serviceConfig = {
@@ -240,7 +252,7 @@ in
         ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --projects ${../../config/ci/projects.json} --public-key %d/signature-public.pem --mirror %S/woodpecker-policy/homelab.git --authority-baseline ${policySource}/authority-baseline.json";
         StateDirectory = "woodpecker-policy";
         LoadCredential = "signature-public.pem:/persist/woodpecker/signature-public.pem";
-        EnvironmentFile = "/persist/woodpecker/policy.env";
+        EnvironmentFile = config.sops.secrets."woodpecker-policy.env".path;
         DynamicUser = true;
         Restart = "on-failure";
         ProtectSystem = "strict";

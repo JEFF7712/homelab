@@ -1,0 +1,13 @@
+# Inventory-only upstream image declarations for gitops/analytics consumers.
+# Scanned by `python -m scripts.registry inventory` (item "image:" fields),
+# imported to registry.rupan.dev/upstream/<host>/<path> by the registry CI
+# lane, then referenced by digest in the owning manifest.
+#
+# This file is NOT listed in gitops/analytics/kustomization.yaml: it is an
+# inventory source only and must never be applied to the cluster.
+apiVersion: v1
+kind: List
+metadata:
+  name: analytics-registry-sources
+items:
+  - image: ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367  # yamllint disable-line rule:line-length

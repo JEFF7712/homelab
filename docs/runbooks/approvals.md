@@ -29,6 +29,18 @@ as the operator and `ship` follows the pipeline.
   still checks the operator identity, the current main commit and the parent
   pipeline, so a request approved after main moved fails rather than
   deploying an old commit; `ship` then files a fresh request on the new main.
+- **Grants:** when the CI policy rejects an agent deployment because protected
+  authorization or storage files changed, its rejection names a grant digest:
+  a SHA-256 over each changed path and its exact blob identity. `ship` files a
+  grant request with that digest and the paths. Approving it triggers nothing;
+  the policy asks `GET /api/grants/<digest>` (localhost) on the agent's next
+  attempt and admits the deployment when an approved grant matches. Unrelated
+  merges leave the digest unchanged, so the approval survives main moving and
+  is never superseded. Any edit to a covered file, or a new protected change,
+  yields a new digest and needs a new approval. Grants last 24 hours; once
+  homelab-04 deploys the files they join the policy baseline and need none. An
+  unreachable approvals service counts as no grant. Saved-plan risks and
+  operator-only operations still use deployment requests.
 - **Expiry:** pending requests expire after six hours.
 
 The page on `ci.internal:8020` redirects to the public origin: passkeys are

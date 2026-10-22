@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 {
   networking.firewall.allowedTCPPorts = [
     2049
@@ -185,6 +190,8 @@
     };
   };
 
+  sops.secrets.registry-restic-password = { };
+
   systemd.services.registry-backup = {
     description = "Encrypted backup of the local container registry";
     after = [
@@ -195,7 +202,6 @@
       "tank-registry.mount"
       "mnt-backup\\x2d2tb.mount"
     ];
-    unitConfig.ConditionPathExists = "/persist/zot/restic-password";
     serviceConfig = {
       Type = "oneshot";
       User = "root";
@@ -214,7 +220,7 @@
     ];
     script = ''
       export RESTIC_REPOSITORY=/mnt/backup-2tb/registry-restic
-      export RESTIC_PASSWORD_FILE=/persist/zot/restic-password
+      export RESTIC_PASSWORD_FILE=${config.sops.secrets.registry-restic-password.path}
       if [ ! -f "$RESTIC_REPOSITORY/config" ]; then
         restic init
       fi
