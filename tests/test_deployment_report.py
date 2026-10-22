@@ -265,6 +265,22 @@ class DeploymentReportTest(unittest.TestCase):
         self.assertIsNone(report["deployed_source"]["revision"])
         self.assertEqual(report["deployed_source"]["confidence"], "unavailable")
 
+    def test_duplicate_running_closures_do_not_invent_a_generation_or_rollback(
+        self,
+    ) -> None:
+        target = Target()
+        target.snapshots = (
+            target.snapshots.replace(
+                "system-10-link\nsystem-8", "system-12-link\nsystem-8"
+            )
+            + f"system-11-link\t{CURRENT}\nsystem-12-link\t{CANDIDATE}\n"
+        )
+        report = self.report(target)
+        self.assertIsNone(report["deployed"]["generation"])
+        self.assertEqual(report["deployed"]["matching_generations"], [10, 11])
+        self.assertEqual(report["deployed"]["generation_confidence"], "unavailable")
+        self.assertEqual(report["rollback"]["confidence"], "unavailable")
+
     def test_exact_paths_detect_rebuild_without_version_change(self) -> None:
         target = Target()
         replacement = NEW_PACKAGE.replace("3.14.0", "3.13.8")

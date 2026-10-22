@@ -38,6 +38,9 @@ build/substitution requirements, and previous retained generation. Kubernetes
 hosts use the same `-registry` variants as the deployer. `configurationRevision`
 is reported when available; the nixpkgs revision is never substituted for a
 missing homelab source revision. The running and profile generations may differ.
+If multiple retained generations match the running closure and the profile
+points elsewhere, the running generation and its predecessor are unavailable;
+the report records the matching labels instead of choosing one.
 
 Measurements carry `confidence: exact|estimated|unavailable` and an explanatory
 `reason`. Consumers must inspect these fields, not treat a successful process

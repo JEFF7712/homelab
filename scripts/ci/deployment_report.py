@@ -74,7 +74,11 @@ def snapshot(output: str, host: HostConfig) -> dict[str, Any]:
         generations[int(match[1])] = store_path(path)
     profile_id = int(profile[1])
     matching = [n for n, path in generations.items() if path == current]
-    current_id = profile_id if profile_id in matching else max(matching, default=None)
+    current_id = None
+    if profile_id in matching:
+        current_id = profile_id
+    elif len(matching) == 1:
+        current_id = matching[0]
     previous = max(
         (n for n in generations if current_id is not None and n < current_id),
         default=None,
@@ -82,6 +86,8 @@ def snapshot(output: str, host: HostConfig) -> dict[str, Any]:
     return {
         "store_path": current,
         "generation": current_id,
+        "generation_confidence": "exact" if current_id is not None else "unavailable",
+        "matching_generations": sorted(matching),
         "profile_generation": profile_id,
         "profile_store_path": generations.get(profile_id),
         "rollback_generation": previous,
@@ -419,7 +425,9 @@ class Reporter:
         rollback_path = before["rollback_store_path"]
         report["rollback"] = measurement(
             "unavailable",
-            "No retained generation preceding the running generation was found.",
+            "The running generation label is unavailable, so its predecessor cannot be selected reliably."
+            if before["generation"] is None
+            else "No retained generation preceding the running generation was found.",
             generation=before["rollback_generation"],
             store_path=rollback_path,
         )
@@ -519,7 +527,7 @@ def markdown(report: dict[str, Any]) -> str:
         if item["confidence"] == "unavailable":
             return "unavailable: " + item["reason"]
         if field == "deployed":
-            return f"generation {item['generation']}, {item['store_path']} (profile generation {item['profile_generation']})"
+            return f"{item['store_path']} (profile generation {item['profile_generation']})"
         if field == "deployed_source":
             return item["revision"]
         if field == "candidate":
@@ -582,6 +590,15 @@ def markdown(report: dict[str, Any]) -> str:
             lines.append(
                 f"| {field.replace('_', ' ')} | {cell(evidence(field, item))} | {item['confidence']} |"
             )
+            if field == "deployed" and "generation_confidence" in item:
+                label = (
+                    item["generation"]
+                    if item["generation"] is not None
+                    else f"unavailable; matching labels {item['matching_generations']}"
+                )
+                lines.append(
+                    f"| running generation | {label} | {item['generation_confidence']} |"
+                )
         packages = host["packages"]
         if packages["confidence"] != "unavailable":
             changes = [
