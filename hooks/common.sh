@@ -44,7 +44,8 @@ hook_housekeeping() {
   command -v flock >/dev/null 2>&1 || return 0
   mkdir -p "$REPO_ROOT/.agent-state" || return 0
   (cd "$REPO_ROOT" && AGENT_HOOK_ACTIVE=1 setsid flock -n .agent-state/housekeeping.lock \
-    python -m scripts.agent.worktree_gc --apply --quiet) </dev/null >/dev/null 2>&1 &
+    sh -c 'python -m scripts.agent.worktree_gc --apply --quiet
+      python -m scripts.agent.task_gc --apply --quiet') </dev/null >/dev/null 2>&1 &
 }
 hook_session() { jq -r '.session_id // .conversation_id // "unknown"' <<<"$HOOK_INPUT"; }
 hook_event() { jq -r '.hook_event_name // .event // empty' <<<"$HOOK_INPUT"; }
