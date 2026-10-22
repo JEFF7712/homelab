@@ -50,6 +50,7 @@ password or secret-value columns from service databases.
 | Woodpecker homelab repository | registry_read_password | Replace the plain node password used by service, native and application release builders to pull pinned bases; a stale value fails every `*-publish` operation with 401 on the base pull |
 | Woodpecker homelab repository | registry_htpasswd_file | Refresh the protected bcrypt file from the accepted Zot account set, including projectctl-pull |
 | Woodpecker repository registries | Thirteen active node entries below | Replace only registry.rupan.dev passwords through supported settings operations |
+| Woodpecker application repositories | Per-repository registry_read_password copies listed below | Replace each copy with the new node password; a stale copy fails that application's release at prepare-retained-inputs with a Zot bcrypt mismatch for node |
 
 The observed Woodpecker repository IDs are 1, 2, 23, 24, 25, 26, 27, 28, 29, 31,
 33, 34 and 35. Their names are JEFF7712/homelab, JEFF7712/darkbit-site,
@@ -59,6 +60,17 @@ JEFF7712/bayesian-reaction-optimization-engine, JEFF7712/musicthing,
 JEFF7712/spotify-clone-temp-name, JEFF7712/neuralnet-in-c, JEFF7712/NaviSync
 and JEFF7712/md-engine. Re-read current metadata to confirm this set. Registry
 and secret values stay outside task records, tool output and Git.
+
+Application release pipelines read their own registry_read_password secret
+rather than the homelab copy. The 2026-10-17 rotation missed these, which
+broke the rupan.dev release until they were aligned on 2026-10-22. Observed
+repository IDs: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20
+and 36. Enumerate every repository with a registry_read_password secret
+before a rotation; secret metadata is listable without reading values. The
+homelab-agent token has repository admin on these, so each copy can be patched
+through the API by piping the value from secrets/registry-node.sops.json, with
+events and images left unchanged. supply_read_password on the same
+repositories is a Forgejo read token, not the node password, and is unaffected.
 
 ## Reviewed execution sequence
 
@@ -81,7 +93,11 @@ and secret values stay outside task records, tool output and Git.
    mismatch. Use supported settings operations. Do not edit the service database,
    derive a token from database material, or give an agent an administrator PAT.
    Existing automation credentials authorize only the projectctl pilot, so these
-   wider CI changes require trusted operator access.
+   wider CI changes require trusted operator access. Then replace every
+   application repository's registry_read_password copy (enumerated above);
+   homelab-agent has repository admin on those and may patch them through the
+   API with the value piped from SOPS. Confirm none remain unpatched before
+   resuming CI.
 5. Atomically install the prepared persistent K3s registry files and NAS client
    auth file, retaining their original restrictive ownership and permissions.
    Inspect each live K3s unit before assuming the current source's LoadCredential
