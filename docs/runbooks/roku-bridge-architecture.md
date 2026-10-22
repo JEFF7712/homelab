@@ -103,7 +103,7 @@ expected cycling palette. The shared instance keeps the default because its USB
 tap reports a higher level.
 
 Shairport Sync is routed to `bedroom_music_pre_delay`, and so is the laptop
-RTP feed (`bedroom-rtp-in` source via `laptop-rtp-loopback.service`, unicast
+RTP feed (`bedroom-rtp-in`, pinned to that sink as its only path in, unicast
 UDP 46100; RTP, not RAOP, because PipeWire 1.6.8's RAOP sender aborts on this
 shairport-sync's handshake). LedFx listens to
 that sink's monitor, and `bedroom-audio-delay.service` copies it to the Bose
