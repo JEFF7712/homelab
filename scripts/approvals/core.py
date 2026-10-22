@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Any
 
 REQUEST_TTL_SECONDS = 6 * 3600
+# An approved grant covers exact protected file versions, not a commit, so
+# unrelated merges keep it valid; it lapses once those versions are deployed
+# (they join the policy baseline) or after this long.
+GRANT_TTL_SECONDS = 24 * 3600
 ENROLLMENT_TTL_SECONDS = 15 * 60
 REASON_LIMIT = 2000
 TERMINAL = {"approved", "declined", "expired", "failed", "superseded"}
@@ -36,7 +40,9 @@ CREATE TABLE IF NOT EXISTS requests (
   decided_by TEXT,
   pipeline INTEGER,
   error TEXT,
-  challenge BLOB
+  challenge BLOB,
+  digest TEXT,
+  paths TEXT
 );
 CREATE TABLE IF NOT EXISTS credentials (
   id BLOB PRIMARY KEY,
@@ -80,11 +86,14 @@ class Request:
     decided_by: str | None
     pipeline: int | None
     error: str | None
+    digest: str | None = None
+    paths: str | None = None
 
     def public(self) -> dict[str, Any]:
         return {
             **asdict(self),
             "evidence": [int(item) for item in self.evidence.split(",") if item],
+            "paths": [item for item in (self.paths or "").split("\n") if item],
         }
 
 
@@ -101,6 +110,12 @@ class Store:
         self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        columns = {
+            row["name"] for row in self.db.execute("PRAGMA table_info(requests)")
+        }
+        for column in ("digest", "paths"):
+            if column not in columns:
+                self.db.execute(f"ALTER TABLE requests ADD COLUMN {column} TEXT")
 
     def close(self) -> None:
         self.db.close()
@@ -126,21 +141,34 @@ class Store:
         reason: str,
         evidence: list[int],
         now: float,
+        digest: str | None = None,
+        paths: list[str] | None = None,
     ) -> tuple[Request, bool]:
-        """File a request, or return the pending one for the same operation and parent."""
+        """File a request, or return the pending one it duplicates.
+
+        A grant request duplicates any pending request for the same digest; a
+        deployment request one for the same operation and parent.
+        """
         with self.lock:
             self._expire(now)
-            existing = self.db.execute(
-                "SELECT * FROM requests WHERE state = 'pending' AND operation = ? "
-                "AND parent = ?",
-                (operation, parent),
-            ).fetchone()
+            if digest:
+                existing = self.db.execute(
+                    "SELECT * FROM requests WHERE state = 'pending' AND digest = ?",
+                    (digest,),
+                ).fetchone()
+            else:
+                existing = self.db.execute(
+                    "SELECT * FROM requests WHERE state = 'pending' AND digest IS NULL "
+                    "AND operation = ? AND parent = ?",
+                    (operation, parent),
+                ).fetchone()
             if existing is not None:
                 return self._request(existing), False  # type: ignore[return-value]
             identifier = secrets.token_urlsafe(9)
             self.db.execute(
                 "INSERT INTO requests (id, operation, parent, commit_sha, requester, "
-                "reason, evidence, state, created) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
+                "reason, evidence, state, created, digest, paths) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
                 (
                     identifier,
                     operation,
@@ -150,9 +178,21 @@ class Store:
                     reason[:REASON_LIMIT],
                     ",".join(str(int(item)) for item in evidence),
                     now,
+                    digest,
+                    "\n".join(paths or []) or None,
                 ),
             )
             return self.get(identifier, now), True  # type: ignore[return-value]
+
+    def granted(self, digest: str, now: float) -> bool:
+        """Whether an approved, unexpired grant covers this digest."""
+        with self.lock:
+            row = self.db.execute(
+                "SELECT 1 FROM requests WHERE digest = ? AND state = 'approved' "
+                "AND decided > ?",
+                (digest, now - GRANT_TTL_SECONDS),
+            ).fetchone()
+        return row is not None
 
     def get(self, identifier: str, now: float) -> Request | None:
         with self.lock:

@@ -111,6 +111,19 @@ def changed_authority(
     )
 
 
+def authority_digest(changes: list[str], candidate: dict[str, str]) -> str:
+    """Identity of exact protected file versions, the unit a human approves.
+
+    It names each changed path with its candidate blob identity, so any later
+    edit to one of them, or a new protected change, yields a new digest while
+    unrelated commits leave it unchanged.
+    """
+    body = "\n".join(
+        f"{path}\t{candidate.get(path, 'absent')}" for path in sorted(changes)
+    )
+    return hashlib.sha256(body.encode()).hexdigest()
+
+
 def nix_authority_change(before: str, after: str) -> bool:
     changes = difflib.ndiff(before.splitlines(), after.splitlines())
     return any(

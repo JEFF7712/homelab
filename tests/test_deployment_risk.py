@@ -10,6 +10,7 @@ from unittest.mock import patch
 from scripts.ci.deployment_risk import (
     ALL_PATHS,
     APPROVAL_REQUIRED,
+    authority_digest,
     blob_id,
     changed_authority,
     host_operation,
@@ -114,7 +115,7 @@ class DeploymentRiskTest(unittest.TestCase):
             self.assertEqual(
                 mirror.authority_changes(
                     "a" * 40, {"password": "fixture"}, {}, ALL_PATHS, True
-                ),
+                )[0],
                 ["flake/modules/new.nix"],
             )
 
@@ -218,6 +219,18 @@ class DeploymentRiskTest(unittest.TestCase):
         self.assertTrue(
             nix_authority_change("", 'users.users.svc.extraGroups = [ "wheel" ];')
         )
+
+    def test_digest_names_exact_versions_and_ignores_unrelated_files(self) -> None:
+        candidate = {"scripts/ci/policy.py": "100644 a", "services/app.py": "100644 x"}
+        digest = authority_digest(["scripts/ci/policy.py"], candidate)
+        unrelated = dict(candidate, **{"services/app.py": "100644 y"})
+        self.assertEqual(authority_digest(["scripts/ci/policy.py"], unrelated), digest)
+        edited = dict(candidate, **{"scripts/ci/policy.py": "100644 b"})
+        self.assertNotEqual(authority_digest(["scripts/ci/policy.py"], edited), digest)
+        self.assertNotEqual(
+            authority_digest(["scripts/ci/policy.py", ".sops.yaml"], candidate), digest
+        )
+        self.assertRegex(digest, r"^[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":

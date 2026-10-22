@@ -193,6 +193,51 @@ class ShipOperatorTest(unittest.TestCase):
             shipper.run_operation(10, "provision-darkbit-publisher")
         shipper.woodpecker.deploy.assert_not_called()
 
+    GRANT = "d" * 64
+    REJECTION = (
+        "Woodpecker POST: HTTP 400 {'message': '... <p>Message: Human approval "
+        "required: authorization or storage source changed (grant "
+        + "d" * 64
+        + "): scripts/ci/policy.py, .sops.yaml.</p>'}"
+    )
+
+    def test_protected_changes_are_granted_then_deployed_as_the_agent(self) -> None:
+        shipper = self.approval_shipper()
+        shipper.woodpecker.deploy.side_effect = [
+            ShipError(self.REJECTION),
+            {"number": 88},
+        ]
+        responses = [
+            (201, {"id": "g", "url": "https://approvals/r/g"}),
+            (200, {"state": "approved", "pipeline": None}),
+        ]
+        with (
+            patch.object(ship, "http", side_effect=responses) as http,
+            self.assertRaisesRegex(ShipError, "following deployment"),
+        ):
+            shipper.run_operation(10, "deploy-ci-host")
+        body = http.call_args_list[0].args[3]
+        self.assertEqual(body["digest"], self.GRANT)
+        self.assertEqual(body["paths"], ["scripts/ci/policy.py", ".sops.yaml"])
+        self.assertEqual(shipper.woodpecker.deploy.call_count, 2)
+        shipper.woodpecker.pipeline.assert_called_once_with(88)
+
+    def test_a_granted_digest_rejected_again_fails_instead_of_looping(self) -> None:
+        shipper = self.approval_shipper()
+        shipper.woodpecker.deploy.side_effect = [
+            ShipError(self.REJECTION),
+            ShipError(self.REJECTION),
+        ]
+        responses = [
+            (201, {"id": "g", "url": "https://approvals/r/g"}),
+            (200, {"state": "approved", "pipeline": None}),
+        ]
+        with (
+            patch.object(ship, "http", side_effect=responses),
+            self.assertRaisesRegex(ShipError, "still rejects approved grant"),
+        ):
+            shipper.run_operation(10, "deploy-ci-host")
+
     def test_agent_operations_use_the_agent_token(self) -> None:
         shipper = self.shipper()
         with self.assertRaisesRegex(ShipError, "stop after deploy"):

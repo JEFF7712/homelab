@@ -42,6 +42,7 @@ POLL_SECONDS = 5
 # Outage, log-storage, and mergeability retries keep their original window.
 RETRY_SECONDS = 15
 SUPERSEDED = "Operation source must be the current main commit"
+GRANT_PATTERN = re.compile(r"\(grant ([0-9a-f]{64})\): ([^<\n]*)")
 ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
 
@@ -604,13 +605,10 @@ class Shipper:
             token = path.read_text()
         return token or None
 
-    def approved(self, parent: int, operation: str) -> int:
-        """Deployment pipeline of a held operation once the operator approves it.
-
-        CI accepts held operations only from a human operator, so without an
-        operator token the request goes to the approvals dashboard, where the
-        operator confirms it with a passkey and the dashboard triggers it.
-        """
+    def request_approval(
+        self, parent: int, operation: str, extra: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """File an approvals request and wait until the operator decides it."""
         code, filed = http(
             "POST",
             f"{APPROVALS}/api/requests",
@@ -621,6 +619,7 @@ class Shipper:
                 "reason": f"just ship {self.summary.get('branch', '')}: "
                 f"{self.summary.get('pull_request', 'no pull request')}",
                 "evidence": [item["pipeline"] for item in self.summary["operations"]],
+                **(extra or {}),
             },
         )
         if code >= 400:
@@ -634,7 +633,7 @@ class Shipper:
                     f"Approvals lookup for {operation}: HTTP {code} {request}"
                 )
             if request["state"] == "approved":
-                return int(request["pipeline"])
+                return request
             if request["state"] == "superseded":
                 raise ShipError(
                     f"{SUPERSEDED}: {operation} approval request superseded"
@@ -645,6 +644,55 @@ class Shipper:
                     f"{operation} {request['state']} on the approvals dashboard{detail}"
                 )
             time.sleep(POLL_SECONDS)
+
+    def approved(self, parent: int, operation: str) -> int:
+        """Deployment pipeline of a held operation once the operator approves it.
+
+        CI accepts held operations only from a human operator, so without an
+        operator token the request goes to the approvals dashboard, where the
+        operator confirms it with a passkey and the dashboard triggers it.
+        """
+        return int(self.request_approval(parent, operation)["pipeline"])
+
+    def deploy_as_agent(self, parent: int, operation: str) -> tuple[int, bool]:
+        """Start an agent deployment, asking for approval when policy requires it.
+
+        A rejection naming a grant digest approves exact protected file
+        versions; once granted, the agent deploys normally, so main moving
+        in between does not invalidate the approval. Any other required
+        approval is an operator-triggered deployment. Returns the pipeline
+        number and whether the operator triggered it.
+        """
+        granted: set[str] = set()
+        while True:
+            try:
+                return int(self.woodpecker.deploy(parent, operation)["number"]), False
+            except ShipError as error:
+                text = str(error)
+                if APPROVAL_REQUIRED not in text:
+                    raise
+                grant = GRANT_PATTERN.search(text)
+                if grant is None:
+                    self.say(f"{operation}: {text}")
+                    return self.approved(parent, operation), True
+                digest = grant[1]
+                if digest in granted:
+                    raise ShipError(
+                        f"{operation}: policy still rejects approved grant {digest[:12]}; "
+                        "check that the CI policy can reach the approvals service"
+                    ) from None
+                paths = [
+                    item.strip()
+                    for item in grant[2].strip().rstrip(".").split(",")
+                    if item.strip()
+                ]
+                self.say(
+                    f"{operation}: protected changes need approval: {', '.join(paths)}"
+                )
+                self.request_approval(
+                    parent, operation, {"digest": digest, "paths": paths}
+                )
+                granted.add(digest)
 
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
@@ -658,14 +706,7 @@ class Shipper:
                 else self.approved(parent, operation)
             )
         else:
-            try:
-                number = int(self.woodpecker.deploy(parent, operation)["number"])
-            except ShipError as error:
-                if APPROVAL_REQUIRED not in str(error):
-                    raise
-                self.say(f"{operation}: {error}")
-                operator = True
-                number = self.approved(parent, operation)
+            number, operator = self.deploy_as_agent(parent, operation)
         self.say(
             f"{operation}: pipeline #{number} {WOODPECKER}/repos/{WOODPECKER_REPO}/pipeline/{number}"
         )
