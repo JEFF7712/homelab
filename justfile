@@ -68,6 +68,7 @@ cache-populate:
       ./flake#checks.x86_64-linux.agent-workspace-host-reservations \
       ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
       ./flake#checks.x86_64-linux.zot-registry \
+      ./flake#checks.x86_64-linux.topology \
       ./flake#devShells.x86_64-linux.default \
       ./flake#devShells.x86_64-linux.ci \
       ./flake#devShells.x86_64-linux.ops \
@@ -79,6 +80,10 @@ deploy-fleet *args:
 [positional-arguments]
 deployment-report *args:
     python -m scripts.ci.deployment_report "$@"
+
+topology:
+    mkdir -p artifacts
+    nix build --no-write-lock-file './flake#topology' --out-link artifacts/topology
 
 check-gitops:
     bash scripts/checks/gitops.sh
