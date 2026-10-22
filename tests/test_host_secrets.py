@@ -10,7 +10,9 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-HOSTS = ["adguard-netbird-01"]
+HOSTS = ["adguard-netbird-01", "homelab-04", "homelab-05", "nas-01"]
+# scripts/deploy_fleet.py activates the registry variant on k3s nodes.
+K3S_NODES = {"homelab-04", "homelab-05"}
 OPERATORS = {"operator_flux", "operator_recovery"}
 
 
@@ -32,6 +34,11 @@ def rule_recipients(path: str) -> set[str]:
                 return {key for group in rule["key_groups"] for key in group["age"]}
             return set(rule["age"].split(","))
     raise AssertionError(f"no .sops.yaml rule matches {path}")
+
+
+def load_bundle(path: Path) -> dict:
+    text = path.read_text()
+    return json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
 
 
 def repository_path(store_path: str) -> str:
@@ -63,10 +70,14 @@ class HostSecretsTest(unittest.TestCase):
                 unitConfig = s.unitConfig;
               }) cfg.systemd.services;
             };
-          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${host}.config)
+            attribute = host: if builtins.elem host K3S_NODES then "${host}-registry" else host;
+          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${attribute host}.config)
         """
         expression = expression.replace(
             "ROOT_FLAKE", json.dumps(f"git+file://{ROOT}?dir=flake")
+        )
+        expression = expression.replace(
+            "K3S_NODES", json.dumps(sorted(K3S_NODES)).replace(",", " ")
         ).replace("HOSTS", json.dumps(HOSTS).replace(",", " "))
         result = subprocess.run(
             ["nix", "eval", "--impure", "--json", "--expr", expression],
@@ -115,7 +126,7 @@ class HostSecretsTest(unittest.TestCase):
                     # Hosts outside HOSTS are migrated in later changes.
                     evaluated = {anchors[host] for host in HOSTS}
                     self.assertEqual((expected - operators) & evaluated, hosts)
-                bundle = yaml.safe_load((ROOT / path).read_text())
+                bundle = load_bundle(ROOT / path)
                 actual = {entry["recipient"] for entry in bundle["sops"]["age"]}
                 self.assertEqual(actual, expected)
 
@@ -124,15 +135,22 @@ class HostSecretsTest(unittest.TestCase):
             for name, secret in self.evaluated[host]["secrets"].items():
                 with self.subTest(host=host, secret=name):
                     path = ROOT / repository_path(secret["sopsFile"])
-                    bundle = yaml.safe_load(path.read_text())
-                    if isinstance(bundle, dict):
-                        self.assertIn(secret["key"], set(bundle) - {"sops"})
+                    bundle = load_bundle(path)
+                    self.assertIn(secret["key"], set(bundle) - {"sops"})
                     self.assertEqual(secret["mode"], "0400")
                     self.assertEqual(secret["path"], f"/run/secrets/{name}")
 
     def test_no_unit_reads_hand_placed_secrets(self) -> None:
+        # The k3s token and registry pull credentials move with the cluster.
+        pending = {
+            ("homelab-04", "k3s"),
+            ("homelab-05", "k3s"),
+            ("nas-01", "ledfx-bedroom"),
+        }
         for host in HOSTS:
             for unit, text in self.evaluated[host]["units"].items():
+                if (host, unit) in pending:
+                    continue
                 with self.subTest(host=host, unit=unit):
                     self.assertNotIn("/persist/secrets", text)
 
@@ -176,6 +194,34 @@ class HostSecretsTest(unittest.TestCase):
         cloud = config["units"]["roku-cloud-bridge"]
         self.assertIn("--cookie-seed /run/secrets/roku-cloud-cookies", cloud)
         self.assertIn("--cookies /var/lib/roku-cloud-bridge/cookies.json", cloud)
+
+    def test_service_secrets_restart_their_consumers(self) -> None:
+        ci_host = self.evaluated["homelab-04"]
+        approvals = ci_host["units"]["approvals"]
+        self.assertIn("operator-token:/run/secrets/approvals-operator-token", approvals)
+        self.assertIn('"EnvironmentFile":"/run/secrets/approvals.env"', approvals)
+        for name in ("approvals-operator-token", "approvals.env"):
+            self.assertEqual(
+                ci_host["secrets"][name]["restartUnits"], ["approvals.service"]
+            )
+        self.assertIn(
+            "kiosk-ha-token:/run/secrets/kiosk-ha-token",
+            ci_host["units"]["kiosk-rotate"],
+        )
+        voice_host = self.evaluated["homelab-05"]
+        self.assertEqual(
+            voice_host["secrets"]["mosquitto-roku-bridge-password"]["restartUnits"],
+            [
+                "apollo-ble-bridge-kitchen.service",
+                "apollo-ble-bridge-living-room.service",
+            ],
+        )
+        for host in ("homelab-04", "nas-01"):
+            with self.subTest(host=host):
+                self.assertIn(
+                    "/run/secrets/platform-backup.env",
+                    self.evaluated[host]["units"]["platform-backup"],
+                )
 
 
 if __name__ == "__main__":

@@ -120,13 +120,13 @@ in
     haTokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "File holding a Home Assistant long-lived token for the kiosk face. The tmpfs root wipes the Chromium profile every reboot, so when set, a boot service re-seeds the token into the kiosk browser over its local DevTools port. The file must live under /persist and is never part of the store closure.";
+      description = "File holding a Home Assistant long-lived token for the kiosk face. The tmpfs root wipes the Chromium profile every reboot, so when set, a boot service re-seeds the token into the kiosk browser over its local DevTools port. Use a runtime secret path such as a sops-nix secret; the file is never part of the store closure.";
     };
 
     haDashboardTokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "File holding a Home Assistant long-lived access token for a dashboard shown in 'views'. The tmpfs root wipes the Chromium profile every reboot, so the rotation service re-seeds the token into the browser's storage for 'haDashboardUrl' on every (re)connect. Requires 'haDashboardUrl'; must live under /persist and stays out of the store closure.";
+      description = "File holding a Home Assistant long-lived access token for a dashboard shown in 'views'. The tmpfs root wipes the Chromium profile every reboot, so the rotation service re-seeds the token into the browser's storage for 'haDashboardUrl' on every (re)connect. Requires 'haDashboardUrl'. Use a runtime secret path such as a sops-nix secret; the file stays out of the store closure.";
     };
 
     haDashboardUrl = lib.mkOption {
@@ -210,13 +210,6 @@ in
           --views-file ${viewsFile}${seedArgs}
       '';
     };
-
-    # Guarantee the credential source exists so LoadCredential never fails the
-    # rotation service; the real token is written here out of band.
-    systemd.tmpfiles.rules = lib.optionals seedHa [
-      "d /persist/secrets 0700 root root -"
-      "f ${cfg.haDashboardTokenFile} 0600 root root -"
-    ];
 
     assertions = [
       {

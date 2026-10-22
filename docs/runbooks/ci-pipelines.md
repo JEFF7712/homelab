@@ -136,7 +136,11 @@ All pipelines resolve the dev shell and build outputs from the local Attic
 substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
 ensures the local cache takes precedence over `cache.nixos.org` (priority 40).
 `just cache-populate` and `scripts/ci/cache.sh` use `--ignore-upstream-cache-filter --jobs 8`
-to ensure all devShell dependencies are cached locally.
+to ensure all devShell dependencies are cached locally. `cache.sh` pushes in
+batches of 200 and retries a failed batch path by path, so one NAR Attic rejects
+("Bad NAR Hash or Size" on `python3-3.14.8` after the 2026-10-21 nixpkgs bump)
+is reported and skipped instead of aborting the whole upload. Push a rejected
+path from another machine to unblock it; the job fails only when nothing uploads.
 
 Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report`:
 - Queue wait time is tracked from `CI_PIPELINE_CREATED` and reported separately under
@@ -167,7 +171,8 @@ path. Promotion opens a PR and, when the diff only moves first-party digests
 `nightly`
 runs the slow proofs once a day: the GC fixture, OPNsense plan, dataplane
 and inventory, NAS proof, and the fleet, agent-workspace, and Home Assistant
-dry runs, plus `nixos-deploy`. `weekly` runs `nixos-lock-update`; both
+dry runs, plus `nixos-deploy`. `weekly` runs `nixos-lock-update` and the
+`registry-cve-audit` trivy scan of every locked image; both
 laptop operations are described in [NixOS artifact
 publication](nixos-publication.md). A schedule must finish well inside its interval; before the split,
 the 30 minute schedule took about 100 minutes, queued behind itself, and every

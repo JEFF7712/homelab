@@ -227,7 +227,7 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         # Retries the open laptop lock update and delivers new main commits.
         "nixos-deploy",
     ),
-    "weekly": ("nixos-lock-update",),
+    "weekly": ("nixos-lock-update", "registry-cve-audit"),
 }
 
 

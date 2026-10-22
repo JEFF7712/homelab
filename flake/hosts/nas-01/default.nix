@@ -25,6 +25,8 @@
 
   networking.hostName = "nas-01";
 
+  sops.defaultSopsFile = ../../../secrets/hosts/nas-01.sops.yaml;
+
   # Bedroom-only LedFx. It analyses the Bluetooth tap that carries bedroom
   # playback and streams to the relay. Deliberately separate from the
   # shared-spaces LedFx instance: no shared device, virtual, or scene.
@@ -115,7 +117,16 @@
 
   # pipewire-pulse must reload the null-sink module when its generated config
   # changes; otherwise Shairport can start before the virtual sink exists.
-  systemd.services.pipewire-pulse.restartTriggers = [ config.environment.etc.pipewire.source ];
+  # The null sink lives in the main daemon, so a pipewire restart deletes it
+  # and pipewire-pulse never recreates it on its own: partOf restarts pulse,
+  # and through their own partOf every bedroom audio consumer, with it. The
+  # main daemon also restarts on config changes so module arguments (such as
+  # the RTP receiver's) take effect on deploy instead of at the next reboot.
+  systemd.services.pipewire.restartTriggers = [ config.environment.etc.pipewire.source ];
+  systemd.services.pipewire-pulse = {
+    restartTriggers = [ config.environment.etc.pipewire.source ];
+    partOf = [ "pipewire.service" ];
+  };
 
   # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
   # here (port 46100); this source turns it into a PipeWire source node and
@@ -135,6 +146,12 @@
           "source.ip" = "0.0.0.0";
           "source.port" = 46100;
           "sess.latency.msec" = 100;
+          # The receiver locks onto the first sender's SSRC and drops every
+          # later one, and the laptop picks a new random SSRC each time its
+          # sender restarts, so a restart left this tap silent until nas-01
+          # pipewire restarted. There is one sender and the firewall limits
+          # the port to home ranges.
+          "sess.ignore-ssrc" = true;
           "audio.rate" = 48000;
           "audio.channels" = 2;
           "stream.props" = {
