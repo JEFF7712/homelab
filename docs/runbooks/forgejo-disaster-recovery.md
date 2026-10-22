@@ -50,8 +50,8 @@ authorization. Drain both schedulers before activation or authority changes.
 7. Store the Woodpecker server, per-tier agent and policy (POLICY_API_TOKEN)
    environments in secrets/hosts/homelab-04.sops.yaml, and install
    signature-public.pem from the running server's public-key endpoint.
-   Install the bundle's homelab-04/woodpecker/clone.env under
-   /persist/woodpecker/clone.env, also root-owned mode 0600. Native clones use
+   Put the bundle's homelab-04/woodpecker/clone.env into
+   secrets/woodpecker-clone.sops.env, which homelab-04 decrypts. Native clones use
    the repository-scoped read-only identity because queued workflows can
    outlive the OAuth token captured when they compile. Missing clone
    credentials fail closed. OAuth still owns user identity and status updates.
