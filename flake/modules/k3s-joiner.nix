@@ -42,7 +42,6 @@ in
       primaryInterface = cfg.primaryInterface;
       nodeIp = cfg.nodeIp;
       serverAddress = cfg.serverAddress;
-      tokenFile = "/persist/secrets/k3s-token";
     };
 
     services.k3s.extraFlags = [

@@ -39,10 +39,10 @@ python3 -c "import getpass, json, subprocess; v = getpass.getpass('Paste NetBird
 Prefer interactive edit (`sops gitops/secrets/homelab-values.sops.yaml`) if `--set` is unavailable in the installed SOPS version. Verify presence without printing the value:
 
 ```sh
-SOPS_AGE_KEY_FILE=$PWD/secrets/keys/flux-age.key sops -d gitops/secrets/homelab-values.sops.yaml | grep -c NETBIRD_API_KEY
+SOPS_AGE_KEY_FILE=$PWD/secrets/keys/flux-age.key sops -d --extract '["stringData"]["NETBIRD_API_KEY"]' gitops/secrets/homelab-values.sops.yaml >/dev/null && echo present
 ```
 
-Expect `1`. If the output is `0`, the edit did not land.
+Expect `present`. A nonzero exit means the key is missing and the edit did not land.
 
 Retention caveat: `scripts/ci/migrate_secrets.py` rebuilds `homelab-values.sops.yaml` from properties referenced by `ExternalSecret` manifests. No cluster workload consumes `NETBIRD_API_KEY` yet, so a future `--overrides`-less migrate would prune it. On the next migrate, re-supply it via the overrides file (see `docs/runbooks/forgejo-disaster-recovery.md`), or add an `ExternalSecret` reference once a real in-cluster consumer exists. Normal rotation does not run migrate.
 

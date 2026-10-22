@@ -40,10 +40,9 @@ the clone authentication decision.
 The clone account has read access to homelab and Darkbit, with no write or admin
 permission. Its current token has only `read:repository` scope. The previous
 token was limited to homelab alone and remains available to existing consumers.
-The encrypted replacement is in `secrets/woodpecker-clone.sops.env`. Decrypt it
-with an authorized independently held age key and restore it as root-owned
-mode 0600 `/persist/woodpecker/clone.env`, then restart the server. Include this
-file in recovery assets; a live server environment alone is insufficient.
+The token lives in `secrets/woodpecker-clone.sops.env`, which homelab-04
+decrypts through sops-nix into `/run/secrets/woodpecker-clone.env`. Edit it with
+`sops` and ship the change; activation restarts the server.
 
 Register the `node` read-only Zot credential as Darkbit's Woodpecker registry
 pull credential. It supplies the fixed validation image, not publication

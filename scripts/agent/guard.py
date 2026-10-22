@@ -6,6 +6,12 @@ live mutation outside `just ship`. The latter passes once the command carries
 `HOMELAB_AUTHORIZED=1`, so granting it stays an explicit, recorded act rather
 than a silent default. `just ship --deploy` is not gated here: held routes in
 it wait for a passkey approval on the approvals dashboard.
+
+This is a lexical speed bump for honest mistakes, not a sandbox. It follows
+wrappers, `bash -c`, `ssh`, `xargs`, and string literals in inline interpreter
+code, but a determined agent can still assemble a command it cannot see. The
+enforcement boundary is server side: the demoted `homelab-agent` identity, CI
+operation policy, and branch protection.
 """
 
 from __future__ import annotations
@@ -60,6 +66,25 @@ HELM_MUTATIONS = {"install", "uninstall", "upgrade", "rollback", "delete"}
 TOFU_MUTATIONS = {"apply", "destroy", "import", "force-unlock"}
 TOFU_STATE_MUTATIONS = {"mv", "push", "replace-provider", "rm"}
 NIXOS_REBUILD_MUTATIONS = {"boot", "switch", "test"}
+STDOUT_REDIRECT = re.compile(r"^(?:1|&)?>>?")
+DISPLAY_FILTERS = {"bat", "cat", "head", "jq", "less", "more", "tail", "tee", "yq"}
+STRING_LITERAL = re.compile(r"""(['"])((?:\\.|(?!\1).)*)\1""")
+LIST_LITERAL = re.compile(r"\[([^\[\]]*)\]")
+INTERPRETERS = {"python": "-c", "python3": "-c", "node": "-e", "perl": "-e"}
+XARGS_VALUE_FLAGS = {"-a", "-d", "-E", "-I", "-L", "-n", "-P", "-s"}
+SYSTEMCTL_MUTATIONS = {
+    "disable",
+    "enable",
+    "isolate",
+    "kill",
+    "mask",
+    "reload",
+    "restart",
+    "start",
+    "stop",
+    "try-restart",
+}
+POWER_COMMANDS = {"halt", "poweroff", "reboot", "shutdown"}
 JUST_MUTATIONS = {
     "deploy-fleet",
     "ha-apply",
@@ -79,9 +104,13 @@ class Verdict:
     reason: str
 
 
-def _split(command: str) -> list[str]:
-    """Split on unquoted command separators, dropping heredoc bodies."""
-    parts: list[str] = []
+def _split(command: str) -> list[tuple[str, str]]:
+    """Split on unquoted command separators, dropping heredoc bodies.
+
+    Each part carries the separator that ended it: `|` for a pipe into the
+    next part, `;` for any other boundary. `>&` and `&>` stay redirections.
+    """
+    parts: list[tuple[str, str]] = []
     current: list[str] = []
     quote = ""
     heredocs: list[str] = []
@@ -109,9 +138,17 @@ def _split(command: str) -> list[str]:
                 index += 1
             elif char == "#" and (not current or current[-1].isspace()):
                 break
+            elif char == "&" and (
+                line[index - 1 : index] == ">" or line[index + 1 : index + 2] == ">"
+            ):
+                current.append(char)
             elif char in ";&|":
-                parts.append("".join(current))
+                piped = char == "|" and line[index + 1 : index + 2] != "|"
+                parts.append(("".join(current), "|" if piped else ";"))
                 current = []
+                following = line[index + 1 : index + 2]
+                if following == char or (char == "|" and following == "&"):
+                    index += 1
             else:
                 match = HEREDOC.match(line, index)
                 if match and line[index - 1 : index] != "<":
@@ -123,22 +160,31 @@ def _split(command: str) -> list[str]:
         if quote:
             current.append("\n")
         elif line_number < len(lines) - 1:
-            parts.append("".join(current))
+            parts.append(("".join(current), ";"))
             current = []
-    parts.append("".join(current))
+    parts.append(("".join(current), ";"))
     return parts
 
 
-def _segments(command: str) -> list[list[str]]:
-    segments = []
-    for part in _split(command):
+def _segments(command: str) -> list[tuple[list[str], list[str] | None]]:
+    """Return each command's words and, when it pipes, the next command's."""
+    split = []
+    for part, separator in _split(command):
         try:
             words = shlex.split(part, comments=False, posix=True)
         except ValueError:
             words = part.split()
-        if words:
-            segments.append(words)
-    return segments
+        split.append((words, separator))
+    return [
+        (
+            words,
+            _strip_prefix(split[index + 1][0])
+            if separator == "|" and index + 1 < len(split)
+            else None,
+        )
+        for index, (words, separator) in enumerate(split)
+        if words
+    ]
 
 
 def _strip_prefix(words: list[str]) -> list[str]:
@@ -206,11 +252,77 @@ def _git(words: list[str]) -> Verdict | None:
     return None
 
 
-def _classify(words: list[str], remote: bool = False) -> Verdict | None:
+def _sops(words: list[str], piped_into: list[str] | None) -> Verdict | None:
+    if not (
+        {"-d", "--decrypt"} & set(words)
+        or _positionals(words[1:], set())[:1] == ["decrypt"]
+    ):
+        return None
+    if {"-i", "--in-place"} & set(words):
+        return Verdict(
+            "authorize", "an in-place SOPS decrypt leaves plaintext in the working tree"
+        )
+    if "--output" in words or any(STDOUT_REDIRECT.match(word) for word in words):
+        return None
+    if piped_into and _program(piped_into[0]) not in DISPLAY_FILTERS:
+        return None
+    return Verdict(
+        "authorize",
+        "a SOPS decrypt to the terminal or a display filter puts plaintext "
+        "secrets in the agent transcript; redirect it to /dev/null or a file, "
+        "or pipe it into a program that prints only what it derives",
+    )
+
+
+def _inline_code(code: str, remote: bool) -> Verdict | None:
+    literals = [match.group(2) for match in STRING_LITERAL.finditer(code)]
+    candidates = literals + [
+        " ".join(match.group(2) for match in STRING_LITERAL.finditer(items.group(1)))
+        for items in LIST_LITERAL.finditer(code)
+    ]
+    verdicts = [
+        verdict
+        for candidate in candidates
+        if (verdict := _assess_all(candidate, remote)) is not None
+    ]
+    forbidden = next((item for item in verdicts if item.kind == "forbidden"), None)
+    return forbidden or (verdicts[0] if verdicts else None)
+
+
+def _classify(
+    words: list[str], remote: bool = False, piped_into: list[str] | None = None
+) -> Verdict | None:
     words = _strip_prefix(words)
     if not words:
         return None
     program = _program(words[0])
+    if program == "xargs":
+        inner = _positionals(words[1:], XARGS_VALUE_FLAGS)
+        if not inner:
+            return None
+        return _classify(words[words.index(inner[0]) :], remote, piped_into)
+    if program.startswith("$") and len(words) > 1:
+        verbs = KUBECTL_MUTATIONS | FLUX_MUTATIONS | HELM_MUTATIONS | TOFU_MUTATIONS
+        if verbs & set(words[1:]):
+            return Verdict(
+                "authorize",
+                f"`{words[0]}` hides the program name, so the guard cannot "
+                "tell whether this mutation is live; spell the command out",
+            )
+        return None
+    if program in INTERPRETERS and INTERPRETERS[program] in words[1:-1]:
+        code = words[words.index(INTERPRETERS[program]) + 1]
+        return _inline_code(code, remote)
+    if remote and program in POWER_COMMANDS:
+        return Verdict("authorize", f"`{program}` on a fleet host takes it offline")
+    if remote and program == "systemctl":
+        positionals = _positionals(words[1:], {"-H", "--host", "-M", "--machine"})
+        if positionals[:1] and positionals[0] in SYSTEMCTL_MUTATIONS | POWER_COMMANDS:
+            return Verdict(
+                "authorize",
+                f"`systemctl {positionals[0]}` changes a live service on a fleet host",
+            )
+        return None
     if program == "git":
         return _git(words)
     if program == "kubectl":
@@ -272,6 +384,8 @@ def _classify(words: list[str], remote: bool = False) -> Verdict | None:
     if program in SHELLS and "-c" in words[1:]:
         script = words[words.index("-c") + 1 : words.index("-c") + 2]
         return _assess_all(script[0], remote) if script else None
+    if program == "sops":
+        return _sops(words, piped_into)
     if program == "ssh":
         command = " ".join(_positionals(words[1:], SSH_VALUE_FLAGS)[1:])
         return _assess_all(command, remote=True) if command else None
@@ -301,8 +415,8 @@ def _assess_all(command: str, remote: bool = False) -> Verdict | None:
         )
     verdicts = [
         verdict
-        for words in _segments(command)
-        if (verdict := _classify(words, remote)) is not None
+        for words, piped_into in _segments(command)
+        if (verdict := _classify(words, remote, piped_into)) is not None
     ]
     forbidden = next((item for item in verdicts if item.kind == "forbidden"), None)
     return forbidden or (verdicts[0] if verdicts else None)

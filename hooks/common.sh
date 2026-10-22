@@ -39,6 +39,14 @@ hook_trace() {
   [[ -n ${HOOK_INPUT:-} ]] || return 0
   (cd "$REPO_ROOT" && AGENT_HOOK_ACTIVE=1 timeout 0.5 python -m scripts.agent.hook_runtime trace "$1" <<<"$HOOK_INPUT" >/dev/null 2>&1) || true
 }
+hook_housekeeping() {
+  [[ ${AGENT_HOUSEKEEPING:-1} == 1 ]] || return 0
+  command -v flock >/dev/null 2>&1 || return 0
+  mkdir -p "$REPO_ROOT/.agent-state" || return 0
+  (cd "$REPO_ROOT" && AGENT_HOOK_ACTIVE=1 setsid flock -n .agent-state/housekeeping.lock \
+    sh -c 'python -m scripts.agent.worktree_gc --apply --quiet
+      python -m scripts.agent.task_gc --apply --quiet') </dev/null >/dev/null 2>&1 &
+}
 hook_session() { jq -r '.session_id // .conversation_id // "unknown"' <<<"$HOOK_INPUT"; }
 hook_event() { jq -r '.hook_event_name // .event // empty' <<<"$HOOK_INPUT"; }
 hook_ok() { hook_trace empty; printf '%s\n' '{}'; exit 0; }

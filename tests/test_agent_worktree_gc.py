@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -53,6 +55,32 @@ class WorktreeGcTest(unittest.TestCase):
         self.assertEqual(verdicts["merged"], "collectable")
         self.assertEqual(verdicts["ahead"], "has commits not on main")
         self.assertEqual(verdicts["dirty"], "has uncommitted changes")
+
+    def test_recently_created_worktree_is_kept(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            root.mkdir()
+            git(root, "init", "-q", "-b", "main")
+            (root / "f").write_text("1")
+            git(root, "add", "f")
+            subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+                + ["commit", "-qm", "base"],
+                cwd=root,
+                check=True,
+                env={**os.environ, "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"},
+            )
+            git(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+            git(root, "worktree", "add", "-q", ".worktrees/fresh", "-b", "fresh")
+            [fresh] = [
+                w
+                for w in parse_worktrees(git(root, "worktree", "list", "--porcelain"))
+                if w.path.name == "fresh"
+            ]
+            day = 24 * 3600
+            self.assertEqual(classify(root, fresh, root, day), "recently active")
+            later = time.time() + 2 * day
+            self.assertEqual(classify(root, fresh, root, day, later), "collectable")
 
 
 if __name__ == "__main__":

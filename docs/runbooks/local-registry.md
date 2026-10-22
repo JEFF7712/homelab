@@ -41,8 +41,8 @@ Provision these as protected files before the corresponding NixOS activation. Do
 | --- | --- | --- |
 | `nas-01` | `/persist/zot/htpasswd` | bcrypt htpasswd entries for active node, importer, maintenance, and publisher identities |
 | `nas-01` | `/persist/zot/access-control.json` | generated from the committed lock by `scripts.registry access-control` |
-| `nas-01` | `/persist/zot/restic-password` | independently retained restic repository password |
-| `nas-01` | `/persist/zot/cloudflare-dns-api-token` | narrowly scoped Cloudflare DNS API token for DNS-01 |
+| `nas-01` | `registry-restic-password` in `secrets/hosts/nas-01.sops.yaml` (sops-nix) | restic repository password, recoverable with the operator age identities |
+| `nas-01` | `cloudflare-dns-api-token` in `secrets/hosts/nas-01.sops.yaml` (sops-nix) | narrowly scoped Cloudflare DNS API token for DNS-01, shared by Zot, Forgejo and the npm cache |
 | each k3s node | `/persist/secrets/k3s-registries.yaml` | generated node-only registry authentication and explicit upstream rewrites |
 | NAS runner | protected container auth file | importer or project-specific publisher credential, never an administrator credential |
 
@@ -54,8 +54,6 @@ Configure the following protected GitLab variables as file variables:
 | --- | --- |
 | `SSH_DEPLOY_KEY`, `HOSTS_KNOWN` | Existing strict host deployment identity and known-hosts data |
 | `REGISTRY_HTPASSWD_FILE` | bcrypt entries for every generated ACL identity |
-| `REGISTRY_CLOUDFLARE_TOKEN_FILE` | Cloudflare DNS-01 token |
-| `REGISTRY_RESTIC_PASSWORD_FILE` | independently retained restic password |
 | `REGISTRY_NODE_PASSWORD_FILE` | password for the `node` htpasswd identity |
 | `REGISTRY_SOURCE_AUTH_FILE` | OCI auth file for source registries |
 | `REGISTRY_IMPORTER_AUTH_FILE` | destination OCI auth file for the ongoing `importer` identity |

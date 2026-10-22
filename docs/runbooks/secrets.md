@@ -34,7 +34,10 @@ Before changing a secret:
 
    The last command checks that SOPS can decrypt the file while discarding its
    plaintext output. Use the changed manifest's path in this example command.
-   Never replace `/dev/null` with a terminal or captured log.
+   Never replace `/dev/null` with a terminal or captured log. The agent guard
+   (`hooks/pre-tool-use`) holds a SOPS decrypt whose stdout reaches the terminal
+   or a display filter such as `cat`, `head`, `jq`, or `yq`; redirect it, or
+   pipe it into a program that prints only what it derives.
 
 For a new secret or recipient change, first update the reviewed SOPS policy and
 the relevant service runbook. Confirm recipient access and the manifest's
@@ -70,7 +73,13 @@ service needs a composed file such as an `EnvironmentFile`. Declare
 `restartUnits` on each secret or template so that activation restarts the
 consumer when the value changes; deploy jobs do not restart services for
 secret changes. Do not reintroduce files under `/persist/secrets` or CI steps
-that copy secrets onto a host.
+that copy secrets onto a host. The one exception is registry pull
+configuration: `k3s-registries.yaml` on the k3s nodes and nas-01's
+`registry-auth.json` are rendered from `registry/images.lock.json` by the
+registry rollout operations after `registry-verify`, so a node never trusts a
+rewrite before its image is imported. The k3s cluster token is shared by the
+joining nodes in `secrets/shared/k3s.sops.yaml` and has no `restartUnits`;
+rotating it is a cluster operation.
 
 Recipients are the anchored `keys` in `.sops.yaml`: the two operator
 recovery identities plus one age recipient per host, derived with `ssh-to-age`

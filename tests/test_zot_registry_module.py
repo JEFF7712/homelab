@@ -25,6 +25,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
               system = "x86_64-linux";
               modules = [
                 flake.inputs.impermanence.nixosModules.impermanence
+                flake.inputs.sops-nix.nixosModules.sops
                 {json.dumps(str(MODULE))}
                 ({{ ... }}: {{
                   boot.isContainer = true;
@@ -165,7 +166,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
         self.assertEqual(acme["dnsProvider"], "cloudflare")
         self.assertEqual(
             acme["credentialFiles"]["CF_DNS_API_TOKEN_FILE"],
-            "/persist/zot/cloudflare-dns-api-token",
+            "/run/secrets/cloudflare-dns-api-token",
         )
         self.assertEqual(acme["reloadServices"], ["nginx.service"])
 
