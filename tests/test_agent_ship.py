@@ -65,6 +65,19 @@ class ShipPlanTest(unittest.TestCase):
             plan_operations(changed, self.routes, "none", self.catalog).run, []
         )
 
+    def test_tunnel_ingress_changes_apply_the_cloudflare_stack(self) -> None:
+        plan = plan_operations(
+            ["gitops/cloudflare/ingress-config.yaml"], self.routes, "auto", self.catalog
+        )
+        self.assertEqual(plan.run, ["cloudflare-plan", "cloudflare-apply"])
+        plan = plan_operations(
+            ["gitops/cloudflare/approvals-service.yaml"],
+            self.routes,
+            "auto",
+            self.catalog,
+        )
+        self.assertEqual(plan.run, [])
+
     def test_unknown_operation_is_rejected(self) -> None:
         with self.assertRaises(ShipError):
             plan_operations([], self.routes, "rm-rf", self.catalog)

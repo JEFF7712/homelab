@@ -66,7 +66,8 @@
     {
       "name": "cloudflare",
       "paths": [
-        "tofu/cloudflare/"
+        "tofu/cloudflare/",
+        "gitops/cloudflare/ingress-config.yaml"
       ],
       "operations": [
         "cloudflare-plan",
