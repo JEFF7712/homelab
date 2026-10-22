@@ -146,6 +146,33 @@ disk shared with media and NFS that held IO pressure above 80% and made
 every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
 remove it once the SSD store has run cleanly for a while.
 
+### Fleet cache build pilot
+
+The homelab target set in `scripts/ci/cache.sh` uses nix-fast-build from the
+pinned nixpkgs. Its selection is generated from the same 17 targets used by
+the native builder: seven host systems, seven checks and three development
+shells. Laptop and ISO publication continue to use the native builder.
+Full `nix flake check` validation remains a separate gate.
+
+The pilot uses two evaluation workers, a 2048 MiB memory budget per worker,
+and two concurrent build jobs. The initial 1536 MiB budget caused worker
+restarts while evaluating the fleet. The evaluation budget is a worker
+recycling threshold, not a hard process memory limit. The CI container's
+8 GiB limit still applies to evaluation and builds together.
+
+Fast builds retain output GC roots until publication completes. The result
+report must cover every requested target without failures or skipped jobs;
+its output and derivation paths feed the existing source/build-input cache
+publication and per-path upload retries. Missing tooling or a failed fast
+build fails the job without silently retrying through another builder.
+
+For comparison or rollback, set `HOMELAB_CACHE_BUILDER=native` when invoking
+`bash scripts/ci/cache.sh`. Set it to `fast` to explicitly select the pilot.
+Each invocation logs the backend, target count and build elapsed seconds.
+Compare the same source revision and cache state, and distinguish evaluation
+timing from complete build/upload timing. The fast tool is wrapped in the
+development shells to keep its Python dependencies out of repository Python.
+
 All pipelines resolve the dev shell and build outputs from the local Attic
 substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
 ensures the local cache takes precedence over `cache.nixos.org` (priority 40).
