@@ -2,12 +2,13 @@
 
 ## Architecture
 
-Home Assistant and Immich run on CloudNativePG clusters with two instances each:
+Home Assistant, Immich and Umami run on CloudNativePG clusters with two instances each:
 
 | Cluster | Manifest | Image | Database/owner |
 | --- | --- | --- | --- |
 | `home-assistant/home-assistant-cluster` | `gitops/home-assistant/postgres-cluster.yaml` | `postgresql:17` | `homeassistant` |
 | `immich/immich-cluster` | `gitops/immich/postgres-cluster.yaml` | `cloudnative-vectorchord:16` | `immich` |
+| `analytics/umami-cluster` | `gitops/analytics/postgres-cluster.yaml` | `postgresql:17` | `umami` |
 
 - **Placement:** pod anti-affinity across `homelab-01` (preferred primary) and
   `homelab-05`. Nothing else may run an instance.
@@ -21,7 +22,7 @@ Home Assistant and Immich run on CloudNativePG clusters with two instances each:
   (`spec.backup` is unset), so point-in-time recovery is unavailable and the
   recovery point of a full loss is the last dump.
 - **Local dumps:** `immich-db-dump` (02:00 UTC) and `home-assistant-db-dump`
-  (02:30 UTC) write `pg_dump --format=custom` files, gzipped, to the `db-dumps`
+  (02:30 UTC) and `umami-db-dump` (02:45 UTC) write `pg_dump --format=custom` files, gzipped, to the `db-dumps`
   NFS volume on nas-01 (`/tank/cluster/backups-db-dumps-pvc-*/`), 7-day retention.
 - **Offsite:** `dumps-to-r2` (03:00 UTC) snapshots that volume with restic to
   `s3:https://5d99d63dea23dde67ccb07e5dfb31107.r2.cloudflarestorage.com/homelab-longhorn-backup/restic-dumps`.

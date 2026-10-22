@@ -92,7 +92,8 @@ Cloudflare Access public bypass configured.
 49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
 50. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
 51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access app and DNS are dashboard-managed by hand. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
-52. `http_status:404`
+52. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; public Bypass because every tracked site loads `/t.js` and posts `/api/send` anonymously. The dashboard is behind Umami's own login. See [analytics](analytics.md))
+53. `http_status:404`
 
 
 Removed 2026-09-15 (v72):
