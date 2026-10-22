@@ -93,7 +93,11 @@ repositories is a Forgejo read token, not the node password, and is unaffected.
    mismatch. Use supported settings operations. Do not edit the service database,
    derive a token from database material, or give an agent an administrator PAT.
    Existing automation credentials authorize only the projectctl pilot, so these
-   wider CI changes require trusted operator access.
+   wider CI changes require trusted operator access. Then replace every
+   application repository's registry_read_password copy (enumerated above);
+   homelab-agent has repository admin on those and may patch them through the
+   API with the value piped from SOPS. Confirm none remain unpatched before
+   resuming CI.
 5. Atomically install the prepared persistent K3s registry files and NAS client
    auth file, retaining their original restrictive ownership and permissions.
    Inspect each live K3s unit before assuming the current source's LoadCredential
