@@ -242,6 +242,21 @@ class HostSecretsTest(unittest.TestCase):
                     self.evaluated[host]["units"]["platform-backup"],
                 )
 
+    def test_nas_state_and_registry_credentials_use_sops(self) -> None:
+        nas = self.evaluated["nas-01"]
+        for name in (
+            "tofu-state-credentials.json",
+            "tofu-state-server.pem",
+            "tofu-state-server-key.pem",
+        ):
+            with self.subTest(secret=name):
+                self.assertEqual(nas["secrets"][name]["owner"], "tofu-state")
+                self.assertIn(f"/run/secrets/{name}", nas["units"]["tofu-state"])
+        self.assertIn(
+            "RESTIC_PASSWORD_FILE=/run/secrets/registry-restic-password",
+            nas["units"]["registry-backup"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

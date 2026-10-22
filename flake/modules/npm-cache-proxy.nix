@@ -31,7 +31,8 @@ in
 
     cloudflareTokenFile = lib.mkOption {
       type = lib.types.str;
-      default = "/persist/zot/cloudflare-dns-api-token";
+      default = config.sops.secrets.cloudflare-dns-api-token.path;
+      defaultText = lib.literalExpression "config.sops.secrets.cloudflare-dns-api-token.path";
       description = "Cloudflare token for ACME DNS-01. Shared with the registry issuance: same zone-scoped token, no new secret to provision.";
     };
 
@@ -60,6 +61,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # ACME reads the token on each renewal, so a rotation needs no restart.
+    sops.secrets.cloudflare-dns-api-token = { };
+
     assertions = [
       {
         assertion = cfg.acmeEmail != null;
