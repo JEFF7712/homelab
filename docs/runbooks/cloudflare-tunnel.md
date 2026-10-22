@@ -119,11 +119,11 @@ affect remote ingress.
    numbered list above in the same position.
 2. Run `python -m unittest tests.test_cloudflare_tunnel` — asserts config order
    matches this runbook and every origin Service exists.
-3. Deliver with `just ship --deploy cloudflare-plan,cloudflare-apply` once the
-   user has authorized the edge change. The `cloudflare` ship route is held, and
-   it is keyed on `tofu/cloudflare/`, so a change to the ingress list alone does
-   not prompt for it. Read the `cloudflare-plan` summary before the apply runs.
-   The apply prints the new `config_version`.
+3. Deliver with `just ship`. The automatic `cloudflare` ship route is keyed on
+   `tofu/cloudflare/` and `gitops/cloudflare/ingress-config.yaml`, so an
+   ingress-only change runs `cloudflare-plan` and `cloudflare-apply` after the
+   merge. Read the `cloudflare-plan` summary in the job log. The apply prints the
+   new `config_version`.
 4. Verify the public hostname serves the expected origin.
 
 Do not edit ingress rules in the Zero Trust dashboard. The dashboard is where
