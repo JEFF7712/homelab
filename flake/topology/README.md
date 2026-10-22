@@ -11,8 +11,9 @@ are not expanded into physical topology.
 
 These are configuration artifacts, not a live connectivity or health check.
 NixOS facts come from the seven canonical `flake/hosts/` configurations. The
-topology module extends them only for diagram evaluation; production host
-configurations do not import it. Deployment variants are excluded.
+topology adapter projects their evaluated values without extending or
+reevaluating the NixOS module graphs. Production host configurations do not
+import it. Deployment variants are excluded.
 OPNsense VLANs and gateway addresses come from
 `opnsense_reconciler/assignments.json`; BGP intent comes from
 `opnsense_reconciler/bgp-neighbors.json`. A matching declared interface gateway
@@ -28,8 +29,8 @@ assigns the corresponding network. Physical connections are never inferred.
   guests are not modeled. Extracted virtual interfaces may be unassigned.
 - BGP peers are supplied as structured intent, not drawn as physical links or
   claimed to be established sessions.
-- Service extraction is partial. Zot, Woodpecker, k3s and NetBird have explicit
-  adapters for this repository; other services use upstream extractors.
+- Service extraction is partial. Explicit adapters cover Zot, Woodpecker, k3s,
+  NetBird, AdGuard, Forgejo, nginx, OpenSSH, Mosquitto and Zigbee2MQTT.
 
 ## Build and CI artifacts
 

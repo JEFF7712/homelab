@@ -14,51 +14,63 @@ let
   hosts = lib.filterAttrs (
     name: host: name == host.config.networking.hostName
   ) self.nixosConfigurations;
-  diagramHosts = lib.mapAttrs (
+  diagramNodes = lib.mapAttrs (
     _: host:
-    host.extendModules {
-      modules = [
-        nix-topology.nixosModules.default
-        (
-          { config, ... }:
-          {
-            # Upstream assumes Address/Gateway are lists; our networkd units also use scalars.
-            topology.extractors.systemd-network.enable = false;
-            topology.self.interfaces = lib.mkMerge (
-              lib.mapAttrsToList (
-                _: network:
-                let
-                  names = lib.toList (network.matchConfig.Name or [ ]);
-                  addresses =
-                    network.address
-                    ++ map (address: address.Address) network.addresses
-                    ++ lib.toList (network.networkConfig.Address or [ ]);
-                in
-                lib.genAttrs (builtins.filter (name: !(lib.hasInfix "*" name)) names) (name: {
-                  addresses = map (address: builtins.head (lib.splitString "/" address)) addresses;
-                  gateways = network.gateway ++ lib.toList (network.networkConfig.Gateway or [ ]);
-                  virtual = builtins.any (netdev: (netdev.netdevConfig.Name or null) == name) (
-                    builtins.attrValues config.systemd.network.netdevs
-                  );
-                })
-              ) config.systemd.network.networks
+    let
+      config = host.config;
+    in
+    {
+      deviceType = "nixos";
+      interfaces = lib.foldl' lib.recursiveUpdate { } (
+        lib.mapAttrsToList (
+          _: network:
+          let
+            names = lib.toList (network.matchConfig.Name or [ ]);
+            addresses =
+              network.address
+              ++ map (address: address.Address) network.addresses
+              ++ lib.toList (network.networkConfig.Address or [ ]);
+          in
+          lib.genAttrs (builtins.filter (name: !(lib.hasInfix "*" name)) names) (name: {
+            addresses = map (address: builtins.head (lib.splitString "/" address)) addresses;
+            gateways = network.gateway ++ lib.toList (network.networkConfig.Gateway or [ ]);
+            virtual = builtins.any (netdev: (netdev.netdevConfig.Name or null) == name) (
+              builtins.attrValues config.systemd.network.netdevs
             );
-            topology.self.services =
-              lib.optionalAttrs config.services.k3s.enable {
-                k3s.name = "k3s (${config.services.k3s.role})";
-              }
-              // lib.optionalAttrs (config.services.homelab-zot-registry.enable or false) {
-                zot.name = "Zot registry";
-              }
-              // lib.optionalAttrs (config.homelab.woodpecker.enable or false) {
-                woodpecker.name = "Woodpecker CI";
-              }
-              // lib.optionalAttrs (config.services.netbird.clients != { }) {
-                netbird.name = "NetBird client";
-              };
-          }
-        )
-      ];
+          })
+        ) config.systemd.network.networks
+      );
+      services =
+        lib.optionalAttrs config.services.k3s.enable {
+          k3s.name = "k3s (${config.services.k3s.role})";
+        }
+        // lib.optionalAttrs (config.services.homelab-zot-registry.enable or false) {
+          zot.name = "Zot registry";
+        }
+        // lib.optionalAttrs (config.homelab.woodpecker.enable or false) {
+          woodpecker.name = "Woodpecker CI";
+        }
+        // lib.optionalAttrs (config.services.netbird.clients != { }) {
+          netbird.name = "NetBird client";
+        }
+        // lib.optionalAttrs config.services.adguardhome.enable {
+          adguardhome.name = "AdGuard Home";
+        }
+        // lib.optionalAttrs config.services.forgejo.enable {
+          forgejo.name = "Forgejo";
+        }
+        // lib.optionalAttrs config.services.nginx.enable {
+          nginx.name = "NGINX";
+        }
+        // lib.optionalAttrs config.services.openssh.enable {
+          openssh.name = "OpenSSH";
+        }
+        // lib.optionalAttrs config.services.mosquitto.enable {
+          mosquitto.name = "Mosquitto";
+        }
+        // lib.optionalAttrs config.services.zigbee2mqtt.enable {
+          zigbee2mqtt.name = "Zigbee2MQTT";
+        };
     }
   ) hosts;
   topology = import nix-topology {
@@ -67,7 +79,6 @@ let
       (
         { ... }:
         {
-          nixosConfigurations = diagramHosts;
           networks = builtins.listToAttrs (
             map (assignment: {
               name = assignment.descr;
@@ -98,19 +109,24 @@ let
               deviceType = "internet";
             };
           }
-          // lib.mapAttrs (_: host: {
-            interfaces = lib.mapAttrs (
-              _: interface:
-              let
-                matches = builtins.filter (
-                  assignment: builtins.elem (builtins.head (lib.splitString "/" assignment.ipaddr)) interface.gateways
-                ) assignments;
-              in
-              lib.optionalAttrs (builtins.length matches == 1) {
-                network = (builtins.head matches).descr;
-              }
-            ) host.config.topology.self.interfaces;
-          }) diagramHosts;
+          // lib.mapAttrs (
+            _: node:
+            node
+            // {
+              interfaces = lib.mapAttrs (
+                _: interface:
+                let
+                  matches = builtins.filter (
+                    assignment: builtins.elem (builtins.head (lib.splitString "/" assignment.ipaddr)) interface.gateways
+                  ) assignments;
+                in
+                interface
+                // lib.optionalAttrs (builtins.length matches == 1) {
+                  network = (builtins.head matches).descr;
+                }
+              ) node.interfaces;
+            }
+          ) diagramNodes;
           assertions = [
             {
               assertion = builtins.length (builtins.attrNames hosts) == 7;
@@ -145,7 +161,7 @@ let
       "Physical switch ports, cabling and WAN handoff are not modeled. No physical links are inferred."
       "Kubernetes workloads, service routes, Cloudflare tunnels and NetBird overlay paths are not extracted."
       "BGP peer intent is included in topology.json, not drawn as physical connectivity or verified live."
-      "Custom services are selected explicitly; upstream service extraction is not a complete service inventory."
+      "Services are selected explicitly from evaluated configuration, not a complete service inventory."
       "Virtual interfaces without a declared gateway may have no network assignment."
     ];
   };
