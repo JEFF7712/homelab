@@ -7,3 +7,4 @@ resources:
   - pdb.yaml
   - forgejo-service.yaml
   - approvals-service.yaml
+  - woodpecker-service.yaml
