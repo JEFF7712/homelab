@@ -35,7 +35,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: web
-          image: registry.rupan.dev/apps/spatia-site@sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/spatia-site@sha256:8fe33e83256e99b1cd2e09e06eba3407efdb0fde9fff82d58da131677479c699  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
