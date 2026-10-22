@@ -225,14 +225,15 @@ automation referencing them.
    `10.0.30.15/32` so an interactive HA login from the kiosk stays
    passwordless. The face websocket itself always needs a long-lived
    token: `homelab.kiosk.haTokenFile`
-   (`flake/modules/kiosk.nix`, set to
-   `/persist/secrets/jarvis-kiosk-ha-token` on `homelab-05`) holds it,
-   and `kiosk-ha-token-seed.service` re-seeds it into the kiosk
-   browser over its local DevTools port on every boot. The token lives
-   only in that host file and the browser profile, never in Git.
-   To rotate: create a new long-lived token in the HA UI and overwrite
-   `/persist/secrets/jarvis-kiosk-ha-token` (root, mode 600) on
-   `homelab-05`, then reboot or restart `kiosk-ha-token-seed.service`.
+   (`flake/modules/kiosk.nix`, set on `homelab-05` to the
+   `jarvis-kiosk-ha-token` sops-nix secret) holds it, and
+   `kiosk-ha-token-seed.service` re-seeds it into the kiosk browser over
+   its local DevTools port on every boot. The token is encrypted in
+   `secrets/hosts/homelab-05.sops.yaml`; plaintext exists only under
+   `/run/secrets` and in the browser profile. To rotate: create a new
+   long-lived token in the HA UI, replace `jarvis-kiosk-ha-token` with
+   `sops secrets/hosts/homelab-05.sops.yaml`, and ship the change;
+   activation restarts `kiosk-ha-token-seed.service`.
 6. Satellite audio and VAD tuning (on device `Homelab 05 Satellite`):
    - `select.homelab_05_satellite_finished_speaking_detection`: set to `aggressive`
      (0.25s silence detection vs. 0.7s default).
@@ -876,7 +877,7 @@ To add or update speaker voice profiles:
   so a fresh Chromium profile has no token until
   `kiosk-ha-token-seed.service` runs. Check
   `systemctl status kiosk-ha-token-seed` on `homelab-05` and confirm
-  `/persist/secrets/jarvis-kiosk-ha-token` exists (root, mode 600).
+  `/run/secrets/jarvis-kiosk-ha-token` exists (root, mode 400).
   Manual fallback is entering the token once in the kiosk browser.
 - Face shows IDLE but never LISTENING: satellite pod not ready or HA Wyoming
   entry pointing at the wrong host. `just status cluster` plus the satellite

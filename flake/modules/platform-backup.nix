@@ -22,6 +22,9 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
+    # homelab-04 and nas-01 write to the same Restic repository.
+    sops.secrets."platform-backup.env".sopsFile = ../../secrets/shared/platform-backup.sops.yaml;
+
     systemd.services.platform-backup = {
       description = "Back up Git, CI, state, and recovery credentials";
       unitConfig.RequiresMountsFor =
@@ -40,7 +43,7 @@ in
           + lib.optionalString (
             cfg.bookshelfConfigPath != ""
           ) " --bookshelf-config ${lib.escapeShellArg cfg.bookshelfConfigPath}";
-        EnvironmentFile = "/persist/platform-backup.env";
+        EnvironmentFile = config.sops.secrets."platform-backup.env".path;
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
         UMask = "0077";
@@ -65,7 +68,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode maintenance";
-        EnvironmentFile = "/persist/platform-backup.env";
+        EnvironmentFile = config.sops.secrets."platform-backup.env".path;
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
         UMask = "0077";

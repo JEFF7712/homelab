@@ -45,8 +45,9 @@ in
 
     environmentFile = lib.mkOption {
       type = lib.types.str;
-      default = "/persist/repo-monitor.env";
-      description = "Root-owned mode-0600 file providing FORGEJO_READ_TOKEN and GITHUB_TOKEN.";
+      default = config.sops.secrets."repo-monitor.env".path;
+      defaultText = lib.literalExpression ''config.sops.secrets."repo-monitor.env".path'';
+      description = "Root-owned file providing FORGEJO_READ_TOKEN and GITHUB_TOKEN.";
     };
 
     pollIntervalSeconds = lib.mkOption {
@@ -116,6 +117,8 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    sops.secrets."repo-monitor.env".restartUnits = [ "repo-monitor.service" ];
+
     systemd.services.repo-monitor = {
       description = "Repository health monitor (Forgejo mirrors, GitHub, Woodpecker CI)";
       wantedBy = [ "multi-user.target" ];
