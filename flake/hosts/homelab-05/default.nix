@@ -77,8 +77,21 @@ in
     pkgs.bluez-tools
   ];
 
+  sops.defaultSopsFile = ../../../secrets/hosts/homelab-05.sops.yaml;
+  sops.secrets = {
+    jarvis-kiosk-ha-token.restartUnits = [ "kiosk-ha-token-seed.service" ];
+    # Apollo publishes as the roku-bridge broker user on adguard-netbird-01.
+    mosquitto-roku-bridge-password = {
+      sopsFile = ../../../secrets/shared/mqtt-roku-bridge.sops.yaml;
+      restartUnits = map (device: "apollo-ble-bridge-${device}.service") (
+        builtins.attrNames config.homelab.apollo-ble-bridge.devices
+      );
+    };
+  };
+
   homelab.apollo-ble-bridge = {
     enable = true;
+    passwordFile = config.sops.secrets.mosquitto-roku-bridge-password.path;
     devices = {
       living-room = {
         mac = "01:05:46:00:3A:71";
@@ -195,7 +208,7 @@ in
   homelab.kiosk = {
     enable = true;
     url = "http://10.0.40.13:8123/local/jarvis/index.html?v=19";
-    haTokenFile = "/persist/secrets/jarvis-kiosk-ha-token";
+    haTokenFile = config.sops.secrets.jarvis-kiosk-ha-token.path;
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
     disableOutputs = [ "HDMI-A-2" ];

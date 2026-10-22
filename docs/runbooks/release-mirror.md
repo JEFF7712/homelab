@@ -11,7 +11,8 @@ to GitHub every five minutes, with up to 30 seconds of scheduling jitter.
 - `flake/hosts/homelab-04/default.nix`: explicit `JEFF7712/nix-agent` enrollment,
   starting at v0.13.0. Earlier GitHub releases are left as they are.
 - `scripts/ci/release_mirror.py`: API reconciliation and asset verification.
-- `/persist/repo-monitor.env`: existing root-owned mode-0600 credentials.
+- `repo-monitor.env` in `secrets/hosts/homelab-04.sops.yaml`: credentials
+  shared with the repo monitor, installed at `/run/secrets/repo-monitor.env`.
   `FORGEJO_READ_TOKEN` reads the private source repository; `GITHUB_TOKEN` must
   have repository contents write permission for the destination. Never print
   these values or copy them into the Nix store.

@@ -47,8 +47,11 @@ in
     users.groups.approvals = { };
     systemd.tmpfiles.rules = [
       "d ${cfg.stateDir} 0700 approvals approvals -"
-      "z /persist/secrets/approvals-operator-token 0600 root root -"
     ];
+    sops.secrets = {
+      approvals-operator-token.restartUnits = [ "approvals.service" ];
+      "approvals.env".restartUnits = [ "approvals.service" ];
+    };
     environment.systemPackages = [ enroll ];
     systemd.services.approvals = {
       description = "Approvals dashboard for held CI operations";
@@ -65,8 +68,8 @@ in
         Group = "approvals";
         # The operator token never leaves root-owned storage; systemd hands
         # the service a private copy for its lifetime only.
-        LoadCredential = "operator-token:/persist/secrets/approvals-operator-token";
-        EnvironmentFile = "-/persist/secrets/approvals.env";
+        LoadCredential = "operator-token:${config.sops.secrets.approvals-operator-token.path}";
+        EnvironmentFile = config.sops.secrets."approvals.env".path;
         ReadWritePaths = [ cfg.stateDir ];
         Restart = "on-failure";
         ProtectSystem = "strict";
