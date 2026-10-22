@@ -19,7 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -3723,6 +3723,64 @@ def _normalize_scan_item(item: Any, fallback_key: str | None = None) -> dict[str
         "cves": [],
         "digest": digest,
         "repository": repo,
+    }
+
+
+def scan_images(
+    lock: Mapping[str, Any],
+    scan_one: Callable[[str, str, str], Mapping[str, Any]],
+    *,
+    registry: str = DEFAULT_REGISTRY,
+    only: frozenset[str] | None = None,
+) -> dict[str, Any]:
+    """Scan every locked image and build an `audit_cves` scans document.
+
+    `scan_one` receives the destination repository, locked digest, and
+    digest-pinned reference, and returns the raw scanner report for that
+    image. Per-image failures are recorded as error items (which
+    `audit_cves` reports as indeterminate) so one broken image never
+    aborts the remaining scans.
+    """
+    images: list[dict[str, Any]] = []
+    scanned = 0
+    errors = 0
+    for record in lock.get("images", []):
+        dest_repo = str(record.get("destination_repository", ""))
+        digest_val = str(record.get("digest", ""))
+        if only is not None and dest_repo not in only:
+            continue
+        ref = f"{registry}/{dest_repo}@{digest_val}"
+        if not dest_repo or not _DIGEST_RE.match(digest_val):
+            errors += 1
+            images.append(
+                {
+                    "destination_repository": dest_repo,
+                    "digest": digest_val or None,
+                    "scanner_status": "error",
+                    "scanner_error": f"invalid locked image, cannot scan {ref}",
+                }
+            )
+            continue
+        try:
+            images.append(dict(scan_one(dest_repo, digest_val, ref)))
+            scanned += 1
+        except Exception as error:
+            errors += 1
+            images.append(
+                {
+                    "destination_repository": dest_repo,
+                    "digest": digest_val,
+                    "scanner_status": "error",
+                    "scanner_error": str(error),
+                }
+            )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "command": "scan",
+        "status": "ok",
+        "scanned": scanned,
+        "errors": errors,
+        "images": images,
     }
 
 
