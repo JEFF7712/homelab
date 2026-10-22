@@ -17,15 +17,29 @@ Deploy `flake/modules/github-runner-nixos.nix` to homelab-04 before relying on
 the restriction. Its offline behavior tests are
 `tests/test_github_runner_nixos_guard.py`.
 
-All three agents use Docker. Sandbox jobs receive no production credentials,
+All agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
 have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
 Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
 of 3.9 GiB), so an operation container copies far less from Attic before it
-starts. `cache-publish` pushes all three shells. Every agent has two
-workflow slots. Operations serialize on the resource
+starts. `cache-publish` pushes all three shells. The three homelab-04 agents
+each have two workflow slots. An additional sandbox-only agent on homelab-05
+has one slot, bringing sandbox capacity to three. Trusted and deployment
+concurrency stay unchanged. Its server-side filter enforces `tier=sandbox`.
+The new host CI slice is limited to three CPUs and 10 GiB, with that budget
+reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
+and 8 GiB container limits.
+
+The remote agent uses a dedicated SSH tunnel with a pinned homelab-04 host
+key. Its account can forward only to `127.0.0.1:9000`, cannot open a shell
+or remote listener, and has no sudo access. The server's gRPC listener
+remains on loopback. The agent token and tunnel key are encrypted in
+`secrets/hosts/homelab-05.sops.yaml`; jobs cannot access those files, the
+Docker socket, or the host tunnel. Both CI hosts block container NFS egress.
+
+Operations serialize on the resource
 they act on: the catalog `group` becomes the concurrency group
 `resource-<group>` with limit one, so two OpenTofu applies on the same stack
 never overlap while a cache push and a Home Assistant apply can. Scheduled
@@ -143,10 +157,24 @@ is reported and skipped instead of aborting the whole upload. Push a rejected
 path from another machine to unblock it; the job fails only when nothing uploads.
 
 Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report`:
-- Queue wait time is tracked from `CI_PIPELINE_CREATED` and reported separately under
-  `[WAIT / QUEUE]`, clearly distinguishing runner queue contention from execution duration.
-- Individual lanes (`fmt`, `jev`, `gate`) and substeps (`provision`, `gate-checks`)
-  report resource usage and execution times under `[EXECUTION BREAKDOWN]`.
+- `[PIPELINE AGE]` measures creation to the first timed command, including
+  queueing, earlier steps and shell bootstrap. Use pipeline creation and
+  workflow start timestamps from the API for root-workflow queue time;
+  dependent workflows also require their prerequisites' finish timestamps.
+- Individual lanes (`fmt`, `jev`, `gate`) and every full-gate check report
+  execution times under `[EXECUTION BREAKDOWN]`. Cgroup memory peaks,
+  OOM-kill deltas and CPU-throttling deltas distinguish resource limits
+  from slow checks. Concurrent checks share counters, so their values
+  overlap and must not be added together. SIGKILL alone does not establish
+  OOM; missing cgroup files mean unavailable evidence.
+
+The server wraps the pinned default clone plugin with at most three
+attempts, 60 seconds per attempt plus a five-second kill grace, and five-
+then ten-second backoff. Only transient connection errors, HTTP 429 and
+selected HTTP 5xx responses retry. Credential rejection, missing content
+and certificate validation failures fail immediately. Retries retain the
+dedicated read-only clone identity and TLS verification and do not rerun
+release or deployment commands.
 
 A current main push additionally runs opnsense-plan and cloudflare-plan
 after validation, the plans that apply operations consume. GitHub sync and
@@ -346,6 +374,22 @@ operator token off machines where agents run unattended. Never commit either
 token.
 
 ## Recovery
+
+Keep a newly registered remote agent disabled until its host credentials,
+server filter, SSH tunnel and container limits have been verified. Deploy
+homelab-04's tunnel account before expecting the homelab-05 tunnel to connect.
+To remove the extra capacity, disable that agent in Woodpecker, let its current
+job finish, then disable `homelab.woodpeckerSandbox.enable` through source and
+the fleet deployment path. Restore the recorded host generation if activation
+degrades the node. Recheck kubelet allocatable resources after either change.
+
+For a stranded pipeline, compare its workflow IDs against the administrator
+queue and actual agent execution before canceling that specific pipeline with
+the supported `POST /api/repos/1/pipelines/<number>/cancel` endpoint. This
+preserves logs. Woodpecker 3.19 can leave old workflow rows marked running
+after their parent becomes killed when no agent remains to report completion.
+Those rows do not establish slot usage; exclude terminal parents from active
+queue and utilization calculations. Do not cancel or restart unrelated work.
 
 GitLab CI is disabled by default. An offline runner or GitLab webhook is not
 failover. homelab-04-dr disables Woodpecker agents and enables fresh Docker

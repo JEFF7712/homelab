@@ -86,6 +86,8 @@ let
   };
 in
 {
+  imports = [ ./woodpecker-sandbox.nix ];
+
   options.homelab.woodpecker = {
     enable = lib.mkEnableOption "Woodpecker CI with server-owned container execution policy";
     serverHost = lib.mkOption {
@@ -103,6 +105,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    homelab.woodpeckerSandbox.acceptTunnel = true;
     systemd.slices.ci.sliceConfig = {
       MemoryHigh = "18G";
       MemoryMax = "22G";
