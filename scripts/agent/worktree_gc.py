@@ -1,8 +1,11 @@
 """Remove task worktrees whose work already landed on main.
 
 A worktree under .worktrees/ is collectable when it has no tracked or
-untracked changes, is not locked, is not the caller's own checkout, and its
-HEAD is contained in origin/main. Collecting removes the worktree and deletes
+untracked changes, is not locked, is not the caller's own checkout, its
+HEAD is contained in origin/main, and its HEAD reflog has been idle for at least
+--min-idle-hours. The idle window keeps a freshly created worktree, which is
+clean and merged until its first commit, from being collected under an agent
+that just entered it. Collecting removes the worktree and deletes
 its branch with `git branch -d`, which refuses anything unmerged. Without
 --apply it only reports.
 """
@@ -12,6 +15,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,7 +55,21 @@ def parse_worktrees(porcelain: str) -> list[Worktree]:
     return worktrees
 
 
-def classify(root: Path, worktree: Worktree, current: Path) -> str:
+def last_activity(worktree: Path) -> float:
+    selector = git(
+        "log", "-g", "-1", "--date=unix", "--format=%gd", "HEAD", cwd=worktree
+    ).stdout.strip()
+    stamp = selector.removeprefix("HEAD@{").removesuffix("}")
+    return float(stamp) if stamp.isdigit() else worktree.stat().st_mtime
+
+
+def classify(
+    root: Path,
+    worktree: Worktree,
+    current: Path,
+    min_idle_seconds: float = 0,
+    now: float | None = None,
+) -> str:
     if worktree.locked:
         return "locked"
     if worktree.path.resolve() == current.resolve():
@@ -64,6 +82,9 @@ def classify(root: Path, worktree: Worktree, current: Path) -> str:
         "merge-base", "--is-ancestor", worktree.head, "origin/main", cwd=root
     ).returncode:
         return "has commits not on main"
+    idle = (time.time() if now is None else now) - last_activity(worktree.path)
+    if idle < min_idle_seconds:
+        return "recently active"
     return "collectable"
 
 
@@ -71,6 +92,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="just worktree-gc")
     parser.add_argument(
         "--apply", action="store_true", help="remove collectable worktrees"
+    )
+    parser.add_argument(
+        "--min-idle-hours",
+        type=float,
+        default=24,
+        help="skip worktrees whose HEAD moved more recently (default 24)",
+    )
+    parser.add_argument(
+        "--quiet", action="store_true", help="print only removals and failures"
     )
     args = parser.parse_args(argv)
     current = Path.cwd()
@@ -85,10 +115,11 @@ def main(argv: list[str] | None = None) -> int:
     for worktree in parse_worktrees(listing):
         if root / ".worktrees" not in worktree.path.parents:
             continue
-        verdict = classify(root, worktree, current)
+        verdict = classify(root, worktree, current, args.min_idle_hours * 3600)
         label = worktree.branch or "detached"
         if verdict != "collectable":
-            print(f"keep    {worktree.path.name} ({label}): {verdict}")
+            if not args.quiet:
+                print(f"keep    {worktree.path.name} ({label}): {verdict}")
             continue
         if not args.apply:
             print(f"collect {worktree.path.name} ({label})")
@@ -106,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"removed {worktree.path.name} ({label})")
     if not args.apply:
         print("dry run; rerun with --apply to remove the collectable worktrees")
-    else:
+    elif not args.quiet:
         print(f"removed {collected} worktrees")
     return 0
 

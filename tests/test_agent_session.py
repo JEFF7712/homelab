@@ -17,6 +17,14 @@ from tests.agent_helpers import commit, make_repository
 from tests.test_agent_tasks import creation_payload
 
 
+def setUpModule() -> None:
+    os.environ["AGENT_HOUSEKEEPING"] = "0"
+
+
+def tearDownModule() -> None:
+    os.environ.pop("AGENT_HOUSEKEEPING", None)
+
+
 class AgentSessionTest(unittest.TestCase):
     def test_new_client_launchers_select_cli_not_antigravity_desktop(self) -> None:
         self.assertEqual(CLIENTS["antigravity"], "agy")
@@ -42,7 +50,11 @@ class AgentSessionTest(unittest.TestCase):
                     / "homelab-agent-session"
                 )
                 self.assertTrue(bridge.is_file())
-                filtered = {"PATH": environment["PATH"], "PYTHONPATH": str(source)}
+                filtered = {
+                    "PATH": environment["PATH"],
+                    "PYTHONPATH": str(source),
+                    "AGENT_HOUSEKEEPING": "0",
+                }
                 result = subprocess.run(
                     ["bash", str(root / "hooks/session-start")],
                     cwd=root,

@@ -18,6 +18,14 @@ from tests.agent_helpers import commit, make_repository
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def setUpModule() -> None:
+    os.environ["AGENT_HOUSEKEEPING"] = "0"
+
+
+def tearDownModule() -> None:
+    os.environ.pop("AGENT_HOUSEKEEPING", None)
+
+
 class AgentHookTest(unittest.TestCase):
     def test_real_client_failure_shapes_and_unknown_codes(self) -> None:
         cases = [

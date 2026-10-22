@@ -26,6 +26,10 @@ doctor *args:
 worktree-gc *args:
     python -m scripts.agent.worktree_gc {{args}}
 
+# Archive complete task records and report stale active ones.
+task-gc *args:
+    python -m scripts.agent.task_gc {{args}}
+
 # Read-only one-shot diagnosis of a Flux Kustomization or namespace.
 diag name *args:
     python -m scripts.agent.diag {{name}} {{args}}
