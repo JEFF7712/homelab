@@ -158,7 +158,8 @@ in
 
     cloudflareTokenFile = lib.mkOption {
       type = lib.types.str;
-      default = "/persist/zot/cloudflare-dns-api-token";
+      default = config.sops.secrets.cloudflare-dns-api-token.path;
+      defaultText = lib.literalExpression "config.sops.secrets.cloudflare-dns-api-token.path";
       description = "Runtime Cloudflare token used only by the ACME DNS-01 service.";
     };
 
@@ -203,6 +204,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # ACME reads the token on each renewal, so a rotation needs no restart.
+    sops.secrets.cloudflare-dns-api-token = { };
+
     assertions = [
       {
         assertion = supported;

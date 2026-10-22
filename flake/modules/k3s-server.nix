@@ -44,8 +44,9 @@ in
 
     tokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Runtime-provisioned file containing the k3s cluster token.";
+      default = if cfg.clusterInit then null else config.sops.secrets.k3s-token.path;
+      defaultText = lib.literalExpression "null for the cluster-init server, else the shared k3s-token sops secret";
+      description = "Runtime file containing the k3s cluster token.";
     };
 
     bootstrapCilium = lib.mkOption {
@@ -82,6 +83,12 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # No restartUnits: rotating the cluster token is a coordinated cluster
+    # operation, not something activation should trigger node by node.
+    sops.secrets.k3s-token = lib.mkIf (!cfg.clusterInit) {
+      sopsFile = ../../secrets/shared/k3s.sops.yaml;
+    };
+
     assertions = [
       {
         # k3s stops parsing flags at the first bare word, so an unquoted space

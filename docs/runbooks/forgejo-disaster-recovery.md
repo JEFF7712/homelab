@@ -47,8 +47,8 @@ authorization. Drain both schedulers before activation or authority changes.
    matching protected GitLab file variable. Clients verify TLS at
    https://s3.internal:3902. Rotate the certificate and client CA together
    before its one-year expiry.
-7. Install root-owned mode-0600 Woodpecker server.env, separate agent tier
-   EnvironmentFiles, policy.env containing POLICY_API_TOKEN, and
+7. Store the Woodpecker server, per-tier agent and policy (POLICY_API_TOKEN)
+   environments in secrets/hosts/homelab-04.sops.yaml, and install
    signature-public.pem from the running server's public-key endpoint.
    Install the bundle's homelab-04/woodpecker/clone.env under
    /persist/woodpecker/clone.env, also root-owned mode 0600. Native clones use
