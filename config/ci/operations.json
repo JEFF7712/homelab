@@ -293,6 +293,41 @@
     "prerequisite": "",
     "agent": true
   },
+  "registry-cve-audit": {
+    "commands": [
+      "mkdir -p artifacts/registry",
+      "python -m scripts.ci.run registry-cve-audit-scan -- python -m scripts.registry scan --lock registry/images.lock.json --output artifacts/registry/trivy-scans.json --username node --password-file \"$REGISTRY_NODE_PASSWORD_FILE\"",
+      "python -m scripts.ci.run registry-cve-audit-report -- python -m scripts.registry audit-cves --lock registry/images.lock.json --scans artifacts/registry/trivy-scans.json --report artifacts/registry/cve-report.json"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [
+      "artifacts/registry/"
+    ],
+    "legacy_job": "registry_cve_audit",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
   "registry-update-import": {
     "commands": [
       "export REGISTRY_DEST_AUTH_FILE=\"$REGISTRY_IMPORTER_AUTH_FILE\"",
@@ -1394,7 +1429,9 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deploy-fleet --dry-run"
+      "just deployment-report --output-dir artifacts/deployment-report/deploy-fleet-dry-run/before",
+      "just deploy-fleet --dry-run",
+      "just deployment-report --output-dir artifacts/deployment-report/deploy-fleet-dry-run/after"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1421,7 +1458,9 @@
     ],
     "group": "homelab-fleet-deploy",
     "needs": [],
-    "outputs": [],
+    "outputs": [
+      "artifacts/deployment-report/deploy-fleet-dry-run/"
+    ],
     "legacy_job": "deploy_fleet_dry_run",
     "automatic": false,
     "mutation": false,
@@ -1496,7 +1535,9 @@
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
       "chmod 600 ~/.kube/config",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deploy-fleet --dry-run --target homelab-01"
+      "just deployment-report --target homelab-01 --output-dir artifacts/deployment-report/deploy-agent-workspace-host-dry-run/before",
+      "just deploy-fleet --dry-run --target homelab-01",
+      "just deployment-report --target homelab-01 --output-dir artifacts/deployment-report/deploy-agent-workspace-host-dry-run/after"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1523,7 +1564,9 @@
     ],
     "group": "homelab-fleet-deploy",
     "needs": [],
-    "outputs": [],
+    "outputs": [
+      "artifacts/deployment-report/deploy-agent-workspace-host-dry-run/"
+    ],
     "legacy_job": "deploy_agent_workspace_host_dry_run",
     "automatic": false,
     "mutation": false,
@@ -2182,7 +2225,9 @@
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
       "chmod 600 ~/.kube/config",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deploy-fleet --dry-run --target homelab-04"
+      "just deployment-report --target homelab-04 --output-dir artifacts/deployment-report/deploy-ci-host-dry-run/before",
+      "just deploy-fleet --dry-run --target homelab-04",
+      "just deployment-report --target homelab-04 --output-dir artifacts/deployment-report/deploy-ci-host-dry-run/after"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -2209,7 +2254,9 @@
     ],
     "group": "homelab-fleet-deploy",
     "needs": [],
-    "outputs": [],
+    "outputs": [
+      "artifacts/deployment-report/deploy-ci-host-dry-run/"
+    ],
     "legacy_job": "",
     "automatic": false,
     "mutation": false,

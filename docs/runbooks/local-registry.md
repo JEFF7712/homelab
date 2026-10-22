@@ -280,15 +280,26 @@ Key rules:
 
 Vulnerability scanning (via Trivy, Grype, or Zot vulnerability scans) is deliberately decoupled from routine image copying and lock verification. Image copying (`copy`) and verification (`verify`) remain content-integrity operations that are never blocked by scanner tool or vulnerability database outages.
 
-Out-of-band CVE audits and delta tracking are executed via:
+Out-of-band CVE audits and delta tracking run weekly via the
+`registry-cve-audit` CI operation (Sunday, in the `weekly` schedule), or
+locally via `just registry-cve-audit`. Each run scans every locked image
+with trivy by digest-pinned destination reference, then folds the reports
+into the CVE report:
 
 ```sh
+python -m scripts.registry scan \
+  --lock registry/images.lock.json \
+  --output artifacts/registry/trivy-scans.json
 python -m scripts.registry audit-cves \
   --lock registry/images.lock.json \
   --scans artifacts/registry/trivy-scans.json \
   --previous-report artifacts/registry/cve-report.json \
   --report artifacts/registry/cve-report-new.json
 ```
+
+The audit exits nonzero when any image is vulnerable or unscannable, so
+the weekly schedule goes red on findings. Triage `new_cves` in
+`artifacts/registry/cve-report.json`.
 
 Key guarantees:
 - **Indeterminate status:** Scanner infrastructure errors (timeouts, network errors, CVE database download failures) are recorded as `status: "indeterminate"` and `scanner_status: "error"`. They are never reported as clean passes (false negatives) and do not trigger phantom vulnerability alerts.

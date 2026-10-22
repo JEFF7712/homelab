@@ -56,6 +56,7 @@ from scripts.registry.core import (
     resolve_inventory,
     rewrite_consumer_digests,
     rewrite_observed_digests,
+    scan_images,
     select_promotion_candidate,
     smoke_test_image,
     validate_lock,
@@ -3521,6 +3522,111 @@ class CveAuditTests(unittest.TestCase):
         self.assertEqual(len(report["images"][0]["cves"]), 1)
         self.assertEqual(report["images"][0]["cves"][0]["id"], "CVE-2026-1111")
         self.assertEqual(report["images"][0]["cves"][0]["package"], "libcurl")
+
+
+class ScanImagesTests(unittest.TestCase):
+    def _lock(self) -> dict[str, Any]:
+        return {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": "sha256:" + "1" * 64,
+                },
+                {
+                    "destination_repository": "upstream/docker.io/library/alpine",
+                    "digest": "sha256:" + "2" * 64,
+                },
+            ]
+        }
+
+    def _trivy_report(self, ref: str) -> dict[str, Any]:
+        return {
+            "ArtifactName": ref,
+            "Metadata": {"RepoDigests": [ref]},
+            "Results": [
+                {
+                    "Target": "target",
+                    "Vulnerabilities": [
+                        {
+                            "VulnerabilityID": "CVE-2026-1111",
+                            "Severity": "HIGH",
+                            "PkgName": "musl",
+                            "InstalledVersion": "1.2",
+                            "FixedVersion": "1.3",
+                            "Title": "Stub",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def test_scan_pins_digest_reference_and_round_trips_through_audit(self) -> None:
+        seen: list[tuple[str, str, str]] = []
+
+        def fake_scan(dest: str, digest_val: str, ref: str) -> dict[str, Any]:
+            seen.append((dest, digest_val, ref))
+            return self._trivy_report(ref)
+
+        scans = scan_images(self._lock(), fake_scan)
+        self.assertEqual(scans["status"], "ok")
+        self.assertEqual(scans["scanned"], 2)
+        self.assertEqual(scans["errors"], 0)
+        self.assertEqual(
+            seen[0][2], f"registry.rupan.dev/apps/apolline@sha256:{'1' * 64}"
+        )
+        self.assertEqual(
+            seen[1][2],
+            f"registry.rupan.dev/upstream/docker.io/library/alpine@sha256:{'2' * 64}",
+        )
+        report = audit_cves(self._lock(), scan_results=scans)
+        self.assertEqual(report["status"], "vulnerable")
+        self.assertEqual(report["summary"]["vulnerable_images"], 2)
+
+    def test_scan_failure_is_indeterminate_and_does_not_abort(self) -> None:
+        def flaky_scan(dest: str, digest_val: str, ref: str) -> dict[str, Any]:
+            if dest == "apps/apolline":
+                raise RegistryError("trivy failed scanning: boom")
+            return self._trivy_report(ref)
+
+        scans = scan_images(self._lock(), flaky_scan)
+        self.assertEqual(scans["scanned"], 1)
+        self.assertEqual(scans["errors"], 1)
+        report = audit_cves(self._lock(), scan_results=scans)
+        self.assertEqual(report["status"], "indeterminate")
+        by_repo = {image["destination_repository"]: image for image in report["images"]}
+        self.assertEqual(by_repo["apps/apolline"]["status"], "indeterminate")
+        self.assertIn("boom", by_repo["apps/apolline"]["scanner_error"])
+        self.assertEqual(
+            by_repo["upstream/docker.io/library/alpine"]["status"], "vulnerable"
+        )
+
+    def test_scan_only_limits_to_named_repositories(self) -> None:
+        seen: list[str] = []
+
+        def tracking_scan(dest: str, digest_val: str, ref: str) -> dict[str, Any]:
+            seen.append(dest)
+            return self._trivy_report(ref)
+
+        scans = scan_images(
+            self._lock(), tracking_scan, only=frozenset({"apps/apolline"})
+        )
+        self.assertEqual(seen, ["apps/apolline"])
+        self.assertEqual(len(scans["images"]), 1)
+
+    def test_scan_invalid_locked_digest_is_error_without_scanning(self) -> None:
+        lock = {
+            "images": [
+                {
+                    "destination_repository": "apps/apolline",
+                    "digest": "not-a-digest",
+                }
+            ]
+        }
+        scans = scan_images(lock, lambda dest, digest_val, ref: self._trivy_report(ref))
+        self.assertEqual(scans["scanned"], 0)
+        self.assertEqual(scans["errors"], 1)
+        report = audit_cves(lock, scan_results=scans)
+        self.assertEqual(report["images"][0]["status"], "indeterminate")
 
 
 class RegistryCliUpstreamAndCveTests(unittest.TestCase):
