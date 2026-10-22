@@ -329,6 +329,16 @@ journal is the place to start, with
 with its path, status and identity. Until that is understood, treat a burst as
 a client-credential or rate problem, not as content loss.
 
+For an application base-image pull, also check that repository's
+`registry_read_password` secret. These are separate values per Woodpecker
+repository even when they authenticate as the same `node` account. A
+successful Bookshelf release does not validate rupan.dev's copy. At
+2026-10-21 20:12:24 America/Chicago, rupan.dev release 23 failed with
+`htpasswd bcrypt compare failed` while other identities succeeded. Updating
+only its secret from `secrets/registry-node.sops.json` preserved its event
+and image filters, and release 25 completed. This case required credential
+alignment, rather than throttling changes or rotating the live account.
+
 ### Why the bursts happened
 
 They were self-inflicted, and the answer was in the journal the whole time.
