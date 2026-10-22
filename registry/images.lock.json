@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-22T06:03:58+00:00",
+  "generated_at": "2026-10-22T17:06:32+00:00",
   "images": [
     {
       "authenticity": {
@@ -95,16 +95,14 @@
       ],
       "destination_repository": "apps/sovereign-site",
       "destination_tags": [
-        "0.0.1000005",
-        "retention-deployed-76d5194e95b77977"
+        "0.0.1000009",
+        "retention-deployed-879cc8271b29cc2a"
       ],
-      "digest": "sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3",
+      "digest": "sha256:879cc8271b29cc2a3fb09bc2896255b972a246c37033d6681a39a07a20a435ac",
       "id": "first-party-apps-sovereign-site-e7f0ef653bdf",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-sovereign-site",
         "location": "JEFF7712/sovereign",
@@ -120,11 +118,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3",
-        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.1000005@sha256:76d5194e95b779771ce4bd3bc81664152be3823ebb67b5880fd39e2122e3b4e3",
+        "digest": "sha256:879cc8271b29cc2a3fb09bc2896255b972a246c37033d6681a39a07a20a435ac",
+        "reference": "registry.rupan.dev/apps/sovereign-site:0.0.1000009@sha256:879cc8271b29cc2a3fb09bc2896255b972a246c37033d6681a39a07a20a435ac",
         "registry": "registry.rupan.dev",
         "repository": "apps/sovereign-site",
-        "tag": "0.0.1000005"
+        "tag": "0.0.1000009"
       }
     },
     {
@@ -178,10 +176,10 @@
       ],
       "destination_repository": "apps/uwagent",
       "destination_tags": [
-        "0.0.1000015",
-        "retention-deployed-55c04af1609d41c9"
+        "0.0.1000019",
+        "retention-deployed-76a642a558157d62"
       ],
-      "digest": "sha256:55c04af1609d41c995e22d34680ffeda89af1d34f23c3c619314aea7ead523f8",
+      "digest": "sha256:76a642a558157d629e6393b6110486c9f0dc4623c17131c4020b92fcb05f7bc5",
       "id": "first-party-apps-uwagent-9af52aa77c22",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -201,11 +199,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:55c04af1609d41c995e22d34680ffeda89af1d34f23c3c619314aea7ead523f8",
-        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000015@sha256:55c04af1609d41c995e22d34680ffeda89af1d34f23c3c619314aea7ead523f8",
+        "digest": "sha256:76a642a558157d629e6393b6110486c9f0dc4623c17131c4020b92fcb05f7bc5",
+        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000019@sha256:76a642a558157d629e6393b6110486c9f0dc4623c17131c4020b92fcb05f7bc5",
         "registry": "registry.rupan.dev",
         "repository": "apps/uwagent",
-        "tag": "0.0.1000015"
+        "tag": "0.0.1000019"
       }
     },
     {
@@ -259,16 +257,14 @@
       ],
       "destination_repository": "apps/apolline",
       "destination_tags": [
-        "0.0.1000005",
-        "retention-deployed-6377fb176bd469dc"
+        "0.0.1000009",
+        "retention-deployed-5abe0ce27d9a5531"
       ],
-      "digest": "sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45",
+      "digest": "sha256:5abe0ce27d9a55313fcc3d42901a84330c70198ade60e78b98afb588299faae8",
       "id": "first-party-jeff7712-apolline-5974dfffe554",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-apolline",
         "location": "JEFF7712/apolline-site",
@@ -284,11 +280,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45",
-        "reference": "registry.rupan.dev/apps/apolline:0.0.1000005@sha256:6377fb176bd469dcb1d4d7a0a0f5be163d45752ef5aa25f8891d945b07c05c45",
+        "digest": "sha256:5abe0ce27d9a55313fcc3d42901a84330c70198ade60e78b98afb588299faae8",
+        "reference": "registry.rupan.dev/apps/apolline:0.0.1000009@sha256:5abe0ce27d9a55313fcc3d42901a84330c70198ade60e78b98afb588299faae8",
         "registry": "registry.rupan.dev",
         "repository": "apps/apolline",
-        "tag": "0.0.1000005"
+        "tag": "0.0.1000009"
       }
     },
     {
@@ -383,10 +379,10 @@
       ],
       "destination_repository": "apps/darkbit",
       "destination_tags": [
-        "0.0.1000029",
-        "retention-deployed-fb8988e61bb9549d"
+        "0.0.1000033",
+        "retention-deployed-92d26b99bfff39d4"
       ],
-      "digest": "sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6",
+      "digest": "sha256:92d26b99bfff39d41ca517e1f92d148e8974767589eae0d5f5503bc0787876a9",
       "id": "first-party-jeff7712-darkbit-dff8afdb518d",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -406,11 +402,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6",
-        "reference": "registry.rupan.dev/apps/darkbit:0.0.1000029@sha256:fb8988e61bb9549d98be2f88670620adda41e03a8c99114274d7ef343de63ac6",
+        "digest": "sha256:92d26b99bfff39d41ca517e1f92d148e8974767589eae0d5f5503bc0787876a9",
+        "reference": "registry.rupan.dev/apps/darkbit:0.0.1000033@sha256:92d26b99bfff39d41ca517e1f92d148e8974767589eae0d5f5503bc0787876a9",
         "registry": "registry.rupan.dev",
         "repository": "apps/darkbit",
-        "tag": "0.0.1000029"
+        "tag": "0.0.1000033"
       }
     },
     {
@@ -423,16 +419,14 @@
       ],
       "destination_repository": "apps/distrojeff-site",
       "destination_tags": [
-        "0.0.1000020",
-        "retention-deployed-96cfa29f813e29f3"
+        "0.0.1000024",
+        "retention-deployed-add81bdcdd9a96bc"
       ],
-      "digest": "sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
+      "digest": "sha256:add81bdcdd9a96bc57fc6fb96b1686e63126f9e357a5c9f8e9aecd357f2439ee",
       "id": "first-party-jeff7712-distrojeff-site-01461f3c170c",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-distrojeff-site",
         "location": "JEFF7712/distrojeff-site",
@@ -448,11 +442,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
-        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000020@sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327",
+        "digest": "sha256:add81bdcdd9a96bc57fc6fb96b1686e63126f9e357a5c9f8e9aecd357f2439ee",
+        "reference": "registry.rupan.dev/apps/distrojeff-site:0.0.1000024@sha256:add81bdcdd9a96bc57fc6fb96b1686e63126f9e357a5c9f8e9aecd357f2439ee",
         "registry": "registry.rupan.dev",
         "repository": "apps/distrojeff-site",
-        "tag": "0.0.1000020"
+        "tag": "0.0.1000024"
       }
     },
     {
@@ -545,16 +539,14 @@
       ],
       "destination_repository": "apps/ism",
       "destination_tags": [
-        "0.0.1000008",
-        "retention-deployed-6a0003070b2b3c16"
+        "0.0.1000012",
+        "retention-deployed-1abb5d81e7a8e876"
       ],
-      "digest": "sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
+      "digest": "sha256:1abb5d81e7a8e876b23a9b32889ef75970212d6b9a62cf9bebdbdfe76be2f34c",
       "id": "first-party-jeff7712-ism-17c0fc6856fb",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-ism",
         "location": "JEFF7712/ism",
@@ -570,11 +562,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
-        "reference": "registry.rupan.dev/apps/ism:0.0.1000008@sha256:6a0003070b2b3c167f827c23d93dac63310738cd3de12374ecaae5fd5606a05b",
+        "digest": "sha256:1abb5d81e7a8e876b23a9b32889ef75970212d6b9a62cf9bebdbdfe76be2f34c",
+        "reference": "registry.rupan.dev/apps/ism:0.0.1000012@sha256:1abb5d81e7a8e876b23a9b32889ef75970212d6b9a62cf9bebdbdfe76be2f34c",
         "registry": "registry.rupan.dev",
         "repository": "apps/ism",
-        "tag": "0.0.1000008"
+        "tag": "0.0.1000012"
       }
     },
     {
@@ -587,16 +579,14 @@
       ],
       "destination_repository": "apps/majorfinder",
       "destination_tags": [
-        "0.0.1000009",
-        "retention-deployed-399a651b3cd32aba"
+        "0.0.1000013",
+        "retention-deployed-c02308631c78012f"
       ],
-      "digest": "sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
+      "digest": "sha256:c02308631c78012fcdb0ab478bbb4f5efdcfda3e5df79894abd675a5b5fbf878",
       "id": "first-party-jeff7712-majorfinder-5e85d8d2824c",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-majorfinder",
         "location": "JEFF7712/majorfinder",
@@ -612,11 +602,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
-        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000009@sha256:399a651b3cd32aba701039b6e87a3301752a362ee8700e58f0fde7b5472087d6",
+        "digest": "sha256:c02308631c78012fcdb0ab478bbb4f5efdcfda3e5df79894abd675a5b5fbf878",
+        "reference": "registry.rupan.dev/apps/majorfinder:0.0.1000013@sha256:c02308631c78012fcdb0ab478bbb4f5efdcfda3e5df79894abd675a5b5fbf878",
         "registry": "registry.rupan.dev",
         "repository": "apps/majorfinder",
-        "tag": "0.0.1000009"
+        "tag": "0.0.1000013"
       }
     },
     {
@@ -669,16 +659,14 @@
       ],
       "destination_repository": "apps/photography",
       "destination_tags": [
-        "0.0.1000005",
-        "retention-deployed-c5656a8087c414fc"
+        "0.0.1000009",
+        "retention-deployed-f79abbf072e9860c"
       ],
-      "digest": "sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5",
+      "digest": "sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66",
       "id": "first-party-jeff7712-photography-7f744af23df3",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-photography",
         "location": "JEFF7712/photos",
@@ -694,11 +682,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5",
-        "reference": "registry.rupan.dev/apps/photography:0.0.1000005@sha256:c5656a8087c414fca664ec7893b8527c9743f39a1af603ba90bf9fd0cd49cca5",
+        "digest": "sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66",
+        "reference": "registry.rupan.dev/apps/photography:0.0.1000009@sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66",
         "registry": "registry.rupan.dev",
         "repository": "apps/photography",
-        "tag": "0.0.1000005"
+        "tag": "0.0.1000009"
       }
     },
     {
@@ -781,16 +769,14 @@
       ],
       "destination_repository": "apps/pulse-site",
       "destination_tags": [
-        "0.0.1000026",
-        "retention-deployed-4ef2cc00e4b4f22d"
+        "0.0.1000030",
+        "retention-deployed-3c7dfc212fad9e24"
       ],
-      "digest": "sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
+      "digest": "sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da",
       "id": "first-party-jeff7712-pulse-site-2fd6c4414659",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-pulse-site",
         "location": "JEFF7712/pulse",
@@ -806,11 +792,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
-        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000026@sha256:4ef2cc00e4b4f22d42ed5e1b0f27df4fd2fc9df2f218b58612b0fa144df46466",
+        "digest": "sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da",
+        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000030@sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da",
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
-        "tag": "0.0.1000026"
+        "tag": "0.0.1000030"
       }
     },
     {
@@ -909,10 +895,10 @@
       ],
       "destination_repository": "apps/rupan-dev",
       "destination_tags": [
-        "0.0.1000041",
-        "retention-deployed-a4b4cc6468e2e99a"
+        "0.0.1000052",
+        "retention-deployed-d106bad6af29d6d6"
       ],
-      "digest": "sha256:a4b4cc6468e2e99a45374352a79266f248a10e2d7a929513b18cc0e33fa1edce",
+      "digest": "sha256:d106bad6af29d6d65169afc2ca73f553c430989ea9bf89959a428c879b0b3fa2",
       "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -932,11 +918,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a4b4cc6468e2e99a45374352a79266f248a10e2d7a929513b18cc0e33fa1edce",
-        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000041@sha256:a4b4cc6468e2e99a45374352a79266f248a10e2d7a929513b18cc0e33fa1edce",
+        "digest": "sha256:d106bad6af29d6d65169afc2ca73f553c430989ea9bf89959a428c879b0b3fa2",
+        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000052@sha256:d106bad6af29d6d65169afc2ca73f553c430989ea9bf89959a428c879b0b3fa2",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
-        "tag": "0.0.1000041"
+        "tag": "0.0.1000052"
       }
     },
     {
@@ -949,16 +935,14 @@
       ],
       "destination_repository": "apps/rupanism",
       "destination_tags": [
-        "0.0.1000013",
-        "retention-deployed-b30755a294015a2f"
+        "0.0.1000017",
+        "retention-deployed-9d55634a46895f7b"
       ],
-      "digest": "sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
+      "digest": "sha256:9d55634a46895f7b5b7e53677d738b8f1b4778581e8951434e2a720a70f82027",
       "id": "first-party-jeff7712-rupanism-cb88e7bb7ba1",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-rupanism",
         "location": "JEFF7712/rupanism",
@@ -974,11 +958,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
-        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000013@sha256:b30755a294015a2f1930348ff924d25ff2739b0afbfa6213c26b7a34ecf08f6a",
+        "digest": "sha256:9d55634a46895f7b5b7e53677d738b8f1b4778581e8951434e2a720a70f82027",
+        "reference": "registry.rupan.dev/apps/rupanism:0.0.1000017@sha256:9d55634a46895f7b5b7e53677d738b8f1b4778581e8951434e2a720a70f82027",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupanism",
-        "tag": "0.0.1000013"
+        "tag": "0.0.1000017"
       }
     },
     {
@@ -1034,16 +1018,14 @@
       ],
       "destination_repository": "apps/spatia-site",
       "destination_tags": [
-        "0.0.1000005",
-        "retention-deployed-eef492ceaebaac7a"
+        "0.0.1000009",
+        "retention-deployed-8fe33e83256e99b1"
       ],
-      "digest": "sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3",
+      "digest": "sha256:8fe33e83256e99b1cd2e09e06eba3407efdb0fde9fff82d58da131677479c699",
       "id": "first-party-jeff7712-spatia-site-ae420f954d9c",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-spatia-site",
         "location": "JEFF7712/spatia",
@@ -1059,11 +1041,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3",
-        "reference": "registry.rupan.dev/apps/spatia-site:0.0.1000005@sha256:eef492ceaebaac7a2c8716aebbe7a78c057c68d4dd9c3c120e4f7fa395b825c3",
+        "digest": "sha256:8fe33e83256e99b1cd2e09e06eba3407efdb0fde9fff82d58da131677479c699",
+        "reference": "registry.rupan.dev/apps/spatia-site:0.0.1000009@sha256:8fe33e83256e99b1cd2e09e06eba3407efdb0fde9fff82d58da131677479c699",
         "registry": "registry.rupan.dev",
         "repository": "apps/spatia-site",
-        "tag": "0.0.1000005"
+        "tag": "0.0.1000009"
       }
     },
     {

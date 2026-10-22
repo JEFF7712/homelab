@@ -21,7 +21,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/distrojeff-site@sha256:96cfa29f813e29f3d737d435de0b175a19d2767fa58becd6e763c1900ed7a327  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/distrojeff-site@sha256:add81bdcdd9a96bc57fc6fb96b1686e63126f9e357a5c9f8e9aecd357f2439ee  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
