@@ -20,11 +20,11 @@ run_lane() {
   lane_names+=("$name")
   if [[ "${CHECK_SERIAL:-0}" == "1" ]]; then
     local lane_rc=0
-    "$@" >"$log_dir/$name.log" 2>&1 || lane_rc=$?
+    python -m scripts.ci.run "check-$name" -- "$@" >"$log_dir/$name.log" 2>&1 || lane_rc=$?
     printf '%s' "$lane_rc" >"$log_dir/$name.rc"
     lane_pids+=("")
   else
-    "$@" >"$log_dir/$name.log" 2>&1 &
+    python -m scripts.ci.run "check-$name" -- "$@" >"$log_dir/$name.log" 2>&1 &
     lane_pids+=("$!")
   fi
 }

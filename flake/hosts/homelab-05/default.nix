@@ -1,8 +1,10 @@
 { config, pkgs, ... }:
 let
   vm = config.homelab.omarchyVm;
-  reservedCpu = 1 + (if vm.enable then vm.vcpus else 0);
-  reservedMemoryMiB = 2048 + (if vm.enable then vm.memoryMiB + 1024 else 0);
+  ci = config.homelab.woodpeckerSandbox;
+  reservedCpu = 1 + (if vm.enable then vm.vcpus else 0) + (if ci.enable then 3 else 0);
+  reservedMemoryMiB =
+    2048 + (if vm.enable then vm.memoryMiB + 1024 else 0) + (if ci.enable then 10240 else 0);
 in
 {
   imports = [
@@ -15,6 +17,7 @@ in
     ../../modules/jarvis-spectrum.nix
     ../../modules/apollo-ble-bridge.nix
     ../../modules/omarchy-vm.nix
+    ../../modules/woodpecker-sandbox.nix
   ];
 
   networking.hostName = "homelab-05";
@@ -38,6 +41,7 @@ in
   };
 
   homelab.omarchyVm.enable = true;
+  homelab.woodpeckerSandbox.enable = true;
 
   homelab.disk.device = "/dev/disk/by-id/nvme-KXG70ZNV1T02_NVMe_KIOXIA_1024GB_42MFC3FQFTC5";
 

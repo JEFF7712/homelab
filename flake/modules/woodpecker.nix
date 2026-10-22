@@ -86,6 +86,8 @@ let
   };
 in
 {
+  imports = [ ./woodpecker-sandbox.nix ];
+
   options.homelab.woodpecker = {
     enable = lib.mkEnableOption "Woodpecker CI with server-owned container execution policy";
     serverHost = lib.mkOption {
@@ -103,6 +105,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    homelab.woodpeckerSandbox.acceptTunnel = true;
     systemd.slices.ci.sliceConfig = {
       MemoryHigh = "18G";
       MemoryMax = "22G";
@@ -176,9 +179,14 @@ in
           ../patches/woodpecker-deployment-policy.patch
           ../patches/woodpecker-clone-identity.patch
           ../patches/woodpecker-forgejo-visibility.patch
+          ../patches/woodpecker-clone-retry.patch
         ];
+        postPatch = (old.postPatch or "") + ''
+          cp ${./woodpecker-clone-retry.sh} pipeline/frontend/yaml/compiler/homelab_clone_retry.sh
+        '';
         postCheck = (old.postCheck or "") + ''
           go test ./server/forge/gitea -run '^(TestNetrcCloneAccount|TestForgejoVisibilityReconciliation)$'
+          go test ./pipeline/frontend/yaml/compiler -run '^TestHomelabCloneRetry$'
         '';
       });
       environment = {

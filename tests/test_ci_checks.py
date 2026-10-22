@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -29,6 +30,8 @@ class AllGateTest(unittest.TestCase):
             checks = repo / "scripts" / "checks"
             checks.mkdir(parents=True)
             shutil.copy(ROOT / "scripts/checks/all.sh", checks / "all.sh")
+            (repo / "scripts/ci").mkdir()
+            shutil.copy(ROOT / "scripts/ci/run.py", repo / "scripts/ci/run.py")
             for lane in self.LANES:
                 stub = checks / f"{lane}.sh"
                 stub.write_text(
@@ -41,8 +44,9 @@ class AllGateTest(unittest.TestCase):
                 SKIP_FLAKE_CHECK="1",
                 SKIP_SECRET_SCAN="0",
                 CHECK_SERIAL="1" if serial else "0",
+                CI_TIMING_DIR=str(repo / "timings"),
             )
-            return subprocess.run(
+            result = subprocess.run(
                 ["bash", "scripts/checks/all.sh"],
                 cwd=repo,
                 env=env,
@@ -50,6 +54,18 @@ class AllGateTest(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
+            records = [
+                json.loads(line)
+                for line in (repo / "timings/timings.jsonl").read_text().splitlines()
+            ]
+            self.assertEqual(
+                {record["label"]: record["exit_code"] for record in records},
+                {
+                    f"check-{lane}": failures.get(lane, 0)
+                    for lane in (*self.LANES, "docs")
+                },
+            )
+            return result
 
     def test_parallel_lanes_print_in_lane_order(self) -> None:
         result = self.run_gate()
