@@ -1974,7 +1974,8 @@
     "legacy_job": "nixos-deploy",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "native-asr-publish": {
     "commands": [
