@@ -12,8 +12,8 @@ The tunnel `homelab` (`0f08d8c5-6f2c-409e-ba80-dc0601e0227e`) is remote-configur
 1. Add the `{hostname, service}` rule to `gitops/cloudflare/ingress-config.yaml` in Cloudflare-evaluated order (specifics first, catch-all `http_status:404` last). This file is the single source: `tofu/cloudflare/main.tf` decodes it with `yamldecode`.
 2. Add the same entry to the numbered ingress list in `docs/runbooks/cloudflare-tunnel.md`, same position. `tests/test_cloudflare_tunnel.py` asserts config order matches the runbook and every origin Service exists.
 3. Run `python -m unittest tests.test_cloudflare_tunnel` before pushing.
-4. Commit and push. `cloudflare_plan` runs on `main`; read the resource changes in the job log.
-5. Run `cloudflare_apply` (manual job) from the pipeline. It reports the new `config_version`.
+4. Deliver with `just ship`. The `cloudflare` route is keyed on `tofu/cloudflare/` and `gitops/cloudflare/ingress-config.yaml`, so it runs `cloudflare-plan` on the merged main commit; read the resource changes in the job log.
+5. The same route then runs `cloudflare-apply`, which reports the new `config_version`.
 6. DNS `CNAME <host> -> <tunnel-id>.cfargotunnel.com` is created by hand in the dashboard, once per hostname. It is not managed by this stack.
 7. Verify the public hostname serves the expected origin.
 

@@ -30,7 +30,7 @@ Extras only when the site needs them (see `sovereign/`): a `nfs-cluster` PVC for
 
 ## Phase 3: edge
 
-Delegate to the `tunnel-hostname` skill: ingress rule in `gitops/cloudflare/ingress-config.yaml` (specifics first, catch-all last), runbook list updated in position, `python -m unittest tests.test_cloudflare_tunnel`, merge a validated Forgejo PR, protected `cloudflare-apply` from that successful current-main pipeline, hand-made DNS CNAME, Access policy (Bypass for public, Allow-owner-email for sensitive). Origins must be Service DNS names, never a Cilium LB VIP.
+Delegate to the `tunnel-hostname` skill: ingress rule in `gitops/cloudflare/ingress-config.yaml` (specifics first, catch-all last), runbook list updated in position, `python -m unittest tests.test_cloudflare_tunnel`, `just ship` (its `cloudflare` route runs `cloudflare-plan` and `cloudflare-apply` for ingress changes), hand-made DNS CNAME, Access policy (Bypass for public, Allow-owner-email for sensitive). Origins must be Service DNS names, never a Cilium LB VIP.
 
 ## Phase 4: validate offline, then publish
 
