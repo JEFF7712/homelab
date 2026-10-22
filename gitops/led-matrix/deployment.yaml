@@ -24,6 +24,17 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # Only control-plane nodes peer BGP, and with externalTrafficPolicy
+      # Local the VIP is advertised only from the node running the pod.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: In
+                    values:
+                      - "true"
       containers:
         - name: renderer
           image: >-
