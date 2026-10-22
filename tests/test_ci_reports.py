@@ -7,7 +7,9 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from unittest.mock import patch
 
+from scripts.ci import run, timings_report
 from scripts.ci.contract import recover_report
 from scripts.ci.tests import ReportResult, write_report
 
@@ -15,6 +17,110 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReportsTest(unittest.TestCase):
+    def test_cgroup_counters_are_optional_and_ignore_malformed_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.assertEqual(run.cgroup_resources(directory), {})
+            (directory / "memory.events").write_text("oom 2\noom_kill 1\nbad nope\n")
+            (directory / "cpu.stat").write_text("throttled_usec 2300000\n")
+            (directory / "memory.peak").write_text("8388608\n")
+            self.assertEqual(
+                run.cgroup_resources(directory),
+                {
+                    "memory_oom": 2,
+                    "memory_oom_kill": 1,
+                    "cpu_throttled_usec": 2300000,
+                    "memory_peak_bytes": 8388608,
+                },
+            )
+
+    def test_timing_records_counter_deltas_and_distinguishes_pipeline_age(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with (
+                patch.dict(
+                    os.environ, CI_TIMING_DIR=temporary, CI_PIPELINE_CREATED="100"
+                ),
+                patch("scripts.ci.run.time.time", return_value=125),
+                patch("scripts.ci.run.subprocess.call", return_value=7),
+                patch(
+                    "scripts.ci.run.cgroup_resources",
+                    side_effect=[
+                        {"memory_oom_kill": 2, "cpu_throttled_usec": 1000000},
+                        {
+                            "memory_oom_kill": 3,
+                            "cpu_throttled_usec": 4000000,
+                            "memory_peak_bytes": 8388608,
+                        },
+                    ],
+                ),
+            ):
+                self.assertEqual(run.main(["gate", "--", "test-command"]), 7)
+            report = json.loads((Path(temporary) / "timings.jsonl").read_text())
+            self.assertEqual(report["pipeline_age_at_command_start_seconds"], 25)
+            self.assertNotIn("queue_seconds", report)
+            self.assertEqual(report["cgroup"]["memory_oom_kill"], 1)
+            self.assertEqual(report["cgroup"]["cpu_throttled_usec"], 3000000)
+            self.assertEqual(report["cgroup"]["memory_peak_bytes"], 8388608)
+
+    def test_summary_reports_earliest_command_age_and_container_resources(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            records = [
+                {
+                    "label": "gate",
+                    "elapsed_seconds": 8,
+                    "exit_code": 0,
+                    "pipeline_age_at_command_start_seconds": 20,
+                    "cgroup": {
+                        "memory_oom_kill": 0,
+                        "memory_peak_bytes": 8388608,
+                        "cpu_throttled_usec": 3000000,
+                    },
+                },
+                {
+                    "label": "check-flake",
+                    "elapsed_seconds": 7,
+                    "exit_code": 0,
+                    "pipeline_age_at_command_start_seconds": 23,
+                },
+            ]
+            (Path(temporary) / "timings.jsonl").write_text(
+                "\n".join(json.dumps(record) for record in records)
+            )
+            output = io.StringIO()
+            with (
+                patch.dict(os.environ, CI_TIMING_DIR=temporary),
+                patch("sys.stdout", output),
+            ):
+                self.assertEqual(timings_report.main(), 0)
+            self.assertIn("20.0s after creation", output.getvalue())
+            self.assertIn("cgroup_peak=8MiB", output.getvalue())
+            self.assertIn("cgroup_oom_kills=0", output.getvalue())
+            self.assertIn("cgroup_cpu_throttled=3.0s", output.getvalue())
+            self.assertNotIn("[WAIT / QUEUE]", output.getvalue())
+
+    def test_killed_child_reports_signal_and_normalized_exit_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.ci.run",
+                    "killed",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "import os, signal; os.kill(os.getpid(), signal.SIGKILL)",
+                ],
+                cwd=ROOT,
+                env=dict(os.environ, CI_TIMING_DIR=temporary),
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 137)
+            report = json.loads((Path(temporary) / "timings.jsonl").read_text())
+            self.assertEqual(report["exit_code"], 137)
+            self.assertEqual(report["signal"], 9)
+
     def test_partition_excludes_integration_module_and_preserves_module_fixtures(
         self,
     ) -> None:

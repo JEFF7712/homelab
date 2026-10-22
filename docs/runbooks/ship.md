@@ -91,9 +91,12 @@ The Woodpecker policy service on homelab-04 runs the policy and operation
 catalog from its deployed NixOS generation, not from main. A merged change
 to either, including a new operation or a new secret on an existing one,
 takes effect only after the `ci-host` route deploys homelab-04. When the
-change adds the `deploy-ci-host` operations themselves, or alters the
-Woodpecker agents (a deploy restarts the agent running the operation),
-deploy locally with `just deploy-fleet --target homelab-04` instead.
+change adds the `deploy-ci-host` operations themselves, or restarts the
+Woodpecker server or agents, use the local deployment path with
+`just deploy-fleet --target homelab-04`. A server restart cancels active
+workflows through gRPC even when their agents stay running. Required
+authorization and storage approvals still apply. For recovery after an
+approved switch, follow [CI recovery](ci-pipelines.md#recovery).
 
 ## Credentials
 

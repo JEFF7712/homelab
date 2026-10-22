@@ -58,6 +58,11 @@ def _scoped_commands(scope: Scope) -> list[tuple[list[str], dict[str, str] | Non
         elif kind == "docs":
             commands.append((["python", "-m", "scripts.checks.docs"], None))
             commands.append((["python", "scripts/checks/whitespace.py"], None))
+    if any(
+        path.startswith(("flake/hosts/", "opnsense_reconciler/", "tofu/opnsense/"))
+        for path in scope.paths
+    ):
+        commands.append((["just", "topology"], None))
     return commands
 
 

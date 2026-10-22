@@ -18,6 +18,10 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-topology = {
+      url = "github:oddlama/nix-topology";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -28,6 +32,7 @@
       disko,
       impermanence,
       sops-nix,
+      nix-topology,
       ...
     }:
     {
@@ -82,6 +87,14 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        topology = import ./topology {
+          inherit
+            self
+            nixpkgs
+            nix-topology
+            system
+            ;
+        };
         vmCheck =
           check:
           check.extend {
@@ -151,6 +164,8 @@
       in
       {
         packages.projectctl = import ./packages/projectctl.nix { inherit pkgs; };
+        packages.topology = topology;
+        checks.topology = topology;
         formatter = pkgs.nixfmt;
 
         devShells.voice-asr =

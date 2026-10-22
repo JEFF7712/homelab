@@ -406,6 +406,51 @@ class DeploymentReportTest(unittest.TestCase):
 
 
 class ProtectedDeploymentReportTest(unittest.TestCase):
+    def test_just_forwards_flake_urls_and_spaced_arguments_as_data(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            executable = work / "python"
+            executable.write_text(
+                f"#!{sys.executable}\n"
+                "import json, os, pathlib, sys\n"
+                "pathlib.Path(os.environ['REPORT_ARGUMENTS']).write_text(json.dumps(sys.argv[1:]))\n"
+            )
+            executable.chmod(0o700)
+            capture = work / "arguments.json"
+            args = [
+                "--flake",
+                "git+file:///source?dir=flake&rev=" + "a" * 40,
+                "--ssh-opts",
+                "-o ProxyCommand=literal $HOME",
+                "--output-dir",
+                "report with spaces",
+            ]
+            environment = {
+                **os.environ,
+                "PATH": directory + os.pathsep + os.environ["PATH"],
+                "HOMELAB_DEV_SHELL": "ci",
+                "REPORT_ARGUMENTS": str(capture),
+            }
+            subprocess.run(
+                [
+                    "just",
+                    "--justfile",
+                    str(root / "justfile"),
+                    "deployment-report",
+                    *args,
+                ],
+                cwd=root,
+                env=environment,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                json.loads(capture.read_text()),
+                ["-m", "scripts.ci.deployment_report", *args],
+            )
+
     def test_dry_runs_capture_and_pack_reports_for_the_same_targets(self) -> None:
         root = Path(__file__).resolve().parents[1]
         catalog = json.loads((root / "config/ci/operations.json").read_text())
