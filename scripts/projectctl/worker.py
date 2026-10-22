@@ -27,6 +27,10 @@ from .models import (
 from .planner import plan as build_plan
 
 CONTEXT = "ci/woodpecker/development-validation"
+# Every retry re-inspects before writing and creation is bound to a durable
+# allocation receipt, so a lost response is reconciled rather than replayed.
+# The reconciler retries uncertain outcomes, then leaves them for inspection.
+UNCERTAIN_RETRIES = 5
 WORKFLOW = "development-validation"
 EVIDENCE_STRINGS = {
     "observed_at": r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
@@ -322,6 +326,7 @@ class Worker:
             self.journal.state(request_id, "queued")
             self.journal.state(request_id, "running")
             current_operation: Operation | None = None
+            retry_uncertain = False
             try:
                 policy = self.authority.current(request_id).policy
                 policy.check(plan, principal)
@@ -402,6 +407,7 @@ class Worker:
                             )
                         self._record(context, result)
                     except Exception:
+                        retry_uncertain = attempt < UNCERTAIN_RETRIES
                         self.journal.record(
                             request_id,
                             operation.operation_id,
@@ -437,6 +443,8 @@ class Worker:
                     "waiting"
                     if error.code
                     in {Code.VERIFICATION_PENDING, Code.DEPENDENCY_UNAVAILABLE}
+                    or error.code == Code.OUTCOME_UNCERTAIN
+                    and retry_uncertain
                     else "failed"
                     if error.code == Code.CI_FAILED
                     else "blocked"
