@@ -9,6 +9,10 @@ metadata:
 spec:
   type: LoadBalancer
   loadBalancerClass: io.cilium/bgp-control-plane
+  # Local keeps the client address so the network policy's CIDR allowlist
+  # matches. With Cluster, a node without the pod SNATs the traffic into the
+  # tunnel as identity world and the policy drops LedFx DDP and HTTP.
+  externalTrafficPolicy: Local
   ports:
     - name: http
       port: 8000
