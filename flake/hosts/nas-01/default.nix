@@ -264,19 +264,25 @@
     ];
     restartTriggers = [ config.environment.etc.pipewire.source ];
     environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+    # dont-fallback: while the Bose is paired elsewhere (e.g. the laptop) its
+    # sink does not exist here, and WirePlumber would otherwise fall back to
+    # the default sink, bedroom_music_pre_delay itself. That closes a 450 ms
+    # feedback loop that clips the tap and drives the lights with no music.
+    # With the flag, the loopback exits instead and the unit retries.
     script = ''
       exec ${pkgs.pipewire}/bin/pw-loopback \
         --name=bedroom-music-delay \
         --capture=bedroom_music_pre_delay \
         --capture-props='{"stream.capture.sink":true}' \
         --playback=bluez_output.E4_58_BC_10_CA_C9.1 \
+        --playback-props='{"node.dont-fallback":true}' \
         --delay=0.45
     '';
     serviceConfig = {
       User = "pipewire";
       Group = "pipewire";
-      Restart = "on-failure";
-      RestartSec = "2s";
+      Restart = "always";
+      RestartSec = "5s";
     };
   };
 
