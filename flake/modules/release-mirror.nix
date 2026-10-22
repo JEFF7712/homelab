@@ -20,12 +20,16 @@ in
     };
     environmentFile = lib.mkOption {
       type = lib.types.str;
-      default = "/persist/repo-monitor.env";
-      description = "Root-owned mode-0600 file with FORGEJO_READ_TOKEN and a GITHUB_TOKEN allowed to write releases.";
+      default = config.sops.secrets."repo-monitor.env".path;
+      defaultText = lib.literalExpression ''config.sops.secrets."repo-monitor.env".path'';
+      description = "Root-owned file with FORGEJO_READ_TOKEN and a GITHUB_TOKEN allowed to write releases.";
     };
   };
 
   config = lib.mkIf cfg.enable {
+    # Shared with repo-monitor; the mirror runs as a oneshot, so no restart.
+    sops.secrets."repo-monitor.env" = { };
+
     systemd.services.github-release-mirror = {
       description = "Synchronize published Forgejo releases to GitHub";
       after = [ "network-online.target" ];

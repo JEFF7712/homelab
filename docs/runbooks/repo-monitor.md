@@ -86,7 +86,7 @@ Nix store.
 
 | Host | Path | Mode | Required content |
 | --- | --- | --- | --- |
-| `homelab-04` | `/persist/repo-monitor.env` | `0600`, root | `FORGEJO_READ_TOKEN` (read-only token for the `repo-monitor` account) and `GITHUB_TOKEN` (GitHub token with public-repo read scope) |
+| `homelab-04` | `repo-monitor.env` in `secrets/hosts/homelab-04.sops.yaml`, installed at `/run/secrets/repo-monitor.env` | `0400`, root | `FORGEJO_READ_TOKEN` (read-only token for the `repo-monitor` account) and `GITHUB_TOKEN` (GitHub token with public-repo read scope) |
 
 `FORGEJO_READ_TOKEN` must belong to a dedicated `repo-monitor` Forgejo account, not the
 clone token the reconcilers use. Forgejo's push-mirror endpoint
@@ -178,7 +178,7 @@ dashboard is `homelab-repository-health`
 Deployment is authorized infrastructure work. The monitor is a host service, so it
 follows the host deployment path; the scrape job, rules, and dashboard follow Flux.
 
-1. Confirm `/persist/repo-monitor.env` exists on `homelab-04` with mode `0600` and valid
+1. Confirm `repo-monitor.env` in `secrets/hosts/homelab-04.sops.yaml` holds valid
    tokens before the first activation.
 2. Deploy the host configuration for `homelab-04` (the runbook owner sets the exact
    command; do not deploy from an unverified plan).

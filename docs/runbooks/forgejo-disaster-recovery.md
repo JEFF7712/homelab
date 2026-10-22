@@ -77,15 +77,15 @@ authorization. Drain both schedulers before activation or authority changes.
     workflow. The task evidence contains the reviewed patch. Preserve image
     publication and retention; Woodpecker promotion now creates review PRs.
 11. Provision dedicated encrypted offsite Restic storage on NAS and homelab-04.
-    Install /persist/platform-backup.env with RESTIC_REPOSITORY,
-    RESTIC_PASSWORD and provider credentials. Initialize a fresh repository
+    Store platform-backup.env, with RESTIC_REPOSITORY, RESTIC_PASSWORD and
+    provider credentials, in secrets/shared/platform-backup.sops.yaml. Initialize a fresh repository
     prefix once and preserve recovery inputs in separate encrypted custody.
     Backup snapshots stage under `/persist/platform-backup`, with private
     temporary directories removed after each run. The backup service requires
     `/persist` to be mounted. Keep enough free space there for the CI database
     and the NAS source snapshots; the small ephemeral root is not staging storage.
-    Install /persist/forgejo/dr-mirror.env with GITLAB_MIRROR_TOKEN, scoped
-    to normal repository writes. GitLab main must permit this mirror's
+    Store dr-mirror.env, with GITLAB_MIRROR_TOKEN scoped to normal
+    repository writes, in secrets/hosts/nas-01.sops.yaml. GitLab main must permit this mirror's
     fast-forward replication while remaining protected from other writers.
 12. Cancel queued pipelines compiled under the old CI policy. Deploy reviewed
     NAS, homelab-04 and AdGuard configurations with fleet preflight while state

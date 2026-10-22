@@ -13,6 +13,8 @@ let
 in
 {
   config = lib.mkIf config.homelab.forgejo.enable {
+    sops.secrets."dr-mirror.env" = { };
+
     systemd.services.git-dr-mirror = {
       unitConfig.ConditionPathExists = "!/persist/forgejo/dr-freeze";
       path = [
@@ -23,7 +25,7 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.dr_mirror";
-        EnvironmentFile = "/persist/forgejo/dr-mirror.env";
+        EnvironmentFile = config.sops.secrets."dr-mirror.env".path;
         ProtectSystem = "strict";
         ProtectHome = true;
         PrivateTmp = true;
