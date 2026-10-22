@@ -136,6 +136,7 @@
           patchelf
           php
           age
+          deadnix
           git
           gitleaks
           # hooks/common.sh treats a missing jq as "cannot read hook input"
