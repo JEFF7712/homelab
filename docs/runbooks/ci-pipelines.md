@@ -376,6 +376,13 @@ token.
 
 ## Recovery
 
+A Woodpecker server restart can cancel its own deployment workflow through
+gRPC while the host switch completes. Before retrying, inspect the running
+host generation, service health and node cordon state. If activation succeeded,
+finish the remaining targets with the local `just deploy-fleet --target <host>`
+path from the exact approved commit. Preserve the required approval, drain and
+health checks; a killed CI job does not prove the host switch failed.
+
 Keep a newly registered remote agent disabled until its host credentials,
 server filter, SSH tunnel and container limits have been verified. Deploy
 homelab-04's tunnel account before expecting the homelab-05 tunnel to connect.
