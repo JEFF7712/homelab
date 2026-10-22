@@ -240,7 +240,6 @@ data:
           - "bands_matrix"
           - "digitalrain2d"
           - "fire"
-          - "radial"
           - "spectrum"
           - "energy"
           - "wavelength"
