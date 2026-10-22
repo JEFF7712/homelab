@@ -22,6 +22,10 @@
       url = "github:oddlama/nix-topology";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    tofunix = {
+      url = "gitlab:TECHNOFAB/tofunix/v3.0.1";
+      flake = false;
+    };
   };
 
   outputs =
@@ -33,6 +37,7 @@
       impermanence,
       sops-nix,
       nix-topology,
+      tofunix,
       ...
     }:
     {
@@ -95,6 +100,7 @@
             system
             ;
         };
+        opnsense = import ../tofu/opnsense { inherit pkgs tofunix; };
         vmCheck =
           check:
           check.extend {
@@ -167,7 +173,18 @@
       {
         packages.projectctl = import ./packages/projectctl.nix { inherit pkgs; };
         packages.topology = topology;
+        packages.opnsense-config = opnsense.package;
+        checks.opnsense-types = import ../tofu/opnsense/tests.nix { inherit pkgs tofunix; };
         checks.topology = topology;
+        checks.opnsense-config =
+          pkgs.runCommand "opnsense-config-check"
+            {
+              nativeBuildInputs = [ pkgs.python3 ];
+            }
+            ''
+              python ${../scripts/opnsense_config.py} --rendered ${opnsense.package} --root ${../.} --check
+              touch "$out"
+            '';
         formatter = pkgs.nixfmt;
 
         devShells.voice-asr =
