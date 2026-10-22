@@ -129,9 +129,12 @@
   };
 
   # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
-  # here (port 46100); this source turns it into a PipeWire source node and
-  # laptop-rtp-loopback below feeds it into bedroom_music_pre_delay, so LedFx
-  # and the Bose chain hear it exactly like Shairport audio. Deliberately RTP
+  # here (port 46100); this receiver plays it straight into
+  # bedroom_music_pre_delay, so LedFx and the Bose chain hear it exactly like
+  # Shairport audio. It must be the only path into that sink: a second copy
+  # (a loopback from this node) doubled the level and clipped the tap. The
+  # target is pinned with no fallback so it never plays into another sink
+  # while the tap is being recreated. Deliberately RTP
   # and not RAOP/AirPlay: PipeWire 1.6.8's RAOP sender aborts the whole
   # daemon on this shairport-sync's handshake (rtsp-client.c:397), while RTP
   # has no handshake to crash on. source.ip 0.0.0.0 accepts any sender; the
@@ -157,6 +160,8 @@
           "stream.props" = {
             "node.name" = "bedroom-rtp-in";
             "node.description" = "Laptop RTP in";
+            "target.object" = "bedroom_music_pre_delay";
+            "node.dont-fallback" = true;
           };
         };
       }
@@ -331,37 +336,6 @@
       User = "pipewire";
       Group = "pipewire";
       Restart = "always";
-      RestartSec = "2s";
-    };
-  };
-
-  systemd.services.laptop-rtp-loopback = {
-    description = "Feed laptop RTP stream into the bedroom music tap";
-    after = [
-      "pipewire.service"
-      "pipewire-pulse.service"
-    ];
-    requires = [
-      "pipewire.service"
-      "pipewire-pulse.service"
-    ];
-    partOf = [ "pipewire-pulse.service" ];
-    wantedBy = [
-      "multi-user.target"
-      "pipewire-pulse.service"
-    ];
-    restartTriggers = [ config.environment.etc.pipewire.source ];
-    environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
-    script = ''
-      exec ${pkgs.pipewire}/bin/pw-loopback \
-        --name=laptop-rtp-loopback \
-        --capture=bedroom-rtp-in \
-        --playback=bedroom_music_pre_delay
-    '';
-    serviceConfig = {
-      User = "pipewire";
-      Group = "pipewire";
-      Restart = "on-failure";
       RestartSec = "2s";
     };
   };
