@@ -1067,6 +1067,19 @@ class PolicyTest(unittest.TestCase):
             workflow["steps"][0]["environment"]["PYTHONDONTWRITEBYTECODE"], "1"
         )
 
+    def test_cve_audit_scans_then_audits_without_mutating(self) -> None:
+        operation = self.catalog["registry-cve-audit"]
+        commands = "\n".join(operation["commands"])
+        self.assertIn("scripts.registry scan", commands)
+        self.assertIn("scripts.registry audit-cves", commands)
+        self.assertLess(
+            commands.index("scripts.registry scan"),
+            commands.index("scripts.registry audit-cves"),
+        )
+        self.assertFalse(operation["mutation"])
+        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", operation["file_secrets"])
+        self.assertIn("registry-cve-audit", SCHEDULES["weekly"])
+
     def test_lock_import_verifies_each_record_once(self) -> None:
         # copy already verifies every record it reuses or copies; a second
         # serial verify pass doubled the main pipeline's lock-import time.

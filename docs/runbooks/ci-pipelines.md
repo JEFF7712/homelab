@@ -171,7 +171,8 @@ path. Promotion opens a PR and, when the diff only moves first-party digests
 `nightly`
 runs the slow proofs once a day: the GC fixture, OPNsense plan, dataplane
 and inventory, NAS proof, and the fleet, agent-workspace, and Home Assistant
-dry runs, plus `nixos-deploy`. `weekly` runs `nixos-lock-update`; both
+dry runs, plus `nixos-deploy`. `weekly` runs `nixos-lock-update` and the
+`registry-cve-audit` trivy scan of every locked image; both
 laptop operations are described in [NixOS artifact
 publication](nixos-publication.md). A schedule must finish well inside its interval; before the split,
 the 30 minute schedule took about 100 minutes, queued behind itself, and every

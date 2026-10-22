@@ -111,6 +111,7 @@
           oras
           skopeo
           tea
+          trivy
         ];
         ciPackages = with pkgs; [
           # Scoped validation lanes run unit tests directly in this shell,

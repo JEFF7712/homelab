@@ -139,6 +139,17 @@ registry-copy report="artifacts/registry/import-report.json":
 registry-verify report="artifacts/registry/verify-report.json":
     python -m scripts.registry verify --lock registry/images.lock.json --report {{report}}
 
+registry-scan scans="artifacts/registry/trivy-scans.json":
+    python -m scripts.registry scan --lock registry/images.lock.json --output {{scans}}
+
+# Weekly trivy audit: scans every locked image by digest-pinned reference,
+# then folds the reports into the decoupled CVE report. Exits nonzero when
+# any image is vulnerable or unscannable, so the weekly schedule goes red.
+# Copy and verify never depend on this; scanner outages stay indeterminate.
+registry-cve-audit scans="artifacts/registry/trivy-scans.json" report="artifacts/registry/cve-report.json":
+    python -m scripts.registry scan --lock registry/images.lock.json --output {{scans}}
+    python -m scripts.registry audit-cves --lock registry/images.lock.json --scans {{scans}} --report {{report}}
+
 check-tofu:
     bash scripts/checks/tofu.sh
 

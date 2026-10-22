@@ -4,9 +4,12 @@ import argparse
 import json
 import os
 import pathlib
+import shutil
+import subprocess
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 from .core import (
     DEFAULT_REGISTRY,
@@ -34,8 +37,51 @@ from .core import (
     render_node_config,
     resolve_inventory,
     rewrite_consumer_digests,
+    scan_images,
     verify_lock,
 )
+
+
+def _trivy_scan_one(
+    binary: str,
+    username: str | None,
+    password: str | None,
+    timeout: float,
+) -> Callable[[str, str, str], Mapping[str, Any]]:
+    def run(dest_repo: str, digest: str, ref: str) -> Mapping[str, Any]:
+        env = dict(os.environ)
+        if username:
+            env["TRIVY_USERNAME"] = username
+        if password:
+            env["TRIVY_PASSWORD"] = password
+        try:
+            proc = subprocess.run(
+                [binary, "image", "--format", "json", "--quiet", ref],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+                check=False,
+            )
+        except FileNotFoundError as error:
+            raise RegistryError(f"trivy binary not found: {binary}") from error
+        except subprocess.TimeoutExpired as error:
+            raise RegistryError(f"trivy timed out scanning {ref}") from error
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+            raise RegistryError(
+                f"trivy failed scanning {ref}: "
+                + ("; ".join(detail[-3:]) if detail else "unknown error")
+            )
+        try:
+            report = json.loads(proc.stdout)
+        except json.JSONDecodeError as error:
+            raise RegistryError(f"trivy emitted invalid JSON for {ref}") from error
+        if not isinstance(report, dict):
+            raise RegistryError(f"trivy emitted malformed report for {ref}")
+        return report
+
+    return run
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -179,6 +225,23 @@ def _parser() -> argparse.ArgumentParser:
         help="limit discovery to destination repositories (repeatable)",
     )
     _network_options(discover)
+
+    scan = subparsers.add_parser(
+        "scan", help="scan locked images with trivy into an audit-cves scans file"
+    )
+    scan.add_argument("--lock", type=pathlib.Path, required=True)
+    scan.add_argument("--output", type=pathlib.Path, required=True)
+    scan.add_argument("--destination-registry", default=DEFAULT_REGISTRY)
+    scan.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="limit scanning to destination repositories (repeatable)",
+    )
+    scan.add_argument("--username", default=None)
+    scan.add_argument("--password-file", type=pathlib.Path, default=None)
+    scan.add_argument("--image-timeout", type=float, default=900)
+    scan.add_argument("--trivy", default="trivy")
 
     audit = subparsers.add_parser(
         "audit-cves",
@@ -462,6 +525,40 @@ def main(argv: Sequence[str] | None = None) -> int:
             atomic_write_json(args.report, report)
             _print(report)
             return 0 if report["status"] == "ok" else 1
+        if args.command == "scan":
+            if shutil.which(args.trivy) is None:
+                raise RegistryError(f"trivy binary not found: {args.trivy}")
+            lock = load_lock(args.lock)
+            password = None
+            if args.password_file is not None:
+                try:
+                    password = args.password_file.read_text(encoding="utf-8").strip()
+                except OSError as error:
+                    raise RegistryError(
+                        f"cannot read password from {args.password_file}"
+                    ) from error
+                if not password:
+                    raise RegistryError(f"password file is empty: {args.password_file}")
+            scans = scan_images(
+                lock,
+                _trivy_scan_one(
+                    args.trivy, args.username, password, args.image_timeout
+                ),
+                registry=args.destination_registry,
+                only=frozenset(args.only) if args.only else None,
+            )
+            atomic_write_json(args.output, scans)
+            _print(
+                {
+                    "schema_version": 1,
+                    "command": "scan",
+                    "status": scans["status"],
+                    "scanned": scans["scanned"],
+                    "errors": scans["errors"],
+                    "output": str(args.output),
+                }
+            )
+            return 0
         if args.command == "audit-cves":
             lock = load_lock(args.lock)
             scan_data = None
