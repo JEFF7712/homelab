@@ -76,6 +76,9 @@ cache-populate:
 deploy-fleet *args:
     python -m scripts.deploy_fleet {{args}}
 
+deployment-report *args:
+    python -m scripts.ci.deployment_report {{args}}
+
 check-gitops:
     bash scripts/checks/gitops.sh
 
