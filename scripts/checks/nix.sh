@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-for tool in nix nixfmt; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
+for tool in nix nixfmt deadnix; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
 mapfile -d '' files < <(git ls-files -co --exclude-standard -z '*.nix')
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then nixfmt --check "${files[@]}"; fi
+# -L exempts lambda pattern names, the standard NixOS module and callPackage
+# idiom. Unguarded by CI_LINT_EXTERNAL so CI validate's nix lane runs it.
+deadnix -L --fail "${files[@]}"
 target=${1:-all}
 hosts=(
   adguard-netbird-01
