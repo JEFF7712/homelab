@@ -446,42 +446,48 @@ class DeployFleetTest(unittest.TestCase):
         self.assertEqual(result["status"], "success")
         self.assertEqual(len(result["hosts"]), 2)
 
-        # NAS appliance should check port 2049 and Attic URL
-        self.assertIn(("10.0.30.20", 2049), checked_sockets)
+        # The NAS is checked for a listening NFS server over SSH, never a
+        # direct socket: CI containers are firewalled off 2049.
+        self.assertNotIn(("10.0.30.20", 2049), checked_sockets)
+        nfs = [
+            argv
+            for argv in executed_commands
+            if argv[0] == "ssh" and "nfs-server.service" in argv[-1]
+        ]
+        self.assertEqual(len(nfs), 1)
+        self.assertEqual(nfs[0][-2], "rupan@10.0.30.20")
         self.assertIn("http://10.0.30.20:8080/", checked_urls)
 
     def test_nas_probes_wait_for_activation_to_settle(self) -> None:
-        def runner(
-            argv: list[str], **kwargs: object
-        ) -> subprocess.CompletedProcess[str]:
-            del kwargs
-            if argv[:2] == ["nix", "eval"]:
-                return subprocess.CompletedProcess(argv, 0, "[]", "")
-            return subprocess.CompletedProcess(argv, 0, "", "")
-
         for failures in (3, 100):
             with self.subTest(failures=failures):
-                probes: list[int] = []
-                sleeps: list[float] = []
+                probes: list[list[str]] = []
 
-                def socket(host: str, port: int, timeout: float) -> bool:
-                    del host, timeout
-                    probes.append(port)
-                    return len(probes) > failures
+                def runner(
+                    argv: list[str], **kwargs: object
+                ) -> subprocess.CompletedProcess[str]:
+                    del kwargs
+                    if argv[:2] == ["nix", "eval"]:
+                        return subprocess.CompletedProcess(argv, 0, "[]", "")
+                    if argv[0] == "ssh" and "nfs-server.service" in argv[-1]:
+                        probes.append(argv)
+                        code = 0 if len(probes) > failures else 3
+                        return subprocess.CompletedProcess(argv, code, "", "")
+                    return subprocess.CompletedProcess(argv, 0, "", "")
 
                 deployer = FleetDeployer(
                     targets=[FLEET_HOSTS["nas-01"]],
                     skip_preflight=True,
                     skip_cooldown=True,
                     runner=runner,
-                    socket_checker=socket,
+                    socket_checker=lambda host, port, timeout: False,
                     http_checker=lambda url, timeout: True,
-                    sleeper=sleeps.append,
+                    sleeper=lambda seconds: None,
                 )
                 if failures < APPLIANCE_SETTLE_ATTEMPTS:
                     self.assertEqual(deployer.execute()["status"], "success")
                 else:
-                    with self.assertRaisesRegex(FleetDeploymentError, "NFS port"):
+                    with self.assertRaisesRegex(FleetDeploymentError, "NFS server"):
                         deployer.execute()
                 self.assertEqual(
                     len(probes), min(failures + 1, APPLIANCE_SETTLE_ATTEMPTS)
