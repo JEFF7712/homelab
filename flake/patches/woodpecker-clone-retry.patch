@@ -1,0 +1,49 @@
+diff --git a/pipeline/frontend/yaml/compiler/compiler.go b/pipeline/frontend/yaml/compiler/compiler.go
+--- a/pipeline/frontend/yaml/compiler/compiler.go
++++ b/pipeline/frontend/yaml/compiler/compiler.go
+@@ -176,0 +177 @@
++		step.Entrypoint = homelabCloneEntrypoint(step.Image)
+diff --git a/pipeline/frontend/yaml/compiler/homelab_clone_retry.go b/pipeline/frontend/yaml/compiler/homelab_clone_retry.go
+--- /dev/null
++++ b/pipeline/frontend/yaml/compiler/homelab_clone_retry.go
+@@ -0,0 +1,15 @@
++package compiler
++
++import _ "embed"
++
++//go:embed homelab_clone_retry.sh
++var homelabCloneRetry string
++
++const homelabCloneImage = "registry.rupan.dev/upstream/docker.io/woodpeckerci/plugin-git@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964"
++
++func homelabCloneEntrypoint(image string) []string {
++	if image != homelabCloneImage {
++		return nil
++	}
++	return []string{"/bin/sh", "-c", homelabCloneRetry, "clone-retry", "/bin/plugin-git"}
++}
+diff --git a/pipeline/frontend/yaml/compiler/homelab_clone_retry_test.go b/pipeline/frontend/yaml/compiler/homelab_clone_retry_test.go
+--- /dev/null
++++ b/pipeline/frontend/yaml/compiler/homelab_clone_retry_test.go
+@@ -0,0 +1,21 @@
++package compiler
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	yaml_types "go.woodpecker-ci.org/woodpecker/v3/pipeline/frontend/yaml/types"
++)
++
++func TestHomelabCloneRetry(t *testing.T) {
++	compiler := New(WithDefaultClonePlugin(homelabCloneImage), WithNetrc("reader", "test-password", "git.rupan.dev"))
++	config, err := compiler.Compile(&yaml_types.Workflow{})
++	require.NoError(t, err)
++	step := config.Stages[0].Steps[0]
++	require.Equal(t, []string{"/bin/sh", "-c", homelabCloneRetry, "clone-retry", "/bin/plugin-git"}, step.Entrypoint)
++	require.Equal(t, "reader", step.Environment["CI_NETRC_USERNAME"])
++	require.Equal(t, "test-password", step.Environment["CI_NETRC_PASSWORD"])
++	require.Equal(t, "git.rupan.dev", step.Environment["CI_NETRC_MACHINE"])
++	require.Contains(t, homelabCloneRetry, "timeout -k 5 -s TERM 60")
++	require.Nil(t, homelabCloneEntrypoint("unrelated-clone-plugin"))
++}

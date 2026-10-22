@@ -176,9 +176,14 @@ in
           ../patches/woodpecker-deployment-policy.patch
           ../patches/woodpecker-clone-identity.patch
           ../patches/woodpecker-forgejo-visibility.patch
+          ../patches/woodpecker-clone-retry.patch
         ];
+        postPatch = (old.postPatch or "") + ''
+          cp ${./woodpecker-clone-retry.sh} pipeline/frontend/yaml/compiler/homelab_clone_retry.sh
+        '';
         postCheck = (old.postCheck or "") + ''
           go test ./server/forge/gitea -run '^(TestNetrcCloneAccount|TestForgejoVisibilityReconciliation)$'
+          go test ./pipeline/frontend/yaml/compiler -run '^TestHomelabCloneRetry$'
         '';
       });
       environment = {
