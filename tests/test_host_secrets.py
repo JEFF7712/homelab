@@ -147,8 +147,9 @@ class HostSecretsTest(unittest.TestCase):
             for name, secret in self.evaluated[host]["secrets"].items():
                 with self.subTest(host=host, secret=name):
                     path = ROOT / repository_path(secret["sopsFile"])
-                    bundle = load_bundle(path)
-                    self.assertIn(secret["key"], set(bundle) - {"sops"})
+                    if secret["key"]:
+                        bundle = load_bundle(path)
+                        self.assertIn(secret["key"], set(bundle) - {"sops"})
                     self.assertEqual(secret["mode"], "0400")
                     self.assertEqual(secret["path"], f"/run/secrets/{name}")
 
@@ -255,6 +256,25 @@ class HostSecretsTest(unittest.TestCase):
         self.assertIn(
             "RESTIC_PASSWORD_FILE=/run/secrets/registry-restic-password",
             nas["units"]["registry-backup"],
+        )
+
+    def test_ci_host_reads_woodpecker_environments_from_sops(self) -> None:
+        ci_host = self.evaluated["homelab-04"]
+        server = ci_host["units"]["woodpecker-server"]
+        for name in ("woodpecker-server.env", "woodpecker-clone.env"):
+            self.assertIn(f"/run/secrets/{name}", server)
+        clone = ci_host["secrets"]["woodpecker-clone.env"]
+        self.assertEqual(
+            repository_path(clone["sopsFile"]), "secrets/woodpecker-clone.sops.env"
+        )
+        for tier in ("sandbox", "trusted", "deploy"):
+            with self.subTest(tier=tier):
+                self.assertIn(
+                    f"/run/secrets/woodpecker-agent-{tier}.env",
+                    ci_host["units"][f"woodpecker-agent-{tier}"],
+                )
+        self.assertIn(
+            "/run/secrets/woodpecker-policy.env", ci_host["units"]["woodpecker-policy"]
         )
 
 
