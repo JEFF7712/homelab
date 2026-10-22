@@ -4,7 +4,7 @@ metadata:
   name: websites
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 2m0s
   path: ./gitops/websites
   prune: true
   sourceRef:
