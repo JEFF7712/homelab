@@ -23,6 +23,7 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
               system = "x86_64-linux";
               modules = [
                 flake.inputs.impermanence.nixosModules.impermanence
+                flake.inputs.sops-nix.nixosModules.sops
                 {json.dumps(str(MODULE))}
                 ({{ ... }}: {{
                   boot.isContainer = true;
