@@ -588,22 +588,17 @@ class FleetDeployer:
             )
         if not datasets:
             return
-        cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
-        if self.ssh_opts is not None:
-            cmd.extend(self.ssh_opts)
-        else:
-            cmd.extend(
-                shlex.split(os.getenv("NIX_SSHOPTS") or os.getenv("SSH_OPTS") or "")
-            )
-        cmd.extend(
-            [
-                f"{self.ssh_user}@{host.ip}",
+        result = run_command(
+            self.ssh_command(
+                host.ip,
                 shlex.join(
                     ["sudo", "-n", "zfs", "list", "-H", "-o", "name", *datasets]
                 ),
-            ]
+            ),
+            runner=self.runner,
+            timeout=30.0,
+            check=False,
         )
-        result = run_command(cmd, runner=self.runner, timeout=30.0, check=False)
         if result.returncode != 0:
             detail = (result.stdout + "\n" + result.stderr).strip()
             raise FleetDeploymentError(
@@ -708,20 +703,45 @@ class FleetDeployer:
                 self.sleeper(3.0)
         return False
 
+    def ssh_command(self, ip: str, remote: str) -> list[str]:
+        cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
+        if self.ssh_opts is not None:
+            cmd.extend(self.ssh_opts)
+        else:
+            cmd.extend(
+                shlex.split(os.getenv("NIX_SSHOPTS") or os.getenv("SSH_OPTS") or "")
+            )
+        return [*cmd, f"{self.ssh_user}@{ip}", remote]
+
+    def nfs_serving(self, ip: str) -> bool:
+        # CI containers are firewalled off NFS (woodpecker.nix drops 111/2049
+        # from docker bridges), so check the server on the NAS itself.
+        result = run_command(
+            self.ssh_command(
+                ip,
+                "systemctl is-active --quiet nfs-server.service && "
+                "ss -Hltn 'sport = :2049' | grep -q LISTEN",
+            ),
+            runner=self.runner,
+            timeout=15.0,
+            check=False,
+        )
+        return result.returncode == 0
+
     def verify_nas_appliance(self, ip: str) -> None:
         if self.dry_run:
             logger.info(
-                "[%s] [DRY RUN] Would verify NFS (port 2049) and Attic (port 8080)",
+                "[%s] [DRY RUN] Would verify the NFS server and Attic (port 8080)",
                 ip,
             )
             return
 
-        logger.info("Verifying NFS port 2049 on %s...", ip)
-        if not self.settled(lambda: self.socket_checker(ip, 2049, 3.0)):
+        logger.info("Verifying NFS server on %s...", ip)
+        if not self.settled(lambda: self.nfs_serving(ip)):
             raise FleetDeploymentError(
-                f"NAS verification failed: NFS port 2049 not reachable on {ip}"
+                f"NAS verification failed: NFS server not listening on {ip}:2049"
             )
-        logger.info("NFS port 2049 check passed for %s", ip)
+        logger.info("NFS server check passed for %s", ip)
 
         logger.info("Verifying Attic binary cache on http://%s:8080/...", ip)
         if not self.settled(lambda: self.http_checker(f"http://{ip}:8080/", 5.0)):
