@@ -38,6 +38,7 @@ from scripts.projectctl.models import (
 from scripts.projectctl.planner import plan
 from scripts.projectctl.worker import (
     CONTEXT,
+    UNCERTAIN_RETRIES,
     WORKFLOW,
     Observation,
     OperationContext,
@@ -568,6 +569,25 @@ class ProtocolTest(unittest.TestCase):
         final = self.worker.run(request_id, self.plan.principal)
         self.assertEqual(final["state"], "succeeded", final)
         self.assertEqual(self.adapter.writes.count("repository"), 2)
+
+    def test_uncertain_outcomes_return_to_the_reconciler_until_exhausted(
+        self,
+    ) -> None:
+        request_id = self.submit()
+        self.approve(request_id)
+        for attempt in range(1, UNCERTAIN_RETRIES + 1):
+            self.adapter.timeout_before = "repository"
+            status = self.worker.run(request_id, self.plan.principal)
+            self.assertEqual(status["code"], Code.OUTCOME_UNCERTAIN)
+            self.assertEqual(self.adapter.writes.count("repository"), attempt)
+            pending = request_id in [item[0] for item in self.journal.pending()]
+            if attempt < UNCERTAIN_RETRIES:
+                self.assertEqual(status["state"], "waiting", status)
+                self.assertTrue(pending)
+            else:
+                self.assertEqual(status["state"], "blocked", status)
+                self.assertFalse(pending)
+            self.clock.advance(2**attempt + 1)
 
     def test_unknown_repository_cannot_be_adopted_by_name(self) -> None:
         self.adapter.resources["repository"] = {"repository_id": 41}
