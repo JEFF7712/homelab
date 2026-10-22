@@ -1,5 +1,8 @@
 # homelab
 
+![healthchecks](https://healthchecks.io/badge/7cef9d84-fe01-44d6-bfe7-51d303/5hX7D_7s-2.svg)
+[![pipeline](https://ci.rupan.dev/api/badges/1/status.svg)](https://ci.rupan.dev/repos/JEFF7712/homelab)
+
 Seven nodes of NixOS in a 10-inch rack, everything declared in code. See [HARDWARE.md](HARDWARE.md) for the full
 parts list.
 

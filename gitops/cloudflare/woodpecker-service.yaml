@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: woodpecker
+  namespace: cloudflare
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: woodpecker
+  namespace: cloudflare
+subsets:
+  - addresses:
+      - ip: 10.0.30.14
+    ports:
+      - name: http
+        port: 8000

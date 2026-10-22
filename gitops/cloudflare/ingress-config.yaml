@@ -108,4 +108,6 @@ data:
         service: http://led-matrix.led-matrix:8000
       - hostname: approvals.rupan.dev
         service: http://approvals.cloudflare:8020
+      - hostname: ci.rupan.dev
+        service: http://woodpecker.cloudflare:8000
       - service: http_status:404
