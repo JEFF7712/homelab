@@ -373,6 +373,7 @@ class ValidationLaneTest(unittest.TestCase):
         failure: int = 0,
         checks: tuple[str, ...] = (),
         test_modules: tuple[str, ...] = (),
+        paths: tuple[str, ...] = (),
     ) -> tuple[int, list[list[str]], int]:
         with tempfile.TemporaryDirectory() as temporary:
             env = dict(os.environ, CI_JOB_ID="test")
@@ -382,7 +383,11 @@ class ValidationLaneTest(unittest.TestCase):
                 patch(
                     "scripts.ci.validate.determine",
                     return_value=Scope(
-                        mode, "test", checks=checks, test_modules=test_modules
+                        mode,
+                        "test",
+                        paths=paths,
+                        checks=checks,
+                        test_modules=test_modules,
                     ),
                 ),
                 patch(
@@ -438,6 +443,24 @@ class ValidationLaneTest(unittest.TestCase):
         self.assertEqual(
             self.invoke("repository", "scoped", 3, checks=("gitops",))[0], 3
         )
+
+    def test_scoped_network_changes_build_topology(self) -> None:
+        for path in (
+            "flake/hosts/homelab-01/default.nix",
+            "opnsense_reconciler/assignments.json",
+            "tofu/opnsense/homelab.auto.tfvars",
+        ):
+            with self.subTest(path=path):
+                code, commands, _ = self.invoke("repository", "scoped", paths=(path,))
+                self.assertEqual(code, 0)
+                self.assertEqual(commands, [["just", "topology"]])
+        self.assertEqual(self.invoke("repository", "scoped", 7, paths=(path,))[0], 7)
+
+    def test_unrelated_scoped_changes_do_not_build_topology(self) -> None:
+        for path in ("tofu/cloudflare/main.tf", "scripts/home_assistant/check.py"):
+            self.assertEqual(
+                self.invoke("repository", "scoped", paths=(path,)), (0, [], 0)
+            )
 
     def test_application_keeps_sandbox_tests_and_repository_validation(self) -> None:
         self.assertEqual(self.invoke("flake", "application"), (0, [], 1))
