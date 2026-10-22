@@ -25,7 +25,7 @@ def roots() -> list[Path]:
 
 def main() -> int:
     records: list[tuple[str, dict[str, Any]]] = []
-    max_queue_seconds: float | None = None
+    first_command_age: float | None = None
     for root in roots():
         for report in sorted(root.glob("timings.jsonl")):
             try:
@@ -39,11 +39,11 @@ def main() -> int:
                     continue
                 if isinstance(record, dict):
                     records.append((str(root), record))
-                    q = record.get("queue_seconds")
-                    if q is not None:
-                        q_val = float(q)
-                        if max_queue_seconds is None or q_val > max_queue_seconds:
-                            max_queue_seconds = q_val
+                    age = record.get("pipeline_age_at_command_start_seconds")
+                    if age is not None:
+                        value = float(age)
+                        if first_command_age is None or value < first_command_age:
+                            first_command_age = value
     if not records:
         print("no CI timing reports found")
         return 0
@@ -51,16 +51,29 @@ def main() -> int:
         key=lambda item: float(item[1].get("elapsed_seconds", 0.0)),
         reverse=True,
     )
-    if max_queue_seconds is not None:
+    if first_command_age is not None:
         print(
-            f"[WAIT / QUEUE] Pipeline queued for {max_queue_seconds:8.1f}s before execution started"
+            f"[PIPELINE AGE] First timed command started {first_command_age:.1f}s "
+            "after creation (includes queue, earlier steps and shell bootstrap)"
         )
     print("[EXECUTION BREAKDOWN]")
     for root_name, record in records:
+        cgroup = record.get("cgroup") or {}
+        resources = []
+        if "memory_peak_bytes" in cgroup:
+            resources.append(
+                f"cgroup_peak={cgroup['memory_peak_bytes'] / 1048576:.0f}MiB"
+            )
+        if "memory_oom_kill" in cgroup:
+            resources.append(f"cgroup_oom_kills={cgroup['memory_oom_kill']}")
+        if "cpu_throttled_usec" in cgroup:
+            resources.append(
+                f"cgroup_cpu_throttled={cgroup['cpu_throttled_usec'] / 1000000:.1f}s"
+            )
         print(
             f"{float(record.get('elapsed_seconds', 0.0)):8.1f}s "
             f"exit={record.get('exit_code', '?')} "
-            f"{root_name}/{record.get('label', '?')}"
+            f"{root_name}/{record.get('label', '?')} " + " ".join(resources)
         )
     return 0
 
