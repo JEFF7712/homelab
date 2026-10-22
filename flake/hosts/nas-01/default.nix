@@ -117,7 +117,16 @@
 
   # pipewire-pulse must reload the null-sink module when its generated config
   # changes; otherwise Shairport can start before the virtual sink exists.
-  systemd.services.pipewire-pulse.restartTriggers = [ config.environment.etc.pipewire.source ];
+  # The null sink lives in the main daemon, so a pipewire restart deletes it
+  # and pipewire-pulse never recreates it on its own: partOf restarts pulse,
+  # and through their own partOf every bedroom audio consumer, with it. The
+  # main daemon also restarts on config changes so module arguments (such as
+  # the RTP receiver's) take effect on deploy instead of at the next reboot.
+  systemd.services.pipewire.restartTriggers = [ config.environment.etc.pipewire.source ];
+  systemd.services.pipewire-pulse = {
+    restartTriggers = [ config.environment.etc.pipewire.source ];
+    partOf = [ "pipewire.service" ];
+  };
 
   # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
   # here (port 46100); this source turns it into a PipeWire source node and
