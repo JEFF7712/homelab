@@ -48,10 +48,14 @@ actions:
           - condition: trigger
             id: "mode_off"
         sequence:
-          - action: rest_command.ledfx_deactivate_scene
-            data:
-              scene_id: "music-mode"
-            continue_on_error: true
+          - repeat:
+              count: 5
+              sequence:
+                - action: rest_command.ledfx_deactivate_scene
+                  data:
+                    scene_id: "music-mode"
+                - stop: "LedFx music-mode deactivated"
+                - delay: "00:00:10"
           - if:
               - condition: template
                 value_template: "{{ state_attr('scene.pre_music_mode_govee', 'entity_id') is not none }}"
