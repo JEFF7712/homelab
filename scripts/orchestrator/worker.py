@@ -139,8 +139,14 @@ class JsonlProcess:
             return None
         if record is None:
             self.records.put(None)
-            raise WorkerExited(self.process.wait(), self.stderr_text())
+            raise WorkerExited(self.exit_code(), self.stderr_text())
         return record
+
+    def exit_code(self) -> int | None:
+        try:
+            return self.process.wait(timeout=0.1)
+        except subprocess.TimeoutExpired:
+            return None
 
     def close(self, grace: float = 5.0) -> int:
         """Stop the process: close stdin, then terminate, then kill."""
@@ -406,27 +412,39 @@ class AttemptRunner:
             session = self.backend.open(config.attempt_dir, workspace)
         except Exception as error:
             return self._finish(f"cannot start worker: {error}", True, "crashed")
+        closed = False
+
+        def close_session() -> None:
+            nonlocal closed
+            if not closed:
+                session.close()
+                closed = True
+
         try:
             session.start(brief)
-            return self._drive(session)
+            return self._drive(session, close_session)
         except WorkerExited as exited:
+            close_session()
             return self._finish(
                 f"worker exited with {exited.returncode}", True, "crashed"
             )
         except OrchestratorError as error:
             if error.code == "LEASE_LOST":
                 self._abort(session)
+                close_session()
                 self._finish("lease lost", False, "lease_lost")
                 return Outcome("lease_lost", str(error))
+            close_session()
             return self._finish(f"controller refused: {error.code}", True, "crashed")
         except Exception as error:
+            close_session()
             return self._finish(
                 f"worker error: {type(error).__name__}: {error}", True, "crashed"
             )
         finally:
-            session.close()
+            close_session()
 
-    def _drive(self, session: Session) -> Outcome:
+    def _drive(self, session: Session, close_session: Callable[[], None]) -> Outcome:
         channel, config = self.channel, self.config
         started = renewed = self.clock()
         open_questions: dict[str, str] = {}
@@ -438,6 +456,7 @@ class AttemptRunner:
             inbox = channel.inbox()
             if inbox.cancel is not None:
                 self._abort(session)
+                close_session()
                 return self._finish(inbox.cancel[1], False, "cancelled")
             for key, question_id, answer in inbox.answers:
                 session_key = open_questions.pop(question_id, None)
@@ -446,18 +465,26 @@ class AttemptRunner:
                 channel.acknowledge(key)
             if now - started >= config.deadline_seconds:
                 self._abort(session)
+                close_session()
                 return self._finish("deadline exceeded", False, "failed")
             event = session.poll(config.poll_seconds)
             if event is None:
                 continue
             if event.kind == "session":
-                channel.session(event.key)
+                channel.session(redact(event.key, self.backend.secrets()))
             elif event.kind == "question":
-                question_id = channel.ask(event.key, event.prompt, event.choices)
+                secret_values = self.backend.secrets()
+                question_id = channel.ask(
+                    event.key,
+                    redact(event.prompt, secret_values),
+                    tuple(redact(choice, secret_values) for choice in event.choices),
+                )
                 open_questions[question_id] = event.key
             elif event.kind == "failed":
+                close_session()
                 return self._finish(event.text, event.retryable, "failed")
             elif event.kind == "settled":
+                close_session()
                 channel.settle(
                     {
                         "backend": self.backend.name,

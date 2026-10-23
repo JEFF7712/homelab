@@ -256,7 +256,7 @@ the broker closes, any waiting call receives a tool error.
 | Command | `codex exec --json --model M --cd W --skip-git-repo-check --ignore-user-config --ignore-rules -c approval_policy="never" -c mcp_servers.supervisor.{command,args,tool_timeout_sec,required} -` | `claude -p --output-format stream-json --verbose --model M --session-id <uuid5(attempt)> --setting-sources user --strict-mcp-config --mcp-config <json> --permission-prompts none` |
 | Sandbox `external` (pod is the boundary) | `--dangerously-bypass-approvals-and-sandbox` | `--permission-mode bypassPermissions` |
 | Sandbox `host` (development) | `--sandbox workspace-write` | `--permission-mode acceptEdits --allowedTools mcp__supervisor__ask_supervisor` |
-| Credential | ChatGPT login in a dedicated `CODEX_HOME` | `CLAUDE_CODE_OAUTH_TOKEN` read from a token file at launch |
+| Credential | ChatGPT login in a dedicated `CODEX_HOME`, enforced with `-c forced_login_method="chatgpt"` to refuse saved API-key logins | `CLAUDE_CODE_OAUTH_TOKEN` read from a token file at launch |
 | Refused in the backend env | `OPENAI_API_KEY`, `CODEX_API_KEY`, `OPENAI_BASE_URL` | `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_{BEDROCK,VERTEX,FOUNDRY}` |
 | `session` | `thread.started.thread_id` | `system/init.session_id` |
 | `settled` | `turn.completed`, text of the last `agent_message` item | `result` with `subtype: success`, `is_error: false` |

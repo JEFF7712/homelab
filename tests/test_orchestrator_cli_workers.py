@@ -166,6 +166,7 @@ class CredentialPolicyTests(unittest.TestCase):
         self.assertNotIn("--dangerously-bypass-approvals-and-sandbox", host)
         self.assertEqual(host[host.index("--sandbox") + 1], "workspace-write")
         for argv in (external, host):
+            self.assertIn('forced_login_method="chatgpt"', argv)
             self.assertIn("--ignore-user-config", argv)
             self.assertIn("--ignore-rules", argv)
             self.assertEqual(argv[-1], "-")

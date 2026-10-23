@@ -17,9 +17,12 @@ from scripts.orchestrator.pi_rpc import (
 )
 from scripts.orchestrator.worker import (
     AttemptRunner,
+    JsonlProcess,
     LocalChannel,
     RunnerConfig,
     WorkerChannel,
+    WorkerEvent,
+    WorkerExited,
     opaque,
     redact,
     split_records,
@@ -87,6 +90,32 @@ for line in sys.stdin.buffer:
 
 
 class FramingTests(unittest.TestCase):
+    def test_stdout_eof_does_not_wait_indefinitely_for_the_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            process = JsonlProcess(
+                [sys.executable, "-c", "import os,time; os.close(1); time.sleep(30)"],
+                Path(tmp),
+                {},
+            )
+            errors: list[Exception] = []
+
+            def read() -> None:
+                try:
+                    process.next_record(1)
+                except WorkerExited as error:
+                    errors.append(error)
+
+            reader = threading.Thread(target=read, daemon=True)
+            reader.start()
+            try:
+                reader.join(2)
+                self.assertFalse(reader.is_alive())
+                self.assertEqual(len(errors), 1)
+                self.assertIsNone(process.process.poll())
+            finally:
+                process.close(grace=0.1)
+                reader.join(2)
+
     def test_records_split_only_on_line_feed(self) -> None:
         payload = json.dumps({"text": "a b c"}, ensure_ascii=False).encode()
         records, rest = split_records(payload + b"\r\n" + payload[:5])
@@ -180,6 +209,68 @@ class WorkerCase(unittest.TestCase):
 
 
 class WorkerTests(WorkerCase):
+    def test_attempt_keeps_its_slot_until_session_close_returns(self) -> None:
+        for kind in ("failed", "settled"):
+            with self.subTest(kind=kind):
+                worker = self.worker("settle")
+                session = mock.Mock()
+                session.poll.return_value = WorkerEvent(kind)  # type: ignore[arg-type]
+                session.close.return_value = 0
+
+                def closing() -> int:
+                    self.assertIsNone(self.store.attempt(self.attempt.id).finished)
+                    self.assertNotEqual(self.status(), "validating")
+                    self.assertIsNone(
+                        self.store.claim("other", "p", "m", "pi", 60, time.time())
+                    )
+                    return 0
+
+                session.close.side_effect = closing
+                with mock.patch.object(PiBackend, "open", return_value=session):
+                    self.run_worker(worker)
+                session.close.assert_called_once()
+                self.assertIsNotNone(self.store.attempt(self.attempt.id).finished)
+                if kind == "failed":
+                    claimed = self.store.claim(
+                        "worker-1",
+                        "openai",
+                        "m",
+                        "pi",
+                        60,
+                        time.time(),
+                        self.attempt.token_digest,
+                    )
+                    assert claimed is not None
+                    self.attempt = claimed[1]
+
+    def test_questions_redact_backend_secret_values_before_persistence(self) -> None:
+        secret = "opaque-credential-value-without-a-token-prefix"
+        session = mock.Mock()
+        session.poll.side_effect = [
+            WorkerEvent("session", key=secret),
+            WorkerEvent(
+                "question", key="q", prompt=f"Use {secret}?", choices=(secret,)
+            ),
+            WorkerEvent("failed", text="stopped"),
+        ]
+        session.close.return_value = 0
+        with (
+            mock.patch.object(PiBackend, "open", return_value=session),
+            mock.patch.object(PiBackend, "secrets", return_value=(secret,)),
+        ):
+            self.run_worker(self.worker("question"))
+        opened = self.store.pending_messages("question.open")
+        self.assertEqual(len(opened), 1)
+        self.assertNotIn(secret, json.dumps(opened[0].payload))
+        self.assertNotIn(secret, json.dumps(self.store.events(self.task.id)))
+        self.assertEqual(opened[0].payload["choices"], ["[redacted]"])
+        self.assertNotIn(
+            secret,
+            json.dumps(
+                [dict(row) for row in self.store.db.execute("SELECT * FROM questions")]
+            ),
+        )
+
     def test_settled_run_moves_the_task_to_validating_only(self) -> None:
         outcome = self.run_worker(self.worker("settle"))
         self.assertEqual(outcome.status, "settled")

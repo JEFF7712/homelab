@@ -231,7 +231,7 @@ views:
       - cards:
           - heading: All Lights
             type: heading
-          - entity: light.all_govee_lights
+          - entity: light.shared_zigbee_lights
             name: Shared Bulbs
             fill_container: true
             type: custom:mushroom-light-card
@@ -436,7 +436,7 @@ views:
       - cards:
           - heading: Adaptive Lighting
             type: heading
-          - entity: input_boolean.govee_music_mode
+          - entity: input_boolean.shared_music_mode
             name: Music Mode
             icon: mdi:music
             features:

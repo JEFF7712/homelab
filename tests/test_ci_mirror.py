@@ -265,6 +265,7 @@ class CacheBuildTest(unittest.TestCase):
                 os.environ,
                 PATH=f"{binaries}:{os.environ['PATH']}",
                 ATTIC_TOKEN="",
+                HOMELAB_CACHE_BUILDER="native",
                 BUILD_LOG=str(repo / "build.log"),
                 TMPDIR=temporary,
             )
@@ -319,6 +320,7 @@ class CacheBuildTest(unittest.TestCase):
                 os.environ,
                 PATH=f"{binaries}:{os.environ['PATH']}",
                 ATTIC_TOKEN="fixture",
+                HOMELAB_CACHE_BUILDER="native",
                 PUSHED=str(repo / "pushed"),
                 TMPDIR=temporary,
             )

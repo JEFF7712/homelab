@@ -20,6 +20,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/local-development.md` — pinned dev environment, registry commands, and the offline validation gate.
 - `docs/runbooks/local-registry.md` — local container registry operations.
 - `docs/runbooks/opnsense-recovery.md` — OPNsense disaster recovery.
+- [OPNsense configuration](runbooks/opnsense-configuration.md): typed inventory, Tofunix rendering, provider options, and validation.
 - `docs/runbooks/opnsense-bgp-proof.md` — OPNsense BGP reachability proof.
 - `docs/runbooks/postgres-disaster-recovery.md` — Postgres backup and restore.
 - `docs/runbooks/analytics.md`: Umami web analytics at `tally.rupan.dev`, its CNPG database, backups, and how to track a site.
