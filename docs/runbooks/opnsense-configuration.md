@@ -17,14 +17,16 @@ pinned in `flake/flake.lock`.
 2. Run `just opnsense-render`. It generates `tofu/opnsense/main.tf.json` and
    `opnsense_reconciler/assignments.json`, plus the deployer's
    `inventory/fleet.json`, `inventory/adguard-rewrites.json`, and
-   `opnsense_reconciler/unbound-host-overrides.json`. Static DNS records belong
+   `opnsense_reconciler/unbound-host-overrides.json`, and the CoreDNS manifest
+   `gitops/platform/coredns-custom.yaml`. Static DNS records belong
    in `inventory/dns.nix`. Commit changed outputs with the source.
 3. Run `just opnsense-check`, `just check-changed`, and `just fmt-check`.
 4. Deliver through `just ship`. Inspect the protected refresh-only and desired
    plans before accepting a network change. Follow
    [recovery](opnsense-recovery.md) for changes that affect connectivity.
 
-Never edit generated JSON directly. CI rejects semantic differences from the
+Never edit generated outputs directly. CI rejects semantic differences in JSON
+and exact text differences in the CoreDNS manifest from the
 Nix source. The existing topology renderer reads the generated interface
 assignments, so VLANs and gateway addresses have one authoritative declaration.
 Other reconciler inputs, such as BGP and agent access, retain

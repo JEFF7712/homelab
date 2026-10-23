@@ -91,6 +91,22 @@ let
         type = types.nullOr types.ints.positive;
         default = null;
       };
+      coredns = mkOption {
+        type = types.nullOr (
+          types.submodule {
+            options = {
+              server = option (
+                types.enum [
+                  "registry"
+                  "internal"
+                ]
+              );
+              order = option types.ints.positive;
+            };
+          }
+        );
+        default = null;
+      };
     };
   };
 in

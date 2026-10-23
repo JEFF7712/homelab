@@ -10,10 +10,20 @@ or Tofunix. Types are shared with the firewall inventory.
 `inventory/dns.nix` owns static DNS records. Fleet destinations reference host
 keys; external addresses and service VIPs use explicit addresses. Independent
 `adguardOrder` and `unboundOrder` values select each resolver view and preserve
-its ordering. Enabled AdGuard records must also appear in Unbound. The two
+its ordering. Optional `coredns = { server = "registry"; order = 1; };`
+selects a record for one of the two existing Kubernetes CoreDNS server blocks.
+CoreDNS ordering is independent of the other resolver views. Enabled AdGuard
+and CoreDNS records must also appear in Unbound. Disabled records are omitted
+from CoreDNS. The two
 Unbound-only homelab VIP records remain outside the AdGuard rewrite view.
 `just opnsense-render` generates `inventory/adguard-rewrites.json` and
-`opnsense_reconciler/unbound-host-overrides.json`; never edit these outputs.
+`opnsense_reconciler/unbound-host-overrides.json`, plus the exact CoreDNS
+manifest at `gitops/platform/coredns-custom.yaml`; never edit these outputs.
+The narrow renderer in `inventory/coredns.nix` preserves cache, fallthrough and
+forwarding settings. CI rejects any difference in the generated CoreDNS text,
+including plugin changes. Deliver actual manifest changes through Flux.
+After delivery, verify the live ConfigMap and resolve all five configured names
+from a pod using `ClusterFirst` DNS; host DNS alone does not verify CoreDNS.
 NixOS consumes the same evaluated rewrites directly. AdGuard and Mosquitto
 listen addresses and the Zigbee2MQTT broker endpoint follow the appliance host
 address; service ports remain in their owning modules.
