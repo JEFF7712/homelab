@@ -6,7 +6,7 @@ if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
   ruff format --check scripts opnsense_reconciler tests
 fi
 ruff check --select E,F,I,UP --ignore E501 scripts opnsense_reconciler tests
-pyright scripts/agent scripts/ci scripts/registry scripts/cloudflare scripts/deploy_fleet.py scripts/opnsense_config.py scripts/home_assistant scripts/projectctl opnsense_reconciler &
+pyright scripts/agent scripts/ci scripts/registry scripts/cloudflare scripts/deploy_fleet.py scripts/opnsense_config.py scripts/home_assistant scripts/projectctl scripts/orchestrator opnsense_reconciler &
 pyright_pid=$!
 
 if [[ -n "${CI_SCOPED_TEST_MODULES:-}" ]]; then
