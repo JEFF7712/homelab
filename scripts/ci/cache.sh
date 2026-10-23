@@ -42,9 +42,6 @@ else
   exit 2
 fi
 builder=${HOMELAB_CACHE_BUILDER:-native}
-if [[ "$target_set" == homelab ]]; then
-  builder=${HOMELAB_CACHE_BUILDER:-fast}
-fi
 started=$SECONDS
 case "$builder" in
   fast)

@@ -114,6 +114,7 @@
           curl
           dnsutils
           getent
+          (pkgs.writeShellScriptBin "nix-fast-build" ''exec ${pkgs.nix-fast-build}/bin/nix-fast-build "$@"'')
           nixos-rebuild-ng
           oras
           skopeo
@@ -143,7 +144,6 @@
           kubernetes-helm
           nixfmt
           nix-eval-jobs
-          (pkgs.writeShellScriptBin "nix-fast-build" ''exec ${pkgs.nix-fast-build}/bin/nix-fast-build "$@"'')
           (import ../nix/ci-providers.nix { inherit pkgs; })
           pyright
           python

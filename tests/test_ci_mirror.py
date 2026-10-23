@@ -265,10 +265,10 @@ class CacheBuildTest(unittest.TestCase):
                 os.environ,
                 PATH=f"{binaries}:{os.environ['PATH']}",
                 ATTIC_TOKEN="",
-                HOMELAB_CACHE_BUILDER="native",
                 BUILD_LOG=str(repo / "build.log"),
                 TMPDIR=temporary,
             )
+            env.pop("HOMELAB_CACHE_BUILDER", None)
             for status in (0, 1):
                 with self.subTest(status=status):
                     env["BUILD_STATUS"] = str(status)

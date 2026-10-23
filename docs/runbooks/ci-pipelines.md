@@ -162,19 +162,23 @@ disk shared with media and NFS that held IO pressure above 80% and made
 every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
 remove it once the SSD store has run cleanly for a while.
 
-### Fleet cache build pilot
+### Fleet cache builder
 
-The homelab target set in `scripts/ci/cache.sh` uses nix-fast-build from the
-pinned nixpkgs. Its selection is generated from the same 17 targets used by
-the native builder: seven host systems, seven checks and three development
-shells. Laptop and ISO publication continue to use the native builder.
-The full gate's flake lane remains the separate validation gate.
+`scripts/ci/cache.sh` uses the native builder by default for homelab, laptop
+and ISO targets. The [matched CI benchmark](../research/2026-10-23-nix-fast-build-benchmark.md)
+found no consistent complete-job benefit from enabling nix-fast-build for
+the homelab cache lane. The full gate's bounded `nix-eval-jobs` flake lane
+remains a separate validation gate.
 
-The pilot uses two evaluation workers, a 2048 MiB memory budget per worker,
-and two concurrent build jobs. The initial 1536 MiB budget caused worker
-restarts while evaluating the fleet. The evaluation budget is a worker
-recycling threshold, not a hard process memory limit. The CI container's
-8 GiB limit still applies to evaluation and builds together.
+Set `HOMELAB_CACHE_BUILDER=fast` to opt into nix-fast-build from the pinned
+nixpkgs in the `ops` or `default` development shell. Its selection is
+generated from the native builder's same 17 homelab targets: seven host
+systems, seven checks and three development shells. It uses two evaluation
+workers, a 2048 MiB memory budget per worker and two concurrent build jobs.
+The initial 1536 MiB budget caused worker restarts; the matched CI runs also
+observed worker retries at the 4096 MiB combined budget in two fast runs.
+The worker budget does not cap total process memory. The CI container's
+8 GiB limit applies to evaluation and builds together.
 
 Fast builds retain output GC roots until publication completes. The result
 report must cover every requested target without failures or skipped jobs;
@@ -182,12 +186,12 @@ its output and derivation paths feed the existing source/build-input cache
 publication and per-path upload retries. Missing tooling or a failed fast
 build fails the job without silently retrying through another builder.
 
-For comparison or rollback, set `HOMELAB_CACHE_BUILDER=native` when invoking
-`bash scripts/ci/cache.sh`. Set it to `fast` to explicitly select the pilot.
+Set `HOMELAB_CACHE_BUILDER=native` to explicitly select the default builder.
 Each invocation logs the backend, target count and build elapsed seconds.
 Compare the same source revision and cache state, and distinguish evaluation
-timing from complete build/upload timing. The fast tool is wrapped in the
-development shells to keep its Python dependencies out of repository Python.
+timing from complete build/upload timing. The fast tool's wrapper lives in
+the operations tools, keeping its Python dependencies out of repository
+Python and its closure out of ordinary validation shells.
 
 All pipelines resolve the dev shell and build outputs from the local Attic
 substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
