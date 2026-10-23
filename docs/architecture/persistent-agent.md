@@ -190,10 +190,10 @@ single writer.
 | Telegram bot token | New bot for the supervisor only; not pod-agent's bot | Letta channel runtime | SOPS secret, rendered by an init container into `channels/telegram/accounts.json` on the control-plane PVC (0600); DM policy `allowlist` with one user ID | Operator via BotFather | `/revoke` in BotFather, update SOPS, restart the pod |
 | Codex worker login | Dedicated ChatGPT login session for the Codex CLI; not a copy of the laptop's or pod-agent's `auth.json` | Codex worker Jobs | `CODEX_HOME` on a dedicated worker-auth PVC (0700), mounted only into Codex Jobs | Operator runs `codex login --device-auth` in a one-off pod against that PVC | Re-run the device login and revoke the old session. One Codex Job at a time keeps a single refresh writer |
 | Claude worker token | `claude setup-token` one-year OAuth token for the operator's subscription | Claude Code Jobs | SOPS secret mounted as a file (`token_file`). The backend reads it into `CLAUDE_CODE_OAUTH_TOKEN` at launch | Operator runs `claude setup-token` locally | Mint a new token, update SOPS, redeploy, revoke the old one. Calendar reminder before expiry |
-| Forgejo worker token | New user `agent-worker`: write collaborator on the disposable test repository only; scopes `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`; no repository or organization creation; no admin | Worker Jobs | SOPS secret, mounted per Job | Operator in the Forgejo UI | Generate the new token, update SOPS, revoke the old one. Branch protection blocks pushes to default branches |
+| Forgejo worker token | New user `agent-worker`: write collaborator on the disposable test repository only; scopes `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`; no repository or organization creation; no admin | Worker Jobs | SOPS secret, mounted per Job | Operator in the Forgejo UI | Generate the new token, update SOPS, revoke the old one. Branch protection blocks pushes to default branches. The same write access lets a worker post commit statuses and push to other attempt branches; the verifier ignores statuses not posted by the CI login, and gate 4 removes the repository-wide token from workers before deployment |
 | Forgejo controller token | New user `agent-controller`: read collaborator on the same repositories; scopes `read:user`, `read:repository`, `read:issue`, `write:issue` (comments) | Controller | SOPS secret | Operator | As above |
 | ntfy publish credential | Existing ntfy service; publish-only to one topic | Controller | SOPS secret | Operator | Replace in ntfy, update SOPS |
-| Worker API token | Random, one per attempt, SHA-256 stored | One worker Job | Kubernetes Secret created and deleted by the controller with the Job | Controller at claim | Dies with the attempt |
+| Worker API token | Random, one per attempt, SHA-256 stored | One worker Job | Kubernetes Secret created by the controller after its Job and owned by it, so Job deletion and TTL remove it | Controller at claim | Dies with the attempt |
 | Budget-capped API key (fallback only) | Only if gate 6 fails and the operator approves | Letta | SOPS secret | Operator | Provider console |
 
 ### Claude credential boundary
@@ -244,6 +244,12 @@ Each gate needs recorded evidence before deployment is requested.
    cannot read the controller database, the Letta store or other credentials,
    cannot use the worker API beyond its attempt, cannot reach the Kubernetes
    API or NAS, and cannot trigger privileged operations without a grant.
+   No worker holds a repository-wide forge credential: either each attempt
+   pushes with a short-lived credential scoped to its own branch, or the
+   worker hands the controller a bundle and the controller pushes. A
+   validating task's branch can otherwise be rewritten by another task's
+   worker between verification and completion, and the token can be
+   exfiltrated over the worker's HTTPS egress.
 5. **Credential provisioning** by the operator, per the plan above.
 6. **Live subscription checks** at provisioning. OAuth success alone is not
    enough:
@@ -263,6 +269,12 @@ Each gate needs recorded evidence before deployment is requested.
 7. **Packaging.** Build Letta from the upstream flake at an audited tag.
    Repeat the supervisor audit for any version newer than 0.34.20, because the
    preflight depends on its credential format.
+8. **Supervisor tool authority.** Worker text reaches the supervisor quoted,
+   labelled untrusted and escaped, which stops wrapper breakout but not
+   semantic prompt injection. Before deployment, decide the enforcement
+   outside the model: worker-originated events go to a turn without mutating
+   tools, or `create_task`, `cancel_task` and `answer_question` calls that
+   follow such an event need the principal's confirmation.
 
 ## Next milestone: one vertical slice
 

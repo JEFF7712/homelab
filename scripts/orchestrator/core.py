@@ -36,7 +36,9 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     ),
     "needs_input": frozenset({"running", "retryable_failed", "failed", "cancelled"}),
     "validating": frozenset({"in_review", "retryable_failed", "failed", "cancelled"}),
-    "in_review": frozenset({"completed", "retryable_failed", "failed", "cancelled"}),
+    "in_review": frozenset(
+        {"completed", "validating", "retryable_failed", "failed", "cancelled"}
+    ),
     "retryable_failed": frozenset({"ready", "failed", "cancelled"}),
     "completed": frozenset(),
     "failed": frozenset(),
@@ -176,7 +178,24 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('max_running', '1');
 
 # Ordered, append-only. Each entry upgrades the schema to its index + 1 inside
 # one transaction; never edit a released entry, add a new one.
-MIGRATIONS: tuple[str, ...] = (SCHEMA,)
+# v2: per-sink delivery of notifications (several consumers read the same
+# outbox row) and the last processed forge comment per task.
+SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS sink_deliveries (
+  sink TEXT NOT NULL,
+  key TEXT NOT NULL REFERENCES outbox(key),
+  delivered REAL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  PRIMARY KEY(sink, key)
+);
+CREATE TABLE IF NOT EXISTS forge_cursors (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+  last_comment_id INTEGER NOT NULL
+);
+"""
+
+MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2)
 SCHEMA_VERSION = len(MIGRATIONS)
 NETWORK_FILESYSTEMS = frozenset(
     {
@@ -492,7 +511,7 @@ class Store:
                 )
             snapshots = []
             for version in range(current + 1, SCHEMA_VERSION + 1):
-                if version > 1 or current >= 1:
+                if current >= 1:
                     snapshot = self.path.with_name(
                         f"{self.path.name}.pre-v{version}-{secrets.token_hex(4)}.sqlite"
                     )
@@ -759,10 +778,15 @@ class Store:
                 "validating",
             )
 
-    def complete(self, task_id: str, actor: str, now: float) -> Task:
+    def complete(
+        self, task_id: str, actor: str, now: float, observed_head: str
+    ) -> Task:
         """Authorized finalization: complete from the stored verification only.
 
-        No caller-supplied evidence is accepted here. Controller-only.
+        No caller-supplied evidence is accepted here. `observed_head` is the
+        pull request head the controller has just read; if it differs from
+        the verified head, the work changed after verification and the task
+        cannot complete. Controller-only.
         """
         self._require_controller("complete tasks")
         with self.transaction() as db:
@@ -784,6 +808,11 @@ class Store:
                 verification["summary"],
             )
             self._check_evidence(row, evidence)
+            if observed_head != evidence.head_sha:
+                raise OrchestratorError(
+                    "EVIDENCE_REJECTED",
+                    f"head moved from {evidence.head_sha[:12]} to {observed_head[:12]}",
+                )
             task = self._move(
                 db, task_id, "completed", actor, "finalized", now, "in_review"
             )
@@ -1007,6 +1036,21 @@ class Store:
             self._expire_questions(db, attempt_id)
             return self._task(self._row(db, attempt.task_id))  # type: ignore[arg-type]
 
+    def extend_leases(self, until: float) -> int:
+        """Push every unfinished attempt's lease to at least `until`.
+
+        Run once when a controller starts: leases ran out while nobody could
+        renew them, so live workers get one lease period to reconnect before
+        reaping. Attempts whose Job is gone are finished by reconciliation.
+        """
+        self._require_controller()
+        with self.transaction() as db:
+            return db.execute(
+                "UPDATE attempts SET lease_expires = ? WHERE finished IS NULL "
+                "AND lease_expires < ?",
+                (until, until),
+            ).rowcount
+
     def reap(self, now: float, actor: str = "reconciler") -> list[str]:
         """Finish every attempt whose lease expired and fence its worker.
 
@@ -1045,6 +1089,81 @@ class Store:
                 )
                 expired.append(attempt_id)
         return expired
+
+    def live_attempts(self) -> list[Attempt]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT id FROM attempts WHERE finished IS NULL ORDER BY started"
+            ).fetchall()
+            return [self._attempt(self.db, row["id"]) for row in rows]
+
+    def last_attempt(self, task_id: str) -> Attempt | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT id FROM attempts WHERE task_id = ? ORDER BY number DESC LIMIT 1",
+                (task_id,),
+            ).fetchone()
+            return None if row is None else self._attempt(self.db, row["id"])
+
+    def set_issue_ref(self, task_id: str, ref: str) -> None:
+        """Record the forge issue for a task once; a different ref is a conflict."""
+        with self.transaction() as db:
+            row = self._row(db, task_id)
+            if row is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown task {task_id}")
+            if row["external_issue_ref"] not in (None, ref):
+                raise OrchestratorError(
+                    "CONFLICT",
+                    f"task {task_id} already has {row['external_issue_ref']}",
+                )
+            db.execute(
+                "UPDATE tasks SET external_issue_ref = ? WHERE id = ?", (ref, task_id)
+            )
+
+    def comment_cursor(self, task_id: str) -> int:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT last_comment_id FROM forge_cursors WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        return 0 if row is None else int(row["last_comment_id"])
+
+    def set_comment_cursor(self, task_id: str, comment_id: int) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO forge_cursors (task_id, last_comment_id) VALUES (?, ?) "
+                "ON CONFLICT(task_id) DO UPDATE SET last_comment_id = "
+                "MAX(forge_cursors.last_comment_id, excluded.last_comment_id)",
+                (task_id, comment_id),
+            )
+
+    def open_questions(self, task_id: str | None = None) -> list[Question]:
+        query = "SELECT * FROM questions WHERE status = 'open'"
+        values: tuple[Any, ...] = ()
+        if task_id is not None:
+            query += " AND task_id = ?"
+            values = (task_id,)
+        with self.lock:
+            rows = self.db.execute(query + " ORDER BY created", values).fetchall()
+        return [self._question(row) for row in rows]
+
+    def question(self, question_id: str) -> Question:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM questions WHERE id = ?", (question_id,)
+            ).fetchone()
+        if row is None:
+            raise OrchestratorError("NOT_FOUND", f"unknown question {question_id}")
+        return self._question(row)
+
+    def approval(self, approval_id: str) -> Approval:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM approvals WHERE id = ?", (approval_id,)
+            ).fetchone()
+        if row is None:
+            raise OrchestratorError("NOT_FOUND", f"unknown approval {approval_id}")
+        return self._approval(row)
 
     def attempt(self, attempt_id: str) -> Attempt:
         with self.lock:
@@ -1477,6 +1596,49 @@ class Store:
             )
             for row in rows
         ]
+
+    def pending_for_sink(
+        self, sink: str, topics: tuple[str, ...], limit: int = 50
+    ) -> list[Message]:
+        """Outbox messages of these topics not yet delivered to this sink."""
+        marks = ",".join("?" for _ in topics)
+        with self.lock:
+            rows = self.db.execute(
+                f"SELECT o.*, d.attempts AS sink_attempts FROM outbox o "
+                f"LEFT JOIN sink_deliveries d ON d.key = o.key AND d.sink = ? "
+                f"WHERE o.topic IN ({marks}) AND d.delivered IS NULL "
+                f"ORDER BY o.created, o.rowid LIMIT ?",
+                (sink, *topics, limit),
+            ).fetchall()
+        return [
+            Message(
+                row["key"],
+                row["topic"],
+                row["task_id"],
+                json.loads(row["payload"]),
+                row["sink_attempts"] or 0,
+            )
+            for row in rows
+        ]
+
+    def ack_sink(self, sink: str, key: str, now: float) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO sink_deliveries (sink, key, delivered, attempts) "
+                "VALUES (?, ?, ?, 1) ON CONFLICT(sink, key) DO UPDATE SET "
+                "delivered = COALESCE(sink_deliveries.delivered, excluded.delivered), "
+                "attempts = sink_deliveries.attempts + 1",
+                (sink, key, now),
+            )
+
+    def sink_failed(self, sink: str, key: str, error: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO sink_deliveries (sink, key, attempts, last_error) "
+                "VALUES (?, ?, 1, ?) ON CONFLICT(sink, key) DO UPDATE SET "
+                "attempts = sink_deliveries.attempts + 1, last_error = excluded.last_error",
+                (sink, key, error[:PAYLOAD_LIMIT]),
+            )
 
     def acknowledge(self, key: str, now: float) -> None:
         with self.transaction() as db:
