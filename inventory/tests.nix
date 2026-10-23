@@ -12,6 +12,14 @@ let
       extraModules = [ module ];
     };
   inventory = import ./. { inherit lib; };
+  firstDNS = builtins.head inventory.dns.records;
+  replaceDNS = record: load { dns = lib.mkForce [ record ]; };
+  movedNAS = load { hosts.nas-01.address = lib.mkForce "10.0.30.21"; };
+  movedBroker = load { hosts.adguard-netbird-01.address = lib.mkForce "10.0.30.30"; };
+  brokerConfig =
+    (nixosConfigurations.adguard-netbird-01.extendModules {
+      specialArgs.fleetInventory = movedBroker;
+    }).config;
   rejects = value: !(builtins.tryEval (builtins.deepSeq value true)).success;
   moved = load { hosts.homelab-02.address = lib.mkForce "10.0.30.22"; };
   movedRouter = load { networks.infrastructure.gateway = lib.mkForce "10.0.30.254"; };
@@ -23,6 +31,80 @@ let
   senderAliases = (builtins.head rendered.resource.opnsense_firewall_alias).managed;
   hosts = lib.filterAttrs (name: host: name == host.config.networking.hostName) nixosConfigurations;
   checks = {
+    unknownDNSHost = rejects (replaceDNS (firstDNS // { host = "missing"; }));
+    invalidDNSAddress = rejects (
+      replaceDNS (
+        firstDNS
+        // {
+          host = null;
+          address = "999.0.0.1";
+        }
+      )
+    );
+    ambiguousDNSTarget = rejects (replaceDNS (firstDNS // { address = "192.0.2.1"; }));
+    missingDNSTarget = rejects (
+      replaceDNS (
+        firstDNS
+        // {
+          host = null;
+          address = null;
+        }
+      )
+    );
+    invalidDNSName = rejects (replaceDNS (firstDNS // { name = "bad_label.internal"; }));
+    missingDNSView = rejects (
+      replaceDNS (
+        firstDNS
+        // {
+          adguardOrder = null;
+          unboundOrder = null;
+        }
+      )
+    );
+    missingDNSMirror = rejects (replaceDNS (firstDNS // { unboundOrder = null; }));
+    duplicateDNSName = rejects (load {
+      dns = lib.mkForce [
+        firstDNS
+        (
+          firstDNS
+          // {
+            name = lib.toUpper firstDNS.name;
+            adguardOrder = 99;
+            unboundOrder = 99;
+          }
+        )
+      ];
+    });
+    duplicateDNSViewOrder = rejects (load {
+      dns = lib.mkForce [
+        firstDNS
+        (firstDNS // { name = "other.internal"; })
+      ];
+    });
+    unboundOnlyVIPs =
+      builtins.all
+        (
+          name:
+          builtins.any (record: "${record.hostname}.${record.domain}" == name) inventory.dns.unboundOverrides
+          && !(builtins.any (record: lib.toLower record.domain == name) inventory.dns.adguardRewrites)
+        )
+        [
+          "grafana.homelab"
+          "ntfy.homelab"
+        ];
+    movedNASDNS =
+      (builtins.head (
+        builtins.filter (record: record.domain == "registry.rupan.dev") movedNAS.dns.adguardRewrites
+      )).answer == "10.0.30.21"
+      && (builtins.head movedNAS.dns.unboundOverrides).server == "10.0.30.21";
+    adguardModelMatchesSettings =
+      hosts.adguard-netbird-01.config.services.adguardhome.settings.filtering.rewrites
+      == inventory.dns.adguardRewrites;
+    movedBrokerBindings =
+      brokerConfig.services.adguardhome.host == "10.0.30.30"
+      && brokerConfig.services.adguardhome.settings.dns.bind_hosts == [ "10.0.30.30" ]
+      && (builtins.head brokerConfig.services.mosquitto.listeners).address == "10.0.30.30"
+      && brokerConfig.services.zigbee2mqtt.settings.mqtt.server == "mqtt://10.0.30.30:1883";
     registryHostMapping = builtins.all (
       name:
       let

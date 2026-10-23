@@ -16,7 +16,9 @@ pinned in `flake/flake.lock`.
    [shared fleet inventory](fleet-inventory.md) for NixOS consumers and routing.
 2. Run `just opnsense-render`. It generates `tofu/opnsense/main.tf.json` and
    `opnsense_reconciler/assignments.json`, plus the deployer's
-   `inventory/fleet.json`. Commit changed outputs with the source.
+   `inventory/fleet.json`, `inventory/adguard-rewrites.json`, and
+   `opnsense_reconciler/unbound-host-overrides.json`. Static DNS records belong
+   in `inventory/dns.nix`. Commit changed outputs with the source.
 3. Run `just opnsense-check`, `just check-changed`, and `just fmt-check`.
 4. Deliver through `just ship`. Inspect the protected refresh-only and desired
    plans before accepting a network change. Follow
@@ -25,7 +27,7 @@ pinned in `flake/flake.lock`.
 Never edit generated JSON directly. CI rejects semantic differences from the
 Nix source. The existing topology renderer reads the generated interface
 assignments, so VLANs and gateway addresses have one authoritative declaration.
-Other reconciler inputs, such as BGP, DNS overrides, and agent access, retain
+Other reconciler inputs, such as BGP and agent access, retain
 their existing owners.
 
 Rendering validates IPv4 networks, gateway and device membership, overlapping

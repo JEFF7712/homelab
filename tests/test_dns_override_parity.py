@@ -1,35 +1,21 @@
-"""Every AdGuard rewrite must have a matching Unbound host override.
-
-The secondary resolver has no overrides of its own. Any infrastructure
-name that AdGuard answers locally but Unbound does not stops resolving
-on every host whose systemd-resolved has degraded to the secondary,
-which silently drops Forgejo webhook deliveries (Forgejo does not
-retry). This test is the forcing function: adding an AdGuard rewrite
-without the Unbound mirror fails the gate.
-"""
+"""Generated resolver views must preserve the infrastructure fallback names."""
 
 from __future__ import annotations
 
 import json
-import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REWRITE = re.compile(
-    r"\{\s*domain\s*=\s*\"([^\"]+)\"\s*;\s*"
-    r"answer\s*=\s*\"([^\"]+)\"\s*;\s*"
-    r"enabled\s*=\s*(true|false)\s*;\s*\}"
-)
 
 
 def adguard_rewrites() -> dict[str, str]:
-    text = (ROOT / "flake/modules/adguard-netbird/adguard.nix").read_text()
-    rewrites = {}
-    for domain, answer, enabled in REWRITE.findall(text):
-        if enabled == "true":
-            rewrites[domain.lower()] = answer
-    return rewrites
+    records = json.loads((ROOT / "inventory/adguard-rewrites.json").read_text())
+    return {
+        record["domain"].lower(): record["answer"]
+        for record in records
+        if record["enabled"]
+    }
 
 
 def unbound_overrides() -> dict[str, str]:
@@ -56,7 +42,7 @@ class DnsOverrideParityTest(unittest.TestCase):
                     domain,
                     overrides,
                     f"{domain} is answered by AdGuard but has no Unbound "
-                    "override; add it to unbound-host-overrides.json",
+                    "override; declare its Unbound view in inventory/dns.nix and render the outputs",
                 )
                 self.assertEqual(
                     overrides[domain],

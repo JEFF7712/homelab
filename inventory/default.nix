@@ -12,10 +12,12 @@ let
           hosts = mkOption { type = types.attrsOf sharedTypes.host; };
           networks = mkOption { type = types.attrsOf sharedTypes.network; };
           bootstrapHost = mkOption { type = types.nonEmptyStr; };
+          dns = mkOption { type = types.listOf sharedTypes.dnsRecord; };
         };
       }
       ./hosts.nix
       ./networks.nix
+      ./dns.nix
     ]
     ++ extraModules;
   };
@@ -38,7 +40,44 @@ let
     }
   ) cfg.networks;
   usable = address: range: ipNumber address > range.start && ipNumber address < range.end;
+  dnsAddress =
+    record: if record.host != null then cfg.hosts.${record.host}.address else record.address;
+  inView =
+    view:
+    builtins.sort (a: b: a.${view} < b.${view}) (
+      builtins.filter (record: record.${view} != null) cfg.dns
+    );
   assertions = [
+    {
+      assertion = unique (map (record: lib.toLower record.name) cfg.dns);
+      message = "DNS names must be unique, ignoring case.";
+    }
+    {
+      assertion = builtins.all (
+        record:
+        (record.host != null) != (record.address != null)
+        && (record.host == null || builtins.hasAttr record.host cfg.hosts)
+      ) cfg.dns;
+      message = "DNS records must select one valid fleet host or one literal address.";
+    }
+    {
+      assertion = builtins.all (
+        record: record.adguardOrder != null || record.unboundOrder != null
+      ) cfg.dns;
+      message = "DNS records must belong to at least one resolver view.";
+    }
+    {
+      assertion = builtins.all (
+        record: !record.enabled || record.adguardOrder == null || record.unboundOrder != null
+      ) cfg.dns;
+      message = "Every enabled AdGuard rewrite must have an Unbound mirror.";
+    }
+    {
+      assertion =
+        unique (map (record: record.adguardOrder) (inView "adguardOrder"))
+        && unique (map (record: record.unboundOrder) (inView "unboundOrder"));
+      message = "DNS record order must be unique within each resolver view.";
+    }
     {
       assertion = unique (map (host: host.deploymentOrder) (builtins.attrValues cfg.hosts));
       message = "Fleet deployment order must be unique.";
@@ -118,6 +157,28 @@ let
 in
 lib.asserts.checkAssertWarn assertions [ ] {
   inherit (cfg) networks hosts bootstrapHost;
+  dns = {
+    records = cfg.dns;
+    adguardRewrites = map (record: {
+      domain = record.name;
+      answer = dnsAddress record;
+      inherit (record) enabled;
+    }) (inView "adguardOrder");
+    unboundOverrides = map (
+      record:
+      let
+        labels = lib.splitString "." (lib.toLower record.name);
+      in
+      {
+        hostname = builtins.head labels;
+        domain = lib.concatStringsSep "." (builtins.tail labels);
+        rr = "A";
+        server = dnsAddress record;
+        inherit (record) description;
+        enabled = if record.enabled then "1" else "0";
+      }
+    ) (inView "unboundOrder");
+  };
   hostCIDRs = lib.mapAttrs (
     _: host: "${host.address}/${toString ranges.${host.network}.prefix}"
   ) cfg.hosts;

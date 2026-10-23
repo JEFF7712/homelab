@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  fleetInventory,
+  ...
+}:
 let
   users = [
     "home-assistant"
@@ -25,7 +30,7 @@ in
     enable = true;
     listeners = [
       {
-        address = "10.0.30.10";
+        address = fleetInventory.hosts.adguard-netbird-01.address;
         port = 1883;
         users = {
           "home-assistant" = {

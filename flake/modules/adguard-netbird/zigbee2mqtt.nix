@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  fleetInventory,
+  ...
+}:
 {
   services.zigbee2mqtt = {
     enable = true;
@@ -7,7 +12,7 @@
       homeassistant.enabled = true;
       permit_join = false;
       mqtt = {
-        server = "mqtt://10.0.30.10:1883";
+        server = "mqtt://${fleetInventory.hosts.adguard-netbird-01.address}:1883";
         user = "!secret.yaml mqtt_user";
         password = "!secret.yaml mqtt_password";
       };

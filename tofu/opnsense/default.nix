@@ -48,6 +48,8 @@ in
         terraformJSON = builtins.toJSON terraform;
         assignmentsJSON = builtins.toJSON assignments;
         inventoryJSON = builtins.toJSON inventory;
+        adguardJSON = builtins.toJSON fleetInventory.dns.adguardRewrites;
+        unboundJSON = builtins.toJSON fleetInventory.dns.unboundOverrides;
         fleetJSON = builtins.toJSON {
           hosts = fleetInventory.deployment;
           cluster_api = fleetInventory.k3sEndpoint;
@@ -57,6 +59,8 @@ in
           "terraformJSON"
           "assignmentsJSON"
           "inventoryJSON"
+          "adguardJSON"
+          "unboundJSON"
           "fleetJSON"
         ];
         nativeBuildInputs = [ pkgs.python3 ];
@@ -66,6 +70,8 @@ in
         cp "$terraformJSONPath" "$out/main.tf.json"
         cp "$assignmentsJSONPath" "$out/assignments.json"
         cp "$inventoryJSONPath" "$out/inventory.json"
+        cp "$adguardJSONPath" "$out/adguard-rewrites.json"
+        cp "$unboundJSONPath" "$out/unbound-host-overrides.json"
         cp "$fleetJSONPath" "$out/fleet.json"
         python ${../../scripts/opnsense_config.py} --rendered "$out" --validate-only
       '';

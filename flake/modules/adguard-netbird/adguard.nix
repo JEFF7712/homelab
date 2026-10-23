@@ -1,8 +1,8 @@
-{ pkgs, ... }:
+{ pkgs, fleetInventory, ... }:
 {
   services.adguardhome = {
     enable = true;
-    host = "10.0.30.10";
+    host = fleetInventory.hosts.adguard-netbird-01.address;
     port = 3000;
     mutableSettings = false;
     settings = {
@@ -13,14 +13,14 @@
         }
       ];
       dns = {
-        bind_hosts = [ "10.0.30.10" ];
+        bind_hosts = [ fleetInventory.hosts.adguard-netbird-01.address ];
         port = 53;
         bootstrap_dns = [
           "9.9.9.9"
           "149.112.112.112"
         ];
         upstream_dns = [
-          "[/homelab/]10.0.30.1"
+          "[/homelab/]${fleetInventory.networks.infrastructure.gateway}"
           "https://dns.quad9.net/dns-query"
         ];
         fallback_dns = [ "1.1.1.1" ];
@@ -32,50 +32,14 @@
         # every job container behind one address.
         ratelimit = 100;
         ratelimit_subnet_len_ipv4 = 32;
-        ratelimit_whitelist = [ "10.0.30.14" ];
+        ratelimit_whitelist = [ fleetInventory.hosts.homelab-04.address ];
       };
       dhcp.enabled = false;
       filtering = {
         enabled = true;
         filtering_enabled = true;
         filters_update_interval = 24;
-        rewrites = [
-          {
-            domain = "OPNsense.internal";
-            answer = "192.168.1.1";
-            enabled = true;
-          }
-          {
-            domain = "registry.rupan.dev";
-            answer = "10.0.30.20";
-            enabled = true;
-          }
-          {
-            domain = "npm.rupan.dev";
-            answer = "10.0.30.20";
-            enabled = true;
-          }
-          {
-            domain = "git.rupan.dev";
-            answer = "10.0.30.20";
-            enabled = true;
-          }
-          {
-            domain = "git.internal";
-            answer = "10.0.30.20";
-            enabled = true;
-          }
-          {
-            domain = "s3.internal";
-            answer = "10.0.30.20";
-            enabled = true;
-          }
-          {
-            domain = "ci.internal";
-            answer = "10.0.30.14";
-            enabled = true;
-          }
-        ];
+        rewrites = fleetInventory.dns.adguardRewrites;
       };
       filters = [
         {
