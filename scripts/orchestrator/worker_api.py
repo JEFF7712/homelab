@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from scripts.orchestrator.core import OrchestratorError, Store
-from scripts.orchestrator.worker import Inbox, LocalChannel
+from scripts.orchestrator.worker import Inbox, LocalChannel, redact
 
 BODY_LIMIT = 64 * 1024
 READ_TIMEOUT = 10.0
@@ -87,8 +87,14 @@ class WorkerApi:
         channel = LocalChannel(
             self.store, attempt.id, self.lease_seconds, self.question_ttl, self.clock
         )
+
+        def clean(value: str) -> str:
+            return redact(value, (token,))
+
         if operation == "start":
-            channel.start(text(body, "session_ref"), text(body, "workspace_ref"))
+            channel.start(
+                clean(text(body, "session_ref")), clean(text(body, "workspace_ref"))
+            )
         elif operation == "renew":
             channel.renew()
         elif operation == "ask":
@@ -96,7 +102,9 @@ class WorkerApi:
             if not isinstance(choices, list) or len(choices) > 20:
                 raise OrchestratorError("INVALID_SPEC", "choices must be a short list")
             question_id = channel.ask(
-                text(body, "key"), text(body, "prompt"), tuple(str(c) for c in choices)
+                text(body, "key"),
+                clean(text(body, "prompt")),
+                tuple(clean(str(c)) for c in choices),
             )
             return {"question_id": question_id}
         elif operation == "inbox":
@@ -111,15 +119,17 @@ class WorkerApi:
                 raise OrchestratorError("NOT_FOUND", "no such answer for this attempt")
             channel.acknowledge(key)
         elif operation == "session":
-            channel.session(text(body, "key"))
+            channel.session(clean(text(body, "key")))
         elif operation == "settle":
             payload = body.get("payload")
             if not isinstance(payload, dict):
                 raise OrchestratorError("INVALID_SPEC", "payload must be an object")
             allowed = {"backend", "provider", "model", "final_text"}
-            channel.settle({k: str(v) for k, v in payload.items() if k in allowed})
+            channel.settle(
+                {k: clean(str(v)) for k, v in payload.items() if k in allowed}
+            )
         elif operation == "finish":
-            channel.finish(text(body, "reason"), bool(body.get("retryable")))
+            channel.finish(clean(text(body, "reason")), bool(body.get("retryable")))
         return {}
 
 
