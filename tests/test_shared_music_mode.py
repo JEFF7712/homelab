@@ -8,18 +8,18 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-class TestGoveeMusicMode(unittest.TestCase):
+class TestSharedMusicMode(unittest.TestCase):
     def test_helper_definition(self) -> None:
         helper_file = (
             REPO_ROOT
             / "home-assistant"
             / "helpers"
-            / "input_boolean_govee_music_mode.yaml"
+            / "input_boolean_shared_music_mode.yaml"
         )
         self.assertTrue(helper_file.is_file(), "Helper file must exist")
         data = yaml.safe_load(helper_file.read_text(encoding="utf-8"))
-        self.assertEqual(data.get("entity_id"), "input_boolean.govee_music_mode")
-        self.assertEqual(data.get("name"), "Govee Music Mode")
+        self.assertEqual(data.get("entity_id"), "input_boolean.shared_music_mode")
+        self.assertEqual(data.get("name"), "Shared Music Mode")
 
     def test_entity_registry_registration(self) -> None:
         entities_file = REPO_ROOT / "home-assistant" / "registries" / "entities.yaml"
@@ -27,7 +27,7 @@ class TestGoveeMusicMode(unittest.TestCase):
         registered = [
             entry.get("entity_id") for entry in data if isinstance(entry, dict)
         ]
-        self.assertIn("input_boolean.govee_music_mode", registered)
+        self.assertIn("input_boolean.shared_music_mode", registered)
 
     def test_effects_script(self) -> None:
         script_file = (
@@ -41,23 +41,24 @@ class TestGoveeMusicMode(unittest.TestCase):
         self.assertEqual(sequence[0].get("action"), "input_boolean.toggle")
         self.assertEqual(
             sequence[0].get("target", {}).get("entity_id"),
-            "input_boolean.govee_music_mode",
+            "input_boolean.shared_music_mode",
         )
 
     def test_lighting_automation_uses_native_effects_and_no_rate_limit_loop(
         self,
     ) -> None:
         auto_file = (
-            REPO_ROOT / "home-assistant" / "automations" / "govee_music_mode.yaml"
+            REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
         )
         self.assertTrue(auto_file.is_file(), "Automation file must exist")
         raw_text = auto_file.read_text(encoding="utf-8")
         data = yaml.safe_load(raw_text)
 
-        self.assertEqual(data.get("id"), "govee_music_mode")
-        self.assertEqual(data.get("alias"), "Lighting: Govee Music Mode")
+        self.assertEqual(data.get("id"), "shared_music_mode")
+        self.assertEqual(data.get("alias"), "Lighting: Shared Music Mode")
 
-        # Must NOT contain repeating loop or delays that violate Govee Cloud API limits
+        # Must NOT contain repeating loops or delays; control fans out
+        # through the LedFx Zigbee bridge, not per-bulb cloud calls.
         self.assertNotIn("repeat:", raw_text)
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
@@ -75,7 +76,7 @@ class TestGoveeMusicMode(unittest.TestCase):
         # Must snapshot pre-music state on entry and restore it on exit, so
         # bulbs never keep LedFx's last frame (black when the tap is silent).
         self.assertIn("scene.create", raw_text)
-        self.assertIn("pre_music_mode_govee", raw_text)
+        self.assertIn("pre_music_mode_shared", raw_text)
         self.assertIn("scene.turn_on", raw_text)
 
     def test_music_snapshot_is_watchman_exempt(self) -> None:
@@ -86,7 +87,7 @@ class TestGoveeMusicMode(unittest.TestCase):
             / "watchman_missing_report.yaml"
         )
         raw_text = watchman_file.read_text(encoding="utf-8")
-        self.assertIn("scene.pre_music_mode_govee", raw_text)
+        self.assertIn("scene.pre_music_mode_shared", raw_text)
 
     def test_voice_automation(self) -> None:
         voice_file = (
@@ -105,9 +106,15 @@ class TestGoveeMusicMode(unittest.TestCase):
         self.assertIn("on", trigger_ids)
         self.assertIn("off", trigger_ids)
 
+        raw_text = voice_file.read_text(encoding="utf-8")
+        self.assertIn("turn on [the] shared music mode", raw_text)
+        self.assertIn("turn off [the] shared music mode", raw_text)
+        # Legacy Govee phrasing keeps working against the same toggle.
+        self.assertIn("turn on [the] govee music mode", raw_text)
+
     def test_automation_is_enabled_and_leaves_the_apollo_strip_alone(self) -> None:
         auto_file = (
-            REPO_ROOT / "home-assistant" / "automations" / "govee_music_mode.yaml"
+            REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
         )
         raw_text = auto_file.read_text(encoding="utf-8")
         self.assertNotIn("initial_state", yaml.safe_load(raw_text))
@@ -118,12 +125,12 @@ class TestGoveeMusicMode(unittest.TestCase):
             REPO_ROOT / "home-assistant" / "dashboards" / "shared-spaces.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("script.effects_music_mode", shared_spaces)
-        self.assertIn("input_boolean.govee_music_mode", shared_spaces)
+        self.assertIn("input_boolean.shared_music_mode", shared_spaces)
 
         lovelace_jarvis = (
             REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
         ).read_text(encoding="utf-8")
-        self.assertIn("input_boolean.govee_music_mode", lovelace_jarvis)
+        self.assertIn("input_boolean.shared_music_mode", lovelace_jarvis)
 
 
 if __name__ == "__main__":

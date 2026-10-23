@@ -84,12 +84,12 @@ views:
       - title: Lighting Matrix
         cards:
           - type: tile
-            entity: light.all_govee_lights
+            entity: light.shared_zigbee_lights
             name: Shared Bulbs
             features:
               - type: light-brightness
           - type: tile
-            entity: input_boolean.govee_music_mode
+            entity: input_boolean.shared_music_mode
             name: Music Mode
             icon: mdi:music
           - type: tile

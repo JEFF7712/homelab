@@ -93,8 +93,8 @@ TARGETS = {
             }
         ),
     ),
-    "all_govee_lights": Target(
-        "light.all_govee_lights",
+    "shared_zigbee_lights": Target(
+        "light.shared_zigbee_lights",
         frozenset(
             {
                 "turn_on",
@@ -183,7 +183,9 @@ _TARGET_EVIDENCE = {
         r"\b(?:bedroom lights?|bed lights?)\b"
         r"|\blights?\s+(?:in\s+the\s+)?bedroom\b"
     ),
-    "all_govee_lights": re.compile(r"\b(?:all (?:the )?)?govee (?:lights?|lamp)\b"),
+    "shared_zigbee_lights": re.compile(
+        r"\b(?:all (?:the )?)?(?:govee|zigbee|shared) (?:lights?|lamp|bulbs?)\b"
+    ),
     "kitchen_mushroom_lamp": re.compile(r"\bkitchen mushroom lamp\b"),
     "bedroom_window_plug": re.compile(r"\bbedroom window plug\b"),
     "bedroom_mushroom_plug": re.compile(r"\bbedroom mushroom plug\b"),
