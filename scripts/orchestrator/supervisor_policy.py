@@ -72,7 +72,7 @@ def sign_in_problems(name: str, record: dict[str, Any]) -> list[str]:
         problems.append(f"provider {name} lacks the {SIGN_IN_SCOPE} grant")
     base = record.get("base_url")
     if base not in (None, "", OPENAI_API):
-        problems.append(f"provider {name} points at {base}, not {OPENAI_API}")
+        problems.append(f"provider {name} overrides the required {OPENAI_API} endpoint")
     return problems
 
 
@@ -93,8 +93,8 @@ def audit_letta(
             records = document.get("providers") or {}
             if not isinstance(records, dict):
                 raise ValueError("providers is not an object")
-        except (ValueError, AttributeError) as error:
-            violations.append(f"{auth_path} is unreadable: {error}")
+        except (OSError, ValueError, AttributeError):
+            violations.append(f"{auth_path} is unreadable or malformed")
             records = {}
         for name, record in sorted(records.items()):
             providers.append(name)
@@ -102,6 +102,9 @@ def audit_letta(
                 violations.append(f"provider {name} is malformed")
                 continue
             auth = record.get("auth") or {}
+            if not isinstance(auth, dict):
+                violations.append(f"provider {name} has malformed authentication")
+                continue
             kind = record.get("provider_type")
             if name in SUBSCRIPTION_PROVIDERS or kind in SUBSCRIPTION_PROVIDERS:
                 violations.append(f"provider {name} is the Codex-client ChatGPT login")

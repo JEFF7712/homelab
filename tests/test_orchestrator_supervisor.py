@@ -121,6 +121,42 @@ class SupervisorAuditTests(unittest.TestCase):
         )
         self.assertFalse(audit_letta(self.storage, {}, chatgpt_sign_in=True).ok)
 
+    def test_endpoint_rejection_does_not_print_url_credentials(self) -> None:
+        secret = "private-url-credential"
+        provider = self.sign_in()
+        provider["base_url"] = f"https://user:{secret}@example.invalid/v1"
+        self.write(provider)
+        output = io.StringIO()
+        with (
+            mock.patch.dict("os.environ", {}, clear=True),
+            contextlib.redirect_stdout(output),
+        ):
+            code = cli.main(
+                [
+                    "supervisor-audit",
+                    "--letta-dir",
+                    str(self.storage),
+                    "--allow-chatgpt-sign-in",
+                ]
+            )
+        self.assertEqual(code, 1)
+        self.assertNotIn(secret, output.getvalue())
+        self.assertEqual(json.loads(output.getvalue())["status"], "violations")
+
+    def test_malformed_authentication_is_a_structured_violation(self) -> None:
+        for value in (["credential"], "credential", 1):
+            provider = self.sign_in()
+            provider["auth"] = value
+            self.write(provider)
+            self.assertFalse(audit_letta(self.storage, {}, chatgpt_sign_in=True).ok)
+
+    def test_store_read_errors_are_structured_violations(self) -> None:
+        self.write(self.sign_in())
+        with mock.patch.object(
+            Path, "read_text", side_effect=PermissionError("denied")
+        ):
+            self.assertFalse(audit_letta(self.storage, {}).ok)
+
     def test_endpoint_redirects_in_the_environment_are_refused(self) -> None:
         self.write(self.sign_in())
         for variable in ("OPENAI_BASE_URL", "OPENAI_API_BASE", "ANTHROPIC_BASE_URL"):
