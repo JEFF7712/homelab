@@ -247,6 +247,7 @@ class WorkerTests(WorkerCase):
         secret = "opaque-credential-value-without-a-token-prefix"
         session = mock.Mock()
         session.poll.side_effect = [
+            WorkerEvent("session", key=secret),
             WorkerEvent(
                 "question", key="q", prompt=f"Use {secret}?", choices=(secret,)
             ),
@@ -261,6 +262,7 @@ class WorkerTests(WorkerCase):
         opened = self.store.pending_messages("question.open")
         self.assertEqual(len(opened), 1)
         self.assertNotIn(secret, json.dumps(opened[0].payload))
+        self.assertNotIn(secret, json.dumps(self.store.events(self.task.id)))
         self.assertEqual(opened[0].payload["choices"], ["[redacted]"])
         self.assertNotIn(
             secret,
