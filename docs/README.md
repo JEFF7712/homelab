@@ -43,6 +43,8 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 ### Plans, designs, and research (dated, for historical context)
 - `docs/superpowers/plans/` — dated implementation plans per workstream.
 - `docs/superpowers/specs/` — dated design specs per workstream.
+- `docs/architecture/persistent-agent.md`: persistent agent target architecture, credential inventory, supervisor inference preflight and deployment gates (not deployed).
+- `docs/protocols/agent-tasks.md`: controller store, task states, worker backend contract and outbox topics.
 - `docs/research/` — dated research notes (k3s, Flux, OPNsense control plane, OPNsense 26.7 API).
 
 ### Per-task notes (transient)
