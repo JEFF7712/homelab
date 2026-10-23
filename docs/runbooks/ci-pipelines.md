@@ -112,16 +112,25 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   modules, and any unmapped path still force the full gate.
 - **Full offline gate**: Main branch pushes, periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
-  full offline gate (`just check` with `nix flake check`).
+  full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
 
 The full gate avoids repeating work its own lanes already cover: the parallel
 `fmt` lane owns format and YAML lint (the gate runs with `CI_LINT_EXTERNAL=1`,
 and `just fmt-check` includes `yamllint gitops home-assistant`), the secret
 scan uses the incremental range scan in `scripts/checks/secrets.sh` instead of
 rescanning all history (full scans remain for schedules, tags, and local runs),
-and when `nix flake check` will run, `repository-contract` executes the full
+and when the flake lane will run, `repository-contract` executes the full
 unit suite in the Nix sandbox so the local Python lane shrinks to the
 Nix-integration subset rather than running the suite twice.
+
+The flake lane evaluates every check and every host configuration with
+`nix-eval-jobs` (one worker, restarted past 2048 MiB) instead of
+`nix flake check`, then builds only the checks from the evaluated
+derivations. A single `nix flake check` evaluator held all thirteen host
+configurations at about 5.5 GiB, and with the unit-suite build and the other
+lanes it crossed the 8 GiB job limit and killed `repository-contract` with
+signal 9. `CI_EVAL_WORKERS` and `CI_EVAL_MAX_MEMORY_MB` trade memory for
+evaluation time.
 
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
@@ -152,7 +161,7 @@ The homelab target set in `scripts/ci/cache.sh` uses nix-fast-build from the
 pinned nixpkgs. Its selection is generated from the same 17 targets used by
 the native builder: seven host systems, seven checks and three development
 shells. Laptop and ISO publication continue to use the native builder.
-Full `nix flake check` validation remains a separate gate.
+The full gate's flake lane remains the separate validation gate.
 
 The pilot uses two evaluation workers, a 2048 MiB memory budget per worker,
 and two concurrent build jobs. The initial 1536 MiB budget caused worker
