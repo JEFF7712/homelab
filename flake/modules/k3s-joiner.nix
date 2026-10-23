@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  fleetInventory,
+  ...
+}:
 let
   cfg = config.homelab.joiner;
 in
@@ -29,7 +34,7 @@ in
 
     serverAddress = lib.mkOption {
       type = lib.types.str;
-      default = "https://10.0.30.11:6443";
+      default = fleetInventory.k3sEndpoint;
       description = "Existing k3s API endpoint for joining this server.";
     };
   };

@@ -1,11 +1,13 @@
 {
   pkgs,
   tofunix,
+  fleetInventory ? import ../../inventory { lib = pkgs.lib; },
   extraModules ? [ ],
 }:
 let
   inherit (pkgs) lib;
   evaluated = lib.evalModules {
+    specialArgs = { inherit fleetInventory; };
     modules = [
       ./options.nix
       ./inventory.nix
@@ -46,10 +48,16 @@ in
         terraformJSON = builtins.toJSON terraform;
         assignmentsJSON = builtins.toJSON assignments;
         inventoryJSON = builtins.toJSON inventory;
+        fleetJSON = builtins.toJSON {
+          hosts = fleetInventory.deployment;
+          cluster_api = fleetInventory.k3sEndpoint;
+          cluster_nodes = lib.genAttrs fleetInventory.k3sHosts (name: fleetInventory.hosts.${name}.address);
+        };
         passAsFile = [
           "terraformJSON"
           "assignmentsJSON"
           "inventoryJSON"
+          "fleetJSON"
         ];
         nativeBuildInputs = [ pkgs.python3 ];
       }
@@ -58,6 +66,7 @@ in
         cp "$terraformJSONPath" "$out/main.tf.json"
         cp "$assignmentsJSONPath" "$out/assignments.json"
         cp "$inventoryJSONPath" "$out/inventory.json"
+        cp "$fleetJSONPath" "$out/fleet.json"
         python ${../../scripts/opnsense_config.py} --rendered "$out" --validate-only
       '';
 }

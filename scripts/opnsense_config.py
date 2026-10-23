@@ -11,6 +11,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS = {
+    "fleet.json": "inventory/fleet.json",
     "main.tf.json": "tofu/opnsense/main.tf.json",
     "assignments.json": "opnsense_reconciler/assignments.json",
 }

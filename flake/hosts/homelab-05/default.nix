@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  fleetInventory,
+  pkgs,
+  ...
+}:
 let
   vm = config.homelab.omarchyVm;
   ci = config.homelab.woodpeckerSandbox;
@@ -49,8 +54,8 @@ in
     enable = true;
     role = "agent";
     primaryInterface = "enp0s31f6";
-    nodeIp = "10.0.30.15";
-    serverAddress = "https://10.0.30.11:6443";
+    nodeIp = fleetInventory.hosts.homelab-05.address;
+    serverAddress = fleetInventory.k3sEndpoint;
   };
 
   services.k3s.extraFlags = [

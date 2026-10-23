@@ -32,10 +32,12 @@ in
       inherit name;
       inherit (alias) description type enabled;
       content =
-        if alias.devices == [ ] then
-          alias.content
+        if alias.devices != [ ] then
+          map (device: cfg.devices.${device}.address) alias.devices
+        else if alias.hosts != [ ] then
+          map (host: cfg.hosts.${host}.address) alias.hosts
         else
-          map (device: cfg.devices.${device}.address) alias.devices;
+          alias.content;
     }) cfg.aliases;
     firewall_filters = cfg.rules;
     firewall_nat_port_forwards = cfg.portForwards;

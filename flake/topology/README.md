@@ -15,7 +15,9 @@ topology adapter projects their evaluated values without extending or
 reevaluating the NixOS module graphs. Production host configurations do not
 import it. Deployment variants are excluded.
 OPNsense VLANs and gateway addresses come from
-`opnsense_reconciler/assignments.json`; BGP intent comes from
+the generated `opnsense_reconciler/assignments.json`, whose source is
+`inventory/networks.nix`; primary host addresses are declared in
+`inventory/hosts.nix`. BGP intent comes from
 `opnsense_reconciler/bgp-neighbors.json`. A matching declared interface gateway
 assigns the corresponding network. Physical connections are never inferred.
 

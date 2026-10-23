@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, fleetInventory, ... }:
 let
   workspaces = config.services.agent-workspaces;
   reservedCpu = 1 + workspaces.aggregateCpuPercent / 100;
@@ -93,8 +93,8 @@ in
     enable = true;
     role = "agent";
     primaryInterface = "enp0s31f6";
-    nodeIp = "10.0.30.14";
-    serverAddress = "https://10.0.30.11:6443";
+    nodeIp = fleetInventory.hosts.homelab-04.address;
+    serverAddress = fleetInventory.k3sEndpoint;
   };
 
   services.k3s.extraFlags = [
@@ -144,7 +144,7 @@ in
             mac = "02:00:00:10:00:06";
             uplink = "enp0s31f6";
             ha_api = null;
-            kubernetes_api = "10.0.30.11";
+            kubernetes_api = fleetInventory.hosts.${fleetInventory.bootstrapHost}.address;
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [

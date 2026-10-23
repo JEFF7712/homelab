@@ -10,6 +10,7 @@ let
     overlays = [ nix-topology.overlays.default ];
   };
   inherit (pkgs) lib;
+  fleetInventory = import ../../inventory { inherit lib; };
   assignments = builtins.fromJSON (builtins.readFile ../../opnsense_reconciler/assignments.json);
   hosts = lib.filterAttrs (
     name: host: name == host.config.networking.hostName
@@ -129,8 +130,8 @@ let
           ) diagramNodes;
           assertions = [
             {
-              assertion = builtins.length (builtins.attrNames hosts) == 7;
-              message = "Topology must include the seven canonical fleet hosts, without deployment variants.";
+              assertion = builtins.attrNames hosts == builtins.attrNames fleetInventory.hosts;
+              message = "Topology must include every declared fleet host without deployment variants.";
             }
           ];
         }
@@ -138,6 +139,7 @@ let
     ];
   };
   manifest = {
+    fleetHosts = builtins.attrNames fleetInventory.hosts;
     schemaVersion = 1;
     evidence = "declared configuration, not observed runtime state";
     sourceRevision = self.rev or null;
@@ -187,7 +189,7 @@ pkgs.runCommand "homelab-topology"
     manifest = json.loads((output / "topology.json").read_text())
     for name in ("main.svg", "network.svg"):
         assert ET.parse(output / name).getroot().tag == "{http://www.w3.org/2000/svg}svg"
-    assert len([n for n in manifest["nodes"].values() if n["deviceType"] == "nixos"]) == 7
+    assert {name for name, node in manifest["nodes"].items() if node["deviceType"] == "nixos"} == set(manifest["fleetHosts"])
     assert manifest["nodes"]["nas-01"]["services"]["zot"]["name"] == "Zot registry"
     assert manifest["nodes"]["homelab-04"]["services"]["woodpecker"]["name"] == "Woodpecker CI"
     for name, node in manifest["nodes"].items():
