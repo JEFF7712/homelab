@@ -22,6 +22,12 @@ let
       };
     }).config.final;
   tests = {
+    unknownAliasHost = rejects (inventory {
+      homelab.aliases.spotify_matrix_senders.hosts = lib.mkForce [ "missing" ];
+    });
+    mixedAliasReferences = rejects (inventory {
+      homelab.aliases.spotify_matrix_senders.content = [ "10.0.30.11" ];
+    });
     duplicateAddress = rejects (inventory {
       homelab.devices.laptop_nixos.address = lib.mkForce "10.0.20.124";
     });

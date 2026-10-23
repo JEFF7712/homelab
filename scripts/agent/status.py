@@ -15,19 +15,12 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 def configured_targets(root: Path) -> dict[str, Any]:
-    hosts = {}
-    for path in sorted((root / "flake/hosts").glob("homelab-*/default.nix")):
-        text = path.read_text(encoding="utf-8")
-        match = re.search(r'nodeIp\s*=\s*"([^"]+)"', text)
-        if match:
-            hosts[path.parent.name] = match.group(1)
-    primary = (root / "flake/hosts/homelab-02/default.nix").read_text(encoding="utf-8")
-    api = re.search(r'serverAddress\s*=\s*"([^"]+)"', primary)
+    fleet = json.loads((root / "inventory/fleet.json").read_text(encoding="utf-8"))
     ci = (root / ".gitlab-ci.yml").read_text(encoding="utf-8")
     opnsense = re.search(r'OPNSENSE_URI:\s*"([^"]+)"', ci)
     return {
-        "cluster_api": api.group(1) if api else None,
-        "cluster_nodes": hosts,
+        "cluster_api": fleet["cluster_api"],
+        "cluster_nodes": fleet["cluster_nodes"],
         "opnsense": opnsense.group(1) if opnsense else None,
         "kubeconfig": "$KUBECONFIG or kubectl default resolution",
         "opnsense_ca_variable": "OPNSENSE_CA_FILE",

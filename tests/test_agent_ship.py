@@ -65,6 +65,21 @@ class ShipPlanTest(unittest.TestCase):
             plan_operations(changed, self.routes, "none", self.catalog).run, []
         )
 
+    def test_shared_inventory_routes_both_consumers(self) -> None:
+        for path in ("inventory/hosts.nix", "inventory/networks.nix"):
+            with self.subTest(path=path):
+                plan = plan_operations([path], self.routes, "auto", self.catalog)
+                self.assertEqual(
+                    set(plan.run),
+                    {
+                        "deploy-fleet-dry-run",
+                        "deploy-fleet",
+                        "opnsense-plan",
+                        "opnsense-apply",
+                    },
+                )
+                self.assertEqual(plan.held, {})
+
     def test_tunnel_ingress_changes_apply_the_cloudflare_stack(self) -> None:
         plan = plan_operations(
             ["gitops/cloudflare/ingress-config.yaml"], self.routes, "auto", self.catalog

@@ -1,0 +1,54 @@
+{
+  "cluster_api": "https://10.0.30.11:6443",
+  "cluster_nodes": {
+    "homelab-01": "10.0.30.11",
+    "homelab-02": "10.0.30.12",
+    "homelab-03": "10.0.30.13",
+    "homelab-04": "10.0.30.14",
+    "homelab-05": "10.0.30.15"
+  },
+  "hosts": {
+    "adguard-netbird-01": {
+      "host_type": "appliance-dns",
+      "ip": "10.0.30.10",
+      "name": "adguard-netbird-01",
+      "order": 6
+    },
+    "homelab-01": {
+      "host_type": "k3s-stateful",
+      "ip": "10.0.30.11",
+      "name": "homelab-01",
+      "order": 3
+    },
+    "homelab-02": {
+      "host_type": "k3s-worker",
+      "ip": "10.0.30.12",
+      "name": "homelab-02",
+      "order": 1
+    },
+    "homelab-03": {
+      "host_type": "k3s-worker",
+      "ip": "10.0.30.13",
+      "name": "homelab-03",
+      "order": 2
+    },
+    "homelab-04": {
+      "host_type": "k3s-worker",
+      "ip": "10.0.30.14",
+      "name": "homelab-04",
+      "order": 4
+    },
+    "homelab-05": {
+      "host_type": "k3s-worker",
+      "ip": "10.0.30.15",
+      "name": "homelab-05",
+      "order": 5
+    },
+    "nas-01": {
+      "host_type": "appliance-nas",
+      "ip": "10.0.30.20",
+      "name": "nas-01",
+      "order": 7
+    }
+  }
+}

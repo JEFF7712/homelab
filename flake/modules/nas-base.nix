@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, fleetInventory, ... }:
 {
   boot = {
     loader = {
@@ -97,12 +97,12 @@
     networks."30-infrastructure" = {
       matchConfig.Name = "enp5s0";
       networkConfig = {
-        Address = "10.0.30.20/24";
+        Address = fleetInventory.hostCIDRs.nas-01;
         DNS = [
-          "10.0.30.10"
-          "10.0.30.1"
+          fleetInventory.hosts.adguard-netbird-01.address
+          fleetInventory.networks.infrastructure.gateway
         ];
-        Gateway = "10.0.30.1";
+        Gateway = fleetInventory.networks.infrastructure.gateway;
       };
       linkConfig.RequiredForOnline = "routable";
     };

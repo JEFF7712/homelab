@@ -54,51 +54,11 @@ class HostConfig:
         return self.name
 
 
-# k3s servers (homelab-01..03) precede the agents: a kubelet must never be
-# newer than any API server, which matters when nixpkgs moves k3s a minor.
 FLEET_HOSTS: dict[str, HostConfig] = {
-    "homelab-02": HostConfig(
-        name="homelab-02",
-        ip="10.0.30.12",
-        host_type="k3s-worker",
-        order=1,
-    ),
-    "homelab-03": HostConfig(
-        name="homelab-03",
-        ip="10.0.30.13",
-        host_type="k3s-worker",
-        order=2,
-    ),
-    "homelab-04": HostConfig(
-        name="homelab-04",
-        ip="10.0.30.14",
-        host_type="k3s-worker",
-        order=4,
-    ),
-    "homelab-05": HostConfig(
-        name="homelab-05",
-        ip="10.0.30.15",
-        host_type="k3s-worker",
-        order=5,
-    ),
-    "homelab-01": HostConfig(
-        name="homelab-01",
-        ip="10.0.30.11",
-        host_type="k3s-stateful",
-        order=3,
-    ),
-    "adguard-netbird-01": HostConfig(
-        name="adguard-netbird-01",
-        ip="10.0.30.10",
-        host_type="appliance-dns",
-        order=6,
-    ),
-    "nas-01": HostConfig(
-        name="nas-01",
-        ip="10.0.30.20",
-        host_type="appliance-nas",
-        order=7,
-    ),
+    name: HostConfig(**host)
+    for name, host in json.loads(
+        (Path(__file__).resolve().parents[1] / "inventory/fleet.json").read_text()
+    )["hosts"].items()
 }
 
 

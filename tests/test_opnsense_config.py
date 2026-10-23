@@ -89,7 +89,9 @@ class GeneratedOutputTests(unittest.TestCase):
             self.assertTrue(
                 all((root / target).read_text() == "{}" for target in OUTPUTS.values())
             )
-            self.assertEqual(len(synchronize(rendered, root, check=False)), 2)
+            self.assertEqual(
+                len(synchronize(rendered, root, check=False)), len(OUTPUTS)
+            )
             self.assertEqual(synchronize(rendered, root, check=True), [])
 
     def test_whitespace_changes_do_not_count_as_drift(self) -> None:

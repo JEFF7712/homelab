@@ -1,18 +1,22 @@
 # OPNsense configuration
 
-Edit `tofu/opnsense/inventory.nix` for networks, DHCP devices, aliases, firewall
-rules, and port forwards. `options.nix` defines the typed domain interface and
+Edit `inventory/networks.nix` for shared networks and `inventory/hosts.nix` for
+static fleet hosts. Edit `tofu/opnsense/inventory.nix` for DHCP devices, aliases,
+firewall rules, and port forwards. `options.nix` defines the typed domain interface and
 assertions. `resources.nix` projects it into provider resources using Tofunix,
 pinned in `flake/flake.lock`.
 
 ## Change a network or device
 
-1. Edit the inventory. Networks declare their VLAN, gateway, CIDR, OPNsense
+1. Edit the owning inventory. Networks declare their VLAN, gateway, CIDR, OPNsense
    interface name, and optional DHCP settings. Devices reference a DHCP network
    and declare their address, MAC, hostname, and description. A host alias can
-   reference device keys through `devices`, so its addresses follow reservations.
+   reference DHCP device keys through `devices` or static fleet keys through
+   `hosts`, so addresses follow their authoritative declarations. See the
+   [shared fleet inventory](fleet-inventory.md) for NixOS consumers and routing.
 2. Run `just opnsense-render`. It generates `tofu/opnsense/main.tf.json` and
-   `opnsense_reconciler/assignments.json`. Commit changed outputs with the source.
+   `opnsense_reconciler/assignments.json`, plus the deployer's
+   `inventory/fleet.json`. Commit changed outputs with the source.
 3. Run `just opnsense-check`, `just check-changed`, and `just fmt-check`.
 4. Deliver through `just ship`. Inspect the protected refresh-only and desired
    plans before accepting a network change. Follow
