@@ -5,7 +5,7 @@ description: >-
 sequence:
   - action: light.turn_on
     target:
-      entity_id: light.all_govee_lights
+      entity_id: light.shared_zigbee_lights
     data:
       effect: colorloop
 mode: single

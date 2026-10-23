@@ -641,7 +641,9 @@ class EvalCorpusTest(unittest.TestCase):
     def test_alias_routing(self) -> None:
         self.assertEqual(self.alias.get("language"), "en")
         outs = {v["out"] for v in self.alias["lists"]["jarvis_alias"]["values"]}
-        self.assertEqual(outs, {"light.bedroom_roku_lights", "light.all_govee_lights"})
+        self.assertEqual(
+            outs, {"light.bedroom_roku_lights", "light.shared_zigbee_lights"}
+        )
         for entity_id in outs:
             self.assertIn(entity_id, self.known, entity_id)
         scripts = self.core["intent_script"]
@@ -710,8 +712,12 @@ class EvalCorpusTest(unittest.TestCase):
             v["in"]: v["out"] for v in self.colors["lists"]["jarvis_light"]["values"]
         }
         for heard in govee_mishearings:
-            self.assertEqual(alias_values.get(heard), "light.all_govee_lights", heard)
-            self.assertEqual(light_values.get(heard), "light.all_govee_lights", heard)
+            self.assertEqual(
+                alias_values.get(heard), "light.shared_zigbee_lights", heard
+            )
+            self.assertEqual(
+                light_values.get(heard), "light.shared_zigbee_lights", heard
+            )
 
     def test_home_sentences_match_cases(self) -> None:
         sentences: dict[str, list[str]] = {}

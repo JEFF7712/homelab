@@ -13,7 +13,7 @@ BEDROOM_LIGHTS = {
     "light.light_strip_light_strip",
 }
 
-SHARED_GOVEE_LIGHTS = {
+SHARED_ZIGBEE_LIGHTS = {
     "light.kitchen_ceiling_light_1",
     "light.kitchen_ceiling_light_2",
     "light.living_room_floor_lamp",
@@ -42,7 +42,7 @@ class TestBedroomMusicMode(unittest.TestCase):
         ]
         self.assertIn("input_boolean.bedroom_music_mode", registered)
         # Separate toggle from the shared-spaces one.
-        self.assertIn("input_boolean.govee_music_mode", registered)
+        self.assertIn("input_boolean.shared_music_mode", registered)
 
     def test_effects_script(self) -> None:
         script_file = (
@@ -70,7 +70,7 @@ class TestBedroomMusicMode(unittest.TestCase):
         self.assertEqual(data.get("id"), "bedroom_music_mode")
         self.assertEqual(data.get("alias"), "Lighting: Bedroom Music Mode")
 
-        # Must NOT contain repeating loop or delays, mirroring the Govee contract.
+        # Must NOT contain repeating loops or delays, mirroring the shared contract.
         self.assertNotIn("repeat:", raw_text)
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
@@ -86,13 +86,13 @@ class TestBedroomMusicMode(unittest.TestCase):
         self.assertIn("adaptive_lighting.apply", raw_text)
         self.assertIn("turn_on_lights: false", raw_text)
 
-        # Bedroom Roku bulbs only; shared Govee lights must stay untouched.
+        # Bedroom Roku bulbs only; shared Zigbee lights must stay untouched.
         for light in BEDROOM_LIGHTS:
             self.assertIn(light, raw_text)
-        for light in SHARED_GOVEE_LIGHTS:
+        for light in SHARED_ZIGBEE_LIGHTS:
             self.assertNotIn(light, raw_text)
         self.assertIn("input_boolean.bedroom_music_mode", raw_text)
-        self.assertNotIn("input_boolean.govee_music_mode", raw_text)
+        self.assertNotIn("input_boolean.shared_music_mode", raw_text)
 
     def test_voice_automation_has_bedroom_triggers(self) -> None:
         voice_file = (
@@ -111,7 +111,7 @@ class TestBedroomMusicMode(unittest.TestCase):
 
         raw_text = voice_file.read_text(encoding="utf-8")
         self.assertIn("input_boolean.bedroom_music_mode", raw_text)
-        self.assertIn("input_boolean.govee_music_mode", raw_text)
+        self.assertIn("input_boolean.shared_music_mode", raw_text)
         # Bare "music mode" keeps targeting shared spaces; bedroom needs qualifier.
         self.assertIn("turn on bedroom music mode", raw_text)
         self.assertIn("turn off bedroom music mode", raw_text)
@@ -127,7 +127,7 @@ class TestBedroomMusicMode(unittest.TestCase):
             REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("input_boolean.bedroom_music_mode", lovelace_jarvis)
-        self.assertIn("input_boolean.govee_music_mode", lovelace_jarvis)
+        self.assertIn("input_boolean.shared_music_mode", lovelace_jarvis)
 
 
 if __name__ == "__main__":
