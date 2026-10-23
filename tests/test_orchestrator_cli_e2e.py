@@ -11,6 +11,7 @@ as a bearer token, never as an API key.
 
 import json
 import os
+import subprocess
 import tempfile
 import threading
 import time
@@ -258,6 +259,33 @@ class RealCliCase(unittest.TestCase):
 
 @unittest.skipUnless(CODEX, "set ORCHESTRATOR_CODEX to the pinned codex binary")
 class RealCodexTests(RealCliCase):
+    def test_saved_api_key_login_is_rejected_by_the_worker_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "auth.json").write_text(
+                json.dumps(
+                    {"auth_mode": "apikey", "OPENAI_API_KEY": "offline-test-key"}
+                )
+            )
+            backend = CodexBackend(str(CODEX), "m", root)
+            argv = backend.argv(root, root / "ask.sock")
+            policy = next(
+                value for value in argv if value.startswith("forced_login_method=")
+            )
+            result = subprocess.run(
+                [str(CODEX), "-c", policy, "login", "status"],
+                env={
+                    "PATH": os.environ["PATH"],
+                    "CODEX_HOME": str(root),
+                    "HOME": str(root),
+                },
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Not logged in", result.stderr + result.stdout)
+
     def test_ask_supervisor_round_trip(self) -> None:
         port = self.serve(ResponsesModel)
         with tempfile.TemporaryDirectory() as tmp:

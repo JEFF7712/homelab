@@ -284,6 +284,8 @@ class CodexBackend:
             "-c",
             'approval_policy="never"',
             "-c",
+            'forced_login_method="chatgpt"',
+            "-c",
             f"{server}.command={json.dumps(self.python)}",
             "-c",
             f"{server}.args={json.dumps(['-I', str(ASK_SERVER), str(socket_path)])}",
