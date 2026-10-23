@@ -50,6 +50,7 @@ in
         inventoryJSON = builtins.toJSON inventory;
         adguardJSON = builtins.toJSON fleetInventory.dns.adguardRewrites;
         unboundJSON = builtins.toJSON fleetInventory.dns.unboundOverrides;
+        corednsYAML = fleetInventory.dns.corednsManifest;
         fleetJSON = builtins.toJSON {
           hosts = fleetInventory.deployment;
           cluster_api = fleetInventory.k3sEndpoint;
@@ -61,6 +62,7 @@ in
           "inventoryJSON"
           "adguardJSON"
           "unboundJSON"
+          "corednsYAML"
           "fleetJSON"
         ];
         nativeBuildInputs = [ pkgs.python3 ];
@@ -72,6 +74,7 @@ in
         cp "$inventoryJSONPath" "$out/inventory.json"
         cp "$adguardJSONPath" "$out/adguard-rewrites.json"
         cp "$unboundJSONPath" "$out/unbound-host-overrides.json"
+        cp "$corednsYAMLPath" "$out/coredns-custom.yaml"
         cp "$fleetJSONPath" "$out/fleet.json"
         python ${../../scripts/opnsense_config.py} --rendered "$out" --validate-only
       '';

@@ -47,7 +47,39 @@ let
     builtins.sort (a: b: a.${view} < b.${view}) (
       builtins.filter (record: record.${view} != null) cfg.dns
     );
+  corednsServers = lib.genAttrs [ "registry" "internal" ] (
+    server:
+    map
+      (record: {
+        domain = lib.toLower record.name;
+        answer = dnsAddress record;
+      })
+      (
+        builtins.sort (a: b: a.coredns.order < b.coredns.order) (
+          builtins.filter (
+            record: record.enabled && record.coredns != null && record.coredns.server == server
+          ) cfg.dns
+        )
+      )
+  );
   assertions = [
+    {
+      assertion =
+        builtins.all
+          (
+            server:
+            unique (
+              map (record: record.coredns.order) (
+                builtins.filter (record: record.coredns != null && record.coredns.server == server) cfg.dns
+              )
+            )
+          )
+          [
+            "registry"
+            "internal"
+          ];
+      message = "DNS record order must be unique within each CoreDNS server block.";
+    }
     {
       assertion = unique (map (record: lib.toLower record.name) cfg.dns);
       message = "DNS names must be unique, ignoring case.";
@@ -62,15 +94,18 @@ let
     }
     {
       assertion = builtins.all (
-        record: record.adguardOrder != null || record.unboundOrder != null
+        record: record.adguardOrder != null || record.unboundOrder != null || record.coredns != null
       ) cfg.dns;
       message = "DNS records must belong to at least one resolver view.";
     }
     {
       assertion = builtins.all (
-        record: !record.enabled || record.adguardOrder == null || record.unboundOrder != null
+        record:
+        !record.enabled
+        || (record.adguardOrder == null && record.coredns == null)
+        || record.unboundOrder != null
       ) cfg.dns;
-      message = "Every enabled AdGuard rewrite must have an Unbound mirror.";
+      message = "Every enabled AdGuard or CoreDNS record must have an Unbound mirror.";
     }
     {
       assertion =
@@ -158,6 +193,11 @@ in
 lib.asserts.checkAssertWarn assertions [ ] {
   inherit (cfg) networks hosts bootstrapHost;
   dns = {
+    inherit corednsServers;
+    corednsManifest = import ./coredns.nix {
+      inherit lib;
+      servers = corednsServers;
+    };
     records = cfg.dns;
     adguardRewrites = map (record: {
       domain = record.name;

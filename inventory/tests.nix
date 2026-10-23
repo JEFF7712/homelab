@@ -31,6 +31,64 @@ let
   senderAliases = (builtins.head rendered.resource.opnsense_firewall_alias).managed;
   hosts = lib.filterAttrs (name: host: name == host.config.networking.hostName) nixosConfigurations;
   checks = {
+    missingCoreDNSMirror = rejects (
+      replaceDNS (
+        firstDNS
+        // {
+          adguardOrder = null;
+          unboundOrder = null;
+        }
+      )
+    );
+    invalidCoreDNSServer = rejects (
+      replaceDNS (
+        firstDNS
+        // {
+          coredns.server = "unknown";
+          coredns.order = 1;
+        }
+      )
+    );
+    invalidCoreDNSOrder = rejects (
+      replaceDNS (
+        firstDNS
+        // {
+          coredns.server = "registry";
+          coredns.order = 0;
+        }
+      )
+    );
+    duplicateCoreDNSOrder = rejects (load {
+      dns = lib.mkForce [
+        firstDNS
+        (
+          firstDNS
+          // {
+            name = "other.internal";
+            adguardOrder = 99;
+            unboundOrder = 99;
+          }
+        )
+      ];
+    });
+    movedCoreDNSAddress = (builtins.head movedNAS.dns.corednsServers.registry).answer == "10.0.30.21";
+    disabledCoreDNSRecord =
+      (replaceDNS (firstDNS // { enabled = false; })).dns.corednsServers.registry == [ ];
+    corednsManifestMatches =
+      inventory.dns.corednsManifest == builtins.readFile ../gitops/platform/coredns-custom.yaml;
+    preservedCoreDNSViews =
+      builtins.mapAttrs (_: records: map (record: record.domain) records) inventory.dns.corednsServers
+      == {
+        registry = [
+          "registry.rupan.dev"
+          "git.rupan.dev"
+        ];
+        internal = [
+          "git.internal"
+          "s3.internal"
+          "ci.internal"
+        ];
+      };
     unknownDNSHost = rejects (replaceDNS (firstDNS // { host = "missing"; }));
     invalidDNSAddress = rejects (
       replaceDNS (
@@ -58,6 +116,7 @@ let
         // {
           adguardOrder = null;
           unboundOrder = null;
+          coredns = null;
         }
       )
     );

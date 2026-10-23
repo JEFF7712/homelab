@@ -17,6 +17,7 @@ OUTPUTS = {
     "main.tf.json": "tofu/opnsense/main.tf.json",
     "assignments.json": "opnsense_reconciler/assignments.json",
 }
+TEXT_OUTPUTS = {"coredns-custom.yaml": "gitops/platform/coredns-custom.yaml"}
 
 
 def validate(inventory: dict[str, Any]) -> None:
@@ -61,6 +62,11 @@ def synchronize(rendered: Path, root: Path, *, check: bool) -> list[str]:
         if target.exists() and json.loads(target.read_text()) == value:
             continue
         pending.append((target, json.dumps(value, indent=2, sort_keys=True) + "\n"))
+    for source, destination in TEXT_OUTPUTS.items():
+        content = (rendered / source).read_text()
+        target = root / destination
+        if not target.exists() or target.read_text() != content:
+            pending.append((target, content))
     if not check:
         for target, content in pending:
             target.write_text(content)

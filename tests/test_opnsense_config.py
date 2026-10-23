@@ -6,7 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.opnsense_config import OUTPUTS, synchronize, validate
+from scripts.opnsense_config import OUTPUTS, TEXT_OUTPUTS, synchronize, validate
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def inventory() -> dict:
@@ -78,19 +80,20 @@ class GeneratedOutputTests(unittest.TestCase):
             root = Path(temporary)
             rendered = root / "rendered"
             rendered.mkdir()
-            for source, destination in OUTPUTS.items():
+            outputs = OUTPUTS | TEXT_OUTPUTS
+            for source, destination in outputs.items():
                 (rendered / source).write_text(json.dumps({"source": source}))
                 target = root / destination
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("{}")
             self.assertEqual(
-                set(synchronize(rendered, root, check=True)), set(OUTPUTS.values())
+                set(synchronize(rendered, root, check=True)), set(outputs.values())
             )
             self.assertTrue(
-                all((root / target).read_text() == "{}" for target in OUTPUTS.values())
+                all((root / target).read_text() == "{}" for target in outputs.values())
             )
             self.assertEqual(
-                len(synchronize(rendered, root, check=False)), len(OUTPUTS)
+                len(synchronize(rendered, root, check=False)), len(outputs)
             )
             self.assertEqual(synchronize(rendered, root, check=True), [])
 
@@ -102,7 +105,30 @@ class GeneratedOutputTests(unittest.TestCase):
                 target = root / destination
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text('{\n  "same": true\n}\n')
+            for source, destination in TEXT_OUTPUTS.items():
+                (root / source).write_text("data: {}\n")
+                target = root / destination
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("data: {}\n")
             self.assertEqual(synchronize(root, root, check=True), [])
+
+    def test_coredns_plugin_text_drift_is_detected_and_repaired(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for source, destination in (OUTPUTS | TEXT_OUTPUTS).items():
+                (root / source).write_text("{}")
+                target = root / destination
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("{}")
+            source, destination = next(iter(TEXT_OUTPUTS.items()))
+            content = (ROOT / destination).read_text()
+            (root / source).write_text(content)
+            target = root / destination
+            target.write_text(content.replace("cache 30", "cache 60"))
+            self.assertEqual(synchronize(root, root, check=True), [destination])
+            self.assertIn("cache 60", target.read_text())
+            self.assertEqual(synchronize(root, root, check=False), [destination])
+            self.assertEqual(target.read_text(), content)
 
 
 if __name__ == "__main__":

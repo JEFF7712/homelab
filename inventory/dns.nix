@@ -2,6 +2,10 @@
   dns = [
     {
       name = "registry.rupan.dev";
+      coredns = {
+        server = "registry";
+        order = 1;
+      };
       host = "nas-01";
       description = "Local container registry: public DNS returns Cloudflare tunnel addresses that fail large layers";
       unboundOrder = 1;
@@ -28,6 +32,10 @@
     }
     {
       name = "ci.internal";
+      coredns = {
+        server = "internal";
+        order = 3;
+      };
       host = "homelab-04";
       description = "Mirror of the AdGuard rewrite: Woodpecker CI. The secondary resolver has no overrides, so without this a resolved degradation drops Forgejo webhook deliveries with no retry.";
       unboundOrder = 5;
@@ -35,6 +43,10 @@
     }
     {
       name = "git.internal";
+      coredns = {
+        server = "internal";
+        order = 1;
+      };
       host = "nas-01";
       description = "Mirror of the AdGuard rewrite: Forgejo.";
       unboundOrder = 6;
@@ -42,6 +54,10 @@
     }
     {
       name = "s3.internal";
+      coredns = {
+        server = "internal";
+        order = 2;
+      };
       host = "nas-01";
       description = "Mirror of the AdGuard rewrite: S3 state and artifact backend.";
       unboundOrder = 7;
@@ -49,6 +65,10 @@
     }
     {
       name = "git.rupan.dev";
+      coredns = {
+        server = "registry";
+        order = 2;
+      };
       host = "nas-01";
       description = "Mirror of the AdGuard rewrite: Forgejo HTTPS. CI clones must resolve it even when the secondary resolver is in use.";
       unboundOrder = 8;
