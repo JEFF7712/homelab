@@ -124,9 +124,16 @@ unit suite in the Nix sandbox so the local Python lane shrinks to the
 Nix-integration subset rather than running the suite twice.
 
 The flake lane evaluates every check and every host configuration with
-`nix-eval-jobs` (one worker, restarted past 2048 MiB) instead of
+`nix-eval-jobs` (two workers, each restarted past 2048 MiB) instead of
 `nix flake check`, then builds only the checks from the evaluated
-derivations. A single `nix flake check` evaluator held all thirteen host
+derivations. Plain k3s hosts that have a `-registry` variant are skipped,
+because evaluating the variant evaluates the plain host as well. Each check
+starts building as soon as it is evaluated (`scripts/checks/flake_jobs.py`),
+so the unit-suite build overlaps the host evaluations. Measured at two CPUs,
+evaluation takes about 48 s and peaks near 3.7 GiB; with the unit-suite
+build (about 0.5 GiB) and the other lanes (about 1.6 GiB) that leaves about
+2 GiB under the 8 GiB job limit, less while an uncached VM test builds. A
+single `nix flake check` evaluator held all thirteen host
 configurations at about 5.5 GiB, and with the unit-suite build and the other
 lanes it crossed the 8 GiB job limit and killed `repository-contract` with
 signal 9. `CI_EVAL_WORKERS` and `CI_EVAL_MAX_MEMORY_MB` trade memory for
