@@ -471,7 +471,7 @@ class AttemptRunner:
             if event is None:
                 continue
             if event.kind == "session":
-                channel.session(event.key)
+                channel.session(redact(event.key, self.backend.secrets()))
             elif event.kind == "question":
                 secret_values = self.backend.secrets()
                 question_id = channel.ask(
