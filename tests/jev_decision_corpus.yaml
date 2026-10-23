@@ -82,23 +82,24 @@
   expected_route: execute
   expected:
     request_kind: home_command
-    target: all_govee_lights
+    target: shared_zigbee_lights
     action: turn_off
     color: none_or_unknown
     reference: explicit_target
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   service: light.turn_off
 - id: shutoff-govee
   say: Shut off all the Govee lights.
   expected_route: execute
   expected:
     request_kind: home_command
-    target: all_govee_lights
+    target: shared_zigbee_lights
     action: turn_off
     color: none_or_unknown
     reference: explicit_target
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   service: light.turn_off
+
 - id: warmer-living
   say: Make the living room warmer.
   expected_route: execute
@@ -286,11 +287,11 @@
   expected_route: execute
   expected:
     request_kind: home_command
-    target: all_govee_lights
+    target: shared_zigbee_lights
     action: set_color
     color: red
     reference: explicit_target
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   service: light.turn_on
 - id: green-kitchen
   say: Make the kitchen lights green.
@@ -585,11 +586,11 @@
   expected_route: execute
   expected:
     request_kind: home_command
-    target: all_govee_lights
+    target: shared_zigbee_lights
     action: turn_on
     color: none_or_unknown
     reference: explicit_target
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   service: light.turn_on
 - id: canon-sign-off
   say: Turn off the good vibes sign.
@@ -1107,11 +1108,11 @@
   expected_route: execute
   expected:
     request_kind: home_command
-    target: all_govee_lights
+    target: shared_zigbee_lights
     action: set_color
     color: purple
     reference: explicit_target
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   service: light.turn_on
 - id: color-white-kitchen
   say: Change the kitchen lights to white.
@@ -2999,11 +3000,11 @@
   expected_route: execute
   expected:
     request_kind: home_command
-    target: all_govee_lights
+    target: shared_zigbee_lights
     action: turn_on
     color: none_or_unknown
     reference: explicit_target
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   service: light.turn_on
   notes: "Lenient policy: unique neighbor snap; L1 executes."
 - id: sim-009

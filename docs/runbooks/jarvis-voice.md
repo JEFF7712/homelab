@@ -142,7 +142,7 @@ automation referencing them.
    future cloud agent):
    downstairs means Living Room plus Kitchen, light commands with no room
    default to all downstairs lights, light color changes default to
-   Govee light bulbs, and music/artist/playlist requests explicitly call
+   the shared Zigbee bulbs, and music/artist/playlist requests explicitly call
    `script.jarvis_play_media` (`media_content_type` varies: `artist`/`track`/`album`/`playlist`). Bare
    on/off/color light commands (`turn on the lights`, `turn the lights
    to blue`) resolve deterministically to `light.downstairs_lights`
@@ -202,7 +202,7 @@ automation referencing them.
    59 down to 37, then cut to 19 managed controls (5 light groups, 4
    plug/sign singles, thermostat plus 2 AC sensors, 3 shared scenes,
    `script.jarvis_play_media`, shopping list, satellite media player,
-   stairs light). Dropped: 7 Govee/Roku singles covered by their groups,
+   stairs light). Dropped: 7 shared-bulb/Roku singles covered by their groups,
    6 bedroom scenes, AC power sensor. Four unregistered entities (sun,
    zone, `sensor.ha_latest_version`, `conversation.home_assistant`) have no
    exposure flag and stay visible; negligible cost.

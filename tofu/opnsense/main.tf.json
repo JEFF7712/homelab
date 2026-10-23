@@ -1,0 +1,1380 @@
+{
+  "locals": {
+    "dhcpv4_reservations": {
+      "ap_downstairs": {
+        "description": "Downstairs NETGEAR R6400v2 access point",
+        "hostname": "ap-downstairs",
+        "ip_address": "10.0.20.3",
+        "mac_address": "80:cc:9c:21:88:e7",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "bambu_a1": {
+        "description": "Bambu Lab A1 3D printer",
+        "hostname": "bambu-a1",
+        "ip_address": "10.0.20.124",
+        "mac_address": "28:84:85:4d:92:e8",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "bus_display": {
+        "description": "Waveshare bus departure display",
+        "hostname": "bus-display",
+        "ip_address": "10.0.20.120",
+        "mac_address": "14:c1:9f:59:cd:60",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "feit_switch_01": {
+        "description": "Feit Electric smart switch",
+        "hostname": "feit-switch-01",
+        "ip_address": "10.0.20.178",
+        "mac_address": "70:89:76:4d:66:e3",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "laptop_nixos": {
+        "description": "Rupan's NixOS laptop",
+        "hostname": "laptop-nixos",
+        "ip_address": "10.0.20.50",
+        "mac_address": "90:09:df:07:af:30",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "roku_desk_lamp": {
+        "description": "Roku BC1000X desk lamp (LAN control, WAN blocked)",
+        "hostname": "roku-desk-lamp",
+        "ip_address": "10.0.20.117",
+        "mac_address": "7c:67:ab:0a:83:ab",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "roku_floor_lamp": {
+        "description": "Roku BC1000X floor lamp (LAN control, WAN blocked)",
+        "hostname": "roku-floor-lamp",
+        "ip_address": "10.0.20.116",
+        "mac_address": "7c:67:ab:16:23:b7",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "spotify_matrix": {
+        "description": "Pico W Spotify matrix",
+        "hostname": "spotify-matrix",
+        "ip_address": "10.0.20.136",
+        "mac_address": "28:cd:c1:0d:31:05",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "tuya_switch_02": {
+        "description": "Tuya smart switch",
+        "hostname": "tuya-switch-02",
+        "ip_address": "10.0.20.170",
+        "mac_address": "70:89:76:5c:2d:7e",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      }
+    },
+    "dhcpv4_subnets": {
+      "clients": {
+        "description": "clients",
+        "dns_servers": [
+          "10.0.20.1"
+        ],
+        "pools": [
+          "10.0.20.100-10.0.20.249"
+        ],
+        "routers": [
+          "10.0.20.1"
+        ],
+        "subnet": "10.0.20.0/24"
+      },
+      "guest-iot": {
+        "description": "guest-iot",
+        "dns_servers": [
+          "10.0.50.1"
+        ],
+        "pools": [
+          "10.0.50.100-10.0.50.249"
+        ],
+        "routers": [
+          "10.0.50.1"
+        ],
+        "subnet": "10.0.50.0/24"
+      },
+      "infrastructure": {
+        "description": "infrastructure",
+        "dns_servers": [
+          "10.0.30.10",
+          "10.0.30.1"
+        ],
+        "pools": [
+          "10.0.30.100-10.0.30.199"
+        ],
+        "routers": [
+          "10.0.30.1"
+        ],
+        "subnet": "10.0.30.0/24"
+      },
+      "management": {
+        "description": "management",
+        "dns_servers": [
+          "10.0.10.1"
+        ],
+        "pools": [
+          "10.0.10.100-10.0.10.199"
+        ],
+        "routers": [
+          "10.0.10.1"
+        ],
+        "subnet": "10.0.10.0/24"
+      }
+    },
+    "firewall_aliases": {
+      "admin_laptop": {
+        "content": [
+          "10.0.20.50"
+        ],
+        "description": "Rupan's laptop admin device on clients VLAN",
+        "enabled": true,
+        "name": "admin_laptop",
+        "type": "host"
+      },
+      "iot_bambu_a1": {
+        "content": [
+          "10.0.20.124"
+        ],
+        "description": "Bambu Lab A1 reserved LAN address",
+        "enabled": true,
+        "name": "iot_bambu_a1",
+        "type": "host"
+      },
+      "iot_bambu_ports": {
+        "content": [
+          "8883",
+          "990",
+          "2024",
+          "2025",
+          "6000"
+        ],
+        "description": "Bambu Lab LAN mode service ports",
+        "enabled": true,
+        "name": "iot_bambu_ports",
+        "type": "port"
+      },
+      "iot_tuya_sw01": {
+        "content": [
+          "10.0.20.178"
+        ],
+        "description": "Feit smart switch reserved LAN address",
+        "enabled": true,
+        "name": "iot_tuya_sw01",
+        "type": "host"
+      },
+      "iot_tuya_sw02": {
+        "content": [
+          "10.0.20.170"
+        ],
+        "description": "Tuya smart switch reserved LAN address",
+        "enabled": true,
+        "name": "iot_tuya_sw02",
+        "type": "host"
+      },
+      "netbird_allowed_dests": {
+        "content": [
+          "10.0.10.0/24",
+          "10.0.20.0/24",
+          "10.0.30.0/24",
+          "10.0.40.0/24"
+        ],
+        "description": "NetBird peers may reach management, clients, infrastructure, and load-balancer VIPs",
+        "enabled": true,
+        "name": "netbird_allowed_dests",
+        "type": "network"
+      },
+      "roku_bulbs_lo": {
+        "content": [
+          "10.0.20.112/29"
+        ],
+        "description": "Roku bulb local API segment",
+        "enabled": true,
+        "name": "roku_bulbs_lo",
+        "type": "network"
+      },
+      "roku_lan_bulbs": {
+        "content": [
+          "10.0.20.116",
+          "10.0.20.117"
+        ],
+        "description": "Roku BC1000X lamps pinned to LAN-only control",
+        "enabled": true,
+        "name": "roku_lan_bulbs",
+        "type": "host"
+      },
+      "spotify_connect_ports": {
+        "content": [
+          "38801",
+          "38802",
+          "38803",
+          "38804",
+          "38805",
+          "38806",
+          "38807",
+          "38808",
+          "38809",
+          "38810",
+          "38901",
+          "38902",
+          "38903",
+          "38904",
+          "38905",
+          "38906",
+          "38907",
+          "38908",
+          "38909",
+          "38910"
+        ],
+        "description": "Spotify Connect zeroconf ports for Music Assistant players",
+        "enabled": true,
+        "name": "spotify_connect_ports",
+        "type": "port"
+      },
+      "spotify_matrix_senders": {
+        "content": [
+          "10.0.30.11",
+          "10.0.30.12",
+          "10.0.30.13",
+          "10.0.30.14",
+          "10.0.30.15"
+        ],
+        "description": "Kubernetes nodes permitted to stream to the Pico matrix",
+        "enabled": true,
+        "name": "spotify_matrix_senders",
+        "type": "host"
+      }
+    },
+    "firewall_filters": {
+      "clients-allow-admin-laptop": {
+        "description": "Allow admin laptop to all destinations",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "admin_laptop",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 205
+      },
+      "clients-allow-bus-display-mqtt": {
+        "description": "Allow bus display to MQTT broker",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.10/32",
+            "port": "1883"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.120/32",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 209
+      },
+      "clients-allow-dns": {
+        "description": "Allow clients to OPNsense DNS",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.20.1",
+            "port": "53"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP/UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 200
+      },
+      "clients-allow-internet": {
+        "description": "Allow clients to the Internet",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 230
+      },
+      "clients-allow-ledfx": {
+        "description": "Allow clients to LedFx web interface",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "8888"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 218
+      },
+      "clients-allow-load-balancers": {
+        "description": "Allow clients to Kubernetes services",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.40.0/24",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 210
+      },
+      "clients-allow-mdns": {
+        "description": "Allow client mDNS queries to the relay",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "224.0.0.251/32",
+            "port": "5353"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": "5353"
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 219
+      },
+      "clients-allow-music-assistant": {
+        "description": "Allow clients to Music Assistant party view",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "8095"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 217
+      },
+      "clients-allow-netbird-3232": {
+        "description": "Allow clients host to NetBird appliance service on TCP 3232",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.60.2/32",
+            "port": "3232"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.111/32",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 220
+      },
+      "clients-allow-spotify-connect": {
+        "description": "Allow clients to Music Assistant Spotify Connect players",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "spotify_connect_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 216
+      },
+      "clients-block-bambu-internet": {
+        "description": "Block Bambu Lab A1 printer from the Internet (LAN mode only)",
+        "enabled": true,
+        "filter": {
+          "action": "block",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "iot_bambu_a1",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 227
+      },
+      "clients-block-private": {
+        "description": "Block clients from other private VLANs",
+        "enabled": true,
+        "filter": {
+          "action": "block",
+          "destination": {
+            "net": "10.0.0.0/8",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 221
+      },
+      "clients-block-roku-bulbs-internet": {
+        "description": "Block LAN-only Roku lamps from the Internet (freeze firmware)",
+        "enabled": true,
+        "filter": {
+          "action": "block",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "roku_lan_bulbs",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 225
+      },
+      "guest-iot-allow-dns": {
+        "description": "Allow guest and IoT devices to OPNsense DNS",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.50.1",
+            "port": "53"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP/UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.50.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt5"
+          ]
+        },
+        "sequence": 500
+      },
+      "guest-iot-allow-internet": {
+        "description": "Allow guest and IoT devices to the Internet",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.50.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt5"
+          ]
+        },
+        "sequence": 520
+      },
+      "guest-iot-allow-ledfx": {
+        "description": "Allow guest and IoT devices to LedFx web interface",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "8888"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.50.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt5"
+          ]
+        },
+        "sequence": 506
+      },
+      "guest-iot-allow-music-assistant": {
+        "description": "Allow guest and IoT devices to Music Assistant party view",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "8095"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.50.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt5"
+          ]
+        },
+        "sequence": 505
+      },
+      "guest-iot-block-private": {
+        "description": "Block guest and IoT devices from private VLANs",
+        "enabled": true,
+        "filter": {
+          "action": "block",
+          "destination": {
+            "net": "10.0.0.0/8",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.50.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt5"
+          ]
+        },
+        "sequence": 510
+      },
+      "infrastructure-allow-bambu-lan": {
+        "description": "Allow infrastructure to Bambu Lab A1 LAN mode services",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "iot_bambu_a1",
+            "port": "iot_bambu_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 315
+      },
+      "infrastructure-allow-bgp": {
+        "description": "Allow infrastructure BGP to OPNsense",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.1",
+            "port": "179"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 311
+      },
+      "infrastructure-allow-dns": {
+        "description": "Allow infrastructure to OPNsense DNS",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.1",
+            "port": "53"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP/UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 300
+      },
+      "infrastructure-allow-internet": {
+        "description": "Allow infrastructure to the Internet",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 330
+      },
+      "infrastructure-allow-load-balancers": {
+        "description": "Allow infrastructure to Kubernetes service VIPs",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.40.0/24",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 310
+      },
+      "infrastructure-allow-matter-bulbs": {
+        "description": "Allow Home Assistant Matter traffic to clients VLAN",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "fd42:20::/64",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet6",
+          "log": true,
+          "protocol": "TCP/UDP",
+          "quick": true,
+          "source": {
+            "net": "fd42:30::/64",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 318
+      },
+      "infrastructure-allow-mdns-relay": {
+        "description": "Allow relayed client mDNS queries into infrastructure VLAN",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "224.0.0.251/32",
+            "port": "5353"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": "5353"
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 309
+      },
+      "infrastructure-allow-opnsense-acl-ssh": {
+        "description": "Allow the CI deployment host to reconcile the OPNsense agent ACL",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "192.168.1.1/32",
+            "port": "22"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.14/32",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 306
+      },
+      "infrastructure-allow-opnsense-api": {
+        "description": "Allow the private runner to reach the OPNsense API",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.10.1",
+            "port": "443"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 305
+      },
+      "infrastructure-allow-roku-bulbs": {
+        "description": "Allow roku-bridge to Roku bulbs local API",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "roku_bulbs_lo",
+            "port": "88"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.10/32",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 314
+      },
+      "infrastructure-allow-spotify-matrix": {
+        "description": "Allow Kubernetes nodes to Pico W matrix TCP receiver",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.20.136/32",
+            "port": "9999"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "spotify_matrix_senders",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 319
+      },
+      "infrastructure-allow-tuya-local": {
+        "description": "Allow infrastructure to Feit switch Tuya LAN protocol",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "iot_tuya_sw01",
+            "port": "6668"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 316
+      },
+      "infrastructure-allow-tuya-local-sw02": {
+        "description": "Allow infrastructure to second Tuya switch LAN protocol",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "iot_tuya_sw02",
+            "port": "6668"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 317
+      },
+      "infrastructure-block-private": {
+        "description": "Block infrastructure from initiating to other private VLANs",
+        "enabled": true,
+        "filter": {
+          "action": "block",
+          "destination": {
+            "net": "10.0.0.0/8",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 320
+      },
+      "load-balancers-allow-any": {
+        "description": "Allow Kubernetes service VIP traffic",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.40.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt4"
+          ]
+        },
+        "sequence": 400
+      },
+      "management-allow-any": {
+        "description": "Allow management VLAN to all destinations",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.10.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt2"
+          ]
+        },
+        "sequence": 100
+      },
+      "netbird-allow-infrastructure": {
+        "description": "Allow NetBird peers to permitted homelab destinations",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "netbird_allowed_dests",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.60.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt6"
+          ]
+        },
+        "sequence": 600
+      },
+      "wan-allow-netbird-wireguard": {
+        "description": "Allow forwarded NetBird WireGuard to adguard netbird 01",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.10/32",
+            "port": "51820"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "any",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "wan"
+          ]
+        },
+        "sequence": 700
+      }
+    },
+    "firewall_nat_port_forwards": {
+      "wan-monero-p2p": {
+        "description": "WAN Monero P2P to homelab 04",
+        "destination": {
+          "net": "wanip",
+          "port": "18080"
+        },
+        "enabled": true,
+        "interface": [
+          "wan"
+        ],
+        "ip_protocol": "inet",
+        "log": false,
+        "nat_reflection": "default",
+        "protocol": "TCP",
+        "sequence": 100,
+        "source": {
+          "net": "any",
+          "port": null
+        },
+        "target": {
+          "ip": "10.0.30.14",
+          "port": "18080"
+        }
+      },
+      "wan-netbird-wireguard": {
+        "description": "WAN NetBird WireGuard to adguard netbird 01",
+        "destination": {
+          "net": "wanip",
+          "port": "51820"
+        },
+        "enabled": true,
+        "interface": [
+          "wan"
+        ],
+        "ip_protocol": "inet",
+        "log": false,
+        "nat_reflection": "default",
+        "protocol": "UDP",
+        "sequence": 110,
+        "source": {
+          "net": "any",
+          "port": null
+        },
+        "target": {
+          "ip": "10.0.30.10",
+          "port": "51820"
+        }
+      }
+    },
+    "vlans": {
+      "clients": {
+        "description": "clients",
+        "parent": "igb0",
+        "tag": 20
+      },
+      "guest-iot": {
+        "description": "guest-iot",
+        "parent": "igb0",
+        "tag": 50
+      },
+      "infrastructure": {
+        "description": "infrastructure",
+        "parent": "igb0",
+        "tag": 30
+      },
+      "load-balancers": {
+        "description": "load-balancers",
+        "parent": "igb0",
+        "tag": 40
+      },
+      "management": {
+        "description": "management",
+        "parent": "igb0",
+        "tag": 10
+      },
+      "netbird": {
+        "description": "netbird",
+        "parent": "igb0",
+        "tag": 60
+      }
+    }
+  },
+  "resource": {
+    "opnsense_firewall_alias": [
+      {
+        "managed": {
+          "content": "${each.value.content}",
+          "description": "${each.value.description}",
+          "enabled": "${each.value.enabled}",
+          "for_each": "${local.firewall_aliases}",
+          "name": "${each.value.name}",
+          "type": "${each.value.type}"
+        }
+      }
+    ],
+    "opnsense_firewall_filter": [
+      {
+        "managed": {
+          "depends_on": [
+            "opnsense_firewall_alias.managed"
+          ],
+          "description": "${each.value.description}",
+          "enabled": "${each.value.enabled}",
+          "filter": {
+            "action": "${each.value.filter.action}",
+            "destination": {
+              "net": "${each.value.filter.destination.net}",
+              "port": "${each.value.filter.destination.port}"
+            },
+            "direction": "${each.value.filter.direction}",
+            "ip_protocol": "${each.value.filter.ip_protocol}",
+            "log": "${each.value.filter.log}",
+            "protocol": "${each.value.filter.protocol}",
+            "quick": "${each.value.filter.quick}",
+            "source": {
+              "net": "${each.value.filter.source.net}",
+              "port": "${each.value.filter.source.port}"
+            }
+          },
+          "for_each": "${local.firewall_filters}",
+          "interface": {
+            "interface": "${each.value.interface.interface}"
+          },
+          "sequence": "${each.value.sequence}"
+        }
+      }
+    ],
+    "opnsense_firewall_nat_port_forward": [
+      {
+        "managed": {
+          "description": "${each.value.description}",
+          "destination": {
+            "net": "${each.value.destination.net}",
+            "port": "${each.value.destination.port}"
+          },
+          "enabled": "${each.value.enabled}",
+          "for_each": "${local.firewall_nat_port_forwards}",
+          "interface": "${each.value.interface}",
+          "ip_protocol": "${each.value.ip_protocol}",
+          "log": "${each.value.log}",
+          "nat_reflection": "${each.value.nat_reflection}",
+          "protocol": "${each.value.protocol}",
+          "sequence": "${each.value.sequence}",
+          "source": {
+            "net": "${each.value.source.net}",
+            "port": "${each.value.source.port}"
+          },
+          "target": {
+            "ip": "${each.value.target.ip}",
+            "port": "${each.value.target.port}"
+          }
+        }
+      }
+    ],
+    "opnsense_interfaces_vlan": [
+      {
+        "managed": {
+          "description": "${each.value.description}",
+          "for_each": "${local.vlans}",
+          "lifecycle": {
+            "ignore_changes": [
+              "device"
+            ]
+          },
+          "parent": "${each.value.parent}",
+          "tag": "${each.value.tag}"
+        }
+      }
+    ],
+    "opnsense_kea_dhcpv4_reservation": [
+      {
+        "managed": {
+          "description": "${each.value.description}",
+          "for_each": "${local.dhcpv4_reservations}",
+          "hostname": "${each.value.hostname}",
+          "ip_address": "${each.value.ip_address}",
+          "mac_address": "${each.value.mac_address}",
+          "subnet_id": "${each.value.subnet_id}"
+        }
+      }
+    ],
+    "opnsense_kea_dhcpv4_subnet": [
+      {
+        "managed": {
+          "auto_collect": false,
+          "description": "${each.value.description}",
+          "dns_servers": "${each.value.dns_servers}",
+          "for_each": "${local.dhcpv4_subnets}",
+          "pools": "${each.value.pools}",
+          "routers": "${each.value.routers}",
+          "subnet": "${each.value.subnet}"
+        }
+      }
+    ]
+  }
+}

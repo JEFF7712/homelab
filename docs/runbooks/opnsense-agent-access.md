@@ -53,7 +53,7 @@ filesystem authority and belongs exclusively to the protected deployment
 environment.
 
 OpenTofu owns its explicit network permission in
-`tofu/opnsense/homelab.auto.tfvars`: TCP/22 from `10.0.30.14/32` to
+`tofu/opnsense/inventory.nix`: TCP/22 from `10.0.30.14/32` to
 `192.168.1.1/32`, ingress on infrastructure VLAN `opt3`. The existing
 reachability was verified during preparation, so the pre-mutation plan can
 authenticate before the saved firewall plan reinforces that narrow rule.
