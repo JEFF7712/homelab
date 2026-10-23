@@ -393,6 +393,18 @@ required), `get_task`, `list_tasks`, `cancel_task`, `answer_question`, and
 those come from the human principal on the forge. The controller binds it to
 loopback; the bridge runs beside it.
 
+`scripts/orchestrator/letta_bridge.py` is one such client. It registers those
+operations as Letta external tools in `runtime_start`, answers
+`external_tool_call_request` from the client API, re-registers after every
+reconnect, and delivers events as `input`/`create_message` user turns wrapped
+in `<system-reminder>` with the outbox key as `client_message_id`. Worker
+text inside those turns is quoted and labelled untrusted. The bridge acks an
+event only after Letta answers its `input` with `input_accepted` and
+`accepted: true`; a rejection or no answer within `accept_seconds` leaves
+the event pending for redelivery, and a failed ack is retried on the next
+poll. Worker text has `<`, `>` and `&` escaped, so it cannot close the
+wrapper. Replacing Letta replaces only this file.
+
 ## Error codes
 
 `INVALID_SPEC`, `NOT_FOUND`, `IDEMPOTENCY_CONFLICT`, `DEPENDENCY_CYCLE`,
