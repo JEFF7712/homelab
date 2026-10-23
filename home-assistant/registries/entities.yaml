@@ -94,9 +94,9 @@
   icon: mdi:music
   entity_id: input_boolean.bedroom_music_mode
   labels: []
-- name: Govee Music Mode
+- name: Shared Music Mode
   icon: mdi:music
-  entity_id: input_boolean.govee_music_mode
+  entity_id: input_boolean.shared_music_mode
   labels: []
 - name: Guest Mode
   icon: mdi:account-multiple

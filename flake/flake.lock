@@ -171,7 +171,8 @@
         "impermanence": "impermanence",
         "nix-topology": "nix-topology",
         "nixpkgs": "nixpkgs_2",
-        "sops-nix": "sops-nix"
+        "sops-nix": "sops-nix",
+        "tofunix": "tofunix"
       }
     },
     "sops-nix": {
@@ -207,6 +208,23 @@
         "owner": "nix-systems",
         "repo": "default",
         "type": "github"
+      }
+    },
+    "tofunix": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791740576,
+        "narHash": "sha256-dnf1PTa1inYLmbw5LW+mMWTakxK4v44S2AWV++P7GJQ=",
+        "owner": "TECHNOFAB",
+        "repo": "tofunix",
+        "rev": "079f5eb24a84c495991369ceb51f92c2261ae18f",
+        "type": "gitlab"
+      },
+      "original": {
+        "owner": "TECHNOFAB",
+        "ref": "v3.0.1",
+        "repo": "tofunix",
+        "type": "gitlab"
       }
     }
   },

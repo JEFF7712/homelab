@@ -19,7 +19,7 @@ data:
     frontend:
       themes: !include_dir_merge_named themes
     rest_command:
-      # Shared-spaces LedFx (homelab-05) drives the Govee music mode only.
+      # Shared-spaces LedFx (homelab-05) drives the shared music mode only.
       ledfx_activate_scene:
         url: "http://10.0.30.15:8888/api/scenes"
         method: put
@@ -270,7 +270,7 @@ data:
           - light.living_room_floor_lamp
           - light.living_room_tulip_lamp
       - platform: group
-        name: All Govee Lights
+        name: Shared Zigbee Lights
         entities:
           - light.kitchen_ceiling_light_1
           - light.kitchen_ceiling_light_2
@@ -407,48 +407,64 @@ data:
             out: "light.bedroom_roku_lights"
           - in: "roku lights"
             out: "light.bedroom_roku_lights"
+          - in: "zigbee"
+            out: "light.shared_zigbee_lights"
+          - in: "zigbee lights"
+            out: "light.shared_zigbee_lights"
+          - in: "all zigbee lights"
+            out: "light.shared_zigbee_lights"
+          - in: "all the zigbee lights"
+            out: "light.shared_zigbee_lights"
+          - in: "shared lights"
+            out: "light.shared_zigbee_lights"
+          - in: "all shared lights"
+            out: "light.shared_zigbee_lights"
+          - in: "all the shared lights"
+            out: "light.shared_zigbee_lights"
+          - in: "shared bulbs"
+            out: "light.shared_zigbee_lights"
           - in: "govee"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "govee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all govee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all the govee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go vee"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go vee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all go vee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all the go vee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go v"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go v lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all go v lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "olga v"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "olga v lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gobi"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gobi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all gobi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all the gobi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gopi"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gopi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all gopi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all the gopi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
       jarvis_general_color:
         values:
           - in: "white"
@@ -495,42 +511,56 @@ data:
             out: "light.bedroom_roku_lights"
           - in: "bedroom lights"
             out: "light.bedroom_roku_lights"
+          - in: "zigbee"
+            out: "light.shared_zigbee_lights"
+          - in: "all zigbee lights"
+            out: "light.shared_zigbee_lights"
+          - in: "zigbee lights"
+            out: "light.shared_zigbee_lights"
+          - in: "shared lights"
+            out: "light.shared_zigbee_lights"
+          - in: "all shared lights"
+            out: "light.shared_zigbee_lights"
+          - in: "all the shared lights"
+            out: "light.shared_zigbee_lights"
+          - in: "shared bulbs"
+            out: "light.shared_zigbee_lights"
           - in: "govee"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all govee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go vee"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go vee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all go vee lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go v"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "go v lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all go v lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "olga v"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "olga v lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gobi"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gobi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all gobi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all the gobi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gopi"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "gopi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all gopi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "all the gopi lights"
-            out: "light.all_govee_lights"
+            out: "light.shared_zigbee_lights"
           - in: "kitchen mushroom lamp"
             out: "light.kitchen_mushroom_lamp"
           - in: "bedroom window plug"
@@ -1371,12 +1401,14 @@ data:
     _END_PUNCT = re.compile(r"[.!?]+$")
     _COMPOUND = re.compile(r"[,;]|\band\b|\bthen\b|\bwhile\b")
 
-    _AREA = r"(?:kitchen|living room|bedroom|downstairs|govee)"
+    # The four shared bulbs are Third Reality Zigbee units (ex-Govee) under
+    # unchanged entity IDs; "govee" stays as a legacy voice alias.
+    _AREA = r"(?:kitchen|living room|bedroom|downstairs|govee|shared|zigbee)"
     _ROOM = r"(?:kitchen|living room|bedroom|downstairs)"
     _LIGHT = (
         rf"(?:the\s+)?(?:all\s+the\s+)?(?:{_AREA})\s+lights?"
         r"|(?:the\s+)?(?:living|bed|lounge)\s+lights?"
-        r"|(?:the\s+)?(?:all\s+the\s+)?govee\s+lamp"
+        r"|(?:the\s+)?(?:all\s+the\s+)?(?:govee|zigbee|shared)\s+lamp"
         r"|(?:the\s+)?downstairs\s+lamp"
         r"|(?:the\s+)?bedrooms\s+lights?"
         r"|(?:the\s+)?livingroom\s+lights?"
@@ -1501,7 +1533,10 @@ data:
     _TARGET_KEY: list[tuple[re.Pattern[str], str]] = [
         (re.compile(r"^(?:living|lounge)\s+lights?$"), "living_room_lights"),
         (re.compile(r"^bed\s+lights?$"), "bedroom_lights"),
-        (re.compile(r"^(?:all\s+the\s+)?govee\s+lamp$"), "all_govee_lights"),
+        (
+            re.compile(r"^(?:all\s+the\s+)?(?:govee|zigbee|shared)\s+lamp$"),
+            "shared_zigbee_lights",
+        ),
         (re.compile(r"^downstairs\s+lamp$"), "downstairs_lights"),
         (re.compile(r"^bedrooms\s+lights?$"), "bedroom_lights"),
         (re.compile(r"^livingroom\s+lights?$"), "living_room_lights"),
@@ -1529,7 +1564,9 @@ data:
         "living room": "living_room_lights",
         "bedroom": "bedroom_lights",
         "downstairs": "downstairs_lights",
-        "govee": "all_govee_lights",
+        "govee": "shared_zigbee_lights",
+        "shared": "shared_zigbee_lights",
+        "zigbee": "shared_zigbee_lights",
     }
 
     _COLOR_KEY = {c.replace("_", " "): c for c in COLORS}
@@ -1787,8 +1824,8 @@ data:
                 }
             ),
         ),
-        "all_govee_lights": Target(
-            "light.all_govee_lights",
+        "shared_zigbee_lights": Target(
+            "light.shared_zigbee_lights",
             frozenset(
                 {
                     "turn_on",
@@ -1877,7 +1914,9 @@ data:
             r"\b(?:bedroom lights?|bed lights?)\b"
             r"|\blights?\s+(?:in\s+the\s+)?bedroom\b"
         ),
-        "all_govee_lights": re.compile(r"\b(?:all (?:the )?)?govee (?:lights?|lamp)\b"),
+        "shared_zigbee_lights": re.compile(
+            r"\b(?:all (?:the )?)?(?:govee|zigbee|shared) (?:lights?|lamp|bulbs?)\b"
+        ),
         "kitchen_mushroom_lamp": re.compile(r"\bkitchen mushroom lamp\b"),
         "bedroom_window_plug": re.compile(r"\bbedroom window plug\b"),
         "bedroom_mushroom_plug": re.compile(r"\bbedroom mushroom plug\b"),

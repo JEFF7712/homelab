@@ -49,9 +49,7 @@ if [[ "${SKIP_SECRET_SCAN:-0}" != "1" ]]; then
   run_lane secrets bash scripts/checks/secrets.sh
 fi
 if [[ "${SKIP_FLAKE_CHECK:-0}" != "1" ]]; then
-  # A killed check build prints only "run nix log", and the CI container is
-  # gone by then, so show the unit suite's tail here to name the stuck test.
-  run_lane flake bash -c "nix flake check 'path:.?dir=flake' --no-write-lock-file || { rc=\$?; nix log 'path:.?dir=flake#checks.x86_64-linux.repository-contract' 2>/dev/null | tail -n 80; exit \$rc; }"
+  run_lane flake bash scripts/checks/flake.sh
 fi
 
 rc=0

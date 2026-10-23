@@ -80,7 +80,7 @@ class PiRpc(JsonlProcess):
                 self.pending.pop(identifier, None)
             raise PiError(f"{kind}: no response within {timeout}s") from error
         if response.get("type") == "exit":
-            raise WorkerExited(self.process.wait(), self.stderr_text())
+            raise WorkerExited(self.exit_code(), self.stderr_text())
         if not response.get("success"):
             raise PiError(f"{kind}: {response.get('error')}")
         return response.get("data") or {}

@@ -127,6 +127,7 @@ class CacheSourcesTest(unittest.TestCase):
                         **os.environ,
                         "PATH": str(directory) + os.pathsep + os.environ["PATH"],
                         "ATTIC_TOKEN": "test-only",
+                        "HOMELAB_CACHE_BUILDER": "native",
                         "PUSH_RECEIPT": str(receipt),
                         "BUILD_TARGETS_RECEIPT": str(directory / "build-targets"),
                         "DERIVATION_EXIT": "5"

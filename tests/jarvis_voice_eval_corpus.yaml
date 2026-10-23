@@ -63,7 +63,25 @@
   say: Turn on all the Govee lights.
   path: local
   intent: JarvisAliasOn
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
+  response: Done.
+- id: lights-zigbee-on
+  say: Turn on all the Zigbee lights.
+  path: local
+  intent: JarvisAliasOn
+  targets: [light.shared_zigbee_lights]
+  response: Done.
+- id: lights-shared-on
+  say: Turn on the shared lights.
+  path: local
+  intent: JarvisAliasOn
+  targets: [light.shared_zigbee_lights]
+  response: Done.
+- id: lights-shared-blue
+  say: Turn the shared lights blue.
+  path: local
+  intent: JarvisAliasColor
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: lights-kitchen-mushroom-off
   say: Turn off the kitchen mushroom lamp.
@@ -414,31 +432,31 @@
   say: Turn on all go vee lights.
   path: local
   intent: JarvisAliasOn
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: lights-govee-olga-on
   say: Turn on the Olga V lights.
   path: local
   intent: JarvisAliasOn
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: lights-govee-blue-misheard
   say: Turn on all go vee lights to blue.
   path: local
   intent: JarvisAliasColor
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: lights-govee-purple
   say: Turn all govee lights purple.
   path: local
   intent: JarvisAliasColor
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: lights-govee-white
   say: Turn on all govee lights to white.
   path: local
   intent: JarvisAliasColor
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: lights-default-on
   say: Turn on the lights.
@@ -462,7 +480,7 @@
   say: Turn on all the Gobi lights.
   path: local
   intent: JarvisAliasOn
-  targets: [light.all_govee_lights]
+  targets: [light.shared_zigbee_lights]
   response: Done.
 - id: music-stop-playing
   say: Stop playing music.

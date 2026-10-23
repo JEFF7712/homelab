@@ -2108,7 +2108,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.9738753329139449,
             "type": "choice"
           }
@@ -2900,7 +2900,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.9458952607785043,
             "type": "choice"
           }
@@ -3065,7 +3065,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.5029575165454983,
             "type": "choice"
           }
@@ -3791,7 +3791,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.5393052930735946,
             "type": "choice"
           }
@@ -3824,7 +3824,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.7961586053873264,
             "type": "choice"
           }
@@ -8708,7 +8708,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.9427582640327924,
             "type": "choice"
           }
@@ -9929,7 +9929,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.9636940133684754,
             "type": "choice"
           }
@@ -10094,7 +10094,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.9810287790076899,
             "type": "choice"
           }
@@ -10424,7 +10424,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.651732790251583,
             "type": "choice"
           }
@@ -10853,7 +10853,7 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.9758846273776488,
             "type": "choice"
           }

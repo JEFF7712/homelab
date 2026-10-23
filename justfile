@@ -89,6 +89,15 @@ topology:
     mkdir -p artifacts
     nix build --no-write-lock-file './flake#topology' --out-link artifacts/topology
 
+opnsense-render:
+    python -m scripts.opnsense_config
+
+opnsense-check:
+    python -m scripts.opnsense_config --check
+
+opnsense-provider-options:
+    python -m scripts.opnsense_config --provider-options
+
 check-gitops:
     bash scripts/checks/gitops.sh
 
