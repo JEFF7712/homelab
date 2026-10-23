@@ -409,8 +409,16 @@ class AutomationTest(unittest.TestCase):
         self.assertIn('default = "https://git.rupan.dev";', woodpecker_nix)
         self.assertIn('"git.rupan.dev"', woodpecker_nix)
 
-        adguard_nix = (ROOT / "flake/modules/adguard-netbird/adguard.nix").read_text()
-        self.assertIn('"git.rupan.dev"', adguard_nix)
+        rewrites = json.loads((ROOT / "inventory/adguard-rewrites.json").read_text())
+        fleet = json.loads((ROOT / "inventory/fleet.json").read_text())
+        self.assertIn(
+            {
+                "domain": "git.rupan.dev",
+                "answer": fleet["hosts"]["nas-01"]["ip"],
+                "enabled": True,
+            },
+            rewrites,
+        )
 
         coredns = (ROOT / "gitops/platform/coredns-custom.yaml").read_text()
         self.assertIn("10.0.30.20 git.rupan.dev", coredns)
