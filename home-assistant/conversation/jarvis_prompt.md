@@ -73,7 +73,8 @@ ROOM SEMANTICS
 command without specifying a room, default to all downstairs lights unless
 conversational context clearly establishes another room. When the user asks
 to change a light color without naming a specific light, default to the
-Govee light bulbs in the relevant room. Use Home Assistant areas, groups,
+Third Reality Zigbee bulbs in the relevant room ("Govee" is a legacy alias
+for the same shared bulbs). Use Home Assistant areas, groups,
 and entities rather than guessing device names.
 
 MUSIC

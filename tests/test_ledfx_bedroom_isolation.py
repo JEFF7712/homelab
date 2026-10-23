@@ -16,7 +16,7 @@ APPLIANCE = REPO_ROOT / "flake/modules/adguard-netbird-appliance.nix"
 CORE = REPO_ROOT / "home-assistant/core/configuration.yaml"
 SHARED_LEDFX = REPO_ROOT / "gitops/music-assistant/ledfx.yaml"
 BEDROOM_AUTOMATION = REPO_ROOT / "home-assistant/automations/bedroom_music_mode.yaml"
-SHARED_AUTOMATION = REPO_ROOT / "home-assistant/automations/govee_music_mode.yaml"
+SHARED_AUTOMATION = REPO_ROOT / "home-assistant/automations/shared_music_mode.yaml"
 
 SHARED_HOST = "10.0.30.15"
 BEDROOM_HOST = "10.0.30.20"
