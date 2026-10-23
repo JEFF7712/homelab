@@ -5,4 +5,4 @@ mode: single
 sequence:
   - action: input_boolean.toggle
     target:
-      entity_id: input_boolean.govee_music_mode
+      entity_id: input_boolean.shared_music_mode

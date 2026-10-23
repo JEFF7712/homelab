@@ -1,0 +1,3 @@
+name: Shared Music Mode
+icon: mdi:music
+entity_id: input_boolean.shared_music_mode

@@ -1,5 +1,5 @@
-id: govee_music_mode
-alias: "Lighting: Govee Music Mode"
+id: shared_music_mode
+alias: "Lighting: Shared Music Mode"
 description: >-
   Activates slow ambient LedFx music colour on the four shared Zigbee bulbs
   when Music Mode is turned on, locking Adaptive Lighting. LedFx streams to
@@ -10,11 +10,11 @@ description: >-
 mode: restart
 triggers:
   - trigger: state
-    entity_id: input_boolean.govee_music_mode
+    entity_id: input_boolean.shared_music_mode
     to: "on"
     id: "mode_on"
   - trigger: state
-    entity_id: input_boolean.govee_music_mode
+    entity_id: input_boolean.shared_music_mode
     to: "off"
     id: "mode_off"
 conditions: []
@@ -26,7 +26,7 @@ actions:
         sequence:
           - action: scene.create
             data:
-              scene_id: pre_music_mode_govee
+              scene_id: pre_music_mode_shared
               snapshot_entities:
                 - light.kitchen_ceiling_light_1
                 - light.kitchen_ceiling_light_2
@@ -53,11 +53,11 @@ actions:
               scene_id: "music-mode"
           - if:
               - condition: template
-                value_template: "{{ state_attr('scene.pre_music_mode_govee', 'entity_id') is not none }}"
+                value_template: "{{ state_attr('scene.pre_music_mode_shared', 'entity_id') is not none }}"
             then:
               - action: scene.turn_on
                 target:
-                  entity_id: scene.pre_music_mode_govee
+                  entity_id: scene.pre_music_mode_shared
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
