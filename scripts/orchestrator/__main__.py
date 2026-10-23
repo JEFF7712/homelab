@@ -6,6 +6,7 @@
     python -m scripts.orchestrator supervisor-audit --letta-dir DIR [--approve NAME]
         [--allow-chatgpt-sign-in]
     python -m scripts.orchestrator serve --config FILE
+    python -m scripts.orchestrator render-manifests --params FILE
     python -m scripts.orchestrator bridge --letta-url URL --agent-id ID
         --conversation-id ID --controller-url URL --token-file FILE
 
@@ -47,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
     supervisor.add_argument("--letta-dir", type=Path, required=True)
     supervisor.add_argument("--approve", action="append", default=[])
     supervisor.add_argument("--allow-chatgpt-sign-in", action="store_true")
+    manifests = commands.add_parser("render-manifests")
+    manifests.add_argument("--params", type=Path, required=True)
     serve = commands.add_parser("serve")
     serve.add_argument("--config", type=Path, required=True)
     bridge = commands.add_parser("bridge")
@@ -54,6 +57,18 @@ def main(argv: list[str] | None = None) -> int:
         bridge.add_argument(f"--{option}", required=True)
     bridge.add_argument("--token-file", type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command == "render-manifests":
+        import yaml
+
+        from scripts.orchestrator.manifests import DeployParams, render
+
+        raw = json.loads(args.params.read_text())
+        raw["required_contexts"] = tuple(raw.get("required_contexts") or ())
+        raw["api_endpoints"] = tuple(
+            tuple(item) for item in raw.get("api_endpoints") or ()
+        )
+        print(yaml.safe_dump_all(render(DeployParams(**raw)), sort_keys=False), end="")
+        return 0
     if args.command == "serve":
         from scripts.orchestrator.daemon import main as serve_main
 
