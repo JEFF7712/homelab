@@ -22,6 +22,9 @@ let
       };
     }).config.final;
   tests = {
+    uppercaseNATProtocol = rejects (inventory {
+      homelab.portForwards.wan-monero-p2p.protocol = lib.mkForce "TCP";
+    });
     unknownAliasHost = rejects (inventory {
       homelab.aliases.spotify_matrix_senders.hosts = lib.mkForce [ "missing" ];
     });

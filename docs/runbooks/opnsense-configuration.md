@@ -49,6 +49,12 @@ type checks, so OpenTofu validation and protected plans remain required.
 
 ## Execution and ownership
 
+NAT port-forward protocols use the API's lowercase keys, such as `tcp` and
+`udp`. The pinned provider writes and reads these selected values directly;
+uppercase display labels otherwise produce recurring case-only updates after
+refresh. The domain type rejects uppercase NAT protocols. Firewall filter
+protocol declarations retain their existing provider representation.
+
 Tofunix generates configuration only. The existing HTTP backend, provider lock,
 import declarations, `managed` resource names and instance keys, protected CI
 plan/apply commands, and reconciler execution remain authoritative.

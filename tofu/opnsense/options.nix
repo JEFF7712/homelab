@@ -122,7 +122,7 @@ in
               sequence = option types.ints.unsigned;
               interface = option strings;
               ip_protocol = option str;
-              protocol = option str;
+              protocol = option (types.addCheck str (value: value == lib.toLower value));
               log = default types.bool false;
               nat_reflection = option str;
               source = option (

@@ -1038,7 +1038,7 @@
         sequence = 100;
         interface = [ "wan" ];
         ip_protocol = "inet";
-        protocol = "TCP";
+        protocol = "tcp";
         log = false;
         nat_reflection = "default";
         source = {
@@ -1059,7 +1059,7 @@
         sequence = 110;
         interface = [ "wan" ];
         ip_protocol = "inet";
-        protocol = "UDP";
+        protocol = "udp";
         log = false;
         nat_reflection = "default";
         source = {
