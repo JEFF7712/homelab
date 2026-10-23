@@ -112,16 +112,25 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   modules, and any unmapped path still force the full gate.
 - **Full offline gate**: Main branch pushes, periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
-  full offline gate (`just check` with `nix flake check`).
+  full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
 
 The full gate avoids repeating work its own lanes already cover: the parallel
 `fmt` lane owns format and YAML lint (the gate runs with `CI_LINT_EXTERNAL=1`,
 and `just fmt-check` includes `yamllint gitops home-assistant`), the secret
 scan uses the incremental range scan in `scripts/checks/secrets.sh` instead of
 rescanning all history (full scans remain for schedules, tags, and local runs),
-and when `nix flake check` will run, `repository-contract` executes the full
+and when the flake lane will run, `repository-contract` executes the full
 unit suite in the Nix sandbox so the local Python lane shrinks to the
 Nix-integration subset rather than running the suite twice.
+
+The flake lane evaluates every check and every host configuration with
+`nix-eval-jobs` (one worker, restarted past 2048 MiB) instead of
+`nix flake check`, then builds only the checks from the evaluated
+derivations. A single `nix flake check` evaluator held all thirteen host
+configurations at about 5.5 GiB, and with the unit-suite build and the other
+lanes it crossed the 8 GiB job limit and killed `repository-contract` with
+signal 9. `CI_EVAL_WORKERS` and `CI_EVAL_MAX_MEMORY_MB` trade memory for
+evaluation time.
 
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
@@ -145,6 +154,33 @@ mirror on nas-01, with a 120G quota. It moved off the single `tank` HDD on
 disk shared with media and NFS that held IO pressure above 80% and made
 every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
 remove it once the SSD store has run cleanly for a while.
+
+### Fleet cache build pilot
+
+The homelab target set in `scripts/ci/cache.sh` uses nix-fast-build from the
+pinned nixpkgs. Its selection is generated from the same 17 targets used by
+the native builder: seven host systems, seven checks and three development
+shells. Laptop and ISO publication continue to use the native builder.
+The full gate's flake lane remains the separate validation gate.
+
+The pilot uses two evaluation workers, a 2048 MiB memory budget per worker,
+and two concurrent build jobs. The initial 1536 MiB budget caused worker
+restarts while evaluating the fleet. The evaluation budget is a worker
+recycling threshold, not a hard process memory limit. The CI container's
+8 GiB limit still applies to evaluation and builds together.
+
+Fast builds retain output GC roots until publication completes. The result
+report must cover every requested target without failures or skipped jobs;
+its output and derivation paths feed the existing source/build-input cache
+publication and per-path upload retries. Missing tooling or a failed fast
+build fails the job without silently retrying through another builder.
+
+For comparison or rollback, set `HOMELAB_CACHE_BUILDER=native` when invoking
+`bash scripts/ci/cache.sh`. Set it to `fast` to explicitly select the pilot.
+Each invocation logs the backend, target count and build elapsed seconds.
+Compare the same source revision and cache state, and distinguish evaluation
+timing from complete build/upload timing. The fast tool is wrapped in the
+development shells to keep its Python dependencies out of repository Python.
 
 All pipelines resolve the dev shell and build outputs from the local Attic
 substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30

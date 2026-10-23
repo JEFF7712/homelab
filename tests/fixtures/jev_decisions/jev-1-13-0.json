@@ -70,7 +70,7 @@
             "choice": "downstairs_lights",
             "confidence": 0.51,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -161,7 +161,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -252,7 +252,7 @@
             "choice": "downstairs_lights",
             "confidence": 0.56,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -343,7 +343,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -434,7 +434,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -525,7 +525,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -616,7 +616,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -707,7 +707,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -798,7 +798,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -889,7 +889,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -980,7 +980,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1071,7 +1071,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1162,7 +1162,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.01,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1253,7 +1253,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1344,7 +1344,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.75,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1435,7 +1435,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1526,7 +1526,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1617,7 +1617,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1708,7 +1708,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1799,7 +1799,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1890,7 +1890,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -1981,7 +1981,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2072,7 +2072,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2163,7 +2163,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2254,7 +2254,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2345,7 +2345,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2436,7 +2436,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2527,7 +2527,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2618,7 +2618,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2709,7 +2709,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.73,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2800,7 +2800,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2891,7 +2891,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -2982,7 +2982,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3073,7 +3073,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3164,7 +3164,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3255,7 +3255,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.01,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3346,7 +3346,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.91,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3437,7 +3437,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3528,7 +3528,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3619,7 +3619,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.95,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.04,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3710,7 +3710,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3801,7 +3801,7 @@
             "choice": "downstairs_lights",
             "confidence": 0.88,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3892,7 +3892,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.94,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -3983,7 +3983,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4074,7 +4074,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4165,7 +4165,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4256,7 +4256,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.59,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.63,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4347,7 +4347,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4438,7 +4438,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4529,7 +4529,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4620,7 +4620,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4711,7 +4711,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4802,7 +4802,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -4893,7 +4893,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.01,
@@ -4984,7 +4984,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.56,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5075,7 +5075,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.95,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5166,7 +5166,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.95,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.01,
@@ -5257,7 +5257,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5348,7 +5348,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5439,7 +5439,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.64,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5530,7 +5530,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.97,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5621,7 +5621,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5712,7 +5712,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5800,10 +5800,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 1.0,
+              "shared_zigbee_lights": 1.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5894,7 +5894,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -5985,7 +5985,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6076,7 +6076,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6167,7 +6167,7 @@
             "choice": "movie_mode",
             "confidence": 0.88,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6258,7 +6258,7 @@
             "choice": "satellite_media_player",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6349,7 +6349,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6440,7 +6440,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6531,7 +6531,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6622,7 +6622,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.61,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6713,7 +6713,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6804,7 +6804,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.47,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6895,7 +6895,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.9,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -6986,7 +6986,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7077,7 +7077,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.49,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7168,7 +7168,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7259,7 +7259,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7350,7 +7350,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7441,7 +7441,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7532,7 +7532,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7623,7 +7623,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.94,
             "probabilities": {
-              "all_govee_lights": 0.05,
+              "shared_zigbee_lights": 0.05,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7714,7 +7714,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7805,7 +7805,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -7896,7 +7896,7 @@
             "choice": "bedroom_window_plug",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 1.0,
@@ -7984,10 +7984,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 1.0,
+              "shared_zigbee_lights": 1.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8078,7 +8078,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8169,7 +8169,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8260,7 +8260,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8351,7 +8351,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8442,7 +8442,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8533,7 +8533,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8624,7 +8624,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.52,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8715,7 +8715,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8806,7 +8806,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -8897,7 +8897,7 @@
             "choice": "bedroom_mushroom_plug",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.98,
               "bedroom_window_plug": 0.02,
@@ -8988,7 +8988,7 @@
             "choice": "movie_mode",
             "confidence": 0.73,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9079,7 +9079,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9170,7 +9170,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.77,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.01,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9261,7 +9261,7 @@
             "choice": "stairs_light",
             "confidence": 0.64,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9352,7 +9352,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.02,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9443,7 +9443,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.03,
+              "shared_zigbee_lights": 0.03,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9534,7 +9534,7 @@
             "choice": "living_room_lights",
             "confidence": 0.65,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9625,7 +9625,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.47,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.48,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9716,7 +9716,7 @@
             "choice": "downstairs_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9807,7 +9807,7 @@
             "choice": "living_room_lights",
             "confidence": 0.54,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9898,7 +9898,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.62,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -9989,7 +9989,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.76,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.01,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10080,7 +10080,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10171,7 +10171,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.02,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10262,7 +10262,7 @@
             "choice": "stairs_light",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10353,7 +10353,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.7,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10444,7 +10444,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10535,7 +10535,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.79,
             "probabilities": {
-              "all_govee_lights": 0.19,
+              "shared_zigbee_lights": 0.19,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10626,7 +10626,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.85,
             "probabilities": {
-              "all_govee_lights": 0.03,
+              "shared_zigbee_lights": 0.03,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10717,7 +10717,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.87,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.88,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10808,7 +10808,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.81,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.09,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10899,7 +10899,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -10990,7 +10990,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11081,7 +11081,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.87,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11172,7 +11172,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11263,7 +11263,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.74,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11354,7 +11354,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11445,7 +11445,7 @@
             "choice": "movie_mode",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11536,7 +11536,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11627,7 +11627,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.01,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11718,7 +11718,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.79,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11809,7 +11809,7 @@
             "choice": "living_room_lights",
             "confidence": 0.92,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11900,7 +11900,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.96,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -11991,7 +11991,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12082,7 +12082,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12173,7 +12173,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12264,7 +12264,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 1.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12355,7 +12355,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12446,7 +12446,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12537,7 +12537,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12628,7 +12628,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12719,7 +12719,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12810,7 +12810,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12901,7 +12901,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -12992,7 +12992,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13083,7 +13083,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13174,7 +13174,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.69,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13265,7 +13265,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13356,7 +13356,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13447,7 +13447,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13538,7 +13538,7 @@
             "choice": "bedroom_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 1.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13629,7 +13629,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13720,7 +13720,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.91,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13811,7 +13811,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13902,7 +13902,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.84,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -13993,7 +13993,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14084,7 +14084,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14175,7 +14175,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14266,7 +14266,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14357,7 +14357,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14448,7 +14448,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.98,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14539,7 +14539,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14630,7 +14630,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14721,7 +14721,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14812,7 +14812,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14903,7 +14903,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -14994,7 +14994,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15085,7 +15085,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.98,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15176,7 +15176,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15267,7 +15267,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15358,7 +15358,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15449,7 +15449,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15540,7 +15540,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15631,7 +15631,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15722,7 +15722,7 @@
             "choice": "movie_mode",
             "confidence": 0.89,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15813,7 +15813,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.57,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15904,7 +15904,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -15995,7 +15995,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16086,7 +16086,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16177,7 +16177,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16268,7 +16268,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16359,7 +16359,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.7,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16450,7 +16450,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.6,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16541,7 +16541,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16632,7 +16632,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16723,7 +16723,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.98,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16814,7 +16814,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16905,7 +16905,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.7,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -16996,7 +16996,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.76,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17087,7 +17087,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17178,7 +17178,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17269,7 +17269,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17360,7 +17360,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17451,7 +17451,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17542,7 +17542,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17633,7 +17633,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17724,7 +17724,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17815,7 +17815,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17906,7 +17906,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -17997,7 +17997,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18088,7 +18088,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18179,7 +18179,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18270,7 +18270,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18361,7 +18361,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18452,7 +18452,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18543,7 +18543,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18634,7 +18634,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.97,
               "bedroom_mushroom_plug": 0.01,
               "bedroom_window_plug": 0.0,
@@ -18725,7 +18725,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.79,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18816,7 +18816,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.46,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18907,7 +18907,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.82,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -18998,7 +18998,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19089,7 +19089,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.95,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19180,7 +19180,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.78,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19271,7 +19271,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.89,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19362,7 +19362,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.92,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19453,7 +19453,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19544,7 +19544,7 @@
             "choice": "good_vibes_sign",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19635,7 +19635,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19726,7 +19726,7 @@
             "choice": "kitchen_mushroom_lamp",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19817,7 +19817,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19908,7 +19908,7 @@
             "choice": "movie_mode",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -19999,7 +19999,7 @@
             "choice": "movie_mode",
             "confidence": 0.9,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20090,7 +20090,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.56,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20181,7 +20181,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20272,7 +20272,7 @@
             "choice": "bedroom_window_plug",
             "confidence": 0.47,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.51,
@@ -20363,7 +20363,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20454,7 +20454,7 @@
             "choice": "stairs_light",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20545,7 +20545,7 @@
             "choice": "good_vibes_sign",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20636,7 +20636,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20727,7 +20727,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.65,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20818,7 +20818,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -20909,7 +20909,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21000,7 +21000,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21091,7 +21091,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.53,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21182,7 +21182,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21273,7 +21273,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21364,7 +21364,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21455,7 +21455,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.66,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21546,7 +21546,7 @@
             "choice": "bedroom_window_plug",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 1.0,
@@ -21637,7 +21637,7 @@
             "choice": "good_vibes_sign",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21728,7 +21728,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21819,7 +21819,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -21910,7 +21910,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22001,7 +22001,7 @@
             "choice": "bedroom_mushroom_plug",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 1.0,
               "bedroom_window_plug": 0.0,
@@ -22092,7 +22092,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22183,7 +22183,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22274,7 +22274,7 @@
             "choice": "movie_mode",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22365,7 +22365,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.5,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22456,7 +22456,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22547,7 +22547,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22638,7 +22638,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22729,7 +22729,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22820,7 +22820,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -22911,7 +22911,7 @@
             "choice": "movie_mode",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23002,7 +23002,7 @@
             "choice": "movie_mode",
             "confidence": 0.85,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23093,7 +23093,7 @@
             "choice": "bedroom_mushroom_plug",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 1.0,
               "bedroom_window_plug": 0.0,
@@ -23184,7 +23184,7 @@
             "choice": "kitchen_mushroom_lamp",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23275,7 +23275,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23366,7 +23366,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.97,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23457,7 +23457,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23548,7 +23548,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.77,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23639,7 +23639,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23730,7 +23730,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.95,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23821,7 +23821,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -23912,7 +23912,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.71,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24000,10 +24000,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.99,
+              "shared_zigbee_lights": 0.99,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24094,7 +24094,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24185,7 +24185,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24276,7 +24276,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24367,7 +24367,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24458,7 +24458,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.84,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24549,7 +24549,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.86,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24640,7 +24640,7 @@
             "choice": "living_room_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24731,7 +24731,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24822,7 +24822,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.98,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -24913,7 +24913,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25004,7 +25004,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25095,7 +25095,7 @@
             "choice": "living_room_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25186,7 +25186,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.48,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25277,7 +25277,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25368,7 +25368,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25459,7 +25459,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25550,7 +25550,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25641,7 +25641,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25732,7 +25732,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25823,7 +25823,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -25914,7 +25914,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26005,7 +26005,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26096,7 +26096,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26187,7 +26187,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26278,7 +26278,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26369,7 +26369,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.7,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26460,7 +26460,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.69,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26551,7 +26551,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26642,7 +26642,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26733,7 +26733,7 @@
             "choice": "satellite_media_player",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26824,7 +26824,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -26915,7 +26915,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27006,7 +27006,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27097,7 +27097,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27188,7 +27188,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27279,7 +27279,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27367,10 +27367,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 1.0,
+              "shared_zigbee_lights": 1.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27461,7 +27461,7 @@
             "choice": "movie_mode",
             "confidence": 0.93,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27552,7 +27552,7 @@
             "choice": "movie_mode",
             "confidence": 0.84,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27643,7 +27643,7 @@
             "choice": "movie_mode",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27734,7 +27734,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.95,
             "probabilities": {
-              "all_govee_lights": 0.03,
+              "shared_zigbee_lights": 0.03,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27822,10 +27822,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 1.0,
+              "shared_zigbee_lights": 1.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -27916,7 +27916,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28007,7 +28007,7 @@
             "choice": "good_vibes_sign",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28098,7 +28098,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28189,7 +28189,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28280,7 +28280,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.91,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.92,
               "bedroom_mushroom_plug": 0.01,
               "bedroom_window_plug": 0.0,
@@ -28371,7 +28371,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28462,7 +28462,7 @@
             "choice": "good_vibes_sign",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28553,7 +28553,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28644,7 +28644,7 @@
             "choice": "movie_mode",
             "confidence": 0.54,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28732,10 +28732,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.7,
+              "shared_zigbee_lights": 0.7,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28826,7 +28826,7 @@
             "choice": "downstairs_lights",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -28917,7 +28917,7 @@
             "choice": "stairs_light",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29008,7 +29008,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.84,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.86,
               "bedroom_mushroom_plug": 0.03,
               "bedroom_window_plug": 0.0,
@@ -29099,7 +29099,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29190,7 +29190,7 @@
             "choice": "living_room_lights",
             "confidence": 0.78,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29281,7 +29281,7 @@
             "choice": "satellite_media_player",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29372,7 +29372,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.97,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29463,7 +29463,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29554,7 +29554,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29645,7 +29645,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29736,7 +29736,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29827,7 +29827,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.94,
             "probabilities": {
-              "all_govee_lights": 0.03,
+              "shared_zigbee_lights": 0.03,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -29915,10 +29915,10 @@
             "type": "choice"
           },
           "target": {
-            "choice": "all_govee_lights",
+            "choice": "shared_zigbee_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 1.0,
+              "shared_zigbee_lights": 1.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30009,7 +30009,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30100,7 +30100,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.48,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30191,7 +30191,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30282,7 +30282,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30373,7 +30373,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.63,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30464,7 +30464,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30555,7 +30555,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30646,7 +30646,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30737,7 +30737,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30828,7 +30828,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -30919,7 +30919,7 @@
             "choice": "stairs_light",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31010,7 +31010,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.96,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31101,7 +31101,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.76,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31192,7 +31192,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31283,7 +31283,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31374,7 +31374,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31465,7 +31465,7 @@
             "choice": "satellite_media_player",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31556,7 +31556,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31647,7 +31647,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31738,7 +31738,7 @@
             "choice": "movie_mode",
             "confidence": 0.82,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31829,7 +31829,7 @@
             "choice": "kitchen_lights",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -31920,7 +31920,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32011,7 +32011,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32102,7 +32102,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32193,7 +32193,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32284,7 +32284,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32375,7 +32375,7 @@
             "choice": "stairs_light",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32466,7 +32466,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.59,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32557,7 +32557,7 @@
             "choice": "good_vibes_sign",
             "confidence": 0.78,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32648,7 +32648,7 @@
             "choice": "movie_mode",
             "confidence": 0.76,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32739,7 +32739,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32830,7 +32830,7 @@
             "choice": "satellite_media_player",
             "confidence": 0.55,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -32921,7 +32921,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33012,7 +33012,7 @@
             "choice": "living_room_thermostat",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33103,7 +33103,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33194,7 +33194,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33285,7 +33285,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33376,7 +33376,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33467,7 +33467,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33558,7 +33558,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33649,7 +33649,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.02,
+              "shared_zigbee_lights": 0.02,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33740,7 +33740,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.9,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33831,7 +33831,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -33922,7 +33922,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34013,7 +34013,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34104,7 +34104,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34195,7 +34195,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34286,7 +34286,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34377,7 +34377,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34468,7 +34468,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34559,7 +34559,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.02,
@@ -34650,7 +34650,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.73,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34741,7 +34741,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34832,7 +34832,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -34923,7 +34923,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35014,7 +35014,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35105,7 +35105,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35196,7 +35196,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35287,7 +35287,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.79,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35378,7 +35378,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35469,7 +35469,7 @@
             "choice": "none_or_unknown",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35560,7 +35560,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.95,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35651,7 +35651,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35742,7 +35742,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35833,7 +35833,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -35924,7 +35924,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36015,7 +36015,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36106,7 +36106,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36197,7 +36197,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.64,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36288,7 +36288,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36379,7 +36379,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.65,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36470,7 +36470,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36561,7 +36561,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.99,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36652,7 +36652,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36743,7 +36743,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36834,7 +36834,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.65,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -36925,7 +36925,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37016,7 +37016,7 @@
             "choice": "bedroom_lights",
             "confidence": 0.75,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.78,
               "bedroom_mushroom_plug": 0.03,
               "bedroom_window_plug": 0.01,
@@ -37107,7 +37107,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.98,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37198,7 +37198,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.01,
+              "shared_zigbee_lights": 0.01,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37289,7 +37289,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.99,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37380,7 +37380,7 @@
             "choice": "none_or_unknown",
             "confidence": 0.67,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37471,7 +37471,7 @@
             "choice": "living_room_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37562,7 +37562,7 @@
             "choice": "living_room_thermostat",
             "confidence": 0.97,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37653,7 +37653,7 @@
             "choice": "downstairs_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,
@@ -37744,7 +37744,7 @@
             "choice": "bedroom_window_plug",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 1.0,
@@ -37835,7 +37835,7 @@
             "choice": "kitchen_lights",
             "confidence": 1.0,
             "probabilities": {
-              "all_govee_lights": 0.0,
+              "shared_zigbee_lights": 0.0,
               "bedroom_lights": 0.0,
               "bedroom_mushroom_plug": 0.0,
               "bedroom_window_plug": 0.0,

@@ -41,7 +41,34 @@ else
   echo "Unknown target set: $target_set" >&2
   exit 2
 fi
-nix build --no-link --print-out-paths "${build_targets[@]}" > "$cache_work/paths"
+builder=${HOMELAB_CACHE_BUILDER:-native}
+if [[ "$target_set" == homelab ]]; then
+  builder=${HOMELAB_CACHE_BUILDER:-fast}
+fi
+started=$SECONDS
+case "$builder" in
+  fast)
+    selection='flake: {'
+    for index in "${!build_targets[@]}"; do
+      selection+=" target${index} = flake.${build_targets[index]#*#};"
+    done
+    selection+=' }'
+    nix-fast-build --flake "$flake#" --select "$selection" \
+      --eval-workers 2 --eval-max-memory-size 2048 --max-jobs 2 \
+      --no-nom --out-link "$cache_work/result" \
+      --result-file "$cache_work/results.json"
+    python -m scripts.ci.cache_results "$cache_work/results.json" \
+      "${#build_targets[@]}" "$cache_work/paths" "$cache_work/derivations"
+    ;;
+  native)
+    nix build --no-link --print-out-paths "${build_targets[@]}" > "$cache_work/paths"
+    ;;
+  *)
+    echo "Unknown cache builder: $builder (expected fast or native)" >&2
+    exit 2
+    ;;
+esac
+echo "Cache build: builder=$builder targets=${#build_targets[@]} elapsed_seconds=$((SECONDS - started))"
 
 if [[ -z "${ATTIC_TOKEN:-}" ]]; then
   echo "Build succeeded; ATTIC_TOKEN is not set, so upload is skipped."
@@ -49,7 +76,9 @@ if [[ -z "${ATTIC_TOKEN:-}" ]]; then
 fi
 nix flake archive --json --no-write-lock-file "$flake" > "$cache_work/archive.json"
 python -m scripts.ci.cache_sources "$cache_work/archive.json" >> "$cache_work/paths"
-nix path-info --derivation "${build_targets[@]}" > "$cache_work/derivations"
+if [[ "$builder" == native ]]; then
+  nix path-info --derivation "${build_targets[@]}" > "$cache_work/derivations"
+fi
 mapfile -t build_derivations < "$cache_work/derivations"
 nix-store --query --requisites --include-outputs "${build_derivations[@]}" >> "$cache_work/paths"
 attic login local http://10.0.30.20:8080/ "$ATTIC_TOKEN"

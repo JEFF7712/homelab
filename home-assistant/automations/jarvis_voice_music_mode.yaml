@@ -1,9 +1,10 @@
 id: jarvis_voice_music_mode
 alias: "Jarvis: Voice Music Mode"
 description: >-
-  Deterministically enables or disables Govee and Bedroom Music Mode via voice.
-  Bare "music mode" phrases target the shared-spaces toggle (ambient colour
-  on the Zigbee bulbs); bedroom phrases target the bedroom Roku toggle.
+  Deterministically enables or disables Shared and Bedroom Music Mode via
+  voice. Bare "music mode" phrases target the shared-spaces toggle (ambient
+  colour on the Zigbee bulbs); bedroom phrases target the bedroom Roku
+  toggle. "Govee" phrasings are legacy aliases for the same shared toggle.
 mode: restart
 triggers:
   - trigger: conversation
@@ -14,6 +15,11 @@ triggers:
       - "set music mode"
       - "enable music mode"
       - "music mode on"
+      - "turn on [the] shared music mode"
+      - "start [the] shared music mode"
+      - "turn on [the] zigbee music mode"
+      - "turn on music mode [on|for] [all] [the] shared lights"
+      - "turn on music mode [on|for] [all] [the] zigbee lights"
       - "turn on [the] govee music mode"
       - "start [the] govee music mode"
       - "turn on music mode [on|for] [all] [the] govee lights"
@@ -24,6 +30,11 @@ triggers:
       - "stop music mode"
       - "disable music mode"
       - "music mode off"
+      - "turn off [the] shared music mode"
+      - "stop [the] shared music mode"
+      - "turn off [the] zigbee music mode"
+      - "turn off music mode [on|for] [all] [the] shared lights"
+      - "turn off music mode [on|for] [all] [the] zigbee lights"
       - "turn off [the] govee music mode"
       - "stop [the] govee music mode"
       - "turn off music mode [on|for] [all] [the] govee lights"
@@ -61,7 +72,7 @@ actions:
         sequence:
           - action: input_boolean.turn_on
             target:
-              entity_id: input_boolean.govee_music_mode
+              entity_id: input_boolean.shared_music_mode
           - set_conversation_response: "Done."
       - conditions:
           - condition: trigger
@@ -69,7 +80,7 @@ actions:
         sequence:
           - action: input_boolean.turn_off
             target:
-              entity_id: input_boolean.govee_music_mode
+              entity_id: input_boolean.shared_music_mode
           - set_conversation_response: "Done."
       - conditions:
           - condition: trigger
