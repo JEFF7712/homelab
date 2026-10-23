@@ -155,6 +155,92 @@ Worker question event, as produced by the Pi adapter from an
 }
 ```
 
+## Worker backends
+
+`scripts/orchestrator/worker.py` defines the contract every runtime
+implements. A `Backend` opens a `Session` for one attempt; the session starts
+from a brief and reports normalized events:
+
+| Event | Meaning | Runner effect |
+| --- | --- | --- |
+| `session` | backend session or thread id | `worker.session` event |
+| `question` | the worker needs an answer (key, prompt, choices) | blocking question `q_<attempt>_<key>` |
+| `settled` | the run ended normally (final text) | `worker.settled` event; task to `validating` |
+| `failed` | the run ended abnormally (detail, retryable) | attempt finished |
+
+The session also accepts `answer(key, value)` and `abort()`. `AttemptRunner`
+owns everything else for every backend: lease renewal every third of its
+length (losing it stops the runner), `worker.answer` delivery, `worker.cancel`
+handling (abort, stop the process, finish the attempt), the run deadline
+(abort, attempt failed), process exit before settling (attempt finished,
+retryable), and any other backend error (attempt finished, retryable). Each
+attempt gets a private directory (mode 0700). The child environment holds
+only locale, `PATH`, CA bundle variables and what the backend configuration
+names; nothing else from the controller is inherited.
+
+### Worker API
+
+The runner never holds the store. It talks to the controller through a
+`WorkerChannel` with eight operations: `start`, `renew`, `ask`, `inbox`,
+`acknowledge`, `session`, `settle`, `finish`. In a worker pod that channel is
+`HttpChannel`, a client of `scripts/orchestrator/worker_api.py`:
+
+- At claim the controller mints a random token (`issue_token`), stores only
+  its SHA-256 on the attempt, and gives the token to that attempt's Job.
+- `POST /v1/attempt/<operation>` with `Authorization: Bearer <token>`
+  resolves the token to its single unfinished attempt with an unexpired lease.
+  Anything else returns 403 `LEASE_LOST`, so an expired worker cannot fail
+  its task before the reaper runs. Authentication and the operation run under
+  one store lock, so a reap or cancellation cannot land between them.
+- There is no route for creating tasks, answering questions, deciding or
+  consuming approvals, verifying or completing tasks, claiming, or reading
+  other attempts. `acknowledge` accepts only this attempt's answer keys; a
+  worker can never acknowledge its own `worker.cancel`. `renew` fails once
+  the task is cancelled. `settle` keeps only `backend`, `provider`, `model`
+  and `final_text`. `Content-Length` must be a non-negative integer of at most
+  64 KiB.
+- The token is checked before any body is read. Each connection carries one
+  request (HTTP/1.0), every socket read times out after 10 seconds, and a
+  watchdog closes any connection still open after 15 seconds, however slowly
+  it trickles bytes. One peer address holds at most 4 connections and the
+  server at most 32; extra connections get 503 at once. Workers run in
+  separate pods, so a compromised worker cannot take the slots others need
+  for lease renewal. The NetworkPolicy admits only worker pods to the API.
+- Text from the worker (questions, final text, failure reasons, session ids)
+  passes through `redact()`, which removes the backend's own credential values
+  (the Claude token, the Codex login's token strings) and common token shapes
+  (`sk-`, `sk-ant-`, GitHub tokens, bearer tokens, JWTs, `*_token=`), and
+  truncates to 8 KiB. Identifiers derived from worker keys (question and
+  session ids) are SHA-256 fragments, so a worker cannot persist text through
+  an identifier.
+- Starting a session is bounded: Pi's start is one RPC command with a
+  30-second timeout, well inside the lease, and CLI backends write the brief
+  on a separate thread.
+
+`LocalChannel` implements the same operations directly on the store for the
+controller process and tests. CI runs every Pi scenario through both.
+
+### Pi
+
+`scripts/orchestrator/pi_rpc.py` launches pinned Pi with `--mode rpc
+--no-approve --no-extensions --no-skills`, the first-party
+`scripts/orchestrator/pi/ask_supervisor.ts` extension, an explicit provider
+and model, and `--session-dir <attempt>/pi-session`. The backend refuses the
+`anthropic` provider outright and `openai-codex` unless it is constructed with
+`experimental=True`.
+
+| Pi record | Session event |
+| --- | --- |
+| `prompt` response `disposition: handled` | `failed`, not retryable; no run started |
+| `extension_ui_request` `select`/`confirm`/`input`/`editor` | `question` keyed by the request id |
+| other `extension_ui_request` | none |
+| `agent_settled` with `aborted: false` | `settled` with `get_last_assistant_text` |
+| `agent_settled` with `aborted: true` | `failed`, retryable |
+
+`agent_end` alone is never treated as completion. Answers go back as
+`extension_ui_response` (`value`, `confirmed`, or `cancelled`); abort is the
+`abort` command.
+
 ## Approvals
 
 An approval binds the SHA-256 of the canonical JSON of task id, attempt id
