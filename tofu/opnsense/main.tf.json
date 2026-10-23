@@ -1195,7 +1195,7 @@
         "ip_protocol": "inet",
         "log": false,
         "nat_reflection": "default",
-        "protocol": "TCP",
+        "protocol": "tcp",
         "sequence": 100,
         "source": {
           "net": "any",
@@ -1219,7 +1219,7 @@
         "ip_protocol": "inet",
         "log": false,
         "nat_reflection": "default",
-        "protocol": "UDP",
+        "protocol": "udp",
         "sequence": 110,
         "source": {
           "net": "any",

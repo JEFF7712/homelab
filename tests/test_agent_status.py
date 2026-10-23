@@ -14,6 +14,13 @@ class AgentStatusTest(unittest.TestCase):
     def test_discovers_configured_targets(self) -> None:
         targets = configured_targets(ROOT)
         self.assertEqual(targets["cluster_api"], "https://10.0.30.11:6443")
+        self.assertEqual(
+            targets["cluster_nodes"],
+            {
+                f"homelab-{number:02}": f"10.0.30.{10 + number}"
+                for number in range(1, 6)
+            },
+        )
         self.assertEqual(targets["opnsense"], "https://OPNsense.internal")
         self.assertEqual(targets["opnsense_ca_variable"], "OPNSENSE_CA_FILE")
         self.assertEqual(
@@ -30,6 +37,26 @@ class AgentStatusTest(unittest.TestCase):
         )
         self.assertEqual(payload["status"], "incomplete")
         self.assertTrue(payload["timestamp"])
+
+    def test_discovery_uses_generated_inventory_without_nix_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "inventory").mkdir()
+            (root / "inventory/fleet.json").write_text(
+                json.dumps(
+                    {
+                        "cluster_api": "https://10.0.30.21:6443",
+                        "cluster_nodes": {"homelab-01": "10.0.30.21"},
+                        "hosts": {},
+                    }
+                )
+            )
+            (root / ".gitlab-ci.yml").write_text(
+                'OPNSENSE_URI: "https://OPNsense.internal"\n'
+            )
+            targets = configured_targets(root)
+            self.assertEqual(targets["cluster_api"], "https://10.0.30.21:6443")
+            self.assertEqual(targets["cluster_nodes"], {"homelab-01": "10.0.30.21"})
 
     def test_cluster_probe_reports_each_read_only_observation(self) -> None:
         def successful(

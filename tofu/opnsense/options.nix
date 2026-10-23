@@ -11,11 +11,8 @@ let
       inherit type;
       default = value;
     };
-  ipv4 = types.addCheck str (
-    value:
-    builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}" value != null
-    && builtins.all (part: lib.toInt part <= 255) (lib.splitString "." value)
-  );
+  sharedTypes = import ../../inventory/types.nix { inherit lib; };
+  ipv4 = sharedTypes.ipv4;
   endpoint = types.submodule {
     options = {
       net = option str;
@@ -38,29 +35,8 @@ in
       }
     )) [ ];
     homelab = {
-      networks = option (
-        types.attrsOf (
-          types.submodule {
-            options = {
-              description = option str;
-              parent = option str;
-              tag = option (types.ints.between 1 4094);
-              interfaceName = option str;
-              gateway = option ipv4;
-              cidr = option (types.strMatching "[0-9.]+/[0-9]{1,2}");
-              dhcp = default (types.nullOr (
-                types.submodule {
-                  options = {
-                    dns_servers = option (types.listOf ipv4);
-                    pools = option strings;
-                    subnetId = option str;
-                  };
-                }
-              )) null;
-            };
-          }
-        )
-      );
+      networks = option (types.attrsOf sharedTypes.network);
+      hosts = option (types.attrsOf sharedTypes.host);
       devices = option (
         types.attrsOf (
           types.submodule {
@@ -89,6 +65,7 @@ in
               enabled = default types.bool true;
               content = default strings [ ];
               devices = default strings [ ];
+              hosts = default strings [ ];
             };
           }
         )
@@ -145,7 +122,7 @@ in
               sequence = option types.ints.unsigned;
               interface = option strings;
               ip_protocol = option str;
-              protocol = option str;
+              protocol = option (types.addCheck str (value: value == lib.toLower value));
               log = default types.bool false;
               nat_reflection = option str;
               source = option (
@@ -182,7 +159,7 @@ in
     }
     {
       assertion =
-        unique (map (device: device.address) devices)
+        unique (map (device: device.address) (devices ++ builtins.attrValues cfg.hosts))
         && unique (map (device: device.mac) devices)
         && unique (map (device: device.hostname) devices);
       message = "Devices must have unique addresses, MAC addresses, and hostnames.";
@@ -196,11 +173,18 @@ in
     {
       assertion = builtins.all (
         alias:
-        (alias.content == [ ]) != (alias.devices == [ ])
-        && (alias.devices == [ ] || alias.type == "host")
+        builtins.length (
+          builtins.filter (values: values != [ ]) [
+            alias.content
+            alias.devices
+            alias.hosts
+          ]
+        ) == 1
+        && ((alias.devices == [ ] && alias.hosts == [ ]) || alias.type == "host")
         && builtins.all (name: builtins.hasAttr name cfg.devices) alias.devices
+        && builtins.all (name: builtins.hasAttr name cfg.hosts) alias.hosts
       ) (builtins.attrValues cfg.aliases);
-      message = "Aliases must declare either content or valid host-device references.";
+      message = "Aliases must declare exactly one of content, valid device references, or valid fleet-host references.";
     }
     {
       assertion = unique (

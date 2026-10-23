@@ -48,6 +48,7 @@
             hostName: extraModules:
             nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
+              specialArgs = { inherit fleetInventory; };
               modules = [
                 disko.nixosModules.disko
                 impermanence.nixosModules.impermanence
@@ -56,22 +57,9 @@
               ]
               ++ extraModules;
             };
-          baseHosts = [
-            "adguard-netbird-01"
-            "nas-01"
-            "homelab-01"
-            "homelab-02"
-            "homelab-03"
-            "homelab-04"
-            "homelab-05"
-          ];
-          registryHosts = [
-            "homelab-01"
-            "homelab-02"
-            "homelab-03"
-            "homelab-04"
-            "homelab-05"
-          ];
+          fleetInventory = import ../inventory { lib = nixpkgs.lib; };
+          baseHosts = builtins.attrNames fleetInventory.hosts;
+          registryHosts = fleetInventory.k3sHosts;
         in
         builtins.listToAttrs (
           map (hostName: nixpkgs.lib.nameValuePair hostName (mkHost hostName [ ])) baseHosts
@@ -175,6 +163,10 @@
         packages.topology = topology;
         packages.opnsense-config = opnsense.package;
         checks.opnsense-types = import ../tofu/opnsense/tests.nix { inherit pkgs tofunix; };
+        checks.fleet-inventory = import ../inventory/tests.nix {
+          inherit pkgs tofunix;
+          inherit (self) nixosConfigurations;
+        };
         checks.topology = topology;
         checks.opnsense-config =
           pkgs.runCommand "opnsense-config-check"

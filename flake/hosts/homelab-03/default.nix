@@ -1,3 +1,4 @@
+{ fleetInventory, ... }:
 {
   imports = [
     ./hardware-configuration.nix
@@ -11,7 +12,7 @@
     enable = true;
     hostName = "homelab-03";
     primaryInterface = "enp1s0";
-    nodeIp = "10.0.30.13";
-    serverAddress = "https://10.0.30.11:6443";
+    nodeIp = fleetInventory.hosts.homelab-03.address;
+    serverAddress = fleetInventory.k3sEndpoint;
   };
 }

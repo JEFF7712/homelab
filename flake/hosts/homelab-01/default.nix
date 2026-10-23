@@ -1,3 +1,4 @@
+{ fleetInventory, ... }:
 {
   imports = [
     ./disk-config.nix
@@ -11,7 +12,7 @@
   homelab.k3s = {
     enable = true;
     primaryInterface = "eno1";
-    nodeIp = "10.0.30.11";
+    nodeIp = fleetInventory.hosts.homelab-01.address;
     clusterInit = true;
     bootstrapCilium = true;
   };

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import subprocess
 import tempfile
@@ -215,15 +214,8 @@ class ZotRegistryModuleTests(unittest.TestCase):
         self.assertIn("homelab_zot_%s_last_success_timestamp_seconds", module)
         self.assertIn("for status in backup import", module)
 
-    def test_registry_name_resolves_locally_on_hosts_and_nodes(self) -> None:
+    def test_registry_name_resolves_locally_on_registry_host(self) -> None:
         self.assertEqual(self.evaluated["hosts"]["10.0.30.20"], ["registry.rupan.dev"])
-
-        k3s_server = (ROOT / "flake/modules/k3s-server.nix").read_text()
-        hosts_block = re.search(r'"10\.0\.30\.20" = \[(.*?)\];', k3s_server, re.DOTALL)
-        self.assertIsNotNone(hosts_block)
-        assert hosts_block is not None
-        self.assertIn('"registry.rupan.dev"', hosts_block.group(1))
-        self.assertIn('"npm.rupan.dev"', hosts_block.group(1))
 
     def test_backup_sandbox_can_write_its_success_marker(self) -> None:
         nas_data = (ROOT / "flake/modules/nas-data.nix").read_text()

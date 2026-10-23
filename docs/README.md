@@ -21,6 +21,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/local-registry.md` — local container registry operations.
 - `docs/runbooks/opnsense-recovery.md` — OPNsense disaster recovery.
 - [OPNsense configuration](runbooks/opnsense-configuration.md): typed inventory, Tofunix rendering, provider options, and validation.
+- [Shared fleet inventory](runbooks/fleet-inventory.md): primary host addresses and networks shared by NixOS, Tofunix, and topology consumers.
 - `docs/runbooks/opnsense-bgp-proof.md` — OPNsense BGP reachability proof.
 - `docs/runbooks/postgres-disaster-recovery.md` — Postgres backup and restore.
 - `docs/runbooks/analytics.md`: Umami web analytics at `tally.rupan.dev`, its CNPG database, backups, and how to track a site.

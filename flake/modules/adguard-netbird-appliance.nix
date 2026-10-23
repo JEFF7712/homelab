@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, fleetInventory, ... }:
 {
   imports = [
     ./adguard-netbird/adguard.nix
@@ -57,19 +57,19 @@
       "30-infrastructure" = {
         matchConfig.Name = "enp1s0";
         networkConfig = {
-          Address = "10.0.30.10/24";
-          DNS = "10.0.30.1";
-          Gateway = "10.0.30.1";
+          Address = fleetInventory.hostCIDRs.adguard-netbird-01;
+          DNS = fleetInventory.networks.infrastructure.gateway;
+          Gateway = fleetInventory.networks.infrastructure.gateway;
           VLAN = "netbird-vlan";
         };
         routes = [
           {
             Destination = "172.31.10.2/32";
-            Gateway = "10.0.30.14";
+            Gateway = fleetInventory.hosts.homelab-04.address;
           }
           {
             Destination = "172.31.10.6/32";
-            Gateway = "10.0.30.14";
+            Gateway = fleetInventory.hosts.homelab-04.address;
           }
         ];
         linkConfig.RequiredForOnline = "routable";

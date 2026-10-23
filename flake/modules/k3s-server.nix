@@ -2,10 +2,12 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
   cfg = config.homelab.k3s;
+  network = fleetInventory.networks.${fleetInventory.hosts.${config.networking.hostName}.network};
 in
 {
   options.homelab.k3s = {
@@ -165,12 +167,12 @@ in
       networks."30-infrastructure" = {
         matchConfig.Name = cfg.primaryInterface;
         networkConfig = {
-          Address = "${cfg.nodeIp}/24";
+          Address = "${cfg.nodeIp}/${lib.last (lib.splitString "/" network.cidr)}";
           DNS = [
-            "10.0.30.10"
-            "10.0.30.1"
+            fleetInventory.hosts.adguard-netbird-01.address
+            network.gateway
           ];
-          Gateway = "10.0.30.1";
+          Gateway = network.gateway;
           IPv6AcceptRA = true;
         };
         linkConfig.RequiredForOnline = "routable";
@@ -184,7 +186,7 @@ in
     # /etc/hosts so containerd and producer builds resolve them even when
     # AdGuard is down or slow.
     networking.hosts = {
-      "10.0.30.20" = [
+      ${fleetInventory.hosts.nas-01.address} = [
         "registry.rupan.dev"
         "npm.rupan.dev"
       ];
@@ -330,7 +332,7 @@ in
               peers = [
                 {
                   name = "opnsense-vlan30";
-                  peerAddress = "10.0.30.1";
+                  peerAddress = network.gateway;
                   peerASN = 64513;
                   peerConfigRef.name = "homelab-peer-config";
                 }

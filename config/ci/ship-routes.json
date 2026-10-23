@@ -54,6 +54,7 @@
     {
       "name": "opnsense",
       "paths": [
+        "inventory/",
         "tofu/opnsense/",
         "opnsense_reconciler/"
       ],
@@ -90,6 +91,7 @@
     {
       "name": "fleet",
       "paths": [
+        "inventory/",
         "flake/hosts/",
         "flake/modules/",
         "flake/flake.nix",
