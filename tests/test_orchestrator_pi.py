@@ -363,6 +363,23 @@ class HttpWorkerTests(WorkerTests):
 class WorkerApiTests(WorkerCase):
     transport = "http"
 
+    def test_worker_cannot_persist_its_raw_api_token_through_text_fields(self) -> None:
+        channel = HttpChannel(self.url, self.token)
+        channel.start(self.token, self.token)
+        channel.session(self.token)
+        question_id = channel.ask(self.token, self.token, (self.token,))
+        question = self.store.pending_messages("question.open")[0]
+        self.assertEqual(question.payload["choices"], ["[redacted]"])
+        self.store.answer(question_id, 1, "[redacted]", "rupan", time.time())
+        channel.settle({"final_text": self.token})
+        self.assertNotIn(self.token, "\n".join(self.store.db.iterdump()))
+
+    def test_worker_cannot_persist_its_raw_api_token_as_a_failure_reason(self) -> None:
+        channel = HttpChannel(self.url, self.token)
+        channel.start("s", "w")
+        channel.finish(self.token, False)
+        self.assertNotIn(self.token, "\n".join(self.store.db.iterdump()))
+
     def test_wrong_or_missing_token_is_refused(self) -> None:
         for token in ("not-a-token", ""):
             with self.assertRaises(OrchestratorError) as raised:
