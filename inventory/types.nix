@@ -56,7 +56,49 @@ let
       };
     };
   };
+  dnsRecord = types.submodule {
+    options = {
+      name = option (
+        types.addCheck types.nonEmptyStr (
+          value:
+          builtins.stringLength value <= 253
+          && builtins.length (lib.splitString "." value) >= 2
+          && builtins.all (
+            label:
+            builtins.stringLength label <= 63
+            && builtins.match "[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?" label != null
+          ) (lib.splitString "." value)
+        )
+      );
+      host = mkOption {
+        type = types.nullOr types.nonEmptyStr;
+        default = null;
+      };
+      address = mkOption {
+        type = types.nullOr ipv4;
+        default = null;
+      };
+      description = option types.str;
+      enabled = mkOption {
+        type = types.bool;
+        default = true;
+      };
+      adguardOrder = mkOption {
+        type = types.nullOr types.ints.positive;
+        default = null;
+      };
+      unboundOrder = mkOption {
+        type = types.nullOr types.ints.positive;
+        default = null;
+      };
+    };
+  };
 in
 {
-  inherit ipv4 network host;
+  inherit
+    ipv4
+    network
+    host
+    dnsRecord
+    ;
 }

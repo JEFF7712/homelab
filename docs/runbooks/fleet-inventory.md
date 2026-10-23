@@ -7,6 +7,17 @@ owns VLANs, gateway addresses, CIDRs, and DHCP network settings.
 `inventory/default.nix` validates these declarations without importing NixOS
 or Tofunix. Types are shared with the firewall inventory.
 
+`inventory/dns.nix` owns static DNS records. Fleet destinations reference host
+keys; external addresses and service VIPs use explicit addresses. Independent
+`adguardOrder` and `unboundOrder` values select each resolver view and preserve
+its ordering. Enabled AdGuard records must also appear in Unbound. The two
+Unbound-only homelab VIP records remain outside the AdGuard rewrite view.
+`just opnsense-render` generates `inventory/adguard-rewrites.json` and
+`opnsense_reconciler/unbound-host-overrides.json`; never edit these outputs.
+NixOS consumes the same evaluated rewrites directly. AdGuard and Mosquitto
+listen addresses and the Zigbee2MQTT broker endpoint follow the appliance host
+address; service ports remain in their owning modules.
+
 The flake reads the inventory to select canonical hosts and registry variants.
 Host profiles derive k3s node addresses and join endpoints from it. Network
 modules derive their primary addresses, gateways, DNS resolver addresses,
@@ -33,7 +44,8 @@ ahead of the agent profiles to avoid kubelet/API-server version skew.
 3. Run `just check-changed` and `just fmt-check`. Shared inventory changes
    select the full validation gate. The flake's `fleet-inventory` check verifies
    host wiring, address membership, uniqueness, bootstrap membership, alias
-   propagation, and rejection of invalid declarations.
+   propagation, DNS view parity and ordering, service binding propagation, and
+   rejection of invalid declarations.
 4. Deliver with `just ship`. Inventory-only changes select both fleet and
    OPNsense operations, including their dry-run and plan prerequisites.
    Review the evaluated host changes and saved firewall plan before accepting
@@ -41,7 +53,7 @@ ahead of the agent profiles to avoid kubelet/API-server version skew.
    and [OPNsense recovery](opnsense-recovery.md).
 
 Primary addresses are centralized. Secondary overlay addresses, hardware
-interfaces, application URLs, GitOps manifests, and reconciler inputs such as
+interfaces, other application URLs, GitOps manifests, and reconciler inputs such
 BGP neighbor definitions retain their existing owners. Adding a physical host
 also requires its hardware/profile files; inventory membership alone cannot
 provision hardware.
@@ -61,3 +73,9 @@ package digest even when the policy logic, contracts, and network settings are
 unchanged. Trace those derivation differences explicitly and distinguish this
 metadata from a runtime configuration change. Do not activate unrelated policy
 updates merely to deliver an inventory refactor.
+
+For DNS refactors, compare evaluated AdGuard settings, Mosquitto command and
+Zigbee2MQTT endpoint, the appliance derivation, and generated Unbound records
+including order and descriptions. Query both resolver addresses before and
+after delivery and compare observed answer sets. Unbound can return multiple
+addresses for its own router hostname; preserve the baseline answer set.
