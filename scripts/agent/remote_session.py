@@ -9,6 +9,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -31,6 +32,7 @@ LOCAL_COMMANDS = {
     "claude": {"auth", "mcp", "doctor", "update", "install", "setup-token", "help"},
 }
 LOCAL_FLAGS = {"-h", "--help", "-V", "--version"}
+SSH_PROBE_TIMEOUT = 8
 
 
 def native_command(client: str, args: list[str]) -> bool:
@@ -80,6 +82,41 @@ def ssh_command(
         host,
         'exec "$HOME/.local/bin/homelab-agent" ' + shlex.join(command),
     ]
+
+
+def server_available(host: str) -> bool:
+    try:
+        with subprocess.Popen(
+            [
+                "ssh",
+                "-T",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "ConnectionAttempts=1",
+                "--",
+                host,
+                "true",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        ) as process:
+            try:
+                return process.wait(timeout=SSH_PROBE_TIMEOUT) == 0
+            except subprocess.TimeoutExpired:
+                # ProxyJump children must not outlive the bounded probe.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+                return False
+    except OSError:
+        return False
 
 
 def serve(remote: Path, relative: Path, client: str, args: list[str]) -> NoReturn:
@@ -184,6 +221,14 @@ def main(argv: list[str] | None = None) -> None:
     if mapping is None:
         os.execvp(client, [client, *args])
     host, remote, relative = mapping
+    if not server_available(host):
+        print(
+            f"Server {host} unavailable; running {client} locally in {Path.cwd()}. "
+            "Server changes and conversations are not synchronized.",
+            file=sys.stderr,
+            flush=True,
+        )
+        os.execvp(client, [client, *args])
     print(
         f"Remote {client}: {host}:{remote}. Laptop files are not synchronized.",
         file=sys.stderr,

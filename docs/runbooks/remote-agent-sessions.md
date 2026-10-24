@@ -29,6 +29,19 @@ local unless explicitly mapped. Help, version, login, and noninteractive CLI
 commands retain their native local behavior. `HOMELAB_AGENT_LOCAL=1` explicitly
 bypasses routing. Existing fish abbreviations still supply their normal flags.
 
+Before connecting, the launcher checks SSH access without prompting for a
+password, with an eight-second total timeout (including the jump host). If the
+server cannot be reached or SSH authentication fails, it prints an explicit
+local fallback message and starts the native client in the current laptop
+directory with the original arguments. Install and sign into both clients on
+the laptop as well as the VM. Local sessions require the laptop to stay awake.
+
+Fallback starts a separate local session. It does not copy server changes or
+conversation history. Once a remote session is connected, losing SSH does not
+start another client locally. Launch again to reconnect when the server is
+available, or to start locally if it remains unavailable. A local fallback
+session stays local when the server recovers; the next launch checks again.
+
 Each client gets its own server worktree and tmux session:
 
 - Codex: `/home/developer/workspace/homelab/.worktrees/interactive-codex`
