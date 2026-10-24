@@ -46,8 +46,10 @@ filesystem, provider credentials, or infrastructure credentials in its image.
 Installation is a Rupan-only authorized replacement:
 
 1. Build `.#nixosConfigurations.agent-rupan.config.system.build.qcow2` in
-   `nixos-config`; validate the image and copy `nixos.qcow2` to the disk path
-   above, owned by `qemu-libvirtd:agent-workspace-storage` with mode `0660`.
+   `nixos-config`; validate the compact 8 GiB image and copy `nixos.qcow2` to the
+   disk path above, owned by `qemu-libvirtd:agent-workspace-storage` with mode
+   `0660`. Expand only that installed copy with `qemu-img resize` to `96G`
+   before boot. NixOS grows the root partition and filesystem on first boot.
    Refuse an occupied destination unless its destruction is explicitly authorized.
 2. Record Sam's inactive XML, domain UUID, and QEMU PID, and Akshath's service
    configuration hash, PID, and start timestamp. Retain Rupan's prior inactive
