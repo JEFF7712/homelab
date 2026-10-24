@@ -28,6 +28,15 @@ NixOS consumes the same evaluated rewrites directly. AdGuard and Mosquitto
 listen addresses and the Zigbee2MQTT broker endpoint follow the appliance host
 address; service ports remain in their owning modules.
 
+`inventory/service-manifests.nix` maps Forgejo to `nas-01` and Woodpecker
+and Approvals to `homelab-04`. It generates their existing Service/Endpoints
+manifest pairs under `gitops/cloudflare/` with `just opnsense-render`. Only
+host addresses are derived; the renderer preserves service names, namespace,
+HTTP port names and existing ports (3000, 8000 and 8020). Listener configuration
+remains in the owning NixOS modules. CI checks these manifests for exact
+freshness alongside CoreDNS. Deliver manifest changes through Flux and verify
+all three services from a pod after the `cloudflare` Kustomization reconciles.
+
 The flake reads the inventory to select canonical hosts and registry variants.
 Host profiles derive k3s node addresses and join endpoints from it. Network
 modules derive their primary addresses, gateways, DNS resolver addresses,

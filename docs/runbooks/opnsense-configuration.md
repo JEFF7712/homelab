@@ -18,7 +18,9 @@ pinned in `flake/flake.lock`.
    `opnsense_reconciler/assignments.json`, plus the deployer's
    `inventory/fleet.json`, `inventory/adguard-rewrites.json`, and
    `opnsense_reconciler/unbound-host-overrides.json`, and the CoreDNS manifest
-   `gitops/platform/coredns-custom.yaml`. Static DNS records belong
+   `gitops/platform/coredns-custom.yaml`. It also renders the Forgejo, Woodpecker
+   and Approvals Service/Endpoints pairs under `gitops/cloudflare/` from
+   `inventory/service-manifests.nix`. Static DNS records belong
    in `inventory/dns.nix`. Commit changed outputs with the source.
 3. Run `just opnsense-check`, `just check-changed`, and `just fmt-check`.
 4. Deliver through `just ship`. Inspect the protected refresh-only and desired
@@ -26,7 +28,7 @@ pinned in `flake/flake.lock`.
    [recovery](opnsense-recovery.md) for changes that affect connectivity.
 
 Never edit generated outputs directly. CI rejects semantic differences in JSON
-and exact text differences in the CoreDNS manifest from the
+and exact text differences in generated Kubernetes manifests from the
 Nix source. The existing topology renderer reads the generated interface
 assignments, so VLANs and gateway addresses have one authoritative declaration.
 Other reconciler inputs, such as BGP and agent access, retain

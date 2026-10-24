@@ -192,6 +192,10 @@ let
 in
 lib.asserts.checkAssertWarn assertions [ ] {
   inherit (cfg) networks hosts bootstrapHost;
+  serviceManifests = import ./service-manifests.nix {
+    inherit lib;
+    inherit (cfg) hosts;
+  };
   dns = {
     inherit corednsServers;
     corednsManifest = import ./coredns.nix {
