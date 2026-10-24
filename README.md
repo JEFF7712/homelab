@@ -9,7 +9,8 @@ parts list.
 ## Compute
 
 k3s across `homelab-01` through `homelab-05`, two with NVIDIA GPUs (T1000,
-T600). A NAS box holds storage and a local container registry; a thin client
+T600) for voice STT, plus Intel iGPU transcoding for Jellyfin. NAS
+holds storage, a local container registry, and a Nix binary cache; a thin client
 runs AdGuard and NetBird; routing is a dedicated OPNsense box.
 
 ## Network
@@ -19,13 +20,20 @@ cert-manager for internal TLS.
 
 ## Runs here
 
-- **Media**: Jellyfin plus the *arr suite, audiobooks, and Spotify sync
-- **Voice**: Jarvis, a local voice assistant (Whisper, Piper, satellite mics)
-- **Photos**: Immich
+- **Media**: Jellyfin plus the *arr suite, Seerr requests, an AI
+  recommender, Navidrome music, Calibre ebooks, Spotify sync, and Immich
+- **Music**: Music Assistant with LedFx lighting effects
+- **Voice**: Local voice assistant (Whisper, Piper, satellite mics)
 - **Smart home**: source-first Home Assistant, all config in this repo
-- **Websites**: a handful of personal static sites
-- **Observability**: Prometheus, Grafana, Loki, ntfy alerts
+- **Notes**: Obsidian LiveSync (CouchDB) with a Quartz published site
+- **Websites**: personal static sites plus live apps
+- **Analytics**: Umami web analytics
+- **Observability**: Prometheus, Grafana, Loki, ntfy alerts, outage
+  heartbeats, repo health monitor
+- **Automation**: cluster sentinel, Renovate agents, website monitors
 - **Backups**: database dumps to R2
+- **Self-hosted**: git (Forgejo), CI (Woodpecker), container registry (Zot),
+  and Nix binary cache (Attic)
 
 ## How it's managed
 
