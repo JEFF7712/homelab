@@ -54,6 +54,11 @@ that tmux session, and the next launch starts a new client. Native client
 resume options can select an earlier saved conversation.
 The SSH terminal uses `xterm-256color`, which is supported by the headless guest.
 
+Tmux sessions survive laptop sleep and SSH disconnects. They do not survive a
+VM or host reboot. Repository files and provider sign-ins persist on the VM's
+disk; after a reboot, launch again and use the client's resume command for a
+saved conversation. This was verified after the 2026-10-24 host reboot.
+
 Files are edited on the server. There is no automatic synchronization with the
 laptop checkout. Remote editors must open the indicated server worktree.
 The VM has separate provider sign-ins. Laptop credentials, SSH agents,
