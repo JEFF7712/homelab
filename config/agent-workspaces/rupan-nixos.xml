@@ -1,0 +1,42 @@
+<domain type="kvm">
+  <name>agent-rupan</name>
+  <uuid>a73b5b41-f1b1-5719-a045-94a0fd2cce92</uuid>
+  <memory unit="MiB">4096</memory>
+  <vcpu placement="static">2</vcpu>
+  <cputune>
+    <global_period>100000</global_period>
+    <global_quota>100000</global_quota>
+  </cputune>
+  <blkiotune><weight>100</weight></blkiotune>
+  <resource><partition>/machine/agent-workspaces</partition></resource>
+  <os>
+    <type arch="x86_64" machine="q35">hvm</type>
+    <boot dev="hd"/>
+  </os>
+  <features><acpi/><apic/></features>
+  <cpu mode="host-passthrough"/>
+  <clock offset="utc"/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+  <devices>
+    <emulator>/run/libvirt/nix-emulators/qemu-system-x86_64</emulator>
+    <disk type="file" device="disk">
+      <driver name="qemu" type="qcow2" cache="none" io="native"/>
+      <source file="/persist/agent-workspaces/rupan/disks/nixos.qcow2"/>
+      <target dev="vda" bus="virtio"/>
+    </disk>
+    <interface type="bridge">
+      <mac address="02:00:00:10:00:02"/>
+      <source bridge="aw-rupan-br"/>
+      <target dev="aw-rupan-tap"/>
+      <model type="virtio"/>
+    </interface>
+    <serial type="pty"><target port="0"/></serial>
+    <console type="pty"><target type="serial" port="0"/></console>
+    <channel type="unix">
+      <target type="virtio" name="org.qemu.guest_agent.0"/>
+    </channel>
+    <memballoon model="virtio"/>
+  </devices>
+</domain>
