@@ -15,6 +15,7 @@ let
   firstDNS = builtins.head inventory.dns.records;
   replaceDNS = record: load { dns = lib.mkForce [ record ]; };
   movedNAS = load { hosts.nas-01.address = lib.mkForce "10.0.30.21"; };
+  movedCI = load { hosts.homelab-04.address = lib.mkForce "10.0.30.24"; };
   movedBroker = load { hosts.adguard-netbird-01.address = lib.mkForce "10.0.30.30"; };
   brokerConfig =
     (nixosConfigurations.adguard-netbird-01.extendModules {
@@ -31,6 +32,29 @@ let
   senderAliases = (builtins.head rendered.resource.opnsense_firewall_alias).managed;
   hosts = lib.filterAttrs (name: host: name == host.config.networking.hostName) nixosConfigurations;
   checks = {
+    serviceManifestSet =
+      builtins.attrNames inventory.serviceManifests == [
+        "approvals"
+        "forgejo"
+        "woodpecker"
+      ];
+    serviceManifestsMatch = builtins.all (
+      name:
+      inventory.serviceManifests.${name}
+      == builtins.readFile (../gitops/cloudflare + "/${name}-service.yaml")
+    ) (builtins.attrNames inventory.serviceManifests);
+    movedNASServiceManifests =
+      movedNAS.serviceManifests == inventory.serviceManifests
+      // {
+        forgejo =
+          builtins.replaceStrings [ "10.0.30.20" ] [ "10.0.30.21" ]
+            inventory.serviceManifests.forgejo;
+      };
+    movedCIServiceManifests =
+      movedCI.serviceManifests == inventory.serviceManifests
+      // (lib.genAttrs [ "approvals" "woodpecker" ] (
+        name: builtins.replaceStrings [ "10.0.30.14" ] [ "10.0.30.24" ] inventory.serviceManifests.${name}
+      ));
     missingCoreDNSMirror = rejects (
       replaceDNS (
         firstDNS

@@ -17,7 +17,12 @@ OUTPUTS = {
     "main.tf.json": "tofu/opnsense/main.tf.json",
     "assignments.json": "opnsense_reconciler/assignments.json",
 }
-TEXT_OUTPUTS = {"coredns-custom.yaml": "gitops/platform/coredns-custom.yaml"}
+TEXT_OUTPUTS = {
+    "coredns-custom.yaml": "gitops/platform/coredns-custom.yaml",
+    "forgejo-service.yaml": "gitops/cloudflare/forgejo-service.yaml",
+    "woodpecker-service.yaml": "gitops/cloudflare/woodpecker-service.yaml",
+    "approvals-service.yaml": "gitops/cloudflare/approvals-service.yaml",
+}
 
 
 def validate(inventory: dict[str, Any]) -> None:

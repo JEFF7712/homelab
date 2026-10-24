@@ -76,6 +76,11 @@ in
         cp "$unboundJSONPath" "$out/unbound-host-overrides.json"
         cp "$corednsYAMLPath" "$out/coredns-custom.yaml"
         cp "$fleetJSONPath" "$out/fleet.json"
+        ${lib.concatStringsSep "\n" (
+          lib.mapAttrsToList (name: content: ''
+            cp ${pkgs.writeText "${name}-service.yaml" content} "$out/${name}-service.yaml"
+          '') fleetInventory.serviceManifests
+        )}
         python ${../../scripts/opnsense_config.py} --rendered "$out" --validate-only
       '';
 }

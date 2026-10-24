@@ -112,23 +112,35 @@ class GeneratedOutputTests(unittest.TestCase):
                 target.write_text("data: {}\n")
             self.assertEqual(synchronize(root, root, check=True), [])
 
-    def test_coredns_plugin_text_drift_is_detected_and_repaired(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            for source, destination in (OUTPUTS | TEXT_OUTPUTS).items():
-                (root / source).write_text("{}")
+    def test_text_drift_is_detected_without_writes_then_repaired(self) -> None:
+        cases = {
+            "coredns-custom.yaml": ("cache 30", "cache 60"),
+            "forgejo-service.yaml": ("10.0.30.20", "10.0.30.21"),
+            "woodpecker-service.yaml": ("10.0.30.14", "10.0.30.24"),
+            "approvals-service.yaml": ("10.0.30.14", "10.0.30.24"),
+        }
+        for source, (before, after) in cases.items():
+            with (
+                self.subTest(source=source),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                root = Path(temporary)
+                for filename, destination in (OUTPUTS | TEXT_OUTPUTS).items():
+                    (root / filename).write_text("{}")
+                    target = root / destination
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("{}")
+                destination = TEXT_OUTPUTS[source]
+                content = (ROOT / destination).read_text()
+                (root / source).write_text(content)
                 target = root / destination
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("{}")
-            source, destination = next(iter(TEXT_OUTPUTS.items()))
-            content = (ROOT / destination).read_text()
-            (root / source).write_text(content)
-            target = root / destination
-            target.write_text(content.replace("cache 30", "cache 60"))
-            self.assertEqual(synchronize(root, root, check=True), [destination])
-            self.assertIn("cache 60", target.read_text())
-            self.assertEqual(synchronize(root, root, check=False), [destination])
-            self.assertEqual(target.read_text(), content)
+                changed = content.replace(before, after)
+                self.assertNotEqual(changed, content)
+                target.write_text(changed)
+                self.assertEqual(synchronize(root, root, check=True), [destination])
+                self.assertEqual(target.read_text(), changed)
+                self.assertEqual(synchronize(root, root, check=False), [destination])
+                self.assertEqual(target.read_text(), content)
 
 
 if __name__ == "__main__":
