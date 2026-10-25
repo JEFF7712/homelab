@@ -1,0 +1,3 @@
+profile: static
+image: registry.rupan.dev/apps/distrojeff-site@sha256:add81bdcdd9a96bc57fc6fb96b1686e63126f9e357a5c9f8e9aecd357f2439ee
+service_name: distrojeff-site-svc

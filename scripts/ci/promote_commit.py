@@ -67,12 +67,14 @@ def superseded_pulls(pulls: list[dict], label: str, branch: str) -> list[dict]:
 
 
 def _assert_nix_agent_only(changed: list[str]) -> None:
-    allowed = {
-        "registry/images.lock.json",
+    consumers = {
+        "gitops/websites/nixagent/site.yaml",
         "gitops/websites/nixagent/deployment.yaml",
     }
-    if set(changed) != allowed:
+    if set(changed) != consumers | {"registry/images.lock.json"}:
         raise ValueError("Automatic promotion may change only the nix-agent digest")
+    for path in sorted(consumers):
+        _assert_digest_only(path)
     previous = json.loads(
         subprocess.check_output(
             ["git", "show", "HEAD:registry/images.lock.json"], text=True
@@ -118,6 +120,12 @@ def _assert_nix_agent_only(changed: list[str]) -> None:
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
+def _assert_digest_only(path: str) -> None:
+    previous = subprocess.check_output(["git", "show", f"HEAD:{path}"], text=True)
+    if DIGEST.sub("sha256:", previous) != DIGEST.sub("sha256:", Path(path).read_text()):
+        raise ValueError(f"Automatic promotion changed more than digests in {path}")
+
+
 def _assert_first_party_digests_only(changed: list[str]) -> None:
     """Automatic first-party promotion may only move first-party digests.
 
@@ -132,11 +140,7 @@ def _assert_first_party_digests_only(changed: list[str]) -> None:
             continue
         if not (path.startswith("gitops/") and path.endswith((".yaml", ".yml"))):
             raise ValueError(f"Automatic promotion may not change {path}")
-        previous = subprocess.check_output(["git", "show", f"HEAD:{path}"], text=True)
-        if DIGEST.sub("sha256:", previous) != DIGEST.sub(
-            "sha256:", Path(path).read_text()
-        ):
-            raise ValueError(f"Automatic promotion changed more than digests in {path}")
+        _assert_digest_only(path)
     if "registry/images.lock.json" in changed:
         previous = json.loads(
             subprocess.check_output(

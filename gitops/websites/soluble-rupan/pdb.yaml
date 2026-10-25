@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
