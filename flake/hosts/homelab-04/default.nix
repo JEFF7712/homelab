@@ -1,4 +1,9 @@
-{ config, fleetInventory, ... }:
+{
+  config,
+  fleetInventory,
+  pkgs,
+  ...
+}:
 let
   workspaces = config.services.agent-workspaces;
   reservedCpu = 1 + workspaces.aggregateCpuPercent / 100;
@@ -27,6 +32,31 @@ in
   ];
 
   networking.hostName = "homelab-04";
+
+  # A boot service avoids restarting networkd and its dependent guests.
+  systemd.services.onboard-ethernet-offloads = {
+    description = "Disable segmentation offloads after the e1000e transmit hang";
+    wantedBy = [ "multi-user.target" ];
+    requires = [ "sys-subsystem-net-devices-enp0s31f6.device" ];
+    after = [
+      "local-fs.target"
+      "sys-subsystem-net-devices-enp0s31f6.device"
+    ];
+    before = [
+      "network-pre.target"
+      "shutdown.target"
+    ];
+    conflicts = [ "shutdown.target" ];
+    unitConfig = {
+      DefaultDependencies = false;
+      ConditionPathExists = "/sys/bus/pci/drivers/e1000e/0000:00:1f.6/net/enp0s31f6";
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.ethtool}/bin/ethtool -K enp0s31f6 tso off gso off";
+    };
+  };
 
   sops.defaultSopsFile = ../../../secrets/hosts/homelab-04.sops.yaml;
   sops.secrets.kiosk-ha-token.restartUnits = [ "kiosk-rotate.service" ];
