@@ -14,8 +14,6 @@ spec:
         app: photography-web
     spec:
       automountServiceAccountToken: false
-      imagePullSecrets:
-        - name: ghcr-pull
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -25,15 +23,18 @@ spec:
           image: registry.rupan.dev/apps/photography@sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           livenessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

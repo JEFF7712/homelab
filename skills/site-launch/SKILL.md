@@ -5,7 +5,7 @@ description: Take a site from idea to public URL on the homelab. Use when adding
 
 # Site Launch
 
-End-to-end path for a stateless site: producer image -> local registry -> Flux manifests -> tunnel hostname -> public URL. Worked examples: `gitops/websites/rupan-dev/` (steady state), `gitops/websites/sovereign/` (staged launch with extras). Naming convention, all four must agree: namespace `<site>`, Deployment `website-deploy`, selector label `app: <site>-web`, Service `<site>-svc` (ClusterIP `80` -> container port).
+End-to-end path for a stateless site: producer image -> local registry -> Flux manifests -> tunnel hostname -> public URL. Worked examples: `gitops/websites/rupan-dev/` (steady state), `gitops/websites/sovereign/` (staged launch with extras). Naming convention, all four must agree: namespace `<site>`, Deployment `website-deploy`, selector label `app: <site>-web`, Service `<site>-svc` (ClusterIP `80` -> the container port named `http`).
 
 ## Phase 1: producer publishes to the local registry
 
@@ -19,9 +19,9 @@ There is no producer checkout for some legacy sites (`cr-demo`, `ism`): those ke
 
 ## Phase 2: manifests
 
-One directory per site under `gitops/websites/<site>/`, copied from the hardened template (`rupan-dev/deployment.yaml`):
+One directory per site under `gitops/websites/<site>/`, copied from the profile that matches the image: `darkbit/` for nginx static sites (HTTP `/` probes, port 8080) or `rupan-dev/` for application servers (TCP probes). Both profiles differ only in probe type and port:
 
-- `namespace.yaml`, `service.yaml` (ClusterIP, port 80), `deployment.yaml` (1 replica, digest-pinned `registry.rupan.dev` image, `IfNotPresent`, TCP probes, 500m/256Mi limits, 100m/128Mi requests, `emptyDir` `/tmp`, full hardening: non-root, no privilege escalation, `ALL` capabilities dropped, read-only root filesystem, RuntimeDefault seccomp).
+- `namespace.yaml`, `service.yaml` (ClusterIP, port 80 named `http`, `targetPort: http`), `deployment.yaml` (1 replica, digest-pinned `registry.rupan.dev` image, `IfNotPresent`, container port named `http`, readiness 5s/10s and liveness 15s/30s probes on `http`, 500m/256Mi limits, 100m/128Mi requests, `emptyDir` `/tmp`, full hardening: non-root, no privilege escalation, `ALL` capabilities dropped, read-only root filesystem, RuntimeDefault seccomp).
 - `network-policy.yaml` (`isolate-ingress`): allow same-namespace pods, plus the `cloudflare` and `observability` namespaces. No wider ingress.
 - `kustomization.yaml` listing the four files.
 - Register the directory in `gitops/websites/kustomization.yaml` and add a `website-deploy` healthCheck for the new namespace in `gitops/clusters/homelab-01/websites.yaml` (Flux `websites` Kustomization, path `./gitops/websites`, `prune: true`, 10m interval). Without the healthCheck entry Flux does not gate on the new Deployment.

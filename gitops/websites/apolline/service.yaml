@@ -4,6 +4,7 @@ metadata:
   name: apolline-svc
   namespace: apolline
 spec:
+  type: ClusterIP
   selector:
     app: apolline-web
   ports:
@@ -11,4 +12,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: http
-  type: ClusterIP
