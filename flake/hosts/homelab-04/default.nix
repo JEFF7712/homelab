@@ -135,6 +135,15 @@ in
   services.agent-workspaces.enable = true;
   services.agent-workspace-network = {
     enable = true;
+    tcpEgress.rupan = [
+      {
+        address = fleetInventory.hosts.nas-01.address;
+        ports = [
+          2222
+          8080
+        ];
+      }
+    ];
     recoveryManifest = {
       schema_version = 1;
       workspaces = [

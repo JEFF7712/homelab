@@ -40,6 +40,11 @@ let
     iifname "${workspace.network.bridge}" ip6 saddr ::/0 counter drop
     iifname "${workspace.network.bridge}" ip saddr != ${builtins.head (lib.splitString "/" workspace.network.address)} counter drop
     iifname "${workspace.network.bridge}" ct state established,related accept
+    ${lib.concatMapStringsSep "\n" (destination: ''
+      iifname "${workspace.network.bridge}" ip daddr ${destination.address} tcp dport { ${
+        lib.concatMapStringsSep ", " toString destination.ports
+      } } ct state new accept
+    '') (cfg.tcpEgress.${workspace.id} or [ ])}
     ${lib.optionalString (workspace.network.ha_api != null)
       ''iifname "${workspace.network.bridge}" ip daddr ${workspace.network.ha_api} tcp dport 443 ct state new accept''
     }
@@ -65,6 +70,26 @@ in
 {
   options.services.agent-workspace-network = {
     enable = lib.mkEnableOption "host-owned isolated agent workspace networks";
+    tcpEgress = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.listOf (
+          lib.types.submodule {
+            options = {
+              address = lib.mkOption {
+                type = lib.types.strMatching "([0-9]{1,3}\\.){3}[0-9]{1,3}";
+                description = "Destination IPv4 address.";
+              };
+              ports = lib.mkOption {
+                type = lib.types.listOf lib.types.port;
+                description = "Permitted destination TCP ports.";
+              };
+            };
+          }
+        )
+      );
+      default = { };
+      description = "Host-owned destination TCP grants indexed by workspace ID, before private-network denial.";
+    };
     manifestFile = lib.mkOption {
       type = lib.types.path;
       default = ../../config/agent-workspaces/workspaces.json;
@@ -93,6 +118,18 @@ in
       {
         assertion = builtins.all safeWorkspace enabledWorkspaces;
         message = "Agent workspace network fields contain unsafe values; run workspace-validate.";
+      }
+      {
+        assertion = builtins.all (id: builtins.any (workspace: workspace.id == id) enabledWorkspaces) (
+          builtins.attrNames cfg.tcpEgress
+        );
+        message = "Agent workspace TCP grants must reference an enabled workspace on this host.";
+      }
+      {
+        assertion = builtins.all (
+          destinations: builtins.all (destination: destination.ports != [ ]) destinations
+        ) (builtins.attrValues cfg.tcpEgress);
+        message = "Agent workspace TCP grants must include destination ports.";
       }
       {
         assertion = config.networking.useNetworkd;
