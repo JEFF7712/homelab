@@ -4,6 +4,7 @@ metadata:
   name: darkbit-svc
   namespace: darkbit
 spec:
+  type: ClusterIP
   selector:
     app: darkbit-web
   ports:
@@ -11,4 +12,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: http
-  type: ClusterIP

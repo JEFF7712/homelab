@@ -23,15 +23,16 @@ spec:
           image: registry.rupan.dev/apps/rupanism@sha256:9d55634a46895f7b5b7e53677d738b8f1b4778581e8951434e2a720a70f82027  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
           livenessProbe:
             tcpSocket:
-              port: 3000
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
             tcpSocket:
-              port: 3000
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

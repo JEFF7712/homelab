@@ -4,6 +4,7 @@ metadata:
   name: distrojeff-site-svc
   namespace: distrojeff
 spec:
+  type: ClusterIP
   selector:
     app: distrojeff-web
   ports:
@@ -11,4 +12,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: http
-  type: ClusterIP

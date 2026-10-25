@@ -23,15 +23,16 @@ spec:
           image: registry.rupan.dev/apps/solubility-gnn@sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           livenessProbe:
             tcpSocket:
-              port: 8080
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
             tcpSocket:
-              port: 8080
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

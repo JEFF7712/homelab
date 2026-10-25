@@ -4,10 +4,11 @@ metadata:
   name: soluble-rupan-svc
   namespace: soluble-rupan
 spec:
+  type: ClusterIP
   selector:
     app: soluble-rupan-web
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
-      targetPort: 8080
-  type: ClusterIP
+      targetPort: http
