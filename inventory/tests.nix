@@ -184,7 +184,7 @@ let
       hosts.adguard-netbird-01.config.services.adguardhome.settings.filtering.rewrites
       == inventory.dns.adguardRewrites;
     movedBrokerBindings =
-      brokerConfig.services.adguardhome.host == "10.0.30.30"
+      brokerConfig.services.adguardhome.settings.http.address == "10.0.30.30:3000"
       && brokerConfig.services.adguardhome.settings.dns.bind_hosts == [ "10.0.30.30" ]
       && (builtins.head brokerConfig.services.mosquitto.listeners).address == "10.0.30.30"
       && brokerConfig.services.zigbee2mqtt.settings.mqtt.server == "mqtt://10.0.30.30:1883";
