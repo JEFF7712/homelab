@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: media-alerts
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: media.rules
+      rules:
+        # A Flux rollout or manual scale creates a new pod (counter resets to
+        # 0, no increase), so this only fires on in-place container restarts:
+        # OOMKills from stacked transcodes, liveness failures, crashes.
+        - alert: JellyfinPodRestarted
+          expr: increase(kube_pod_container_status_restarts_total{namespace="media", container="jellyfin"}[1h]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Jellyfin container restarted"
+            description: >-
+              The Jellyfin container restarted within the last hour and playback
+              was interrupted. The known cause is OOMKill from stacked subtitle
+              burn-in transcodes (2026-10-24); check for concurrent ffmpeg
+              sessions and the remote bitrate cap.
