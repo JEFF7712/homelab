@@ -1,3 +1,5 @@
+**NOTE - This repository is a mirror.** Active development happens on [Forgejo](https://git.rupan.dev/JEFF7712/homelab).
+
 # homelab
 
 ![healthchecks](https://healthchecks.io/badge/7cef9d84-fe01-44d6-bfe7-51d303/5hX7D_7s-2.svg)
