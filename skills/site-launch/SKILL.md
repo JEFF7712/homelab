@@ -13,17 +13,21 @@ First-party images live at `registry.rupan.dev/apps/<project>` and roll out with
 
 1. On `nas-01`: add the `publisher-<project>` htpasswd entry to `/persist/zot/htpasswd`, regenerate access-control from the lock (`just registry-access-control`), restart zot. A policy entry without a credential is inert, so add both together at cutover.
 2. In the producer repo: store the plaintext as its protected `REGISTRY_PASSWORD` secret. Producer builds once on a private runner, authenticates as `publisher-<project>`, pushes only to its own `apps/<project>`, and emits the destination digest plus source commit.
-3. Confirm the first push landed, then put its digest in the Deployment. A zero placeholder digest (as `sovereign` carries pre-launch) must never deploy as-is.
+3. Confirm the first push landed, then put its digest in `site.yaml` and render. A zero placeholder digest (as `sovereign` carries pre-launch) must never deploy as-is.
 
 There is no producer checkout for some legacy sites (`cr-demo`, `ism`): those keep their exact current releases via lock import, not producer pushes. Producer changes themselves belong in the source repo under separate authorization.
 
 ## Phase 2: manifests
 
-One directory per site under `gitops/websites/<site>/`, copied from the profile that matches the image: `darkbit/` for nginx static sites (HTTP `/` probes, port 8080) or `rupan-dev/` for application servers (TCP probes). Both profiles differ only in probe type and port:
+One directory per site under `gitops/websites/<site>/` holding a `site.yaml`, then `just websites-render`. The renderer owns every other manifest in the directory (`namespace.yaml`, `network-policy.yaml`, `deployment.yaml`, `service.yaml`, `pdb.yaml`, `kustomization.yaml`); `just check-gitops` fails on a hand edit to any of them. Minimal spec:
 
-- `namespace.yaml`, `service.yaml` (ClusterIP, port 80 named `http`, `targetPort: http`), `deployment.yaml` (1 replica, digest-pinned `registry.rupan.dev` image, `IfNotPresent`, container port named `http`, readiness 5s/10s and liveness 15s/30s probes on `http`, 500m/256Mi limits, 100m/128Mi requests, `emptyDir` `/tmp`, full hardening: non-root, no privilege escalation, `ALL` capabilities dropped, read-only root filesystem, RuntimeDefault seccomp).
-- `network-policy.yaml` (`isolate-ingress`): allow same-namespace pods, plus the `cloudflare` and `observability` namespaces. No wider ingress.
-- `kustomization.yaml` listing the four files.
+```yaml
+profile: static   # nginx site on 8080 with HTTP / probes; `server` is TCP probes on `port`
+image: registry.rupan.dev/apps/<project>@sha256:<digest>
+```
+
+`server` requires `port`. Optional knobs, each bounded by `scripts/websites/render.py`: `replicas` (1-5; above 1 adds a `minAvailable: 1` PDB), `memory: {request, limit}` (default 128Mi/256Mi), `service_name` (legacy names only; default `<site>-svc`), `protect_namespace: true` (namespace never pruned; required when an extra holds state), `extra_manifests` (handwritten sibling files appended to the kustomization, see `sovereign/`). Everything else is fixed by the profile: named `http` port, ClusterIP Service `80 -> http`, 500m CPU limit, `/tmp` emptyDir, non-root UID 101, read-only root, `ALL` capabilities dropped, RuntimeDefault seccomp, and `isolate-ingress` allowing only same-namespace, `cloudflare` and `observability`. A site that needs anything else (bus-display, uwagent) keeps handwritten manifests and no `site.yaml`.
+
 - Register the directory in `gitops/websites/kustomization.yaml` and add a `website-deploy` healthCheck for the new namespace in `gitops/clusters/homelab-01/websites.yaml` (Flux `websites` Kustomization, path `./gitops/websites`, `prune: true`, 10m interval). Without the healthCheck entry Flux does not gate on the new Deployment.
 
 Extras only when the site needs them (see `sovereign/`): a `nfs-cluster` PVC for state, an `ExternalSecret` against the `homelab-secrets` ClusterSecretStore for SOPS-managed tokens, path-scoped tunnel rules for per-path backends.
@@ -49,7 +53,7 @@ Publish a Forgejo PR, pass Woodpecker validation, and merge through main protect
 
 1. In-cluster: resolve the origin Service from a pod and curl it (proves Flux deployed the right content behind the Service).
 2. Public: curl the hostname (proves tunnel + DNS). Confirm the Access behavior matches intent (public serves, sensitive challenges).
-3. Steady state: future producer pushes flow through scheduled `registry-promote-first-party` (creates a Forgejo review PR containing the lock and consumer digest), then merge and Flux reconciliation. End-to-end latency includes producer CI, promotion, review, and Flux reconciliation.
+3. Steady state: future producer pushes flow through scheduled `registry-promote-first-party` (creates a Forgejo review PR moving the lock, `site.yaml` and rendered `deployment.yaml` digests together), then merge and Flux reconciliation. End-to-end latency includes producer CI, promotion, review, and Flux reconciliation.
 4. Rollback is a Git revert; `prune: true` removes the site's resources.
 
 ## Gotchas

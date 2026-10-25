@@ -96,6 +96,7 @@ class GitopsCheckTest(unittest.TestCase):
         validate: int = 0,
         skipped: int = 0,
         directory: str = "application",
+        websites: int = 0,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)
@@ -114,6 +115,7 @@ class GitopsCheckTest(unittest.TestCase):
                 "yamllint": "exit 0",
                 "kubectl": f"printf 'rendered\\n'; exit {render}",
                 "kubeconform": f"cat >/dev/null; printf 'Skipped: {skipped}\\n'; exit {validate}",
+                "python": f"printf 'python %s\\n' \"$*\" >&2; exit {websites}",
             }
             for name, body in commands.items():
                 path = binaries / name
@@ -134,6 +136,11 @@ class GitopsCheckTest(unittest.TestCase):
     def test_success(self) -> None:
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_stale_website_render_fails_the_gate(self) -> None:
+        result = self.run_check(websites=1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("python -m scripts.websites.render --check", result.stderr)
 
     def test_renderer_failure_is_not_hidden_by_validator_success(self) -> None:
         result = self.run_check(render=1)

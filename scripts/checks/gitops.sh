@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-for tool in yamllint kubectl kubeconform; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
+for tool in yamllint kubectl kubeconform python; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then yamllint gitops; fi
+python -m scripts.websites.render --check
 schema_root="$PWD/schemas/kubernetes"
 core_schema_root="$PWD/schemas/kubernetes-core/v1.35.7-standalone-strict"
 if [[ ! -d "$schema_root" ]]; then

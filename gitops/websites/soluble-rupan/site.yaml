@@ -1,0 +1,7 @@
+profile: server
+image: registry.rupan.dev/apps/solubility-gnn@sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab
+port: 8080
+replicas: 2
+memory:
+  request: 256Mi
+  limit: 512Mi
