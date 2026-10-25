@@ -63,6 +63,17 @@ Files are edited on the server. There is no automatic synchronization with the
 laptop checkout. Remote editors must open the indicated server worktree.
 The VM has separate provider sign-ins. Laptop credentials, SSH agents,
 infrastructure access, and repository writer credentials are not forwarded.
-The current pilot's Git HTTPS origin is behind Cloudflare Access; network fetch
-and publication need a separately configured access path. Offline checkout
-inspection, edits, commits, and credential-free tests remain available.
+Git uses the internal Forgejo SSH endpoint at `10.0.30.20:2222` with a fresh
+VM-generated `~/.ssh/id_ed25519_homelab` key registered only for this repository.
+The public NAS Git host key is pinned from the laptop's existing trusted entry.
+The repository's SSH command selects that identity explicitly and disables agent
+use. Protected branches still require the normal PR and CI workflow; this key
+does not provide API tokens, cluster access, or deployment credentials.
+
+The host-owned network policy grants only the Rupan guest access to NAS TCP
+2222 (Git) and 8080 (signed Nix cache). Other private addresses and ports remain
+denied. The VM's NixOS configuration installs the cache signing key, keeps
+signature verification enabled and `trusted-users` limited to root, and accepts
+flake settings so `direnv allow` does not wait for an interactive Nix prompt.
+The first development-shell load can download dependencies; later loads use
+nix-direnv's cached profile.
