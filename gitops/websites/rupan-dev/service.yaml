@@ -4,10 +4,11 @@ metadata:
   name: rupan-dev-svc
   namespace: rupan-dev
 spec:
+  type: ClusterIP
   selector:
     app: rupan-dev-web
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
-      targetPort: 3000
-  type: ClusterIP
+      targetPort: http
