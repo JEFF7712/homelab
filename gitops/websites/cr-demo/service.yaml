@@ -4,10 +4,11 @@ metadata:
   name: cr-demo-svc
   namespace: cr-demo
 spec:
+  type: ClusterIP
   selector:
     app: cr-demo-web
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
-      targetPort: 8080
-  type: ClusterIP
+      targetPort: http

@@ -26,15 +26,18 @@ spec:
           image: registry.rupan.dev/apps/sovereign-site@sha256:879cc8271b29cc2a3fb09bc2896255b972a246c37033d6681a39a07a20a435ac  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           livenessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
