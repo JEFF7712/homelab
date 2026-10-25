@@ -2,10 +2,9 @@
 {
   services.adguardhome = {
     enable = true;
-    host = fleetInventory.hosts.adguard-netbird-01.address;
-    port = 3000;
     mutableSettings = false;
     settings = {
+      http.address = "${fleetInventory.hosts.adguard-netbird-01.address}:3000";
       users = [
         {
           name = "admin";
