@@ -64,6 +64,10 @@ def main() -> int:
             resources.append(
                 f"cgroup_peak={cgroup['memory_peak_bytes'] / 1048576:.0f}MiB"
             )
+        if "memory_anon_peak_bytes" in cgroup:
+            resources.append(
+                f"cgroup_anon_peak={cgroup['memory_anon_peak_bytes'] / 1048576:.0f}MiB"
+            )
         if "memory_oom_kill" in cgroup:
             resources.append(f"cgroup_oom_kills={cgroup['memory_oom_kill']}")
         if "cpu_throttled_usec" in cgroup:

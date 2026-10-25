@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -34,6 +35,21 @@ class ReportsTest(unittest.TestCase):
                 },
             )
 
+    def test_anon_peak_tracks_the_highest_sample_until_stopped(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.assertIsNone(run.anon_bytes(directory))
+            (directory / "memory.stat").write_text("anon 3000\nfile 9000\n")
+            sampler = run.AnonPeak(directory, interval=0.01)
+            with sampler:
+                time.sleep(0.05)
+                (directory / "memory.stat").write_text("anon 7000\nfile 1\n")
+                time.sleep(0.05)
+                (directory / "memory.stat").write_text("anon 2000\n")
+                time.sleep(0.05)
+            self.assertEqual(sampler.peak, 7000)
+            self.assertIsNone(run.AnonPeak(None).peak)
+
     def test_timing_records_counter_deltas_and_distinguishes_pipeline_age(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             with (
@@ -42,6 +58,7 @@ class ReportsTest(unittest.TestCase):
                 ),
                 patch("scripts.ci.run.time.time", return_value=125),
                 patch("scripts.ci.run.subprocess.call", return_value=7),
+                patch("scripts.ci.run.cgroup_root", return_value=None),
                 patch(
                     "scripts.ci.run.cgroup_resources",
                     side_effect=[
@@ -73,6 +90,7 @@ class ReportsTest(unittest.TestCase):
                     "cgroup": {
                         "memory_oom_kill": 0,
                         "memory_peak_bytes": 8388608,
+                        "memory_anon_peak_bytes": 4194304,
                         "cpu_throttled_usec": 3000000,
                     },
                 },
@@ -94,6 +112,7 @@ class ReportsTest(unittest.TestCase):
                 self.assertEqual(timings_report.main(), 0)
             self.assertIn("20.0s after creation", output.getvalue())
             self.assertIn("cgroup_peak=8MiB", output.getvalue())
+            self.assertIn("cgroup_anon_peak=4MiB", output.getvalue())
             self.assertIn("cgroup_oom_kills=0", output.getvalue())
             self.assertIn("cgroup_cpu_throttled=3.0s", output.getvalue())
             self.assertNotIn("[WAIT / QUEUE]", output.getvalue())
