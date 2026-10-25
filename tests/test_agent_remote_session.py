@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import subprocess
 import tempfile
 import time
 import unittest
@@ -10,15 +11,230 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.agent.remote_session import (
+    create_seed,
     main,
     mapping_for,
     native_command,
+    project_worktree,
+    receive_seed,
     server_available,
     ssh_command,
 )
 
 
 class RemoteSessionTests(unittest.TestCase):
+    def git(self, root: Path, *args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(root), *args], text=True
+        ).strip()
+
+    def test_project_root_routes_new_nested_and_non_git_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            projects = root / "projects"
+            plain = projects / "plain" / "src"
+            nested = projects / "sites" / "web" / "src"
+            plain.mkdir(parents=True)
+            nested.mkdir(parents=True)
+            subprocess.run(["git", "init", "-q", str(nested.parent)], check=True)
+            config = root / "repos.json"
+            config.write_text(
+                json.dumps(
+                    {
+                        "roots": [
+                            {
+                                "local": str(projects),
+                                "remote": "/server/projects",
+                                "host": "agent-rupan",
+                            }
+                        ]
+                    }
+                )
+            )
+            self.assertEqual(
+                mapping_for(plain, config),
+                ("agent-rupan", Path("/server/projects/plain/.checkout"), Path("src")),
+            )
+            self.assertEqual(
+                mapping_for(nested, config),
+                (
+                    "agent-rupan",
+                    Path("/server/projects/sites/web/.checkout"),
+                    Path("src"),
+                ),
+            )
+            self.assertIsNone(mapping_for(projects, config))
+            outside = root / "outside"
+            outside.mkdir()
+            (projects / "link").symlink_to(outside, target_is_directory=True)
+            self.assertIsNone(mapping_for(projects / "link", config))
+            new = projects / "created-later"
+            new.mkdir()
+            self.assertEqual(
+                mapping_for(new, config),
+                (
+                    "agent-rupan",
+                    Path("/server/projects/created-later/.checkout"),
+                    Path("."),
+                ),
+            )
+
+    def test_seed_preserves_git_history_and_dirty_source_in_both_clients(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = root / "local"
+            local.mkdir()
+            subprocess.run(
+                ["git", "init", "-q", "-b", "feature", str(local)], check=True
+            )
+            (local / "code.py").write_text("original\n")
+            (local / "deleted.py").write_text("delete me\n")
+            (local / "binary").write_bytes(b"old\0binary")
+            self.git(local, "add", "code.py", "deleted.py", "binary")
+            self.git(
+                local,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.test",
+                "commit",
+                "-qm",
+                "Initial",
+            )
+            head = self.git(local, "rev-parse", "HEAD")
+            self.git(
+                local,
+                "remote",
+                "add",
+                "origin",
+                "https://user:password@example.test/repo.git?token=secret",
+            )
+            (local / "code.py").write_text("working changes\n")
+            self.git(local, "add", "code.py")
+            (local / "deleted.py").unlink()
+            (local / "binary").write_bytes(b"new\0binary")
+            (local / "untracked.py").write_text("new source\n")
+            (local / ".env").write_text("secret")
+            (local / "node_modules").mkdir()
+            (local / "node_modules/dependency.js").write_text("generated")
+            (local / "internal-link").symlink_to("untracked.py")
+            (local / "outside-link").symlink_to(root / "outside")
+            before = self.git(local, "status", "--porcelain")
+            archive = root / "seed.tar"
+            create_seed(local, archive)
+            remote = root / "server/project/.checkout"
+            with archive.open("rb") as stream:
+                receive_seed(remote, stream)
+            self.assertEqual(self.git(remote, "rev-parse", "HEAD"), head)
+            self.assertEqual(
+                self.git(remote, "remote", "get-url", "origin"),
+                "https://example.test/repo.git",
+            )
+            for client in ("codex", "claude"):
+                worktree = project_worktree(remote, client)
+                self.assertEqual(
+                    (worktree / "code.py").read_text(), "working changes\n"
+                )
+                self.assertEqual((worktree / "binary").read_bytes(), b"new\0binary")
+                self.assertFalse((worktree / "deleted.py").exists())
+                self.assertEqual(
+                    (worktree / "untracked.py").read_text(), "new source\n"
+                )
+                self.assertTrue((worktree / "internal-link").is_symlink())
+                self.assertFalse((worktree / ".env").exists())
+                self.assertFalse((worktree / "node_modules").exists())
+                (worktree / "code.py").write_text("server edits\n")
+                self.assertEqual(project_worktree(remote, client), worktree)
+                self.assertEqual((worktree / "code.py").read_text(), "server edits\n")
+            self.assertEqual(self.git(local, "rev-parse", "HEAD"), head)
+            self.assertEqual(self.git(local, "status", "--porcelain"), before)
+            (remote / "code.py").write_text("server edits in base\n")
+            with archive.open("rb") as stream:
+                receive_seed(remote, stream)
+            self.assertEqual((remote / "code.py").read_text(), "server edits in base\n")
+            occupied = root / "existing-directory"
+            occupied.mkdir()
+            with archive.open("rb") as stream:
+                with self.assertRaisesRegex(ValueError, "Refusing to overwrite"):
+                    receive_seed(occupied, stream)
+
+    def test_non_git_seed_is_independent_and_excludes_local_environments(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = root / "plain"
+            local.mkdir()
+            (local / "main.py").write_text("source\n")
+            (local / ".env.example").write_text("safe template")
+            (local / ".env.local").write_text("secret")
+            (local / ".venv").mkdir()
+            (local / ".venv/python").write_text("local environment")
+            archive = root / "seed.tar"
+            create_seed(local, archive)
+            remote = root / "remote/.checkout"
+            with archive.open("rb") as stream:
+                receive_seed(remote, stream)
+            worktree = project_worktree(remote, "codex")
+            self.assertEqual((worktree / "main.py").read_text(), "source\n")
+            self.assertTrue((worktree / ".env.example").exists())
+            self.assertFalse((worktree / ".env.local").exists())
+            self.assertFalse((worktree / ".venv").exists())
+            self.assertFalse((local / ".git").exists())
+
+    def test_unborn_git_seed_keeps_staged_source_without_committing_locally(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = root / "new"
+            subprocess.run(["git", "init", "-q", str(local)], check=True)
+            (local / "source.py").write_text("new project\n")
+            self.git(local, "add", "source.py")
+            archive = root / "seed.tar"
+            create_seed(local, archive)
+            remote = root / "server/.checkout"
+            with archive.open("rb") as stream:
+                receive_seed(remote, stream)
+            self.assertEqual(
+                (project_worktree(remote, "codex") / "source.py").read_text(),
+                "new project\n",
+            )
+            self.assertEqual(self.git(local, "status", "--porcelain"), "A  source.py")
+
+    def test_shallow_history_can_be_imported_without_fetching_upstream(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            origin = root / "origin"
+            subprocess.run(["git", "init", "-q", str(origin)], check=True)
+            for message in ("First", "Second"):
+                self.git(
+                    origin,
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.test",
+                    "commit",
+                    "--allow-empty",
+                    "-qm",
+                    message,
+                )
+            local = root / "shallow"
+            subprocess.run(
+                ["git", "clone", "-q", "--depth", "1", origin.as_uri(), str(local)],
+                check=True,
+            )
+            archive = root / "seed.tar"
+            create_seed(local, archive)
+            remote = root / "server/.checkout"
+            with archive.open("rb") as stream:
+                receive_seed(remote, stream)
+            self.assertEqual(
+                self.git(remote, "rev-parse", "HEAD"),
+                self.git(local, "rev-parse", "HEAD"),
+            )
+            self.assertEqual(
+                self.git(remote, "rev-parse", "--is-shallow-repository"), "true"
+            )
+
     def test_unavailable_server_launches_local_client_with_original_arguments(
         self,
     ) -> None:

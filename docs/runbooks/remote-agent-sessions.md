@@ -1,6 +1,7 @@
 # Remote interactive coding sessions
 
-The laptop pilot opts only `/home/rupan/homelab` into `agent-rupan` over SSH.
+The laptop opts `/home/rupan/homelab` and all projects below
+`/home/rupan/projects` into `agent-rupan` over SSH.
 The server checkout is `/home/developer/workspace/homelab`. It was seeded from
 Forgejo main, without copying the laptop's uncommitted or untracked files.
 
@@ -19,15 +20,49 @@ The laptop mapping is `~/.config/homelab-agent/repos.json`:
       "host": "agent-rupan",
       "remote": "/home/developer/workspace/homelab"
     }
+  ],
+  "roots": [
+    {
+      "local": "/home/rupan/projects",
+      "host": "agent-rupan",
+      "remote": "/home/developer/workspace/projects"
+    }
   ]
 }
 ```
 
-Interactive coding sessions in that checkout or its subdirectories connect to
-the VM. Other checkouts, including separately created laptop worktrees, stay
-local unless explicitly mapped. Help, version, login, and noninteractive CLI
+Interactive coding sessions in those locations connect to the VM. Root mappings
+also cover newly created projects, nested repositories, directories without Git,
+and laptop worktrees inside the configured root. The projects directory itself
+stays local. Other locations stay local unless explicitly mapped.
+Help, version, login, and noninteractive CLI
 commands retain their native local behavior. `HOMELAB_AGENT_LOCAL=1` explicitly
 bypasses routing. Existing fish abbreviations still supply their normal flags.
+
+A root-mapped project is initialized on its first remote launch. The server
+checkout is `REMOTE_ROOT/PROJECT_PATH/.checkout`; the extra directory keeps a
+container folder and its nested repositories independent. For example,
+`projects/sites` and `projects/sites/rupan.dev` have separate server checkouts.
+The first copy includes the current Git HEAD, its reachable history, tracked
+working changes (including staged changes and deletions), and untracked source
+that Git does not ignore. Staging state stays local; imported edits remain
+uncommitted on the server. Git worktrees are exported independently, so their
+laptop `.git` pointers are not copied.
+
+For a directory without Git, the server creates an empty Git baseline and
+imports source files as uncommitted work. The laptop directory is unchanged.
+Generated dependency/build directories, untracked `.env` files, common private
+key/auth files, and symlinks outside the source directory are omitted. Tracked
+files and history retain ordinary Git clone semantics. Recreate dependencies
+and sign into additional services on the VM as needed. Origin URLs retain the
+repository address, with HTTP credentials and query strings stripped; laptop
+Git configuration, hooks, SSH agents and credential stores are not copied.
+
+Each client receives the initial uncommitted source in its separate server
+worktree. Initial copies are created atomically and an existing server checkout
+is never refreshed from the laptop. Later laptop edits are not sent on launch.
+Git fetch/push authentication for additional repositories must be configured
+separately; the existing homelab deploy key grants only homelab access.
 
 Before connecting, the launcher checks SSH access without prompting for a
 password, with an eight-second total timeout (including the jump host). If the
