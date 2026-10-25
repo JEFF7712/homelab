@@ -10,6 +10,7 @@ resources:
   - kube-prometheus-stack/gpu-rules.yaml
   - kube-prometheus-stack/jarvis-rules.yaml
   - kube-prometheus-stack/monero-rules.yaml
+  - kube-prometheus-stack/media-rules.yaml
   - kube-prometheus-stack/omarchy-vm-rules.yaml
   - kube-prometheus-stack/repo-monitor-rules.yaml
   - loki/repository.yaml
