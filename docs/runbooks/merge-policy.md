@@ -51,7 +51,7 @@ so, rather than leaving the PR silently blocked.
 
 ## Activation
 
-The service ships disabled. In order:
+Steps 1 to 3 are done (2026-10-26). In order:
 
 1. Operator, in Forgejo: create the `homelab-policy` user and add it to
    `JEFF7712/homelab` as a collaborator with write access, which commit
