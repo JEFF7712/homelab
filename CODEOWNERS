@@ -6,3 +6,5 @@ scripts/websites/.* @rupan
 tests/test_website_.*\.py @rupan
 scripts/checks/gitops\.sh @rupan
 CODEOWNERS @rupan
+scripts/verifier/.* @rupan
+flake/modules/merge-policy\.nix @rupan
