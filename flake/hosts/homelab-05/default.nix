@@ -19,6 +19,7 @@ in
     ../../modules/k3s-server.nix
     ../../modules/nvidia.nix
     ../../modules/kiosk.nix
+    ../../modules/moonlight-client.nix
     ../../modules/jarvis-spectrum.nix
     ../../modules/apollo-ble-bridge.nix
     ../../modules/omarchy-vm.nix
@@ -215,11 +216,22 @@ in
 
   homelab.kiosk = {
     enable = true;
+    compositor = "sway";
+    output = "HDMI-A-2";
     url = "http://10.0.40.13:8123/local/jarvis/index.html?v=19";
     haTokenFile = config.sops.secrets.jarvis-kiosk-ha-token.path;
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
-    disableOutputs = [ "HDMI-A-2" ];
+  };
+
+  homelab.moonlight = {
+    enable = true;
+    users = [
+      "kiosk"
+      "rupan"
+    ];
+    autostart = true;
+    output = "DP-1";
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated

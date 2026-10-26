@@ -170,6 +170,16 @@
         "name": "iot_tuya_sw02",
         "type": "host"
       },
+      "moonlight_clients": {
+        "content": [
+          "10.0.30.14",
+          "10.0.30.15"
+        ],
+        "description": "Moonlight streaming clients on infrastructure VLAN",
+        "enabled": true,
+        "name": "moonlight_clients",
+        "type": "host"
+      },
       "netbird_allowed_dests": {
         "content": [
           "10.0.10.0/24",
@@ -250,6 +260,21 @@
         "enabled": true,
         "name": "spotify_matrix_senders",
         "type": "host"
+      },
+      "sunshine_ports": {
+        "content": [
+          "47984",
+          "47989",
+          "47998",
+          "47999",
+          "48000",
+          "48002",
+          "48010"
+        ],
+        "description": "Sunshine game streaming server ports",
+        "enabled": true,
+        "name": "sunshine_ports",
+        "type": "port"
       }
     },
     "firewall_filters": {
@@ -1032,6 +1057,32 @@
           ]
         },
         "sequence": 319
+      },
+      "infrastructure-allow-sunshine-clients": {
+        "description": "Allow homelab-04 and homelab-05 to reach Sunshine streaming host on clients VLAN",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.20.0/24",
+            "port": "sunshine_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP/UDP",
+          "quick": true,
+          "source": {
+            "net": "moonlight_clients",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 313
       },
       "infrastructure-allow-tuya-local": {
         "description": "Allow infrastructure to Feit switch Tuya LAN protocol",

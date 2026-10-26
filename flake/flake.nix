@@ -293,7 +293,7 @@
           pkgs.runCommand "agent-workspace-host-reservations" { } ''
             ${
               if
-                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=12288Mi" host.services.k3s.extraFlags
+                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=16384Mi" host.services.k3s.extraFlags
               then
                 "true"
               else
@@ -304,7 +304,7 @@
             } = 200%
             test ${
               nixpkgs.lib.escapeShellArg host.systemd.slices."machine-agent\\x2dworkspaces".sliceConfig.MemoryMax
-            } = 10240M
+            } = 14336M
             touch $out
           '';
 
@@ -317,11 +317,16 @@
         checks.kiosk-tty1 =
           let
             host = self.nixosConfigurations.homelab-05.config;
+            kioskService =
+              if host.homelab.kiosk.compositor == "sway" then
+                host.systemd.services.sway-tty1
+              else
+                host.systemd.services.cage-tty1;
           in
           assert !host.systemd.units."getty@tty1.service".enable;
           assert !host.systemd.units."autovt@tty1.service".enable;
-          assert builtins.elem "multi-user.target" host.systemd.services.cage-tty1.wantedBy;
-          assert host.systemd.services.cage-tty1.serviceConfig.Restart == "always";
+          assert builtins.elem "multi-user.target" kioskService.wantedBy;
+          assert kioskService.serviceConfig.Restart == "always";
           pkgs.runCommand "kiosk-tty1-evaluation" { } ''
             touch $out
           '';
