@@ -101,11 +101,9 @@ pkgs.testers.nixosTest {
         }
       ];
     };
-    # Only the workspace policy decides host-local reachability here.
-    networking.firewall.allowedTCPPorts = [
-      8000
-      8001
-    ];
+    # 8000 is closed in the NixOS firewall, so only the grant can admit it;
+    # 8001 is open, so only the workspace policy can deny it.
+    networking.firewall.allowedTCPPorts = [ 8001 ];
     environment.systemPackages = [
       pkgs.curl
       pkgs.iproute2
