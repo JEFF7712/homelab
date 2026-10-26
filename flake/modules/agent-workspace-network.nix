@@ -94,7 +94,7 @@ in
         )
       );
       default = { };
-      description = "Host-owned destination TCP grants indexed by workspace ID, before private-network denial. A grant to one of the host's own addresses also admits the traffic on host input.";
+      description = "Host-owned destination TCP grants indexed by workspace ID, before private-network denial. A grant to one of the host's own addresses also admits the traffic on host input, including through the NixOS firewall.";
     };
     manifestFile = lib.mkOption {
       type = lib.types.path;
@@ -175,6 +175,10 @@ in
         };
       }) enabledWorkspaces
     );
+
+    # The NixOS firewall is a separate input chain with a drop policy, so a
+    # host-local grant must be admitted there too; other grants never reach input.
+    networking.firewall.extraInputRules = lib.concatMapStringsSep "\n" tcpEgressRules enabledWorkspaces;
 
     networking.nftables.tables.agent-workspaces = {
       family = "inet";
