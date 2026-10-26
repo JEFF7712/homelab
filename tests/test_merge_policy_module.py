@@ -56,8 +56,8 @@ class MergePolicyModuleTest(unittest.TestCase):
         self.assertTrue(self.config["noNewPrivileges"])
         self.assertEqual(self.config["protectSystem"], "strict")
 
-    def test_not_deployed_until_the_policy_token_exists(self) -> None:
-        self.assertFalse(self.config["deployed"])
+    def test_deployed_on_the_ci_host(self) -> None:
+        self.assertTrue(self.config["deployed"])
 
 
 if __name__ == "__main__":
