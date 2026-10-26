@@ -478,20 +478,27 @@ def serve(remote: Path, relative: Path, client: str, args: list[str]) -> NoRetur
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Invalid checkout-relative directory")
     identity = f"{client}-{uuid.uuid4().hex}" if client == "codex" else client
-    worktree = project_worktree(remote, identity)
-    common = subprocess.check_output(
-        [
-            "git",
-            "-C",
-            str(worktree),
-            "rev-parse",
-            "--path-format=absolute",
-            "--git-common-dir",
-        ],
-        text=True,
-    ).strip()
-    if Path(common).resolve() != (remote / ".git").resolve():
-        raise ValueError("Existing agent worktree belongs to a different repository")
+    if client == "codex":
+        worktree = remote
+        if "--worktree" not in args:
+            args = ["--worktree", *args]
+    else:
+        worktree = project_worktree(remote, identity)
+        common = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(worktree),
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-common-dir",
+            ],
+            text=True,
+        ).strip()
+        if Path(common).resolve() != (remote / ".git").resolve():
+            raise ValueError(
+                "Existing agent worktree belongs to a different repository"
+            )
     session = (
         "agent-"
         + hashlib.sha256(str(remote).encode()).hexdigest()[:12]

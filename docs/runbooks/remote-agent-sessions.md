@@ -77,13 +77,17 @@ start another client locally. Launch again to reconnect when the server is
 available, or to start locally if it remains unavailable. A local fallback
 session stays local when the server recovers; the next launch checks again.
 
-Every Codex launch creates a fresh process, tmux session, branch, and server
-worktree at `.worktrees/interactive-codex-<unique-id>`. Multiple terminals can
-run agents independently. Existing worktrees and uncommitted files are retained.
-New worktrees start from the server checkout's HEAD, including its initial
-source snapshot for seeded projects; they do not inherit other agents' edits.
-Use Codex `/resume` for conversation history. Resuming a conversation does not
-switch to its previous worktree or restore its uncommitted files.
+Every Codex launch creates a fresh process and tmux session, launched from the
+same server project directory with `codex --worktree`. Codex manages the isolated
+Git worktree and its relationship to the parent project, so parallel chats can
+belong to one project in connected clients. Managed worktrees use Codex's
+configured worktree root (by default `$CODEX_HOME/worktrees`). Codex owns their
+creation, source selection, and cleanup. The launcher no longer creates
+`interactive-codex-<unique-id>` branches or directories.
+
+Existing launcher-created worktrees and uncommitted files are retained; old
+chats are not migrated or regrouped by this change. Use Codex `/resume` for
+conversation history and its worktree controls for managed worktrees.
 
 Claude retains its fixed `.worktrees/interactive-claude` worktree and reconnects
 to its existing tmux session. Startup arguments apply only to new sessions.
@@ -91,7 +95,8 @@ The helper prints the actual server directory and tmux session name.
 Disconnecting or detaching leaves clients running. To reconnect to a running
 Codex process after an SSH disconnect, SSH into the VM, run `tmux list-sessions`,
 and use `tmux attach -t <session-name>`. Running `codex` starts a new process.
-Exiting a client ends its tmux session but preserves its worktree.
+Exiting a client ends its tmux session. Claude worktrees remain available;
+Codex applies its own managed-worktree retention policy.
 The SSH terminal uses `xterm-256color`, which is supported by the headless guest.
 
 Tmux sessions survive laptop sleep and SSH disconnects. They do not survive a
