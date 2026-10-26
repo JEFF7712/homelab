@@ -362,5 +362,28 @@ class ManifestTests(unittest.TestCase):
         )
 
 
+class WorkspaceHostDeploymentTest(unittest.TestCase):
+    def test_deploy_operations_target_the_host_running_the_workspaces(self) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        hosts = sorted(
+            path.parent.name
+            for path in (root / "flake/hosts").glob("*/default.nix")
+            if "modules/agent-workspaces.nix" in path.read_text()
+        )
+        self.assertEqual(len(hosts), 1, hosts)
+        catalog = json.loads((root / "config/ci/operations.json").read_text())
+        for name in (
+            "deploy-agent-workspace-host-dry-run",
+            "deploy-agent-workspace-host",
+        ):
+            targets = {
+                command.split("--target ", 1)[1].split()[0]
+                for command in catalog[name]["commands"]
+                if "--target " in command
+            }
+            with self.subTest(operation=name):
+                self.assertEqual(targets, set(hosts))
+
+
 if __name__ == "__main__":
     unittest.main()
