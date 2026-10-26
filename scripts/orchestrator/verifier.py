@@ -35,6 +35,9 @@ class Verdict:
     state: str  # pending, failed or passed
     detail: str
     evidence: Evidence | None = None
+    # The pull request no longer shows the published commit: someone other
+    # than the publisher wrote the branch.
+    tampered: bool = False
 
 
 def verify(
@@ -49,6 +52,7 @@ def verify(
             "failed",
             f"pull request #{pull.number} head {pull.head_sha[:12]} is not the "
             f"published commit {published_head[:12]}",
+            tampered=True,
         )
     if pull.state != "open" and not pull.merged:
         return Verdict("failed", f"pull request #{pull.number} was closed unmerged")

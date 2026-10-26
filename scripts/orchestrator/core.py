@@ -1236,6 +1236,27 @@ class Store:
             raise OrchestratorError("NOT_FOUND", f"no artifact for {attempt_id}")
         return Artifact(**{key: row[key] for key in Artifact.__dataclass_fields__})
 
+    def report_incident(
+        self,
+        key: str,
+        task_id: str | None,
+        kind: str,
+        detail: str,
+        now: float,
+        attempt_id: str | None = None,
+    ) -> None:
+        """Record a security-relevant failure once per key, for every sink."""
+        self._require_controller("report incidents")
+        with self.transaction() as db:
+            self._enqueue(
+                db,
+                f"incident:{key}",
+                "security.incident",
+                task_id,
+                {"kind": kind, "attempt_id": attempt_id, "detail": detail[:500]},
+                now,
+            )
+
     def extend_leases(self, until: float) -> int:
         """Push every unfinished attempt's lease to at least `until`.
 

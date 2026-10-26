@@ -19,6 +19,7 @@ TOPICS = (
     "question.expired",
     "approval.open",
     "answer.proposed",
+    "security.incident",
     "task.status",
 )
 NOTIFY_STATUSES = frozenset(
@@ -64,6 +65,14 @@ def render(message: Message, issue_url: str | None) -> Notice | None:
             f"{payload.get('proposal_id')}{where}",
             "high",
             "question",
+        )
+    if message.topic == "security.incident":
+        return Notice(
+            f"Security incident on {message.task_id}",
+            f"{payload.get('kind')} (attempt {payload.get('attempt_id')}): "
+            f"{payload.get('detail')}{where}",
+            "urgent",
+            "warning",
         )
     if message.topic == "approval.open":
         return Notice(
