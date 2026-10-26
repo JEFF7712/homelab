@@ -170,6 +170,16 @@
         "name": "iot_tuya_sw02",
         "type": "host"
       },
+      "moonlight_clients": {
+        "content": [
+          "10.0.30.14",
+          "10.0.30.15"
+        ],
+        "description": "Moonlight streaming clients on infrastructure VLAN",
+        "enabled": true,
+        "name": "moonlight_clients",
+        "type": "host"
+      },
       "netbird_allowed_dests": {
         "content": [
           "10.0.10.0/24",
@@ -1014,7 +1024,7 @@
         "sequence": 319
       },
       "infrastructure-allow-sunshine-clients": {
-        "description": "Allow infrastructure Moonlight clients to reach Sunshine streaming host on clients VLAN",
+        "description": "Allow homelab-04 and homelab-05 to reach Sunshine streaming host on clients VLAN",
         "enabled": true,
         "filter": {
           "action": "pass",
@@ -1028,7 +1038,7 @@
           "protocol": "TCP/UDP",
           "quick": true,
           "source": {
-            "net": "10.0.30.0/24",
+            "net": "moonlight_clients",
             "port": ""
           }
         },

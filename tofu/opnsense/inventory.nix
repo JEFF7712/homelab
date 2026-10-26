@@ -164,6 +164,15 @@
         enabled = true;
         devices = [ "laptop_nixos" ];
       };
+      moonlight_clients = {
+        type = "host";
+        hosts = [
+          "homelab-04"
+          "homelab-05"
+        ];
+        description = "Moonlight streaming clients on infrastructure VLAN";
+        enabled = true;
+      };
       sunshine_ports = {
         type = "port";
         content = [
@@ -637,7 +646,7 @@
         };
       };
       infrastructure-allow-sunshine-clients = {
-        description = "Allow infrastructure Moonlight clients to reach Sunshine streaming host on clients VLAN";
+        description = "Allow homelab-04 and homelab-05 to reach Sunshine streaming host on clients VLAN";
         enabled = true;
         sequence = 313;
         interface = {
@@ -651,7 +660,7 @@
           quick = true;
           log = false;
           source = {
-            net = config.homelab.networks.infrastructure.cidr;
+            net = "moonlight_clients";
             port = "";
           };
           destination = {

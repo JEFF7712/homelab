@@ -73,7 +73,6 @@ in
   homelab.kiosk = {
     enable = true;
     compositor = "sway";
-    output = "DP-2";
     url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
@@ -99,22 +98,12 @@ in
     haDashboardTokenFile = config.sops.secrets.kiosk-ha-token.path;
     haDashboardUrl = "http://10.0.40.13:8123";
     swayExtraConfig = ''
-      # Single-monitor setup on DP-2 with toggle capability
-      # Workspace 1: 3D printing & fleet overview kiosk
-      # Workspace 2: Moonlight stream
-      workspace 1 output DP-2
-      workspace 2 output DP-2
-
-      assign [app_id="(?i)moonlight.*"] workspace 2
-      assign [class="(?i)moonlight.*"] workspace 2
-
       # Keybinding: Mod4 (Super) + m toggles or launches moonlight-session
       bindsym Mod4+m exec ${pkgs.writeShellScript "toggle-moonlight" ''
         if ${pkgs.procps}/bin/pgrep -x moonlight >/dev/null 2>&1; then
           ${pkgs.procps}/bin/pkill -x moonlight
         else
-          ${pkgs.sway}/bin/swaymsg workspace 2
-          ${pkgs.moonlight-qt}/bin/moonlight-qt &
+          moonlight-session &
         fi
       ''}
     '';
@@ -122,8 +111,11 @@ in
 
   homelab.moonlight = {
     enable = true;
+    users = [
+      "kiosk"
+      "rupan"
+    ];
     autostart = false;
-    output = "DP-2";
   };
 
   homelab.woodpecker.enable = true;

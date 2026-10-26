@@ -75,8 +75,10 @@ let
     workspace 1
     exec ${kioskBrowser}
 
-    for_window [app_id="chromium-browser"] fullscreen enable
-    for_window [class="Chromium"] fullscreen enable
+    for_window [app_id="(?i)chromium.*"] fullscreen enable
+    for_window [class="(?i)chromium.*"] fullscreen enable
+    for_window [app_id="(?i)chrome.*"] fullscreen enable
+    for_window [class="(?i)chrome.*"] fullscreen enable
 
     for_window [app_id="(?i)moonlight.*"] fullscreen enable
     for_window [class="(?i)moonlight.*"] fullscreen enable
@@ -263,9 +265,8 @@ in
       environment = {
         WLR_NO_HARDWARE_CURSORS = "1";
         XCURSOR_THEME = "invisible";
-        XDG_RUNTIME_DIR = "/run/user/1001";
+        XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${cfg.user}.uid}";
         XDG_SESSION_TYPE = "wayland";
-        WAYLAND_DISPLAY = "wayland-1";
       }
       // (lib.optionalAttrs (cfg.drmDevice != null) {
         WLR_DRM_DEVICES = cfg.drmDevice;
