@@ -29,7 +29,7 @@ class RemoteSessionTests(unittest.TestCase):
             ["git", "-C", str(root), *args], text=True
         ).strip()
 
-    def test_codex_launches_create_independent_worktrees_and_sessions(self) -> None:
+    def test_codex_launches_share_project_and_request_managed_worktrees(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             remote = Path(directory) / "repo"
             self.git(Path(directory), "init", "-q", str(remote))
@@ -56,7 +56,9 @@ class RemoteSessionTests(unittest.TestCase):
                 self.assertEqual(command[1], "new-session")
                 sessions.append(command[command.index("-s") + 1])
                 worktrees.append(Path(command[command.index("-c") + 1]))
-                self.assertEqual(command[-2:], ["--model", "test-model"])
+                self.assertEqual(
+                    command[-4:], ["/bin/codex", "--worktree", "--model", "test-model"]
+                )
                 return subprocess.CompletedProcess(command, 0)
 
             with (
@@ -73,15 +75,10 @@ class RemoteSessionTests(unittest.TestCase):
                     with self.assertRaises(SystemExit):
                         serve(remote, Path("."), "codex", ["--model", "test-model"])
                     self.assertEqual(execute.call_args.args[1][-1], sessions[-1])
-                    (worktrees[-1] / "changes.txt").write_text(str(index))
+
             self.assertEqual(len(set(sessions)), 2)
-            self.assertEqual(len(set(worktrees)), 2)
-            for index, worktree in enumerate(worktrees):
-                self.assertEqual((worktree / "changes.txt").read_text(), str(index))
-                self.assertEqual(
-                    self.git(worktree, "branch", "--show-current"),
-                    "interactive/" + worktree.name.removeprefix("interactive-"),
-                )
+            self.assertEqual(worktrees, [remote, remote])
+            self.assertEqual(len(self.git(remote, "worktree", "list").splitlines()), 1)
 
     def test_project_root_routes_new_nested_and_non_git_directories(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
