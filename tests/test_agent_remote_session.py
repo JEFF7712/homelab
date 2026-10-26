@@ -17,6 +17,7 @@ from scripts.agent.remote_session import (
     native_command,
     project_worktree,
     receive_seed,
+    serve,
     server_available,
     ssh_command,
 )
@@ -27,6 +28,60 @@ class RemoteSessionTests(unittest.TestCase):
         return subprocess.check_output(
             ["git", "-C", str(root), *args], text=True
         ).strip()
+
+    def test_codex_launches_create_independent_worktrees_and_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            remote = Path(directory) / "repo"
+            self.git(Path(directory), "init", "-q", str(remote))
+            self.git(
+                remote,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.test",
+                "commit",
+                "--allow-empty",
+                "-qm",
+                "Initial",
+            )
+            run = subprocess.run
+            sessions: list[str] = []
+            worktrees: list[Path] = []
+
+            def intercept(command: list[str], **kwargs):
+                if command[0] != "tmux":
+                    return run(command, **kwargs)
+                if command[1] == "has-session":
+                    return subprocess.CompletedProcess(command, 1)
+                self.assertEqual(command[1], "new-session")
+                sessions.append(command[command.index("-s") + 1])
+                worktrees.append(Path(command[command.index("-c") + 1]))
+                self.assertEqual(command[-2:], ["--model", "test-model"])
+                return subprocess.CompletedProcess(command, 0)
+
+            with (
+                patch(
+                    "scripts.agent.remote_session.subprocess.run", side_effect=intercept
+                ),
+                patch(
+                    "scripts.agent.remote_session.shutil.which",
+                    return_value="/bin/codex",
+                ),
+                patch("os.execvp", side_effect=SystemExit) as execute,
+            ):
+                for index in range(2):
+                    with self.assertRaises(SystemExit):
+                        serve(remote, Path("."), "codex", ["--model", "test-model"])
+                    self.assertEqual(execute.call_args.args[1][-1], sessions[-1])
+                    (worktrees[-1] / "changes.txt").write_text(str(index))
+            self.assertEqual(len(set(sessions)), 2)
+            self.assertEqual(len(set(worktrees)), 2)
+            for index, worktree in enumerate(worktrees):
+                self.assertEqual((worktree / "changes.txt").read_text(), str(index))
+                self.assertEqual(
+                    self.git(worktree, "branch", "--show-current"),
+                    "interactive/" + worktree.name.removeprefix("interactive-"),
+                )
 
     def test_project_root_routes_new_nested_and_non_git_directories(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import uuid
 from pathlib import Path
 from typing import BinaryIO, NoReturn
 from urllib.parse import urlsplit, urlunsplit
@@ -476,7 +477,8 @@ def serve(remote: Path, relative: Path, client: str, args: list[str]) -> NoRetur
     remote = remote.resolve(strict=True)
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Invalid checkout-relative directory")
-    worktree = project_worktree(remote, client)
+    identity = f"{client}-{uuid.uuid4().hex}" if client == "codex" else client
+    worktree = project_worktree(remote, identity)
     common = subprocess.check_output(
         [
             "git",
@@ -491,7 +493,10 @@ def serve(remote: Path, relative: Path, client: str, args: list[str]) -> NoRetur
     if Path(common).resolve() != (remote / ".git").resolve():
         raise ValueError("Existing agent worktree belongs to a different repository")
     session = (
-        "agent-" + hashlib.sha256(str(remote).encode()).hexdigest()[:12] + "-" + client
+        "agent-"
+        + hashlib.sha256(str(remote).encode()).hexdigest()[:12]
+        + "-"
+        + identity
     )
     exists = subprocess.run(
         ["tmux", "has-session", "-t", session], capture_output=True, check=False

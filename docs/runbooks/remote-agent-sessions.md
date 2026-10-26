@@ -77,16 +77,21 @@ start another client locally. Launch again to reconnect when the server is
 available, or to start locally if it remains unavailable. A local fallback
 session stays local when the server recovers; the next launch checks again.
 
-Each client gets its own server worktree and tmux session:
+Every Codex launch creates a fresh process, tmux session, branch, and server
+worktree at `.worktrees/interactive-codex-<unique-id>`. Multiple terminals can
+run agents independently. Existing worktrees and uncommitted files are retained.
+New worktrees start from the server checkout's HEAD, including its initial
+source snapshot for seeded projects; they do not inherit other agents' edits.
+Use Codex `/resume` for conversation history. Resuming a conversation does not
+switch to its previous worktree or restore its uncommitted files.
 
-- Codex: `/home/developer/workspace/homelab/.worktrees/interactive-codex`
-- Claude: `/home/developer/workspace/homelab/.worktrees/interactive-claude`
-
-The helper prints the actual server directory. Repeating the launch reconnects
-to the existing session; startup arguments apply when a new session starts.
-Disconnecting or detaching leaves the client running. Exiting the client ends
-that tmux session, and the next launch starts a new client. Native client
-resume options can select an earlier saved conversation.
+Claude retains its fixed `.worktrees/interactive-claude` worktree and reconnects
+to its existing tmux session. Startup arguments apply only to new sessions.
+The helper prints the actual server directory and tmux session name.
+Disconnecting or detaching leaves clients running. To reconnect to a running
+Codex process after an SSH disconnect, SSH into the VM, run `tmux list-sessions`,
+and use `tmux attach -t <session-name>`. Running `codex` starts a new process.
+Exiting a client ends its tmux session but preserves its worktree.
 The SSH terminal uses `xterm-256color`, which is supported by the headless guest.
 
 Tmux sessions survive laptop sleep and SSH disconnects. They do not survive a
