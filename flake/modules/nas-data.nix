@@ -30,6 +30,45 @@
     ];
   };
 
+  services.samba = {
+    enable = true;
+    openFirewall = true;
+    settings = {
+      global = {
+        "workgroup" = "WORKGROUP";
+        "server string" = "nas-01";
+        "netbios name" = "nas-01";
+        "security" = "user";
+        # Allow connections from clients LAN (VLAN 20), servers (VLAN 30), and management (VLAN 10)
+        "hosts allow" = "10.0.20. 10.0.30. 10.0.10. 127.0.0.1 localhost";
+        "hosts deny" = "0.0.0.0/0";
+        "guest account" = "nobody";
+        "map to guest" = "bad user";
+      };
+      games = {
+        path = "/tank/media/games";
+        browseable = "yes";
+        "read only" = "no";
+        "guest ok" = "yes";
+        "create mask" = "0664";
+        "directory mask" = "0775";
+        "force user" = "1000";
+        "force group" = "1000";
+      };
+      media = {
+        path = "/tank/media";
+        browseable = "yes";
+        "read only" = "yes";
+        "guest ok" = "yes";
+      };
+    };
+  };
+
+  services.samba-wsdd = {
+    enable = true;
+    openFirewall = true;
+  };
+
   services.nfs.server = {
     enable = true;
     exports = ''
@@ -263,10 +302,12 @@
     "d /mnt/backup-2tb/registry-restic 0700 zot zot -"
     "d /mnt/backup-2tb/photos 0755 root root -"
     "d /mnt/backup-2tb/documents 0755 root root -"
+    "d /tank/media/games 0775 1000 1000 -"
   ];
 
   environment.persistence."/persist".directories = [
     "/var/lib/nfs"
+    "/var/lib/samba"
   ];
 
   environment.systemPackages = with pkgs; [
