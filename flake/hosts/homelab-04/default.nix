@@ -18,6 +18,7 @@ in
     ../../modules/k3s-registry-client.nix
     ../../modules/kiosk.nix
     ../../modules/monero.nix
+    ../../modules/moonlight-client.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
@@ -62,8 +63,17 @@ in
   sops.defaultSopsFile = ../../../secrets/hosts/homelab-04.sops.yaml;
   sops.secrets.kiosk-ha-token.restartUnits = [ "kiosk-rotate.service" ];
 
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+  };
+
   homelab.kiosk = {
     enable = true;
+    compositor = "sway";
     url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
@@ -88,6 +98,25 @@ in
     # session from a long-lived access token, re-applied after each boot.
     haDashboardTokenFile = config.sops.secrets.kiosk-ha-token.path;
     haDashboardUrl = "http://10.0.40.13:8123";
+    swayExtraConfig = ''
+      # Keybinding: Mod4 (Super) + m toggles or launches moonlight-session
+      bindsym Mod4+m exec ${pkgs.writeShellScript "toggle-moonlight" ''
+        if ${pkgs.procps}/bin/pgrep -x moonlight >/dev/null 2>&1; then
+          ${pkgs.procps}/bin/pkill -x moonlight
+        else
+          ${config.homelab.moonlight.sessionPackage}/bin/moonlight-session &
+        fi
+      ''}
+    '';
+  };
+
+  homelab.moonlight = {
+    enable = true;
+    users = [
+      "kiosk"
+      "rupan"
+    ];
+    autostart = false;
   };
 
   homelab.woodpecker.enable = true;
