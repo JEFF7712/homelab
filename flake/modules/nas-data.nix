@@ -30,6 +30,40 @@
     ];
   };
 
+  # Samba passwords live outside Nix; set rupan's with smbpasswd once
+  # (docs/runbooks/nas-game-share.md).
+  services.samba = {
+    enable = true;
+    openFirewall = true;
+    settings = {
+      global = {
+        "workgroup" = "WORKGROUP";
+        "server string" = "nas-01";
+        "netbios name" = "nas-01";
+        "security" = "user";
+        # Allow connections from clients LAN (VLAN 20), servers (VLAN 30), and management (VLAN 10)
+        "hosts allow" = "10.0.20. 10.0.30. 10.0.10. 127.0.0.1 localhost";
+        "hosts deny" = "0.0.0.0/0";
+      };
+      games = {
+        path = "/tank/media/games";
+        browseable = "yes";
+        "read only" = "no";
+        "guest ok" = "no";
+        "valid users" = "rupan";
+        "create mask" = "0664";
+        "directory mask" = "0775";
+        "force user" = "rupan";
+        "force group" = "users";
+      };
+    };
+  };
+
+  services.samba-wsdd = {
+    enable = true;
+    openFirewall = true;
+  };
+
   services.nfs.server = {
     enable = true;
     exports = ''
@@ -263,10 +297,12 @@
     "d /mnt/backup-2tb/registry-restic 0700 zot zot -"
     "d /mnt/backup-2tb/photos 0755 root root -"
     "d /mnt/backup-2tb/documents 0755 root root -"
+    "d /tank/media/games 0775 rupan users -"
   ];
 
   environment.persistence."/persist".directories = [
     "/var/lib/nfs"
+    "/var/lib/samba"
   ];
 
   environment.systemPackages = with pkgs; [

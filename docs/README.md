@@ -28,6 +28,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/analytics.md`: Umami web analytics at `tally.rupan.dev`, its CNPG database, backups, and how to track a site.
 - `docs/runbooks/pod-security.md`: enforced Pod Security level per namespace, the privileged exceptions, and how to change a level.
 - `docs/runbooks/agent-workspaces.md` — multiuser agent workspace operations.
+- `docs/runbooks/nas-game-share.md` — SMB game share on nas-01: access model and the one-time Samba password setup.
 - `docs/runbooks/arr-credentials.md` — media download-chain credential sync (qBittorrent password, *arr/Seerr API keys) and rotation.
 - `docs/runbooks/netbird.md` — NetBird dashboard/config API for agents: `NETBIRD_API_KEY` storage in SOPS, read-only usage, and rotation. Required reading before calling the NetBird Management API or changing peers, routes, or policies.
 - `docs/runbooks/home-assistant-automation-best-practices.md` — HA automation conventions.

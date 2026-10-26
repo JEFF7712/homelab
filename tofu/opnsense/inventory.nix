@@ -187,6 +187,12 @@
         description = "Sunshine game streaming server ports";
         enabled = true;
       };
+      smb_ports = {
+        type = "port";
+        content = [ "445" ];
+        description = "SMB2/3 network file sharing port";
+        enabled = true;
+      };
     };
     rules = {
       management-allow-any = {
@@ -306,6 +312,30 @@
           destination = {
             net = "${fleetInventory.hosts.adguard-netbird-01.address}/32";
             port = "1883";
+          };
+        };
+      };
+      clients-allow-nas-smb = {
+        description = "Allow clients to NAS Samba SMB network file sharing";
+        enabled = true;
+        sequence = 215;
+        interface = {
+          interface = [ "opt1" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.clients.cidr;
+            port = "";
+          };
+          destination = {
+            net = "${fleetInventory.hosts.nas-01.address}/32";
+            port = "smb_ports";
           };
         };
       };
