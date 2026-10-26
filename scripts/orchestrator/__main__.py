@@ -5,7 +5,7 @@
     python -m scripts.orchestrator migrate --db PATH
     python -m scripts.orchestrator supervisor-audit --letta-dir DIR [--approve NAME]
         [--allow-chatgpt-sign-in]
-    python -m scripts.orchestrator serve --config FILE
+    python -m scripts.orchestrator serve --config FILE [--allow-local-jobs]
     python -m scripts.orchestrator render-manifests --params FILE
     python -m scripts.orchestrator bridge --letta-url URL --agent-id ID
         --conversation-id ID --controller-url URL --token-file FILE
@@ -52,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     manifests.add_argument("--params", type=Path, required=True)
     serve = commands.add_parser("serve")
     serve.add_argument("--config", type=Path, required=True)
+    serve.add_argument("--allow-local-jobs", action="store_true")
     bridge = commands.add_parser("bridge")
     for option in ("letta-url", "agent-id", "conversation-id", "controller-url"):
         bridge.add_argument(f"--{option}", required=True)
@@ -72,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "serve":
         from scripts.orchestrator.daemon import main as serve_main
 
-        return serve_main(args.config)
+        return serve_main(args.config, args.allow_local_jobs)
     if args.command == "bridge":
         import asyncio
         import logging

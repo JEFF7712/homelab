@@ -385,7 +385,17 @@ class DaemonTests(unittest.TestCase):
                 "listen": {"worker": "127.0.0.1:0", "client": "127.0.0.1:0"},
                 "tick_seconds": 0.1,
             }
-            daemon = build(config)
+            with self.assertRaises(ValueError):
+                build(config)
+            in_pods = {
+                **config,
+                "db": str(root / "other.sqlite"),
+                "backend": {**config["backend"], "env": {"OPENAI_API_KEY": "x"}},
+                "jobs": {"kind": "kubernetes", "namespace": "n", "image": "i"},
+            }
+            with self.assertRaises(ValueError):
+                build(in_pods)
+            daemon = build(config, allow_local=True)
             stop = threading.Event()
             daemon.store.create_task(
                 "rupan", "k", TaskSpec("sandbox", "t", "g", ("c",)), time.time()
@@ -904,6 +914,22 @@ class CommitStatusTests(unittest.TestCase):
             self.assertEqual(status.state, "success")
             self.assertEqual(status.contexts, {CI_CONTEXT: "success"})
             self.assertEqual(status.sources, {CI_CONTEXT: ("woodpecker", PAGE + 1)})
+
+
+class LocalModeTests(unittest.TestCase):
+    def test_local_workers_are_refused_inside_kubernetes(self) -> None:
+        from unittest import mock
+
+        from scripts.orchestrator.jobs import LocalProcessJobManager, in_cluster
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(in_cluster({"KUBERNETES_SERVICE_HOST": "10.43.0.1"}))
+            self.assertTrue(in_cluster({}, Path(tmp)))
+            with (
+                mock.patch.dict("os.environ", {"KUBERNETES_SERVICE_HOST": "10.43.0.1"}),
+                self.assertRaises(RuntimeError),
+            ):
+                LocalProcessJobManager(Path(tmp) / "jobs")
 
 
 class ClientIsolationTests(unittest.TestCase):

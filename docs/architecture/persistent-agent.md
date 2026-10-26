@@ -312,11 +312,20 @@ The Kubernetes manifests are rendered, not committed:
 `python -m scripts.orchestrator render-manifests --params FILE` takes the
 node and the digest-pinned images as required inputs
 (`scripts/orchestrator/manifests.py`), accepts only homelab-02 or
-homelab-03, refuses unpinned images and inline credentials in the backend
-configuration, mounts into each worker Job only the Secret keys its backend
-needs, and renders a single `Recreate` controller pinned to that node with a
+homelab-03, refuses unpinned images, checks the backend configuration
+against a closed schema (unknown keys such as `env` are refused, values must
+match their shape, and `token_file` and `codex_home` must be the approved
+secret locations; the daemon applies the same check for Kubernetes jobs),
+mounts into each worker Job only the Secret keys its backend needs, and renders a single `Recreate` controller pinned to that node with a
 local PV, `restricted` Pod Security, worker Jobs without service-account
 tokens, and default-deny NetworkPolicies. Nothing is bound into Flux.
+
+Local worker processes (`LocalProcessJobManager`) give no isolation: a
+worker runs as the controller's user. They exist for offline tests and
+rehearsals only. The daemon offers them only behind `serve
+--allow-local-jobs`, which no config file can set and the rendered
+Deployment never passes, and the manager itself refuses to start inside a
+Kubernetes pod.
 
 Remaining before a deployment request:
 
