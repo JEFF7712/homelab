@@ -139,9 +139,9 @@ in
   services.agent-workspace-network = {
     enable = true;
     # Rupan's personal VM is a full development environment: Forgejo Git and
-    # API, the signed cache, Woodpecker, the Kubernetes API (kubernetes_api
-    # below), and SSH to every fleet host, as `just doctor --live` and
-    # `just ship` require.
+    # API, the signed cache, Woodpecker and approvals, the Kubernetes API
+    # (kubernetes_api below), and SSH to every fleet host, as
+    # `just doctor --live` and `just ship` require.
     tcpEgress.rupan = [
       {
         address = fleetInventory.hosts.nas-01.address;
@@ -157,6 +157,7 @@ in
         ports = [
           22
           8000
+          8020
         ];
       }
     ]
