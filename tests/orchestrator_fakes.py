@@ -21,12 +21,77 @@ import websockets
 
 CI_CONTEXT = "ci/woodpecker/pr/validation"
 CI_LOGIN = "woodpecker"
+BASE_SHA = "b" * 40
+
+
+class FakePublisher:
+    """Publishes nothing; every attempt starts from BASE_SHA."""
+
+    def __init__(self) -> None:
+        self.published: list[tuple[str, str, bytes]] = []
+
+    def base_head(self) -> str:
+        return BASE_SHA
+
+    def archive(self, base_sha: str) -> bytes:
+        return b""
+
+    def publish(
+        self, base_sha: str, branch: str, patch: bytes, message: str, when: float
+    ) -> Any:
+        from scripts.orchestrator.publisher import Publication
+
+        self.published.append((base_sha, branch, patch))
+        return Publication(branch, "c" * 40)
 
 
 def git(*args: str, cwd: Path | None = None) -> str:
     return subprocess.run(
         ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
     ).stdout.strip()
+
+
+def worker_patch(archive: bytes, work: Path, files: dict[str, str]) -> bytes:
+    """What a worker submits: the base archive, edited, as a binary diff."""
+    import io
+    import tarfile
+
+    work.mkdir(parents=True)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(work, filter="data")
+    git("init", "-q", cwd=work)
+    git("add", "-A", cwd=work)
+    git("-c", "user.name=w", "-c", "user.email=w@w", "commit", "-qm", "b", cwd=work)
+    for name, text in files.items():
+        target = work / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    git("add", "-A", cwd=work)
+    return subprocess.run(
+        [
+            "git",
+            "diff",
+            "--cached",
+            "--no-ext-diff",
+            "--no-color",
+            "--binary",
+            "--full-index",
+            "HEAD",
+        ],
+        cwd=work,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+
+def advance(bare: Path, branch: str, work: Path) -> str:
+    """Someone else pushes a commit onto `branch`; return the new head."""
+    git("clone", "-q", "--branch", branch, str(bare), str(work))
+    (work / "intruder.txt").write_text("not published\n")
+    git("add", "-A", cwd=work)
+    git("-c", "user.name=i", "-c", "user.email=i@i", "commit", "-qm", "x", cwd=work)
+    git("push", "-q", "origin", f"HEAD:refs/heads/{branch}", cwd=work)
+    return git("rev-parse", "HEAD", cwd=work)
 
 
 def bare_repository(root: Path) -> Path:
@@ -63,6 +128,7 @@ class FakeForgejo:
         self.statuses: dict[str, list[dict[str, Any]]] = {}
         self.reviews: dict[int, list[dict[str, Any]]] = {}
         self.writes: list[str] = []
+        self.merges: list[str] = []
         self.next_comment = 1
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -174,6 +240,9 @@ class FakeForgejo:
                     self._post(path, body)
 
             def _post(self, path: str, body: dict[str, Any]) -> None:
+                if path.startswith("pulls/") and path.endswith("/merge"):
+                    forge.merges.append(path)
+                    return self.reply(405, {"message": "merging is not expected"})
                 parts = path.strip("/").split("/")
                 forge.writes.append(path)
                 if parts == ["labels"]:

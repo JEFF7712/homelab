@@ -1,9 +1,12 @@
 """Verified completion from the controller's own forge and CI reads.
 
-Woodpecker reports pipelines to the forge as commit statuses, so CI is read
-there, on the pull request's current head commit, counting only statuses
-posted by the configured CI logins. Acceptance criteria are
-checked without trusting worker output:
+Verification is bound to one commit: the one the trusted publisher pushed.
+A pull request whose head is anything else fails, so a later push can never
+inherit an earlier result. Woodpecker reports pipelines to the forge as
+commit statuses, so CI is read there, on that commit, counting only statuses
+posted by the configured CI logins. The evidence records exactly which
+statuses and reviews it relied on. Acceptance criteria are checked without
+trusting worker output:
 - `ci:<context>` is met when that status context succeeded on the head;
 - any other criterion is met only by an approving review from the task
   principal's forge account on exactly that head commit.
@@ -35,8 +38,18 @@ class Verdict:
 
 
 def verify(
-    task: Task, pull: PullRequest, forge: Forge, config: VerifierConfig
+    task: Task,
+    pull: PullRequest,
+    forge: Forge,
+    config: VerifierConfig,
+    published_head: str,
 ) -> Verdict:
+    if pull.head_sha != published_head:
+        return Verdict(
+            "failed",
+            f"pull request #{pull.number} head {pull.head_sha[:12]} is not the "
+            f"published commit {published_head[:12]}",
+        )
     if pull.state != "open" and not pull.merged:
         return Verdict("failed", f"pull request #{pull.number} was closed unmerged")
     if not config.ci_logins:
@@ -57,9 +70,8 @@ def verify(
             "pending", "waiting for CI: " + ", ".join(missing or [status.state])
         )
     reviewer = config.reviewers.get(task.principal)
-    approved = reviewer is not None and reviewer in forge.approvals(
-        pull.number, pull.head_sha
-    )
+    reviews = forge.approvals(pull.number, pull.head_sha)
+    approved = reviewer is not None and reviewer in reviews
     met = []
     for criterion in task.acceptance_criteria:
         if criterion.startswith(CI_PREFIX):
@@ -79,5 +91,10 @@ def verify(
         criteria_met=tuple(met),
         summary=f"CI passed ({', '.join(sorted(required)) or 'combined status'})"
         + (f"; approved by {reviewer}" if approved else ""),
+        ci_statuses=tuple(
+            (context, contexts[context], *status.sources[context])
+            for context in sorted(status.sources)
+        ),
+        reviews=((reviewer, reviews[reviewer]),) if approved and reviewer else (),
     )
     return Verdict("passed", evidence.summary, evidence)

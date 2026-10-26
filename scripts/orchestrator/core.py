@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 PAYLOAD_LIMIT = 16 * 1024
+PATCH_LIMIT = 4 * 1024 * 1024
 MAX_ATTEMPTS = 3
 
 TERMINAL = frozenset({"completed", "failed", "cancelled"})
@@ -195,7 +196,27 @@ CREATE TABLE IF NOT EXISTS forge_cursors (
 );
 """
 
-MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2)
+# v3: the trusted publisher. Each attempt is bound at dispatch to its base
+# commit and branch; the worker submits a patch, never a push, and the
+# publisher records the commit it pushed. Verifications keep the exact CI
+# statuses and reviews they relied on.
+SCHEMA_V3 = """
+CREATE TABLE IF NOT EXISTS artifacts (
+  attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
+  task_id TEXT NOT NULL REFERENCES tasks(id),
+  base_sha TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  patch BLOB,
+  patch_digest TEXT,
+  submitted REAL,
+  published_head TEXT,
+  published REAL,
+  rejected TEXT
+);
+ALTER TABLE verifications ADD COLUMN record TEXT NOT NULL DEFAULT '{}';
+"""
+
+MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3)
 SCHEMA_VERSION = len(MIGRATIONS)
 NETWORK_FILESYSTEMS = frozenset(
     {
@@ -371,6 +392,31 @@ class Evidence:
     ci_state: str
     criteria_met: tuple[str, ...]
     summary: str
+    # The exact CI statuses (context, state, creator, id) and approving
+    # reviews (login, id) on `head_sha` that this verification relied on.
+    ci_statuses: tuple[tuple[str, str, str, int], ...] = ()
+    reviews: tuple[tuple[str, int], ...] = ()
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "ci": [list(item) for item in self.ci_statuses],
+            "reviews": [list(item) for item in self.reviews],
+        }
+
+
+@dataclass(frozen=True)
+class Artifact:
+    """An attempt's bound base commit and branch, its patch, and what the
+    publisher pushed for it."""
+
+    attempt_id: str
+    task_id: str
+    base_sha: str
+    branch: str
+    patch_digest: str | None
+    submitted: float | None
+    published_head: str | None
+    rejected: str | None
 
 
 def filesystem_type(path: Path, mounts: Path = Path("/proc/self/mounts")) -> str:
@@ -752,10 +798,11 @@ class Store:
             if row is None:
                 raise OrchestratorError("NOT_FOUND", f"unknown task {task_id}")
             self._check_evidence(row, evidence)
+            self._check_published(db, task_id, evidence.head_sha)
             db.execute(
                 "INSERT INTO verifications (id, task_id, pull_request, head_sha, "
-                "ci_state, criteria_met, summary, verifier, at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "ci_state, criteria_met, summary, verifier, at, record) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     new_id("ver"),
                     task_id,
@@ -766,6 +813,7 @@ class Store:
                     evidence.summary[:PAYLOAD_LIMIT],
                     verifier,
                     now,
+                    canonical(evidence.record()),
                 ),
             )
             return self._move(
@@ -813,6 +861,7 @@ class Store:
                     "EVIDENCE_REJECTED",
                     f"head moved from {evidence.head_sha[:12]} to {observed_head[:12]}",
                 )
+            self._check_published(db, task_id, evidence.head_sha)
             task = self._move(
                 db, task_id, "completed", actor, "finalized", now, "in_review"
             )
@@ -831,11 +880,29 @@ class Store:
                     "ci_state": evidence.ci_state,
                     "criteria_met": sorted(evidence.criteria_met),
                     "summary": evidence.summary,
+                    "record": json.loads(verification["record"]),
                 },
                 None,
                 now,
             )
             return task
+
+    def _check_published(
+        self, db: sqlite3.Connection, task_id: str, head_sha: str
+    ) -> None:
+        """Evidence must be about the commit the publisher pushed for the
+        task's latest attempt, when that attempt went through the publisher."""
+        artifact = db.execute(
+            "SELECT a.published_head FROM artifacts a JOIN attempts t "
+            "ON t.id = a.attempt_id WHERE a.task_id = ? ORDER BY t.number DESC "
+            "LIMIT 1",
+            (task_id,),
+        ).fetchone()
+        if artifact is not None and artifact["published_head"] != head_sha:
+            raise OrchestratorError(
+                "EVIDENCE_REJECTED",
+                f"{head_sha[:12]} is not the commit the publisher pushed",
+            )
 
     def _check_evidence(self, row: sqlite3.Row, evidence: Evidence) -> None:
         if evidence.ci_state != "success":
@@ -1015,6 +1082,13 @@ class Store:
                 raise OrchestratorError(
                     "LEASE_LOST", f"{owner} no longer holds attempt {attempt_id}"
                 )
+            bound = db.execute(
+                "SELECT submitted FROM artifacts WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+            if bound is not None and bound["submitted"] is None:
+                raise OrchestratorError(
+                    "INVALID_SPEC", "submit the patch before settling"
+                )
             self._event(
                 db,
                 f"settled_{attempt_id}",
@@ -1035,6 +1109,116 @@ class Store:
             )
             self._expire_questions(db, attempt_id)
             return self._task(self._row(db, attempt.task_id))  # type: ignore[arg-type]
+
+    # Artifacts
+
+    def bind_artifact(
+        self, attempt_id: str, base_sha: str, branch: str, now: float
+    ) -> Artifact:
+        """Bind a dispatched attempt to its base commit and branch.
+
+        Controller-only, before the worker starts; idempotent for the same
+        binding and refused for a different one.
+        """
+        self._require_controller("bind attempts")
+        if not SHA.match(base_sha):
+            raise OrchestratorError("INVALID_SPEC", "base must be a full commit id")
+        with self.transaction() as db:
+            attempt = self._attempt(db, attempt_id)
+            db.execute(
+                "INSERT OR IGNORE INTO artifacts (attempt_id, task_id, base_sha, "
+                "branch) VALUES (?, ?, ?, ?)",
+                (attempt_id, attempt.task_id, base_sha, branch),
+            )
+            artifact = self._artifact(db, attempt_id)
+            if (artifact.base_sha, artifact.branch) != (base_sha, branch):
+                raise OrchestratorError(
+                    "CONFLICT", f"attempt {attempt_id} is bound elsewhere"
+                )
+            return artifact
+
+    def submit_artifact(
+        self, attempt_id: str, owner: str, patch: bytes, now: float
+    ) -> Artifact:
+        """Store the live attempt's patch once; a resubmission must match."""
+        if not patch or len(patch) > PATCH_LIMIT:
+            raise OrchestratorError(
+                "INVALID_SPEC", f"a patch must be 1 to {PATCH_LIMIT} bytes"
+            )
+        patch_digest = "sha256:" + hashlib.sha256(patch).hexdigest()
+        with self.transaction() as db:
+            attempt = self._attempt(db, attempt_id)
+            if (
+                attempt.finished is not None
+                or attempt.lease_owner != owner
+                or attempt.lease_expires <= now
+            ):
+                raise OrchestratorError(
+                    "LEASE_LOST", f"{owner} no longer holds attempt {attempt_id}"
+                )
+            artifact = self._artifact(db, attempt_id)
+            if artifact.patch_digest is not None:
+                if artifact.patch_digest != patch_digest:
+                    raise OrchestratorError(
+                        "CONFLICT", "a different patch was already submitted"
+                    )
+                return artifact
+            db.execute(
+                "UPDATE artifacts SET patch = ?, patch_digest = ?, submitted = ? "
+                "WHERE attempt_id = ?",
+                (patch, patch_digest, now, attempt_id),
+            )
+            return self._artifact(db, attempt_id)
+
+    def artifact(self, attempt_id: str) -> Artifact | None:
+        with self.lock:
+            try:
+                return self._artifact(self.db, attempt_id)
+            except OrchestratorError:
+                return None
+
+    def artifact_patch(self, attempt_id: str) -> bytes:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT patch FROM artifacts WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+        if row is None or row["patch"] is None:
+            raise OrchestratorError("NOT_FOUND", f"no patch for {attempt_id}")
+        return bytes(row["patch"])
+
+    def record_publication(self, attempt_id: str, head: str, now: float) -> Artifact:
+        """Record the commit the publisher pushed; controller-only, once."""
+        self._require_controller("record publications")
+        if not SHA.match(head):
+            raise OrchestratorError("INVALID_SPEC", "head must be a full commit id")
+        with self.transaction() as db:
+            artifact = self._artifact(db, attempt_id)
+            if artifact.published_head not in (None, head):
+                raise OrchestratorError(
+                    "CONFLICT", f"{attempt_id} was published as another commit"
+                )
+            db.execute(
+                "UPDATE artifacts SET published_head = ?, published = ? "
+                "WHERE attempt_id = ?",
+                (head, now, attempt_id),
+            )
+            return self._artifact(db, attempt_id)
+
+    def reject_artifact(self, attempt_id: str, reason: str) -> None:
+        self._require_controller("reject artifacts")
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE artifacts SET rejected = ? WHERE attempt_id = ?",
+                (reason[:PAYLOAD_LIMIT], attempt_id),
+            )
+
+    def _artifact(self, db: sqlite3.Connection, attempt_id: str) -> Artifact:
+        row = db.execute(
+            "SELECT * FROM artifacts WHERE attempt_id = ?", (attempt_id,)
+        ).fetchone()
+        if row is None:
+            raise OrchestratorError("NOT_FOUND", f"no artifact for {attempt_id}")
+        return Artifact(**{key: row[key] for key in Artifact.__dataclass_fields__})
 
     def extend_leases(self, until: float) -> int:
         """Push every unfinished attempt's lease to at least `until`.
