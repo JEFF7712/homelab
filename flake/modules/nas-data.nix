@@ -30,6 +30,8 @@
     ];
   };
 
+  # Samba passwords live outside Nix; set rupan's with smbpasswd once
+  # (docs/runbooks/nas-game-share.md).
   services.samba = {
     enable = true;
     openFirewall = true;
