@@ -132,7 +132,10 @@ in
     "--kubelet-arg=kube-reserved=cpu=500m,memory=1Gi"
   ];
 
-  services.agent-workspaces.enable = true;
+  services.agent-workspaces = {
+    enable = true;
+    aggregateMemoryMaxMiB = 14336;
+  };
   services.agent-workspace-network = {
     enable = true;
     tcpEgress.rupan = [

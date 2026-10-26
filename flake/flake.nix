@@ -293,7 +293,7 @@
           pkgs.runCommand "agent-workspace-host-reservations" { } ''
             ${
               if
-                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=12288Mi" host.services.k3s.extraFlags
+                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=16384Mi" host.services.k3s.extraFlags
               then
                 "true"
               else
@@ -304,7 +304,7 @@
             } = 200%
             test ${
               nixpkgs.lib.escapeShellArg host.systemd.slices."machine-agent\\x2dworkspaces".sliceConfig.MemoryMax
-            } = 10240M
+            } = 14336M
             touch $out
           '';
 
