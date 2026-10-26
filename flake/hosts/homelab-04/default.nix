@@ -138,15 +138,40 @@ in
   };
   services.agent-workspace-network = {
     enable = true;
+    # Rupan's personal VM is a full development environment: Forgejo Git and
+    # API, the signed cache, Woodpecker and approvals, the Kubernetes API
+    # (kubernetes_api below), and SSH to every fleet host, as
+    # `just doctor --live` and `just ship` require.
     tcpEgress.rupan = [
       {
         address = fleetInventory.hosts.nas-01.address;
         ports = [
+          22
           2222
+          3000
           8080
         ];
       }
-    ];
+      {
+        address = fleetInventory.hosts.homelab-04.address;
+        ports = [
+          22
+          8000
+          8020
+        ];
+      }
+    ]
+    ++
+      map
+        (name: {
+          address = fleetInventory.hosts.${name}.address;
+          ports = [ 22 ];
+        })
+        (
+          builtins.filter (name: name != "nas-01" && name != "homelab-04") (
+            builtins.attrNames fleetInventory.hosts
+          )
+        );
     recoveryManifest = {
       schema_version = 1;
       workspaces = [
@@ -163,6 +188,7 @@ in
             mac = "02:00:00:10:00:02";
             uplink = "enp0s31f6";
             ha_api = null;
+            kubernetes_api = fleetInventory.hosts.${fleetInventory.bootstrapHost}.address;
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [
