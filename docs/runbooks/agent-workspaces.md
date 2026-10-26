@@ -22,7 +22,7 @@ It accepts only a domain whose UUID, manifest hash, receipt, and disks agree. It
 
 `flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule. Rupan's personal development VM has only NAS Git (2222) and signed-cache (8080) access; Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
 
-The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 10 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 9 GiB memory pressure threshold, and has a 10 GiB hard memory limit. The versioned enrollment inventory remains empty; the existing guests have separately maintained libvirt registrations and network-only recovery definitions.
+The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 14 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 13 GiB memory pressure threshold, and has a 14 GiB hard memory limit. The limit covers Rupan's 8 GiB guest, Sam's 4 GiB guest, and QEMU overhead. The versioned enrollment inventory remains empty; the existing guests have separately maintained libvirt registrations and network-only recovery definitions.
 
 For the `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-04/default.nix` contains only their existing network settings under `recoveryManifest`. This input creates host bridges and filtering rules but does not provision guests, add enrollment records, or grant HA access. Sam's saved XML and disks under `/persist/agent-workspaces/sam/` remain unchanged. Rupan's NixOS guest is described below. Keep this input limited to those existing networks and remove it only after an independently accepted replacement or decommissioning; the backup restore and HA capability gates remain open.
 
@@ -36,7 +36,7 @@ package definitions. Its source is `hosts/agent-rupan/configuration.nix` and
 This guest is outside the Ubuntu cloud-image provisioning lifecycle. Do not
 add a guessed enrollment record or run `workspace-provision` against its disks.
 
-The domain keeps UUID `a73b5b41-f1b1-5719-a045-94a0fd2cce92`, 2 vCPUs, 4 GiB RAM,
+The domain keeps UUID `a73b5b41-f1b1-5719-a045-94a0fd2cce92`, 2 vCPUs, 8 GiB RAM,
 the 100 percent whole-domain CPU limit, and the existing bridge, tap, MAC and
 address. Its single fresh 96 GiB disk is
 `/persist/agent-workspaces/rupan/disks/nixos.qcow2`. SSH remains

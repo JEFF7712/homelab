@@ -1,7 +1,7 @@
 <domain type="kvm">
   <name>agent-rupan</name>
   <uuid>a73b5b41-f1b1-5719-a045-94a0fd2cce92</uuid>
-  <memory unit="MiB">4096</memory>
+  <memory unit="MiB">8192</memory>
   <vcpu placement="static">2</vcpu>
   <cputune>
     <global_period>100000</global_period>
