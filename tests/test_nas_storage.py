@@ -18,7 +18,7 @@ class NasStorageTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         expression = """
           let
-            flake = builtins.getFlake (toString __FLAKE_PATH__);
+            flake = builtins.getFlake __FLAKE_PATH__;
             system = flake.nixosConfigurations.nas-01.extendModules {
               modules = [({ lib, ... }: {
                 disko.devices.zpool.tank.datasets = {
@@ -46,7 +46,7 @@ class NasStorageTest(unittest.TestCase):
             };
             exports = system.config.services.nfs.server.exports;
           }
-        """.replace("__FLAKE_PATH__", json.dumps(str(ROOT / "flake")))
+        """.replace("__FLAKE_PATH__", json.dumps(f"git+file://{ROOT}?dir=flake"))
         result = subprocess.run(
             ["nix", "eval", "--impure", "--json", "--expr", expression],
             capture_output=True,
