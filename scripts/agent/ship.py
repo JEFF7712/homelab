@@ -213,6 +213,24 @@ def http(
     raise ShipError(f"{method} {url} unreachable")
 
 
+def awaiting_review(pull: dict[str, Any]) -> str | None:
+    """Explain a pending review request, which branch protection merges behind.
+
+    CODEOWNERS requests the owner's review when a PR touches a protected
+    interface (the website renderer, its tests and gates). The agent cannot
+    approve its own PR, so ship stops and leaves the PR open for the owner.
+    """
+    reviewers = sorted(
+        user["login"] for user in pull.get("requested_reviewers") or [] if user
+    )
+    if not reviewers:
+        return None
+    return (
+        f"PR #{pull['number']} awaits review from {', '.join(reviewers)}: "
+        f"{pull['html_url']}. After approval, rerun `just ship` on this branch."
+    )
+
+
 class Forgejo:
     def __init__(self) -> None:
         config = yaml.safe_load((Path.home() / ".config/tea/config.yml").read_text())
@@ -412,6 +430,9 @@ class Shipper:
             if current.get("merged"):
                 return current["merge_commit_sha"]
             self.wait_status(current["head"]["sha"], f"PR #{number}")
+            waiting = awaiting_review(current)
+            if waiting:
+                raise ShipError(waiting)
             code, payload = self.forgejo.try_call(
                 "POST",
                 f"/pulls/{number}/merge",

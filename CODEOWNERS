@@ -1,0 +1,8 @@
+# Forgejo requests the owner's review on any PR touching these paths, and
+# main's branch protection blocks the merge until it is given. These are the
+# agent-facing website interface (schema, renderer, ejection list), the tests
+# and gate that enforce it, and this file.
+scripts/websites/.* @JEFF7712
+tests/test_website_.*\.py @JEFF7712
+scripts/checks/gitops\.sh @JEFF7712
+CODEOWNERS @JEFF7712

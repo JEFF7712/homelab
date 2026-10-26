@@ -6,6 +6,8 @@ hardening, network policy). The renderer owns namespace.yaml,
 network-policy.yaml, deployment.yaml, service.yaml, pdb.yaml and
 kustomization.yaml in that directory, and `--check` fails when any of them
 differs from a fresh render, so a hand edit to a generated file cannot merge.
+A listed site without site.yaml must be named in HANDWRITTEN, so taking a site
+out of generation is a change to this file and needs code-owner review.
 
 The image reference is copied verbatim into deployment.yaml. Registry
 promotion rewrites that exact string in every file with an `image:` line, so
@@ -38,6 +40,10 @@ GENERATED = (
     "kustomization.yaml",
 )
 PROFILES = ("static", "server")
+# Sites whose manifests are written by hand. Taking a site out of generation
+# means adding it here, so it needs the same code-owner review as a renderer
+# change (see CODEOWNERS).
+HANDWRITTEN = ("bus-display", "uwagent")
 STATIC_PORT = 8080
 LINE_LIMIT = 120
 IMAGE = re.compile(
@@ -325,6 +331,21 @@ def registration_errors(sites: list[Site], websites: Path, flux: Path) -> list[s
     return errors
 
 
+def management_errors(sites: list[Site], websites: Path) -> list[str]:
+    listed = yaml.safe_load((websites / "kustomization.yaml").read_text())["resources"]
+    generated = {site.name for site in sites}
+    errors = []
+    for name in listed:
+        if name in generated and name in HANDWRITTEN:
+            errors.append(f"{name}: has {SPEC} but is listed in HANDWRITTEN")
+        elif name not in generated and name not in HANDWRITTEN:
+            errors.append(
+                f"{name}: no {SPEC}; a handwritten site must be added to HANDWRITTEN "
+                "in scripts/websites/render.py, which needs code-owner review"
+            )
+    return errors
+
+
 def plan(site: Site, directory: Path) -> tuple[dict[str, str], list[str], list[str]]:
     """Return files to write, generated files to delete, and unowned files."""
     wanted = render(site)
@@ -363,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 2
     problems = registration_errors(sites, WEBSITES, FLUX_WEBSITES)
+    problems += management_errors(sites, WEBSITES)
     stale = []
     for site in sites:
         directory = WEBSITES / site.name

@@ -605,3 +605,28 @@ class ShipRolloutTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AwaitingReviewTest(unittest.TestCase):
+    def test_pending_code_owner_request_stops_the_merge(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        pull = {
+            "number": 7,
+            "html_url": "https://git.rupan.dev/JEFF7712/homelab/pulls/7",
+            "requested_reviewers": [{"login": "JEFF7712"}],
+        }
+        message = awaiting_review(pull)
+        assert message is not None
+        self.assertIn("awaits review from JEFF7712", message)
+        self.assertIn(pull["html_url"], message)
+
+    def test_no_pending_request_allows_the_merge(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        for reviewers in (None, []):
+            self.assertIsNone(
+                awaiting_review(
+                    {"number": 7, "html_url": "u", "requested_reviewers": reviewers}
+                )
+            )
