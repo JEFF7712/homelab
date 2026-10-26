@@ -28,6 +28,8 @@ HOST_PATHS = (
     "scripts/ci/policy.py",
     "scripts/ci/state.py",
     "scripts/approvals/",
+    "scripts/verifier/",
+    "flake/modules/merge-policy.nix",
     "scripts/projectctl/authorization.py",
     "scripts/projectctl/gateway.py",
     "scripts/registry/provision",
