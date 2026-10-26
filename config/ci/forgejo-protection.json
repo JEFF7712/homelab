@@ -5,5 +5,6 @@
   "status_check_contexts": ["ci/woodpecker/validation-v2"],
   "apply_to_admins": true,
   "block_on_rejected_reviews": true,
-  "block_on_outdated_branch": true
+  "block_on_outdated_branch": true,
+  "block_on_official_review_requests": true
 }
