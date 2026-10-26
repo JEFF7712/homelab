@@ -304,7 +304,8 @@ class ForgejoForge:
 
 
 COMMAND = re.compile(
-    r"^/(?P<verb>answer|approve|decline|cancel)\b[ \t]*(?P<rest>.*)$", re.MULTILINE
+    r"^/(?P<verb>answer|confirm|approve|decline|cancel)\b[ \t]*(?P<rest>.*)$",
+    re.MULTILINE,
 )
 
 
@@ -317,7 +318,8 @@ class Command:
 
 
 def parse_commands(body: str) -> list[Command]:
-    """Read `/answer <question> <revision> <text>`, `/approve <id>`, `/decline <id>`, `/cancel`."""
+    """Read `/answer <question> <revision> <text>`, `/confirm <proposal>`,
+    `/approve <id>`, `/decline <id>`, `/cancel`."""
     found = []
     for match in COMMAND.finditer(body):
         verb, rest = match["verb"], match["rest"].strip()

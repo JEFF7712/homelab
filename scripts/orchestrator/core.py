@@ -216,7 +216,23 @@ CREATE TABLE IF NOT EXISTS artifacts (
 ALTER TABLE verifications ADD COLUMN record TEXT NOT NULL DEFAULT '{}';
 """
 
-MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3)
+# v4: answers proposed by a client (an agent) wait for the principal's
+# authenticated confirmation before they reach a worker.
+SCHEMA_V4 = """
+CREATE TABLE IF NOT EXISTS answer_proposals (
+  id TEXT PRIMARY KEY,
+  question_id TEXT NOT NULL REFERENCES questions(id),
+  task_id TEXT NOT NULL REFERENCES tasks(id),
+  revision INTEGER NOT NULL,
+  answer TEXT NOT NULL,
+  proposed_by TEXT NOT NULL,
+  status TEXT NOT NULL,
+  decided_by TEXT,
+  created REAL NOT NULL
+);
+"""
+
+MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4)
 SCHEMA_VERSION = len(MIGRATIONS)
 NETWORK_FILESYSTEMS = frozenset(
     {
@@ -1502,7 +1518,9 @@ class Store:
                 )
             if question.choices and answer not in question.choices:
                 raise OrchestratorError(
-                    "INVALID_ANSWER", f"answer must be one of {list(question.choices)}"
+                    "INVALID_ANSWER",
+                    f"answer must be one of the question's {len(question.choices)} "
+                    "choices",
                 )
             db.execute(
                 "UPDATE questions SET status = 'answered', answer = ?, answered_by = ? "
@@ -1527,6 +1545,113 @@ class Store:
                 db.execute(
                     "SELECT * FROM questions WHERE id = ?", (question_id,)
                 ).fetchone()
+            )
+
+    def propose_answer(
+        self,
+        question_id: str,
+        revision: int,
+        answer: str,
+        proposed_by: str,
+        now: float,
+    ) -> str:
+        """Record a client's proposed answer; nothing reaches the worker.
+
+        The principal confirms it on the forge (`/confirm <id>`), which then
+        answers the question if it is still open at this revision.
+        """
+        self.expire_questions(now)
+        with self.transaction() as db:
+            row = db.execute(
+                "SELECT * FROM questions WHERE id = ?", (question_id,)
+            ).fetchone()
+            if row is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown question {question_id}")
+            question = self._question(row)
+            if question.status != "open":
+                raise OrchestratorError(
+                    "STALE", f"question {question_id} is {question.status}"
+                )
+            if revision != question.revision:
+                raise OrchestratorError(
+                    "STALE",
+                    f"question {question_id} is at revision {question.revision}",
+                )
+            if question.choices and answer not in question.choices:
+                raise OrchestratorError(
+                    "INVALID_ANSWER",
+                    f"answer must be one of the question's {len(question.choices)} "
+                    "choices",
+                )
+            proposal_id = new_id("prop")
+            db.execute(
+                "INSERT INTO answer_proposals (id, question_id, task_id, revision, "
+                "answer, proposed_by, status, created) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)",
+                (
+                    proposal_id,
+                    question_id,
+                    question.task_id,
+                    revision,
+                    answer[:PAYLOAD_LIMIT],
+                    proposed_by,
+                    now,
+                ),
+            )
+            self._enqueue(
+                db,
+                f"proposal:{proposal_id}",
+                "answer.proposed",
+                question.task_id,
+                {
+                    "proposal_id": proposal_id,
+                    "question_id": question_id,
+                    "revision": revision,
+                    "answer": answer[:PAYLOAD_LIMIT],
+                    "proposed_by": proposed_by,
+                },
+                now,
+            )
+            return proposal_id
+
+    def confirm_proposal(
+        self, proposal_id: str, task_id: str, confirmed_by: str, now: float
+    ) -> Question:
+        """The principal's confirmation: answer the question as proposed.
+
+        Refused unless the proposal is pending, belongs to this task, and its
+        question is still open at the proposed revision with a live attempt.
+        """
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM answer_proposals WHERE id = ?", (proposal_id,)
+            ).fetchone()
+        if row is None or row["task_id"] != task_id:
+            raise OrchestratorError("NOT_FOUND", f"unknown proposal {proposal_id}")
+        if row["status"] != "pending":
+            raise OrchestratorError(
+                "STALE", f"proposal {proposal_id} is {row['status']}"
+            )
+        try:
+            question = self.answer(
+                row["question_id"],
+                row["revision"],
+                row["answer"],
+                f"{confirmed_by} confirming {row['proposed_by']}",
+                now,
+            )
+        except OrchestratorError:
+            self._decide_proposal(proposal_id, "stale", confirmed_by)
+            raise
+        self._decide_proposal(proposal_id, "confirmed", confirmed_by)
+        return question
+
+    def _decide_proposal(self, proposal_id: str, status: str, actor: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE answer_proposals SET status = ?, decided_by = ? "
+                "WHERE id = ? AND status = 'pending'",
+                (status, actor, proposal_id),
             )
 
     def revise(
