@@ -95,8 +95,15 @@ pkgs.testers.nixosTest {
             8080
           ];
         }
+        {
+          address = "203.0.113.1";
+          ports = [ 8000 ];
+        }
       ];
     };
+    # 8000 is closed in the NixOS firewall, so only the grant can admit it;
+    # 8001 is open, so only the workspace policy can deny it.
+    networking.firewall.allowedTCPPorts = [ 8001 ];
     environment.systemPackages = [
       pkgs.curl
       pkgs.iproute2
@@ -153,6 +160,12 @@ pkgs.testers.nixosTest {
         machine.fail(f"ip netns exec other curl --fail --silent --max-time 1 http://10.10.10.2:{port}/")
     machine.fail("ip netns exec guest curl --fail --silent --max-time 1 http://10.10.10.2:9090/")
     machine.fail("ip netns exec guest curl --fail --silent --max-time 1 http://10.10.10.3:8080/")
+    for port in [8000, 8001]:
+        machine.succeed(f"python3 -m http.server {port} --bind 203.0.113.1 >/tmp/http-host-{port}.log 2>&1 &")
+        machine.wait_until_succeeds(f"curl --fail --silent http://203.0.113.1:{port}/")
+    machine.succeed("ip netns exec guest curl --fail --silent --max-time 5 http://203.0.113.1:8000/")
+    machine.fail("ip netns exec guest curl --fail --silent --max-time 1 http://203.0.113.1:8001/")
+    machine.fail("ip netns exec other curl --fail --silent --max-time 1 http://203.0.113.1:8000/")
     machine.succeed("systemctl stop nftables.service")
     machine.succeed("test $(cat /sys/class/net/aw-test-tap/operstate) = down")
     machine.succeed("test $(cat /sys/class/net/aw-other-tap/operstate) = down")

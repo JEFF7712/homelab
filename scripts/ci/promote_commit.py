@@ -15,6 +15,12 @@ FORGEJO_API = "http://git.internal:3000/api/v1/repos/JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 
 
+def _required_contexts() -> list[str]:
+    """validation-v2 plus any other context main's protection requires."""
+    protection = json.loads(Path("config/ci/forgejo-protection.json").read_text())
+    return list(dict.fromkeys([REQUIRED_CONTEXT, *protection["status_check_contexts"]]))
+
+
 def _change_key(path: str, data: bytes) -> bytes:
     if path == "registry/images.lock.json":
         try:
@@ -190,14 +196,19 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
             time.sleep(15)
             continue
         status = _api(token, f"/commits/{expected_sha}/status")
-        matches = [
-            item
-            # Forgejo reports "statuses": null before the first status lands.
-            for item in status.get("statuses") or []
-            if item.get("context") == REQUIRED_CONTEXT
-        ]
-        latest = max(matches, key=lambda item: item.get("updated_at", ""), default=None)
-        if latest and latest.get("status") == "success":
+        states = []
+        for context in _required_contexts():
+            matches = [
+                item
+                # Forgejo reports "statuses": null before the first status lands.
+                for item in status.get("statuses") or []
+                if item.get("context") == context
+            ]
+            latest = max(
+                matches, key=lambda item: item.get("updated_at", ""), default=None
+            )
+            states.append(latest.get("status") if latest else None)
+        if all(state == "success" for state in states):
             try:
                 _api(token, f"/pulls/{number}/merge", data={"Do": "merge"})
             except urllib.error.HTTPError as error:
@@ -214,7 +225,7 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
                 continue
             print(f"Required validation passed; merged promotion PR #{number}")
             return
-        if latest and latest.get("status") in {"failure", "error"}:
+        if any(state in {"failure", "error"} for state in states):
             raise ValueError("Required homelab validation failed for promotion PR")
         time.sleep(15)
     raise TimeoutError("Timed out waiting for homelab validation on promotion PR")

@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-22T22:02:49+00:00",
+  "generated_at": "2026-10-26T19:47:46+00:00",
   "images": [
     {
       "authenticity": {
@@ -769,10 +769,10 @@
       ],
       "destination_repository": "apps/pulse-site",
       "destination_tags": [
-        "0.0.1000030",
-        "retention-deployed-3c7dfc212fad9e24"
+        "0.0.1000034",
+        "retention-deployed-fdfb9e7e99b92a08"
       ],
-      "digest": "sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da",
+      "digest": "sha256:fdfb9e7e99b92a0865bc12d6c789363326ea276edfd352a3dcf9b0df2d7b4162",
       "id": "first-party-jeff7712-pulse-site-2fd6c4414659",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -792,11 +792,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da",
-        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000030@sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da",
+        "digest": "sha256:fdfb9e7e99b92a0865bc12d6c789363326ea276edfd352a3dcf9b0df2d7b4162",
+        "reference": "registry.rupan.dev/apps/pulse-site:0.0.1000034@sha256:fdfb9e7e99b92a0865bc12d6c789363326ea276edfd352a3dcf9b0df2d7b4162",
         "registry": "registry.rupan.dev",
         "repository": "apps/pulse-site",
-        "tag": "0.0.1000030"
+        "tag": "0.0.1000034"
       }
     },
     {
