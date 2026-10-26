@@ -103,7 +103,7 @@ in
         if ${pkgs.procps}/bin/pgrep -x moonlight >/dev/null 2>&1; then
           ${pkgs.procps}/bin/pkill -x moonlight
         else
-          moonlight-session &
+          ${config.homelab.moonlight.sessionPackage}/bin/moonlight-session &
         fi
       ''}
     '';

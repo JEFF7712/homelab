@@ -53,12 +53,19 @@ in
       default = null;
       description = "Display output connector dedicated to Moonlight (e.g. DP-1 or DP-2)";
     };
+
+    sessionPackage = lib.mkOption {
+      type = lib.types.package;
+      default = moonlightSession;
+      readOnly = true;
+      description = "Package providing bin/moonlight-session. Reference it by store path from compositor bindings, whose systemd PATH excludes the system profile.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [
       pkgs.moonlight-qt
-      moonlightSession
+      cfg.sessionPackage
     ];
 
     # Controller and input support
