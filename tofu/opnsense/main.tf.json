@@ -203,11 +203,9 @@
       },
       "smb_ports": {
         "content": [
-          "445",
-          "139",
-          "5357"
+          "445"
         ],
-        "description": "Samba SMB and WSD ports for LAN network file sharing",
+        "description": "SMB2/3 network file sharing port",
         "enabled": true,
         "name": "smb_ports",
         "type": "port"

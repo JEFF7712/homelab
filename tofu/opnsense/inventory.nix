@@ -166,12 +166,8 @@
       };
       smb_ports = {
         type = "port";
-        content = [
-          "445"
-          "139"
-          "5357"
-        ];
-        description = "Samba SMB and WSD ports for LAN network file sharing";
+        content = [ "445" ];
+        description = "SMB2/3 network file sharing port";
         enabled = true;
       };
     };
