@@ -19,6 +19,7 @@ in
     ../../modules/k3s-server.nix
     ../../modules/nvidia.nix
     ../../modules/kiosk.nix
+    ../../modules/moonlight-client.nix
     ../../modules/jarvis-spectrum.nix
     ../../modules/apollo-ble-bridge.nix
     ../../modules/omarchy-vm.nix
@@ -215,11 +216,29 @@ in
 
   homelab.kiosk = {
     enable = true;
+    compositor = "sway";
     url = "http://10.0.40.13:8123/local/jarvis/index.html?v=19";
     haTokenFile = config.sops.secrets.jarvis-kiosk-ha-token.path;
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
     disableOutputs = [ "HDMI-A-2" ];
+    swayExtraConfig = ''
+      # Dual-monitor setup:
+      # DP-1 is dedicated to the gaming monitor / Moonlight stream
+      # Jarvis kiosk remains on its dedicated display (workspace 1)
+      workspace 2 output DP-1
+      assign [app_id="(?i)moonlight.*"] workspace 2
+      assign [class="(?i)moonlight.*"] workspace 2
+
+      # Autostart Moonlight in workspace 2 on DP-1
+      exec ${pkgs.moonlight-qt}/bin/moonlight-qt
+    '';
+  };
+
+  homelab.moonlight = {
+    enable = true;
+    autostart = true;
+    output = "DP-1";
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated

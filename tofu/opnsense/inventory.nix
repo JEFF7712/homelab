@@ -164,6 +164,20 @@
         enabled = true;
         devices = [ "laptop_nixos" ];
       };
+      sunshine_ports = {
+        type = "port";
+        content = [
+          "47984"
+          "47989"
+          "47998"
+          "47999"
+          "48000"
+          "48002"
+          "48010"
+        ];
+        description = "Sunshine game streaming server ports";
+        enabled = true;
+      };
     };
     rules = {
       management-allow-any = {
@@ -619,6 +633,30 @@
           destination = {
             net = config.homelab.networks.infrastructure.gateway;
             port = "179";
+          };
+        };
+      };
+      infrastructure-allow-sunshine-clients = {
+        description = "Allow infrastructure Moonlight clients to reach Sunshine streaming host on clients VLAN";
+        enabled = true;
+        sequence = 313;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP/UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = config.homelab.networks.clients.cidr;
+            port = "sunshine_ports";
           };
         };
       };
