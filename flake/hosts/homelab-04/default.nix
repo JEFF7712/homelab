@@ -92,6 +92,7 @@ in
 
   homelab.woodpecker.enable = true;
   homelab.approvals.enable = true;
+  homelab.mergePolicy.enable = true;
   homelab.platformBackup.enable = true;
 
   homelab.releaseMirror = {
