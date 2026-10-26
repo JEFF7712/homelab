@@ -32,6 +32,9 @@ from scripts.ci.deployment_risk import APPROVAL_REQUIRED
 ROOT = Path(__file__).resolve().parents[2]
 OWNER_REPO = "JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
+POLICY_CONTEXT = "policy/merge"
+POLICY_OPERATOR = "rupan"
+POLICY_REPAIRS = 3
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
 APPROVALS = "http://ci.internal:8020"
@@ -160,8 +163,10 @@ def kustomization_state(
     return False, ready.get("message", "waiting for reconciliation")[:300]
 
 
-def required_status(statuses: list[dict[str, Any]]) -> str:
-    matches = [s for s in statuses if s.get("context") == REQUIRED_CONTEXT]
+def required_status(
+    statuses: list[dict[str, Any]], context: str = REQUIRED_CONTEXT
+) -> str:
+    matches = [s for s in statuses if s.get("context") == context]
     if not matches:
         return "missing"
     latest = max(matches, key=lambda s: (s.get("updated_at", ""), s.get("id", 0)))
@@ -211,6 +216,24 @@ def http(
                 raise ShipError(f"{method} {url} unreachable: {error}") from None
             time.sleep(RETRY_SECONDS)
     raise ShipError(f"{method} {url} unreachable")
+
+
+def policy_required(root: Path) -> bool:
+    protection = json.loads((root / "config/ci/forgejo-protection.json").read_text())
+    return POLICY_CONTEXT in protection.get("status_check_contexts", [])
+
+
+def policy_verdicts(comments: list[dict[str, Any]]) -> dict[str, str]:
+    """Outcome the merge policy recorded for each head it rejected."""
+    verdicts = {}
+    for comment in comments:
+        match = re.search(
+            r"<!-- merge-policy head=([0-9a-f]{40}) outcome=(\w+) -->",
+            comment.get("body") or "",
+        )
+        if match:
+            verdicts[match.group(1)] = match.group(2)
+    return verdicts
 
 
 def awaiting_review(pull: dict[str, Any], reviews: list[dict[str, Any]]) -> str | None:
@@ -428,6 +451,53 @@ class Shipper:
                 raise ShipError(f"Required validation failed for {sha[:12]}\n{report}")
             time.sleep(POLL_SECONDS)
 
+    def wait_policy(self, pull: dict[str, Any]) -> None:
+        """Wait for the merge policy's verdict on this exact head.
+
+        A repairable rejection goes back to the agent with the findings. The
+        operator is asked only when the change needs authority the policy
+        cannot grant, or after POLICY_REPAIRS rejected heads on this PR.
+        """
+        number, sha = pull["number"], pull["head"]["sha"]
+        last = ""
+        while True:
+            self.remaining()
+            status = self.forgejo.call("GET", f"/commits/{sha}/status")
+            state = required_status(status.get("statuses") or [], POLICY_CONTEXT)
+            if state != last:
+                self.say(f"PR #{number} {sha[:12]}: {POLICY_CONTEXT} {state}")
+                last = state
+            if state == "success":
+                return
+            if state in {"failure", "error"}:
+                break
+            time.sleep(POLL_SECONDS)
+        comments = self.forgejo.call("GET", f"/issues/{number}/comments") or []
+        verdicts = policy_verdicts(comments)
+        findings = next(
+            (
+                c["body"]
+                for c in reversed(comments)
+                if f"head={sha}" in (c.get("body") or "")
+            ),
+            "no policy comment found",
+        )
+        rejected = sum(outcome == "rejected" for outcome in verdicts.values())
+        if verdicts.get(sha) == "escalated" or rejected >= POLICY_REPAIRS:
+            self.forgejo.call(
+                "POST",
+                f"/pulls/{number}/requested_reviewers",
+                {"reviewers": [POLICY_OPERATOR]},
+            )
+            raise ShipError(
+                f"PR #{number} escalated to {POLICY_OPERATOR}: {pull['html_url']}\n"
+                f"{findings}"
+            )
+        raise ShipError(
+            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected}/{POLICY_REPAIRS} "
+            f"repairs used). Fix these, commit, and rerun just ship:\n{findings}"
+        )
+
     def merge(self, pull: dict[str, Any]) -> str:
         number = pull["number"]
         transient = 0
@@ -437,6 +507,8 @@ class Shipper:
             if current.get("merged"):
                 return current["merge_commit_sha"]
             self.wait_status(current["head"]["sha"], f"PR #{number}")
+            if policy_required(ROOT):
+                self.wait_policy(current)
             waiting = awaiting_review(
                 current, self.forgejo.call("GET", f"/pulls/{number}/reviews")
             )
