@@ -608,25 +608,37 @@ if __name__ == "__main__":
 
 
 class AwaitingReviewTest(unittest.TestCase):
-    def test_pending_code_owner_request_stops_the_merge(self) -> None:
+    PULL = {
+        "number": 7,
+        "html_url": "https://git.rupan.dev/JEFF7712/homelab/pulls/7",
+        # Forgejo 15 keeps reviewers here after they approve.
+        "requested_reviewers": [{"login": "rupan"}],
+    }
+
+    def review(self, login: str, state: str, official: bool = True) -> dict:
+        return {"user": {"login": login}, "state": state, "official": official}
+
+    def test_open_code_owner_request_stops_the_merge(self) -> None:
         from scripts.agent.ship import awaiting_review
 
-        pull = {
-            "number": 7,
-            "html_url": "https://git.rupan.dev/JEFF7712/homelab/pulls/7",
-            "requested_reviewers": [{"login": "JEFF7712"}],
-        }
-        message = awaiting_review(pull)
+        message = awaiting_review(self.PULL, [self.review("rupan", "REQUEST_REVIEW")])
         assert message is not None
-        self.assertIn("awaits review from JEFF7712", message)
-        self.assertIn(pull["html_url"], message)
+        self.assertIn("awaits review from rupan", message)
+        self.assertIn(self.PULL["html_url"], message)
 
-    def test_no_pending_request_allows_the_merge(self) -> None:
+    def test_answered_request_allows_the_merge(self) -> None:
         from scripts.agent.ship import awaiting_review
 
-        for reviewers in (None, []):
-            self.assertIsNone(
-                awaiting_review(
-                    {"number": 7, "html_url": "u", "requested_reviewers": reviewers}
-                )
+        self.assertIsNone(
+            awaiting_review(self.PULL, [self.review("rupan", "APPROVED")])
+        )
+        self.assertIsNone(awaiting_review(self.PULL, []))
+
+    def test_unofficial_request_does_not_block(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        self.assertIsNone(
+            awaiting_review(
+                self.PULL, [self.review("someone", "REQUEST_REVIEW", official=False)]
             )
+        )
