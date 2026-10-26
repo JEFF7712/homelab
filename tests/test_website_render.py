@@ -13,6 +13,7 @@ from scripts.websites.render import (
     WEBSITES,
     SpecError,
     load_sites,
+    management_errors,
     parse_spec,
     plan,
     registration_errors,
@@ -194,6 +195,35 @@ class SitePlan(unittest.TestCase):
         self.assertEqual(plan(site, self.directory), ({}, [], []))
 
 
+class SiteManagement(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.websites = Path(temporary.name)
+
+    def errors(self, listed: list[str], generated: list[str]) -> list[str]:
+        (self.websites / "kustomization.yaml").write_text(
+            yaml.safe_dump({"resources": listed})
+        )
+        return management_errors(
+            [parse_spec(name, spec()) for name in generated], self.websites
+        )
+
+    def test_ejecting_a_site_requires_listing_it_as_handwritten(self) -> None:
+        errors = self.errors(["demo", "bus-display"], [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("demo: no site.yaml", errors[0])
+
+    def test_handwritten_site_cannot_also_be_generated(self) -> None:
+        errors = self.errors(["uwagent"], ["uwagent"])
+        self.assertEqual(
+            errors, ["uwagent: has site.yaml but is listed in HANDWRITTEN"]
+        )
+
+    def test_generated_and_handwritten_sites_pass(self) -> None:
+        self.assertEqual(self.errors(["demo", "uwagent"], ["demo"]), [])
+
+
 class CommittedWebsites(unittest.TestCase):
     def test_committed_manifests_match_their_specs(self) -> None:
         sites = load_sites(WEBSITES)
@@ -206,6 +236,9 @@ class CommittedWebsites(unittest.TestCase):
         self.assertEqual(
             registration_errors(load_sites(WEBSITES), WEBSITES, FLUX_WEBSITES), []
         )
+
+    def test_every_listed_site_is_generated_or_declared_handwritten(self) -> None:
+        self.assertEqual(management_errors(load_sites(WEBSITES), WEBSITES), [])
 
 
 if __name__ == "__main__":

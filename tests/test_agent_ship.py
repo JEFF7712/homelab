@@ -605,3 +605,40 @@ class ShipRolloutTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AwaitingReviewTest(unittest.TestCase):
+    PULL = {
+        "number": 7,
+        "html_url": "https://git.rupan.dev/JEFF7712/homelab/pulls/7",
+        # Forgejo 15 keeps reviewers here after they approve.
+        "requested_reviewers": [{"login": "rupan"}],
+    }
+
+    def review(self, login: str, state: str, official: bool = True) -> dict:
+        return {"user": {"login": login}, "state": state, "official": official}
+
+    def test_open_code_owner_request_stops_the_merge(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        message = awaiting_review(self.PULL, [self.review("rupan", "REQUEST_REVIEW")])
+        assert message is not None
+        self.assertIn("awaits review from rupan", message)
+        self.assertIn(self.PULL["html_url"], message)
+
+    def test_answered_request_allows_the_merge(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        self.assertIsNone(
+            awaiting_review(self.PULL, [self.review("rupan", "APPROVED")])
+        )
+        self.assertIsNone(awaiting_review(self.PULL, []))
+
+    def test_unofficial_request_does_not_block(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        self.assertIsNone(
+            awaiting_review(
+                self.PULL, [self.review("someone", "REQUEST_REVIEW", official=False)]
+            )
+        )
