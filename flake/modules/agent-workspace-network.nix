@@ -28,11 +28,21 @@ let
     && builtins.all safeIPv4 workspace.network.ntp
     && builtins.all safeIPv4CIDR workspace.network.ingress_sources;
   privateRanges = "{ 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.168.0.0/16, 198.18.0.0/15, 224.0.0.0/4, 240.0.0.0/4 }";
+  # Grants apply in both chains: a grant naming one of this host's own
+  # addresses (e.g. Woodpecker on the hypervisor) arrives on input, not forward.
+  tcpEgressRules =
+    workspace:
+    lib.concatMapStringsSep "\n" (destination: ''
+      iifname "${workspace.network.bridge}" ip daddr ${destination.address} tcp dport { ${
+        lib.concatMapStringsSep ", " toString destination.ports
+      } } ct state new accept
+    '') (cfg.tcpEgress.${workspace.id} or [ ]);
   workspaceInputRules = workspace: ''
     iifname "${workspace.network.bridge}" ether saddr != ${workspace.network.mac} counter drop
     iifname "${workspace.network.bridge}" ip6 saddr ::/0 counter drop
     iifname "${workspace.network.bridge}" ip saddr != ${builtins.head (lib.splitString "/" workspace.network.address)} counter drop
     iifname "${workspace.network.bridge}" ct state established,related accept
+    ${tcpEgressRules workspace}
     iifname "${workspace.network.bridge}" counter drop
   '';
   workspaceRules = workspace: ''
@@ -40,11 +50,7 @@ let
     iifname "${workspace.network.bridge}" ip6 saddr ::/0 counter drop
     iifname "${workspace.network.bridge}" ip saddr != ${builtins.head (lib.splitString "/" workspace.network.address)} counter drop
     iifname "${workspace.network.bridge}" ct state established,related accept
-    ${lib.concatMapStringsSep "\n" (destination: ''
-      iifname "${workspace.network.bridge}" ip daddr ${destination.address} tcp dport { ${
-        lib.concatMapStringsSep ", " toString destination.ports
-      } } ct state new accept
-    '') (cfg.tcpEgress.${workspace.id} or [ ])}
+    ${tcpEgressRules workspace}
     ${lib.optionalString (workspace.network.ha_api != null)
       ''iifname "${workspace.network.bridge}" ip daddr ${workspace.network.ha_api} tcp dport 443 ct state new accept''
     }
@@ -88,7 +94,7 @@ in
         )
       );
       default = { };
-      description = "Host-owned destination TCP grants indexed by workspace ID, before private-network denial.";
+      description = "Host-owned destination TCP grants indexed by workspace ID, before private-network denial. A grant to one of the host's own addresses also admits the traffic on host input.";
     };
     manifestFile = lib.mkOption {
       type = lib.types.path;
