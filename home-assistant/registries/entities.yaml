@@ -145,6 +145,16 @@
   labels:
     - shared_space
   name: Living Room Tulip Lamp
+- area_id: kitchen
+  entity_id: light.kitchen_dining_table_ceiling_light_1
+  labels:
+    - shared_space
+  name: Dining Table Ceiling Light 1
+- area_id: kitchen
+  entity_id: light.kitchen_dining_table_ceiling_light_2
+  labels:
+    - shared_space
+  name: Dining Table Ceiling Light 2
 - area_id: living_room
   entity_id: light.apollo_led_strip_apollo_led_strip
   labels:

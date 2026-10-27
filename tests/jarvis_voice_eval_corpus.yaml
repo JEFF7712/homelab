@@ -59,17 +59,17 @@
   intent: JarvisAliasOff
   targets: [light.bedroom_roku_lights]
   response: Done.
-- id: lights-govee-on
-  say: Turn on all the Govee lights.
+- id: lights-shared-spaces-on
+  say: Turn on the shared spaces lights.
   path: local
   intent: JarvisAliasOn
-  targets: [light.shared_zigbee_lights]
+  targets: [light.downstairs_lights]
   response: Done.
-- id: lights-zigbee-on
-  say: Turn on all the Zigbee lights.
+- id: lights-shared-spaces-off
+  say: Turn off all the shared spaces lights.
   path: local
-  intent: JarvisAliasOn
-  targets: [light.shared_zigbee_lights]
+  intent: JarvisAliasOff
+  targets: [light.downstairs_lights]
   response: Done.
 - id: lights-shared-on
   say: Turn on the shared lights.
@@ -428,35 +428,17 @@
   path: llm
   tool: none
   notes: No such device; states the problem briefly without inventing entity IDs.
-- id: lights-govee-misheard-on
-  say: Turn on all go vee lights.
-  path: local
-  intent: JarvisAliasOn
-  targets: [light.shared_zigbee_lights]
-  response: Done.
-- id: lights-govee-olga-on
-  say: Turn on the Olga V lights.
-  path: local
-  intent: JarvisAliasOn
-  targets: [light.shared_zigbee_lights]
-  response: Done.
-- id: lights-govee-blue-misheard
-  say: Turn on all go vee lights to blue.
+- id: lights-shared-spaces-purple
+  say: Turn all shared spaces lights purple.
   path: local
   intent: JarvisAliasColor
-  targets: [light.shared_zigbee_lights]
+  targets: [light.downstairs_lights]
   response: Done.
-- id: lights-govee-purple
-  say: Turn all govee lights purple.
+- id: lights-shared-spaces-white
+  say: Turn on the shared spaces lights to white.
   path: local
   intent: JarvisAliasColor
-  targets: [light.shared_zigbee_lights]
-  response: Done.
-- id: lights-govee-white
-  say: Turn on all govee lights to white.
-  path: local
-  intent: JarvisAliasColor
-  targets: [light.shared_zigbee_lights]
+  targets: [light.downstairs_lights]
   response: Done.
 - id: lights-default-on
   say: Turn on the lights.
