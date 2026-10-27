@@ -10,6 +10,7 @@ import shlex
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -130,6 +131,7 @@ def run_command(
     runner: Runner = subprocess.run,
     timeout: float = 300.0,
     check: bool = True,
+    cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     logger.info("Executing: %s (timeout=%.1fs)", " ".join(argv), timeout)
     try:
@@ -139,6 +141,7 @@ def run_command(
             text=True,
             check=False,
             timeout=max(0.1, timeout),
+            **({"cwd": cwd} if cwd is not None else {}),
         )
     except subprocess.TimeoutExpired as err:
         msg = f"Command timed out after {timeout:.1f}s: {' '.join(argv)}"
@@ -562,23 +565,31 @@ class FleetDeployer:
             runner=self.runner,
             timeout=30.0,
         )
-        run_command(
-            [
-                "nixos-rebuild",
-                "build",
-                "--no-link",
-                "--no-write-lock-file",
-                "--flake",
-                f"{self.flake_path}#{host.flake_attr}",
-                "--target-host",
-                f"{self.ssh_user}@{host.ip}",
-                "--build-host",
-                f"{self.ssh_user}@{host.ip}",
-                "--elevate=sudo",
-            ],
-            runner=self.runner,
-            timeout=1800.0,
+        # This nixos-rebuild forwards --no-link to its eval command, which
+        # rejects it. Keep the normal result link in an isolated directory.
+        flake = (
+            str(Path(self.flake_path).resolve())
+            if Path(self.flake_path).exists()
+            else self.flake_path
         )
+        with tempfile.TemporaryDirectory(prefix="fleet-build-") as directory:
+            run_command(
+                [
+                    "nixos-rebuild",
+                    "build",
+                    "--no-write-lock-file",
+                    "--flake",
+                    f"{flake}#{host.flake_attr}",
+                    "--target-host",
+                    f"{self.ssh_user}@{host.ip}",
+                    "--build-host",
+                    f"{self.ssh_user}@{host.ip}",
+                    "--elevate=sudo",
+                ],
+                runner=self.runner,
+                timeout=1800.0,
+                cwd=Path(directory),
+            )
         # Confirm the exact evaluated output exists on the target, rather than
         # rebuilding from a mutable source after draining.
         run_command(

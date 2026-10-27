@@ -410,6 +410,7 @@ class DeployFleetTest(unittest.TestCase):
             if cmd[:2] == ["kubectl", "drain"]
         )
         self.assertLess(build, drain)
+        self.assertNotIn("--no-link", executed_commands[build])
         self.assertTrue(
             any(
                 cmd[0] == "ssh"
@@ -578,7 +579,10 @@ class DeployFleetTest(unittest.TestCase):
         ]
         self.assertEqual(
             hosts_targeted,
-            ["./flake#homelab-02-registry", "./flake#homelab-03-registry"],
+            [
+                str(Path("./flake").resolve()) + "#homelab-02-registry",
+                str(Path("./flake").resolve()) + "#homelab-03-registry",
+            ],
         )
         self.assertFalse(
             any(
@@ -826,11 +830,15 @@ class FleetClosureTest(unittest.TestCase):
         recovery_failure=False,
     ):
         self.commands = []
+        self.build_directories = []
         self.active = self.OLD
         host = FLEET_HOSTS["homelab-02"]
 
         def runner(argv, **kwargs):
             self.commands.append(argv)
+            if argv[:2] == ["nixos-rebuild", "build"]:
+                self.build_directories.append(Path(kwargs["cwd"]))
+                self.assertTrue(self.build_directories[-1].is_dir())
             output, code = "", 0
             if argv[:3] == ["nix", "eval", "--raw"]:
                 output = self.OLD if unchanged else self.NEW
@@ -878,6 +886,12 @@ class FleetClosureTest(unittest.TestCase):
                 for cmd in self.commands
             )
         )
+
+    def test_build_result_link_is_isolated_and_its_directory_is_removed(self):
+        self.run_deployment()
+        self.assertEqual(len(self.build_directories), 1)
+        self.assertFalse(self.build_directories[0].exists())
+        self.assertNotEqual(self.build_directories[0], Path.cwd())
 
     def test_build_failure_leaves_workloads_and_live_system_untouched(self):
         with self.assertRaises(FleetDeploymentError):
