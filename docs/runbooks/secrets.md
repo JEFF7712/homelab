@@ -18,6 +18,13 @@ Before changing a secret:
    `Kustomization`, and the workload that consumes it. Confirm the key names,
    namespace, and deployment path without printing secret data.
 2. Confirm the required age identity is available to the local SOPS process.
+   On the operator laptop, the Flux identity may be at
+   `/home/rupan/homelab/secrets/keys/flux-age.key`, which is ignored by Git and
+   is not copied into isolated worktrees. Set `SOPS_AGE_KEY_FILE` to that
+   absolute path when it is present, then test the target manifest with
+   `sops -d <manifest> >/dev/null`. The default
+   `~/.config/sops/age/keys.txt` may contain a different identity; compare the
+   public recipient with the manifest if decryption fails.
    If it is missing, stop and report the missing local prerequisite. Do not
    request a private key or secret value in chat, shell output, or a task export.
 3. Edit an existing encrypted manifest by running `sops` with that manifest's
