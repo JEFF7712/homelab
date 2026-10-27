@@ -1,0 +1,24 @@
+alias: "Lighting: Shared Music Album Colour"
+description: >-
+  Set all six shared bulbs to the dominant colour of the soundbar's current
+  album art at a fixed brightness. One write per track, since the Govee
+  bulbs handle rapid colour changes poorly. Does nothing without album art.
+sequence:
+  - variables:
+      picture: "{{ state_attr('media_player.homelab_05_satellite_media_player_2', 'entity_picture') }}"
+  - condition: template
+    value_template: "{{ picture is string and picture | length > 0 }}"
+  - action: color_extractor.turn_on
+    data:
+      color_extract_url: >-
+        {{ picture if picture.startswith('http') else 'http://127.0.0.1:8123' ~ picture }}
+      entity_id:
+        - light.kitchen_ceiling_light_1
+        - light.kitchen_ceiling_light_2
+        - light.living_room_floor_lamp
+        - light.living_room_tulip_lamp
+        - light.kitchen_dining_table_ceiling_light_1
+        - light.kitchen_dining_table_ceiling_light_2
+      brightness_pct: 70
+      transition: 3
+mode: restart
