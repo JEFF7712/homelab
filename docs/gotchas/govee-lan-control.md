@@ -1,4 +1,25 @@
-# Govee H6004 LAN control
+# Govee LAN control
+
+## H6008 (current, 2026-10-26)
+
+Two H6008 bulbs (Matter revision) over the dining table run on the core
+`govee_light_local` integration as
+`light.kitchen_dining_table_ceiling_light_1` (`d4:13:68:01:94:b3`) and
+`_2` (`d4:13:68:01:8a:8d`), reserved at `10.0.20.167` and `.166` in
+`tofu/opnsense/inventory.nix`. They belong to the shared bulb group and
+the `shared_space` label.
+
+- Matter commissioning failed; LAN control was used instead.
+- The H6008 needs Govee cloud reachability. With an Internet block rule the
+  bulb sticks on "connecting to Wi-Fi" and keeps UDP 4001/4003 closed, so
+  unlike the H6004 it cannot be frozen LAN-only.
+- From a laptop on the clients VLAN, a closed port answers with ICMP
+  unreachable while an open one stays silent, which is a quick way to tell
+  whether the LAN API is up when the host firewall drops the 4002 replies.
+- Not in the Adaptive Lighting "All Dimmable Lights" entry, so the shared
+  scripts leave them out of `adaptive_lighting.set_manual_control` lists.
+
+## H6004 (retired)
 
 Retired 2026-10-20: the four shared bulbs are now Third Reality ZL1 Zigbee
 bulbs on Zigbee2MQTT under the same entity IDs, and the `govee_lan` platform

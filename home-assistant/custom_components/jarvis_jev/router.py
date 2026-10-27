@@ -170,6 +170,7 @@ _COMPOUND_COMMAND = re.compile(r";|\band\b|\bthen\b|\bwhile\b")
 _TARGET_EVIDENCE = {
     "downstairs_lights": re.compile(
         r"\bdownstairs (?:lights?|lamp)\b|\blights?\s+downstairs\b"
+        r"|\bshared spaces? lights?\b"
     ),
     "kitchen_lights": re.compile(
         r"(?:\bkitchen lights?\b|\blights?\s+(?:in\s+the\s+)?kitchen\b)"
@@ -184,7 +185,7 @@ _TARGET_EVIDENCE = {
         r"|\blights?\s+(?:in\s+the\s+)?bedroom\b"
     ),
     "shared_zigbee_lights": re.compile(
-        r"\b(?:all (?:the )?)?(?:govee|zigbee|shared) (?:lights?|lamp|bulbs?)\b"
+        r"\b(?:all (?:the )?)?shared (?:lights?|lamp|bulbs?)\b"
     ),
     "kitchen_mushroom_lamp": re.compile(r"\bkitchen mushroom lamp\b"),
     "bedroom_window_plug": re.compile(r"\bbedroom window plug\b"),

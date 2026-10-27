@@ -28,14 +28,14 @@ _WS = re.compile(r"\s+")
 _END_PUNCT = re.compile(r"[.!?]+$")
 _COMPOUND = re.compile(r"[,;]|\band\b|\bthen\b|\bwhile\b")
 
-# The four shared bulbs are Third Reality Zigbee units (ex-Govee) under
-# unchanged entity IDs; "govee" stays as a legacy voice alias.
-_AREA = r"(?:kitchen|living room|bedroom|downstairs|govee|shared|zigbee)"
+# "shared spaces" means every downstairs light; "shared" alone means the
+# shared bulb group.
+_AREA = r"(?:kitchen|living room|bedroom|downstairs|shared\s+spaces?|shared)"
 _ROOM = r"(?:kitchen|living room|bedroom|downstairs)"
 _LIGHT = (
     rf"(?:the\s+)?(?:all\s+the\s+)?(?:{_AREA})\s+lights?"
     r"|(?:the\s+)?(?:living|bed|lounge)\s+lights?"
-    r"|(?:the\s+)?(?:all\s+the\s+)?(?:govee|zigbee|shared)\s+lamp"
+    r"|(?:the\s+)?(?:all\s+the\s+)?shared\s+lamp"
     r"|(?:the\s+)?downstairs\s+lamp"
     r"|(?:the\s+)?bedrooms\s+lights?"
     r"|(?:the\s+)?livingroom\s+lights?"
@@ -161,7 +161,7 @@ _TARGET_KEY: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^(?:living|lounge)\s+lights?$"), "living_room_lights"),
     (re.compile(r"^bed\s+lights?$"), "bedroom_lights"),
     (
-        re.compile(r"^(?:all\s+the\s+)?(?:govee|zigbee|shared)\s+lamp$"),
+        re.compile(r"^(?:all\s+the\s+)?shared\s+lamp$"),
         "shared_zigbee_lights",
     ),
     (re.compile(r"^downstairs\s+lamp$"), "downstairs_lights"),
@@ -191,9 +191,9 @@ _AREA_KEY = {
     "living room": "living_room_lights",
     "bedroom": "bedroom_lights",
     "downstairs": "downstairs_lights",
-    "govee": "shared_zigbee_lights",
+    "shared spaces": "downstairs_lights",
+    "shared space": "downstairs_lights",
     "shared": "shared_zigbee_lights",
-    "zigbee": "shared_zigbee_lights",
 }
 
 _COLOR_KEY = {c.replace("_", " "): c for c in COLORS}
