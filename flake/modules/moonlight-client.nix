@@ -88,6 +88,11 @@ in
     hardware.bluetooth = {
       enable = lib.mkDefault true;
       powerOnBoot = lib.mkDefault true;
+      input = {
+        General = {
+          ClassicBondedOnly = false;
+        };
+      };
     };
 
     # Ensure users have access to display, rendering, audio, and controller input devices
