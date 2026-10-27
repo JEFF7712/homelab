@@ -636,17 +636,62 @@ class PolicyTest(unittest.TestCase):
                 configuration(self.request, self.catalog, self.parent, SHA)
             self.request = saved
 
-    def test_agent_can_deliver_every_catalog_operation_without_approval(self) -> None:
+    def test_machine_user_runs_routine_operations_with_unchanged_authority(
+        self,
+    ) -> None:
         self.assertEqual(DEPLOY_AUTHORS, {"rupan", "JEFF7712", "homelab-agent"})
         self.request["pipeline"].update(author="homelab-agent", event="deployment")
-        for operation in self.catalog:
+        for operation in [
+            "opnsense-apply",
+            "deploy-fleet",
+            "cloudflare-apply",
+            "deploy-ci-host",
+            "matrix-publish",
+        ]:
             with self.subTest(operation=operation):
                 self.request["pipeline"]["deploy_to"] = operation
                 self.assertTrue(
-                    configuration(self.request, self.catalog, self.parent, SHA)[
-                        "configs"
-                    ]
+                    configuration(
+                        self.request,
+                        self.catalog,
+                        self.parent,
+                        SHA,
+                        authority_changes=[],
+                    )["configs"]
                 )
+                with self.assertRaisesRegex(
+                    ValueError, "authorization or storage source changed"
+                ):
+                    configuration(
+                        self.request,
+                        self.catalog,
+                        self.parent,
+                        SHA,
+                        authority_changes=["scripts/ci/policy.py"],
+                    )
+                with self.assertRaisesRegex(ValueError, "cannot verify"):
+                    configuration(self.request, self.catalog, self.parent, SHA)
+        self.request["pipeline"].update(author="JEFF7712", deploy_to="deploy-fleet")
+        self.assertTrue(
+            configuration(
+                self.request,
+                self.catalog,
+                self.parent,
+                SHA,
+                authority_changes=["scripts/ci/policy.py"],
+            )["configs"]
+        )
+
+    def test_authority_provisioning_requires_an_operator(self) -> None:
+        self.request["pipeline"].update(
+            author="homelab-agent",
+            event="deployment",
+            deploy_to="provision-darkbit-publisher",
+        )
+        with self.assertRaisesRegex(ValueError, "authority or is destructive"):
+            configuration(
+                self.request, self.catalog, self.parent, SHA, authority_changes=[]
+            )
 
     def test_compatible_ancestor_keeps_its_exact_validation_parent(self) -> None:
         self.request["pipeline"].update(
@@ -659,6 +704,7 @@ class PolicyTest(unittest.TestCase):
                 self.parent,
                 "b" * 40,
                 source_compatible=True,
+                authority_changes=[],
             )["configs"]
         )
         self.parent["commit"] = "b" * 40
@@ -669,6 +715,7 @@ class PolicyTest(unittest.TestCase):
                 self.parent,
                 "b" * 40,
                 source_compatible=True,
+                authority_changes=[],
             )
 
     def test_failed_unrelated_main_operation_does_not_block_validated_deployment(
@@ -1310,15 +1357,17 @@ class GrantPolicyTest(unittest.TestCase):
             result = resolve_configuration(
                 request, catalog, (), (), mirror, {}, grant_lookup=lookup
             )
-        self.assertEqual(asked, [])
-        mirror.authority_changes.assert_not_called()
+        self.assertEqual(asked, [self.DIGEST])
         return result
 
     def test_granted_protected_changes_deploy_as_the_agent(self) -> None:
         self.assertTrue(self.resolve(True)["configs"])
 
-    def test_authorized_changes_do_not_require_a_grant(self) -> None:
-        self.assertTrue(self.resolve(False)["configs"])
+    def test_ungranted_changes_name_their_grant_digest(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, rf"grant {self.DIGEST}\): scripts/ci/policy.py"
+        ):
+            self.resolve(False)
 
     def test_unreachable_approvals_service_is_no_grant(self) -> None:
         with unittest.mock.patch(

@@ -566,7 +566,15 @@ def publish(root: Path, out_dir: Path) -> None:
         catalog_path.write_text(pin(catalog_text, pins))
         requests_path.write_text(retire(original_requests, set(pins)))
         patch = subprocess.run(
-            ["git", "diff", "--no-color", "--", str(APPLICATIONS), str(REQUESTS)],
+            [
+                "git",
+                "diff",
+                "--no-color",
+                "--no-ext-diff",
+                "--",
+                str(APPLICATIONS),
+                str(REQUESTS),
+            ],
             cwd=root,
             capture_output=True,
             text=True,
