@@ -80,6 +80,7 @@ in
       "hid-nintendo"
       "hid-playstation"
       "hid-sony"
+      "hidp"
       "uinput"
     ];
 
