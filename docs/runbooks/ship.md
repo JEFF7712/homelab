@@ -77,9 +77,10 @@ overlap only with the same file. CI machinery, `config/`, `registry/`,
 everything. Independent heads merge as they are, overlapping heads are
 updated from main and revalidated under the lease. The `policy/merge` status
 enforces the same rule for every merger (`behind main with overlapping
-changes`), which is what lets branch protection drop "block merge on
-outdated branch". The main push pipeline still validates every merged tree;
-an interaction the scopes miss fails main and blocks deployment until fixed.
+changes`), so branch protection no longer blocks outdated branches
+(`block_on_outdated_branch: false`). The main push pipeline still validates
+every merged tree; an interaction the scopes miss fails main and blocks
+deployment until fixed.
 
 ## Routes
 
