@@ -10,6 +10,7 @@ from scripts.ci.platform_backup import (
     rotate_check_partition,
     run_backup,
     run_maintenance,
+    snapshot_home_assistant_config,
     snapshot_sqlite_tree,
     stop_active_services,
     verify_restored_backup,
@@ -76,6 +77,67 @@ class BookshelfStateBackupTests(unittest.TestCase):
         for path in ("/tank/cluster/../persist", "/persist/forgejo", "/tank/cluster"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 run_backup("nas-01", bookshelf_config=Path(path))
+
+
+class HomeAssistantConfigBackupTests(unittest.TestCase):
+    def test_copies_state_and_drops_regenerable_bulk(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            (source / ".storage").mkdir(parents=True)
+            (source / ".storage/core.config_entries").write_text("{}")
+            (source / ".storage/auth").write_text("{}")
+            (source / "configuration.yaml").write_text("default_config:\n")
+            (source / "secrets.yaml").write_text("x: y\n")
+            for bulky in ("backups", "deps", "tts", ".cache"):
+                (source / bulky).mkdir()
+                (source / bulky / "blob").write_text("large")
+            (source / "home-assistant.log").write_text("log")
+            (source / "home-assistant.log.1").write_text("log")
+            (source / "watchman_v2.db-journal").write_text("j")
+            target = root / "stage"
+            snapshot_home_assistant_config(source, target)
+            self.assertTrue((target / ".storage/core.config_entries").is_file())
+            self.assertTrue((target / ".storage/auth").is_file())
+            self.assertTrue((target / "secrets.yaml").is_file())
+            for gone in (
+                "backups",
+                "deps",
+                "tts",
+                ".cache",
+                "home-assistant.log",
+                "home-assistant.log.1",
+                "watchman_v2.db-journal",
+            ):
+                self.assertFalse((target / gone).exists(), gone)
+
+    def test_symlinks_are_kept_as_links_not_followed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            (source / ".storage").mkdir(parents=True)
+            (source / ".storage/core.config_entries").write_text("{}")
+            (source / "configuration.yaml").write_text("")
+            (root / "outside").write_text("secret elsewhere")
+            (source / "escape").symlink_to(root / "outside")
+            target = root / "stage"
+            snapshot_home_assistant_config(source, target)
+            self.assertTrue((target / "escape").is_symlink())
+
+    def test_missing_authoritative_state_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, "core.config_entries"):
+                snapshot_home_assistant_config(root, root / "stage")
+
+    def test_rejects_wrong_host_or_escaping_path(self) -> None:
+        with self.assertRaisesRegex(ValueError, "nas-01"):
+            run_backup(
+                "homelab-04", home_assistant_config=Path("/tank/cluster/ha-config")
+            )
+        for path in ("/tank/cluster/../persist", "/persist/ha", "/tank/cluster"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                run_backup("nas-01", home_assistant_config=Path(path))
 
 
 class PlatformBackupStagingTests(unittest.TestCase):

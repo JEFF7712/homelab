@@ -10,6 +10,9 @@ triggers:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "home"
     id: "arrive"
 conditions:

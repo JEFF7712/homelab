@@ -37,6 +37,37 @@ def snapshot_sqlite_tree(source: Path, target: Path) -> None:
         pid.unlink()
 
 
+HOME_ASSISTANT_EXCLUDES = (
+    "backups",
+    "deps",
+    "tts",
+    ".cache",
+    "home-assistant.log*",
+    "*.db-journal",
+)
+
+
+def snapshot_home_assistant_config(source: Path, target: Path) -> None:
+    if source.is_symlink():
+        raise ValueError("Home Assistant configuration must not be a symlink")
+    for name in (".storage/core.config_entries", "configuration.yaml"):
+        if not (source / name).is_file():
+            raise ValueError(f"Home Assistant configuration is missing {name}")
+    shutil.copytree(
+        source,
+        target,
+        symlinks=True,
+        ignore=shutil.ignore_patterns(*HOME_ASSISTANT_EXCLUDES),
+    )
+
+
+def cluster_pvc_relative(path: Path, label: str) -> Path:
+    relative = path.relative_to("/tank/cluster")
+    if len(relative.parts) != 1 or relative.name in {".", ".."}:
+        raise ValueError(f"{label} configuration must name one cluster PVC directory")
+    return relative
+
+
 def stop_active_services(services: list[str], stopped: list[str]) -> None:
     for service in services:
         status = subprocess.run(
@@ -133,16 +164,23 @@ def run_backup(
     host: str,
     persist_root: Path = Path("/persist"),
     bookshelf_config: Path | None = None,
+    home_assistant_config: Path | None = None,
 ) -> None:
     bookshelf_relative: Path | None = None
+    home_assistant_relative: Path | None = None
     if bookshelf_config is not None:
         if host != "nas-01":
             raise ValueError("Bookshelf NFS state backup must run on nas-01")
-        bookshelf_relative = bookshelf_config.relative_to("/tank/cluster")
-        if len(bookshelf_relative.parts) != 1 or bookshelf_relative.name in {".", ".."}:
-            raise ValueError(
-                "Bookshelf configuration must name one cluster PVC directory"
-            )
+        bookshelf_relative = cluster_pvc_relative(bookshelf_config, "Bookshelf")
+    if home_assistant_config is not None:
+        if host != "nas-01":
+            raise ValueError("Home Assistant NFS state backup must run on nas-01")
+        home_assistant_relative = cluster_pvc_relative(
+            home_assistant_config, "Home Assistant"
+        )
+    cluster_snapshot = bookshelf_relative is not None or (
+        home_assistant_relative is not None
+    )
     backup_base = persist_root / "platform-backup"
     backup_base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -159,7 +197,7 @@ def run_backup(
                     datetime.UTC
                 ).strftime("%Y%m%dT%H%M%S")
                 selected_datasets = ["zroot/persist", "tank/forgejo", "tank/s3"]
-                if bookshelf_relative is not None:
+                if cluster_snapshot:
                     selected_datasets.append("tank/cluster")
                 for dataset in selected_datasets:
                     snapshot = dataset + "@" + suffix
@@ -188,6 +226,13 @@ def run_backup(
                         / suffix
                         / bookshelf_relative,
                         stage / "applications/bookshelf",
+                    )
+                if home_assistant_relative is not None:
+                    snapshot_home_assistant_config(
+                        Path("/tank/cluster/.zfs/snapshot")
+                        / suffix
+                        / home_assistant_relative,
+                        stage / "applications/home-assistant",
                     )
 
                 snapshot_database(
@@ -248,6 +293,11 @@ def main() -> None:
         default=None,
     )
     parser.add_argument(
+        "--home-assistant-config",
+        type=Path,
+        default=None,
+    )
+    parser.add_argument(
         "--mode",
         choices=["backup", "maintenance", "verify-restore"],
         default="backup",
@@ -261,7 +311,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "backup":
-        run_backup(args.host, bookshelf_config=args.bookshelf_config)
+        run_backup(
+            args.host,
+            bookshelf_config=args.bookshelf_config,
+            home_assistant_config=args.home_assistant_config,
+        )
     elif args.mode == "maintenance":
         run_maintenance(args.host)
     elif args.mode == "verify-restore":

@@ -2,15 +2,20 @@ id: living_room_ac_away_setback
 alias: "Living Room: AC Away Setback"
 description: >-
   Snapshot and switch the living room AC off when the last person leaves,
-  keep it off while nobody is home, restore the snapshot on daytime return.
-  Dark returns leave it off unless it was running before leaving. Skipped
-  while Guest Mode is on, mirroring Shared Spaces: Lights Off When Empty.
+  keep it off while nobody is home, and restore the snapshot when the first
+  person returns to the empty house. Later arrivals leave the AC alone so a
+  stale snapshot never overrides changes made by whoever is already home.
+  Skipped while Guest Mode is on, mirroring Shared Spaces: Lights Off When
+  Empty.
 triggers:
   - trigger: state
     entity_id:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "not_home"
     id: "left_empty"
   - trigger: state
@@ -18,6 +23,9 @@ triggers:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "home"
     id: "return"
   - trigger: state
@@ -80,7 +88,12 @@ actions:
           - condition: trigger
             id: "return"
           - condition: template
-            value_template: "{{ states('scene.pre_away_climate') not in ('unknown', 'unavailable') }}"
+            value_template: >-
+              {{ trigger.from_state is not none
+              and trigger.from_state.state not in ('unknown', 'unavailable')
+              and states.person | selectattr('state', 'eq', 'home') | list | count == 1 }}
+          - condition: template
+            value_template: "{{ state_attr('scene.pre_away_climate', 'entity_id') is not none }}"
         sequence:
           - action: scene.turn_on
             target:
