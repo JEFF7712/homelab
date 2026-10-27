@@ -103,6 +103,7 @@ pkgs.testers.nixosTest {
   name = "agent-workspace-libvirt-normalization";
 
   nodes.machine = {
+    virtualisation.host.pkgs = pkgs.lib.mkForce (import ./vm-host-pkgs.nix { inherit pkgs; });
     imports = [ ../modules/agent-workspaces.nix ];
     networking.hostName = "homelab-01";
     services.agent-workspaces.enable = true;
