@@ -20,11 +20,15 @@ questarr.rupan.dev -> Questarr -> Prowlarr (indexers) -> qBittorrent (AirVPN)
   backups, plugins, logs). `APP_KEY` is the in-cluster generated
   `gameyfin-app-key` Secret.
 
-Both hostnames sit behind the wildcard Cloudflare Access app (owner login).
-Access for other people is not decided yet: either add their email to an
-Access policy for `games.rupan.dev`, or reach Gameyfin over NetBird. Large
-game downloads through Cloudflare Tunnel are subject to Cloudflare's terms on
-serving large files.
+`questarr.rupan.dev` sits behind the wildcard Cloudflare Access app (owner
+login). `games.rupan.dev` has its own dashboard-managed Access app `games`: an
+Allow policy on named emails with one-time PIN login, so invited users get an
+emailed code and then log in to Gameyfin. Never give it a Bypass policy.
+
+To invite someone: add their email to the `games` Allow policy in the Zero
+Trust dashboard, then create their Gameyfin account under Administration >
+Users. Large game downloads through Cloudflare Tunnel are subject to
+Cloudflare's terms on serving large files.
 
 ## First-run setup
 

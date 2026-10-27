@@ -4,7 +4,9 @@
 # instead of letting MaxFileSize skip them with an OK verdict, so Questarr
 # holds such imports for manual review. The stock entrypoint edits
 # /etc/clamav in place, so freshclam and clamd run directly against a
-# mounted config with a read-only root filesystem.
+# config mounted at /etc/clamav-config with a read-only root filesystem.
+# /etc/clamav itself must stay visible: freshclam verifies signature
+# databases with the image's /etc/clamav/certs.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -28,8 +30,11 @@ metadata:
 data:
   clamd.conf: |
     Foreground yes
-    LogFile /dev/stdout
-    LogFileUnlock yes
+    # ClamAV opens log files with O_NOFOLLOW, so /dev/stdout (a symlink)
+    # fails; keep a small rotating log on the clamd tmp volume instead.
+    LogFile /tmp/clamd.log
+    LogFileMaxSize 10M
+    LogRotate yes
     LogTime yes
     DatabaseDirectory /var/lib/clamav
     TemporaryDirectory /tmp
@@ -43,7 +48,6 @@ data:
     MaxThreads 4
   freshclam.conf: |
     Foreground yes
-    UpdateLogFile /dev/stdout
     LogTime yes
     DatabaseDirectory /var/lib/clamav
     DatabaseMirror database.clamav.net
@@ -93,7 +97,7 @@ spec:
             - --foreground
             - --stdout
             - --checks=12
-            - --config-file=/etc/clamav/freshclam.conf
+            - --config-file=/etc/clamav-config/freshclam.conf
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -102,7 +106,7 @@ spec:
             runAsGroup: 101
           volumeMounts:
             - name: config
-              mountPath: /etc/clamav
+              mountPath: /etc/clamav-config
             - name: db
               mountPath: /var/lib/clamav
             - name: freshclam-tmp
@@ -127,7 +131,7 @@ spec:
                 echo "waiting for freshclam to download signatures"
                 sleep 10
               done
-              exec clamd --foreground --config-file=/etc/clamav/clamd.conf
+              exec clamd --foreground --config-file=/etc/clamav-config/clamd.conf
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -139,7 +143,7 @@ spec:
               name: clamd
           volumeMounts:
             - name: config
-              mountPath: /etc/clamav
+              mountPath: /etc/clamav-config
             - name: db
               mountPath: /var/lib/clamav
             - name: clamd-tmp

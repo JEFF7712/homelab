@@ -300,7 +300,33 @@ class OperationTests(unittest.TestCase):
             for value in operation["environment"].values()
             if isinstance(value, dict)
         }
-        self.assertEqual(secrets, {"supply_write_token", "forgejo_source_read_token"})
+        self.assertEqual(
+            secrets,
+            {
+                "supply_write_token",
+                "forgejo_source_read_token",
+                "state_deploy_password",
+                "state_ca_file",
+            },
+        )
+
+    def test_every_operation_carries_the_runner_state_credentials(self) -> None:
+        # scripts.ci.operation authenticates its permit and artifact transfer
+        # with these before any operation command runs.
+        operations = json.loads((ROOT / "config/ci/operations.json").read_text())
+        for name, operation in operations.items():
+            role = "deploy" if operation["mutation"] else "plan"
+            with self.subTest(operation=name):
+                environment = operation["environment"]
+                self.assertEqual(environment.get("TF_HTTP_USERNAME"), role)
+                self.assertEqual(
+                    environment.get("TF_HTTP_PASSWORD"),
+                    {"from_secret": f"state_{role}_password"},
+                )
+                self.assertEqual(
+                    environment.get("STATE_CA_FILE"), {"from_secret": "state_ca_file"}
+                )
+                self.assertIn("STATE_CA_FILE", operation["file_secrets"])
 
 
 if __name__ == "__main__":

@@ -94,7 +94,7 @@ Cloudflare Access public bypass configured.
 51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access app and DNS are dashboard-managed by hand. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
 52. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; public Bypass because every tracked site loads `/t.js` and posts `/api/send` anonymously. The dashboard is behind Umami's own login. See [analytics](analytics.md))
 53. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
-54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; owner-only behind the wildcard Access app until other users are granted. See [games](games.md))
+54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, dashboard-managed; never Bypass. See [games](games.md))
 55. `http_status:404`
 
 
