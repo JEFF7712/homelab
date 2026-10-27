@@ -20,3 +20,4 @@ resources:
   - frontend.yaml
   - recommender.yaml
   - games.yaml
+  - clamav.yaml
