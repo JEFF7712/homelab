@@ -126,6 +126,8 @@
         "flake/modules/woodpecker.nix",
         "flake/modules/approvals.nix",
         "scripts/approvals/",
+        "scripts/verifier/",
+        "flake/modules/merge-policy.nix",
         "flake/hosts/homelab-04/",
         "config/projectctl/",
         "flake/profiles/projectctl-pilot.nix",
