@@ -318,6 +318,9 @@ data:
       - platform: switch
         name: Kitchen Fuck Off Sign
         entity_id: switch.fuck_off_sign
+      - platform: switch
+        name: Exit Sign
+        entity_id: switch.exit_sign
     homekit:
       - name: Homelab Bridge
         port: 21063
