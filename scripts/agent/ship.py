@@ -219,6 +219,32 @@ def required_status(
     return str(latest_status(statuses, context).get("status", "missing"))
 
 
+VALIDATION_EVENTS = frozenset({"push", "pull_request", "manual"})
+
+
+def killed_validation(pipelines: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The validation run to restart when the head's only problem is a kill.
+
+    A run cancelled from outside (a Woodpecker or agent restart, runner
+    pressure) is not a verdict on the change. Any failed run is, and a newer
+    run for the same event already replaced the killed one.
+    """
+    runs = [p for p in pipelines if p.get("event") in VALIDATION_EVENTS]
+    if any(p.get("status") in {"failure", "error"} for p in runs):
+        return None
+    killed = max(
+        (p for p in runs if p.get("status") in {"killed", "canceled"}),
+        key=lambda p: p["number"],
+        default=None,
+    )
+    if killed is None or any(
+        p["number"] > killed["number"] and p.get("event") == killed.get("event")
+        for p in runs
+    ):
+        return None
+    return killed
+
+
 def extract_patch(log: str) -> str | None:
     if PATCH_BEGIN not in log:
         return None
@@ -551,6 +577,8 @@ class Shipper:
         self.deadline = time.monotonic() + args.timeout * 60
         self.summary: dict[str, Any] = {"operations": [], "promotions": []}
         self.reported: dict[str, str] = {}
+        # Head -> validation pipeline restarted once after an external kill.
+        self.restarted: dict[str, int] = {}
 
     def say(self, message: str) -> None:
         print(f"[ship {time.strftime('%H:%M:%S')}] {message}", flush=True)
@@ -652,11 +680,37 @@ class Shipper:
             if state == "success":
                 return
             if state in {"failure", "error"}:
+                pipelines = self.woodpecker.pipelines_for(sha)
+                restarted = self.restarted.get(sha)
+                if restarted is not None:
+                    # The status still shows the kill until the restarted
+                    # run reports.
+                    if self.woodpecker.pipeline(restarted).get("status") in {
+                        "pending",
+                        "running",
+                        "success",
+                    }:
+                        time.sleep(POLL_SECONDS)
+                        continue
+                else:
+                    killed = killed_validation(pipelines)
+                    if killed is not None:
+                        created = self.woodpecker.restart(int(killed["number"]))
+                        self.restarted[sha] = int(created["number"])
+                        self.say(
+                            f"{label} {sha[:12]}: validation pipeline "
+                            f"#{killed['number']} was killed, not failed; "
+                            f"restarted as #{created['number']}"
+                        )
+                        time.sleep(POLL_SECONDS)
+                        continue
                 failed = [
                     p
-                    for p in self.woodpecker.pipelines_for(sha)
+                    for p in pipelines
                     if p.get("status") in {"failure", "error", "killed"}
                 ]
+                if restarted is not None:
+                    failed.sort(key=lambda p: p["number"] != restarted)
                 report = (
                     self.woodpecker.failure_report(
                         self.woodpecker.pipeline(failed[0]["number"])
@@ -664,7 +718,15 @@ class Shipper:
                     if failed
                     else "no failing Woodpecker pipeline found"
                 )
-                raise ShipError(f"Required validation failed for {sha[:12]}\n{report}")
+                again = (
+                    f" (restarted pipeline #{restarted} did not pass; check who "
+                    "cancels validation)"
+                    if restarted is not None
+                    else ""
+                )
+                raise ShipError(
+                    f"Required validation failed for {sha[:12]}{again}\n{report}"
+                )
             time.sleep(POLL_SECONDS)
 
     def wait_policy(self, pull: dict[str, Any]) -> bool:

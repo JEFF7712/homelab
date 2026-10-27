@@ -492,6 +492,72 @@ class ShipMainPipelineTest(unittest.TestCase):
             shipper.main_pipeline(SHA)
 
 
+class ShipKilledValidationTest(unittest.TestCase):
+    KILLED = {"number": 6117, "event": "push", "status": "killed"}
+    REUSED = {"number": 6118, "event": "pull_request", "status": "success"}
+
+    def shipper(
+        self, statuses: list[str], pipelines: list[dict], restarted_status: str
+    ) -> ship.Shipper:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
+        shipper.reported = {}
+        shipper.restarted = {}
+        shipper.forgejo = unittest.mock.Mock()
+        shipper.forgejo.call.side_effect = lambda method, path: {
+            "statuses": [
+                {
+                    "context": REQUIRED_CONTEXT,
+                    "status": statuses.pop(0) if len(statuses) > 1 else statuses[0],
+                }
+            ]
+        }
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipelines_for.return_value = pipelines
+        shipper.woodpecker.restart.return_value = {"number": 6128}
+        shipper.woodpecker.pipeline.return_value = {
+            "number": 6128,
+            "status": restarted_status,
+        }
+        shipper.woodpecker.failure_report.return_value = "report"
+        patcher = patch.object(ship.time, "sleep")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return shipper
+
+    def test_a_killed_validation_is_restarted_once_and_followed(self) -> None:
+        shipper = self.shipper(
+            ["failure", "failure", "success"], [self.KILLED, self.REUSED], "running"
+        )
+        shipper.wait_status(SHA, "PR #4")
+        shipper.woodpecker.restart.assert_called_once_with(6117)
+
+    def test_a_second_kill_fails_instead_of_restarting_again(self) -> None:
+        shipper = self.shipper(["failure"], [self.KILLED, self.REUSED], "killed")
+        with self.assertRaisesRegex(ShipError, "restarted pipeline #6128 did not"):
+            shipper.wait_status(SHA, "PR #4")
+        shipper.woodpecker.restart.assert_called_once_with(6117)
+
+    def test_a_real_failure_is_reported_without_a_restart(self) -> None:
+        failed = {"number": 6117, "event": "push", "status": "failure"}
+        shipper = self.shipper(["failure"], [failed], "running")
+        with self.assertRaisesRegex(ShipError, "Required validation failed"):
+            shipper.wait_status(SHA, "PR #4")
+        shipper.woodpecker.restart.assert_not_called()
+
+    def test_only_the_latest_kill_of_a_validation_event_is_restartable(self) -> None:
+        from scripts.agent.ship import killed_validation
+
+        self.assertEqual(killed_validation([self.KILLED, self.REUSED]), self.KILLED)
+        newer = {"number": 6130, "event": "push", "status": "running"}
+        self.assertIsNone(killed_validation([self.KILLED, newer]))
+        deploy = {"number": 6131, "event": "deployment", "status": "failure"}
+        self.assertEqual(killed_validation([self.KILLED, deploy]), self.KILLED)
+        failed = {"number": 6116, "event": "push", "status": "failure"}
+        self.assertIsNone(killed_validation([failed, self.KILLED]))
+
+
 class ShipResumeTest(unittest.TestCase):
     def shipper(self) -> ship.Shipper:
         from argparse import Namespace
