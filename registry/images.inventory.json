@@ -845,6 +845,40 @@
     },
     {
       "consumers": [
+        "gitops/media/registry-sources.yaml:24"
+      ],
+      "destination_repository": "upstream/ghcr.io/doezer/questarr",
+      "id": "upstream-doezer-questarr-1de167cc5524",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+        "reference": "ghcr.io/doezer/questarr:v1.5.0@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+        "registry": "ghcr.io",
+        "repository": "doezer/questarr",
+        "tag": "v1.5.0"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "id": "upstream-gameyfin-gameyfin-29e8c1e1ce78",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.5.2@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.5.2"
+      }
+    },
+    {
+      "consumers": [
         "observed:default/bgp-canary-85c4bcc749-6vcqv/web"
       ],
       "destination_repository": "upstream/docker.io/library/nginx",

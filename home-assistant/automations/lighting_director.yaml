@@ -8,6 +8,8 @@ description: >-
   Guest Mode gates the signs and the exit sign; Vacation Mode gates the bedroom.
   Sunrise turns the bedroom off only when the auto-on flag says the lights
   went on via automation, never when they were turned on by hand.
+  Bedroom lights-off on departure is owned by Bedroom: Lights Off While Away,
+  which snapshots first, so this director never races that snapshot.
 triggers:
   - trigger: sun
     event: sunset
@@ -20,6 +22,9 @@ triggers:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "home"
     id: "arrive"
   - trigger: state
@@ -27,6 +32,9 @@ triggers:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "not_home"
     id: "leave"
 conditions: []
@@ -126,11 +134,6 @@ actions:
           - condition: trigger
             id: "leave"
         sequence:
-          - if:
-              - condition: template
-                value_template: "{{ trigger.entity_id == 'person.rupan_sunderapandyan' }}"
-            then:
-              - action: script.bedroom_lights_off
           - if:
               - condition: template
                 value_template: "{{ not anyone_home }}"
