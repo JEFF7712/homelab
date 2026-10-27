@@ -12,6 +12,7 @@ import argparse
 import base64
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -29,6 +30,7 @@ from typing import Any
 import yaml
 
 from scripts.ci.deployment_risk import APPROVAL_REQUIRED
+from scripts.verifier.freshness import OUTDATED, overlap
 
 ROOT = Path(__file__).resolve().parents[2]
 OWNER_REPO = "JEFF7712/homelab"
@@ -50,10 +52,47 @@ SUPERSEDED = "Operation source must be the current main commit"
 GRANT_PATTERN = re.compile(r"\(grant ([0-9a-f]{64})\): ([^<\n]*)")
 ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
+# One ship at a time holds the merge lease from its final freshness check to
+# its merge, so main cannot move under a revalidation. The lease is a branch
+# holding one parentless commit that names the holder and its expiry; pushes
+# compare and swap its commit, so creating, renewing, taking over an expired
+# lease and releasing are atomic on the server.
+LEASE_BRANCH = "ship/merge-lease"
+LEASE_REF = f"refs/heads/{LEASE_BRANCH}"
+LEASE_TTL_SECONDS = 300
+LEASE_RENEW_SECONDS = 60
+LEASE_POLL_SECONDS = 10
 
 
 class ShipError(RuntimeError):
     pass
+
+
+class LeaseLost(ShipError):
+    pass
+
+
+def lease_message(holder: str, expires: float) -> str:
+    # [skip ci]: the lease branch is not source and must not start pipelines.
+    return (
+        "just ship merge lease [skip ci]\n\n"
+        + json.dumps({"holder": holder, "expires": int(expires)})
+        + "\n"
+    )
+
+
+def lease_holder(message: str, now: float) -> str | None:
+    """Who holds an unexpired lease; None once it expired or is unreadable."""
+    for line in reversed(message.splitlines()):
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("expires"), int):
+            if payload["expires"] > now:
+                return str(payload.get("holder", "unknown"))
+            return None
+    return None
 
 
 @dataclass(frozen=True)
@@ -165,14 +204,19 @@ def kustomization_state(
     return False, ready.get("message", "waiting for reconciliation")[:300]
 
 
+def latest_status(
+    statuses: list[dict[str, Any]], context: str = REQUIRED_CONTEXT
+) -> dict[str, Any]:
+    matches = [s for s in statuses if s.get("context") == context]
+    if not matches:
+        return {}
+    return max(matches, key=lambda s: (s.get("updated_at", ""), s.get("id", 0)))
+
+
 def required_status(
     statuses: list[dict[str, Any]], context: str = REQUIRED_CONTEXT
 ) -> str:
-    matches = [s for s in statuses if s.get("context") == context]
-    if not matches:
-        return "missing"
-    latest = max(matches, key=lambda s: (s.get("updated_at", ""), s.get("id", 0)))
-    return str(latest.get("status", "missing"))
+    return str(latest_status(statuses, context).get("status", "missing"))
 
 
 def extract_patch(log: str) -> str | None:
@@ -365,7 +409,141 @@ class Woodpecker:
         return self.call("POST", f"/repos/{WOODPECKER_REPO}/pipelines/{parent}?{query}")
 
 
+class MergeLease:
+    """The server-side merge lease, held through the agent remote."""
+
+    def __init__(
+        self,
+        shipper: Shipper,
+        holder: str,
+        remote: str = AGENT_REMOTE,
+        cwd: Path = ROOT,
+    ) -> None:
+        self.shipper = shipper
+        self.holder = holder
+        self.remote = remote
+        self.cwd = cwd
+        self.sha = ""
+        self.renewed = 0.0
+
+    def git(
+        self, *command: str, stdin: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", *command],
+            cwd=self.cwd,
+            input=stdin,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def current(self) -> str:
+        result = self.git("ls-remote", self.remote, LEASE_REF)
+        if result.returncode:
+            raise ShipError(f"Reading the merge lease failed: {result.stderr.strip()}")
+        return result.stdout.split()[0] if result.stdout.strip() else ""
+
+    def read(self, sha: str) -> str:
+        self.git("fetch", "--quiet", "--no-write-fetch-head", self.remote, LEASE_REF)
+        return self.git("log", "-1", "--format=%B", sha).stdout
+
+    def swap(self, expected: str, new: str) -> bool:
+        """Point the lease at new (or delete it) only if it still is expected."""
+        result = self.git(
+            "push",
+            "--quiet",
+            f"--force-with-lease={LEASE_REF}:{expected}",
+            self.remote,
+            f"{new}:{LEASE_REF}",
+        )
+        return result.returncode == 0
+
+    def commit(self) -> str:
+        tree = self.git("mktree", stdin="").stdout.strip()
+        expires = time.time() + LEASE_TTL_SECONDS
+        identity = {
+            "GIT_AUTHOR_NAME": "just ship",
+            "GIT_AUTHOR_EMAIL": "ship@localhost",
+        }
+        return subprocess.run(
+            ["git", "commit-tree", tree, "-F", "-"],
+            cwd=self.cwd,
+            input=lease_message(self.holder, expires),
+            capture_output=True,
+            text=True,
+            check=True,
+            env={
+                **os.environ,
+                **identity,
+                "GIT_COMMITTER_NAME": identity["GIT_AUTHOR_NAME"],
+                "GIT_COMMITTER_EMAIL": identity["GIT_AUTHOR_EMAIL"],
+            },
+        ).stdout.strip()
+
+    def acquire(self) -> None:
+        waiting = ""
+        while True:
+            self.shipper.remaining()
+            try:
+                expected = self.current()
+            except ShipError as error:
+                self.shipper.say(f"{error}; retrying")
+                time.sleep(RETRY_SECONDS)
+                continue
+            if expected:
+                message = self.read(expected)
+                holder = lease_holder(message, time.time())
+                if holder:
+                    if holder != waiting:
+                        self.shipper.say(
+                            f"waiting for the merge lease held by {holder}"
+                        )
+                        waiting = holder
+                    time.sleep(LEASE_POLL_SECONDS + random.uniform(0, 5))
+                    continue
+                if not message:
+                    # Unreadable is not expired; never take a lease blind.
+                    time.sleep(LEASE_POLL_SECONDS)
+                    continue
+                self.shipper.say("taking over an expired merge lease")
+            new = self.commit()
+            if self.swap(expected, new):
+                self.sha, self.renewed = new, time.monotonic()
+                self.shipper.say("holding the merge lease")
+                return
+            # Another ship won the race, or the push failed; look again.
+            time.sleep(random.uniform(1, 3))
+
+    def renew(self) -> None:
+        if time.monotonic() - self.renewed < LEASE_RENEW_SECONDS:
+            return
+        new = self.commit()
+        if self.swap(self.sha, new):
+            self.sha, self.renewed = new, time.monotonic()
+            return
+        # A failed push may be transient; retry on the next poll unless the
+        # lease already moved to another ship.
+        try:
+            current = self.current()
+        except ShipError:
+            return
+        if current != self.sha:
+            raise LeaseLost("The merge lease expired and another ship took it")
+
+    def ensure(self) -> None:
+        if self.current() != self.sha:
+            raise LeaseLost("The merge lease expired and another ship took it")
+
+    def release(self) -> None:
+        if self.sha and not self.swap(self.sha, ""):
+            self.shipper.say("could not release the merge lease; it expires on its own")
+        self.sha = ""
+
+
 class Shipper:
+    lease: MergeLease | None = None
+
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.forgejo = Forgejo()
@@ -378,9 +556,12 @@ class Shipper:
         print(f"[ship {time.strftime('%H:%M:%S')}] {message}", flush=True)
 
     def remaining(self) -> float:
+        """Time left before the deadline; every wait polls it, so it renews the lease."""
         left = self.deadline - time.monotonic()
         if left <= 0:
             raise ShipError(f"Timed out after {self.args.timeout} minutes")
+        if self.lease is not None:
+            self.lease.renew()
         return left
 
     def git(self, *command: str, cwd: Path | None = None) -> str:
@@ -486,12 +667,14 @@ class Shipper:
                 raise ShipError(f"Required validation failed for {sha[:12]}\n{report}")
             time.sleep(POLL_SECONDS)
 
-    def wait_policy(self, pull: dict[str, Any]) -> None:
+    def wait_policy(self, pull: dict[str, Any]) -> bool:
         """Wait for the merge policy's verdict on this exact head.
 
-        Repairable rejections go back to the agent. The operator is notified
-        only when the change needs authority the policy cannot grant, or when
-        POLICY_REPAIRS rejected heads on this PR exhaust the bounded recovery.
+        Returns False when the head is behind main with overlapping changes,
+        which a branch update fixes. Repairable rejections go back to the
+        agent. The operator is notified only when the change needs authority
+        the policy cannot grant, or when POLICY_REPAIRS rejected heads on this
+        PR exhaust the bounded recovery.
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
@@ -499,12 +682,17 @@ class Shipper:
         while True:
             self.remaining()
             status = self.forgejo.call("GET", f"/commits/{sha}/status")
-            state = required_status(status.get("statuses") or [], POLICY_CONTEXT)
+            latest = latest_status(status.get("statuses") or [], POLICY_CONTEXT)
+            state = str(latest.get("status", "missing"))
             if state != last:
                 self.say(f"PR #{number} {sha[:12]}: {POLICY_CONTEXT} {state}")
                 last = state
             if state == "success":
-                return
+                return True
+            if state == "failure" and str(latest.get("description", "")).startswith(
+                OUTDATED
+            ):
+                return False
             if state in {"failure", "error"}:
                 # The policy polls on an interval, so an operator approval of
                 # this head can be newer than the failure it overrides. Give
@@ -563,22 +751,76 @@ class Shipper:
             for review in reviews
         )
 
+    def outdated(self, head: str) -> list[str]:
+        """Why main's changes since the head's merge base need a revalidation."""
+        self.fetch()
+        main = self.git("rev-parse", "origin/main")
+        try:
+            base = self.git("merge-base", main, head)
+        except subprocess.CalledProcessError:
+            raise ShipError(f"PR head {head[:12]} is not fetched from origin") from None
+        if base == main:
+            return []
+
+        def changed(target: str) -> list[str]:
+            return self.git(
+                "diff", "--name-only", "--no-renames", base, target
+            ).splitlines()
+
+        return overlap(changed(head), changed(main))
+
+    def update_branch(self, number: int, reason: str) -> None:
+        self.say(f"{reason}; updating the PR branch and revalidating")
+        self.forgejo.call("POST", f"/pulls/{number}/update?style=merge")
+        time.sleep(POLL_SECONDS)
+
     def merge(self, pull: dict[str, Any]) -> str:
+        """Validate, then merge under the merge lease.
+
+        The head is validated before queueing, so a failing change never
+        holds the lease. Under the lease the head is updated and revalidated
+        only when main's newer changes overlap it.
+        """
         number = pull["number"]
+        current = self.forgejo.call("GET", f"/pulls/{number}")
+        if current.get("merged"):
+            return current["merge_commit_sha"]
+        self.wait_status(current["head"]["sha"], f"PR #{number}")
+        while True:
+            lease = MergeLease(self, f"{current['head']['ref']} (PR #{number})")
+            lease.acquire()
+            self.lease = lease
+            try:
+                return self.merge_locked(number)
+            except LeaseLost as error:
+                self.say(f"{error}; queueing again")
+            finally:
+                self.lease = None
+                lease.release()
+
+    def merge_locked(self, number: int) -> str:
         transient = 0
         while True:
             self.remaining()
             current = self.forgejo.call("GET", f"/pulls/{number}")
             if current.get("merged"):
                 return current["merge_commit_sha"]
-            self.wait_status(current["head"]["sha"], f"PR #{number}")
-            if policy_required(ROOT):
-                self.wait_policy(current)
+            head = current["head"]["sha"]
+            self.wait_status(head, f"PR #{number}")
+            if policy_required(ROOT) and not self.wait_policy(current):
+                self.update_branch(number, f"{POLICY_CONTEXT}: {OUTDATED}")
+                continue
             waiting = awaiting_review(
                 current, self.forgejo.call("GET", f"/pulls/{number}/reviews")
             )
             if waiting:
                 raise ShipError(waiting)
+            reasons = self.outdated(head)
+            if reasons:
+                self.update_branch(number, f"{OUTDATED} ({reasons[0]})")
+                continue
+            if self.lease is not None:
+                self.lease.ensure()
             code, payload = self.forgejo.try_call(
                 "POST",
                 f"/pulls/{number}/merge",
@@ -590,9 +832,7 @@ class Shipper:
                 return merged["merge_commit_sha"]
             message = json.dumps(payload)
             if code in {405, 409} and "behind" in message:
-                self.say("head is behind main; updating the PR branch and revalidating")
-                self.forgejo.call("POST", f"/pulls/{number}/update?style=merge")
-                time.sleep(POLL_SECONDS)
+                self.update_branch(number, "branch protection requires a current head")
                 continue
             if code == 405 and "try again later" in message.lower():
                 # Forgejo answers this while it recomputes mergeability, and

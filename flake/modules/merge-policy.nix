@@ -14,6 +14,7 @@ let
     mkdir -p $out/scripts/verifier
     cp ${../../scripts/verifier/websites.py} $out/scripts/verifier/websites.py
     cp ${../../scripts/verifier/service.py} $out/scripts/verifier/service.py
+    cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
     touch $out/scripts/__init__.py $out/scripts/verifier/__init__.py
   '';
 in
