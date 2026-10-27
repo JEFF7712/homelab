@@ -268,24 +268,28 @@ class CacheBuildTest(unittest.TestCase):
                 BUILD_LOG=str(repo / "build.log"),
                 TMPDIR=temporary,
             )
-            env.pop("HOMELAB_CACHE_BUILDER", None)
-            for status in (0, 1):
-                with self.subTest(status=status):
-                    env["BUILD_STATUS"] = str(status)
-                    result = subprocess.run(
-                        ["bash", "scripts/ci/cache.sh"],
-                        cwd=repo,
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    self.assertEqual(result.returncode, status, result.stderr)
-                    self.assertIn(
-                        "homelab-05.config.system.build.toplevel",
-                        (repo / "build.log").read_text(),
-                    )
-                    self.assertEqual(list(repo.glob("attic-ci-*")), [])
+            for target_set, attribute in (
+                ("homelab", "homelab-05.config.system.build.toplevel"),
+                ("nixos-laptop", "laptop.config.system.build.toplevel"),
+                ("nixos-iso", "iso.config.system.build.isoImage"),
+            ):
+                env.pop("HOMELAB_CACHE_BUILDER", None)
+                if target_set == "homelab":
+                    env["HOMELAB_CACHE_BUILDER"] = "native"
+                for status in (0, 1):
+                    with self.subTest(target_set=target_set, status=status):
+                        env["BUILD_STATUS"] = str(status)
+                        result = subprocess.run(
+                            ["bash", "scripts/ci/cache.sh", "./flake", target_set],
+                            cwd=repo,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                        )
+                        self.assertEqual(result.returncode, status, result.stderr)
+                        self.assertIn(attribute, (repo / "build.log").read_text())
+                        self.assertEqual(list(repo.glob("attic-ci-*")), [])
 
     def test_one_rejected_path_does_not_stop_the_upload(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
