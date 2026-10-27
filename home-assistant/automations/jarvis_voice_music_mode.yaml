@@ -3,8 +3,8 @@ alias: "Jarvis: Voice Music Mode"
 description: >-
   Deterministically enables or disables Shared and Bedroom Music Mode via
   voice. Bare "music mode" phrases target the shared-spaces toggle (ambient
-  colour on the Zigbee bulbs); bedroom phrases target the bedroom Roku
-  toggle. "Govee" phrasings are legacy aliases for the same shared toggle.
+  colour on the shared bulbs); bedroom phrases target the bedroom Roku
+  toggle.
 mode: restart
 triggers:
   - trigger: conversation
@@ -17,12 +17,10 @@ triggers:
       - "music mode on"
       - "turn on [the] shared music mode"
       - "start [the] shared music mode"
-      - "turn on [the] zigbee music mode"
+      - "turn on [the] shared spaces music mode"
+      - "start [the] shared spaces music mode"
       - "turn on music mode [on|for] [all] [the] shared lights"
-      - "turn on music mode [on|for] [all] [the] zigbee lights"
-      - "turn on [the] govee music mode"
-      - "start [the] govee music mode"
-      - "turn on music mode [on|for] [all] [the] govee lights"
+      - "turn on music mode [on|for] [all] [the] shared spaces lights"
   - trigger: conversation
     id: "off"
     command:
@@ -32,12 +30,10 @@ triggers:
       - "music mode off"
       - "turn off [the] shared music mode"
       - "stop [the] shared music mode"
-      - "turn off [the] zigbee music mode"
+      - "turn off [the] shared spaces music mode"
+      - "stop [the] shared spaces music mode"
       - "turn off music mode [on|for] [all] [the] shared lights"
-      - "turn off music mode [on|for] [all] [the] zigbee lights"
-      - "turn off [the] govee music mode"
-      - "stop [the] govee music mode"
-      - "turn off music mode [on|for] [all] [the] govee lights"
+      - "turn off music mode [on|for] [all] [the] shared spaces lights"
   - trigger: conversation
     id: "bedroom_on"
     command:

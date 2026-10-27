@@ -458,12 +458,6 @@
   intent: JarvisDefaultLightsColor
   targets: [light.downstairs_lights]
   response: Done.
-- id: lights-govee-gobi-on
-  say: Turn on all the Gobi lights.
-  path: local
-  intent: JarvisAliasOn
-  targets: [light.shared_zigbee_lights]
-  response: Done.
 - id: music-stop-playing
   say: Stop playing music.
   path: local
