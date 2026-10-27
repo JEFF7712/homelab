@@ -19,3 +19,4 @@ resources:
   - music.yaml
   - frontend.yaml
   - recommender.yaml
+  - games.yaml
