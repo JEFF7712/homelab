@@ -15,6 +15,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - `docs/runbooks/roku-bridge-architecture.md` — Roku bulb bridge data flow, PIDs, debug commands, deploy path, and the modern-vs-legacy color schema gotcha. Read before debugging bedroom bulb behavior.
 - `docs/runbooks/cloudflare-tunnel.md` — Cloudflare Tunnel operations.
 - `docs/runbooks/ci-pipelines.md` — GitLab runner lanes, validation jobs, and path-based routing.
+- `docs/runbooks/node-supply.md` — retained npm caches for node releases: fixing `ENOTCACHED` release failures with `node-supply-publish`.
 - `docs/runbooks/ship.md` — `just ship` delivery path: PR, required CI, merge, routed deployment operations, promotion, and Flux verification.
 - `docs/runbooks/merge-policy.md` — per-commit `policy/merge` status: what it approves on its own, repair and escalation, activation.
 - `docs/runbooks/approvals.md` — approvals dashboard: passkey approval of held CI operations, setup, and recovery.

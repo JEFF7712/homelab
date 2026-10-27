@@ -2299,5 +2299,29 @@
     "mutation": true,
     "prerequisite": "deploy-ci-host-dry-run",
     "agent": true
+  },
+  "node-supply-publish": {
+    "commands": [
+      "python -m scripts.ci.node_supply publish"
+    ],
+    "environment": {
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PACKAGE_TOKEN": {
+        "from_secret": "supply_write_token"
+      }
+    },
+    "file_secrets": [],
+    "group": "node-supply",
+    "needs": [],
+    "outputs": [
+      "artifacts/node-supply/"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
   }
 }

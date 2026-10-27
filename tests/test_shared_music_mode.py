@@ -109,8 +109,8 @@ class TestSharedMusicMode(unittest.TestCase):
         raw_text = voice_file.read_text(encoding="utf-8")
         self.assertIn("turn on [the] shared music mode", raw_text)
         self.assertIn("turn off [the] shared music mode", raw_text)
-        # Legacy Govee phrasing keeps working against the same toggle.
-        self.assertIn("turn on [the] govee music mode", raw_text)
+        self.assertIn("turn on [the] shared spaces music mode", raw_text)
+        self.assertNotRegex(raw_text.lower(), r"govee|zigbee")
 
     def test_automation_is_enabled_and_leaves_the_apollo_strip_alone(self) -> None:
         auto_file = (
