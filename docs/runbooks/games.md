@@ -62,7 +62,10 @@ kubectl -n media logs deploy/gameyfin
   restore backups taken with the old one. Deleting the ExternalSecret's target
   Secret regenerates a different key.
 - Questarr runs as uid 1000 with its upstream entrypoint bypassed (that
-  script needs a writable root filesystem). Gameyfin's entrypoint starts as
+  script needs a writable root filesystem). Its logger always writes
+  `/app/server.log`; that single file is mounted from a 256Mi emptyDir, so the
+  log resets on each pod restart and the pod is evicted if it outgrows the
+  limit. Gameyfin's entrypoint starts as
   root and drops to uid 1337 with gosu.
 - Upgrades: bump the digest in `registry-sources.yaml`, import it through the
   registry lane (`docs/runbooks/local-registry.md`), then update the digest in
