@@ -654,7 +654,13 @@ class PolicyVerdictTest(unittest.TestCase):
             "body": f"<!-- merge-policy head={head} outcome={outcome} -->\n- finding"
         }
 
-    def run_policy(self, state: str, comments: list[dict]) -> tuple[str, list]:
+    def run_policy(
+        self,
+        state: str,
+        comments: list[dict],
+        reviews: list | None = None,
+        states: list[str] | None = None,
+    ) -> tuple[str, list]:
         from scripts.agent import ship
 
         calls: list = []
@@ -663,15 +669,21 @@ class PolicyVerdictTest(unittest.TestCase):
             def call(self, method: str, path: str, body=None):
                 calls.append((method, path, body))
                 if path.startswith("/commits/"):
+                    current = states.pop(0) if states else state
                     return {
-                        "statuses": [{"context": ship.POLICY_CONTEXT, "status": state}]
+                        "statuses": [
+                            {"context": ship.POLICY_CONTEXT, "status": current}
+                        ]
                     }
                 if path.endswith("/comments"):
                     return comments
+                if path.endswith("/reviews"):
+                    return reviews or []
                 return {}
 
         class Stub:
             forgejo = Forge()
+            operator_approved = ship.Shipper.operator_approved
 
             def remaining(self) -> None:
                 pass
@@ -712,6 +724,20 @@ class PolicyVerdictTest(unittest.TestCase):
         ]
         outcome, calls = self.run_policy("failure", comments)
         self.assertIn("escalated to rupan", outcome)
+
+    def test_approved_head_waits_for_the_policy_instead_of_escalating(self) -> None:
+        approval = [
+            {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": self.HEAD}
+        ]
+        with patch.object(ship.time, "sleep"):
+            outcome, calls = self.run_policy(
+                "success",
+                [self.comment(self.HEAD, "escalated")],
+                reviews=approval,
+                states=["failure", "failure", "success"],
+            )
+        self.assertEqual(outcome, "passed")
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
     def test_policy_requirement_follows_branch_protection(self) -> None:
         from scripts.agent.ship import POLICY_CONTEXT, policy_required
