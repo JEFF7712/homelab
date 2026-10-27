@@ -13,6 +13,7 @@ resources:
   - spotify-sync.yaml
   - soularr.yaml
   - download.yaml
+  - slskd.yaml
   - jellyfin.yaml
   - books.yaml
   - music.yaml
