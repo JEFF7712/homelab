@@ -1,0 +1,3 @@
+name: Bedroom LedFx Effect
+icon: null
+entity_id: input_select.bedroom_ledfx_effect

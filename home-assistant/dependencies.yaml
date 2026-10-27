@@ -39,9 +39,9 @@ custom_integrations:
   - domain: spook
     name: Spook
     source: https://github.com/frenck/spook
-    version: v5.5.1
-    artifact: https://github.com/frenck/spook/releases/download/v5.5.1/spook.zip
-    sha256: b50b16a11ec3d7e75276c4631220f99d3f9549fc101559b984b2a4ad1ebc5976
+    version: v5.11.1
+    artifact: https://github.com/frenck/spook/releases/download/v5.11.1/spook.zip
+    sha256: c94d517f38ec07b78f9f7f596f94ec39a42a49c16c89b223c4daaa97ca710526
     install_path: /config/custom_components/spook
     connection: local
     status: installed
@@ -146,9 +146,9 @@ custom_frontend_cards:
 custom_themes:
   - name: Frosted Glass Theme
     source: https://github.com/wessamlauf/homeassistant-frosted-glass-themes
-    version: v1.3
-    artifact: https://github.com/wessamlauf/homeassistant-frosted-glass-themes/archive/refs/tags/v1.3.zip
-    sha256: af86c6ec1f0bcdcfda1eb9b923621d5874a8a95050d11989618258556a5e6bc1
+    version: v1.4
+    artifact: https://github.com/wessamlauf/homeassistant-frosted-glass-themes/archive/refs/tags/v1.4.zip
+    sha256: b311c1c3f67ef40c1a5818c8de0887d80e9e3f53e3b482287958c0caab8f8cb1
     install_path: /config/themes/
     connection: local
     status: installed

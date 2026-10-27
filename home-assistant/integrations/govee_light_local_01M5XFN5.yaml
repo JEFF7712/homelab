@@ -1,0 +1,7 @@
+title: Govee light local
+disabled_by: null
+domain: govee_light_local
+entry_id: 01M5XFN58E47YATXEV02FN8ZBP
+pref_disable_new_entities: false
+pref_disable_polling: false
+source: user
