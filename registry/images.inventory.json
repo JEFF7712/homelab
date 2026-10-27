@@ -806,6 +806,23 @@
     },
     {
       "consumers": [
+        "gitops/media/registry-sources.yaml:28"
+      ],
+      "destination_repository": "upstream/docker.io/clamav/clamav",
+      "id": "upstream-clamav-clamav-e67d9ebfd000",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+        "reference": "docker.io/clamav/clamav:1.5.4@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+        "registry": "docker.io",
+        "repository": "clamav/clamav",
+        "tag": "1.5.4"
+      }
+    },
+    {
+      "consumers": [
         "observed:cnpg-system/cloudnative-pg-7786f6446-5llfh/manager",
         "observed:home-assistant/home-assistant-cluster-1/bootstrap-controller",
         "observed:home-assistant/home-assistant-cluster-2/bootstrap-controller",
