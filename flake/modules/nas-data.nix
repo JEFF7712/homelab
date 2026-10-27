@@ -35,6 +35,8 @@
   services.samba = {
     enable = true;
     openFirewall = true;
+    nmbd.enable = false;
+    winbindd.enable = false;
     settings = {
       global = {
         "workgroup" = "WORKGROUP";
@@ -63,6 +65,8 @@
     enable = true;
     openFirewall = true;
   };
+
+  systemd.services.samba-smbd.preStart = "mkdir -p -m 0700 /var/lib/samba/private";
 
   services.nfs.server = {
     enable = true;
