@@ -1921,10 +1921,10 @@
       ],
       "destination_repository": "upstream/ghcr.io/home-assistant/home-assistant",
       "destination_tags": [
-        "retention-deployed-31076d37e3b7dc96"
+        "retention-deployed-21935614df6d9f24"
       ],
-      "digest": "sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17",
-      "id": "upstream-home-assistant-home-assistant-070c4953bb87",
+      "digest": "sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04",
+      "id": "upstream-home-assistant-home-assistant-26935e60cd36",
       "kind": "upstream",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "platforms": [],
@@ -1938,8 +1938,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17",
-        "reference": "ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17",
+        "digest": "sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04",
+        "reference": "ghcr.io/home-assistant/home-assistant@sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04",
         "registry": "ghcr.io",
         "repository": "home-assistant/home-assistant",
         "tag": null

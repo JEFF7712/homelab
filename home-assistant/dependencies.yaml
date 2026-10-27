@@ -39,9 +39,9 @@ custom_integrations:
   - domain: spook
     name: Spook
     source: https://github.com/frenck/spook
-    version: v5.4.0
-    artifact: https://github.com/frenck/spook/releases/download/v5.4.0/spook.zip
-    sha256: 5c69e58cf14ce67b87299c1eb13c30c37a4f1e75a3e924d51c04be4e5e456a4a
+    version: v5.5.1
+    artifact: https://github.com/frenck/spook/releases/download/v5.5.1/spook.zip
+    sha256: b50b16a11ec3d7e75276c4631220f99d3f9549fc101559b984b2a4ad1ebc5976
     install_path: /config/custom_components/spook
     connection: local
     status: installed
