@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,79 @@ from pathlib import Path
 from scripts.ci.cache_sources import source_paths
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class CacheTargetsTest(unittest.TestCase):
+    def population_targets(self) -> set[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "scripts/ci").mkdir(parents=True)
+            shutil.copy(ROOT / "scripts/ci/cache.sh", directory / "scripts/ci")
+            shutil.copy(ROOT / "justfile", directory)
+            binaries = directory / "bin"
+            binaries.mkdir()
+            nix = binaries / "nix"
+            nix.write_text(
+                f"#!{sys.executable}\n"
+                "import json, os, pathlib, sys\n"
+                "assert sys.argv[1:4] == ['build', '--no-link', '--print-out-paths']\n"
+                "pathlib.Path(os.environ['TARGETS']).write_text(json.dumps(sys.argv[4:]))\n"
+            )
+            attic = binaries / "attic"
+            attic.write_text(f"#!{sys.executable}\nimport sys\nsys.stdin.read()\n")
+            nix.chmod(0o755)
+            attic.chmod(0o755)
+            receipt = directory / "targets.json"
+            env = dict(
+                os.environ,
+                PATH=f"{binaries}:{os.environ['PATH']}",
+                ATTIC_TOKEN="",
+                HOMELAB_CACHE_BUILDER="native",
+                HOMELAB_DEV_SHELL="1",
+                TARGETS=str(receipt),
+            )
+            targets = []
+            for command in (
+                ["bash", "scripts/ci/cache.sh"],
+                ["just", "cache-populate"],
+            ):
+                result = subprocess.run(
+                    command, cwd=directory, env=env, text=True, capture_output=True
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                targets.append(set(json.loads(receipt.read_text())))
+            self.assertEqual(targets[0], targets[1])
+            return targets[0]
+
+    def test_local_and_ci_publication_include_service_vm_check(self) -> None:
+        self.assertIn(
+            "./flake#checks.x86_64-linux.zot-registry-service",
+            self.population_targets(),
+        )
+
+    @unittest.skipUnless(shutil.which("nix"), "requires Nix source evaluation")
+    def test_publication_covers_every_evaluated_flake_check(self) -> None:
+        result = subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--json",
+                "--offline",
+                "./flake#checks.x86_64-linux",
+                "--apply",
+                "builtins.attrNames",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        checks = {
+            target.split("#checks.x86_64-linux.", 1)[1]
+            for target in self.population_targets()
+            if "#checks.x86_64-linux." in target
+        }
+        self.assertEqual(checks, set(json.loads(result.stdout)))
 
 
 class CacheSourcesTest(unittest.TestCase):
