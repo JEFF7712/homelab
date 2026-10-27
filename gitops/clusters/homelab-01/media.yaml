@@ -28,5 +28,9 @@ spec:
       namespace: media
     - apiVersion: apps/v1
       kind: Deployment
-      name: download
+      name: qbittorrent
+      namespace: media
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: slskd
       namespace: media
