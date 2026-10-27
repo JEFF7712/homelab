@@ -31,12 +31,8 @@ class GoveeLanTests(unittest.TestCase):
             sorted(ALIASES["govee_bulbs"]["content"]), [ip for _, ip, _ in BULBS]
         )
 
-    def test_wan_block_precedes_internet_allow(self) -> None:
-        block = RULES["clients-block-govee-bulbs-internet"]
-        self.assertEqual(block["filter"]["action"], "block")
-        self.assertTrue(block["filter"]["quick"])
-        self.assertEqual(block["filter"]["source"]["net"], "govee_bulbs")
-        self.assertLess(block["sequence"], RULES["clients-allow-internet"]["sequence"])
+    def test_bulbs_keep_cloud_access(self) -> None:
+        self.assertNotIn("clients-block-govee-bulbs-internet", RULES)
 
     def test_responses_precede_private_block(self) -> None:
         allow = RULES["clients-allow-govee-responses"]
