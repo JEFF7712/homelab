@@ -231,7 +231,7 @@ in
       "rupan"
     ];
     autostart = true;
-    output = "DP-1";
+    output = "HDMI-A-1";
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated
