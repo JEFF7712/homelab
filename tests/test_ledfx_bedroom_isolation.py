@@ -228,8 +228,6 @@ class BedroomIsolationTests(unittest.TestCase):
         for light in BEDROOM_LIGHTS:
             self.assertNotIn(light, raw)
         self.assertNotIn("input_boolean.bedroom_music_mode", raw)
-        # Shared mode must keep using the shared instance only.
-        self.assertIn("rest_command.ledfx_activate_scene", raw)
         self.assertNotIn("ledfx_bedroom", raw)
 
     def test_recorder_excludes_bedroom_bulbs(self) -> None:

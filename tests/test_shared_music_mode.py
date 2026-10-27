@@ -57,16 +57,16 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertEqual(data.get("id"), "shared_music_mode")
         self.assertEqual(data.get("alias"), "Lighting: Shared Music Mode")
 
-        # Must NOT contain repeating loops or delays; control fans out
-        # through the LedFx Zigbee bridge, not per-bulb cloud calls.
+        # One colour write per track: no loops or delays, and LedFx no
+        # longer drives the shared bulbs.
         self.assertNotIn("repeat:", raw_text)
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
+        self.assertNotIn("ledfx", raw_text.split("actions:", 1)[1])
 
-        # Must call LedFx scene activation
-        self.assertIn("rest_command.ledfx_activate_scene", raw_text)
-        self.assertIn("rest_command.ledfx_deactivate_scene", raw_text)
-        self.assertIn("music-mode", raw_text)
+        track = next(t for t in data["triggers"] if t.get("id") == "track")
+        self.assertEqual(track["attribute"], "entity_picture")
+        self.assertEqual(raw_text.count("action: script.shared_music_album_color"), 2)
 
         # Must lock and restore Adaptive Lighting properly
         self.assertIn("adaptive_lighting.set_manual_control", raw_text)
@@ -131,6 +131,36 @@ class TestSharedMusicMode(unittest.TestCase):
             REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("input_boolean.shared_music_mode", lovelace_jarvis)
+
+    def test_album_colour_script_covers_all_shared_bulbs(self) -> None:
+        script = yaml.safe_load(
+            (
+                REPO_ROOT
+                / "home-assistant"
+                / "scripts"
+                / "shared_music_album_color.yaml"
+            ).read_text(encoding="utf-8")
+        )
+        call = next(s for s in script["sequence"] if "action" in s)
+        self.assertEqual(call["action"], "color_extractor.turn_on")
+        self.assertEqual(
+            set(call["data"]["entity_id"]),
+            {
+                "light.kitchen_ceiling_light_1",
+                "light.kitchen_ceiling_light_2",
+                "light.living_room_floor_lamp",
+                "light.living_room_tulip_lamp",
+                "light.kitchen_dining_table_ceiling_light_1",
+                "light.kitchen_dining_table_ceiling_light_2",
+            },
+        )
+        self.assertIn("brightness_pct", call["data"])
+        core = (REPO_ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            core, r"allowlist_external_urls:\n\s+- http://127\.0\.0\.1:8123\n"
+        )
 
 
 if __name__ == "__main__":

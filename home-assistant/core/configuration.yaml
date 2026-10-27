@@ -1,6 +1,9 @@
 default_config:
 homeassistant:
   external_url: https://ha.rupan.dev
+  allowlist_external_urls:
+    - http://127.0.0.1:8123
+    - http://10.0.30.15:8095
   customize:
     light.shared_zigbee_lights:
       friendly_name: Shared Lights
