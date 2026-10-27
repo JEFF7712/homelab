@@ -34,3 +34,11 @@ spec:
       kind: Deployment
       name: slskd
       namespace: media
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: questarr
+      namespace: media
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: gameyfin
+      namespace: media

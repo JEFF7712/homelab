@@ -1,0 +1,312 @@
+# Game downloads and library (docs/runbooks/games.md).
+# Questarr picks games (IGDB metadata), searches Prowlarr indexers and sends
+# releases to qBittorrent; it mounts media-library at /data like the *arrs so
+# qBittorrent paths need no remapping. Gameyfin serves /tank/media/games
+# read-only as a browsable library with per-user downloads. Indexer,
+# downloader, IGDB and library settings live in each app's UI and database.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: questarr-data
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: gameyfin-data
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: questarr
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: questarr
+  template:
+    metadata:
+      labels:
+        app: questarr
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: fix-permissions
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          command:
+            - sh
+            - -c
+            - '[ "$(stat -c ''%u:%g'' /app/data)" = "1000:1000" ] || chown -R 1000:1000 /app/data'
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      containers:
+        - name: questarr
+          image: registry.rupan.dev/upstream/ghcr.io/doezer/questarr@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621  # yamllint disable-line rule:line-length
+          # Upstream entrypoint.sh starts as root to usermod/chown and then
+          # su-exec's to the app user; run the app directly as 1000 instead so
+          # the root filesystem stays read-only and nothing runs as root.
+          command: ["node", "dist/server/index.js"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          env:
+            - name: HOME
+              value: /tmp
+            - name: TZ
+              value: America/Chicago
+            - name: SQLITE_DB_PATH
+              value: /app/data/sqlite.db
+            # Requests arrive through cloudflared, one proxy hop.
+            - name: TRUST_PROXY
+              value: "1"
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: media
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            tcpSocket:
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: 5000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: questarr-data
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-library
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: questarr
+  namespace: media
+spec:
+  selector:
+    app: questarr
+  ports:
+    - port: 80
+      targetPort: 5000
+---
+# APP_KEY encrypts Gameyfin's stored credentials and must be base64 of a
+# 128/192/256-bit key. Generated once in-cluster and never rotated: a new key
+# makes stored settings and backups unreadable.
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: gameyfin-app-key
+  namespace: media
+spec:
+  length: 32
+  digits: 8
+  symbols: 0
+  noUpper: false
+  allowRepeat: true
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gameyfin-app-key
+  namespace: media
+spec:
+  refreshPolicy: CreatedOnce
+  target:
+    name: gameyfin-app-key
+    creationPolicy: Owner
+    template:
+      type: Opaque
+      data:
+        APP_KEY: "{{ .password | b64enc }}"
+  dataFrom:
+    - sourceRef:
+        generatorRef:
+          apiVersion: generators.external-secrets.io/v1alpha1
+          kind: Password
+          name: gameyfin-app-key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameyfin
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gameyfin
+  template:
+    metadata:
+      labels:
+        app: gameyfin
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The image's runtime user is 1337; its entrypoint only chowns when
+        # PUID/PGID are set, which would also usermod the read-only rootfs.
+        - name: fix-permissions
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          command:
+            - sh
+            - -c
+            - |
+              for d in db data backups plugindata plugins-installed logs; do
+                mkdir -p "/state/$d"
+                [ "$(stat -c '%u:%g' "/state/$d")" = "1337:1337" ] || chown -R 1337:1337 "/state/$d"
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: state
+              mountPath: /state
+      containers:
+        - name: gameyfin
+          image: registry.rupan.dev/upstream/ghcr.io/gameyfin/gameyfin@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93  # yamllint disable-line rule:line-length
+          # The entrypoint starts as root only to gosu to the gameyfin user
+          # (1337) before launching the JVM.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          env:
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gameyfin-app-key
+                  key: APP_KEY
+            - name: APP_URL
+              value: https://games.rupan.dev
+            - name: TZ
+              value: America/Chicago
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: management
+          volumeMounts:
+            - name: state
+              mountPath: /opt/gameyfin/db
+              subPath: db
+            - name: state
+              mountPath: /opt/gameyfin/data
+              subPath: data
+            - name: state
+              mountPath: /opt/gameyfin/backups
+              subPath: backups
+            - name: state
+              mountPath: /opt/gameyfin/plugindata
+              subPath: plugindata
+            - name: state
+              mountPath: /opt/gameyfin/plugins-installed
+              subPath: plugins-installed
+            - name: state
+              mountPath: /opt/gameyfin/logs
+              subPath: logs
+            - name: media
+              mountPath: /library
+              subPath: games
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: management
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 768Mi
+            limits:
+              memory: 1536Mi
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: gameyfin-data
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-library
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gameyfin
+  namespace: media
+spec:
+  selector:
+    app: gameyfin
+  ports:
+    - port: 80
+      targetPort: 8080
