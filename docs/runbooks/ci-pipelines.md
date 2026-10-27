@@ -32,6 +32,14 @@ The new host CI slice is limited to three CPUs and 10 GiB, with that budget
 reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
 and 8 GiB container limits.
 
+Job Nix builds as the container's root (`build-users-group =` in the
+server-owned `NIX_CONFIG`). The `nixos/nix` image's `nixbld` users carry the
+host's build UIDs (30001+) and Docker does not remap them, so a host
+nix-daemon build, such as a fleet dry-run's `--build-host` on homelab-04 or
+homelab-05, killed every job builder holding the same UID: the job failed
+with `builder failed due to signal 9 (Killed)` and no OOM recorded anywhere.
+Without a sandbox the build users isolated nothing.
+
 The remote agent uses a dedicated SSH tunnel with a pinned homelab-04 host
 key. Its account can forward only to `127.0.0.1:9000`, cannot open a shell
 or remote listener, and has no sudo access. The server's gRPC listener
