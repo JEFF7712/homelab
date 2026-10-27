@@ -62,11 +62,12 @@ The operation receives the Woodpecker secret `supply_write_token` as
 and repository read to fetch application sources. Only this operation is given
 it, on deployment events of the homelab repository. Agents never hold it.
 
-To provision or rotate it, create the token in Forgejo (Settings, Applications)
-and store it as a homelab repository secret named `supply_write_token`, limited
-to the protected deployment workflow, with the same event and image filters as
-`registry_jarvis_publisher_auth_file`. Then revoke the previous token. The release pipelines
-keep using the read-only `supply_read_password`.
+To provision or rotate it, sign in to Forgejo as `JEFF7712` and create the
+token under Settings, Applications, with access to all repositories, package
+Read and write, and repository Read. Store it as the homelab repository secret
+`supply_write_token` with only the Deployment event and no image filter,
+matching `supply_read_password`. Then revoke the previous token. The release
+pipelines keep using the read-only `supply_read_password`.
 
 The shared node toolchain (`node-toolchain/*`) is still uploaded by hand with
 `node_supply.py upload`.
