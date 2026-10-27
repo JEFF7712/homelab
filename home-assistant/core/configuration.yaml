@@ -366,16 +366,6 @@ recorder:
       - light.light_strip_light_strip
     event_types:
       - call_service
-history:
-  exclude:
-    entity_globs:
-      - sensor.sm_s948u1_app_*
-      - sensor.sm_s948u1_volume_*
-      - sensor.rupan_phone_app_*
-      - sensor.*_rx_gb
-      - sensor.*_tx_gb
-      - sensor.*_last_*
-      - sensor.*_linkquality
 logbook:
   exclude:
     entity_globs:
