@@ -48,6 +48,8 @@ just fmt-check      # formatting gate before handoff
 
 Format changed Nix files with `nixfmt`. Test observable behavior and failure paths in `test_*.py` files. Add meaningful regression tests for bugs. Prefer evaluated configuration and rendered manifests over source-string assertions. Keep routine tests offline and credential-free. Match verification to risk; static success does not prove deployment. Report missing checks explicitly.
 
+Agent workspaces share about 8 GiB of RAM across every concurrent session, and one full `repository-contract` build peaks near 5 GiB. Validate locally with `just check-changed` and focused `python -m unittest` modules; leave `just check` and full flake check builds to CI. To diagnose a CI failure, read the pipeline log or run only the failing test modules. Close idle agent sessions; each holds about 300 MB.
+
 ## Documentation Index
 
 Read narrowly. `AGENT_MAP.md` maps each concern to its owning files, checks, and runbook; `just diag <app>` names the runbooks for a live app. The full index of runbooks, gotchas, and historical plans is [docs/README.md](docs/README.md). Runbooks in `docs/runbooks/` are the authoritative procedure for live operations; plans under `docs/superpowers/` are dated records, not active state.
