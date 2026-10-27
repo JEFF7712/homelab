@@ -1,10 +1,4 @@
 {
   "schema_version": 1,
-  "requests": [
-    {
-      "application": "rupan-dev",
-      "version": "4",
-      "source": "1710bb970c2d0758fe172b2261e7bb9355c2c81b"
-    }
-  ]
+  "requests": []
 }
