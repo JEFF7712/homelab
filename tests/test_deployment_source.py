@@ -82,6 +82,31 @@ class DeploymentSourceTest(unittest.TestCase):
             after = git("rev-parse", "HEAD")
             mirror = SourceMirror(root)
             with patch.object(mirror, "branch_changes", return_value=()):
+                self.assertEqual(mirror.push_changes(after, {}), ("two",))
                 self.assertEqual(mirror.deployment_changes(before, after, {}), ("two",))
                 self.assertIsNone(mirror.deployment_changes(after, before, {}))
                 self.assertIsNone(mirror.deployment_changes("c" * 40, before, {}))
+
+    def test_main_scope_keeps_both_sides_of_a_rename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(root), *args], text=True
+                ).strip()
+
+            git("init", "-q")
+            git("config", "user.name", "Fixture")
+            git("config", "user.email", "fixture@example.com")
+            (root / "code.py").write_text("print('fixture')")
+            git("add", "code.py")
+            git("commit", "-qm", "code")
+            git("mv", "code.py", "docs.md")
+            git("commit", "-qm", "rename")
+            mirror = SourceMirror(root)
+            with patch.object(mirror, "branch_changes", return_value=()):
+                self.assertEqual(
+                    mirror.push_changes(git("rev-parse", "HEAD"), {}),
+                    ("code.py", "docs.md"),
+                )

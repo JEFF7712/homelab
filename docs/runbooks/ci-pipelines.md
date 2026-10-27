@@ -118,8 +118,10 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   narrow changes run the union of their checks. Validation infrastructure
   (`scripts/ci/`, `scripts/checks/`, CI config, flake inputs), shared Nix
   modules, and any unmapped path still force the full gate.
-- **Main pushes** use the policy-provided first-parent diff and the same scoped
-  classification as branch pushes. Missing diffs fall back to full validation.
+- **Main pushes** use the policy mirror's complete first-parent Git diff with
+  rename detection disabled, preserving both sides of moved files. The same
+  scoped classification applies as on branches. API display-list truncation
+  cannot omit checks; missing mirror evidence falls back to full validation.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).

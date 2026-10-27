@@ -318,36 +318,18 @@ REGISTRY_LOCK_PATHS = frozenset(
 )
 
 
-def push_changed_files(request: dict[str, Any]) -> tuple[str, ...] | None:
-    """Files changed by a main push, or None when the diff cannot be read.
+def push_changed_files(
+    request: dict[str, Any], mirror: SourceMirror | None = None
+) -> tuple[str, ...] | None:
+    """Complete first-parent diff; missing mirror evidence forces the full gate.
 
-    The base is the pushed commit's first parent, so a merge commit diffs
-    against the previous main tip and a fast-forward diffs its own commit.
+    Compare APIs may truncate file lists or report only a rename's destination.
+    Scope validation from exact Git trees instead of those display-oriented lists.
     """
-    pipeline = request["pipeline"]
-    commit = pipeline.get("commit", "")
-    token = request.get("netrc", {}).get("password", "")
-    if not token or not re.fullmatch(r"[0-9a-f]{40}", commit):
+    if mirror is None:
         return None
-    try:
-        info = api(
-            f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/commits/{commit}",
-            token,
-        )
-        parents = info.get("parents") or []
-        if not parents:
-            return None
-        compare = api(
-            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/compare/"
-            f"{parents[0]['id']}...{commit}",
-            token,
-        )
-    except Exception:
-        return None
-    return tuple(
-        entry["filename"]
-        for entry in compare.get("files") or []
-        if isinstance(entry, dict) and isinstance(entry.get("filename"), str)
+    return mirror.push_changes(
+        request["pipeline"].get("commit", ""), request.get("netrc", {})
     )
 
 
@@ -422,6 +404,20 @@ class SourceMirror:
         finally:
             self.lock.release()
         return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
+
+    def push_changes(
+        self, commit: str, credentials: dict[str, Any]
+    ) -> tuple[str, ...] | None:
+        if self.branch_changes(commit, credentials) is None:
+            return None
+        try:
+            with self.lock:
+                changes = self.git(
+                    "diff", "--name-only", "--no-renames", "-z", commit + "^", commit
+                )
+            return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
+        except (OSError, subprocess.SubprocessError):
+            return None
 
     def deployment_changes(
         self, before: str, after: str, credentials: dict[str, Any]
@@ -838,7 +834,7 @@ def resolve_configuration(
         request["pipeline"].get("event") == "push"
         and request["pipeline"].get("ref") == "refs/heads/main"
     ):
-        changed_files = push_changed_files(request)
+        changed_files = push_changed_files(request, mirror)
     branch_files = None
     authority_changes = None
     authority_grant = ""
