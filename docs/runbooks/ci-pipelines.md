@@ -210,14 +210,17 @@ remove it once the SSD store has run cleanly for a while.
 
 ### Fleet cache builder
 
-`scripts/ci/cache.sh` uses the native builder by default for homelab, laptop
-and ISO targets. The [matched CI benchmark](../research/2026-10-23-nix-fast-build-benchmark.md)
-found no consistent complete-job benefit from enabling nix-fast-build for
-the homelab cache lane. The full gate's bounded `nix-eval-jobs` flake lane
-remains a separate validation gate.
+`scripts/ci/cache.sh` uses bounded nix-fast-build evaluation by default for
+homelab targets; laptop and ISO builds use the native builder. The
+[matched warm-cache benchmark](../research/2026-10-23-nix-fast-build-benchmark.md)
+found no consistent complete-job speed benefit from nix-fast-build. However,
+the cold 23-target native publication in pipeline #6163 exceeded the CI
+container's memory limit while evaluating configurations and building VMs;
+the host kernel confirmed a memory-cgroup OOM kill of Nix. Bounded evaluation
+keeps completed configurations out of a single long-lived evaluator.
 
-Set `HOMELAB_CACHE_BUILDER=fast` to opt into nix-fast-build from the pinned
-nixpkgs in the `ops` or `default` development shell. Its selection is
+The fast builder comes from pinned nixpkgs in the `ops` or `default`
+development shell. Its selection is
 generated from the native builder's same 23 homelab targets: seven host
 systems, all thirteen checks and three development shells. `just cache-populate`
 publishes the same target set, including the Zot service VM check. The fast
@@ -234,7 +237,7 @@ its output and derivation paths feed the existing source/build-input cache
 publication and per-path upload retries. Missing tooling or a failed fast
 build fails the job without silently retrying through another builder.
 
-Set `HOMELAB_CACHE_BUILDER=native` to explicitly select the default builder.
+Set `HOMELAB_CACHE_BUILDER=native` or `fast` to explicitly select a builder.
 Each invocation logs the backend, target count and build elapsed seconds.
 Compare the same source revision and cache state, and distinguish evaluation
 timing from complete build/upload timing. The fast tool's wrapper lives in

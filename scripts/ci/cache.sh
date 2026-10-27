@@ -47,7 +47,13 @@ else
   echo "Unknown target set: $target_set" >&2
   exit 2
 fi
-builder=${HOMELAB_CACHE_BUILDER:-native}
+# Bound evaluation across the fleet; one native evaluator retains all host
+# configurations while VM builds also consume the container's memory budget.
+default_builder=native
+if [[ "$target_set" == homelab ]]; then
+  default_builder=fast
+fi
+builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
 started=$SECONDS
 case "$builder" in
   fast)
