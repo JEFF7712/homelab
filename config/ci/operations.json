@@ -459,8 +459,7 @@
     "legacy_job": "provision_jarvis_publisher",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "",
-    "agent": true
+    "prerequisite": ""
   },
   "provision-pod-agent-publisher": {
     "commands": [
@@ -510,8 +509,7 @@
     "legacy_job": "provision_pod_agent_publisher",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "",
-    "agent": true
+    "prerequisite": ""
   },
   "deploy-registry-platform": {
     "commands": [
@@ -1906,8 +1904,7 @@
     "legacy_job": "provision_darkbit_publisher",
     "automatic": false,
     "mutation": true,
-    "prerequisite": "",
-    "agent": true
+    "prerequisite": ""
   },
   "nixos-publish": {
     "commands": [

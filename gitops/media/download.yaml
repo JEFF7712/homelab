@@ -26,9 +26,12 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
+        # The linuxserver images keep abc at 911:1001 (+ group users) because
+        # the read-only rootfs blocks the PUID remap, so game folders stay
+        # world-writable like the other download folders.
         - name: fix-permissions
           image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
-          command: ["sh", "-c", "chown -R 1000:1000 /config-qbit && mkdir -p /data/downloads /data/downloads/games /data/games/pc && chown 1000:1000 /data/downloads /data/downloads/games /data/games /data/games/pc"]  # yamllint disable-line rule:line-length
+          command: ["sh", "-c", "chown -R 1000:1000 /config-qbit && mkdir -p /data/downloads /data/downloads/games /data/games/pc && chown 1000:1000 /data/downloads /data/downloads/games /data/games /data/games/pc && chmod 0777 /data/downloads/games /data/games/pc"]  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

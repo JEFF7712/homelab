@@ -9,7 +9,10 @@ cd "$(dirname "$0")/../.."
 # not built, matching nix flake check; the checks themselves are built.
 # A plain host with a "-registry" variant is skipped: that variant is the
 # plain host plus one module, so evaluating it covers the plain host too.
-flake='path:.?dir=flake'
+# Match cache.sh's Git-filtered source. A path: source includes .git and
+# ignored CI artifacts, changing check derivations between otherwise
+# identical runs and preventing substitution from the published cache.
+flake='./flake'
 # The selection is a Nix expression; ${name} is Nix interpolation.
 # shellcheck disable=SC2016
 selection='flake: let

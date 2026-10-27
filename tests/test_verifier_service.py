@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -100,7 +101,7 @@ class MergePolicyService(unittest.TestCase):
             "html_url": f"u/{number}",
         }
 
-    def test_routine_change_passes_and_widened_ingress_fails_with_a_comment(
+    def test_routine_change_passes_and_an_unhardened_change_fails_with_a_comment(
         self,
     ) -> None:
         def routine(repo: Path) -> None:
@@ -114,10 +115,11 @@ class MergePolicyService(unittest.TestCase):
         def widen(repo: Path) -> None:
             spec = repo / "gitops/websites/ism/site.yaml"
             spec.write_text(spec.read_text() + "\n")
-            policy = repo / "gitops/websites/ism/network-policy.yaml"
-            policy.write_text(
-                policy.read_text()
-                + "    - from:\n        - ipBlock:\n            cidr: 0.0.0.0/0\n"
+            deployment = repo / "gitops/websites/ism/deployment.yaml"
+            deployment.write_text(
+                deployment.read_text().replace(
+                    "readOnlyRootFilesystem: true", "readOnlyRootFilesystem: false"
+                )
             )
 
         good, bad = self.branch(1, routine), self.branch(2, widen)
@@ -127,7 +129,8 @@ class MergePolicyService(unittest.TestCase):
         states = {sha: body["state"] for sha, body in forge.statuses}
         self.assertEqual(states, {good: "success", bad: "failure"})
         self.assertTrue(all(body["context"] == CONTEXT for _, body in forge.statuses))
-        self.assertIn("ingress may only come from", forge.comments[2][0]["body"])
+        self.assertIn("readOnlyRootFilesystem", forge.comments[2][0]["body"])
+        self.assertIn("outcome=rejected", forge.comments[2][0]["body"])
         self.assertIn(f"head={bad}", forge.comments[2][0]["body"])
 
         run_once(forge, self.mirror, judged)
@@ -170,9 +173,9 @@ class MergePolicyService(unittest.TestCase):
 
     def test_operator_approval_of_the_exact_head_overrides(self) -> None:
         def eject(repo: Path) -> None:
-            (repo / "gitops/websites/darkbit/site.yaml").unlink()
+            # Removing a site that holds stored data needs an operator.
             root = repo / "gitops/websites/kustomization.yaml"
-            root.write_text(root.read_text().replace("  - darkbit\n", ""))
+            root.write_text(root.read_text().replace("  - uwagent\n", ""))
 
         head = self.branch(3, eject)
         forge = FakeForge([self.pull(3, head)])
@@ -307,65 +310,87 @@ class Decide(unittest.TestCase):
         self.assertFalse(operator_approved([{**review, "state": "COMMENT"}], head))
 
 
-class AutonomousMergePolicyTest(unittest.TestCase):
-    def test_authority_changes_are_recorded_without_approval(self):
+class AuthorityBoundaryTest(unittest.TestCase):
+    """Agents act broadly but cannot redefine their own authority."""
+
+    def test_every_control_that_bounds_agents_needs_an_operator(self) -> None:
+        from scripts.verifier.service import POLICY_PATHS
+
+        for path in (
+            "scripts/verifier/service.py",
+            "scripts/ci/policy.py",
+            "scripts/ci/deployment_risk.py",
+            "scripts/ci/operation.py",
+            "scripts/approvals/server.py",
+            "flake/modules/woodpecker.nix",
+            "flake/modules/merge-policy.nix",
+            "config/ci/forgejo-protection.json",
+            "scripts/agent/guard.py",
+            ".sops.yaml",
+            "CODEOWNERS",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(path.startswith(POLICY_PATHS))
+                decision = decide([path], None, None, set(), set(), False)
+                self.assertEqual((decision.state, decision.escalate), ("failure", True))
+
+    def test_operator_approval_still_overrides(self) -> None:
+        decision = decide(["scripts/ci/policy.py"], None, None, set(), set(), True)
+        self.assertEqual(decision.state, "success")
+
+    def test_ordinary_infrastructure_changes_need_no_one(self) -> None:
         decision = decide(
-            ["scripts/verifier/service.py"],
+            [
+                "flake/modules/kiosk.nix",
+                "gitops/media/arr.yaml",
+                "scripts/deploy_fleet.py",
+            ],
             None,
             None,
             set(),
             set(),
             False,
-            autonomous=True,
         )
         self.assertEqual(decision.state, "success")
-        self.assertTrue(decision.findings)
-        self.assertFalse(decision.escalate)
 
-    def test_repair_findings_still_block_autonomous_delivery(self):
-        from unittest.mock import patch
+    def catalog(self, base: dict, head: dict):
+        files = {
+            "base": {"config/ci/operations.json": json.dumps(base)},
+            "head": {"config/ci/operations.json": json.dumps(head)},
+        }
+        return decide(
+            ["config/ci/operations.json"],
+            files["base"].get,
+            files["head"].get,
+            set(),
+            set(),
+            False,
+        )
 
-        from scripts.verifier.websites import Finding
+    def test_granting_an_existing_operation_to_agents_needs_an_operator(self) -> None:
+        decision = self.catalog(
+            {"provision": {"mutation": True}},
+            {"provision": {"mutation": True, "agent": True}},
+        )
+        self.assertEqual((decision.state, decision.escalate), ("failure", True))
+        self.assertIn("newly granted to agents", " ".join(decision.findings))
 
-        with (
-            patch("scripts.verifier.service.load_tree", return_value={}),
-            patch(
-                "scripts.verifier.service.verify",
-                return_value=[
-                    Finding("repair", "site", "invalid generated manifest"),
-                    Finding("authority", "site", "intended exposure"),
-                ],
-            ),
-        ):
-            decision = decide(
-                ["gitops/websites/site/site.yaml"],
-                None,
-                None,
-                set(),
-                set(),
-                False,
-                autonomous=True,
-            )
-        self.assertEqual(decision.state, "failure")
-        self.assertFalse(decision.escalate)
-        self.assertIn("invalid generated manifest", " ".join(decision.findings))
+    def test_unmarking_a_mutation_needs_an_operator(self) -> None:
+        decision = self.catalog(
+            {"apply": {"mutation": True, "agent": True}},
+            {"apply": {"mutation": False, "agent": True}},
+        )
+        self.assertTrue(decision.escalate)
 
-    def test_only_enrolled_same_repository_pr_authors_get_task_authority(self):
-        from scripts.verifier.service import authorized_pull
-
-        for author, head, expected in [
-            ("homelab-agent", "JEFF7712/homelab", True),
-            ("rupan", "JEFF7712/homelab", True),
-            ("untrusted", "JEFF7712/homelab", False),
-            ("homelab-agent", "other/fork", False),
-            ("homelab-agent", None, False),
-        ]:
-            pull = {
-                "user": {"login": author},
-                "head": {"repo": {"full_name": head}},
-                "base": {"repo": {"full_name": "JEFF7712/homelab"}},
-            }
-            self.assertEqual(authorized_pull(pull), expected)
+    def test_new_agent_operations_and_other_edits_pass(self) -> None:
+        decision = self.catalog(
+            {"apply": {"mutation": True, "agent": True, "commands": ["a"]}},
+            {
+                "apply": {"mutation": True, "agent": True, "commands": ["b"]},
+                "new-op": {"mutation": True, "agent": True},
+            },
+        )
+        self.assertEqual(decision.state, "success")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-27T06:08:10+00:00",
+  "generated_at": "2026-10-27T17:24:28+00:00",
   "images": [
     {
       "authenticity": {
@@ -1381,6 +1381,44 @@
         "registry": "quay.io",
         "repository": "cilium/operator-generic",
         "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:28"
+      ],
+      "destination_repository": "upstream/docker.io/clamav/clamav",
+      "destination_tags": [
+        "1.5.4",
+        "retention-deployed-bda39705e2911050"
+      ],
+      "digest": "sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+      "id": "upstream-clamav-clamav-e67d9ebfd000",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+        "reference": "docker.io/clamav/clamav:1.5.4@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+        "registry": "docker.io",
+        "repository": "clamav/clamav",
+        "tag": "1.5.4"
       }
     },
     {

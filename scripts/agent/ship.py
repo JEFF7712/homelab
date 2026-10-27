@@ -37,6 +37,7 @@ OWNER_REPO = "JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 POLICY_CONTEXT = "policy/merge"
 POLICY_OPERATOR = "rupan"
+POLICY_REPAIRS = 3
 POLICY_SETTLE_SECONDS = 120
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
@@ -671,8 +672,9 @@ class Shipper:
 
         Returns False when the head is behind main with overlapping changes,
         which a branch update fixes. Repairable rejections go back to the
-        agent, without a human-review retry limit. Legacy authority holds
-        remain visible during migration.
+        agent. The operator is notified only when the change needs authority
+        the policy cannot grant, or when POLICY_REPAIRS rejected heads on this
+        PR exhaust the bounded recovery.
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
@@ -719,6 +721,20 @@ class Shipper:
             raise ShipError(
                 f"PR #{number} escalated to {POLICY_OPERATOR}: {pull['html_url']}\n"
                 f"{findings}"
+            )
+        if rejected >= POLICY_REPAIRS:
+            self.forgejo.call(
+                "POST",
+                f"/issues/{number}/comments",
+                {
+                    "body": f"@{POLICY_OPERATOR}: {rejected} repair attempts on this PR "
+                    f"were rejected by `{POLICY_CONTEXT}`; the agent has stopped. "
+                    "Latest findings are in the comment above."
+                },
+            )
+            raise ShipError(
+                f"PR #{number} escalated to {POLICY_OPERATOR} after {rejected} "
+                f"rejected heads: {pull['html_url']}\n{findings}"
             )
         raise ShipError(
             f"{POLICY_CONTEXT} rejected PR #{number} ({rejected} rejected heads). "

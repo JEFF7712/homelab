@@ -50,7 +50,7 @@ in
       path = [ pkgs.git ];
       environment.PYTHONPATH = toString source;
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.verifier.service --forgejo ${cfg.forgejo} --repository ${cfg.repository} --token-file %d/token --state %S/merge-policy --interval ${toString cfg.interval} --autonomous";
+        ExecStart = "${python}/bin/python -m scripts.verifier.service --forgejo ${cfg.forgejo} --repository ${cfg.repository} --token-file %d/token --state %S/merge-policy --interval ${toString cfg.interval}";
         User = "merge-policy";
         Group = "merge-policy";
         StateDirectory = "merge-policy";

@@ -44,6 +44,11 @@ Settings live in each app's database, not in Git.
       `/data/games/pc`, Transfer Mode **Hardlink** (keeps seeding; both paths
       are on one NFS export), **Auto-Unpack Archives** on. No path mapping is
       needed because Questarr and qBittorrent share the `/data` mount.
+   5. Settings > Import > Security: enable VirusTotal (API key from
+      virustotal.com) and ClamAV with host `clamav.media`, port `3310`.
+      Questarr v1.5.0's VirusTotal **Test** always fails with
+      `VirusTotal responded with 400` because of a truncated test hash
+      (Doezer/Questarr#1256); real scans are unaffected.
 3. **Gameyfin** at `https://games.rupan.dev`:
    1. Complete the setup wizard (admin account).
    2. Enable the IGDB metadata plugin with the same Twitch credentials.
@@ -61,12 +66,22 @@ kubectl -n media logs deploy/gameyfin
 - Never rotate `gameyfin-app-key`: a new key cannot decrypt stored settings or
   restore backups taken with the old one. Deleting the ExternalSecret's target
   Secret regenerates a different key.
-- Questarr runs as uid 1000 with its upstream entrypoint bypassed (that
+- Questarr runs as 911:1001 (plus group `users`), the effective user of
+  qBittorrent and the *arrs, so hardlink imports work under
+  `fs.protected_hardlinks`. Its upstream entrypoint is bypassed (that
   script needs a writable root filesystem). Its logger always writes
   `/app/server.log`; that single file is mounted from a 256Mi emptyDir, so the
   log resets on each pod restart and the pod is evicted if it outgrows the
   limit. Gameyfin's entrypoint starts as
   root and drops to uid 1337 with gosu.
+- `/data/downloads/games` and `/data/games/pc` are mode 0777, set by the
+  qBittorrent init container, like the other download folders.
+- ClamAV (`gitops/media/clamav.yaml`, `clamav.media:3310`) runs freshclam
+  and clamd as uid 100 with a mounted config; signatures persist on
+  `clamav-db`. ClamAV cannot scan files over 2 GB, so clamd refuses streams
+  above 2000M and Questarr holds those imports for manual review instead of
+  passing them unscanned. Repack `.bin` payloads use custom compression,
+  so ClamAV mostly inspects the installer executables.
 - Upgrades: bump the digest in `registry-sources.yaml`, import it through the
   registry lane (`docs/runbooks/local-registry.md`), then update the digest in
   `games.yaml`.
