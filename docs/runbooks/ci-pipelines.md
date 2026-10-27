@@ -151,6 +151,16 @@ lanes it crossed the 8 GiB job limit and killed `repository-contract` with
 signal 9. `CI_EVAL_WORKERS` and `CI_EVAL_MAX_MEMORY_MB` trade memory for
 evaluation time.
 
+The flake lane uses the Git-filtered `./flake` reference, matching
+`cache.sh` and `just cache-populate`. Keep these source identities aligned:
+`path:.?dir=flake` includes `.git` and ignored job artifacts in the source
+of `repository-contract`, producing different derivations even for the same
+tracked files. A cached result under the Git reference cannot substitute
+that path-based derivation. Git metadata and ignored artifacts must not
+invalidate a check, while changes to tracked source must still do so.
+See the [revalidation cache investigation](../research/2026-10-27-ci-revalidation-cache.md)
+for the measured baseline and reproduction.
+
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
 and deployment work); `scripts/ci/cache.sh` and `just cache-populate` publish
@@ -190,9 +200,11 @@ remains a separate validation gate.
 
 Set `HOMELAB_CACHE_BUILDER=fast` to opt into nix-fast-build from the pinned
 nixpkgs in the `ops` or `default` development shell. Its selection is
-generated from the native builder's same 17 homelab targets: seven host
-systems, seven checks and three development shells. It uses two evaluation
-workers, a 2048 MiB memory budget per worker and two concurrent build jobs.
+generated from the native builder's same 22 homelab targets: seven host
+systems, all twelve checks and three development shells. `just cache-populate`
+publishes the same target set, including the Zot service VM check. The fast
+builder uses two evaluation workers, a 2048 MiB memory budget per worker and
+two concurrent build jobs.
 The initial 1536 MiB budget caused worker restarts; the matched CI runs also
 observed worker retries at the 4096 MiB combined budget in two fast runs.
 The worker budget does not cap total process memory. The CI container's
@@ -232,6 +244,14 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   from slow checks. Concurrent checks share counters, so their values
   overlap and must not be added together. SIGKILL alone does not establish
   OOM; missing cgroup files mean unavailable evidence.
+- Flake builds also report `flake-repository-contract`, `flake-topology`,
+  and the other check names in the same breakdown. Each measures the Nix
+  invocation, including substitution and dependencies, rather than only
+  the check's test process. They overlap host evaluation and sit inside
+  `check-flake`; do not add their times to the parent lane. A quick invocation
+  may indicate a cache hit; confirm substitution versus a build in the Nix
+  log. Source changes still require a fresh contract build, and publication
+  must succeed for subsequent disposable containers to reuse its output.
 
 The server wraps the pinned default clone plugin with at most three
 attempts, 60 seconds per attempt plus a five-second kill grace, and five-

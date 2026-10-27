@@ -10,13 +10,20 @@ from __future__ import annotations
 
 import json
 import queue
-import subprocess
 import sys
 import threading
 from collections.abc import Callable, Iterable
+from typing import NamedTuple
+
+from scripts.ci.run import main as timed_command
 
 
-def classify(line: str) -> tuple[str | None, str | None]:
+class Check(NamedTuple):
+    attr: str
+    target: str
+
+
+def classify(line: str) -> tuple[Check | None, str | None]:
     """Return (build target, error) for one nix-eval-jobs output line."""
     if not line.strip():
         return None, None
@@ -25,12 +32,12 @@ def classify(line: str) -> tuple[str | None, str | None]:
     if "error" in job:
         return None, f"{attr}: {job['error']}"
     if attr.startswith("checks."):
-        return f"{job['drvPath']}^*", None
+        return Check(attr, f"{job['drvPath']}^*"), None
     return None, None
 
 
-def run(lines: Iterable[str], build: Callable[[str], bool]) -> tuple[int, list[str]]:
-    targets: queue.Queue[str | None] = queue.Queue()
+def run(lines: Iterable[str], build: Callable[[Check], bool]) -> tuple[int, list[str]]:
+    targets: queue.Queue[Check | None] = queue.Queue()
     failures: list[str] = []
     built = 0
 
@@ -39,7 +46,7 @@ def run(lines: Iterable[str], build: Callable[[str], bool]) -> tuple[int, list[s
         while (target := targets.get()) is not None:
             built += 1
             if not build(target):
-                failures.append(f"{target}: build failed")
+                failures.append(f"{target.target}: build failed")
 
     worker = threading.Thread(target=builder)
     worker.start()
@@ -58,8 +65,20 @@ def run(lines: Iterable[str], build: Callable[[str], bool]) -> tuple[int, list[s
     return built, failures
 
 
-def nix_build(target: str) -> bool:
-    return subprocess.run(["nix", "build", "--no-link", target]).returncode == 0
+def nix_build(check: Check) -> bool:
+    return (
+        timed_command(
+            [
+                f"flake-{check.attr.removeprefix('checks.')}",
+                "--",
+                "nix",
+                "build",
+                "--no-link",
+                check.target,
+            ]
+        )
+        == 0
+    )
 
 
 def main() -> int:
