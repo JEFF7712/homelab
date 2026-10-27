@@ -30,7 +30,7 @@ spec:
           args: ["python3", "/app/gateway.py", "--mode", "stt", "--port", "10300"]
           env:
             - name: WYOMING_BACKENDS
-              value: "nemotron=wyoming-stt-nemotron:10300,local=wyoming-stt-local:10300"
+              value: "nemotron=wyoming-stt-nemotron:10300,cloud=wyoming-stt-groq:10300"
           ports:
             - {name: wyoming, containerPort: 10300}
             - {name: metrics, containerPort: 8000}

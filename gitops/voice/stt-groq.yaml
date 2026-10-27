@@ -243,7 +243,8 @@ metadata:
   name: wyoming-stt-groq
   namespace: voice
 spec:
-  replicas: 0
+  # Nemotron's only fallback since local Whisper was removed.
+  replicas: 1
   strategy:
     type: Recreate
   selector:
