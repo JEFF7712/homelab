@@ -104,6 +104,16 @@
       "auto": true
     },
     {
+      "name": "node-supply",
+      "paths": [
+        "config/ci/node-supply-requests.json"
+      ],
+      "operations": [
+        "node-supply-publish"
+      ],
+      "auto": true
+    },
+    {
       "name": "ci-host",
       "paths": [
         "scripts/ci/policy.py",
