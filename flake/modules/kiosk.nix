@@ -250,7 +250,11 @@ in
       ];
     };
 
-    security.pam.services.sway-kiosk = lib.mkIf (cfg.compositor == "sway") { };
+    # pam_systemd registers a logind session on tty1; without it libseat
+    # cannot take the VT and sway never gets DRM.
+    security.pam.services.sway-kiosk = lib.mkIf (cfg.compositor == "sway") {
+      startSession = true;
+    };
 
     systemd.services."sway-tty1" = lib.mkIf (cfg.compositor == "sway") {
       description = "Sway Wayland compositor on tty1";
