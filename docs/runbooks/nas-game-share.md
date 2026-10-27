@@ -6,15 +6,15 @@ rule `clients-allow-nas-smb` in `tofu/opnsense/inventory.nix` allows TCP 445 onl
 
 ## Access
 
-The share admits only the `rupan` account, authenticated by password. Guest access
+The share admits the `sam` (and `rupan`) accounts, authenticated by password. Guest access
 is disabled. Samba keeps its own password database (`/var/lib/samba`, persisted
 across the tmpfs root), separate from the Unix account, and the NixOS config
 does not set it. Until it is set, every login is rejected.
 
-Set it once after the first deploy, or to rotate it:
+Set Sam's password once after deploy, or to rotate it:
 
 ```sh
-ssh rupan@10.0.30.20 sudo smbpasswd -a rupan
+ssh rupan@10.0.30.20 sudo smbpasswd -a sam
 ```
 
 Check that the account exists:
