@@ -15,6 +15,7 @@ steps:
         experimental-features = nix-command flakes
         accept-flake-config = true
         sandbox = false
+        build-users-group =
         max-jobs = 2
         cores = 2
         connect-timeout = 5

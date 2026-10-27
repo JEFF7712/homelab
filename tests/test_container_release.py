@@ -1020,6 +1020,10 @@ class NixOSLaneTest(unittest.TestCase):
         check = workflow["steps"][1]
         self.assertIn("nixos/nix", check["image"])
         self.assertIn("nix flake check --no-write-lock-file", check["commands"])
+        # nixbld UIDs are shared with the host daemon, which kills them.
+        self.assertIn(
+            "build-users-group =\n", check["environment"]["NIX_CONFIG"].splitlines(True)
+        )
         self.assertNotIn("environment", workflow["steps"][0])
 
 

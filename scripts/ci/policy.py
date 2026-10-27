@@ -37,10 +37,15 @@ from scripts.ci.development_projects import configuration as development_configu
 
 IMAGE = "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
+# The image's nixbld users share host UIDs 30001+ (no userns remap), and a
+# host nix-daemon SIGKILLs every process of a build UID around each build,
+# so a fleet dry-run on a CI host killed job builders ("signal 9"). Without
+# a sandbox, build users isolate nothing; build as the container's root.
 NIX_CONFIG = (
     "experimental-features = nix-command flakes\n"
     "accept-flake-config = true\n"
     "sandbox = false\n"
+    "build-users-group =\n"
     "max-jobs = 2\n"
     "cores = 2\n"
     "connect-timeout = 5\n"
