@@ -60,7 +60,9 @@ class CacheResultsTest(unittest.TestCase):
             ):
                 build_paths(report, 1)
 
-    def test_fast_builder_preserves_target_selection_and_publication(self) -> None:
+    def test_default_fleet_builder_bounds_evaluation_and_preserves_publication(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             fast = directory / "nix-fast-build"
@@ -111,6 +113,8 @@ class CacheResultsTest(unittest.TestCase):
             for binary in (fast, nix, nix_store, attic):
                 binary.chmod(0o755)
             receipt = directory / "pushed"
+            environment = dict(os.environ)
+            environment.pop("HOMELAB_CACHE_BUILDER", None)
             for status in (0, 7):
                 with self.subTest(status=status):
                     receipt.unlink(missing_ok=True)
@@ -118,9 +122,8 @@ class CacheResultsTest(unittest.TestCase):
                         ["bash", "scripts/ci/cache.sh"],
                         cwd=ROOT,
                         env={
-                            **os.environ,
+                            **environment,
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
-                            "HOMELAB_CACHE_BUILDER": "fast",
                             "ATTIC_TOKEN": "test-only",
                             "FAST_STATUS": str(status),
                             "PUSH_RECEIPT": str(receipt),
