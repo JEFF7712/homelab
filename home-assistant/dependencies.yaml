@@ -134,6 +134,15 @@ custom_frontend_cards:
     install_path: /config/www/community/button-card/button-card.js
     resource_url: /hacsfiles/button-card/button-card.js
     status: installed
+  - name: Mediocre Hass Media Player Cards
+    source: https://github.com/antontanderup/mediocre-hass-media-player-cards
+    version: v0.30.0
+    # yamllint disable-line rule:line-length
+    artifact: https://github.com/antontanderup/mediocre-hass-media-player-cards/releases/download/v0.30.0/mediocre-hass-media-player-cards.js
+    sha256: 2e07f4727ed36beb19ec88d4a89f9ccb90b5d5cfd34fdb3ea46f089bdd174754
+    install_path: /config/www/community/mediocre-hass-media-player-cards/mediocre-hass-media-player-cards.js
+    resource_url: /hacsfiles/mediocre-hass-media-player-cards/mediocre-hass-media-player-cards.js
+    status: installed
 custom_themes:
   - name: Frosted Glass Theme
     source: https://github.com/wessamlauf/homeassistant-frosted-glass-themes
