@@ -699,7 +699,7 @@ class ShipBranchCleanupTest(unittest.TestCase):
                 git("commit", "-qm", "base")
                 git("update-ref", "refs/remotes/origin/main", "HEAD")
                 (root / "file").write_text("after\n")
-                patch_body = git("diff") + "\n"
+                patch_body = git("diff", "--no-ext-diff") + "\n"
                 git("checkout", "--", "file")
                 runner = ship.Shipper.__new__(ship.Shipper)
                 runner.args = argparse.Namespace()
