@@ -44,14 +44,17 @@ protection change (the Forgejo migration).
 requesting the operator's review. Authority findings (site or claim
 deletion, unvetted kinds, wider ingress, non-ClusterIP services, host
 networking, policy paths) escalate immediately. An operator approval
-overrides only when its `commit_id` is the exact head: a later push or
-branch update produces a new head with no status, so nothing carries over.
+overrides for the commit it names. Every push or branch update produces a new
+head with no status, which the policy judges afresh; an earlier approval
+carries over only when the PR's own diff from its merge base is
+byte-identical (same `git patch-id`), which is what updating a branch from
+main produces. A new change or a conflict resolution needs a new approval.
 After three evaluation errors on one head the policy posts a failure saying
 so, rather than leaving the PR silently blocked.
 
 ## Activation
 
-Steps 1 to 3 are done (2026-10-26). In order:
+Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). Steps 5 and 6 land together. In order:
 
 1. Operator, in Forgejo: create the `homelab-policy` user and add it to
    `JEFF7712/homelab` as a collaborator with write access, which commit

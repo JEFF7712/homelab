@@ -64,7 +64,12 @@ class AutomationTest(unittest.TestCase):
                             "context": "ci/woodpecker/validation-v2",
                             "status": "success",
                             "updated_at": "2026-10-12T00:00:00Z",
-                        }
+                        },
+                        {
+                            "context": "policy/merge",
+                            "status": "success",
+                            "updated_at": "2026-10-12T00:00:00Z",
+                        },
                     ]
                 },
                 {},
@@ -90,7 +95,12 @@ class AutomationTest(unittest.TestCase):
                     "context": "ci/woodpecker/validation-v2",
                     "status": "success",
                     "updated_at": "2026-10-12T00:00:00Z",
-                }
+                },
+                {
+                    "context": "policy/merge",
+                    "status": "success",
+                    "updated_at": "2026-10-12T00:00:00Z",
+                },
             ]
         }
         with (
@@ -103,6 +113,26 @@ class AutomationTest(unittest.TestCase):
         ):
             promote_commit._auto_merge_pull("fixture-token", pull)
         self.assertEqual(api.call_args_list[-1].args[1], "/pulls/42/merge")
+
+    def test_auto_merge_refuses_when_the_merge_policy_fails(self) -> None:
+        pull = {"number": 42, "head": {"sha": SHA}, "base": {"sha": "base-sha"}}
+        statuses = {
+            "statuses": [
+                {
+                    "context": "ci/woodpecker/validation-v2",
+                    "status": "success",
+                    "updated_at": "1",
+                },
+                {"context": "policy/merge", "status": "failure", "updated_at": "1"},
+            ]
+        }
+        with patch.object(
+            promote_commit, "_api", side_effect=[{}, pull, pull, statuses]
+        ):
+            with self.assertRaisesRegex(
+                ValueError, "Required homelab validation failed"
+            ):
+                promote_commit._auto_merge_pull("fixture-token", pull)
 
     def test_auto_merge_rejects_a_failed_required_status(self) -> None:
         pull = {
@@ -168,7 +198,8 @@ class AutomationTest(unittest.TestCase):
                             {
                                 "context": promote_commit.REQUIRED_CONTEXT,
                                 "status": "success",
-                            }
+                            },
+                            {"context": "policy/merge", "status": "success"},
                         ]
                     },
                     {},

@@ -1,9 +1,9 @@
 # Forgejo requests the owner's review on any PR touching these paths, and
 # main's branch protection blocks the merge until it is given. These are the
-# agent-facing website interface (schema, renderer, ejection list), the tests
-# and gate that enforce it, and this file.
-scripts/websites/.* @rupan
-tests/test_website_.*\.py @rupan
+# merge policy itself, the gitops safety gate, and this file. Website
+# interface changes (renderer, schema, ejection) are judged per commit by
+# the policy/merge status instead; see docs/runbooks/merge-policy.md.
+# Only the named account's review clears the request: approve as rupan.
 scripts/checks/gitops\.sh @rupan
 CODEOWNERS @rupan
 scripts/verifier/.* @rupan
