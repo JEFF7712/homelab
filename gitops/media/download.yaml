@@ -49,6 +49,12 @@ spec:
             - |
               rm -f /config-slskd/slskd.yml
               echo "$SLSKD_YML" > /config-slskd/slskd.yml
+              # slskd binds its Web UI to :: only (IPv6), unreachable from
+              # kubelet probes and ClusterIP in this single-stack cluster.
+              # Pin IPv4 unless the secret already defines a web section.
+              if ! grep -q '^web:' /config-slskd/slskd.yml; then
+                printf '\nweb:\n  port: 5030\n  ip_address: 0.0.0.0\n' >> /config-slskd/slskd.yml
+              fi
               chown 1000:1000 /config-slskd/slskd.yml
           securityContext:
             allowPrivilegeEscalation: false
