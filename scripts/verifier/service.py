@@ -252,7 +252,12 @@ def run_once(
     errors: dict[tuple[int, str], int] | None = None,
 ) -> None:
     errors = {} if errors is None else errors
-    pulls = forge.call("GET", "/pulls?state=open&limit=50") or []
+    try:
+        pulls = forge.call("GET", "/pulls?state=open&limit=50") or []
+    except (OSError, ValueError) as error:
+        # A slow or restarting Forgejo is retried next cycle, not a crash.
+        log.warning("listing pull requests: %s", error)
+        return
     for pull in pulls:
         if (pull.get("base") or {}).get("ref") != "main":
             continue
@@ -288,7 +293,7 @@ def run_once(
                 )
         except (
             subprocess.SubprocessError,
-            urllib.error.URLError,
+            OSError,
             KeyError,
             ValueError,
         ) as error:
@@ -305,7 +310,7 @@ def run_once(
                 )
                 try:
                     publish(forge, pull, head, failed)
-                except (urllib.error.URLError, KeyError, ValueError) as failure:
+                except (OSError, KeyError, ValueError) as failure:
                     log.warning("PR #%s: %s", number, failure)
 
 

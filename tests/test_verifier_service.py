@@ -180,6 +180,26 @@ class MergePolicyService(unittest.TestCase):
         self.assertEqual(forge.statuses[-1][1]["state"], "failure")
         self.assertIn("evaluation", forge.comments[5][0]["body"])
 
+    def test_forge_timeouts_are_retried_not_fatal(self) -> None:
+        class SlowForge(FakeForge):
+            def call(self, method: str, path: str, body: Any = None) -> Any:
+                if path.startswith("/pulls?") or path.endswith("/reviews"):
+                    raise TimeoutError("timed out")
+                return super().call(method, path, body)
+
+        head = self.branch(6, lambda repo: (repo / "README").write_text("x\n"))
+        run_once(SlowForge([self.pull(6, head)]), self.mirror, {})
+
+        class SlowReviews(FakeForge):
+            def call(self, method: str, path: str, body: Any = None) -> Any:
+                if path.endswith("/reviews"):
+                    raise TimeoutError("timed out")
+                return super().call(method, path, body)
+
+        forge = SlowReviews([self.pull(6, head)])
+        run_once(forge, self.mirror, {})
+        self.assertEqual(forge.statuses, [])
+
 
 class Decide(unittest.TestCase):
     def test_policy_paths_need_operator_authority(self) -> None:
