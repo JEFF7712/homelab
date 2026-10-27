@@ -25,7 +25,9 @@ from scripts.ci.deployment_risk import (
     APPROVAL_REQUIRED,
     authority_digest,
     changed_authority,
+    host_operation,
     nix_authority_change,
+    protected_paths,
 )
 from scripts.ci.deployment_source import compatible_changes
 from scripts.ci.development_projects import (
@@ -752,6 +754,21 @@ def configuration(
     target = pipeline.get("deploy_to", "")
     if target not in operations:
         raise ValueError("Unknown deployment target")
+    # Agents deliver broadly, but not changes to the controls that bound them:
+    # operator-only catalog entries, and authorization or storage sources the
+    # running generation would activate, wait for an approval of their exact
+    # content (a grant digest), however the request was authorized.
+    if pipeline["author"] == AGENT_AUTHOR and operations[target]["mutation"]:
+        if not operations[target].get("agent"):
+            raise HumanApprovalRequired("operation changes authority or is destructive")
+        if authority_changes is None:
+            raise HumanApprovalRequired("cannot verify deployed authorization baseline")
+        if authority_changes:
+            grant = f" (grant {authority_grant})" if authority_grant else ""
+            raise HumanApprovalRequired(
+                f"authorization or storage source changed{grant}: "
+                + ", ".join(authority_changes[:12])
+            )
     if current != pipeline["commit"] and not source_compatible:
         raise StaleDeployment("Operation source must be the current main commit")
     if (
@@ -847,6 +864,23 @@ def resolve_configuration(
         branch_files = mirror.branch_changes(
             request["pipeline"].get("commit", ""), request.get("netrc", {})
         )
+    if (
+        request["pipeline"].get("event") == "deployment"
+        and request["pipeline"].get("author") == AGENT_AUTHOR
+        and operations.get(request["pipeline"].get("deploy_to", ""), {}).get("mutation")
+        and mirror is not None
+        and authority_baseline is not None
+    ):
+        target = request["pipeline"]["deploy_to"]
+        host = host_operation(operations[target])
+        changes, authority_grant = mirror.authority_changes(
+            request["pipeline"].get("commit", ""),
+            request.get("netrc", {}),
+            authority_baseline,
+            protected_paths(target, host),
+            host,
+        )
+        authority_changes = [] if changes and grant_lookup(authority_grant) else changes
     if request["pipeline"].get("ref") == "refs/heads/main":
         credentials = request["netrc"]
         tip = api(
@@ -934,8 +968,11 @@ def main() -> None:
     )
     key = args.public_key.read_bytes()
     mirror = SourceMirror(args.mirror) if args.mirror else None
+    # Without the deployed baseline, agent mutations fail closed above.
     authority_baseline = (
-        None  # Legacy argument accepted during the deployed-policy transition.
+        json.loads(args.authority_baseline.read_text())
+        if args.authority_baseline
+        else None
     )
 
     class Handler(BaseHTTPRequestHandler):

@@ -183,6 +183,8 @@ def require_plan_approval(
     operator: bool,
     environment: dict[str, str] | None = None,
 ) -> None:
+    if operator:
+        return
     import subprocess
 
     for directory in ("opnsense", "cloudflare"):
@@ -219,12 +221,11 @@ def require_plan_approval(
             or not isinstance(plan.get("resource_changes"), list)
         ):
             raise ValueError("Invalid or incomplete infrastructure plan")
+        # Authorization changes (access policies, tokens, roles), persistent
+        # data deletion, management connectivity loss and bulk destruction
+        # widen or destroy what bounds the agents: an operator applies those.
         if risks:
-            print(
-                "Infrastructure plan risks (delivery is authorized): "
-                + "; ".join(risks),
-                flush=True,
-            )
+            raise ValueError(f"{APPROVAL_REQUIRED}: " + "; ".join(risks))
 
 
 def main() -> None:

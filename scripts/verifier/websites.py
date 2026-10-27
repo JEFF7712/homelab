@@ -14,9 +14,11 @@ a privileged pod, a public Service or a wider network policy. The check is a
 ratchet: an existing object may keep a problem it already had (old debt does
 not block routine promotions) but may not gain one.
 
-Findings are either `repair` (the agent can fix the PR) or `authority` (the
-change needs more authority than the verifier may grant, such as deleting a
-site or stored data, or a kind it does not vet).
+Findings are `repair` (the agent can fix the PR), `notice` (allowed and
+recorded: constrained network exposure of a hardened site, an unprivileged
+helper kind, removing a stateless site) or `authority` (an operator decides:
+host-level access, deleting stored data, kinds that grant identity, secrets or
+routing, or anything the verifier cannot reason about).
 """
 
 from __future__ import annotations
@@ -40,6 +42,18 @@ GENERATED = frozenset(
         "kustomization.yaml",
     }
 )
+# Workloads whose pod template gets the same hardening checks as a Deployment.
+POD_TEMPLATES = {
+    "Deployment": ("spec", "template", "spec"),
+    "StatefulSet": ("spec", "template", "spec"),
+    "Job": ("spec", "template", "spec"),
+    "CronJob": ("spec", "jobTemplate", "spec", "template", "spec"),
+}
+# Namespaced kinds that neither run code nor grant identity, secrets or
+# routing: allowed and recorded.
+NOTICE_KINDS = frozenset(
+    {"CiliumNetworkPolicy", "HorizontalPodAutoscaler", "ServiceMonitor", "PodMonitor"}
+)
 VETTED_KINDS = frozenset(
     {
         "Namespace",
@@ -49,6 +63,9 @@ VETTED_KINDS = frozenset(
         "PodDisruptionBudget",
         "PersistentVolumeClaim",
         "ConfigMap",
+        "StatefulSet",
+        "Job",
+        "CronJob",
     }
 )
 KUSTOMIZATION_KEYS = frozenset({"apiVersion", "kind", "resources"})
@@ -58,13 +75,19 @@ IMAGE = re.compile(
     r"registry\.rupan\.dev/(apps|upstream)/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}"
 )
 INGRESS_NAMESPACES = frozenset({"cloudflare", "observability"})
-# Problems that widen what can reach the site or the node are intent, not
-# mistakes: no repair exists, so they need operator authority immediately.
-EXPOSURE = (
+# Network exposure of a hardened site is constrained: allowed and recorded.
+NETWORK_EXPOSURE = (
     "ingress may only come from",
     "services must be ClusterIP",
+)
+# Access to the node itself is not constrained by the site: an operator decides.
+HOST_ACCESS = (
     "may not bind a hostPort",
     "may not set hostNetwork",
+    "may not set hostPID",
+    "may not set hostIPC",
+    "may not be privileged",
+    "unvetted source",
 )
 STORAGE_CLASSES = frozenset({"nfs-cluster"})
 PRUNE = "kustomize.toolkit.fluxcd.io/prune"
@@ -227,12 +250,14 @@ def _container(name: str, container: dict[str, Any], problems: list[str]) -> Non
             problems.append(f"{label} memory limit exceeds {MAX_MEMORY_MIB}Mi")
 
 
-def _deployment(name: str, doc: dict[str, Any], problems: list[str]) -> None:
+def _workload(name: str, doc: dict[str, Any], problems: list[str]) -> None:
     spec = doc.get("spec") or {}
     replicas = spec.get("replicas", 1)
     if not isinstance(replicas, int) or replicas > MAX_REPLICAS:
         problems.append(f"replicas must be at most {MAX_REPLICAS}")
-    pod = (spec.get("template") or {}).get("spec") or {}
+    pod: Any = doc
+    for step in POD_TEMPLATES[doc["kind"]]:
+        pod = (pod or {}).get(step) or {}
     if pod.get("automountServiceAccountToken") is not False:
         problems.append("pods must set automountServiceAccountToken: false")
     if pod.get("serviceAccountName", "default") != "default":
@@ -255,7 +280,7 @@ def _deployment(name: str, doc: dict[str, Any], problems: list[str]) -> None:
         pod.get("initContainers") or []
     )
     if not containers:
-        problems.append("deployment has no containers")
+        problems.append("workload has no containers")
     for container in containers:
         _container(name, container, problems)
 
@@ -297,8 +322,8 @@ def _object(name: str, doc: dict[str, Any]) -> list[str]:
         return problems
     if metadata.get("namespace") != name:
         problems.append(f"{kind} {metadata.get('name')} must live in namespace {name}")
-    if kind == "Deployment":
-        _deployment(name, doc, problems)
+    if kind in POD_TEMPLATES:
+        _workload(name, doc, problems)
     elif kind == "NetworkPolicy":
         _network_policy(doc, problems)
     elif kind == "Service":
@@ -347,8 +372,16 @@ def verify(
     findings: list[Finding] = []
     intended = intended_sites(changed, base, head, head_specs, base_specs)
     for name in sorted(set(base) - set(head)):
+        stateful = any(
+            d.get("kind") == "PersistentVolumeClaim" for d in base[name].values()
+        )
         findings.append(
-            Finding("authority", name, "removing a site deletes its namespace")
+            Finding(
+                "authority" if stateful else "notice",
+                name,
+                "removing a site deletes its namespace"
+                + (" and its stored data" if stateful else "; git revert restores it"),
+            )
         )
     for name in sorted(head):
         old, new = base.get(name, {}), head[name]
@@ -376,9 +409,11 @@ def verify(
         for object_key in sorted(touched):
             doc = new[object_key]
             if doc.get("kind") not in VETTED_KINDS:
+                namespaced = (doc.get("metadata") or {}).get("namespace") == name
+                allowed = doc.get("kind") in NOTICE_KINDS and namespaced
                 findings.append(
                     Finding(
-                        "authority",
+                        "notice" if allowed else "authority",
                         name,
                         f"{object_key} is not a kind the verifier vets",
                     )
@@ -391,11 +426,12 @@ def verify(
             known = set(_object(name, previous)) if previous else set()
             for problem in _object(name, doc):
                 if problem not in known:
-                    severity = (
-                        "authority"
-                        if any(marker in problem for marker in EXPOSURE)
-                        else "repair"
-                    )
+                    if any(marker in problem for marker in HOST_ACCESS):
+                        severity = "authority"
+                    elif any(marker in problem for marker in NETWORK_EXPOSURE):
+                        severity = "notice"
+                    else:
+                        severity = "repair"
                     findings.append(Finding(severity, name, f"{object_key}: {problem}"))
         if not _isolated(new) and (not old or _isolated(old)):
             findings.append(

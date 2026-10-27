@@ -1,9 +1,12 @@
 # Merge policy
 
 The merge policy posts a `policy/merge` commit status on every open PR to
-`main`. It replaces human review with automated website checks. The deployed
-service runs with `--autonomous`: enrolled same-repository PR authors
-(`homelab-agent`, `rupan`, `JEFF7712`) use the task’s standing authority.
+`main`. Agents have broad authority to change infrastructure, but not to
+redefine their own authority: a head passes on its own unless it changes a
+control that bounds agents, grants an operation to agents, destroys stored
+data or opens host-level access. Those need the operator's approval of that
+exact change. Mistakes the agent can repair go back to it; constrained
+exposure and unconventional implementations are allowed and recorded.
 
 ## What it decides
 
@@ -23,10 +26,21 @@ applies.
   bounded limits, prune-protected `nfs-cluster` claims. The check is a
   ratchet: an existing object may keep a problem it already had, so old debt
   never blocks a promotion, but it may not gain one.
-- Authority findings, including merge-policy changes and intentional resource
-  changes, are recorded without approval for enrolled same-repository authors.
-  Repair findings still block delivery and must be fixed by the agent. Unknown
-  authors and forks retain the conservative authority policy.
+- Controls that bound agents need the operator: `scripts/verifier/`, the
+  merge-policy module, `scripts/ci/{policy,state,operation,deployment_risk}.py`,
+  the approvals service, `flake/modules/woodpecker.nix`, branch protection,
+  the Woodpecker repository settings, the agent guard and pre-tool hook,
+  `.sops.yaml` and `CODEOWNERS` (`POLICY_PATHS` in `scripts/verifier/service.py`).
+  In `config/ci/operations.json`, granting an existing operation to agents or
+  unmarking a mutation needs the operator; new agent operations and other
+  edits are recorded.
+- Website findings: hardening regressions are repairs; network exposure of a
+  hardened site (wider ingress, a non-ClusterIP Service), helper kinds
+  (CiliumNetworkPolicy, HPA, monitors) and removing a stateless site are
+  recorded notices; host-level access (host network, host ports, privileged
+  or host-path pods), deleting a claim or a stateful site, and kinds that
+  grant identity, secrets or routing need the operator. StatefulSets, Jobs and
+  CronJobs get the same pod checks as Deployments.
 
 Replaying every merged website PR through the policy on 2026-10-26 approved
 41 of 44. The three it held were real authority expansions: a Cilium egress
@@ -42,15 +56,11 @@ protection change (the Forgejo migration).
 | `failure` | `escalated` | legacy mode or external PR: exact-head operator review |
 | `success` | `authorized` | enrolled same-repository author: authority findings recorded, no review |
 
-`just ship` returns repair findings to the agent without escalating after an
-arbitrary number of rejected heads. The agent repairs, commits and retries.
-The `CODEOWNERS` file no longer creates mandatory operator review requests.
-Validation and `policy/merge` remain required status checks.
-
-The legacy deployed service can still require an exact-head operator approval
-for the migration PR itself. That one-time UI step installs autonomous authority;
-it is not a reason to bypass the existing branch protection. After deployment,
-authority-only findings from enrolled same-repository authors pass automatically.
+`just ship` returns repair findings to the agent, which fixes, commits and
+retries. After three rejected heads on one PR the bounded recovery is spent:
+ship comments `@rupan` on the PR and stops. Authority findings notify the
+operator at once through the policy comment. The `CODEOWNERS` file creates no
+review requests; validation and `policy/merge` remain required status checks.
 After three evaluation errors on one head the service still reports failure
 with diagnostic evidence, rather than leaving the PR silently pending.
 
@@ -67,16 +77,15 @@ Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). St
    (or `sops secrets/hosts/homelab-04.sops.yaml` and add the key), then commit
    the encrypted file. Agents never see the plaintext.
 3. Agent: set `homelab.mergePolicy.enable = true` for homelab-04 and ship.
-   The legacy `ci-host` route can require a transition approval before the
-   autonomous policy is first deployed.
 4. Shadow period: the status is posted but not required. Compare its
    verdicts with outcomes on real PRs (`journalctl -u merge-policy`).
 5. Operator: add `policy/merge` to main's required status checks in Forgejo,
    and the agent adds it to `status_check_contexts` in
    `config/ci/forgejo-protection.json` so `just ship` and promotion
    auto-merge wait for it.
-6. Agent: leave `CODEOWNERS` without mandatory operator review patterns.
-   Activate `--autonomous` through the validated CI-host deployment.
+6. Agent: leave `CODEOWNERS` without mandatory operator review patterns; the
+   boundary is enforced by this status and the deployment holds, not review
+   requests.
 
 ## Operations
 
