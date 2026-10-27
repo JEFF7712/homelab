@@ -5,13 +5,16 @@ import fcntl
 import json
 import logging
 import os
+import re
 import shlex
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -128,6 +131,7 @@ def run_command(
     runner: Runner = subprocess.run,
     timeout: float = 300.0,
     check: bool = True,
+    cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     logger.info("Executing: %s (timeout=%.1fs)", " ".join(argv), timeout)
     try:
@@ -137,6 +141,7 @@ def run_command(
             text=True,
             check=False,
             timeout=max(0.1, timeout),
+            **({"cwd": cwd} if cwd is not None else {}),
         )
     except subprocess.TimeoutExpired as err:
         msg = f"Command timed out after {timeout:.1f}s: {' '.join(argv)}"
@@ -371,7 +376,7 @@ class FleetDeployer:
         skip_preflight: bool = False,
         skip_drain: bool = False,
         skip_cooldown: bool = False,
-        cooldown_seconds: float = 30.0,
+        cooldown_seconds: float = 0.0,
         drain_timeout: float = 120.0,
         ready_timeout: float = 180.0,
         ssh_user: str = "rupan",
@@ -387,6 +392,9 @@ class FleetDeployer:
         notifier: Notifier | None = None,
         ssh_opts: Sequence[str] | None = None,
     ) -> None:
+        self.roots: dict[str, str] = {}
+        self.failed_before: dict[str, set[str]] = {}
+        self.prepared: dict[str, tuple[str, str]] = {}
         self.targets = targets
         self.dry_run = dry_run
         self.skip_preflight = skip_preflight
@@ -499,23 +507,178 @@ class FleetDeployer:
             cmd.append("--dry-run=client")
         run_command(cmd, runner=self.runner, timeout=self.drain_timeout + 10.0)
 
-    def rebuild_host(self, host: HostConfig) -> None:
+    @staticmethod
+    def system_path(value: str) -> str:
+        path = value.strip()
+        if not re.fullmatch(r"/nix/store/[a-z0-9]{32}-nixos-system-[^/\s]+", path):
+            raise FleetDeploymentError(f"Invalid system closure: {path!r}")
+        return path
+
+    def running_system(self, host: HostConfig) -> str:
+        result = run_command(
+            self.ssh_command(host.ip, "readlink -e /run/current-system"),
+            runner=self.runner,
+            timeout=30.0,
+        )
+        return self.system_path(result.stdout)
+
+    def prepare_host(self, host: HostConfig) -> bool:
+        """Realize changed systems before any workload is disrupted."""
+        result = run_command(
+            [
+                "nix",
+                "eval",
+                "--raw",
+                "--no-write-lock-file",
+                f"{self.flake_path}#nixosConfigurations.{host.flake_attr}.config.system.build.toplevel.outPath",
+            ],
+            runner=self.runner,
+            timeout=120.0,
+        )
+        desired = self.system_path(result.stdout)
+        previous = self.running_system(host)
+        self.prepared[host.name] = (previous, desired)
+        if desired == previous:
+            logger.info("[%s] Already running %s; skipping", host.name, desired)
+            return False
         if host.host_type == "appliance-nas":
             self.verify_nas_datasets(host)
-        action = "dry-activate" if self.dry_run else "switch"
-        logger.info("[%s] Executing nixos-rebuild %s...", host.name, action)
-        cmd = [
-            "nixos-rebuild",
-            action,
-            "--flake",
-            f"{self.flake_path}#{host.flake_attr}",
-            "--target-host",
-            f"{self.ssh_user}@{host.ip}",
-            "--build-host",
-            f"{self.ssh_user}@{host.ip}",
-            "--elevate=sudo",
-        ]
-        run_command(cmd, runner=self.runner, timeout=600.0)
+        self.failed_before[host.name] = self.failed_units(host)
+        root = "/tmp/homelab-fleet-" + uuid.uuid4().hex
+        self.roots[host.name] = root
+        run_command(
+            self.ssh_command(
+                host.ip,
+                shlex.join(["mkdir", "-m", "700", root])
+                + " && "
+                + shlex.join(
+                    [
+                        "nix-store",
+                        "--realise",
+                        previous,
+                        "--add-root",
+                        root + "/previous",
+                        "--indirect",
+                    ]
+                ),
+            ),
+            runner=self.runner,
+            timeout=30.0,
+        )
+        # This nixos-rebuild forwards --no-link to its eval command, which
+        # rejects it. Keep the normal result link in an isolated directory.
+        flake = (
+            str(Path(self.flake_path).resolve())
+            if Path(self.flake_path).exists()
+            else self.flake_path
+        )
+        with tempfile.TemporaryDirectory(prefix="fleet-build-") as directory:
+            run_command(
+                [
+                    "nixos-rebuild",
+                    "build",
+                    "--no-write-lock-file",
+                    "--flake",
+                    f"{flake}#{host.flake_attr}",
+                    "--target-host",
+                    f"{self.ssh_user}@{host.ip}",
+                    "--build-host",
+                    f"{self.ssh_user}@{host.ip}",
+                    "--elevate=sudo",
+                ],
+                runner=self.runner,
+                timeout=1800.0,
+                cwd=Path(directory),
+            )
+        # Confirm the exact evaluated output exists on the target, rather than
+        # rebuilding from a mutable source after draining.
+        run_command(
+            self.ssh_command(
+                host.ip,
+                shlex.join(["test", "-x", desired + "/bin/switch-to-configuration"]),
+            ),
+            runner=self.runner,
+            timeout=30.0,
+        )
+        run_command(
+            self.ssh_command(
+                host.ip,
+                shlex.join(
+                    [
+                        "nix-store",
+                        "--realise",
+                        desired,
+                        "--add-root",
+                        root + "/desired",
+                        "--indirect",
+                    ]
+                ),
+            ),
+            runner=self.runner,
+            timeout=30.0,
+        )
+        return True
+
+    def activate_system(
+        self, host: HostConfig, path: str, *, dry_run: bool = False
+    ) -> None:
+        action = "dry-activate" if dry_run else "switch"
+        commands = []
+        if not dry_run:
+            commands.append(
+                shlex.join(
+                    [
+                        "sudo",
+                        "-n",
+                        "nix-env",
+                        "-p",
+                        "/nix/var/nix/profiles/system",
+                        "--set",
+                        path,
+                    ]
+                )
+            )
+        commands.append(
+            shlex.join(["sudo", "-n", path + "/bin/switch-to-configuration", action])
+        )
+        run_command(
+            self.ssh_command(host.ip, " && ".join(commands)),
+            runner=self.runner,
+            timeout=600.0,
+        )
+
+    def rebuild_host(self, host: HostConfig) -> None:
+        if host.name not in self.prepared:
+            if not self.prepare_host(host):
+                return
+        self.activate_system(host, self.prepared[host.name][1], dry_run=self.dry_run)
+
+    def failed_units(self, host: HostConfig) -> set[str]:
+        result = run_command(
+            self.ssh_command(host.ip, "systemctl --failed --no-legend --plain"),
+            runner=self.runner,
+            timeout=30.0,
+        )
+        return {line.split()[0] for line in result.stdout.splitlines() if line.strip()}
+
+    def verify_host(self, host: HostConfig) -> None:
+        if self.dry_run:
+            return
+        expected = self.prepared[host.name][1]
+        if self.running_system(host) != expected:
+            raise FleetDeploymentError(f"{host.name} did not activate {expected}")
+        if not self.settled(
+            lambda: (
+                not (self.failed_units(host) - self.failed_before.get(host.name, set()))
+            )
+        ):
+            raise FleetDeploymentError(f"{host.name} has newly failed systemd units")
+        if host.host_type in ("k3s-worker", "k3s-stateful"):
+            self.wait_node_ready(host.name)
+        elif host.host_type == "appliance-dns":
+            self.verify_dns_appliance(host.ip)
+        elif host.host_type == "appliance-nas":
+            self.verify_nas_appliance(host.ip)
 
     def verify_nas_datasets(self, host: HostConfig) -> None:
         result = run_command(
@@ -636,7 +799,7 @@ class FleetDeployer:
         cmd = ["dig", f"@{ip}", "homelab.internal", "+short", "+timeout=2"]
         try:
             res = run_command(cmd, runner=self.runner, timeout=5.0, check=False)
-            if res.returncode == 0:
+            if res.returncode == 0 and res.stdout.strip():
                 logger.info("DNS verification passed via dig for %s", ip)
                 return
         except FleetDeploymentError as err:
@@ -738,20 +901,27 @@ class FleetDeployer:
         is_k3s = host.host_type in ("k3s-worker", "k3s-stateful")
         is_stateful_k3s = host.host_type == "k3s-stateful"
         cordoned = False
+        activation_attempted = False
 
         try:
+            # Detect another writer before disrupting this host.
+            if self.running_system(host) != self.prepared[host.name][0]:
+                raise FleetDeploymentError(
+                    f"{host.name} changed since preparation; retry deployment"
+                )
             # 1. Cordon & Drain if K3s node and not skipped
             if is_k3s and not self.skip_drain:
                 self.cordon_node(host.name)
                 cordoned = True
                 self.drain_node(host.name)
 
-            # 2. NixOS Rebuild Switch / Dry-activate
+            # 2. Activate the already prepared closure.
+            activation_attempted = True
             self.rebuild_host(host)
+            self.verify_host(host)
 
             # 3. Post-switch actions
             if is_k3s:
-                self.wait_node_ready(host.name)
                 if cordoned:
                     self.uncordon_node(host.name)
                     cordoned = False
@@ -768,12 +938,6 @@ class FleetDeployer:
                     else:
                         logger.info("Post-switch Cilium BGP verified on %s", host.name)
 
-            elif host.host_type == "appliance-dns":
-                self.verify_dns_appliance(host.ip)
-
-            elif host.host_type == "appliance-nas":
-                self.verify_nas_appliance(host.ip)
-
             # 4. Cooldown
             self.cooldown(host.name)
             logger.info("Successfully completed deployment for %s", host.name)
@@ -784,6 +948,29 @@ class FleetDeployer:
                 host.name,
                 err,
             )
+            if activation_attempted and not self.dry_run:
+                previous, desired = self.prepared[host.name]
+                logger.warning("[%s] Restoring previous system %s", host.name, previous)
+                try:
+                    self.activate_system(host, previous)
+                    self.prepared[host.name] = (previous, previous)
+                    self.verify_host(host)
+                    if cordoned:
+                        self.uncordon_node(host.name)
+                        cordoned = False
+                    if is_stateful_k3s:
+                        self.wait_postgres_ready()
+                    logger.info("[%s] Previous system restored and verified", host.name)
+                except Exception as recovery_error:
+                    if is_k3s and not cordoned:
+                        self.cordon_node(host.name)
+                        cordoned = True
+                    raise FleetDeploymentError(
+                        f"Deployment failed on {host.name}: {err}; recovery failed: {recovery_error}. "
+                        f"Host remains cordoned when applicable; restore {previous} before continuing."
+                    ) from recovery_error
+                finally:
+                    self.prepared[host.name] = (previous, desired)
             # Safe recovery attempt: if node is still cordoned, uncordon it
             if cordoned:
                 logger.info(
@@ -808,7 +995,19 @@ class FleetDeployer:
             if not self.skip_preflight:
                 self.run_preflight()
 
+            changed = []
             for host in self.targets:
+                if self.prepare_host(host):
+                    changed.append(host)
+                else:
+                    results.append(
+                        {
+                            "host": host.name,
+                            "status": "unchanged",
+                            "duration_seconds": 0.0,
+                        }
+                    )
+            for host in changed:
                 host_started = time.monotonic()
                 self.deploy_host(host)
                 results.append(
@@ -830,7 +1029,7 @@ class FleetDeployer:
                 hosts_str = ", ".join(h.name for h in self.targets)
                 self.notify(
                     title="Fleet Deployment Succeeded",
-                    message=f"Successfully deployed {len(self.targets)} host(s) ({hosts_str}) in {total_duration:.1f}s",
+                    message=f"Verified {len(self.targets)} host(s) ({hosts_str}); deployed {len(changed)}, unchanged {len(self.targets) - len(changed)} in {total_duration:.1f}s",
                     priority="default",
                     tags=["white_check_mark", "rocket"],
                 )
@@ -848,6 +1047,20 @@ class FleetDeployer:
                 tags=["rotating_light", "warning"],
             )
             raise
+        finally:
+            for name, root in self.roots.items():
+                try:
+                    run_command(
+                        self.ssh_command(
+                            FLEET_HOSTS[name].ip, shlex.join(["rm", "-rf", "--", root])
+                        ),
+                        runner=self.runner,
+                        timeout=30.0,
+                    )
+                except FleetDeploymentError as error:
+                    logger.warning(
+                        "[%s] Could not remove temporary GC roots: %s", name, error
+                    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -883,8 +1096,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cooldown-seconds",
         type=float,
-        default=30.0,
-        help="Duration in seconds to wait after each host update (default: 30.0).",
+        default=0.0,
+        help="Optional extra delay after verified activation (default: 0).",
     )
     parser.add_argument(
         "--drain-timeout",

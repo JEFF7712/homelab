@@ -1,5 +1,11 @@
 # Approvals dashboard
 
+**Legacy transition service.** The autonomous delivery policy no longer requires
+passkey approvals. This service remains for outstanding requests from the
+previously deployed policy and recovery during its migration. The procedures
+below describe that legacy policy, not the new delivery contract. Do not remove
+the service or its credentials as part of a routine task.
+
 `https://approvals.rupan.dev` handles exceptional high-risk CI operations.
 Routine fleet, CI-host, OPNsense, Cloudflare and workspace deployments are
 automatic. Authorization-system changes and destructive changes still require

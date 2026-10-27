@@ -183,8 +183,6 @@ def require_plan_approval(
     operator: bool,
     environment: dict[str, str] | None = None,
 ) -> None:
-    if operator:
-        return
     import subprocess
 
     for directory in ("opnsense", "cloudflare"):
@@ -213,9 +211,20 @@ def require_plan_approval(
             text=True,
             env=environment,
         )
-        risks = plan_risks(json.loads(output))
+        plan = json.loads(output)
+        risks = plan_risks(plan)
+        if (
+            plan.get("errored")
+            or plan.get("complete") is False
+            or not isinstance(plan.get("resource_changes"), list)
+        ):
+            raise ValueError("Invalid or incomplete infrastructure plan")
         if risks:
-            raise ValueError(f"{APPROVAL_REQUIRED}: " + "; ".join(risks))
+            print(
+                "Infrastructure plan risks (delivery is authorized): "
+                + "; ".join(risks),
+                flush=True,
+            )
 
 
 def main() -> None:

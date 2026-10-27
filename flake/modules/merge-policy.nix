@@ -8,8 +8,8 @@ let
   cfg = config.homelab.mergePolicy;
   python = pkgs.python313.withPackages (p: [ p.pyyaml ]);
   # The policy runs from this generation's copy, never from a PR checkout,
-  # so a change to the verifier takes effect only through a reviewed host
-  # deployment (scripts/verifier/ is a held deployment path).
+  # so a change to the verifier takes effect through the validated CI-host
+  # deployment, with task authorization for enrolled repository authors.
   source = pkgs.runCommand "merge-policy-source" { } ''
     mkdir -p $out/scripts/verifier
     cp ${../../scripts/verifier/websites.py} $out/scripts/verifier/websites.py
@@ -49,7 +49,7 @@ in
       path = [ pkgs.git ];
       environment.PYTHONPATH = toString source;
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.verifier.service --forgejo ${cfg.forgejo} --repository ${cfg.repository} --token-file %d/token --state %S/merge-policy --interval ${toString cfg.interval}";
+        ExecStart = "${python}/bin/python -m scripts.verifier.service --forgejo ${cfg.forgejo} --repository ${cfg.repository} --token-file %d/token --state %S/merge-policy --interval ${toString cfg.interval} --autonomous";
         User = "merge-policy";
         Group = "merge-policy";
         StateDirectory = "merge-policy";

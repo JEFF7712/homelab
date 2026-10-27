@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,7 +35,6 @@ OWNER_REPO = "JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 POLICY_CONTEXT = "policy/merge"
 POLICY_OPERATOR = "rupan"
-POLICY_REPAIRS = 3
 POLICY_SETTLE_SECONDS = 120
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
@@ -183,6 +183,27 @@ def extract_patch(log: str) -> str | None:
         encoded = "".join(line.strip() for line in body.splitlines())
         return base64.b64decode(encoded, validate=True).decode()
     return body.strip("\n") + "\n"
+
+
+def pipeline_timings(pipeline: dict[str, Any]) -> dict[str, float]:
+    """API timestamps separate pipeline wait from execution, not its cause."""
+    result = {}
+    created, started, finished = (
+        pipeline.get(key) for key in ("created", "started", "finished")
+    )
+    if (
+        isinstance(created, (int, float))
+        and isinstance(started, (int, float))
+        and 0 < created <= started
+    ):
+        result["queue_seconds"] = round(started - created, 2)
+    if (
+        isinstance(started, (int, float))
+        and isinstance(finished, (int, float))
+        and 0 < started <= finished
+    ):
+        result["execution_seconds"] = round(finished - started, 2)
+    return result
 
 
 def http(
@@ -370,6 +391,18 @@ class Shipper:
             text=True,
         ).stdout.strip()
 
+    def fetch(self, cwd: Path | None = None) -> None:
+        # Workspaces may configure origin to fetch main only. An explicit
+        # wildcard refspec also prunes stale tracking refs from earlier fetches.
+        self.git(
+            "fetch",
+            "--quiet",
+            "--prune",
+            "origin",
+            "+refs/heads/*:refs/remotes/origin/*",
+            cwd=cwd,
+        )
+
     # Source side -----------------------------------------------------------
 
     def preflight(self, cwd: Path) -> tuple[str, str]:
@@ -378,7 +411,7 @@ class Shipper:
             raise ShipError("Ship from a feature branch, not main or a detached HEAD")
         if self.git("status", "--porcelain", "--untracked-files=no", cwd=cwd):
             raise ShipError("Commit or discard tracked changes before shipping")
-        self.git("fetch", "--quiet", "origin", "main", cwd=cwd)
+        self.fetch(cwd)
         if not self.git("rev-list", "origin/main..HEAD", cwd=cwd):
             raise ShipError("Branch has no commits beyond origin/main")
         return branch, self.git("rev-parse", "HEAD", cwd=cwd)
@@ -455,9 +488,8 @@ class Shipper:
     def wait_policy(self, pull: dict[str, Any]) -> None:
         """Wait for the merge policy's verdict on this exact head.
 
-        A repairable rejection goes back to the agent with the findings. The
-        operator is asked only when the change needs authority the policy
-        cannot grant, or after POLICY_REPAIRS rejected heads on this PR.
+        Repairable rejections go back to the agent, without a human-review
+        retry limit. Legacy authority holds remain visible during migration.
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
@@ -495,19 +527,14 @@ class Shipper:
             "no policy comment found",
         )
         rejected = sum(outcome == "rejected" for outcome in verdicts.values())
-        if verdicts.get(sha) == "escalated" or rejected >= POLICY_REPAIRS:
-            self.forgejo.call(
-                "POST",
-                f"/pulls/{number}/requested_reviewers",
-                {"reviewers": [POLICY_OPERATOR]},
-            )
+        if verdicts.get(sha) == "escalated":
             raise ShipError(
                 f"PR #{number} escalated to {POLICY_OPERATOR}: {pull['html_url']}\n"
                 f"{findings}"
             )
         raise ShipError(
-            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected}/{POLICY_REPAIRS} "
-            f"repairs used). Fix these, commit, and rerun just ship:\n{findings}"
+            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected} rejected heads). "
+            f"Fix these, commit, and rerun just ship:\n{findings}"
         )
 
     def operator_approved(self, number: int, sha: str) -> bool:
@@ -568,7 +595,7 @@ class Shipper:
     def contains(self, ancestor: str, descendant: str) -> bool:
         if ancestor == descendant:
             return True
-        self.git("fetch", "--quiet", "origin", "main")
+        self.fetch()
         return (
             subprocess.run(
                 ["git", "merge-base", "--is-ancestor", ancestor, descendant],
@@ -691,7 +718,11 @@ class Shipper:
                 continue
             self.summary.update(main=main_sha, validation_pipeline=parent)
             self.summary["operations"].append(
-                {"operation": operation, "pipeline": result["pipeline"]}
+                {
+                    "operation": operation,
+                    "pipeline": result["pipeline"],
+                    **result.get("timings", {}),
+                }
             )
             patch = extract_patch(result["log"])
             if patch:
@@ -856,7 +887,20 @@ class Shipper:
                     if logs and (PATCH_BEGIN not in logs or PATCH_END in logs):
                         break
                     time.sleep(RETRY_SECONDS)
-                return {"operation": operation, "pipeline": number, "log": logs}
+                timings = pipeline_timings(pipeline)
+                if timings:
+                    self.say(
+                        f"{operation}: "
+                        + ", ".join(
+                            f"{key}={value:.1f}" for key, value in timings.items()
+                        )
+                    )
+                return {
+                    "operation": operation,
+                    "pipeline": number,
+                    "log": logs,
+                    "timings": timings,
+                }
             if state in {"failure", "error", "killed", "declined"}:
                 report = self.woodpecker.failure_report(pipeline)
                 if not operator and APPROVAL_REQUIRED in report:
@@ -912,9 +956,10 @@ class Shipper:
 
     def promote(self, patch: str, source: str) -> None:
         """Ship a promotion patch emitted by an operation as its own PR."""
-        self.git("fetch", "--quiet", "origin", "main")
+        self.fetch()
         digest = re.search(r"sha256:([0-9a-f]{12})", patch)
-        branch = f"ship/promote-{source}-{digest[1] if digest else int(time.time())}"
+        branch = f"ship/promote-{source}-{digest[1] if digest else int(time.time())}-{uuid.uuid4().hex[:8]}"
+        merged = False
         with tempfile.TemporaryDirectory(prefix="ship-promote-") as directory:
             worktree = Path(directory) / "tree"
             self.git(
@@ -943,21 +988,55 @@ class Shipper:
                         "body": f"Automatic promotion emitted by the {source} operation.",
                         "deploy": "auto",
                         "no_checks": True,
+                        "verify": [],
                     }
                 )
                 nested = Shipper(child)
                 nested.deadline = self.deadline
                 result = nested.ship(worktree)
                 self.summary["promotions"].append(result)
+                merged = bool(result.get("merged"))
             finally:
                 self.git("worktree", "remove", "--force", str(worktree))
+                if merged:
+                    # Squash merges do not preserve ancestry, so -d would
+                    # reject a successful promotion. Only this invocation's
+                    # unique branch is removed, after confirmed merge.
+                    self.git("branch", "-D", branch)
+
+    def verify_live(self, cwd: Path) -> None:
+        """Run task-specific acceptance checks inside the delivery deadline."""
+        checks = getattr(self.args, "verify", []) or []
+        for index, command in enumerate(checks, 1):
+            if not command.strip():
+                raise ShipError("Live verification command must not be empty")
+            self.say(f"live verification {index}/{len(checks)}")
+            try:
+                result = subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", command],
+                    cwd=cwd,
+                    timeout=self.remaining(),
+                )
+            except subprocess.TimeoutExpired:
+                raise ShipError(
+                    f"Live verification {index} exceeded the delivery deadline"
+                ) from None
+            self.summary.setdefault("verification", []).append(
+                {"check": index, "exit_code": result.returncode}
+            )
+            if result.returncode:
+                raise ShipError(
+                    f"Live verification {index} failed with exit code {result.returncode}; fix or recover and resume delivery"
+                )
+        if checks:
+            self.summary["state"] = "verified"
 
     # Orchestration ---------------------------------------------------------
 
     def resume(self, cwd: Path, revision: str) -> dict[str, Any]:
         if self.git("status", "--porcelain", "--untracked-files=no", cwd=cwd):
             raise ShipError("Commit or discard tracked changes before resuming")
-        self.git("fetch", "--quiet", "origin", "main", cwd=cwd)
+        self.fetch(cwd)
         merged = self.git("rev-parse", "--verify", f"{revision}^{{commit}}", cwd=cwd)
         if not self.contains(merged, self.git("rev-parse", "origin/main", cwd=cwd)):
             raise ShipError("Resume requires a commit already merged into main")
@@ -975,6 +1054,7 @@ class Shipper:
         if gitops or any(p.startswith("registry/") for p in changed):
             self.wait_flux(merged, gitops)
         self.summary["state"] = "deployed"
+        self.verify_live(cwd)
         self.say("done")
         return self.summary
 
@@ -1011,6 +1091,7 @@ class Shipper:
         if gitops or any(p.startswith("registry/") for p in changed):
             self.wait_flux(merged, gitops)
         self.summary["state"] = "deployed"
+        self.verify_live(cwd)
         self.say("done")
         return self.summary
 
@@ -1027,7 +1108,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--deploy",
         default="auto",
-        help="auto (default: run routed operations; risk exceptions request approval), none, or a comma-separated operation list",
+        help="auto (default: run routed operations), none, or a comma-separated operation list",
+    )
+    parser.add_argument(
+        "--verify",
+        action="append",
+        default=[],
+        metavar="COMMAND",
+        help="task-specific live acceptance command; repeatable, runs after deployment",
     )
     parser.add_argument(
         "--no-checks", action="store_true", help="skip local just check-changed"

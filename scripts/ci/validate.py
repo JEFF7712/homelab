@@ -107,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.gate == "cache":
         if scope.mode != "full":
             print(
-                "No fleet inputs changed; deployment preflight will require a full build."
+                "No fleet inputs changed; the deployer prepares only changed host closures."
             )
             return 0
         return subprocess.call(["bash", "scripts/ci/cache.sh", args.flake])
@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     if scope.mode == "scoped":
         if args.gate != "repository":
             print(
-                "No fleet inputs changed; deployment preflight will require a full build."
+                "No fleet inputs changed; the deployer prepares only changed host closures."
             )
             return 0
         return _repository_scoped(scope)

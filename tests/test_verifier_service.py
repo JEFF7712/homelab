@@ -274,5 +274,66 @@ class Decide(unittest.TestCase):
         self.assertFalse(operator_approved([{**review, "state": "COMMENT"}], head))
 
 
+class AutonomousMergePolicyTest(unittest.TestCase):
+    def test_authority_changes_are_recorded_without_approval(self):
+        decision = decide(
+            ["scripts/verifier/service.py"],
+            None,
+            None,
+            set(),
+            set(),
+            False,
+            autonomous=True,
+        )
+        self.assertEqual(decision.state, "success")
+        self.assertTrue(decision.findings)
+        self.assertFalse(decision.escalate)
+
+    def test_repair_findings_still_block_autonomous_delivery(self):
+        from unittest.mock import patch
+
+        from scripts.verifier.websites import Finding
+
+        with (
+            patch("scripts.verifier.service.load_tree", return_value={}),
+            patch(
+                "scripts.verifier.service.verify",
+                return_value=[
+                    Finding("repair", "site", "invalid generated manifest"),
+                    Finding("authority", "site", "intended exposure"),
+                ],
+            ),
+        ):
+            decision = decide(
+                ["gitops/websites/site/site.yaml"],
+                None,
+                None,
+                set(),
+                set(),
+                False,
+                autonomous=True,
+            )
+        self.assertEqual(decision.state, "failure")
+        self.assertFalse(decision.escalate)
+        self.assertIn("invalid generated manifest", " ".join(decision.findings))
+
+    def test_only_enrolled_same_repository_pr_authors_get_task_authority(self):
+        from scripts.verifier.service import authorized_pull
+
+        for author, head, expected in [
+            ("homelab-agent", "JEFF7712/homelab", True),
+            ("rupan", "JEFF7712/homelab", True),
+            ("untrusted", "JEFF7712/homelab", False),
+            ("homelab-agent", "other/fork", False),
+            ("homelab-agent", None, False),
+        ]:
+            pull = {
+                "user": {"login": author},
+                "head": {"repo": {"full_name": head}},
+                "base": {"repo": {"full_name": "JEFF7712/homelab"}},
+            }
+            self.assertEqual(authorized_pull(pull), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

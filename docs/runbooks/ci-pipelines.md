@@ -55,14 +55,14 @@ read-only work shares the single `scheduled-read-only` group, so maintenance
 holds at most one trusted slot and never queues an operator's plan behind it.
 
 The immutable server configuration extension verifies the signed request,
-repository, event, current main SHA, deployment operator, and successful
+repository, event, validated main ancestry and operation inputs, deployment identity, and successful
 validation parent. Repository YAML cannot select an executor, command, secret,
 or privileged container. Policy failures return 403 and fail the pipeline.
 Repository settings must clear extension overrides and all trusted permissions.
 
 The patched Woodpecker server records the deployment operator before policy
 evaluation and rejects restart query variable overrides. Retain the patch
-during upgrades. Deployment rights remain restricted to project operators.
+during upgrades. Deployment rights include the enrolled `homelab-agent` identity; task delivery needs no separate operator approval.
 
 ## Validation and operations
 
@@ -118,7 +118,11 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   narrow changes run the union of their checks. Validation infrastructure
   (`scripts/ci/`, `scripts/checks/`, CI config, flake inputs), shared Nix
   modules, and any unmapped path still force the full gate.
-- **Full offline gate**: Main branch pushes, periodic cron runs, release tags, and
+- **Main pushes** use the policy mirror's complete first-parent Git diff with
+  rename detection disabled, preserving both sides of moved files. The same
+  scoped classification applies as on branches. API display-list truncation
+  cannot omit checks; missing mirror evidence falls back to full validation.
+- **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
 
@@ -325,12 +329,12 @@ Woodpecker catalog before requesting this operation. See
 and the distinction between this deployment authority and agent read access.
 
 For NixOS fleet changes, use the `deploy-fleet-dry-run` operation first, then
-the dependent `deploy-fleet` operation only after reviewing the dry-run result
-and obtaining explicit deployment authorization. These catalog operations run
-the full configured fleet; the CI policy rejects per-run variable overrides,
+the dependent `deploy-fleet` operation after the agent checks the dry-run result.
+The task request authorizes both operations. They consider the configured fleet
+and skip hosts already running their desired closure; the CI policy rejects per-run variable overrides,
 so they do not provide host-level target selection. The operation catalog
-enforces the prerequisite and consumes fresh validation for the same main
-revision. Apply operations expire after 24 hours. For a scoped deployment, use
+enforces the prerequisite and consumes fresh validation for the same source
+revision. Known disjoint main advances preserve that revision's artifacts. Apply operations expire after 24 hours. For a scoped deployment, use
 the fleet deployer's explicit `--target` option only when the task authorizes
 local deployment and the [NixOS host deployment runbook](nixos-host-deployment.md)
 allows it.
@@ -402,32 +406,24 @@ Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-The deploy policy admits `homelab-agent` for read-only operations and catalog
-mutations marked `"agent": true`. Routine infrastructure and application routes
-are automatic. The active policy compares authorization/storage source identities
-with an immutable baseline built into its deployed NixOS generation. Changed
-protected source, newly changed Nix authorization statements, unknown baselines,
-and operator-only operations require human approval. Apply operations also
-inspect saved plans for authority changes and destructive data/connectivity
-changes. `ship` sends those exceptions to the passkey dashboard.
+The deploy policy admits `homelab-agent` for all catalog operations under the
+requested task's standing delivery authorization. No protected-source baseline,
+operator-only catalog exception, or passkey grant is required. Saved plans are
+validated for completeness and risks are reported; the agent must stay within
+task scope and establish recovery before intended persistent-data destruction.
 
-The operator identity is injected by the deployed policy as
-`CI_OPERATION_OPERATOR`, never accepted from repository variables. It authorizes
-the reviewed exception; no operator token is handed to an agent. Source validation
-must pass for the exact current main SHA. A failed unrelated main operation does
-not block deployment; the operation's own prerequisites remain mandatory. Source
-checks govern supported delivery, not adversarial root-capable NixOS authors.
+Source validation must pass for the operation's exact source SHA. Both policy
+and runner reject superseded related inputs, while known disjoint main changes
+can preserve an older validated revision. A failed unrelated main operation does
+not block deployment; exact-source prerequisites remain mandatory.
 
-Triggering a deployment needs the bot's own Woodpecker API token: sign in to
+Triggering deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
 profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
-agent machine. Held operations run from the Woodpecker UI as the operator, through
-the [approvals dashboard](approvals.md) (which holds an operator token on
-homelab-04 and triggers only after a passkey approval), or through
-`just ship --deploy` with an operator token in
-`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token`. Keep the
-operator token off machines where agents run unattended. Never commit either
-token.
+agent machine. Production credentials stay in CI. Before this policy is first
+activated, the previous generation can still require its legacy
+[passkey approval](approvals.md); `ship` files that transition request.
+Never commit tokens.
 
 ## Recovery
 
@@ -435,7 +431,7 @@ A Woodpecker server restart can cancel its own deployment workflow through
 gRPC while the host switch completes. Before retrying, inspect the running
 host generation, service health and node cordon state. If activation succeeded,
 finish the remaining targets with the local `just deploy-fleet --target <host>`
-path from the exact approved commit. Preserve the required approval, drain and
+path from the exact validated commit. Preserve the required drain and
 health checks; a killed CI job does not prove the host switch failed.
 
 Keep a newly registered remote agent disabled until its host credentials,

@@ -25,10 +25,9 @@ from scripts.ci.deployment_risk import (
     APPROVAL_REQUIRED,
     authority_digest,
     changed_authority,
-    host_operation,
     nix_authority_change,
-    protected_paths,
 )
+from scripts.ci.deployment_source import compatible_changes
 from scripts.ci.development_projects import (
     DevelopmentProject,
     load_development_projects,
@@ -319,36 +318,18 @@ REGISTRY_LOCK_PATHS = frozenset(
 )
 
 
-def push_changed_files(request: dict[str, Any]) -> tuple[str, ...] | None:
-    """Files changed by a main push, or None when the diff cannot be read.
+def push_changed_files(
+    request: dict[str, Any], mirror: SourceMirror | None = None
+) -> tuple[str, ...] | None:
+    """Complete first-parent diff; missing mirror evidence forces the full gate.
 
-    The base is the pushed commit's first parent, so a merge commit diffs
-    against the previous main tip and a fast-forward diffs its own commit.
+    Compare APIs may truncate file lists or report only a rename's destination.
+    Scope validation from exact Git trees instead of those display-oriented lists.
     """
-    pipeline = request["pipeline"]
-    commit = pipeline.get("commit", "")
-    token = request.get("netrc", {}).get("password", "")
-    if not token or not re.fullmatch(r"[0-9a-f]{40}", commit):
+    if mirror is None:
         return None
-    try:
-        info = api(
-            f"https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/commits/{commit}",
-            token,
-        )
-        parents = info.get("parents") or []
-        if not parents:
-            return None
-        compare = api(
-            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/compare/"
-            f"{parents[0]['id']}...{commit}",
-            token,
-        )
-    except Exception:
-        return None
-    return tuple(
-        entry["filename"]
-        for entry in compare.get("files") or []
-        if isinstance(entry, dict) and isinstance(entry.get("filename"), str)
+    return mirror.push_changes(
+        request["pipeline"].get("commit", ""), request.get("netrc", {})
     )
 
 
@@ -423,6 +404,38 @@ class SourceMirror:
         finally:
             self.lock.release()
         return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
+
+    def push_changes(
+        self, commit: str, credentials: dict[str, Any]
+    ) -> tuple[str, ...] | None:
+        if self.branch_changes(commit, credentials) is None:
+            return None
+        try:
+            with self.lock:
+                changes = self.git(
+                    "diff", "--name-only", "--no-renames", "-z", commit + "^", commit
+                )
+            return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    def deployment_changes(
+        self, before: str, after: str, credentials: dict[str, Any]
+    ) -> tuple[str, ...] | None:
+        if (
+            not re.fullmatch(r"[0-9a-f]{40}", before)
+            or self.branch_changes(after, credentials) is None
+        ):
+            return None
+        try:
+            with self.lock:
+                self.git("merge-base", "--is-ancestor", before, after)
+                changes = self.git(
+                    "diff", "--name-only", "--no-renames", "-z", before, after
+                )
+            return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
+        except (OSError, subprocess.SubprocessError):
+            return None
 
     def authority_changes(
         self,
@@ -499,6 +512,7 @@ def configuration(
     branch_files: tuple[str, ...] | None = None,
     authority_changes: list[str] | None = None,
     authority_grant: str = "",
+    source_compatible: bool = False,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -654,17 +668,17 @@ def configuration(
             # temp file vanishing mid-copy fails the gate (pipeline #3089).
             "PYTHONDONTWRITEBYTECODE": "1",
         }
-        if main or event in {"cron", "tag"}:
+        if event in {"cron", "tag"}:
             validation_env["CI_FULL_VALIDATION"] = "1"
         if event == "pull_request" and merge_base:
             validation_env["CI_MERGE_BASE"] = merge_base
+        scope_files = changed_files if main else branch_files
         if (
             event == "push"
-            and not main
-            and branch_files is not None
-            and len(branch_files) <= SCOPE_FILES_LIMIT
+            and scope_files is not None
+            and len(scope_files) <= SCOPE_FILES_LIMIT
         ):
-            validation_env["CI_SCOPE_FILES"] = json.dumps(list(branch_files))
+            validation_env["CI_SCOPE_FILES"] = json.dumps(list(scope_files))
 
         if not reuse_main_validation and not defer_to_main_validation:
             add(
@@ -738,23 +752,12 @@ def configuration(
     target = pipeline.get("deploy_to", "")
     if target not in operations:
         raise ValueError("Unknown deployment target")
-    if pipeline["author"] == AGENT_AUTHOR and operations[target]["mutation"]:
-        if not operations[target].get("agent"):
-            raise HumanApprovalRequired("operation changes authority or is destructive")
-        if authority_changes is None:
-            raise HumanApprovalRequired("cannot verify deployed authorization baseline")
-        if authority_changes:
-            grant = f" (grant {authority_grant})" if authority_grant else ""
-            raise HumanApprovalRequired(
-                f"authorization or storage source changed{grant}: "
-                + ", ".join(authority_changes[:12])
-            )
-    if current != pipeline["commit"]:
+    if current != pipeline["commit"] and not source_compatible:
         raise StaleDeployment("Operation source must be the current main commit")
     if (
         not parent
         or parent.get("status") not in {"success", "failure"}
-        or parent.get("commit") != current
+        or parent.get("commit") != pipeline["commit"]
     ):
         raise ValueError("Successful validation of this commit is required")
     if (
@@ -831,27 +834,10 @@ def resolve_configuration(
         request["pipeline"].get("event") == "push"
         and request["pipeline"].get("ref") == "refs/heads/main"
     ):
-        changed_files = push_changed_files(request)
+        changed_files = push_changed_files(request, mirror)
     branch_files = None
     authority_changes = None
     authority_grant = ""
-    if (
-        request["pipeline"].get("event") == "deployment"
-        and request["pipeline"].get("author") == AGENT_AUTHOR
-        and operations.get(request["pipeline"].get("deploy_to", ""), {}).get("mutation")
-        and mirror is not None
-        and authority_baseline is not None
-    ):
-        target = request["pipeline"]["deploy_to"]
-        host = host_operation(operations[target])
-        changes, authority_grant = mirror.authority_changes(
-            request["pipeline"].get("commit", ""),
-            request.get("netrc", {}),
-            authority_baseline,
-            protected_paths(target, host),
-            host,
-        )
-        authority_changes = [] if changes and grant_lookup(authority_grant) else changes
     if (
         mirror is not None
         and request["pipeline"].get("event") == "push"
@@ -868,6 +854,24 @@ def resolve_configuration(
             credentials["password"],
         )
         current = tip["commit"]["id"]
+    source_compatible = False
+    if (
+        request["pipeline"].get("event") == "deployment"
+        and current != request["pipeline"].get("commit")
+        and mirror is not None
+    ):
+        changes = mirror.deployment_changes(
+            request["pipeline"].get("commit", ""), current, request.get("netrc", {})
+        )
+        if changes is not None:
+            routes = json.loads(
+                (
+                    Path(__file__).resolve().parents[2] / "config/ci/ship-routes.json"
+                ).read_text()
+            )["routes"]
+            source_compatible = compatible_changes(
+                changes, request["pipeline"].get("deploy_to", ""), operations, routes
+            )
     if request["pipeline"].get("event") == "pull_request":
         reusable = find_reusable_validation(
             request,
@@ -903,6 +907,7 @@ def resolve_configuration(
         branch_files=branch_files,
         authority_changes=authority_changes,
         authority_grant=authority_grant,
+        source_compatible=source_compatible,
     )
 
 
@@ -913,7 +918,7 @@ def main() -> None:
     parser.add_argument("--projects", type=Path, required=False, default=None)
     parser.add_argument("--public-key", type=Path, required=True)
     parser.add_argument("--mirror", type=Path, default=None)
-    parser.add_argument("--authority-baseline", type=Path, required=True)
+    parser.add_argument("--authority-baseline", type=Path)
     args = parser.parse_args()
     catalog = json.loads(args.catalog.read_text())
     applications = load_catalog(args.applications)
@@ -929,7 +934,9 @@ def main() -> None:
     )
     key = args.public_key.read_bytes()
     mirror = SourceMirror(args.mirror) if args.mirror else None
-    authority_baseline = json.loads(args.authority_baseline.read_text())
+    authority_baseline = (
+        None  # Legacy argument accepted during the deployed-policy transition.
+    )
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:

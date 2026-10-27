@@ -1,7 +1,7 @@
 # NixOS host deployment
 
 Use the fleet deployer for NixOS host changes. A deployment changes shared
-infrastructure and requires explicit authorization. Validate the source with
+infrastructure under the task’s standing delivery authorization. Validate the source with
 `just check-changed` first, then identify the exact host or host set that the
 task authorizes.
 
@@ -80,25 +80,27 @@ other hosts' evidence. Generation links and the running system are sampled
 before and after collection. This detects identity changes, but does not lock
 the store against concurrent GC or prove a fully atomic observation.
 
-Protected fleet, workspace-host and CI-host dry-runs capture reports immediately
-before and after their existing `nixos-rebuild dry-activate` workflow. Reports
+Fleet, workspace-host and CI-host dry-runs capture reports immediately
+before and after preparation and dry activation of changed host closures. Reports
 are under `artifacts/deployment-report/<operation>/{before,after}/` in the
 operation receipt and their Markdown summaries appear in the logs. The first
 report can have unavailable candidate measurements; the second can measure
-what the existing dry-run built/copied. These reports add no authorization or
+what preparation built/copied. These reports add no authorization or
 resource-budget policy. The existing dry-run still builds/copies candidates
 and executes dry-activation; only the separate report command is observational.
-The catalog update becomes active after the CI-host deployment, under the
-existing approvals policy.
+Catalog updates become active after the CI-host deployment.
 
 ## Protected CI deployment
 
 The `deploy-fleet-dry-run` and `deploy-fleet` operations in
-`config/ci/operations.json` deploy the full configured fleet. The CI policy
+`config/ci/operations.json` consider the full configured fleet and skip any
+host already running its evaluated desired closure. The CI policy
 rejects per-run variable overrides, so the `DEPLOY_TARGETS` environment is not
 a supported way to scope these operations. Run them only when the full fleet is
 within the authorized change scope. The deploy operation requires its matching
-dry-run prerequisite and fresh successful validation for the same main commit.
+dry-run prerequisite and fresh successful validation for the same source commit.
+Known changes to disjoint resources may advance main without invalidating that
+source; unknown or related changes require a fresh prerequisite.
 See [CI pipeline operations](ci-pipelines.md) for the operation lifecycle.
 
 ## Authorized scoped deployment
@@ -116,18 +118,20 @@ These commands show a single-host example. Replace `homelab-04` with the
 authorized target. Review the dry-run output and confirm it names only
 authorized hosts before running the apply command. Multiple `--target` values
 or a comma-separated list are supported. Omitting `--target` deploys the full
-configured fleet.
+configured fleet, skipping unchanged live systems.
 
 The deployer runs its connectivity and readiness preflight by default. It
-cordons and drains k3s nodes, uses `nixos-rebuild dry-activate` in dry-run mode
-and `nixos-rebuild switch` for an apply, waits for k3s readiness, then uncordons
-the node. Stateful k3s nodes also wait for PostgreSQL readiness. NAS deployment
+prepares changed closures, then cordons and drains affected k3s nodes. It runs
+the prepared closure's `switch-to-configuration dry-activate` in dry-run mode
+and `switch-to-configuration switch` for apply, verifies k3s readiness and newly
+failed units, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness. NAS deployment
 checks every configured ZFS dataset before rebuilding. Keep these defaults;
 do not use `--skip-preflight`, `--skip-drain`, or `--skip-cooldown` unless the
 task's owning runbook explicitly requires it.
 
-The deployer stops at the first failed host and attempts to uncordon a node if
-it was left cordoned. It does not roll back hosts that already completed before
+The deployer stops at the first failed host, restores its previous system after
+an activation failure, and uncordons only after successful host recovery. A drain
+failure also attempts to restore scheduling. It does not roll back hosts that already completed before
 a later host failed. Follow the affected host or service runbook for recovery.
 
 ## Acceptance
@@ -137,3 +141,27 @@ After deployment, verify the selected hosts and dependent workloads using
 service behavior described by that appliance's runbook. Report dry-run,
 deployment, live acceptance, and recovery evidence separately. A successful
 `nixos-rebuild switch` does not by itself prove the service is healthy.
+
+## Preparation, verification and recovery
+
+The deployer evaluates the exact `system.build.toplevel.outPath` for each host
+(using the registry variant for k3s) and compares it to `/run/current-system`
+on that host. It checks configured NAS datasets, then builds changed closures
+with the existing remote builder and cache configuration. All selected builds
+finish before the first drain. Temporary remote GC roots retain the candidate
+and previous closures during delivery and are cleaned up on exit.
+
+Activation sets the system profile and switches to the prepared store path; it
+does not reevaluate the source while workloads are drained. Before disruption,
+the deployer rejects a host whose live system changed during preparation. It
+checks the activated path, newly failed systemd units, node readiness and existing
+appliance probes. PostgreSQL rollout checks run after uncordoning its node.
+The default extra cooldown is zero; `--cooldown-seconds` can request an additional
+delay after health verification.
+
+If activation or verification fails, restore the exact previously running system,
+verify it and stop the rollout. A failed recovery keeps a k3s node cordoned when
+possible and reports the previous closure for recovery. Configuration rollback
+does not reverse database migrations or restore deleted data. The agent must
+verify backups before intended data destruction and check the requested live
+behavior after infrastructure convergence.

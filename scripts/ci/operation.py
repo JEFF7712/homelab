@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.ci.deployment_risk import require_plan_approval
+from scripts.ci.deployment_source import compatible_changes
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -44,7 +45,11 @@ def _fetch(request: urllib.request.Request, attempts: int = 6) -> bytes:
     raise AssertionError("unreachable")
 
 
-def current_source(environment: dict[str, str]) -> None:
+def current_source(
+    environment: dict[str, str],
+    operation: str = "",
+    catalog: dict[str, Any] | None = None,
+) -> None:
     sha = environment["CI_COMMIT_SHA"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Invalid source SHA")
@@ -65,6 +70,62 @@ def current_source(environment: dict[str, str]) -> None:
         )
         current = json.loads(_fetch(request))["commit"]["id"]
     if current != sha:
+        if (
+            operation
+            and catalog is not None
+            and environment.get("CI_OPERATION_AUTHORITY") != "gitlab"
+        ):
+            auth = base64.b64encode(
+                (
+                    "homelab-ci-source:" + environment["FORGEJO_SOURCE_READ_TOKEN"]
+                ).encode()
+            ).decode()
+            git_env = {
+                **os.environ,
+                "GIT_TERMINAL_PROMPT": "0",
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "http.extraHeader",
+                "GIT_CONFIG_VALUE_0": "Authorization: Basic " + auth,
+            }
+            try:
+                subprocess.run(
+                    ["git", "fetch", "--quiet", "--no-tags", "origin", current],
+                    env=git_env,
+                    check=True,
+                    capture_output=True,
+                    timeout=60,
+                )
+                subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", sha, current],
+                    check=True,
+                    capture_output=True,
+                    timeout=10,
+                )
+                changed = (
+                    subprocess.check_output(
+                        [
+                            "git",
+                            "diff",
+                            "--name-only",
+                            "--no-renames",
+                            "-z",
+                            sha,
+                            current,
+                        ],
+                        timeout=30,
+                    )
+                    .decode()
+                    .split("\0")
+                )
+                routes = json.loads((ROOT / "config/ci/ship-routes.json").read_text())[
+                    "routes"
+                ]
+                if compatible_changes(
+                    [path for path in changed if path], operation, catalog, routes
+                ):
+                    return
+            except (OSError, subprocess.SubprocessError):
+                pass
         raise SupersededSource("Operation source must be the current main commit")
 
 
@@ -145,7 +206,7 @@ def unpack(
 def run(name: str, catalog: dict[str, Any]) -> None:
     operation = catalog[name]
     environment = dict(os.environ)
-    current_source(environment)
+    current_source(environment, name, catalog)
     environment["CI_DEFAULT_BRANCH"] = "main"
     with tempfile.TemporaryDirectory(prefix="ci-secrets-") as temporary:
         for variable in operation["file_secrets"]:

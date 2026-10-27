@@ -126,6 +126,34 @@ class CurrentSourceTest(unittest.TestCase):
         ):
             current_source(environment)
 
+    def test_runner_preserves_only_disjoint_ancestor_sources(self) -> None:
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        environment = {"CI_COMMIT_SHA": SHA, "FORGEJO_SOURCE_READ_TOKEN": "fixture"}
+        for path, allowed in [
+            ("services/led-matrix/app.py", True),
+            ("flake/modules/kiosk.nix", False),
+            ("unknown", False),
+        ]:
+            with (
+                self.subTest(path=path),
+                patch(
+                    "scripts.ci.operation._fetch",
+                    return_value=json.dumps({"commit": {"id": "b" * 40}}).encode(),
+                ),
+                patch(
+                    "scripts.ci.operation.subprocess.check_output",
+                    side_effect=[SHA, (path + "\0").encode()],
+                ),
+                patch("scripts.ci.operation.subprocess.run") as git,
+            ):
+                if allowed:
+                    current_source(environment, "deploy-fleet", catalog)
+                else:
+                    with self.assertRaises(SupersededSource):
+                        current_source(environment, "deploy-fleet", catalog)
+                self.assertEqual(git.call_count, 2)
+                self.assertIn("--is-ancestor", git.call_args.args[0])
+
     def test_forgejo_gateway_errors_are_retried(self) -> None:
         environment = {
             "CI_COMMIT_SHA": SHA,
@@ -608,61 +636,39 @@ class PolicyTest(unittest.TestCase):
                 configuration(self.request, self.catalog, self.parent, SHA)
             self.request = saved
 
-    def test_machine_user_runs_routine_operations_with_unchanged_authority(
-        self,
-    ) -> None:
+    def test_agent_can_deliver_every_catalog_operation_without_approval(self) -> None:
         self.assertEqual(DEPLOY_AUTHORS, {"rupan", "JEFF7712", "homelab-agent"})
         self.request["pipeline"].update(author="homelab-agent", event="deployment")
-        for operation in [
-            "opnsense-apply",
-            "deploy-fleet",
-            "cloudflare-apply",
-            "deploy-ci-host",
-            "matrix-publish",
-        ]:
+        for operation in self.catalog:
             with self.subTest(operation=operation):
                 self.request["pipeline"]["deploy_to"] = operation
                 self.assertTrue(
-                    configuration(
-                        self.request,
-                        self.catalog,
-                        self.parent,
-                        SHA,
-                        authority_changes=[],
-                    )["configs"]
+                    configuration(self.request, self.catalog, self.parent, SHA)[
+                        "configs"
+                    ]
                 )
-                with self.assertRaisesRegex(
-                    ValueError, "authorization or storage source changed"
-                ):
-                    configuration(
-                        self.request,
-                        self.catalog,
-                        self.parent,
-                        SHA,
-                        authority_changes=["scripts/ci/policy.py"],
-                    )
-                with self.assertRaisesRegex(ValueError, "cannot verify"):
-                    configuration(self.request, self.catalog, self.parent, SHA)
-        self.request["pipeline"].update(author="JEFF7712", deploy_to="deploy-fleet")
+
+    def test_compatible_ancestor_keeps_its_exact_validation_parent(self) -> None:
+        self.request["pipeline"].update(
+            author="homelab-agent", event="deployment", deploy_to="deploy-fleet"
+        )
         self.assertTrue(
             configuration(
                 self.request,
                 self.catalog,
                 self.parent,
-                SHA,
-                authority_changes=["scripts/ci/policy.py"],
+                "b" * 40,
+                source_compatible=True,
             )["configs"]
         )
-
-    def test_authority_provisioning_requires_an_operator(self) -> None:
-        self.request["pipeline"].update(
-            author="homelab-agent",
-            event="deployment",
-            deploy_to="provision-darkbit-publisher",
-        )
-        with self.assertRaisesRegex(ValueError, "authority or is destructive"):
+        self.parent["commit"] = "b" * 40
+        with self.assertRaisesRegex(ValueError, "Successful validation"):
             configuration(
-                self.request, self.catalog, self.parent, SHA, authority_changes=[]
+                self.request,
+                self.catalog,
+                self.parent,
+                "b" * 40,
+                source_compatible=True,
             )
 
     def test_failed_unrelated_main_operation_does_not_block_validated_deployment(
@@ -947,7 +953,7 @@ class PolicyTest(unittest.TestCase):
             )
         )
 
-    def test_pr_injects_merge_base_and_main_injects_full_validation(self) -> None:
+    def test_pr_injects_merge_base_and_main_uses_scoped_validation(self) -> None:
         pr_request = {
             "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
             "pipeline": {
@@ -974,9 +980,7 @@ class PolicyTest(unittest.TestCase):
         }
         result_main = configuration(main_request, self.catalog, current=SHA)
         workflow_main = yaml.safe_load(result_main["configs"][0]["data"])
-        self.assertEqual(
-            workflow_main["steps"][0]["environment"]["CI_FULL_VALIDATION"], "1"
-        )
+        self.assertNotIn("CI_FULL_VALIDATION", workflow_main["steps"][0]["environment"])
 
     def test_branch_push_carries_branch_files_and_main_does_not(self) -> None:
         def request(ref: str) -> dict[str, Any]:
@@ -1306,17 +1310,15 @@ class GrantPolicyTest(unittest.TestCase):
             result = resolve_configuration(
                 request, catalog, (), (), mirror, {}, grant_lookup=lookup
             )
-        self.assertEqual(asked, [self.DIGEST])
+        self.assertEqual(asked, [])
+        mirror.authority_changes.assert_not_called()
         return result
 
     def test_granted_protected_changes_deploy_as_the_agent(self) -> None:
         self.assertTrue(self.resolve(True)["configs"])
 
-    def test_ungranted_changes_name_their_grant_digest(self) -> None:
-        with self.assertRaisesRegex(
-            ValueError, rf"grant {self.DIGEST}\): scripts/ci/policy.py"
-        ):
-            self.resolve(False)
+    def test_authorized_changes_do_not_require_a_grant(self) -> None:
+        self.assertTrue(self.resolve(False)["configs"])
 
     def test_unreachable_approvals_service_is_no_grant(self) -> None:
         with unittest.mock.patch(
