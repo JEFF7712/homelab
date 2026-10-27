@@ -51,7 +51,7 @@ so, rather than leaving the PR silently blocked.
 
 ## Activation
 
-Steps 1 to 3 are done (2026-10-26). In order:
+Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). Steps 5 and 6 land together. In order:
 
 1. Operator, in Forgejo: create the `homelab-policy` user and add it to
    `JEFF7712/homelab` as a collaborator with write access, which commit
