@@ -72,6 +72,11 @@ cache-populate:
       ./flake#checks.x86_64-linux.agent-workspace-host-reservations \
       ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
       ./flake#checks.x86_64-linux.zot-registry \
+      ./flake#checks.x86_64-linux.zot-registry-service \
+      ./flake#checks.x86_64-linux.opnsense-types \
+      ./flake#checks.x86_64-linux.opnsense-config \
+      ./flake#checks.x86_64-linux.fleet-inventory \
+      ./flake#checks.x86_64-linux.kiosk-tty1 \
       ./flake#checks.x86_64-linux.topology \
       ./flake#devShells.x86_64-linux.default \
       ./flake#devShells.x86_64-linux.ci \
