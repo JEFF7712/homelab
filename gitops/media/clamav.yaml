@@ -28,8 +28,11 @@ metadata:
 data:
   clamd.conf: |
     Foreground yes
-    LogFile /dev/stdout
-    LogFileUnlock yes
+    # ClamAV opens log files with O_NOFOLLOW, so /dev/stdout (a symlink)
+    # fails; keep a small rotating log on the clamd tmp volume instead.
+    LogFile /tmp/clamd.log
+    LogFileMaxSize 10M
+    LogRotate yes
     LogTime yes
     DatabaseDirectory /var/lib/clamav
     TemporaryDirectory /tmp
@@ -43,7 +46,6 @@ data:
     MaxThreads 4
   freshclam.conf: |
     Foreground yes
-    UpdateLogFile /dev/stdout
     LogTime yes
     DatabaseDirectory /var/lib/clamav
     DatabaseMirror database.clamav.net
