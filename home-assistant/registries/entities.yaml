@@ -82,21 +82,17 @@
 - disabled_by: integration
   entity_id: binary_sensor.zigbee2mqtt_bridge_restart_required
   labels: []
-- name: Bedroom Lights Auto On
-  icon: mdi:lightbulb-auto
-  entity_id: input_boolean.bedroom_lights_auto_on
-  labels: []
 - name: Bedroom Bedtime Charging Done
   icon: mdi:cellphone-charging
   entity_id: input_boolean.bedroom_bedtime_charging_done
   labels: []
+- name: Bedroom Lights Auto On
+  icon: mdi:lightbulb-auto
+  entity_id: input_boolean.bedroom_lights_auto_on
+  labels: []
 - name: Bedroom Music Mode
   icon: mdi:music
   entity_id: input_boolean.bedroom_music_mode
-  labels: []
-- name: Shared Music Mode
-  icon: mdi:music
-  entity_id: input_boolean.shared_music_mode
   labels: []
 - name: Guest Mode
   icon: mdi:account-multiple
@@ -105,6 +101,10 @@
 - name: Phone Bedtime Reminder Sent
   icon: mdi:bell-check
   entity_id: input_boolean.phone_bedtime_reminder_sent
+  labels: []
+- name: Shared Music Mode
+  icon: mdi:music
+  entity_id: input_boolean.shared_music_mode
   labels: []
 - name: Vacation Mode
   icon: mdi:palmtree
@@ -122,51 +122,75 @@
   icon: mdi:cellphone-charging
   entity_id: input_number.phone_bedtime_battery_threshold
   labels: []
-- area_id: kitchen
-  entity_id: light.kitchen_ceiling_light_1
-  labels:
-    - shared_space
-  name: Kitchen Ceiling Light 1
-- area_id: kitchen
-  entity_id: light.kitchen_ceiling_light_2
-  labels:
-    - shared_space
-  name: Kitchen Ceiling Light 2
-- area_id: kitchen
-  entity_id: light.kitchen_mushroom_lamp
-  labels: []
-- area_id: living_room
-  entity_id: light.living_room_floor_lamp
-  labels:
-    - shared_space
-  name: Living Room Floor Lamp
-- area_id: living_room
-  entity_id: light.living_room_tulip_lamp
-  labels:
-    - shared_space
-  name: Living Room Tulip Lamp
-- area_id: kitchen
-  entity_id: light.kitchen_dining_table_ceiling_light_1
-  labels:
-    - shared_space
-  name: Dining Table Ceiling Light 1
-- area_id: kitchen
-  entity_id: light.kitchen_dining_table_ceiling_light_2
-  labels:
-    - shared_space
-  name: Dining Table Ceiling Light 2
-- area_id: living_room
+- name: Living Room LED Strip
+  area_id: living_room
   entity_id: light.apollo_led_strip_apollo_led_strip
   labels:
     - shared_space
-  name: Living Room LED Strip
-- area_id: kitchen
+- name: Kitchen Ceiling Light 1
+  area_id: kitchen
+  entity_id: light.kitchen_ceiling_light_1
+  labels:
+    - shared_space
+- name: Kitchen Ceiling Light 2
+  area_id: kitchen
+  entity_id: light.kitchen_ceiling_light_2
+  labels:
+    - shared_space
+- name: Dining Table Ceiling Light 1
+  area_id: kitchen
+  entity_id: light.kitchen_dining_table_ceiling_light_1
+  labels:
+    - shared_space
+- name: Dining Table Ceiling Light 2
+  area_id: kitchen
+  entity_id: light.kitchen_dining_table_ceiling_light_2
+  labels:
+    - shared_space
+- name: 8-Light LED Strip
+  area_id: kitchen
   entity_id: light.kitchen_kitchen_led_strip
   labels:
     - shared_space
-  name: 8-Light LED Strip
+- area_id: kitchen
+  entity_id: light.kitchen_mushroom_lamp
+  labels: []
+- name: Living Room Floor Lamp
+  area_id: living_room
+  entity_id: light.living_room_floor_lamp
+  labels:
+    - shared_space
+- name: Living Room Tulip Lamp
+  area_id: living_room
+  entity_id: light.living_room_tulip_lamp
+  labels:
+    - shared_space
 - name: Soundbar
   entity_id: media_player.homelab_05_satellite_media_player_2
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e8428fcc940000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e8428fe2a50000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e84290119a0000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: select.0xb4e84291785a0000_effect
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e8428fcc940000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e8428fe2a50000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e84290119a0000_linkquality
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.0xb4e84291785a0000_linkquality
   labels: []
 - disabled_by: integration
   entity_id: sensor.0xffffb40e0608c96f_linkquality
@@ -286,7 +310,79 @@
   entity_id: sensor.issues
   labels: []
 - disabled_by: integration
+  entity_id: sensor.jayanth_phone_activity
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_app_version
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_audio_output
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_average_active_pace
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_battery_level
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_battery_state
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_bssid
+  labels: []
+- disabled_by: integration
   entity_id: sensor.jayanth_phone_camera_stream
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_connection_type
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_current_cadence
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_current_pace
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_distance
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_floors_ascended
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_floors_descended
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_geocoded_location
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_kiosk_brightness
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_kiosk_volume
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_last_update_trigger
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_location_permission
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_pressure
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_sim_1
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_sim_2
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_ssid
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_steps
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.jayanth_phone_storage
   labels: []
 - disabled_by: user
   entity_id: sensor.lights
@@ -679,90 +775,6 @@
   entity_id: sensor.zones
   labels: []
 - disabled_by: integration
-  entity_id: sensor.0xb4e8428fcc940000_linkquality
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.0xb4e8428fe2a50000_linkquality
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.0xb4e84290119a0000_linkquality
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.0xb4e84291785a0000_linkquality
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_activity
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_app_version
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_audio_output
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_average_active_pace
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_battery_level
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_battery_state
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_bssid
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_connection_type
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_current_cadence
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_current_pace
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_distance
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_floors_ascended
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_floors_descended
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_geocoded_location
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_kiosk_brightness
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_kiosk_volume
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_last_update_trigger
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_location_permission
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_pressure
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_sim_1
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_sim_2
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_ssid
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_steps
-  labels: []
-- disabled_by: integration
-  entity_id: sensor.jayanth_phone_storage
-  labels: []
-- disabled_by: integration
   entity_id: switch.adaptive_lighting_pre_release
   labels: []
 - disabled_by: integration
@@ -780,6 +792,10 @@
 - disabled_by: integration
   entity_id: switch.card_mod_pre_release
   labels: []
+- name: Exit Sign
+  entity_id: switch.exit_sign
+  labels:
+    - shared_space
 - disabled_by: integration
   entity_id: switch.frosted_glass_theme_pre_release
   labels: []
@@ -803,27 +819,14 @@
   labels:
     - shared_space
 - disabled_by: integration
+  entity_id: switch.mediocre_hass_media_player_cards_pre_release
+  labels: []
+- disabled_by: integration
   entity_id: switch.mushroom_pre_release
   labels: []
 - disabled_by: integration
   entity_id: switch.spook_your_homie_pre_release
   labels: []
-- entity_id: switch.exit_sign
-  labels:
-    - shared_space
-  name: Exit Sign
 - disabled_by: integration
   entity_id: switch.watchman_pre_release
-  labels: []
-- disabled_by: integration
-  entity_id: select.0xb4e8428fcc940000_effect
-  labels: []
-- disabled_by: integration
-  entity_id: select.0xb4e8428fe2a50000_effect
-  labels: []
-- disabled_by: integration
-  entity_id: select.0xb4e84290119a0000_effect
-  labels: []
-- disabled_by: integration
-  entity_id: select.0xb4e84291785a0000_effect
   labels: []

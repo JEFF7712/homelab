@@ -1,0 +1,3 @@
+name: Bedroom Matrix Display
+icon: null
+entity_id: input_boolean.bedroom_matrix_power
