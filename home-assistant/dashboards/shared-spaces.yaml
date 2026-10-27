@@ -439,11 +439,10 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - name: Exit Sign
-            entity: switch.exit_sign
-            features:
-              - type: toggle
-            type: tile
+          - entity: light.exit_sign
+            name: Exit Sign
+            fill_container: true
+            type: custom:mushroom-light-card
             tap_action:
               action: toggle
             hold_action:
