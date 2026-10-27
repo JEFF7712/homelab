@@ -813,10 +813,6 @@ class DeployFleetTest(unittest.TestCase):
             self.assertFalse(result)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class FleetClosureTest(unittest.TestCase):
     OLD = DeployFleetTest.OLD
     NEW = DeployFleetTest.NEW
@@ -925,3 +921,7 @@ class FleetClosureTest(unittest.TestCase):
         self.assertFalse(
             any(cmd[:2] == ["kubectl", "uncordon"] for cmd in self.commands)
         )
+
+
+if __name__ == "__main__":
+    unittest.main()

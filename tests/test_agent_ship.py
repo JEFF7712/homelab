@@ -616,10 +616,6 @@ class ShipRolloutTest(unittest.TestCase):
         self.assertEqual(extract_patch(log), patch)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ShipLiveVerificationTest(unittest.TestCase):
     def test_failed_acceptance_does_not_report_verified(self):
         runner = ship.Shipper.__new__(ship.Shipper)
@@ -733,6 +729,8 @@ class ShipBranchCleanupTest(unittest.TestCase):
                     len(git("worktree", "list", "--porcelain").split("worktree ")) - 1,
                     1,
                 )
+
+
 class AwaitingReviewTest(unittest.TestCase):
     PULL = {
         "number": 7,
@@ -831,7 +829,7 @@ class PolicyVerdictTest(unittest.TestCase):
         outcome, calls = self.run_policy(
             "failure", [self.comment(self.HEAD, "rejected")]
         )
-        self.assertIn("1/3 repairs used", outcome)
+        self.assertIn("1 rejected heads", outcome)
         self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
     def test_authority_finding_escalates_immediately(self) -> None:
@@ -839,16 +837,15 @@ class PolicyVerdictTest(unittest.TestCase):
             "failure", [self.comment(self.HEAD, "escalated")]
         )
         self.assertIn("escalated to rupan", outcome)
-        self.assertIn(
-            ("POST", "/pulls/9/requested_reviewers", {"reviewers": ["rupan"]}), calls
-        )
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
-    def test_exhausted_repairs_escalate(self) -> None:
+    def test_repeated_repairs_stay_with_the_agent(self) -> None:
         comments = [self.comment(c * 40, "rejected") for c in "cd"] + [
             self.comment(self.HEAD, "rejected")
         ]
         outcome, calls = self.run_policy("failure", comments)
-        self.assertIn("escalated to rupan", outcome)
+        self.assertIn("3 rejected heads", outcome)
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
     def test_approved_head_waits_for_the_policy_instead_of_escalating(self) -> None:
         approval = [
@@ -875,3 +872,7 @@ class PolicyVerdictTest(unittest.TestCase):
                     json.dumps({"status_check_contexts": contexts})
                 )
                 self.assertEqual(policy_required(root), expected)
+
+
+if __name__ == "__main__":
+    unittest.main()

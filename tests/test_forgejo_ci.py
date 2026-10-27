@@ -126,6 +126,34 @@ class CurrentSourceTest(unittest.TestCase):
         ):
             current_source(environment)
 
+    def test_runner_preserves_only_disjoint_ancestor_sources(self) -> None:
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        environment = {"CI_COMMIT_SHA": SHA, "FORGEJO_SOURCE_READ_TOKEN": "fixture"}
+        for path, allowed in [
+            ("services/led-matrix/app.py", True),
+            ("flake/modules/kiosk.nix", False),
+            ("unknown", False),
+        ]:
+            with (
+                self.subTest(path=path),
+                patch(
+                    "scripts.ci.operation._fetch",
+                    return_value=json.dumps({"commit": {"id": "b" * 40}}).encode(),
+                ),
+                patch(
+                    "scripts.ci.operation.subprocess.check_output",
+                    side_effect=[SHA, (path + "\0").encode()],
+                ),
+                patch("scripts.ci.operation.subprocess.run") as git,
+            ):
+                if allowed:
+                    current_source(environment, "deploy-fleet", catalog)
+                else:
+                    with self.assertRaises(SupersededSource):
+                        current_source(environment, "deploy-fleet", catalog)
+                self.assertEqual(git.call_count, 2)
+                self.assertIn("--is-ancestor", git.call_args.args[0])
+
     def test_forgejo_gateway_errors_are_retried(self) -> None:
         environment = {
             "CI_COMMIT_SHA": SHA,

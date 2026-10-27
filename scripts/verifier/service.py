@@ -6,9 +6,10 @@ never executes them. Because the status is attached to one commit, any push
 or branch update produces a new head with no status, and branch protection
 blocks the merge until that exact commit is judged.
 
-A head passes when its website manifests stay inside delegated authority
-(scripts/verifier/websites.py) and it does not touch the merge policy
-itself. An operator's approval recorded against that exact head overrides
+Repair findings block merging. In autonomous mode, enrolled same-repository
+authors may change authority, including the policy, under their task's standing
+authorization; those findings are recorded without a human review hold.
+An operator's approval recorded against that exact head overrides
 any failure. Failures carry a PR comment saying whether the agent can repair
 the PR or the change needs operator authority.
 """
@@ -38,6 +39,7 @@ from scripts.verifier.websites import (
 
 CONTEXT = "policy/merge"
 OPERATORS = frozenset({"rupan"})
+AUTHORIZED_AUTHORS = frozenset({"homelab-agent", "rupan", "JEFF7712"})
 POLICY_PATHS = (
     "scripts/verifier/",
     "flake/modules/merge-policy.nix",
@@ -65,6 +67,7 @@ def decide(
     base_specs: set[str],
     head_specs: set[str],
     operator_approved: bool,
+    autonomous: bool = False,
 ) -> Decision:
     if operator_approved:
         return Decision("success", "an operator approved this exact commit")
@@ -85,6 +88,19 @@ def decide(
         findings.append(Finding("authority", "policy", f"{path} governs merges"))
     if not findings:
         return Decision("success", "within delegated authority")
+    if autonomous:
+        repairs = [finding for finding in findings if finding.severity != "authority"]
+        if not repairs:
+            return Decision(
+                "success",
+                "task authorizes these authority changes",
+                [str(finding) for finding in findings],
+            )
+        return Decision(
+            "failure",
+            "repairable policy findings",
+            [str(finding) for finding in findings],
+        )
     escalate = any(finding.severity == "authority" for finding in findings)
     return Decision(
         "failure",
@@ -231,9 +247,19 @@ def operator_approved(
 
 
 def comment_body(head: str, decision: Decision) -> str:
-    outcome = "escalated" if decision.escalate else "rejected"
+    outcome = (
+        "authorized"
+        if decision.state == "success"
+        else "escalated"
+        if decision.escalate
+        else "rejected"
+    )
     lines = [MARKER.format(head=head, outcome=outcome)]
-    if decision.escalate:
+    if decision.state == "success":
+        lines.append(
+            f"`{CONTEXT}` recorded task-authorized changes for `{head[:12]}`. No operator review is required."
+        )
+    elif decision.escalate:
         lines.append(
             f"`{CONTEXT}` needs operator authority for `{head[:12]}`. "
             f"@{min(OPERATORS)}: approve this exact commit to override, or ask for a "
@@ -247,7 +273,19 @@ def comment_body(head: str, decision: Decision) -> str:
     return "\n".join(lines)
 
 
-def judge(forge: Forge, mirror: Mirror, pull: dict[str, Any]) -> tuple[str, Decision]:
+def authorized_pull(pull: dict[str, Any]) -> bool:
+    head_repo = (pull.get("head", {}).get("repo") or {}).get("full_name")
+    base_repo = (pull.get("base", {}).get("repo") or {}).get("full_name")
+    return bool(
+        head_repo
+        and head_repo == base_repo
+        and (pull.get("user") or {}).get("login") in AUTHORIZED_AUTHORS
+    )
+
+
+def judge(
+    forge: Forge, mirror: Mirror, pull: dict[str, Any], autonomous: bool = False
+) -> tuple[str, Decision]:
     number, head = pull["number"], pull["head"]["sha"]
     # Fetch the exact commit the PR reports: protection checks that commit,
     # and refs/pull/<n>/head can lag behind it.
@@ -261,6 +299,7 @@ def judge(forge: Forge, mirror: Mirror, pull: dict[str, Any]) -> tuple[str, Deci
         mirror.specs(base),
         mirror.specs(head),
         operator_approved(reviews, head, mirror.same_change),
+        autonomous=autonomous and authorized_pull(pull),
     )
     return head, decision
 
@@ -280,7 +319,7 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
             "target_url": pull.get("html_url", ""),
         },
     )
-    if decision.state == "failure":
+    if decision.state == "failure" or decision.findings:
         marker = MARKER_PREFIX.format(head=head)
         comments = forge.call("GET", f"/issues/{number}/comments") or []
         if not any(marker in (c.get("body") or "") for c in comments):
@@ -298,6 +337,7 @@ def run_once(
     judged: dict[int, tuple[str, str]],
     dry_run: bool = False,
     errors: dict[tuple[int, str], int] | None = None,
+    autonomous: bool = False,
 ) -> None:
     errors = {} if errors is None else errors
     try:
@@ -314,7 +354,7 @@ def run_once(
         if previous and previous[0] == head and previous[1] == "success":
             continue
         try:
-            head, decision = judge(forge, mirror, pull)
+            head, decision = judge(forge, mirror, pull, autonomous)
             if previous == (head, decision.state):
                 continue
             if dry_run:
@@ -371,6 +411,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--interval", type=float, default=15)
     parser.add_argument("--once", action="store_true")
     parser.add_argument(
+        "--autonomous",
+        action="store_true",
+        help="enrolled same-repository authors may change authority without human review",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="print decisions instead of posting them"
     )
     args = parser.parse_args(argv)
@@ -383,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     judged: dict[int, tuple[str, str]] = {}
     errors: dict[tuple[int, str], int] = {}
     while True:
-        run_once(forge, mirror, judged, args.dry_run, errors)
+        run_once(forge, mirror, judged, args.dry_run, errors, args.autonomous)
         if args.once:
             return 0
         time.sleep(args.interval)

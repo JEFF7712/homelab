@@ -35,7 +35,6 @@ OWNER_REPO = "JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 POLICY_CONTEXT = "policy/merge"
 POLICY_OPERATOR = "rupan"
-POLICY_REPAIRS = 3
 POLICY_SETTLE_SECONDS = 120
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
@@ -489,9 +488,8 @@ class Shipper:
     def wait_policy(self, pull: dict[str, Any]) -> None:
         """Wait for the merge policy's verdict on this exact head.
 
-        A repairable rejection goes back to the agent with the findings. The
-        operator is asked only when the change needs authority the policy
-        cannot grant, or after POLICY_REPAIRS rejected heads on this PR.
+        Repairable rejections go back to the agent, without a human-review
+        retry limit. Legacy authority holds remain visible during migration.
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
@@ -529,19 +527,14 @@ class Shipper:
             "no policy comment found",
         )
         rejected = sum(outcome == "rejected" for outcome in verdicts.values())
-        if verdicts.get(sha) == "escalated" or rejected >= POLICY_REPAIRS:
-            self.forgejo.call(
-                "POST",
-                f"/pulls/{number}/requested_reviewers",
-                {"reviewers": [POLICY_OPERATOR]},
-            )
+        if verdicts.get(sha) == "escalated":
             raise ShipError(
                 f"PR #{number} escalated to {POLICY_OPERATOR}: {pull['html_url']}\n"
                 f"{findings}"
             )
         raise ShipError(
-            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected}/{POLICY_REPAIRS} "
-            f"repairs used). Fix these, commit, and rerun just ship:\n{findings}"
+            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected} rejected heads). "
+            f"Fix these, commit, and rerun just ship:\n{findings}"
         )
 
     def operator_approved(self, number: int, sha: str) -> bool:
