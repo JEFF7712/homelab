@@ -168,14 +168,19 @@ pkgs.testers.nixosTest {
     machine.wait_for_unit("zot.service")
     machine.wait_for_unit("nginx.service")
     machine.wait_for_open_port(443)
+    machine.wait_for_open_port(5000)
     machine.succeed("mountpoint -q /tank/registry")
     reader = machine.succeed("cat /run/zot-test/reader.auth").strip()
     publisher = machine.succeed("cat /run/zot-test/publisher.auth").strip()
     curl = "curl --silent --show-error --cacert /run/zot-test/ca.crt"
     endpoint = "https://registry.test/v2/"
+    # A listening nginx is not readiness evidence for its registry upstream.
+    machine.wait_until_succeeds(f"{curl} -o /dev/null -w '%{{http_code}}' {endpoint} | grep -qx 401", timeout=120)
     for credentials in ("", f"--user {reader}incorrect"):
-        assert machine.succeed(f"{curl} {credentials} -o /dev/null -w '%{{http_code}}' {endpoint}").strip() == "401"
-    assert machine.succeed(f"{curl} --user {reader} -o /dev/null -w '%{{http_code}}' {endpoint}").strip() == "200"
+        status = machine.succeed(f"{curl} {credentials} -o /dev/null -w '%{{http_code}}' {endpoint}").strip()
+        assert status == "401", f"unauthenticated registry returned {status}, expected 401"
+    status = machine.succeed(f"{curl} --user {reader} -o /dev/null -w '%{{http_code}}' {endpoint}").strip()
+    assert status == "200", f"reader registry request returned {status}, expected 200"
 
     fixture = "/etc/zot-contract/image"
     push = f"skopeo copy --preserve-digests --dest-cert-dir /run/zot-test oci:{fixture}/image:v1"
@@ -193,7 +198,9 @@ pkgs.testers.nixosTest {
     machine.succeed("systemctl restart zot.service")
     machine.wait_for_unit("zot.service")
     machine.wait_for_open_port(5000)
-    assert machine.succeed(f"{curl} -o /dev/null -w '%{{http_code}}' {endpoint}").strip() == "401"
+    machine.wait_until_succeeds(f"{curl} -o /dev/null -w '%{{http_code}}' {endpoint} | grep -qx 401", timeout=120)
+    status = machine.succeed(f"{curl} -o /dev/null -w '%{{http_code}}' {endpoint}").strip()
+    assert status == "401", f"restarted registry returned {status}, expected 401"
     machine.succeed("rm -rf /tmp/pulled")
     machine.succeed(pull)
     machine.succeed("python /etc/zot-contract/verify.py")
