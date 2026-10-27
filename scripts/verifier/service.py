@@ -6,12 +6,14 @@ never executes them. Because the status is attached to one commit, any push
 or branch update produces a new head with no status, and branch protection
 blocks the merge until that exact commit is judged.
 
-Repair findings block merging. In autonomous mode, enrolled same-repository
-authors may change authority, including the policy, under their task's standing
-authorization; those findings are recorded without a human review hold.
-An operator's approval recorded against that exact head overrides
-any failure. Failures carry a PR comment saying whether the agent can repair
-the PR or the change needs operator authority.
+Agents have broad authority to change infrastructure but not to redefine
+their own authority. A head passes unless it changes a control that bounds
+agents (this policy, CI policy and deployment holds, branch protection, the
+approvals service, agent guards, secret recipients), grants an operation to
+agents, or crosses a website boundary (scripts/verifier/websites.py). Repair
+findings go back to the agent; authority findings need an operator's
+approval of that exact head (or of a byte-identical change). Notices are
+recorded and do not block.
 """
 
 from __future__ import annotations
@@ -39,13 +41,26 @@ from scripts.verifier.websites import (
 
 CONTEXT = "policy/merge"
 OPERATORS = frozenset({"rupan"})
-AUTHORIZED_AUTHORS = frozenset({"homelab-agent", "rupan", "JEFF7712"})
+# The controls that bound agents. Changing any of them needs an operator, so
+# no agent can widen its own authority, merge-time or deploy-time.
 POLICY_PATHS = (
     "scripts/verifier/",
     "flake/modules/merge-policy.nix",
+    "scripts/ci/policy.py",
+    "scripts/ci/state.py",
+    "scripts/ci/operation.py",
+    "scripts/ci/deployment_risk.py",
+    "scripts/approvals/",
+    "flake/modules/approvals.nix",
+    "flake/modules/woodpecker.nix",
     "config/ci/forgejo-protection.json",
+    "config/ci/woodpecker-repository.json",
+    "scripts/agent/guard.py",
+    "hooks/pre-tool-use",
+    ".sops.yaml",
     "CODEOWNERS",
 )
+CATALOG = "config/ci/operations.json"
 MARKER = "<!-- merge-policy head={head} outcome={outcome} -->"
 MARKER_PREFIX = "<!-- merge-policy head={head} "
 EVALUATION_ATTEMPTS = 3
@@ -60,6 +75,38 @@ class Decision:
     escalate: bool = False
 
 
+def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
+    """Operations newly granted to agents, or no longer marked as mutations."""
+    try:
+        base = json.loads(read_base(CATALOG) or "{}")
+        head = json.loads(read_head(CATALOG) or "{}")
+    except ValueError as error:
+        return [Finding("repair", "catalog", f"{CATALOG} is not valid JSON: {error}")]
+    findings = []
+    for name, operation in sorted(head.items()):
+        if not isinstance(operation, dict):
+            continue
+        before = base.get(name) if isinstance(base.get(name), dict) else None
+        if operation.get("agent") and not (before or {}).get("agent"):
+            if before is None:
+                findings.append(
+                    Finding("notice", "catalog", f"new agent operation {name}")
+                )
+            else:
+                findings.append(
+                    Finding(
+                        "authority", "catalog", f"{name} is newly granted to agents"
+                    )
+                )
+        if before and before.get("mutation") and not operation.get("mutation"):
+            findings.append(
+                Finding(
+                    "authority", "catalog", f"{name} is no longer marked as a mutation"
+                )
+            )
+    return findings
+
+
 def decide(
     changed: list[str],
     read_base: Any,
@@ -67,7 +114,6 @@ def decide(
     base_specs: set[str],
     head_specs: set[str],
     operator_approved: bool,
-    autonomous: bool = False,
 ) -> Decision:
     if operator_approved:
         return Decision("success", "an operator approved this exact commit")
@@ -83,31 +129,24 @@ def decide(
             )
         except Unreadable as error:
             findings = [Finding("repair", "websites", str(error))]
-    policy = sorted(path for path in changed if path.startswith(POLICY_PATHS))
-    for path in policy:
-        findings.append(Finding("authority", "policy", f"{path} governs merges"))
-    if not findings:
-        return Decision("success", "within delegated authority")
-    if autonomous:
-        repairs = [finding for finding in findings if finding.severity != "authority"]
-        if not repairs:
-            return Decision(
-                "success",
-                "task authorizes these authority changes",
-                [str(finding) for finding in findings],
-            )
-        return Decision(
-            "failure",
-            "repairable policy findings",
-            [str(finding) for finding in findings],
+    if CATALOG in changed:
+        findings += catalog_findings(read_base, read_head)
+    for path in sorted(path for path in changed if path.startswith(POLICY_PATHS)):
+        findings.append(
+            Finding("authority", "policy", f"{path} bounds agent authority")
         )
-    escalate = any(finding.severity == "authority" for finding in findings)
+    blocking = [finding for finding in findings if finding.severity != "notice"]
+    if not blocking:
+        return Decision(
+            "success", "within delegated authority", [str(f) for f in findings]
+        )
+    escalate = any(finding.severity == "authority" for finding in blocking)
     return Decision(
         "failure",
         "needs operator approval of this commit"
         if escalate
         else "repairable policy findings",
-        [str(finding) for finding in findings],
+        [str(finding) for finding in blocking],
         escalate,
     )
 
@@ -273,19 +312,7 @@ def comment_body(head: str, decision: Decision) -> str:
     return "\n".join(lines)
 
 
-def authorized_pull(pull: dict[str, Any]) -> bool:
-    head_repo = (pull.get("head", {}).get("repo") or {}).get("full_name")
-    base_repo = (pull.get("base", {}).get("repo") or {}).get("full_name")
-    return bool(
-        head_repo
-        and head_repo == base_repo
-        and (pull.get("user") or {}).get("login") in AUTHORIZED_AUTHORS
-    )
-
-
-def judge(
-    forge: Forge, mirror: Mirror, pull: dict[str, Any], autonomous: bool = False
-) -> tuple[str, Decision]:
+def judge(forge: Forge, mirror: Mirror, pull: dict[str, Any]) -> tuple[str, Decision]:
     number, head = pull["number"], pull["head"]["sha"]
     # Fetch the exact commit the PR reports: protection checks that commit,
     # and refs/pull/<n>/head can lag behind it.
@@ -299,7 +326,6 @@ def judge(
         mirror.specs(base),
         mirror.specs(head),
         operator_approved(reviews, head, mirror.same_change),
-        autonomous=autonomous and authorized_pull(pull),
     )
     return head, decision
 
@@ -337,7 +363,6 @@ def run_once(
     judged: dict[int, tuple[str, str]],
     dry_run: bool = False,
     errors: dict[tuple[int, str], int] | None = None,
-    autonomous: bool = False,
 ) -> None:
     errors = {} if errors is None else errors
     try:
@@ -354,7 +379,7 @@ def run_once(
         if previous and previous[0] == head and previous[1] == "success":
             continue
         try:
-            head, decision = judge(forge, mirror, pull, autonomous)
+            head, decision = judge(forge, mirror, pull)
             if previous == (head, decision.state):
                 continue
             if dry_run:
@@ -411,11 +436,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--interval", type=float, default=15)
     parser.add_argument("--once", action="store_true")
     parser.add_argument(
-        "--autonomous",
-        action="store_true",
-        help="enrolled same-repository authors may change authority without human review",
-    )
-    parser.add_argument(
         "--dry-run", action="store_true", help="print decisions instead of posting them"
     )
     args = parser.parse_args(argv)
@@ -428,7 +448,7 @@ def main(argv: list[str] | None = None) -> int:
     judged: dict[int, tuple[str, str]] = {}
     errors: dict[tuple[int, str], int] = {}
     while True:
-        run_once(forge, mirror, judged, args.dry_run, errors, args.autonomous)
+        run_once(forge, mirror, judged, args.dry_run, errors)
         if args.once:
             return 0
         time.sleep(args.interval)

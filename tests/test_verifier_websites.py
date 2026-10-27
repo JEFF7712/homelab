@@ -194,10 +194,10 @@ class VerifierRejectsChangesOutsideAuthority(unittest.TestCase):
                 privileged=True, allowPrivilegeEscalation=True
             ),
         )
-        self.assert_finding(change, "repair", "may not be privileged")
+        self.assert_finding(change, "authority", "may not be privileged")
         self.assert_finding(change, "repair", "allowPrivilegeEscalation")
 
-    def test_public_service_and_host_network_are_rejected(self) -> None:
+    def test_public_service_is_recorded_but_host_network_needs_authority(self) -> None:
         change = Change()
         change.write(
             "gitops/websites/darkbit/site.yaml",
@@ -211,10 +211,10 @@ class VerifierRejectsChangesOutsideAuthority(unittest.TestCase):
             "gitops/websites/darkbit/deployment.yaml",
             lambda d: d["spec"]["template"]["spec"].update(hostNetwork=True),
         )
-        self.assert_finding(change, "authority", "ClusterIP")
+        self.assert_finding(change, "notice", "ClusterIP")
         self.assert_finding(change, "authority", "hostNetwork")
 
-    def test_widened_ingress_is_rejected(self) -> None:
+    def test_widened_ingress_is_allowed_and_recorded(self) -> None:
         change = Change()
         change.write(
             "gitops/websites/darkbit/site.yaml",
@@ -226,7 +226,8 @@ class VerifierRejectsChangesOutsideAuthority(unittest.TestCase):
                 {"from": [{"ipBlock": {"cidr": "0.0.0.0/0"}}]}
             ),
         )
-        self.assert_finding(change, "authority", "ingress may only come from")
+        self.assert_finding(change, "notice", "ingress may only come from")
+        self.assertFalse([f for f in change.findings() if f.severity != "notice"])
 
     def test_unpinned_image_is_rejected(self) -> None:
         change = Change()
@@ -275,11 +276,16 @@ class VerifierRejectsChangesOutsideAuthority(unittest.TestCase):
         )
         self.assert_finding(change, "authority", "not a kind the verifier vets")
 
-    def test_site_removal_and_claim_deletion_need_authority(self) -> None:
+    def test_stateless_removal_is_recorded_but_stored_data_needs_authority(
+        self,
+    ) -> None:
         change = Change()
         root = "gitops/websites/kustomization.yaml"
         change.write(root, change.base[root].replace("  - darkbit\n", ""))
-        self.assert_finding(change, "authority", "removing a site")
+        self.assert_finding(change, "notice", "removing a site")
+        change = Change()
+        change.write(root, change.base[root].replace("  - uwagent\n", ""))
+        self.assert_finding(change, "authority", "and its stored data")
         change = Change()
         site = "gitops/websites/uwagent"
         change.write(
@@ -346,7 +352,68 @@ class VerifierRejectsChangesOutsideAuthority(unittest.TestCase):
         )
         self.assertEqual(change.findings(), [])
         change.edit(path, lambda d: d["spec"]["template"]["spec"].update(hostPID=True))
-        self.assert_finding(change, "repair", "hostPID")
+        self.assert_finding(change, "authority", "hostPID")
+
+    def test_other_workload_kinds_get_the_same_pod_checks(self) -> None:
+        change = Change()
+        change.write(
+            "gitops/websites/darkbit/site.yaml",
+            change.base["gitops/websites/darkbit/site.yaml"] + "\n",
+        )
+        job = {
+            "apiVersion": "batch/v1",
+            "kind": "CronJob",
+            "metadata": {"name": "sweep", "namespace": "darkbit"},
+            "spec": {
+                "jobTemplate": {
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "hostNetwork": True,
+                                "containers": [{"name": "x", "image": "busybox"}],
+                            }
+                        }
+                    }
+                }
+            },
+        }
+        change.write("gitops/websites/darkbit/cron.yaml", dump(job))
+        change.write(
+            "gitops/websites/darkbit/kustomization.yaml",
+            change.base["gitops/websites/darkbit/kustomization.yaml"]
+            + "  - cron.yaml\n",
+        )
+        self.assert_finding(change, "authority", "hostNetwork")
+        self.assert_finding(change, "repair", "digest-pinned")
+
+    def test_helper_kinds_are_recorded_but_identity_kinds_need_authority(self) -> None:
+        for kind, severity in (
+            ("CiliumNetworkPolicy", "notice"),
+            ("ServiceAccount", "authority"),
+            ("HTTPRoute", "authority"),
+        ):
+            change = Change()
+            change.write(
+                "gitops/websites/darkbit/site.yaml",
+                change.base["gitops/websites/darkbit/site.yaml"] + "\n",
+            )
+            change.write(
+                "gitops/websites/darkbit/extra.yaml",
+                dump(
+                    {
+                        "apiVersion": "v1",
+                        "kind": kind,
+                        "metadata": {"name": "x", "namespace": "darkbit"},
+                    }
+                ),
+            )
+            change.write(
+                "gitops/websites/darkbit/kustomization.yaml",
+                change.base["gitops/websites/darkbit/kustomization.yaml"]
+                + "  - extra.yaml\n",
+            )
+            with self.subTest(kind=kind):
+                self.assert_finding(change, severity, "not a kind the verifier vets")
 
     def test_unchanged_unvetted_objects_in_a_touched_site_are_left_alone(self) -> None:
         change = Change()

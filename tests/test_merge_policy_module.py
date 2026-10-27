@@ -48,7 +48,7 @@ class MergePolicyModuleTest(unittest.TestCase):
         self.assertIn("/nix/store/", self.config["pythonpath"])
         self.assertIn("merge-policy-source", self.config["pythonpath"])
         self.assertIn("-m scripts.verifier.service", self.config["execStart"])
-        self.assertIn("--autonomous", self.config["execStart"])
+        self.assertNotIn("--autonomous", self.config["execStart"])
 
     def test_token_is_a_private_credential_for_an_unprivileged_user(self) -> None:
         self.assertEqual(self.config["user"], "merge-policy")
