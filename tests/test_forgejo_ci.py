@@ -287,6 +287,26 @@ class PolicyTest(unittest.TestCase):
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
+    def test_job_nix_builds_without_host_shared_build_users(self) -> None:
+        # The image's nixbld UIDs equal the host's, and a host nix-daemon
+        # SIGKILLs every process of a build UID around its own builds.
+        result = configuration(self.request, self.catalog, current=SHA)
+        result["configs"] += self.deployment()["configs"]
+        for item in result["configs"]:
+            for step in yaml.safe_load(item["data"])["steps"]:
+                nix_config = step.get("environment", {}).get("NIX_CONFIG")
+                if nix_config is None:
+                    continue
+                settings = {
+                    key.strip(): value.strip()
+                    for key, _, value in (
+                        line.partition("=") for line in nix_config.splitlines()
+                    )
+                }
+                with self.subTest(workflow=item["name"], step=step["name"]):
+                    self.assertEqual(settings["sandbox"], "false")
+                    self.assertEqual(settings["build-users-group"], "")
+
     def test_nixos_publish_is_manual_and_forgejo_sourced(self) -> None:
         operation = self.catalog["nixos-publish"]
         self.assertFalse(operation["automatic"])
@@ -1040,10 +1060,15 @@ class PolicyTest(unittest.TestCase):
         workflow = yaml.safe_load(
             configuration(request, self.catalog)["configs"][0]["data"]
         )
-        settings = dict(
-            line.split(" = ", 1)
-            for line in workflow["steps"][0]["environment"]["NIX_CONFIG"].splitlines()
-        )
+        settings = {
+            key.strip(): value.strip()
+            for key, _, value in (
+                line.partition("=")
+                for line in workflow["steps"][0]["environment"][
+                    "NIX_CONFIG"
+                ].splitlines()
+            )
+        }
         # A dead resolver costs connect-timeout * download-attempts per nix
         # invocation before the local cache takes over; Nix defaults to 75s.
         self.assertLessEqual(
