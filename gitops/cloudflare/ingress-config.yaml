@@ -112,4 +112,8 @@ data:
         service: http://woodpecker.cloudflare:8000
       - hostname: tally.rupan.dev
         service: http://umami.analytics:80
+      - hostname: questarr.rupan.dev
+        service: http://questarr.media:80
+      - hostname: games.rupan.dev
+        service: http://gameyfin.media:80
       - service: http_status:404
