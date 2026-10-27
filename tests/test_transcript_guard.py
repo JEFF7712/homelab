@@ -101,7 +101,10 @@ class TestSpeakerPrefixContract(unittest.TestCase):
 
 
 class TestVoiceIdConfigMapGenerator(unittest.TestCase):
-    def test_generator_covers_deploy_sources(self) -> None:
+    def test_no_configmap_ships_voice_id_data(self) -> None:
+        # Speaker embeddings are biometric data and ship only via the
+        # SOPS-encrypted voice-id-profiles Secret. Nemotron bakes the proxy
+        # into its image, so no ConfigMap carries voice-id files.
         root = Path(__file__).resolve().parent.parent
         kust = yaml.safe_load(
             (root / "gitops" / "voice" / "kustomization.yaml").read_text(
@@ -109,20 +112,9 @@ class TestVoiceIdConfigMapGenerator(unittest.TestCase):
             )
         )
         self.assertNotIn("voice-id.yaml", kust.get("resources", []))
-        gen = next(
-            entry
-            for entry in kust.get("configMapGenerator", [])
-            if entry.get("name") == "wyoming-voice-id-config"
-        )
-        # proxy.py only: speaker embeddings are biometric data and ship via
-        # the SOPS-encrypted voice-id-profiles Secret, never a plaintext
-        # ConfigMap.
-        self.assertEqual(
-            sorted(Path(f).name for f in gen["files"]),
-            ["proxy.py"],
-        )
-        for f in gen["files"]:
-            self.assertTrue((root / "gitops" / "voice" / f).is_file(), f)
+        for entry in kust.get("configMapGenerator", []):
+            for f in entry.get("files", []):
+                self.assertFalse(f.startswith("voice-id/"), f)
 
     def test_profiles_ship_via_encrypted_secret(self) -> None:
         root = Path(__file__).resolve().parent.parent
@@ -132,7 +124,7 @@ class TestVoiceIdConfigMapGenerator(unittest.TestCase):
             )
         )
         self.assertIn("voice-id-profiles.sops.yaml", secrets_kust.get("resources", []))
-        for manifest in ("whisper.yaml", "stt-nemotron.yaml"):
+        for manifest in ("stt-nemotron.yaml",):
             text = (root / "gitops" / "voice" / manifest).read_text(encoding="utf-8")
             self.assertIn("secretName: voice-id-profiles", text, manifest)
             self.assertIn("mountPath: /etc/voice-id", text, manifest)

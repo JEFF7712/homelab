@@ -7,7 +7,6 @@ resources:
   - network-policy.yaml
   - local-decision.yaml
   - von.yaml
-  - whisper.yaml
   - stt-nemotron.yaml
   - stt-groq.yaml
   - piper.yaml
@@ -19,9 +18,6 @@ configMapGenerator:
   - name: wyoming-gateway-code
     files:
       - gateway/gateway.py
-  - name: wyoming-voice-id-config
-    files:
-      - voice-id/proxy.py
   - name: chatterbox-bridge-code
     files:
       - chatterbox-bridge/server.py

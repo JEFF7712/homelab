@@ -113,7 +113,7 @@ websites-render:
 websites-diff base="origin/main" head="WORKTREE":
     python -m scripts.websites.canonical diff {{base}} {{head}}
 
-voice-stt backend="local":
+voice-stt backend="nemotron":
     python3 scripts/voice_stt_switch.py {{backend}}
 
 jarvis-acoustic-eval *args:
