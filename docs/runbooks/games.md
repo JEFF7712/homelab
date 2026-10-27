@@ -61,12 +61,16 @@ kubectl -n media logs deploy/gameyfin
 - Never rotate `gameyfin-app-key`: a new key cannot decrypt stored settings or
   restore backups taken with the old one. Deleting the ExternalSecret's target
   Secret regenerates a different key.
-- Questarr runs as uid 1000 with its upstream entrypoint bypassed (that
+- Questarr runs as 911:1001 (plus group `users`), the effective user of
+  qBittorrent and the *arrs, so hardlink imports work under
+  `fs.protected_hardlinks`. Its upstream entrypoint is bypassed (that
   script needs a writable root filesystem). Its logger always writes
   `/app/server.log`; that single file is mounted from a 256Mi emptyDir, so the
   log resets on each pod restart and the pod is evicted if it outgrows the
   limit. Gameyfin's entrypoint starts as
   root and drops to uid 1337 with gosu.
+- `/data/downloads/games` and `/data/games/pc` are mode 0777, set by the
+  qBittorrent init container, like the other download folders.
 - Upgrades: bump the digest in `registry-sources.yaml`, import it through the
   registry lane (`docs/runbooks/local-registry.md`), then update the digest in
   `games.yaml`.
