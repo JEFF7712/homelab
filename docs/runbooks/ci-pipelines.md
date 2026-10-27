@@ -165,6 +165,12 @@ an unrelated slow lane in CI. OpenTofu provisioning
 (`/tmp/tofu-plugin-cache` in CI) so repeat provider
 installs reuse the shared plugin cache instead of re-downloading.
 
+VM checks use `flake/tests/vm-host-pkgs.nix` to run virtiofsd with
+`--inode-file-handles=never`. The default mode requests CAP_DAC_READ_SEARCH
+when running as root, which ordinary Docker jobs lack. File descriptors keep
+the same VM shares and assertions working without adding container capabilities.
+The local and CI gates build the same checks.
+
 ### Dependency caching and timing visibility
 
 Attic stores its chunks on `zroot/attic` (`/srv/attic`), the system SSD

@@ -78,6 +78,7 @@ pkgs.testers.nixosTest {
   nodes.machine =
     { lib, ... }:
     {
+      virtualisation.host.pkgs = pkgs.lib.mkForce (import ./vm-host-pkgs.nix { inherit pkgs; });
       imports = [
         impermanence.nixosModules.impermanence
         sops-nix.nixosModules.sops

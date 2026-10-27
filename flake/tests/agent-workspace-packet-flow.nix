@@ -80,6 +80,7 @@ pkgs.testers.nixosTest {
   name = "agent-workspace-packet-flow";
 
   nodes.machine = {
+    virtualisation.host.pkgs = pkgs.lib.mkForce (import ./vm-host-pkgs.nix { inherit pkgs; });
     imports = [ ../modules/agent-workspace-network.nix ];
     networking.hostName = "homelab-01";
     networking.nftables.enable = true;
