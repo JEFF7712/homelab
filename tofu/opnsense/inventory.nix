@@ -68,14 +68,14 @@
         network = "clients";
       };
       govee_h6008_1 = {
-        description = "Govee H6008 bulb 1 (LAN control, WAN blocked)";
+        description = "Govee H6008 bulb 1 (LAN control)";
         hostname = "govee-h6008-1";
         address = "10.0.20.166";
         mac = "d4:13:68:01:8a:8d";
         network = "clients";
       };
       govee_h6008_2 = {
-        description = "Govee H6008 bulb 2 (LAN control, WAN blocked)";
+        description = "Govee H6008 bulb 2 (LAN control)";
         hostname = "govee-h6008-2";
         address = "10.0.20.167";
         mac = "d4:13:68:01:94:b3";
@@ -146,7 +146,7 @@
       };
       govee_bulbs = {
         type = "host";
-        description = "Govee H6008 bulbs pinned to LAN-only control";
+        description = "Govee H6008 bulbs under LAN control";
         enabled = true;
         devices = [
           "govee_h6008_1"
@@ -585,30 +585,6 @@
           destination = {
             net = config.homelab.networks.infrastructure.cidr;
             port = "4002";
-          };
-        };
-      };
-      clients-block-govee-bulbs-internet = {
-        description = "Block LAN-only Govee bulbs from the Internet (local control via govee_light_local)";
-        enabled = true;
-        sequence = 226;
-        interface = {
-          interface = [ "opt1" ];
-        };
-        filter = {
-          action = "block";
-          direction = "in";
-          ip_protocol = "inet";
-          protocol = "any";
-          quick = true;
-          log = true;
-          source = {
-            net = "govee_bulbs";
-            port = "";
-          };
-          destination = {
-            net = "any";
-            port = "";
           };
         };
       };
