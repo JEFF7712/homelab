@@ -16,7 +16,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 SOULARR_MANIFEST = ROOT / "gitops" / "media" / "soularr.yaml"
 ARR_MANIFEST = ROOT / "gitops" / "media" / "arr.yaml"
-DOWNLOAD_MANIFEST = ROOT / "gitops" / "media" / "download.yaml"
+SLSKD_MANIFEST = ROOT / "gitops" / "media" / "slskd.yaml"
 SECRETS_MANIFEST = ROOT / "gitops" / "media" / "secrets.yaml"
 KUSTOMIZATION = ROOT / "gitops" / "media" / "kustomization.yaml"
 VOLUMES_MANIFEST = ROOT / "gitops" / "media" / "volumes.yaml"
@@ -130,7 +130,7 @@ class TestCronJobWiring(unittest.TestCase):
 
 class TestCrossManifestWiring(unittest.TestCase):
     def test_slskd_primary_api_key_env(self):
-        for doc in load_docs(DOWNLOAD_MANIFEST):
+        for doc in load_docs(SLSKD_MANIFEST):
             if doc.get("kind") != "Deployment":
                 continue
             for container in doc["spec"]["template"]["spec"]["containers"]:

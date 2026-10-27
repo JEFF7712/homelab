@@ -146,7 +146,8 @@ Tune grabs per run via `number_of_albums_to_grab` in the
 Keep `SLSKD_SHARE_CACHE_WORKERS` pinned to eight. Soulseek includes this count
 in its saved share-cache options; using a host-dependent default invalidates
 the cache when the pod moves to a node with a different CPU count. The ensuing
-startup scan keeps the shared download pod unready, including qBittorrent.
+startup scan keeps the slskd pod unready; since the split, qBittorrent runs in
+its own Deployment and is no longer gated by it.
 
 ## Symptoms of drift (before the job existed, these were all silent)
 
