@@ -96,3 +96,129 @@ the Nix log for substitution instead of `building ...repository-contract`.
 Compare per-check timings as well as the complete workflow, retaining
 queue/bootstrap measurements. No end-to-end speedup is claimed from the
 baseline alone.
+
+## Matched measurements, 2026-10-27
+
+Two matched-source pairs observed **31.3% and 57.1% less full-validation
+elapsed time**, respectively **1.45x and 2.33x speedup**:
+
+| Pair | Old reference | Fixed reference | Time saved | Reduction |
+| --- | ---: | ---: | ---: | ---: |
+| Initial, old then fixed | 211.0 s | 145.1 s | 66.0 s | 31.3% |
+| After recovery, fixed then old | 234.3 s | 100.6 s | 133.7 s | 57.1% |
+
+The contract invocation fell from **140.8–153.3 s rebuilding to 0.17–0.37 s
+reusing its result**. All twelve canonical check results were available in
+these pairs, so they isolate the reference change rather than the additional
+publication targets. The phases had different host load and cache-server
+memory caps; each pair held its own server cap constant, and the pairs are
+reported separately rather than pooled into an average.
+
+The combined old-reference/old-target trial failed on the kernel-modules
+error before the Zot VM check could execute. It cannot supply a valid
+combined speedup percentage. These are shared-runner observations from two
+successful pairs, not a statistically established production average.
+
+### Method
+
+- Source: `0aa3f79b6241b159ee313d433c373a382f24b9ed`, frozen in a clean,
+  full Git clone before any benchmark documentation edits.
+- Runner: homelab-04, using its CI Docker daemon and the same pinned image,
+  `registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c`.
+- Every validation used a fresh container, writable layer and Nix store.
+  Limits matched an inspected Woodpecker job: two CPUs, 8 GiB RAM and
+  16 GiB combined RAM/swap. No host Nix store, Docker socket, extra
+  capabilities or production credentials were supplied to the containers.
+- Each container copied the same read-only source into its workspace,
+  entered `devShells.ci`, and ran the full validation command's three
+  lanes: formatting, Jev and `scripts.ci.validate repository`. The full
+  repository gate and every flake check had to pass. Bytecode writes were
+  disabled, matching policy. The full gate was forced, and the secret scan
+  used the same incremental parent range in every trial.
+- An external wrapper changed only the evaluator's flake reference:
+  `path:.?dir=flake#` for the old behavior or `./flake#` for the fix.
+  Tracked source was never patched between trials.
+- Ordinary dependencies retained the real Attic cache at priority 30 and
+  the public cache at priority 40. A disposable HTTP binary cache at
+  priority 50 supplied the exact-source check results. Its twelve outputs
+  were built separately, signed with an ephemeral key, and verified before
+  measurement. NarInfo fingerprints were checked before and after trials.
+  TLS and NAR signature verification were not disabled.
+- For the old-target trial only, a separate read-only cache view withheld
+  the five newly added check-result NarInfos. Dependencies stayed warm.
+  Production Attic returned 404 for the Zot service result, so it could not
+  bypass that omission. Three cheap omitted checks were already present
+  upstream; their existing hits remained available. No shared cache paths
+  were deleted or hidden.
+
+Job time includes container creation/start, source copy, shell resolution
+and the complete validation command. It excludes webhook handling,
+scheduler queue time, the clone plugin and downstream plan workflows.
+The source clone and incremental scan range differ from a production
+shallow clone, so absolute job times are not an end-to-end Woodpecker SLO.
+The paired trials use identical clone contents and command inputs.
+The controller polled completion every two seconds, adding a few seconds
+of observation overhead to job time. Individual command timings use the
+monotonic clock inside the job.
+
+### Results and load event
+
+| Trial | Reference | Available check results | Job seconds | Outcome |
+| --- | --- | --- | ---: | --- |
+| 1 | old path reference | all twelve | 211.0 | passed |
+| 2 | fixed Git reference | all twelve | 145.1 | passed |
+| 3 | fixed Git reference | all twelve | 243.6 | passed during host overload |
+| 4 | old path reference | all twelve | 37.8 | deliberately stopped before completion |
+| 5 | old path reference | five formerly omitted results withheld | 234.5 | failed on kernel-modules build |
+| 6 | fixed Git reference | all twelve | 100.6 | passed after load recovery |
+| 7 | old path reference | all twelve | 234.3 | passed after load recovery |
+
+Trial 1's sampled host load ranged from 2.88 to 6.94; trial 2's ranged
+from 6.58 to 11.08. During trial 3 it rose as high as 129.87, and SSH and
+Docker calls stalled. The cause of this host-wide event was not established.
+Trial 3 is retained as a completed but unmatched observation; it is not
+pooled into the paired speedup. Trial 4 was stopped to reduce pressure;
+its exit 137 was the explicit stop, with Docker reporting no OOM kill.
+No trial reported a container OOM kill. Trial 5 failed with exit 1 on the
+same `modules.cer` error as production publication. Its failed duration is
+retained but is not counted as a successful baseline or as time saved.
+
+The private cache server's memory cap was reduced from 8 GiB to 512 MiB
+after the load event; its signing key, cache contents and output fingerprints
+stayed unchanged. The old-target and subsequent fixed-reference trials
+both use the reduced server cap. New trials resumed after short-term
+memory pressure returned to zero. They are reported separately from the
+initial pair, not averaged across that server change.
+Trial 6's sampled host load ranged from 1.86 to 3.71 with no other Docker
+CI jobs observed; trial 7's ranged from 1.64 to 5.40 with at most one other
+CI container observed at a sample. These counts describe sampled containers,
+not total host CPU or memory use.
+
+### Production status and evidence
+
+The live main validation for this same source,
+[pipeline 6093](https://ci.rupan.dev/repos/1/pipeline/6093), passed with a
+475 s validation workflow, a 449.8 s gate and a 424.7 s flake lane.
+Its contract took 126.4 s, libvirt VM check 131.9 s and Zot VM check 125.7 s.
+These check results were rebuilt, not reused.
+
+The protected exact-source publication attempt,
+[pipeline 6100](https://ci.rupan.dev/repos/1/pipeline/6100), failed before
+uploading: the adguard-netbird-01 kernel-modules build tried to copy
+`modules.cer` onto the same file. The earlier successful maintenance
+publication, [6089](https://ci.rupan.dev/repos/1/pipeline/6089), built the
+previous 17-target workload; it does not establish warm results for this
+source and the new target set.
+
+Consequently these are measured results with a seeded, signed output
+cache, not a claim that production revalidation already realizes that
+speedup. A production warm rerun remains contingent on successful
+publication. Main advanced during this investigation, so its superseded
+pipeline was not restarted.
+
+Raw artifacts are under `artifacts/ci-revalidation-benchmark/` in the
+measurement task's archived evidence. They include the frozen source,
+controllers, seed program, public signing key, cache fingerprints, logs,
+per-lane timing records, Docker limit receipts, load samples and every
+trial outcome, including the interrupted trial. The private signing key
+exists only in the disposable seed container and is destroyed with it.
