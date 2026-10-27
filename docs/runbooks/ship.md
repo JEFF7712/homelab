@@ -24,7 +24,9 @@ just ship --verify 'curl --fail https://service.example/health'
    branch. A missing alias is an error, never a fallback to `origin`.
 4. Opens the PR, or reuses an open PR for the same branch.
 5. Waits for `ci/woodpecker/validation-v2` on the PR head. On failure it prints
-   the tail of each failing Woodpecker step and exits nonzero.
+   the tail of each failing Woodpecker step and exits nonzero. A validation
+   run that was killed rather than failed (an agent or server restart, runner
+   pressure) is restarted once per head; a second kill fails the ship.
 6. Merges through the merge queue (see below). When the PR has a pending review
    request (CODEOWNERS requests one for code-owned paths, and branch
    protection blocks the merge until it is approved), it stops and prints the
