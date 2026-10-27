@@ -260,7 +260,7 @@ def receive_seed(remote: Path, stream: BinaryIO) -> None:
                     [*git, "remote", "add", "origin", manifest["origin"]], check=True
                 )
             with (checkout / ".git/info/exclude").open("a") as excludes:
-                excludes.write("\n.worktrees/\n")
+                excludes.write("\n.worktrees/\n.claude/worktrees/\n")
             (checkout / ".git/homelab-source.json").write_text(json.dumps(manifest))
             checkout.rename(remote)
 
@@ -358,73 +358,6 @@ def mapping_for(cwd: Path, config: Path) -> tuple[str, Path, Path] | None:
     return None
 
 
-def project_worktree(remote: Path, client: str) -> Path:
-    worktree = remote / ".worktrees" / f"interactive-{client}"
-    with (remote / ".git/homelab-worktree.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        if not worktree.exists():
-            subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(remote),
-                    "worktree",
-                    "add",
-                    "-b",
-                    f"interactive/{client}",
-                    str(worktree),
-                    "HEAD",
-                ],
-                check=True,
-            )
-            try:
-                if (remote / ".git/homelab-source.json").exists():
-                    patch = subprocess.check_output(
-                        [
-                            "git",
-                            "-C",
-                            str(remote),
-                            "diff",
-                            "--no-ext-diff",
-                            "--no-textconv",
-                            "--binary",
-                            "HEAD",
-                        ]
-                    )
-                    if patch:
-                        subprocess.run(
-                            ["git", "-C", str(worktree), "apply", "-"],
-                            input=patch,
-                            check=True,
-                        )
-                    for path in source_files(remote, True):
-                        destination = worktree / path
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        if (remote / path).is_symlink():
-                            destination.symlink_to(os.readlink(remote / path))
-                        else:
-                            shutil.copy2(remote / path, destination)
-            except BaseException:
-                subprocess.run(
-                    [
-                        "git",
-                        "-C",
-                        str(remote),
-                        "worktree",
-                        "remove",
-                        "--force",
-                        str(worktree),
-                    ],
-                    check=True,
-                )
-                subprocess.run(
-                    ["git", "-C", str(remote), "branch", "-d", f"interactive/{client}"],
-                    check=True,
-                )
-                raise
-    return worktree
-
-
 def ssh_command(
     host: str, remote: Path, relative: Path, client: str, args: list[str]
 ) -> list[str]:
@@ -473,82 +406,69 @@ def server_available(host: str) -> bool:
         return False
 
 
+def claude_trusted(*directories: Path) -> bool:
+    """Whether Claude's trust dialog was accepted; `--worktree` refuses otherwise."""
+    config = (
+        Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home()))) / ".claude.json"
+    )
+    try:
+        projects = json.loads(config.read_text()).get("projects", {})
+    except (OSError, ValueError):
+        return False
+    return any(
+        projects.get(str(directory), {}).get("hasTrustDialogAccepted") is True
+        for directory in directories
+    )
+
+
 def serve(remote: Path, relative: Path, client: str, args: list[str]) -> NoReturn:
     remote = remote.resolve(strict=True)
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Invalid checkout-relative directory")
-    identity = f"{client}-{uuid.uuid4().hex}" if client == "codex" else client
-    if client == "codex":
-        worktree = remote
-        if "--worktree" not in args:
-            args = ["--worktree", *args]
-    else:
-        worktree = project_worktree(remote, identity)
-        common = subprocess.check_output(
-            [
-                "git",
-                "-C",
-                str(worktree),
-                "rev-parse",
-                "--path-format=absolute",
-                "--git-common-dir",
-            ],
-            text=True,
-        ).strip()
-        if Path(common).resolve() != (remote / ".git").resolve():
-            raise ValueError(
-                "Existing agent worktree belongs to a different repository"
+    directory = (remote / relative).resolve()
+    if not directory.is_relative_to(remote):
+        raise ValueError("Working directory escapes the project checkout")
+    # Every launch is an independent process in its own tmux session; the
+    # client creates and owns the session's Git worktree.
+    if not any(
+        arg == "--worktree"
+        or arg.startswith("--worktree=")
+        or (client == "claude" and arg == "-w")
+        for arg in args
+    ):
+        if client == "claude" and not claude_trusted(remote, directory):
+            print(
+                "Claude has not been trusted in this project yet, so this session "
+                "runs in the project checkout. Accept the trust dialog; later "
+                "launches use a fresh worktree.",
+                flush=True,
             )
+        else:
+            args = ["--worktree", *args]
     session = (
         "agent-"
         + hashlib.sha256(str(remote).encode()).hexdigest()[:12]
-        + "-"
-        + identity
+        + f"-{client}-{uuid.uuid4().hex}"
     )
-    exists = subprocess.run(
-        ["tmux", "has-session", "-t", session], capture_output=True, check=False
+    directory.mkdir(parents=True, exist_ok=True)
+    binary = shutil.which(client)
+    if not binary:
+        raise ValueError(f"{client} is not installed on the server")
+    subprocess.run(
+        [
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            session,
+            "-c",
+            str(directory),
+            "--",
+            binary,
+            *args,
+        ],
+        check=True,
     )
-    if exists.returncode:
-        directory = (worktree / relative).resolve()
-        if not directory.is_relative_to(worktree.resolve()):
-            raise ValueError("Working directory escapes the agent worktree")
-        directory.mkdir(parents=True, exist_ok=True)
-        binary = shutil.which(client)
-        if not binary:
-            raise ValueError(f"{client} is not installed on the server")
-        subprocess.run(
-            [
-                "tmux",
-                "new-session",
-                "-d",
-                "-s",
-                session,
-                "-c",
-                str(directory),
-                "--",
-                binary,
-                *args,
-            ],
-            check=True,
-        )
-    else:
-        directory = Path(
-            subprocess.check_output(
-                [
-                    "tmux",
-                    "display-message",
-                    "-p",
-                    "-t",
-                    session,
-                    "#{pane_current_path}",
-                ],
-                text=True,
-            ).strip()
-        )
-        print(
-            "Reconnecting to the existing session; startup arguments apply only to new sessions.",
-            flush=True,
-        )
     print(f"Server: {os.uname().nodename}:{directory} (tmux {session})", flush=True)
     os.execvp("tmux", ["tmux", "attach-session", "-t", session])
 
