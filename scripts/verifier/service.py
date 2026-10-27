@@ -6,7 +6,10 @@ never executes them. Because the status is attached to one commit, any push
 or branch update produces a new head with no status, and branch protection
 blocks the merge until that exact commit is judged.
 
-Repair findings block merging. In autonomous mode, enrolled same-repository
+A head that lags main also fails when main's changes since the merge base
+overlap the PR's (`scripts/verifier/freshness.py`), so branch protection need
+not require every head to be current; the status is re-judged whenever main
+moves. Repair findings block merging. In autonomous mode, enrolled same-repository
 authors may change authority, including the policy, under their task's standing
 authorization; those findings are recorded without a human review hold.
 An operator's approval recorded against that exact head overrides
@@ -28,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scripts.verifier.freshness import OUTDATED, overlap
 from scripts.verifier.websites import (
     SPEC,
     WEBSITES,
@@ -58,6 +62,9 @@ class Decision:
     description: str
     findings: list[str] = field(default_factory=list)
     escalate: bool = False
+    # Behind main with overlapping changes: the fix is a branch update, so
+    # no repair comment is posted.
+    outdated: bool = False
 
 
 def decide(
@@ -187,6 +194,9 @@ class Mirror:
             if line.count("/") == 3 and line.endswith("/" + SPEC)
         }
 
+    def tip(self) -> str:
+        return self.git("rev-parse", "refs/heads/main").stdout.decode().strip()
+
     def merge_base(self, a: str, b: str) -> str:
         return self.git("merge-base", a, b).stdout.decode().strip()
 
@@ -283,17 +293,28 @@ def authorized_pull(pull: dict[str, Any]) -> bool:
     )
 
 
+def freshness(branch: list[str], main: list[str]) -> Decision | None:
+    """Failure for a head whose validation main's newer changes could invalidate."""
+    reasons = overlap(branch, main)
+    if not reasons:
+        return None
+    return Decision("failure", f"{OUTDATED}: {'; '.join(reasons)}", outdated=True)
+
+
 def judge(
     forge: Forge, mirror: Mirror, pull: dict[str, Any], autonomous: bool = False
-) -> tuple[str, Decision]:
+) -> tuple[str, Decision, str]:
+    """Decision for the PR head, and the main commit it was judged against."""
     number, head = pull["number"], pull["head"]["sha"]
     # Fetch the exact commit the PR reports: protection checks that commit,
     # and refs/pull/<n>/head can lag behind it.
     mirror.fetch("+refs/heads/main:refs/heads/main", head)
-    base = mirror.merge_base("refs/heads/main", head)
+    main = mirror.tip()
+    base = mirror.merge_base(main, head)
+    changed = mirror.changed(base, head)
     reviews = forge.call("GET", f"/pulls/{number}/reviews") or []
     decision = decide(
-        mirror.changed(base, head),
+        changed,
         mirror.reader(base),
         mirror.reader(head),
         mirror.specs(base),
@@ -301,7 +322,9 @@ def judge(
         operator_approved(reviews, head, mirror.same_change),
         autonomous=autonomous and authorized_pull(pull),
     )
-    return head, decision
+    if decision.state == "success" and base != main:
+        decision = freshness(changed, mirror.changed(base, main)) or decision
+    return head, decision, main
 
 
 def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -> bool:
@@ -319,7 +342,7 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
             "target_url": pull.get("html_url", ""),
         },
     )
-    if decision.state == "failure" or decision.findings:
+    if (decision.state == "failure" or decision.findings) and not decision.outdated:
         marker = MARKER_PREFIX.format(head=head)
         comments = forge.call("GET", f"/issues/{number}/comments") or []
         if not any(marker in (c.get("body") or "") for c in comments):
@@ -334,7 +357,7 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
 def run_once(
     forge: Forge,
     mirror: Mirror,
-    judged: dict[int, tuple[str, str]],
+    judged: dict[int, tuple[str, str, str]],
     dry_run: bool = False,
     errors: dict[tuple[int, str], int] | None = None,
     autonomous: bool = False,
@@ -346,19 +369,27 @@ def run_once(
         # A slow or restarting Forgejo is retried next cycle, not a crash.
         log.warning("listing pull requests: %s", error)
         return
+    try:
+        mirror.fetch("+refs/heads/main:refs/heads/main")
+        main = mirror.tip()
+    except (subprocess.SubprocessError, OSError) as error:
+        log.warning("fetching main: %s", error)
+        return
     for pull in pulls:
         if (pull.get("base") or {}).get("ref") != "main":
             continue
         number, head = pull["number"], pull["head"]["sha"]
         previous = judged.get(number)
-        if previous and previous[0] == head and previous[1] == "success":
+        # A passing head stays passing until it or main moves.
+        if previous == (head, "success", main):
             continue
         try:
-            head, decision = judge(forge, mirror, pull, autonomous)
-            if previous == (head, decision.state):
+            head, decision, judged_main = judge(forge, mirror, pull, autonomous)
+            if previous and previous[:2] == (head, decision.state):
+                judged[number] = (head, decision.state, judged_main)
                 continue
             if dry_run:
-                judged[number] = (head, decision.state)
+                judged[number] = (head, decision.state, judged_main)
                 print(
                     json.dumps(
                         {
@@ -371,7 +402,7 @@ def run_once(
                 )
                 continue
             if publish(forge, pull, head, decision):
-                judged[number] = (head, decision.state)
+                judged[number] = (head, decision.state, judged_main)
                 log.info(
                     "PR #%s %s: %s %s",
                     number,
@@ -425,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     mirror = Mirror(
         args.state / "mirror.git", f"{args.forgejo}/{args.repository}.git", token
     )
-    judged: dict[int, tuple[str, str]] = {}
+    judged: dict[int, tuple[str, str, str]] = {}
     errors: dict[tuple[int, str], int] = {}
     while True:
         run_once(forge, mirror, judged, args.dry_run, errors, args.autonomous)

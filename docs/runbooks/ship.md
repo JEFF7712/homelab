@@ -25,8 +25,7 @@ just ship --verify 'curl --fail https://service.example/health'
 4. Opens the PR, or reuses an open PR for the same branch.
 5. Waits for `ci/woodpecker/validation-v2` on the PR head. On failure it prints
    the tail of each failing Woodpecker step and exits nonzero.
-6. Merges. When Forgejo reports the head is behind main, it updates the PR
-   branch and waits for validation again. When the PR has a pending review
+6. Merges through the merge queue (see below). When the PR has a pending review
    request (CODEOWNERS requests one for code-owned paths, and branch
    protection blocks the merge until it is approved), it stops and prints the
    PR link; rerun `just ship` on the branch after the owner approves.
@@ -48,6 +47,39 @@ just ship --verify 'curl --fail https://service.example/health'
     Kustomization when no narrower one matches.
 
 The default overall timeout is 90 minutes (`--timeout`).
+
+## Merge queue
+
+Parallel ships used to starve each other: every merge put the other PRs
+behind main, each updated its branch and revalidated (about 9 minutes), and
+main moved again before it finished. Two mechanisms replace that loop.
+
+**Merge lease.** After its head passes validation, `ship` waits for the merge
+lease, then holds it through the freshness check, any revalidation and the
+merge. Only one ship merges at a time, so main cannot move under a
+revalidation, and waiting ships cost no CI. The lease is the
+`ship/merge-lease` branch holding one parentless `[skip ci]` commit that names
+the holder and an expiry. Every push compare-and-swaps that commit through the
+`git-agent` remote, so acquisition, renewal, takeover and release are atomic.
+The holder renews it every minute; a lease left by a crashed ship expires
+after 5 minutes and the next ship takes it over. `ship` prints `waiting for the
+merge lease held by <branch> (PR #n)` while queued. To inspect the lease:
+`git log -1 origin/ship/merge-lease`. Never delete a live lease by hand.
+
+**Freshness instead of strict up-to-date.** A head behind main is revalidated
+only when main's changes since its merge base could interact with the PR's
+(`scripts/verifier/freshness.py`). Paths map to coarse scopes: one per
+`gitops/<app>`, `services/<x>` and `tofu/<x>` directory, plus `scripts`
+(all Python), `flake`, `home-assistant` and `websites`, where the renderers
+share a scope with what they render. Documentation and `tests/test_*.py`
+overlap only with the same file. CI machinery, `config/`, `registry/`,
+`inventory/`, `secrets/`, the flake inputs and unknown paths overlap with
+everything. Independent heads merge as they are, overlapping heads are
+updated from main and revalidated under the lease. The `policy/merge` status
+enforces the same rule for every merger (`behind main with overlapping
+changes`), which is what lets branch protection drop "block merge on
+outdated branch". The main push pipeline still validates every merged tree;
+an interaction the scopes miss fails main and blocks deployment until fixed.
 
 ## Routes
 

@@ -23,6 +23,12 @@ applies.
   bounded limits, prune-protected `nfs-cluster` claims. The check is a
   ratchet: an existing object may keep a problem it already had, so old debt
   never blocks a promotion, but it may not gain one.
+- A head behind main fails with `behind main with overlapping changes: ...`
+  when main's changes since the merge base overlap the PR's, by the scope
+  rule in `scripts/verifier/freshness.py` (see
+  [ship merge queue](ship.md#merge-queue)). The service re-judges every open
+  PR whenever main moves. This outcome posts no comment: `just ship` updates
+  the branch and revalidates.
 - Authority findings, including merge-policy changes and intentional resource
   changes, are recorded without approval for enrolled same-repository authors.
   Repair findings still block delivery and must be fixed by the agent. Unknown

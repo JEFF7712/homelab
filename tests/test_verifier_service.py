@@ -9,6 +9,7 @@ from typing import Any
 
 from scripts.verifier.service import (
     CONTEXT,
+    OUTDATED,
     Forge,
     Mirror,
     decide,
@@ -121,7 +122,7 @@ class MergePolicyService(unittest.TestCase):
 
         good, bad = self.branch(1, routine), self.branch(2, widen)
         forge = FakeForge([self.pull(1, good), self.pull(2, bad)])
-        judged: dict[int, tuple[str, str]] = {}
+        judged: dict[int, tuple[str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         states = {sha: body["state"] for sha, body in forge.statuses}
         self.assertEqual(states, {good: "success", bad: "failure"})
@@ -135,6 +136,38 @@ class MergePolicyService(unittest.TestCase):
         )
         self.assertEqual(len(forge.comments[2]), 1, "one comment per head")
 
+    def advance_main(self, path: str) -> None:
+        target = self.remote / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("main\n")
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-q", "-m", f"main changes {path}")
+
+    def test_a_head_behind_overlapping_main_changes_fails_without_a_comment(
+        self,
+    ) -> None:
+        def media(repo: Path) -> None:
+            (repo / "gitops/media").mkdir(parents=True)
+            (repo / "gitops/media/app.yaml").write_text("branch\n")
+
+        head = self.branch(8, media)
+        forge = FakeForge([self.pull(8, head)])
+        judged: dict[int, tuple[str, str, str]] = {}
+        run_once(forge, self.mirror, judged)
+        self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
+        self.advance_main("gitops/observability/app.yaml")
+        run_once(forge, self.mirror, judged)
+        self.assertEqual(len(forge.statuses), 1, "independent main changes keep it")
+
+        self.advance_main("gitops/media/other.yaml")
+        run_once(forge, self.mirror, judged)
+        state = forge.statuses[-1][1]
+        self.assertEqual(state["state"], "failure")
+        self.assertTrue(state["description"].startswith(OUTDATED))
+        self.assertIn("gitops/media", state["description"])
+        self.assertNotIn(8, forge.comments, "a branch update fixes it, not a repair")
+
     def test_operator_approval_of_the_exact_head_overrides(self) -> None:
         def eject(repo: Path) -> None:
             (repo / "gitops/websites/darkbit/site.yaml").unlink()
@@ -143,7 +176,7 @@ class MergePolicyService(unittest.TestCase):
 
         head = self.branch(3, eject)
         forge = FakeForge([self.pull(3, head)])
-        judged: dict[int, tuple[str, str]] = {}
+        judged: dict[int, tuple[str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "failure")
         self.assertIn("outcome=escalated", forge.comments[3][0]["body"])
@@ -206,7 +239,7 @@ class MergePolicyService(unittest.TestCase):
 
     def test_repeated_evaluation_errors_fail_closed_with_a_reason(self) -> None:
         forge = FakeForge([self.pull(5, "e" * 40)])
-        judged: dict[int, tuple[str, str]] = {}
+        judged: dict[int, tuple[str, str, str]] = {}
         errors: dict[tuple[int, str], int] = {}
         for _ in range(2):
             run_once(forge, self.mirror, judged, errors=errors)
