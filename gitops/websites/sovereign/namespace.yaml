@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: v1
 kind: Namespace
 metadata:

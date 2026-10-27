@@ -78,7 +78,7 @@
   targets: [light.bedroom_roku_lights]
   service: light.turn_off
 - id: snuff-govee
-  say: Snuff out all the Govee lights.
+  say: Snuff out all the shared lights.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -89,7 +89,7 @@
   targets: [light.shared_zigbee_lights]
   service: light.turn_off
 - id: shutoff-govee
-  say: Shut off all the Govee lights.
+  say: Shut off all the shared lights.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -283,7 +283,7 @@
   targets: [light.bedroom_roku_lights]
   service: light.turn_on
 - id: red-govee
-  say: Turn all the Govee lights red.
+  say: Turn all the shared lights red.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -582,7 +582,7 @@
   targets: [light.bedroom_roku_lights]
   service: light.turn_off
 - id: canon-govee-on
-  say: Turn on all the Govee lights.
+  say: Turn on all the shared lights.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -1104,7 +1104,7 @@
   targets: [light.kitchen_lights]
   service: light.turn_on
 - id: color-purple-govee
-  say: Change all the Govee lights to purple.
+  say: Change all the shared lights to purple.
   expected_route: execute
   expected:
     request_kind: home_command
@@ -2275,7 +2275,7 @@
     request_kind: home_command
   notes: Negation is unsupported; executing would do the opposite.
 - id: neg-009
-  say: Never turn off all the Govee lights.
+  say: Never turn off all the shared lights.
   expected_route: clarify
   expected:
     request_kind: home_command
@@ -2996,7 +2996,7 @@
   service: scene.turn_on
   notes: Film mode is a curated alias for the single allowlisted movie mode scene.
 - id: sim-008
-  say: Turn on the govee lamp.
+  say: Turn on the shared lamp.
   expected_route: execute
   expected:
     request_kind: home_command

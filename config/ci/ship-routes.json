@@ -104,6 +104,16 @@
       "auto": true
     },
     {
+      "name": "node-supply",
+      "paths": [
+        "config/ci/node-supply-requests.json"
+      ],
+      "operations": [
+        "node-supply-publish"
+      ],
+      "auto": true
+    },
+    {
       "name": "ci-host",
       "paths": [
         "scripts/ci/policy.py",
@@ -116,6 +126,8 @@
         "flake/modules/woodpecker.nix",
         "flake/modules/approvals.nix",
         "scripts/approvals/",
+        "scripts/verifier/",
+        "flake/modules/merge-policy.nix",
         "flake/hosts/homelab-04/",
         "config/projectctl/",
         "flake/profiles/projectctl-pilot.nix",

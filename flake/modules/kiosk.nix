@@ -53,6 +53,38 @@ let
       --force-device-scale-factor=${cfg.scaleFactor} \
       --app="${bootUrl}"
   '';
+  swayConfigFile = pkgs.writeText "sway-kiosk.conf" ''
+    # Default Sway configuration for homelab kiosk and gaming
+    output * bg #000000 solid_color
+    default_border none
+    default_floating_border none
+    font pango:monospace 8
+
+    input * {
+      xkb_layout "us"
+    }
+
+    seat * xcursor_theme invisible 24
+
+    ${lib.concatMapStringsSep "\n" (output: "output ${output} disable") cfg.disableOutputs}
+
+    ${lib.optionalString (cfg.output != null) ''
+      workspace 1 output ${cfg.output}
+    ''}
+
+    workspace 1
+    exec ${kioskBrowser}
+
+    for_window [app_id="(?i)chromium.*"] fullscreen enable
+    for_window [class="(?i)chromium.*"] fullscreen enable
+    for_window [app_id="(?i)chrome.*"] fullscreen enable
+    for_window [class="(?i)chrome.*"] fullscreen enable
+
+    for_window [app_id="(?i)moonlight.*"] fullscreen enable
+    for_window [class="(?i)moonlight.*"] fullscreen enable
+
+    ${cfg.swayExtraConfig}
+  '';
 in
 {
   options.homelab.kiosk = {
@@ -117,6 +149,27 @@ in
       description = "Output names to disable via wlr-randr before launching Chromium. An output is left on when no other output is enabled, so a display moved to a listed port still lights.";
     };
 
+    compositor = lib.mkOption {
+      type = lib.types.enum [
+        "cage"
+        "sway"
+      ];
+      default = "cage";
+      description = "Wayland compositor to run the kiosk under: cage (single-app) or sway (multi-output / tiling).";
+    };
+
+    output = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Primary display output for the kiosk (e.g. DP-2 or HDMI-A-1).";
+    };
+
+    swayExtraConfig = lib.mkOption {
+      type = lib.types.lines;
+      default = "";
+      description = "Extra configuration appended to the generated Sway config when compositor is sway.";
+    };
+
     haTokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -164,7 +217,7 @@ in
       noto-fonts-color-emoji
     ];
 
-    services.cage = {
+    services.cage = lib.mkIf (cfg.compositor == "cage") {
       enable = true;
       user = cfg.user;
       extraArguments = [ "-s" ];
@@ -180,7 +233,7 @@ in
       program = kioskBrowser;
     };
 
-    systemd.services."cage-tty1" = {
+    systemd.services."cage-tty1" = lib.mkIf (cfg.compositor == "cage") {
       wantedBy = [ "multi-user.target" ];
       restartIfChanged = lib.mkForce true;
       serviceConfig = {
@@ -189,11 +242,63 @@ in
       };
     };
 
+    programs.sway = lib.mkIf (cfg.compositor == "sway") {
+      enable = true;
+      extraPackages = with pkgs; [
+        sway
+        wlr-randr
+      ];
+    };
+
+    # pam_systemd registers a logind session on tty1; without it libseat
+    # cannot take the VT and sway never gets DRM.
+    security.pam.services.sway-kiosk = lib.mkIf (cfg.compositor == "sway") {
+      startSession = true;
+    };
+
+    systemd.services."sway-tty1" = lib.mkIf (cfg.compositor == "sway") {
+      description = "Sway Wayland compositor on tty1";
+      wantedBy = [ "multi-user.target" ];
+      after = [
+        "systemd-user-sessions.service"
+        "systemd-logind.service"
+        "getty@tty1.service"
+      ];
+      conflicts = [ "getty@tty1.service" ];
+      wants = [ "systemd-logind.service" ];
+      environment = {
+        WLR_NO_HARDWARE_CURSORS = "1";
+        XCURSOR_THEME = "invisible";
+        XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${cfg.user}.uid}";
+        XDG_SESSION_TYPE = "wayland";
+      }
+      // (lib.optionalAttrs (cfg.drmDevice != null) {
+        WLR_DRM_DEVICES = cfg.drmDevice;
+      });
+      serviceConfig = {
+        ExecStart = "${pkgs.sway}/bin/sway --unsupported-gpu --config ${swayConfigFile}";
+        User = cfg.user;
+        PAMName = "sway-kiosk";
+        Restart = "always";
+        RestartSec = "3s";
+        TTYPath = "/dev/tty1";
+        TTYReset = "yes";
+        TTYVHangup = "yes";
+        TTYVTDisallocate = "yes";
+        StandardInput = "tty-fail";
+        StandardOutput = "journal";
+        StandardError = "journal";
+        UtmpIdentifier = "%n";
+        UtmpMode = "user";
+        IgnoreSIGPIPE = "no";
+      };
+    };
+
     # Cycle the single Chromium through cfg.views over its DevTools port. Only
     # meaningful with more than one view; a single view needs no driver.
     systemd.services."kiosk-rotate" = lib.mkIf rotate {
       description = "Rotate the kiosk display through its configured views";
-      after = [ "cage-tty1.service" ];
+      after = [ (if cfg.compositor == "sway" then "sway-tty1.service" else "cage-tty1.service") ];
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         User = cfg.user;
@@ -220,7 +325,7 @@ in
 
     systemd.services."kiosk-ha-token-seed" = lib.mkIf (cfg.haTokenFile != null) {
       description = "Seed Home Assistant token into kiosk browser";
-      after = [ "cage-tty1.service" ];
+      after = [ (if cfg.compositor == "sway" then "sway-tty1.service" else "cage-tty1.service") ];
       wantedBy = [ "multi-user.target" ];
       # A simple unit that waits without a deadline: with no display attached
       # cage never opens the Jarvis page, and a failing oneshot would mark

@@ -1,6 +1,7 @@
 # Remote interactive coding sessions
 
-The laptop pilot opts only `/home/rupan/homelab` into `agent-rupan` over SSH.
+The laptop opts `/home/rupan/homelab` and all projects below
+`/home/rupan/projects` into `agent-rupan` over SSH.
 The server checkout is `/home/developer/workspace/homelab`. It was seeded from
 Forgejo main, without copying the laptop's uncommitted or untracked files.
 
@@ -19,15 +20,50 @@ The laptop mapping is `~/.config/homelab-agent/repos.json`:
       "host": "agent-rupan",
       "remote": "/home/developer/workspace/homelab"
     }
+  ],
+  "roots": [
+    {
+      "local": "/home/rupan/projects",
+      "host": "agent-rupan",
+      "remote": "/home/developer/workspace/projects"
+    }
   ]
 }
 ```
 
-Interactive coding sessions in that checkout or its subdirectories connect to
-the VM. Other checkouts, including separately created laptop worktrees, stay
-local unless explicitly mapped. Help, version, login, and noninteractive CLI
+Interactive coding sessions in those locations connect to the VM. Root mappings
+also cover newly created projects, nested repositories, directories without Git,
+and laptop worktrees inside the configured root. The projects directory itself
+stays local. Other locations stay local unless explicitly mapped.
+Help, version, login, and noninteractive CLI
 commands retain their native local behavior. `HOMELAB_AGENT_LOCAL=1` explicitly
 bypasses routing. Existing fish abbreviations still supply their normal flags.
+
+A root-mapped project is initialized on its first remote launch. The server
+checkout is `REMOTE_ROOT/PROJECT_PATH/.checkout`; the extra directory keeps a
+container folder and its nested repositories independent. For example,
+`projects/sites` and `projects/sites/rupan.dev` have separate server checkouts.
+The first copy includes the current Git HEAD, its reachable history, tracked
+working changes (including staged changes and deletions), and untracked source
+that Git does not ignore. Staging state stays local; imported edits remain
+uncommitted on the server. Git worktrees are exported independently, so their
+laptop `.git` pointers are not copied.
+
+For a directory without Git, the server creates an empty Git baseline and
+imports source files as uncommitted work. The laptop directory is unchanged.
+Generated dependency/build directories, untracked `.env` files, common private
+key/auth files, and symlinks outside the source directory are omitted. Tracked
+files and history retain ordinary Git clone semantics. Recreate dependencies
+and sign into additional services on the VM as needed. Origin URLs retain the
+repository address, with HTTP credentials and query strings stripped; laptop
+Git configuration, hooks, SSH agents and credential stores are not copied.
+
+The initial uncommitted source lands in the server project checkout. Client
+worktrees are created by each client from the checkout's Git state, so
+uncommitted imported files stay in the project checkout. Initial copies are created atomically and an existing server checkout
+is never refreshed from the laptop. Later laptop edits are not sent on launch.
+Git fetch/push authentication for additional repositories must be configured
+separately; the existing homelab deploy key grants only homelab access.
 
 Before connecting, the launcher checks SSH access without prompting for a
 password, with an eight-second total timeout (including the jump host). If the
@@ -42,16 +78,32 @@ start another client locally. Launch again to reconnect when the server is
 available, or to start locally if it remains unavailable. A local fallback
 session stays local when the server recovers; the next launch checks again.
 
-Each client gets its own server worktree and tmux session:
+Every launch of either client creates a fresh process and tmux session,
+started from the same server project directory with the client's native
+`--worktree` flag (`codex --worktree`, `claude --worktree`). Each client manages
+its isolated Git worktree and its relationship to the parent project, so
+parallel chats belong to one project in connected clients. Codex uses its
+configured worktree root (by default `$CODEX_HOME/worktrees`); Claude uses
+`.claude/worktrees/` inside the project, which seeded checkouts and this
+repository ignore. Each client owns creation, source selection, and cleanup.
+An explicit `--worktree <name>` (or Claude's `-w <name>`) is passed through
+unchanged. Claude refuses `--worktree` in a directory whose trust
+dialog has not been accepted, and trust is not inherited from parent
+directories. The first Claude launch in a new project therefore runs in the
+project checkout and says so; accept the dialog there, and later launches use
+fresh worktrees. The launcher only reads that trust state. The launcher no longer creates `interactive-<client>` branches or
+directories.
 
-- Codex: `/home/developer/workspace/homelab/.worktrees/interactive-codex`
-- Claude: `/home/developer/workspace/homelab/.worktrees/interactive-claude`
+Existing launcher-created worktrees (including `.worktrees/interactive-claude`)
+and their uncommitted files are retained; old chats are not migrated or
+regrouped. Use each client's `/resume` for conversation history.
 
-The helper prints the actual server directory. Repeating the launch reconnects
-to the existing session; startup arguments apply when a new session starts.
-Disconnecting or detaching leaves the client running. Exiting the client ends
-that tmux session, and the next launch starts a new client. Native client
-resume options can select an earlier saved conversation.
+The helper prints the actual server directory and tmux session name.
+Disconnecting or detaching leaves clients running. To reconnect to a running
+process after an SSH disconnect, SSH into the VM, run `tmux list-sessions`,
+and use `tmux attach -t <session-name>`. Launching again starts a new process.
+Exiting a client ends its tmux session; each client applies its own
+managed-worktree retention policy.
 The SSH terminal uses `xterm-256color`, which is supported by the headless guest.
 
 Tmux sessions survive laptop sleep and SSH disconnects. They do not survive a

@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,35 +19,23 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: prepare-nginx-tmp
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
-          command: ["sh", "-c", "mkdir -p /tmp/nginx"]
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 101
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
       containers:
         - name: web
           image: registry.rupan.dev/apps/spatia-site@sha256:8fe33e83256e99b1cd2e09e06eba3407efdb0fde9fff82d58da131677479c699  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           livenessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
@@ -57,12 +46,8 @@ spec:
               cpu: 100m
               memory: 128Mi
           volumeMounts:
-            - name: nginx-cache
-              mountPath: /var/cache/nginx
             - name: tmp
               mountPath: /tmp
-            - name: run
-              mountPath: /run
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -72,9 +57,5 @@ spec:
             runAsNonRoot: true
             runAsUser: 101
       volumes:
-        - name: nginx-cache
-          emptyDir: {}
         - name: tmp
-          emptyDir: {}
-        - name: run
           emptyDir: {}

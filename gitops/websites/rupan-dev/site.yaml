@@ -1,0 +1,3 @@
+profile: server
+image: registry.rupan.dev/apps/rupan-dev@sha256:71f2a5f75d1121b2a0364dba2c0e6e5af65b0a5e0888cceb70e1a30aa8ca8e32
+port: 3000

@@ -1,9 +1,11 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: v1
 kind: Service
 metadata:
   name: apolline-svc
   namespace: apolline
 spec:
+  type: ClusterIP
   selector:
     app: apolline-web
   ports:
@@ -11,4 +13,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: http
-  type: ClusterIP

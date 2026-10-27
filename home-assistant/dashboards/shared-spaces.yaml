@@ -291,6 +291,30 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.kitchen_dining_table_ceiling_light_1
+            name: Dining Table Light 1
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_dining_table_ceiling_light_2
+            name: Dining Table Light 2
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
           - entity: light.apollo_led_strip_apollo_led_strip
             name: Light Strip
             fill_container: true

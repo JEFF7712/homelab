@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

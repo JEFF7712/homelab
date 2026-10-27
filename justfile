@@ -101,6 +101,12 @@ opnsense-provider-options:
 check-gitops:
     bash scripts/checks/gitops.sh
 
+websites-render:
+    python -m scripts.websites.render
+
+websites-diff base="origin/main" head="WORKTREE":
+    python -m scripts.websites.canonical diff {{base}} {{head}}
+
 voice-stt backend="local":
     python3 scripts/voice_stt_switch.py {{backend}}
 

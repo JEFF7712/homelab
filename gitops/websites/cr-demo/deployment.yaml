@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,15 +24,18 @@ spec:
           image: registry.rupan.dev/apps/cr-demo@sha256:4f8c7d6c2891f484b1c2a42b58399669958340e457e1b122167f503f01fdf363
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           livenessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
@@ -42,12 +46,8 @@ spec:
               cpu: 100m
               memory: 128Mi
           volumeMounts:
-            - name: nginx-cache
-              mountPath: /var/cache/nginx
             - name: tmp
               mountPath: /tmp
-            - name: run
-              mountPath: /run
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -57,9 +57,5 @@ spec:
             runAsNonRoot: true
             runAsUser: 101
       volumes:
-        - name: nginx-cache
-          emptyDir: {}
         - name: tmp
-          emptyDir: {}
-        - name: run
           emptyDir: {}

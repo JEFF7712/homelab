@@ -733,3 +733,145 @@ class ShipBranchCleanupTest(unittest.TestCase):
                     len(git("worktree", "list", "--porcelain").split("worktree ")) - 1,
                     1,
                 )
+class AwaitingReviewTest(unittest.TestCase):
+    PULL = {
+        "number": 7,
+        "html_url": "https://git.rupan.dev/JEFF7712/homelab/pulls/7",
+        # Forgejo 15 keeps reviewers here after they approve.
+        "requested_reviewers": [{"login": "rupan"}],
+    }
+
+    def review(self, login: str, state: str, official: bool = True) -> dict:
+        return {"user": {"login": login}, "state": state, "official": official}
+
+    def test_open_code_owner_request_stops_the_merge(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        message = awaiting_review(self.PULL, [self.review("rupan", "REQUEST_REVIEW")])
+        assert message is not None
+        self.assertIn("awaits review from rupan", message)
+        self.assertIn(self.PULL["html_url"], message)
+
+    def test_answered_request_allows_the_merge(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        self.assertIsNone(
+            awaiting_review(self.PULL, [self.review("rupan", "APPROVED")])
+        )
+        self.assertIsNone(awaiting_review(self.PULL, []))
+
+    def test_unofficial_request_does_not_block(self) -> None:
+        from scripts.agent.ship import awaiting_review
+
+        self.assertIsNone(
+            awaiting_review(
+                self.PULL, [self.review("someone", "REQUEST_REVIEW", official=False)]
+            )
+        )
+
+
+class PolicyVerdictTest(unittest.TestCase):
+    HEAD = "b" * 40
+    PULL = {"number": 9, "head": {"sha": HEAD}, "html_url": "https://x/pulls/9"}
+
+    def comment(self, head: str, outcome: str) -> dict:
+        return {
+            "body": f"<!-- merge-policy head={head} outcome={outcome} -->\n- finding"
+        }
+
+    def run_policy(
+        self,
+        state: str,
+        comments: list[dict],
+        reviews: list | None = None,
+        states: list[str] | None = None,
+    ) -> tuple[str, list]:
+        from scripts.agent import ship
+
+        calls: list = []
+
+        class Forge:
+            def call(self, method: str, path: str, body=None):
+                calls.append((method, path, body))
+                if path.startswith("/commits/"):
+                    current = states.pop(0) if states else state
+                    return {
+                        "statuses": [
+                            {"context": ship.POLICY_CONTEXT, "status": current}
+                        ]
+                    }
+                if path.endswith("/comments"):
+                    return comments
+                if path.endswith("/reviews"):
+                    return reviews or []
+                return {}
+
+        class Stub:
+            forgejo = Forge()
+            operator_approved = ship.Shipper.operator_approved
+
+            def remaining(self) -> None:
+                pass
+
+            def say(self, message: str) -> None:
+                pass
+
+        try:
+            ship.Shipper.wait_policy(Stub(), self.PULL)  # type: ignore[arg-type]
+        except ship.ShipError as error:
+            return str(error), calls
+        return "passed", calls
+
+    def test_success_returns_without_escalating(self) -> None:
+        outcome, calls = self.run_policy("success", [])
+        self.assertEqual(outcome, "passed")
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
+
+    def test_repairable_rejection_goes_back_to_the_agent(self) -> None:
+        outcome, calls = self.run_policy(
+            "failure", [self.comment(self.HEAD, "rejected")]
+        )
+        self.assertIn("1/3 repairs used", outcome)
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
+
+    def test_authority_finding_escalates_immediately(self) -> None:
+        outcome, calls = self.run_policy(
+            "failure", [self.comment(self.HEAD, "escalated")]
+        )
+        self.assertIn("escalated to rupan", outcome)
+        self.assertIn(
+            ("POST", "/pulls/9/requested_reviewers", {"reviewers": ["rupan"]}), calls
+        )
+
+    def test_exhausted_repairs_escalate(self) -> None:
+        comments = [self.comment(c * 40, "rejected") for c in "cd"] + [
+            self.comment(self.HEAD, "rejected")
+        ]
+        outcome, calls = self.run_policy("failure", comments)
+        self.assertIn("escalated to rupan", outcome)
+
+    def test_approved_head_waits_for_the_policy_instead_of_escalating(self) -> None:
+        approval = [
+            {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": self.HEAD}
+        ]
+        with patch.object(ship.time, "sleep"):
+            outcome, calls = self.run_policy(
+                "success",
+                [self.comment(self.HEAD, "escalated")],
+                reviews=approval,
+                states=["failure", "failure", "success"],
+            )
+        self.assertEqual(outcome, "passed")
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
+
+    def test_policy_requirement_follows_branch_protection(self) -> None:
+        from scripts.agent.ship import POLICY_CONTEXT, policy_required
+
+        for contexts, expected in (([], False), ([POLICY_CONTEXT], True)):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "config/ci").mkdir(parents=True)
+                (root / "config/ci/forgejo-protection.json").write_text(
+                    json.dumps({"status_check_contexts": contexts})
+                )
+                self.assertEqual(policy_required(root), expected)

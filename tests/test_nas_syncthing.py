@@ -36,7 +36,7 @@ class NasSyncthingTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         expression = """
           let
-            flake = builtins.getFlake (toString __FLAKE_PATH__);
+            flake = builtins.getFlake __FLAKE_PATH__;
             system = flake.nixosConfigurations.nas-01;
           in {
             enabled = system.config.services.syncthing.enable;
@@ -57,7 +57,7 @@ class NasSyncthingTest(unittest.TestCase):
             sanoidDatasets = system.config.services.sanoid.datasets;
             datasetOptions = system.config.disko.devices.zpool.tank.datasets."backups/syncthing".options;
           }
-        """.replace("__FLAKE_PATH__", json.dumps(str(ROOT / "flake")))
+        """.replace("__FLAKE_PATH__", json.dumps(f"git+file://{ROOT}?dir=flake"))
         result = subprocess.run(
             ["nix", "eval", "--impure", "--json", "--expr", expression],
             capture_output=True,

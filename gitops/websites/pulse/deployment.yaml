@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,18 +21,21 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/pulse-site@sha256:3c7dfc212fad9e24a2b56e62bc46f86844f31f8931e308d65e3a43e9530d09da  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pulse-site@sha256:fdfb9e7e99b92a0865bc12d6c789363326ea276edfd352a3dcf9b0df2d7b4162  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           livenessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 8080
+            httpGet:
+              path: /
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

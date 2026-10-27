@@ -1524,9 +1524,9 @@
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
       "chmod 600 ~/.kube/config",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deployment-report --target homelab-01 --output-dir artifacts/deployment-report/deploy-agent-workspace-host-dry-run/before",
-      "just deploy-fleet --dry-run --target homelab-01",
-      "just deployment-report --target homelab-01 --output-dir artifacts/deployment-report/deploy-agent-workspace-host-dry-run/after"
+      "just deployment-report --target homelab-04 --output-dir artifacts/deployment-report/deploy-agent-workspace-host-dry-run/before",
+      "just deploy-fleet --dry-run --target homelab-04",
+      "just deployment-report --target homelab-04 --output-dir artifacts/deployment-report/deploy-agent-workspace-host-dry-run/after"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -1575,7 +1575,7 @@
       "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
       "chmod 600 ~/.kube/config",
       "export KUBECONFIG=\"$HOME/.kube/config\"",
-      "just deploy-fleet --target homelab-01"
+      "just deploy-fleet --target homelab-04"
     ],
     "environment": {
       "HOSTS_KNOWN": {
@@ -2296,6 +2296,30 @@
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-ci-host-dry-run",
+    "agent": true
+  },
+  "node-supply-publish": {
+    "commands": [
+      "python -m scripts.ci.node_supply publish"
+    ],
+    "environment": {
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PACKAGE_TOKEN": {
+        "from_secret": "supply_write_token"
+      }
+    },
+    "file_secrets": [],
+    "group": "node-supply",
+    "needs": [],
+    "outputs": [
+      "artifacts/node-supply/"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
     "agent": true
   }
 }

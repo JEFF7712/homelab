@@ -15,6 +15,12 @@ FORGEJO_API = "http://git.internal:3000/api/v1/repos/JEFF7712/homelab"
 REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 
 
+def _required_contexts() -> list[str]:
+    """validation-v2 plus any other context main's protection requires."""
+    protection = json.loads(Path("config/ci/forgejo-protection.json").read_text())
+    return list(dict.fromkeys([REQUIRED_CONTEXT, *protection["status_check_contexts"]]))
+
+
 def _change_key(path: str, data: bytes) -> bytes:
     if path == "registry/images.lock.json":
         try:
@@ -67,12 +73,14 @@ def superseded_pulls(pulls: list[dict], label: str, branch: str) -> list[dict]:
 
 
 def _assert_nix_agent_only(changed: list[str]) -> None:
-    allowed = {
-        "registry/images.lock.json",
+    consumers = {
+        "gitops/websites/nixagent/site.yaml",
         "gitops/websites/nixagent/deployment.yaml",
     }
-    if set(changed) != allowed:
+    if set(changed) != consumers | {"registry/images.lock.json"}:
         raise ValueError("Automatic promotion may change only the nix-agent digest")
+    for path in sorted(consumers):
+        _assert_digest_only(path)
     previous = json.loads(
         subprocess.check_output(
             ["git", "show", "HEAD:registry/images.lock.json"], text=True
@@ -118,6 +126,12 @@ def _assert_nix_agent_only(changed: list[str]) -> None:
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
+def _assert_digest_only(path: str) -> None:
+    previous = subprocess.check_output(["git", "show", f"HEAD:{path}"], text=True)
+    if DIGEST.sub("sha256:", previous) != DIGEST.sub("sha256:", Path(path).read_text()):
+        raise ValueError(f"Automatic promotion changed more than digests in {path}")
+
+
 def _assert_first_party_digests_only(changed: list[str]) -> None:
     """Automatic first-party promotion may only move first-party digests.
 
@@ -132,11 +146,7 @@ def _assert_first_party_digests_only(changed: list[str]) -> None:
             continue
         if not (path.startswith("gitops/") and path.endswith((".yaml", ".yml"))):
             raise ValueError(f"Automatic promotion may not change {path}")
-        previous = subprocess.check_output(["git", "show", f"HEAD:{path}"], text=True)
-        if DIGEST.sub("sha256:", previous) != DIGEST.sub(
-            "sha256:", Path(path).read_text()
-        ):
-            raise ValueError(f"Automatic promotion changed more than digests in {path}")
+        _assert_digest_only(path)
     if "registry/images.lock.json" in changed:
         previous = json.loads(
             subprocess.check_output(
@@ -186,14 +196,19 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
             time.sleep(15)
             continue
         status = _api(token, f"/commits/{expected_sha}/status")
-        matches = [
-            item
-            # Forgejo reports "statuses": null before the first status lands.
-            for item in status.get("statuses") or []
-            if item.get("context") == REQUIRED_CONTEXT
-        ]
-        latest = max(matches, key=lambda item: item.get("updated_at", ""), default=None)
-        if latest and latest.get("status") == "success":
+        states = []
+        for context in _required_contexts():
+            matches = [
+                item
+                # Forgejo reports "statuses": null before the first status lands.
+                for item in status.get("statuses") or []
+                if item.get("context") == context
+            ]
+            latest = max(
+                matches, key=lambda item: item.get("updated_at", ""), default=None
+            )
+            states.append(latest.get("status") if latest else None)
+        if all(state == "success" for state in states):
             try:
                 _api(token, f"/pulls/{number}/merge", data={"Do": "merge"})
             except urllib.error.HTTPError as error:
@@ -210,7 +225,7 @@ def _auto_merge_pull(token: str, pull: dict) -> None:
                 continue
             print(f"Required validation passed; merged promotion PR #{number}")
             return
-        if latest and latest.get("status") in {"failure", "error"}:
+        if any(state in {"failure", "error"} for state in states):
             raise ValueError("Required homelab validation failed for promotion PR")
         time.sleep(15)
     raise TimeoutError("Timed out waiting for homelab validation on promotion PR")

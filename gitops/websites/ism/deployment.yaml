@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,15 +24,16 @@ spec:
           image: registry.rupan.dev/apps/ism@sha256:1abb5d81e7a8e876b23a9b32889ef75970212d6b9a62cf9bebdbdfe76be2f34c
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
           livenessProbe:
             tcpSocket:
-              port: 3000
+              port: http
             initialDelaySeconds: 15
             periodSeconds: 30
           readinessProbe:
             tcpSocket:
-              port: 3000
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

@@ -1,0 +1,6 @@
+profile: static
+image: registry.rupan.dev/apps/sovereign-site@sha256:879cc8271b29cc2a3fb09bc2896255b972a246c37033d6681a39a07a20a435ac
+protect_namespace: true
+extra_manifests:
+  - inquiry-script.yaml
+  - inquiry.yaml

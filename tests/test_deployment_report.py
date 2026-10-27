@@ -457,7 +457,7 @@ class ProtectedDeploymentReportTest(unittest.TestCase):
         operations = {
             "deploy-fleet-dry-run": [],
             "deploy-ci-host-dry-run": ["--target", "homelab-04"],
-            "deploy-agent-workspace-host-dry-run": ["--target", "homelab-01"],
+            "deploy-agent-workspace-host-dry-run": ["--target", "homelab-04"],
         }
         for name, targets in operations.items():
             with (

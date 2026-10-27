@@ -441,6 +441,8 @@ def configuration(
                             "experimental-features = nix-command flakes\n"
                             "accept-flake-config = true\n"
                             "sandbox = false\n"
+                            # Host daemons kill builders sharing nixbld UIDs.
+                            "build-users-group =\n"
                             "max-jobs = 2\n"
                             "cores = 2\n"
                             "connect-timeout = 5\n"

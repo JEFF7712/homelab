@@ -64,7 +64,12 @@ class AutomationTest(unittest.TestCase):
                             "context": "ci/woodpecker/validation-v2",
                             "status": "success",
                             "updated_at": "2026-10-12T00:00:00Z",
-                        }
+                        },
+                        {
+                            "context": "policy/merge",
+                            "status": "success",
+                            "updated_at": "2026-10-12T00:00:00Z",
+                        },
                     ]
                 },
                 {},
@@ -90,7 +95,12 @@ class AutomationTest(unittest.TestCase):
                     "context": "ci/woodpecker/validation-v2",
                     "status": "success",
                     "updated_at": "2026-10-12T00:00:00Z",
-                }
+                },
+                {
+                    "context": "policy/merge",
+                    "status": "success",
+                    "updated_at": "2026-10-12T00:00:00Z",
+                },
             ]
         }
         with (
@@ -103,6 +113,26 @@ class AutomationTest(unittest.TestCase):
         ):
             promote_commit._auto_merge_pull("fixture-token", pull)
         self.assertEqual(api.call_args_list[-1].args[1], "/pulls/42/merge")
+
+    def test_auto_merge_refuses_when_the_merge_policy_fails(self) -> None:
+        pull = {"number": 42, "head": {"sha": SHA}, "base": {"sha": "base-sha"}}
+        statuses = {
+            "statuses": [
+                {
+                    "context": "ci/woodpecker/validation-v2",
+                    "status": "success",
+                    "updated_at": "1",
+                },
+                {"context": "policy/merge", "status": "failure", "updated_at": "1"},
+            ]
+        }
+        with patch.object(
+            promote_commit, "_api", side_effect=[{}, pull, pull, statuses]
+        ):
+            with self.assertRaisesRegex(
+                ValueError, "Required homelab validation failed"
+            ):
+                promote_commit._auto_merge_pull("fixture-token", pull)
 
     def test_auto_merge_rejects_a_failed_required_status(self) -> None:
         pull = {
@@ -168,7 +198,8 @@ class AutomationTest(unittest.TestCase):
                             {
                                 "context": promote_commit.REQUIRED_CONTEXT,
                                 "status": "success",
-                            }
+                            },
+                            {"context": "policy/merge", "status": "success"},
                         ]
                     },
                     {},
@@ -201,30 +232,41 @@ class AutomationTest(unittest.TestCase):
                 {"destination_repository": "apps/other", "digest": "same"},
             ],
         }
+        old_image = "image: registry.rupan.dev/apps/nix-agent-site@sha256:" + "a" * 64
+        new_image = old_image.replace("a" * 64, "b" * 64)
+        consumers = [
+            "gitops/websites/nixagent/site.yaml",
+            "gitops/websites/nixagent/deployment.yaml",
+        ]
+        changed = ["registry/images.lock.json", *consumers]
+
+        def head(command: list[str], text: bool) -> str:
+            path = command[-1].removeprefix("HEAD:")
+            if path == "registry/images.lock.json":
+                return json.dumps(previous)
+            return f"profile: static\n{old_image}\n"
+
         with tempfile.TemporaryDirectory() as directory, chdir(directory):
             path = Path("registry/images.lock.json")
             path.parent.mkdir()
             path.write_text(json.dumps(current))
+            for consumer in consumers:
+                Path(consumer).parent.mkdir(parents=True, exist_ok=True)
+                Path(consumer).write_text(f"profile: static\n{new_image}\n")
             with patch.object(
-                promote_commit.subprocess,
-                "check_output",
-                return_value=json.dumps(previous),
+                promote_commit.subprocess, "check_output", side_effect=head
             ):
-                promote_commit._assert_nix_agent_only(
-                    [
-                        "registry/images.lock.json",
-                        "gitops/websites/nixagent/deployment.yaml",
-                    ]
-                )
+                promote_commit._assert_nix_agent_only(changed)
+                with self.assertRaisesRegex(ValueError, "only the nix-agent digest"):
+                    promote_commit._assert_nix_agent_only(changed[:2])
+                Path(consumers[0]).write_text(f"profile: server\n{new_image}\n")
+                with self.assertRaisesRegex(ValueError, "more than digests"):
+                    promote_commit._assert_nix_agent_only(changed)
+                Path(consumers[0]).write_text(f"profile: static\n{new_image}\n")
                 current["images"][1]["digest"] = "changed"
                 path.write_text(json.dumps(current))
                 with self.assertRaisesRegex(ValueError, "unrelated lock policy"):
-                    promote_commit._assert_nix_agent_only(
-                        [
-                            "registry/images.lock.json",
-                            "gitops/websites/nixagent/deployment.yaml",
-                        ]
-                    )
+                    promote_commit._assert_nix_agent_only(changed)
 
     def test_promotions_use_review_branches_and_correct_forge_credentials(self) -> None:
         for recovery in [False, True]:

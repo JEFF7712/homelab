@@ -67,6 +67,20 @@
         mac = "14:c1:9f:59:cd:60";
         network = "clients";
       };
+      govee_h6008_1 = {
+        description = "Govee H6008 bulb 1 (LAN control)";
+        hostname = "govee-h6008-1";
+        address = "10.0.20.166";
+        mac = "d4:13:68:01:8a:8d";
+        network = "clients";
+      };
+      govee_h6008_2 = {
+        description = "Govee H6008 bulb 2 (LAN control)";
+        hostname = "govee-h6008-2";
+        address = "10.0.20.167";
+        mac = "d4:13:68:01:94:b3";
+        network = "clients";
+      };
     };
     aliases = {
       spotify_matrix_senders = {
@@ -120,6 +134,25 @@
           "roku_desk_lamp"
         ];
       };
+      govee_lan_ports = {
+        type = "port";
+        content = [
+          "4001"
+          "4002"
+          "4003"
+        ];
+        description = "Govee LAN discovery, response, and control ports";
+        enabled = true;
+      };
+      govee_bulbs = {
+        type = "host";
+        description = "Govee H6008 bulbs under LAN control";
+        enabled = true;
+        devices = [
+          "govee_h6008_1"
+          "govee_h6008_2"
+        ];
+      };
       netbird_allowed_dests = {
         type = "network";
         content = [
@@ -163,6 +196,35 @@
         description = "Rupan's laptop admin device on clients VLAN";
         enabled = true;
         devices = [ "laptop_nixos" ];
+      };
+      moonlight_clients = {
+        type = "host";
+        hosts = [
+          "homelab-04"
+          "homelab-05"
+        ];
+        description = "Moonlight streaming clients on infrastructure VLAN";
+        enabled = true;
+      };
+      sunshine_ports = {
+        type = "port";
+        content = [
+          "47984"
+          "47989"
+          "47998"
+          "47999"
+          "48000"
+          "48002"
+          "48010"
+        ];
+        description = "Sunshine game streaming server ports";
+        enabled = true;
+      };
+      smb_ports = {
+        type = "port";
+        content = [ "445" ];
+        description = "SMB2/3 network file sharing port";
+        enabled = true;
       };
     };
     rules = {
@@ -283,6 +345,30 @@
           destination = {
             net = "${fleetInventory.hosts.adguard-netbird-01.address}/32";
             port = "1883";
+          };
+        };
+      };
+      clients-allow-nas-smb = {
+        description = "Allow clients to NAS Samba SMB network file sharing";
+        enabled = true;
+        sequence = 215;
+        interface = {
+          interface = [ "opt1" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.clients.cidr;
+            port = "";
+          };
+          destination = {
+            net = "${fleetInventory.hosts.nas-01.address}/32";
+            port = "smb_ports";
           };
         };
       };
@@ -478,6 +564,30 @@
           };
         };
       };
+      clients-allow-govee-responses = {
+        description = "Allow Govee LAN responses to Home Assistant";
+        enabled = true;
+        sequence = 211;
+        interface = {
+          interface = [ "opt1" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = "govee_bulbs";
+            port = "";
+          };
+          destination = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "4002";
+          };
+        };
+      };
       clients-block-bambu-internet = {
         description = "Block Bambu Lab A1 printer from the Internet (LAN mode only)";
         enabled = true;
@@ -622,6 +732,30 @@
           };
         };
       };
+      infrastructure-allow-sunshine-clients = {
+        description = "Allow homelab-04 and homelab-05 to reach Sunshine streaming host on clients VLAN";
+        enabled = true;
+        sequence = 313;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP/UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = "moonlight_clients";
+            port = "";
+          };
+          destination = {
+            net = config.homelab.networks.clients.cidr;
+            port = "sunshine_ports";
+          };
+        };
+      };
       infrastructure-allow-roku-bulbs = {
         description = "Allow roku-bridge to Roku bulbs local API";
         enabled = true;
@@ -667,6 +801,54 @@
           destination = {
             net = "224.0.0.251/32";
             port = "5353";
+          };
+        };
+      };
+      infrastructure-allow-govee-queries = {
+        description = "Allow Home Assistant Govee LAN queries";
+        enabled = true;
+        sequence = 312;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "govee_bulbs";
+            port = "govee_lan_ports";
+          };
+        };
+      };
+      infrastructure-allow-govee-multicast = {
+        description = "Allow Home Assistant Govee multicast discovery";
+        enabled = true;
+        sequence = 308;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "239.255.255.250/32";
+            port = "4001";
           };
         };
       };

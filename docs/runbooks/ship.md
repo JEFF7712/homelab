@@ -26,7 +26,10 @@ just ship --verify 'curl --fail https://service.example/health'
 5. Waits for `ci/woodpecker/validation-v2` on the PR head. On failure it prints
    the tail of each failing Woodpecker step and exits nonzero.
 6. Merges. When Forgejo reports the head is behind main, it updates the PR
-   branch and waits for validation again.
+   branch and waits for validation again. When the PR has a pending review
+   request (CODEOWNERS requests one for code-owned paths, and branch
+   protection blocks the merge until it is approved), it stops and prints the
+   PR link; rerun `just ship` on the branch after the owner approves.
 7. When operations are planned, waits for the main push pipeline covering the
    merge commit to finish with successful source validation. Unrelated failed
    operations do not invalidate that validation. If main advances to a commit that contains the

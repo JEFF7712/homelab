@@ -1,3 +1,4 @@
+# Generated from site.yaml by scripts/websites/render.py. Edit site.yaml.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,28 +19,25 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: prepare-nginx-tmp
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
-          command: ["sh", "-c", "mkdir -p /tmp/nginx"]
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-            runAsGroup: 101
-            runAsNonRoot: true
-            runAsUser: 101
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
       containers:
         - name: web
           image: registry.rupan.dev/apps/nix-agent-site@sha256:92a0a8f973b02cb83f3d33872be2b1f1c7a6a33e3a22bc5b6e75214452d82b75  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             limits:
               cpu: 500m
@@ -47,38 +45,17 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 30
           volumeMounts:
-            - name: nginx-cache
-              mountPath: /var/cache/nginx
             - name: tmp
               mountPath: /tmp
-            - name: run
-              mountPath: /run
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
-            runAsGroup: 101
             runAsNonRoot: true
             runAsUser: 101
       volumes:
-        - name: nginx-cache
-          emptyDir: {}
         - name: tmp
-          emptyDir: {}
-        - name: run
           emptyDir: {}
