@@ -223,16 +223,17 @@ class ShipOperatorTest(unittest.TestCase):
             shipper.approved(10, "provision-darkbit-publisher")
         shipper.woodpecker.pipeline.assert_not_called()
 
-    def test_previously_operator_only_operations_use_agent_identity(self) -> None:
+    def test_held_operations_use_the_operator_token(self) -> None:
         shipper = self.shipper()
+        operator = unittest.mock.Mock()
+        operator.deploy.side_effect = ShipError("operator deployed")
         with (
-            patch.dict("os.environ", {"WOODPECKER_OPERATOR_TOKEN": "unused"}),
-            self.assertRaisesRegex(ShipError, "stop after deploy"),
+            patch.dict("os.environ", {"WOODPECKER_OPERATOR_TOKEN": "t"}),
+            patch.object(ship, "Woodpecker", return_value=operator),
+            self.assertRaisesRegex(ShipError, "operator deployed"),
         ):
             shipper.run_operation(10, "provision-darkbit-publisher")
-        shipper.woodpecker.deploy.assert_called_once_with(
-            10, "provision-darkbit-publisher"
-        )
+        shipper.woodpecker.deploy.assert_not_called()
 
     GRANT = "d" * 64
     REJECTION = (
@@ -699,7 +700,7 @@ class ShipBranchCleanupTest(unittest.TestCase):
                 git("commit", "-qm", "base")
                 git("update-ref", "refs/remotes/origin/main", "HEAD")
                 (root / "file").write_text("after\n")
-                patch_body = git("diff") + "\n"
+                patch_body = git("diff", "--no-ext-diff") + "\n"
                 git("checkout", "--", "file")
                 runner = ship.Shipper.__new__(ship.Shipper)
                 runner.args = argparse.Namespace()
@@ -839,13 +840,14 @@ class PolicyVerdictTest(unittest.TestCase):
         self.assertIn("escalated to rupan", outcome)
         self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
-    def test_repeated_repairs_stay_with_the_agent(self) -> None:
+    def test_exhausted_repairs_notify_the_operator(self) -> None:
         comments = [self.comment(c * 40, "rejected") for c in "cd"] + [
             self.comment(self.HEAD, "rejected")
         ]
         outcome, calls = self.run_policy("failure", comments)
-        self.assertIn("3 rejected heads", outcome)
-        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
+        self.assertIn("escalated to rupan after 3 rejected heads", outcome)
+        notes = [body for method, path, body in calls if method == "POST"]
+        self.assertTrue(any("@rupan" in (body or {}).get("body", "") for body in notes))
 
     def test_approved_head_waits_for_the_policy_instead_of_escalating(self) -> None:
         approval = [

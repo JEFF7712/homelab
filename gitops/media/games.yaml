@@ -63,26 +63,32 @@ spec:
           command:
             - sh
             - -c
-            - '[ "$(stat -c ''%u:%g'' /app/data)" = "1000:1000" ] || chown -R 1000:1000 /app/data'
+            - >-
+              touch /logs/server.log && chown 911:1001 /logs/server.log &&
+              { [ "$(stat -c '%u:%g' /app/data)" = "911:1001" ] || chown -R 911:1001 /app/data; }
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           volumeMounts:
             - name: data
               mountPath: /app/data
+            - name: logs
+              mountPath: /logs
       containers:
         - name: questarr
           image: registry.rupan.dev/upstream/ghcr.io/doezer/questarr@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621  # yamllint disable-line rule:line-length
           # Upstream entrypoint.sh starts as root to usermod/chown and then
-          # su-exec's to the app user; run the app directly as 1000 instead so
-          # the root filesystem stays read-only and nothing runs as root.
+          # su-exec's to the app user; run the app directly instead so the root
+          # filesystem stays read-only and nothing runs as root. 911:1001 with
+          # group users matches qBittorrent's effective abc user, so imports can
+          # hardlink its downloads (fs.protected_hardlinks needs the same owner).
           command: ["node", "dist/server/index.js"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-            runAsUser: 1000
-            runAsGroup: 1000
+            runAsUser: 911
+            runAsGroup: 1001
           env:
             - name: HOME
               value: /tmp
@@ -102,6 +108,12 @@ spec:
               mountPath: /data
             - name: tmp
               mountPath: /tmp
+            # The logger hard-codes ./server.log in the /app working
+            # directory, which is read-only; the init container pre-creates
+            # the file so this subPath mounts as a file, not a directory.
+            - name: logs
+              mountPath: /app/server.log
+              subPath: server.log
           readinessProbe:
             tcpSocket:
               port: 5000
@@ -127,6 +139,9 @@ spec:
             claimName: media-library
         - name: tmp
           emptyDir: {}
+        - name: logs
+          emptyDir:
+            sizeLimit: 256Mi
 ---
 apiVersion: v1
 kind: Service
