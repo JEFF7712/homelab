@@ -629,6 +629,8 @@ class EvalCorpusTest(unittest.TestCase):
                 "light.kitchen_ceiling_light_2",
                 "light.kitchen_mushroom_lamp",
                 "light.kitchen_fuck_off_sign",
+                "light.kitchen_dining_table_ceiling_light_1",
+                "light.kitchen_dining_table_ceiling_light_2",
             },
         )
 
@@ -642,7 +644,12 @@ class EvalCorpusTest(unittest.TestCase):
         self.assertEqual(self.alias.get("language"), "en")
         outs = {v["out"] for v in self.alias["lists"]["jarvis_alias"]["values"]}
         self.assertEqual(
-            outs, {"light.bedroom_roku_lights", "light.shared_zigbee_lights"}
+            outs,
+            {
+                "light.bedroom_roku_lights",
+                "light.shared_zigbee_lights",
+                "light.downstairs_lights",
+            },
         )
         for entity_id in outs:
             self.assertIn(entity_id, self.known, entity_id)
@@ -695,29 +702,16 @@ class EvalCorpusTest(unittest.TestCase):
             self.assertTrue(matched, f"{case['id']}: {say!r} matches no sentence")
             self.assertEqual(case["response"], "Done.", case["id"])
             self.assertEqual(case["targets"], [DEFAULT_LIGHTS_TARGET], case["id"])
-        govee_mishearings = {
-            "gobi",
-            "gobi lights",
-            "all gobi lights",
-            "all the gobi lights",
-            "gopi",
-            "gopi lights",
-            "all gopi lights",
-            "all the gopi lights",
-        }
         alias_values = {
             v["in"]: v["out"] for v in self.alias["lists"]["jarvis_alias"]["values"]
         }
         light_values = {
             v["in"]: v["out"] for v in self.colors["lists"]["jarvis_light"]["values"]
         }
-        for heard in govee_mishearings:
-            self.assertEqual(
-                alias_values.get(heard), "light.shared_zigbee_lights", heard
-            )
-            self.assertEqual(
-                light_values.get(heard), "light.shared_zigbee_lights", heard
-            )
+        for values in (alias_values, light_values):
+            self.assertEqual(values.get("shared spaces lights"), DEFAULT_LIGHTS_TARGET)
+            for heard in values:
+                self.assertNotRegex(heard, r"zigbee|govee|go ?vee|gobi|gopi", heard)
 
     def test_home_sentences_match_cases(self) -> None:
         sentences: dict[str, list[str]] = {}

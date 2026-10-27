@@ -51,3 +51,9 @@
 - id: fd51f50aa8ed7e5bb256fffaae8c0237
   area_id: bedroom
   name_by_user: Light Strip
+- id: 9bea576dabb697ba6e18167f2953ffc9
+  area_id: kitchen
+  name_by_user: Dining Table Ceiling Light 1
+- id: d6b68f251301e3fd9fefb41254e1b548
+  area_id: kitchen
+  name_by_user: Dining Table Ceiling Light 2
