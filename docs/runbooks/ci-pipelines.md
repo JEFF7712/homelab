@@ -181,6 +181,24 @@ when running as root, which ordinary Docker jobs lack. File descriptors keep
 the same VM shares and assertions working without adding container capabilities.
 The local and CI gates build the same checks.
 
+Root CI builds also use `nix/kernel-modules-overlay.nix` for module aggregation,
+applied to fleet hosts and every VM guest by `flake/flake.nix`. The pinned
+[Nixpkgs aggregator](https://github.com/NixOS/nixpkgs/blob/09063bd1f2b36fd9fd793c36dfade7bd40a93dfc/pkgs/os-specific/linux/kmod/aggregator.nix)
+uses a writable-directory test before running depmod and merging certificates.
+For a single module source, buildEnv can link the output to the kernel's
+read-only module tree. Root considers that input writable, enters it and
+fails copying `modules.cer` onto itself. This stops cache publication and
+can also fail an uncached Zot VM check.
+
+The overlay replaces that permission assumption with a resolved-path check:
+regeneration happens only inside the aggregation output. Linked input trees
+are preserved; merged output-owned trees still regenerate dependency maps
+and combine certificates. The overlay asserts the pinned upstream guard is
+still present so a Nixpkgs upgrade prompts review of the workaround.
+`checks.kernel-modules-aggregation` reproduces the old failure using a
+writable input, verifies input bytes stay unchanged with the fix, and tests
+merged certificates, empty module trees and inconsistent-version rejection.
+
 ### Dependency caching and timing visibility
 
 Attic stores its chunks on `zroot/attic` (`/srv/attic`), the system SSD
@@ -200,8 +218,8 @@ remains a separate validation gate.
 
 Set `HOMELAB_CACHE_BUILDER=fast` to opt into nix-fast-build from the pinned
 nixpkgs in the `ops` or `default` development shell. Its selection is
-generated from the native builder's same 22 homelab targets: seven host
-systems, all twelve checks and three development shells. `just cache-populate`
+generated from the native builder's same 23 homelab targets: seven host
+systems, all thirteen checks and three development shells. `just cache-populate`
 publishes the same target set, including the Zot service VM check. The fast
 builder uses two evaluation workers, a 2048 MiB memory budget per worker and
 two concurrent build jobs.
