@@ -200,9 +200,11 @@ remains a separate validation gate.
 
 Set `HOMELAB_CACHE_BUILDER=fast` to opt into nix-fast-build from the pinned
 nixpkgs in the `ops` or `default` development shell. Its selection is
-generated from the native builder's same 17 homelab targets: seven host
-systems, seven checks and three development shells. It uses two evaluation
-workers, a 2048 MiB memory budget per worker and two concurrent build jobs.
+generated from the native builder's same 22 homelab targets: seven host
+systems, all twelve checks and three development shells. `just cache-populate`
+publishes the same target set, including the Zot service VM check. The fast
+builder uses two evaluation workers, a 2048 MiB memory budget per worker and
+two concurrent build jobs.
 The initial 1536 MiB budget caused worker restarts; the matched CI runs also
 observed worker retries at the 4096 MiB combined budget in two fast runs.
 The worker budget does not cap total process memory. The CI container's

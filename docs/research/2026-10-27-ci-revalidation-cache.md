@@ -65,6 +65,23 @@ invocation separately from VM checks and topology in future validation
 logs. It measures substitution, dependency work and check execution
 together; host evaluation still overlaps builds.
 
+The first instrumented run, [6046](https://ci.rupan.dev/repos/1/pipeline/6046),
+passed. The gate took 589.0 s and its flake lane took 562.8 s. The
+`repository-contract` invocation took 134.4 s; the libvirt normalization VM
+check took 169.1 s and the Zot service VM check took 154.2 s. Contract
+execution was therefore not most of this run's flake time. These are cold
+check invocations with overlapping evaluation and other activity, not a
+before/after speedup measurement.
+
+Inspecting the cache targets against the evaluated flake checks found five
+missing targets: `zot-registry-service`, `opnsense-types`, `opnsense-config`,
+`fleet-inventory` and `kiosk-tty1`. Both `cache.sh` and `just cache-populate`
+now include them, bringing publication to all twelve checks. Behavioral tests
+compare the two publication entrypoints, and a real-Nix integration test
+compares their check set to the evaluated flake outputs. The historical
+17-target benchmark remains a measurement of its original workload; current
+publication has 22 targets.
+
 The change fixes cache identity; it does not guarantee a warm cache or
 avoid rerunning tests after source changes. The latest maintenance run
 inspected, [6021](https://ci.rupan.dev/repos/1/pipeline/6021), failed its
