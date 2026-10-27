@@ -122,15 +122,23 @@ class Mirror:
         self.remote = remote
         self.token = token
 
-    def git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
+    def git(
+        self, *args: str, check: bool = True, stdin: bytes | None = None
+    ) -> subprocess.CompletedProcess[bytes]:
         return subprocess.run(
             ["git", "-C", str(self.path), *args],
             check=check,
             capture_output=True,
+            input=stdin,
             timeout=120,
+            # Hermetic: no user or system config (external diff drivers,
+            # pagers, credential helpers) can change what is compared.
             env={
                 **os.environ,
                 "HOME": str(self.path),
+                "XDG_CONFIG_HOME": str(self.path),
+                "GIT_CONFIG_GLOBAL": os.devnull,
+                "GIT_CONFIG_NOSYSTEM": "1",
                 "GIT_TERMINAL_PROMPT": "0",
                 "GIT_CONFIG_COUNT": "1",
                 "GIT_CONFIG_KEY_0": "http.extraHeader",
@@ -166,20 +174,60 @@ class Mirror:
     def merge_base(self, a: str, b: str) -> str:
         return self.git("merge-base", a, b).stdout.decode().strip()
 
+    def patch_id(self, commit: str) -> str | None:
+        base = self.merge_base("refs/heads/main", commit)
+        diff = self.git(
+            "diff", "--no-ext-diff", "--binary", "--full-index", base, commit
+        ).stdout
+        if not diff:
+            return None
+        out = self.git("patch-id", "--stable", stdin=diff).stdout
+        return out.split()[0].decode() if out else None
+
+    def same_change(self, approved: str, head: str) -> bool:
+        """Whether two heads carry the same diff from their merge bases."""
+        if self.git(
+            "merge-base", "--is-ancestor", approved, head, check=False
+        ).returncode:
+            return False
+        first, second = self.patch_id(approved), self.patch_id(head)
+        return first is not None and first == second
+
     def changed(self, base: str, head: str) -> list[str]:
-        out = self.git("diff", "--name-only", "--no-renames", "-z", base, head).stdout
+        out = self.git(
+            "diff", "--no-ext-diff", "--name-only", "--no-renames", "-z", base, head
+        ).stdout
         return [os.fsdecode(path) for path in out.split(b"\0") if path]
 
 
-def operator_approved(reviews: list[dict[str, Any]], head: str) -> bool:
-    return any(
-        review.get("state") == "APPROVED"
-        and (review.get("user") or {}).get("login") in OPERATORS
-        and review.get("commit_id") == head
-        and not review.get("dismissed")
-        and not review.get("stale")
-        for review in reviews
-    )
+def operator_approved(
+    reviews: list[dict[str, Any]], head: str, same_change: Any = None
+) -> bool:
+    """Whether an operator approved this head, or an identical change.
+
+    An approval of an older head carries over only when same_change says the
+    PR's own diff from its merge base is byte-identical, which is what
+    updating a branch from main produces. Any new change, including a
+    conflict resolution, needs a fresh approval.
+    """
+    for review in reviews:
+        if (
+            review.get("state") != "APPROVED"
+            or (review.get("user") or {}).get("login") not in OPERATORS
+            or review.get("dismissed")
+        ):
+            continue
+        approved = review.get("commit_id")
+        if approved == head and not review.get("stale"):
+            return True
+        if (
+            approved
+            and approved != head
+            and same_change
+            and same_change(approved, head)
+        ):
+            return True
+    return False
 
 
 def comment_body(head: str, decision: Decision) -> str:
@@ -212,7 +260,7 @@ def judge(forge: Forge, mirror: Mirror, pull: dict[str, Any]) -> tuple[str, Deci
         mirror.reader(head),
         mirror.specs(base),
         mirror.specs(head),
-        operator_approved(reviews, head),
+        operator_approved(reviews, head, mirror.same_change),
     )
     return head, decision
 

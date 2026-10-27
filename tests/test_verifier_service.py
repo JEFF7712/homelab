@@ -162,6 +162,41 @@ class MergePolicyService(unittest.TestCase):
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "success")
 
+    def test_approval_carries_over_a_main_update_but_not_a_new_change(self) -> None:
+        def touch_policy(repo: Path) -> None:
+            (repo / "CODEOWNERS").write_text("x @rupan\n")
+
+        approved = self.branch(7, touch_policy)
+        # main advances, then the PR branch is updated from it.
+        (self.remote / "README").write_text("main moved\n")
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-q", "-m", "main moves")
+        git(self.remote, "checkout", "-q", "pr7")
+        git(self.remote, "merge", "-q", "--no-edit", "main")
+        updated = git(self.remote, "rev-parse", "HEAD")
+        git(self.remote, "checkout", "-q", "main")
+        approval = {
+            "state": "APPROVED",
+            "user": {"login": "rupan"},
+            "commit_id": approved,
+            "stale": True,
+        }
+
+        forge = FakeForge([self.pull(7, updated)])
+        forge.reviews[7] = [approval]
+        run_once(forge, self.mirror, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
+        git(self.remote, "checkout", "-q", "pr7")
+        (self.remote / "CODEOWNERS").write_text("y @rupan\n")
+        git(self.remote, "commit", "-qam", "new change")
+        changed = git(self.remote, "rev-parse", "HEAD")
+        git(self.remote, "checkout", "-q", "main")
+        forge = FakeForge([self.pull(7, changed)])
+        forge.reviews[7] = [approval]
+        run_once(forge, self.mirror, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "failure")
+
     def test_no_status_is_posted_when_the_head_moves_during_judgement(self) -> None:
         head = self.branch(4, lambda repo: (repo / "README").write_text("x\n"))
         forge = FakeForge([self.pull(4, head)])
@@ -222,6 +257,16 @@ class Decide(unittest.TestCase):
         review = {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": head}
         self.assertTrue(operator_approved([review], head))
         self.assertFalse(operator_approved([{**review, "stale": True}], head))
+        self.assertFalse(
+            operator_approved(
+                [{**review, "commit_id": "c" * 40}], head, lambda a, b: False
+            )
+        )
+        self.assertTrue(
+            operator_approved(
+                [{**review, "commit_id": "c" * 40}], head, lambda a, b: True
+            )
+        )
         self.assertFalse(operator_approved([{**review, "dismissed": True}], head))
         self.assertFalse(
             operator_approved([{**review, "user": {"login": "homelab-agent"}}], head)
