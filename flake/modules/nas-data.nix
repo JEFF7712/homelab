@@ -30,8 +30,14 @@
     ];
   };
 
-  # Samba passwords live outside Nix; set rupan's with smbpasswd once
+  # Samba passwords live outside Nix; set with smbpasswd once
   # (docs/runbooks/nas-game-share.md).
+  users.users.sam = {
+    isNormalUser = true;
+    group = "users";
+    description = "Sam (Game Streaming)";
+  };
+
   services.samba = {
     enable = true;
     openFirewall = true;
@@ -52,7 +58,7 @@
         browseable = "yes";
         "read only" = "no";
         "guest ok" = "no";
-        "valid users" = "rupan";
+        "valid users" = "sam rupan";
         "create mask" = "0664";
         "directory mask" = "0775";
         "force user" = "rupan";
