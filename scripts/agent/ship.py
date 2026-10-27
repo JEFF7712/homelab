@@ -35,6 +35,7 @@ REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 POLICY_CONTEXT = "policy/merge"
 POLICY_OPERATOR = "rupan"
 POLICY_REPAIRS = 3
+POLICY_SETTLE_SECONDS = 120
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
 APPROVALS = "http://ci.internal:8020"
@@ -460,6 +461,7 @@ class Shipper:
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
+        settle = time.monotonic() + POLICY_SETTLE_SECONDS
         while True:
             self.remaining()
             status = self.forgejo.call("GET", f"/commits/{sha}/status")
@@ -470,7 +472,17 @@ class Shipper:
             if state == "success":
                 return
             if state in {"failure", "error"}:
-                break
+                # The policy polls on an interval, so an operator approval of
+                # this head can be newer than the failure it overrides. Give
+                # the policy time to re-judge instead of escalating again.
+                if not self.operator_approved(number, sha):
+                    break
+                if time.monotonic() > settle:
+                    raise ShipError(
+                        f"{POLICY_OPERATOR} approved {sha[:12]} on PR #{number} but "
+                        f"{POLICY_CONTEXT} still fails; check journalctl -u merge-policy "
+                        "on homelab-04"
+                    )
             time.sleep(POLL_SECONDS)
         comments = self.forgejo.call("GET", f"/issues/{number}/comments") or []
         verdicts = policy_verdicts(comments)
@@ -496,6 +508,16 @@ class Shipper:
         raise ShipError(
             f"{POLICY_CONTEXT} rejected PR #{number} ({rejected}/{POLICY_REPAIRS} "
             f"repairs used). Fix these, commit, and rerun just ship:\n{findings}"
+        )
+
+    def operator_approved(self, number: int, sha: str) -> bool:
+        reviews = self.forgejo.call("GET", f"/pulls/{number}/reviews") or []
+        return any(
+            review.get("state") == "APPROVED"
+            and (review.get("user") or {}).get("login") == POLICY_OPERATOR
+            and review.get("commit_id") == sha
+            and not review.get("dismissed")
+            for review in reviews
         )
 
     def merge(self, pull: dict[str, Any]) -> str:
