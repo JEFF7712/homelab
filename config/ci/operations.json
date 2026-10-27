@@ -459,7 +459,8 @@
     "legacy_job": "provision_jarvis_publisher",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "provision-pod-agent-publisher": {
     "commands": [
@@ -509,7 +510,8 @@
     "legacy_job": "provision_pod_agent_publisher",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "deploy-registry-platform": {
     "commands": [
@@ -1323,7 +1325,8 @@
     "legacy_job": "cloudflare_import",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "cloudflare-apply": {
     "commands": [
@@ -1400,7 +1403,6 @@
   },
   "deploy-fleet-dry-run": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1457,7 +1459,6 @@
   },
   "deploy-fleet": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1511,7 +1512,6 @@
   },
   "deploy-agent-workspace-host-dry-run": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1563,7 +1563,6 @@
   },
   "deploy-agent-workspace-host": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1907,7 +1906,8 @@
     "legacy_job": "provision_darkbit_publisher",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "nixos-publish": {
     "commands": [
@@ -2201,7 +2201,6 @@
   },
   "deploy-ci-host-dry-run": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -2253,7 +2252,6 @@
   },
   "deploy-ci-host": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",

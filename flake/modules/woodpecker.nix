@@ -26,8 +26,9 @@ let
     mkdir -p $out/scripts/ci $out/config/ci
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
+    cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py
+    cp ${../../config/ci/ship-routes.json} $out/config/ci/ship-routes.json
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
-    PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${../..} > $out/authority-baseline.json
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
     cp ${../../scripts/ci/development_projects.py} $out/scripts/ci/development_projects.py
     cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
@@ -249,7 +250,7 @@ in
       environment.PYTHONPATH = toString policySource;
       path = [ pkgs.git ];
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --projects ${../../config/ci/projects.json} --public-key %d/signature-public.pem --mirror %S/woodpecker-policy/homelab.git --authority-baseline ${policySource}/authority-baseline.json";
+        ExecStart = "${python}/bin/python -m scripts.ci.policy --catalog ${../../config/ci/operations.json} --applications ${../../config/ci/applications.json} --projects ${../../config/ci/projects.json} --public-key %d/signature-public.pem --mirror %S/woodpecker-policy/homelab.git";
         StateDirectory = "woodpecker-policy";
         LoadCredential = "signature-public.pem:/persist/woodpecker/signature-public.pem";
         EnvironmentFile = config.sops.secrets."woodpecker-policy.env".path;

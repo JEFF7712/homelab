@@ -12,6 +12,7 @@ just ship --deploy none            # merge and wait for Flux, run no operations
 just ship --deploy opnsense-apply  # explicitly select an operation
 just ship --resume <merge-sha>     # finish an already merged deployment
 just ship --json                   # machine-readable summary on stdout
+just ship --verify 'curl --fail https://service.example/health'
 ```
 
 ## What it does
@@ -53,35 +54,28 @@ Cloudflare and application releases. CI-host-only paths select that host instead
 of also deploying the entire fleet. `--deploy` selects an explicit operation
 list and includes prerequisites; `--deploy none` merges without operations.
 
-The deployed policy checks agent mutations against the authorization and storage
-source baseline captured in its active NixOS generation. A caller cannot grant
-itself permission by editing the checked-out catalog. The check is scoped to what
-the operation activates: every operation is gated on the operation runner and risk
-module it executes from its own commit; host deployments (anything that runs
-`deploy-fleet`) are also gated on CI policy, the operation catalog, approvals,
-projectctl authorization and scopes, workspace and NetBird access, SSH/sudo/Nix
-trust settings, registry ACLs, state credentials, disk layouts and SOPS
-recipients, plus newly changed Nix lines that touch those settings;
-`opnsense-apply` is also gated on the agent ACL. Ordinary service code, release
-scripts, checks, hooks and application catalogs are not authority, so a pending
-policy change never blocks unrelated releases. The full lists and saved-plan rules
-live in `scripts/ci/deployment_risk.py`.
+The task request authorizes catalog operations, including policy and credential
+changes. Agent and operator identities use the same validated delivery path.
+Saved OpenTofu plans must be recognized and complete; authorization, data and
+connectivity risks are reported for the agent to assess against the task scope
+and recovery evidence, without a human approval hold. Production credentials
+stay in CI and validation remains credential-free.
 
-OpenTofu applies inspect the exact saved plan after loading its prerequisite
-artifacts. Authorization-resource changes, persistent-data deletion/replacement,
-interface/gateway deletion and bulk destruction (50 or more resources) require
-approval. Ordinary DNS edits and small firewall/reservation cleanup do not.
-A risk rejection makes `ship` file an approval request automatically. A
-protected-source rejection files a grant for the exact file versions and, once
-approved, retries as the agent, so main moving in between costs nothing; see
-[approvals](approvals.md). Do not
-retry with an operator token or change catalog permissions to evade the decision.
+An operation can finish against an older main revision when every intervening
+change is known to affect a different catalog resource group. Both the deployed
+policy and the operation runner verify ancestry and input changes. Unknown paths,
+shared scripts, catalog changes and credentials invalidate conservatively. The
+same source SHA and validation parent still bind all prerequisite artifacts;
+plans are never transferred across revisions. Related changes supersede queued
+work, and `ship` retries its prerequisite against newer main. Resource locks
+prevent an older same-resource deployment from overwriting a newer one.
 
-These checks govern supported delivery and assume trusted configuration authors.
-They are not a sandbox for hostile NixOS code with root authority, nor a complete
-semantic classifier for arbitrary commands or manifests. Keep direct mutations
-within the existing authorization contract and obtain human approval for
-high-risk changes even when a source classifier does not recognize them.
+Fleet operations evaluate the desired system on every selected host, compare it
+with the live system, and skip unchanged hosts. Changed closures are prepared
+before any drain; activation uses the exact evaluated path. Failed activation
+or host health checks restore and verify the previous system before stopping.
+Newly failed systemd units fail health verification. See
+[NixOS host deployment](nixos-host-deployment.md).
 
 `just ship --resume <merge-sha>` verifies that the commit is already in main,
 selects its routes and follows deployment without pushing or opening another PR.
@@ -97,25 +91,33 @@ takes effect only after the `ci-host` route deploys homelab-04. When the
 change adds the `deploy-ci-host` operations themselves, or restarts the
 Woodpecker server or agents, use the local deployment path with
 `just deploy-fleet --target homelab-04`. A server restart cancels active
-workflows through gRPC even when their agents stay running. Required
-authorization and storage approvals still apply. For recovery after an
+workflows through gRPC even when their agents stay running. The task’s standing delivery authorization applies. For recovery after an
 approved switch, follow [CI recovery](ci-pipelines.md#recovery).
 
 ## Credentials
 
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
-token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. CI accepts high-risk
-operations only from a human operator, so for those `ship` uses
-`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token` when
-present. Without one, which is every agent machine, it files the operation on
-the [approvals dashboard](approvals.md), prints the request link, and waits
-for the operator's passkey approval; the dashboard triggers the operation and
-`ship` follows its pipeline. A declined or expired request fails the ship.
-It never prints a token. Deployment operations run in CI with CI-held credentials, so a
-service publish never depends on the caller's Docker login.
+token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. Operations run in
+CI with CI-held credentials. It never prints a token. The approvals service is
+retained for outstanding legacy requests: before the new policy is deployed,
+`ship` can still file the old policy's passkey request and follow its result.
+After migration, catalog operations require no operator token or passkey.
 
 ## Acceptance
 
 `ship` proves CI, operation, and Flux convergence. It does not prove the
-user-visible behavior. After it reports `done`, check the changed behavior
-as the subsystem runbook describes.
+user-visible behavior. Supply the task’s acceptance checks with repeatable `--verify COMMAND` options;
+they run after operations and Flux convergence, within the delivery deadline.
+A nonzero exit fails delivery; fix or recover and resume. With these checks,
+the JSON state is `verified`; without them it is `deployed`. The agent must
+verify the requested behavior using the subsystem runbook before reporting
+completion. Fleet recovery restores configuration, not persistent-data migrations.
+
+`ship` logs API queue and execution times separately for each operation and
+includes them in its JSON result. Queue time does not identify whether a resource
+lock or runner capacity caused the wait. Measure before adding runners.
+
+Promotion worktrees are removed on exit. Their unique local branches are deleted
+only after confirmed successful merge; failed attempts retain the branch for
+recovery. Fetches prune all origin branch tracking refs, including in main-only
+workspace clones.

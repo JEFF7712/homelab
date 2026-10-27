@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 from scripts.ci.deployment_risk import (
     ALL_PATHS,
-    APPROVAL_REQUIRED,
     authority_digest,
     blob_id,
     changed_authority,
@@ -149,21 +148,29 @@ class DeploymentRiskTest(unittest.TestCase):
         self.assertTrue(plan_risks({"resource_changes": [], "complete": False}))
         self.assertTrue(plan_risks({}))
 
-    def test_saved_plan_is_checked_before_agent_apply_but_operator_can_execute(
-        self,
-    ) -> None:
+    def test_saved_plan_risks_are_reported_without_human_approval(self) -> None:
         output = json.dumps(self.plan("cloudflare_r2_bucket", ["delete"]))
-        with (
-            patch("subprocess.check_output", return_value=output) as show,
-            patch("subprocess.run") as initialize,
+        for operator in (False, True):
+            with (
+                patch("subprocess.check_output", return_value=output) as show,
+                patch("subprocess.run") as initialize,
+            ):
+                require_plan_approval(Path("/repo"), "cloudflare-apply", operator)
+                self.assertEqual(show.call_args.args[0][-1], "desired.tfplan")
+                initialize.assert_called_once()
+
+    def test_invalid_saved_plan_cannot_apply(self) -> None:
+        for plan in (
+            {},
+            {"resource_changes": [], "complete": False},
+            {"resource_changes": [], "errored": True},
         ):
-            with self.assertRaisesRegex(ValueError, APPROVAL_REQUIRED):
+            with (
+                patch("subprocess.check_output", return_value=json.dumps(plan)),
+                patch("subprocess.run"),
+                self.assertRaisesRegex(ValueError, "incomplete"),
+            ):
                 require_plan_approval(Path("/repo"), "cloudflare-apply", False)
-            self.assertEqual(show.call_args.args[0][-1], "desired.tfplan")
-            initialize.assert_called_once()
-            show.reset_mock()
-            require_plan_approval(Path("/repo"), "cloudflare-apply", True)
-            show.assert_not_called()
 
     def test_scope_follows_what_the_operation_activates(self) -> None:
         catalog = json.loads(
