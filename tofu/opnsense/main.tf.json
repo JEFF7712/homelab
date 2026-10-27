@@ -29,6 +29,20 @@
         "mac_address": "70:89:76:4d:66:e3",
         "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
       },
+      "govee_h6008_1": {
+        "description": "Govee H6008 bulb 1 (LAN control, WAN blocked)",
+        "hostname": "govee-h6008-1",
+        "ip_address": "10.0.20.166",
+        "mac_address": "d4:13:68:01:8a:8d",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
+      "govee_h6008_2": {
+        "description": "Govee H6008 bulb 2 (LAN control, WAN blocked)",
+        "hostname": "govee-h6008-2",
+        "ip_address": "10.0.20.167",
+        "mac_address": "d4:13:68:01:94:b3",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
       "laptop_nixos": {
         "description": "Rupan's NixOS laptop",
         "hostname": "laptop-nixos",
@@ -129,6 +143,27 @@
         "enabled": true,
         "name": "admin_laptop",
         "type": "host"
+      },
+      "govee_bulbs": {
+        "content": [
+          "10.0.20.166",
+          "10.0.20.167"
+        ],
+        "description": "Govee H6008 bulbs pinned to LAN-only control",
+        "enabled": true,
+        "name": "govee_bulbs",
+        "type": "host"
+      },
+      "govee_lan_ports": {
+        "content": [
+          "4001",
+          "4002",
+          "4003"
+        ],
+        "description": "Govee LAN discovery, response, and control ports",
+        "enabled": true,
+        "name": "govee_lan_ports",
+        "type": "port"
       },
       "iot_bambu_a1": {
         "content": [
@@ -355,6 +390,32 @@
           ]
         },
         "sequence": 200
+      },
+      "clients-allow-govee-responses": {
+        "description": "Allow Govee LAN responses to Home Assistant",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.0/24",
+            "port": "4002"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "govee_bulbs",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 211
       },
       "clients-allow-internet": {
         "description": "Allow clients to the Internet",
@@ -589,6 +650,32 @@
           ]
         },
         "sequence": 227
+      },
+      "clients-block-govee-bulbs-internet": {
+        "description": "Block LAN-only Govee bulbs from the Internet (local control via govee_light_local)",
+        "enabled": true,
+        "filter": {
+          "action": "block",
+          "destination": {
+            "net": "any",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": true,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "govee_bulbs",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 226
       },
       "clients-block-private": {
         "description": "Block clients from other private VLANs",
@@ -849,6 +936,58 @@
           ]
         },
         "sequence": 300
+      },
+      "infrastructure-allow-govee-multicast": {
+        "description": "Allow Home Assistant Govee multicast discovery",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "239.255.255.250/32",
+            "port": "4001"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 308
+      },
+      "infrastructure-allow-govee-queries": {
+        "description": "Allow Home Assistant Govee LAN queries",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "govee_bulbs",
+            "port": "govee_lan_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 312
       },
       "infrastructure-allow-internet": {
         "description": "Allow infrastructure to the Internet",
