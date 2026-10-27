@@ -27,3 +27,5 @@ gitops/voice/voice-id/profiles.json
 scripts/voice_id/profiles.json
 .stfolder/
 .stignore
+# Claude Code --worktree sessions
+.claude/worktrees/
