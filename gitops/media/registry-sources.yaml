@@ -19,3 +19,8 @@ items:
   - image: ghcr.io/jessepesse/jellyfin-ai-recommender-backend:latest@sha256:ee2d25fade81d322781d9460ea08971efe5d6df6a5fbf9dae586b188bcd6679b  # yamllint disable-line rule:line-length
   # jellyfin-ai-recommender frontend (nginx: proxied React UI)
   - image: ghcr.io/jessepesse/jellyfin-ai-recommender-frontend:latest@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30  # yamllint disable-line rule:line-length
+  # Questarr (*arr-style game manager: IGDB discovery, Prowlarr indexers,
+  # qBittorrent downloads)
+  - image: ghcr.io/doezer/questarr:v1.5.0@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621  # yamllint disable-line rule:line-length
+  # Gameyfin (web library for /tank/media/games with per-user downloads)
+  - image: ghcr.io/gameyfin/gameyfin:2.5.2@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93  # yamllint disable-line rule:line-length

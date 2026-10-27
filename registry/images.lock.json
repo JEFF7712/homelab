@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-26T19:47:46+00:00",
+  "generated_at": "2026-10-27T06:08:10+00:00",
   "images": [
     {
       "authenticity": {
@@ -1389,6 +1389,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:24"
+      ],
+      "destination_repository": "upstream/ghcr.io/doezer/questarr",
+      "destination_tags": [
+        "retention-deployed-8b6a6df437aa3983",
+        "v1.5.0"
+      ],
+      "digest": "sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+      "id": "upstream-doezer-questarr-1de167cc5524",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+        "reference": "ghcr.io/doezer/questarr:v1.5.0@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+        "registry": "ghcr.io",
+        "repository": "doezer/questarr",
+        "tag": "v1.5.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:external-secrets/external-secrets-5dcc447d56-9wnsq/external-secrets",
         "observed:external-secrets/external-secrets-cert-controller-7bb979fc44-85gwg/cert-controller",
         "observed:external-secrets/external-secrets-webhook-55585c5576-9svqm/webhook"
@@ -1587,6 +1626,45 @@
         "registry": "ghcr.io",
         "repository": "fluxcd/source-controller",
         "tag": "v1.9.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "destination_tags": [
+        "2.5.2",
+        "retention-deployed-c9262445a16bfeed"
+      ],
+      "digest": "sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+      "id": "upstream-gameyfin-gameyfin-29e8c1e1ce78",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.5.2@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.5.2"
       }
     },
     {
