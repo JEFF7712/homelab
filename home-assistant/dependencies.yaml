@@ -57,9 +57,9 @@ custom_integrations:
   - domain: browser_mod
     name: Browser Mod
     source: https://github.com/thomasloven/hass-browser_mod
-    version: v3.2.3
-    artifact: https://github.com/thomasloven/hass-browser_mod/archive/refs/tags/v3.2.3.zip
-    sha256: 1ad554aa2dbda5d7a0bcf148979f7c2a33cf9b2f7bdc4b25a07467fa3b3e143d
+    version: v3.4.0
+    artifact: https://github.com/thomasloven/hass-browser_mod/archive/refs/tags/v3.4.0.zip
+    sha256: c74e85d92ea91045914b51703ea18de1066493df3d5ff37ca8acbdae1bc0df09
     install_path: /config/custom_components/browser_mod
     connection: local
     status: installed
