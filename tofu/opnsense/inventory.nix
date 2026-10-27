@@ -67,6 +67,20 @@
         mac = "14:c1:9f:59:cd:60";
         network = "clients";
       };
+      govee_h6008_1 = {
+        description = "Govee H6008 bulb 1 (LAN control, WAN blocked)";
+        hostname = "govee-h6008-1";
+        address = "10.0.20.166";
+        mac = "d4:13:68:01:8a:8d";
+        network = "clients";
+      };
+      govee_h6008_2 = {
+        description = "Govee H6008 bulb 2 (LAN control, WAN blocked)";
+        hostname = "govee-h6008-2";
+        address = "10.0.20.167";
+        mac = "d4:13:68:01:94:b3";
+        network = "clients";
+      };
     };
     aliases = {
       spotify_matrix_senders = {
@@ -118,6 +132,25 @@
         devices = [
           "roku_floor_lamp"
           "roku_desk_lamp"
+        ];
+      };
+      govee_lan_ports = {
+        type = "port";
+        content = [
+          "4001"
+          "4002"
+          "4003"
+        ];
+        description = "Govee LAN discovery, response, and control ports";
+        enabled = true;
+      };
+      govee_bulbs = {
+        type = "host";
+        description = "Govee H6008 bulbs pinned to LAN-only control";
+        enabled = true;
+        devices = [
+          "govee_h6008_1"
+          "govee_h6008_2"
         ];
       };
       netbird_allowed_dests = {
@@ -531,6 +564,54 @@
           };
         };
       };
+      clients-allow-govee-responses = {
+        description = "Allow Govee LAN responses to Home Assistant";
+        enabled = true;
+        sequence = 211;
+        interface = {
+          interface = [ "opt1" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = "govee_bulbs";
+            port = "";
+          };
+          destination = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "4002";
+          };
+        };
+      };
+      clients-block-govee-bulbs-internet = {
+        description = "Block LAN-only Govee bulbs from the Internet (local control via govee_light_local)";
+        enabled = true;
+        sequence = 226;
+        interface = {
+          interface = [ "opt1" ];
+        };
+        filter = {
+          action = "block";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "any";
+          quick = true;
+          log = true;
+          source = {
+            net = "govee_bulbs";
+            port = "";
+          };
+          destination = {
+            net = "any";
+            port = "";
+          };
+        };
+      };
       clients-block-bambu-internet = {
         description = "Block Bambu Lab A1 printer from the Internet (LAN mode only)";
         enabled = true;
@@ -744,6 +825,54 @@
           destination = {
             net = "224.0.0.251/32";
             port = "5353";
+          };
+        };
+      };
+      infrastructure-allow-govee-queries = {
+        description = "Allow Home Assistant Govee LAN queries";
+        enabled = true;
+        sequence = 312;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "govee_bulbs";
+            port = "govee_lan_ports";
+          };
+        };
+      };
+      infrastructure-allow-govee-multicast = {
+        description = "Allow Home Assistant Govee multicast discovery";
+        enabled = true;
+        sequence = 308;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "239.255.255.250/32";
+            port = "4001";
           };
         };
       };
