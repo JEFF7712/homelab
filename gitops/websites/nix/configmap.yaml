@@ -126,11 +126,6 @@ data:
           color: #fff;
           letter-spacing: -0.04em;
           line-height: 1.05;
-          margin-bottom: 0.75rem;
-        }
-        .sub {
-          color: var(--blue-soft);
-          font-size: clamp(0.85rem, 1.4vw, 1rem);
           margin-bottom: 2.5rem;
         }
         .actions {
@@ -265,7 +260,6 @@ data:
 
         <main class="content">
           <h1>NixOS Live ISO</h1>
-          <p class="sub">Declarative Wayland installer with Niri &amp; Quickshell.</p>
 
           <div class="actions">
             <a href="/nixos.iso" class="btn-download" download>
@@ -298,7 +292,7 @@ data:
 
       <div class="container">
         <footer>
-          <span>cluster.rupan.dev &bull; homelab-01</span>
+          <span>hosted on my k8s cluster</span>
           <a href="https://git.rupan.dev/JEFF7712/nixos-config">forgejo</a>
         </footer>
       </div>
