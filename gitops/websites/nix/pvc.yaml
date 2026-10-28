@@ -7,7 +7,7 @@ metadata:
   namespace: nix
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   storageClassName: nfs-cluster
   resources:
     requests:
