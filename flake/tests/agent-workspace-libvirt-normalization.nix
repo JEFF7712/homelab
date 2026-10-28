@@ -58,18 +58,8 @@ let
       ];
     }
   );
-  workspaceSources = pkgs.lib.cleanSourceWith {
-    src = ../../.;
-    filter =
-      path: _type:
-      let
-        rel = pkgs.lib.removePrefix (toString ../../. + "/") (toString path);
-        base = baseNameOf (toString path);
-      in
-      base != "__pycache__"
-      && !(pkgs.lib.hasSuffix ".pyc" base)
-      && (rel == "" || rel == "scripts" || pkgs.lib.hasPrefix "scripts/" rel);
-  };
+  # Changes outside this package must not invalidate the libvirt VM result.
+  workspaceSources = import ./agent-workspace-python-source.nix { inherit (pkgs) lib; };
   verify = pkgs.writeText "verify-libvirt-normalization.py" ''
     import pathlib
     import subprocess

@@ -161,6 +161,16 @@ invalidate a check, while changes to tracked source must still do so.
 See the [revalidation cache investigation](../research/2026-10-27-ci-revalidation-cache.md)
 for the measured baseline and reproduction.
 
+The libvirt normalization VM copies only `scripts/agent_workspaces/` and
+`scripts/__init__.py`, through `flake/tests/agent-workspace-python-source.nix`.
+Package data and both initializers remain inputs; unrelated scripts, Git
+metadata and Python bytecode do not invalidate this VM result. Keep imports
+inside that package, or extend the source boundary when adding an external
+repository dependency. The Nix-integration lane runs
+`tests.test_agent_workspace_sources` beside the Zot integration tests. Its
+real-Nix fixture checks copied files and source identity after relevant and
+unrelated mutations without building a VM.
+
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
 and deployment work); `scripts/ci/cache.sh` and `just cache-populate` publish
