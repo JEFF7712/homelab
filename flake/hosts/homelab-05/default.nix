@@ -47,6 +47,8 @@ in
   };
 
   homelab.omarchyVm.enable = true;
+  # 4G guest: at the 8G default homelab-05's pods ran at 191% of allocatable.
+  homelab.omarchyVm.memoryMiB = 4096;
   homelab.woodpeckerSandbox.enable = true;
 
   homelab.disk.device = "/dev/disk/by-id/nvme-KXG70ZNV1T02_NVMe_KIOXIA_1024GB_42MFC3FQFTC5";

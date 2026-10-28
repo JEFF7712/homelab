@@ -288,6 +288,24 @@
                 "false"
             }
             ${if !(nixpkgs.lib.hasInfix "dport 443" policy) then "true" else "false"}
+            test ${
+              nixpkgs.lib.escapeShellArg (
+                builtins.toJSON (
+                  builtins.filter (grant: grant.address == "192.168.1.1") (
+                    host.services.agent-workspace-network.tcpEgress.rupan
+                  )
+                )
+              )
+            } = '[{"address":"192.168.1.1","ports":[443]}]'
+            test ${
+              nixpkgs.lib.escapeShellArg (
+                builtins.toJSON (
+                  builtins.filter (grant: grant.address == "192.168.1.1") (
+                    host.services.agent-workspace-network.tcpEgress.sam or [ ]
+                  )
+                )
+              )
+            } = '[]'
             ${if !(nixpkgs.lib.hasInfix "dport 123" policy) then "true" else "false"}
             touch $out
           '';
