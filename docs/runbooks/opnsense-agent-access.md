@@ -172,6 +172,17 @@ one fails without falling back. Otherwise it extracts just those two
 properties from the encrypted source using SOPS. It never falls back to
 `OPNSENSE_API_KEY`, CI deploy keys, or the administrator API account.
 
+For agent-rupan, the policy reserves
+`secrets/agent-rupan-opnsense-readonly.sops.json` for only the read-only pair,
+encrypted to the VM-specific identity and the Flux operator identity. Publish
+the encrypted file in a separate delivery after the recipient policy is
+approved. The worker requires that file when the VM identity exists at
+`~/.config/sops/age/agent-rupan.key`; a missing file fails without trying the
+broader operator secret. When rotating the read-only account,
+update both encrypted files before relying on the VM probe. The VM copy is
+derived from `gitops/secrets/homelab-values.sops.yaml`, which remains the
+authoritative credential source.
+
 Set `OPNSENSE_CA_FILE` to override the CA file. By default the probe uses
 `secrets/keys/opnsense-ca.pem` and, unless already configured for SOPS,
 the local `secrets/keys/flux-age.key` identity. In an isolated Git worktree,

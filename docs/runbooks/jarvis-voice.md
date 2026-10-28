@@ -18,8 +18,11 @@ top priority 3500 in WirePlumber, above sink monitors at 100) -> satellite
 container (`linux-voice-assistant`,
 wake word `hey_jarvis.tflite`, port 6053, device substring match `QuadCast`)
 -> Home Assistant on `homelab-03` -> stable STT gateway
-(`wyoming-whisper.voice:10300`) -> Nemotron primary, local Whisper fallback,
-and optional Groq fallback -> transcript with an optional `speaker <Name>` tag.
+(`wyoming-whisper.voice:10300`) -> Nemotron primary and Groq cloud fallback
+-> transcript with an optional `speaker <Name>` tag (Nemotron only; Groq
+transcripts carry no speaker). Local Whisper was removed on 2026-10-27 to
+free homelab-04 memory; the gateway Service keeps its `wyoming-whisper` name
+because Home Assistant targets it.
 TTS uses the stable `wyoming-chatterbox.voice:10201` gateway with Chatterbox
 Turbo primary and Piper fallback. Backend preference and circuit state belong to
 the gateways, so HA pipeline identifiers do not change during backend failover.
@@ -97,8 +100,8 @@ neither the live verifier nor access-control policy changed.
 
 Read back the destination manifest digest before changing the consumer and
 registry lock. A local Docker image ID is not the published manifest digest.
-Before replacing the primary, prove a recorded-WAV transcript through
-`wyoming-stt-local.voice:10300`. After Flux reconciliation, verify native GPU
+Before replacing the primary, prove a recorded-WAV transcript through the
+`wyoming-stt-groq.voice:10300` fallback. After Flux reconciliation, verify native GPU
 recognition on `homelab-04`, speaker-ID startup, gateway outcomes, and metrics.
 Rollback by reverting the complete integration commit through Git and Flux;
 retain the old host library directory until acceptance is complete.
@@ -491,9 +494,9 @@ a push for Flux to roll it to the whisper pod:
    TTS remains unavailable by design (single mpv, no duplex path).
 2. Transcript sanity guard (`is_garbage_transcript` in
    `gitops/voice/voice-id/proxy.py`, unit-tested in
-   `tests/test_transcript_guard.py`, shipped via `configMapGenerator` as
-   `wyoming-voice-id-config-<hash>`, so every proxy or profile change
-   rolls the whisper pod): drops empty transcripts, a single
+   `tests/test_transcript_guard.py`, and copied byte-for-byte into the
+   `jarvis-nemotron` image as `nemotron-bridge/proxy.py`, so a guard change
+   needs an image rebuild): drops empty transcripts, a single
    token repeated 3+ times, and a tight denylist of observed hallucinations.
    Dropped transcripts are forwarded as empty text, which HA abandons
    silently. Never denylist bare `Hey Jarvis.` (keeps the lone-wake-word
@@ -585,7 +588,6 @@ sources for refresh:
 | Deployment | Image | Pin | Refresh |
 | --- | --- | --- | --- |
 | satellite | `ghcr.io/ohf-voice/linux-voice-assistant` | `1.1.1` | tags list on GHCR; `latest` floats past releases, so pin the newest stable tag, not `latest` |
-| whisper | `docker.io/rhasspy/wyoming-whisper` | `3.8.1` | Docker Hub tags, newest `3.x` |
 | piper | `docker.io/rhasspy/wyoming-piper` | `2.5.2` | Docker Hub tags, newest non-`omnivoice` `2.x` |
 | chatterbox bridge base | `registry.rupan.dev/upstream/ghcr.io/astral-sh/uv` | same digest as von/local-decision | GHCR tags, newest stable; `chatterbox-tts==0.1.7` and Turbo weights `749d1c1a` pinned in `gitops/voice/chatterbox.yaml` |
 | pot-provider | `docker.io/brainicism/bgutil-ytdlp-pot-provider` | `1.2.1` | Docker Hub tags, newest stable |
@@ -629,20 +631,15 @@ retired PVCs can be reclaimed by hand.
   and no cold KV-cache evaluation. Per-turn latency is STT plus Jev API
   plus TTS. Keep Assist exposures pruned anyway: a lean tool schema keeps
   the future cloud prompt cheap.
-- Whisper runs `base.en` (~140 MB) on `homelab-04` CPU with `--beam-size 5`
-  (HA upstream default on non-ARM) and fixed `--language en`. `base.en`
-  completes transcription in ~300ms on CPU at beam 1; beam 5 keeps multiple
-  hypotheses alive through short ambiguous utterances at modest extra CPU
-  cost, still far below GPU-less `turbo`. `turbo` (large-v3-turbo, ~800 MB)
-  was benchmarked and rejected: without
-  GPU acceleration, `turbo` on CPU incurs a ~6.0s transcription delay per turn,
-  causing the satellite to appear to stall or listen long after the user stops
-  speaking. `base.en` restores sub-second turn responsiveness.
+- Groq (`whisper-large-v3-turbo`) is the only STT fallback. It needs
+  internet egress and the `groq-stt` Secret; a turn that falls back adds a
+  cloud round trip and loses speaker ID. Local CPU Whisper (`base.en`) was
+  removed for memory; CPU `turbo` had been rejected for ~6s turns.
 - Piper is sub-second at steady state but re-downloads its voice on every pod
   restart unless its model cache persists. Voices persist on the
   `piper-voices` PVC (`gitops/voice/storage.yaml`); do not revert that volume
   to `emptyDir`.
-- Model pulls (Whisper, Piper) hit the network only on first-ever
+- Model pulls (Piper) hit the network only on first-ever
   start; after that they load off local NVMe.
 - The face is a Cozmo-style procedural eye engine in
   `home-assistant/www/jarvis/app.js`: expression presets per state (eye
@@ -697,7 +694,7 @@ reconciliation remain Flux and operator actions.
 
 The stable HA targets are `wyoming-whisper.voice:10300` for STT and
 `wyoming-chatterbox.voice:10201` for TTS. The gateways choose their backend
-preference internally, so replacing Nemotron with Whisper or Chatterbox with
+preference internally, so failing over from Nemotron to Groq or Chatterbox to
 Piper does not change the HA pipeline identity.
 
 Recovery follows the same boundary:
@@ -801,12 +798,13 @@ Home Assistant Assist consumes Wyoming STT events (`audio-start`, `audio-chunk`,
 `audio-stop`), but discards raw audio once transcribed. To achieve speaker-aware
 routing and personalization without modifying Home Assistant core:
 
-1. A lightweight Wyoming proxy (`gitops/voice/voice-id/proxy.py`,
-   importable in tests as `scripts.voice_id.proxy` via symlink) runs as a
-   sidecar in `wyoming-whisper` pod (`gitops/voice/whisper.yaml`) listening on port `10300`.
-   The actual Whisper STT engine listens upstream on `127.0.0.1:10301`.
-2. As the client streams audio, the proxy transparently forwards audio events to
-   Whisper while buffering the 16kHz PCM audio in memory.
+1. The speaker-ID logic lives in `gitops/voice/voice-id/proxy.py`
+   (importable in tests as `scripts.voice_id.proxy` via symlink) and is
+   copied byte-for-byte into the `jarvis-nemotron` image as
+   `nemotron-bridge/proxy.py`, which the Nemotron bridge imports in process.
+   Only Nemotron identifies speakers; the Groq fallback does not.
+2. As the client streams audio, the bridge feeds recognition while buffering
+   the 16kHz PCM audio in memory.
 3. Upon `audio-stop`, the proxy uses `sherpa-onnx` CAMP++ ONNX model
    (`3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx`) to compute a 512-dimensional
    speaker embedding vector in ~35ms on CPU.
@@ -818,7 +816,7 @@ routing and personalization without modifying Home Assistant core:
    plaintext file stays out of git).
 6. If the top score exceeds `threshold` (0.35) and exceeds the runner-up by
    `min_margin` (0.10), the speaker identity is confirmed (`Rupan` or `Sam`).
-7. When Whisper returns the `transcript` event, the proxy prefixes `speaker <Name>`
+7. When recognition finishes, the bridge prefixes `speaker <Name>`
    (e.g. `speaker Sam play some Kanye`) before sending it back to Home Assistant.
 8. `home-assistant/automations/jarvis_voice_music_playback.yaml` and
    `home-assistant/scripts/jarvis_play_media.yaml` read the speaker identity and route
@@ -864,8 +862,8 @@ To add or update speaker voice profiles:
      /tmp/voice-id.dec.yaml > gitops/secrets/voice-id-profiles.sops.yaml
    shred -u /tmp/voice-id.dec.yaml /tmp/profiles.json
    ```
-   Commit; Flux decrypts via the `secrets` Kustomization and the whisper /
-   nemotron pods mount the new Secret on roll. Never commit plaintext
+   Commit; Flux decrypts via the `secrets` Kustomization and the Nemotron
+   pod mounts the new Secret on roll. Never commit plaintext
    `profiles.json`.
 
 
@@ -882,9 +880,10 @@ To add or update speaker voice profiles:
 - Face shows IDLE but never LISTENING: satellite pod not ready or HA Wyoming
   entry pointing at the wrong host. `just status cluster` plus the satellite
   pod events; confirm the HA Wyoming host is `voice-satellite.voice`.
-- First turn after deploy is very slow, later turns fine: Whisper or Piper
-  cold start. Check probe status on whisper/piper before tuning anything.
-- Every turn slow: Whisper CPU throttled. Check pod resource usage.
+- First turn after deploy is very slow, later turns fine: Nemotron or Piper
+  cold start. Check probe status on nemotron/piper before tuning anything.
+- Every turn slow and no `speaker` tags: STT is on the Groq fallback. Check
+  the Nemotron pod and the gateway's `jarvis_gateway_fallbacks_total`.
 - Face state frozen while voice works: HA websocket broken in
 `app.js`; use keys 1-6 on the kiosk keyboard to confirm the face itself
 still cycles states.

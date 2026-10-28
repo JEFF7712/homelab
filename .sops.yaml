@@ -1,6 +1,7 @@
 # Host recipients derive from each host's persisted SSH host key with
 # ssh-to-age; see docs/runbooks/secrets.md.
 keys:
+  - &agent_rupan age1gpp05plaqzzthgxa6tl22rwv6fjryu62gqzd4v7ptvfxlzx2d5kqvez7gd
   - &operator_flux age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl
   - &operator_recovery age1ckzw40ndw6v98ctczzw99lv7k257h4tx7xq6k9f0f5mltq9z9gtq36achw
   - &adguard-netbird-01 age1k5u30g46e89fv4kz2wpm2kl3q42dkhyl3gy7duf970ly2txyldgsrfh5sz
@@ -11,6 +12,9 @@ keys:
   - &homelab-05 age1gesrec4u0nhnav74q8wg8yaacg7nvnxgl0gmg88fec6fg0vdzvfqgtw94v
   - &nas-01 age1z7u0dtdxac286jaqyup0hslz53wgygw3ydfl0vt8p8ksqjhh890sp240x3
 creation_rules:
+  - path_regex: secrets/agent-rupan-opnsense-readonly\.sops\.json$
+    key_groups:
+      - age: [*operator_flux, *agent_rupan]
   - path_regex: gitops/secrets/.*\.sops\.yaml$
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl
   - path_regex: secrets/woodpecker-clone\.sops\.env$
