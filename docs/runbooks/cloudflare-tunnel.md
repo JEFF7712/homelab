@@ -150,8 +150,54 @@ the provider fills defaults the mirror does not set; fix that in `main.tf`'s
 
 Woodpecker secrets: `cloudflare_account_id`, `cloudflare_plan_api_token` (plan)
 and `cloudflare_deploy_api_token` (apply). `tofu` reads the token from
-`CLOUDFLARE_API_TOKEN`, so it never enters HCL or state. The apply token needs
-`Account > Cloudflare Tunnel > Edit` and nothing else.
+`CLOUDFLARE_API_TOKEN`, so it never enters HCL or state. The tunnel needs
+`Account > Cloudflare Tunnel > Read` for plan and `Edit` for apply. The WAF
+declaration additionally requires zone permissions described below.
+
+## US-only personal apps
+
+`tofu/cloudflare/waf.tf` declares a custom WAF rule in the `rupan.dev` zone's
+`http_request_firewall_custom` entry point. Its explicit 26-host set covers
+personal media, sync, Home Assistant, dashboards and controls. It blocks when
+`ip.src.country ne "US"`, including unknown geography. It does not grant a WAF
+skip or bypass authentication for US visitors. VPN exit geography determines
+the result; travel outside the US needs a US exit or a reviewed rule change.
+
+Public sites, public notes and photography, Git/CI, analytics, ntfy and
+automation receivers are outside the hostname set. Home Assistant's
+`/api/webhook/` prefix is excepted on `ha.rupan.dev` only; webhook authentication
+and Cloudflare Access still apply. No other paths are excepted. Future apps
+are not restricted until explicitly added to `personal_app_hostnames`.
+
+**Rollout pending:** the existing CI tokens are documented as tunnel-only.
+Before the first WAF apply:
+
+1. Add `Zone > Zone > Read` to both CI tokens, `Zone > WAF > Read` to
+   `cloudflare_plan_api_token`, and `Zone > WAF > Edit` to
+   `cloudflare_deploy_api_token`, scoped to `rupan.dev`. Replace tokens in CI
+   secrets if Cloudflare requires replacement; do not put them in git or chat.
+2. Use the plan identity to resolve the zone and GET
+   `/zones/<zone-id>/rulesets/phases/http_request_firewall_custom/entrypoint`.
+   A permission error is not evidence that the ruleset is absent.
+3. If an entry point exists, preserve all its rules in the declaration, then
+   add a reviewed OpenTofu import block targeting
+   `cloudflare_ruleset.personal_apps`, with ID
+   `"zones/<zone-id>/<ruleset-id>"`. Do not create a competing entry point or
+   replace the rules list with only this rule. If the API confirms absence,
+   the resource can create the entry point without an import.
+4. Run `just check-changed` and `just fmt-check`, then `just ship`. Review the
+   saved Cloudflare plan: only the new country block should change behavior;
+   tunnel ingress and existing WAF rules must be preserved.
+5. Read the deployed entry point back and compare the expression, action,
+   enabled flag and existing rules. Probe a personal hostname from both a US
+   and non-US exit: only the non-US request should receive the country block.
+   Probe public and integration endpoints from the non-US exit as well.
+
+Recovery: disable only `personal_apps_us_only` in source and ship it; preserve
+all other rules. `prevent_destroy` protects the shared entry point from removal.
+
+References: [country allowlist expression](https://developers.cloudflare.com/waf/custom-rules/use-cases/allow-traffic-from-specific-countries/),
+[existing entry point handling](https://developers.cloudflare.com/waf/custom-rules/custom-rulesets/).
 
 ## `pod.rupan.dev` (owner desk)
 
