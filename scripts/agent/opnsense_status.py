@@ -51,11 +51,18 @@ def credentials(root: Path) -> tuple[str, str]:
             )
         return supplied[0], supplied[1]
     source = root / "gitops/secrets/homelab-values.sops.yaml"
+    vm_identity = Path.home() / ".config/sops/age/agent-rupan.key"
+    vm_source = root / "secrets/agent-rupan-opnsense-readonly.sops.json"
+    use_vm_source = vm_identity.is_file()
+    if use_vm_source:
+        source = vm_source
     if not source.is_file():
         raise Unavailable("encrypted read-only OPNsense credentials are unavailable")
     environment = dict(os.environ)
     if "SOPS_AGE_KEY_FILE" not in environment:
-        identity = _operator_file(root, "flux-age.key")
+        identity = (
+            vm_identity if use_vm_source else _operator_file(root, "flux-age.key")
+        )
         if identity.is_file():
             environment["SOPS_AGE_KEY_FILE"] = str(identity)
     values = []
@@ -65,7 +72,7 @@ def credentials(root: Path) -> tuple[str, str]:
                 "sops",
                 "--decrypt",
                 "--extract",
-                f'["stringData"]["{name}"]',
+                f'["{name}"]' if use_vm_source else f'["stringData"]["{name}"]',
                 str(source),
             ],
             env=environment,

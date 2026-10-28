@@ -145,6 +145,53 @@ class OpnsenseStatusTest(unittest.TestCase):
                 [("GET", endpoint) for endpoint in ENDPOINTS],
             )
 
+    @patch.dict(os.environ, {}, clear=True)
+    def test_vm_missing_scoped_secret_does_not_use_operator_secret(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            identity = root / ".config/sops/age/agent-rupan.key"
+            identity.parent.mkdir(parents=True)
+            identity.touch()
+            operator_source = root / "gitops/secrets/homelab-values.sops.yaml"
+            operator_source.parent.mkdir(parents=True)
+            operator_source.touch()
+            with (
+                patch("pathlib.Path.home", return_value=root),
+                patch("scripts.agent.opnsense_status.subprocess.run") as run,
+            ):
+                with self.assertRaises(Unavailable):
+                    credentials(root)
+            run.assert_not_called()
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_vm_identity_selects_scoped_encrypted_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            identity = root / ".config/sops/age/agent-rupan.key"
+            identity.parent.mkdir(parents=True)
+            identity.touch()
+            source = root / "secrets/agent-rupan-opnsense-readonly.sops.json"
+            source.parent.mkdir()
+            source.touch()
+            results = [
+                subprocess.CompletedProcess([], 0, "readonly-key\n", ""),
+                subprocess.CompletedProcess([], 0, "readonly-secret\n", ""),
+            ]
+            with (
+                patch("pathlib.Path.home", return_value=root),
+                patch(
+                    "scripts.agent.opnsense_status.subprocess.run", side_effect=results
+                ) as run,
+            ):
+                self.assertEqual(credentials(root), ("readonly-key", "readonly-secret"))
+            self.assertEqual(
+                run.call_args_list[0].kwargs["env"]["SOPS_AGE_KEY_FILE"], str(identity)
+            )
+            self.assertIn(
+                '["OPNSENSE_READONLY_API_KEY"]', run.call_args_list[0].args[0]
+            )
+            self.assertEqual(run.call_args_list[0].args[0][-1], str(source))
+
     def test_failure_never_echoes_exception_or_credentials(self) -> None:
         output = io.StringIO()
         with (
