@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import json
+import subprocess
 import tempfile
 import unittest
 import unittest.mock
@@ -116,6 +118,16 @@ class ShipPlanTest(unittest.TestCase):
         self.assertEqual(plan.run, ["deploy-fleet-dry-run", "deploy-fleet"])
 
 
+class ShipTimingTest(unittest.TestCase):
+    def test_queue_and_execution_have_separate_measurements(self):
+        self.assertEqual(
+            ship.pipeline_timings({"created": 100, "started": 520, "finished": 550}),
+            {"queue_seconds": 420, "execution_seconds": 30},
+        )
+        self.assertEqual(ship.pipeline_timings({"created": 0, "started": 0}), {})
+        self.assertEqual(ship.pipeline_timings({"created": 100, "started": 99}), {})
+
+
 class ShipNetworkTest(unittest.TestCase):
     def test_refused_connections_are_retried_then_reported(self) -> None:
         response = unittest.mock.MagicMock()
@@ -171,7 +183,8 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship.time, "sleep"),
             self.assertRaisesRegex(ShipError, "following deployment"),
         ):
-            shipper.run_operation(10, "provision-darkbit-publisher")
+            number = shipper.approved(10, "provision-darkbit-publisher")
+            shipper.woodpecker.pipeline(number)
         shipper.woodpecker.deploy.assert_not_called()
         shipper.woodpecker.pipeline.assert_called_once_with(77)
         method, url, headers, body = http.call_args_list[0].args
@@ -193,7 +206,7 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship, "http", side_effect=responses),
             self.assertRaisesRegex(ShipError, ship.SUPERSEDED),
         ):
-            shipper.run_operation(10, "provision-darkbit-publisher")
+            shipper.approved(10, "provision-darkbit-publisher")
 
     def test_declined_approvals_stop_the_ship(self) -> None:
         shipper = self.approval_shipper()
@@ -207,7 +220,7 @@ class ShipOperatorTest(unittest.TestCase):
             patch.object(ship, "http", side_effect=responses),
             self.assertRaisesRegex(ShipError, "declined on the approvals dashboard"),
         ):
-            shipper.run_operation(10, "provision-darkbit-publisher")
+            shipper.approved(10, "provision-darkbit-publisher")
         shipper.woodpecker.pipeline.assert_not_called()
 
     def test_held_operations_use_the_operator_token(self) -> None:
@@ -479,6 +492,72 @@ class ShipMainPipelineTest(unittest.TestCase):
             shipper.main_pipeline(SHA)
 
 
+class ShipKilledValidationTest(unittest.TestCase):
+    KILLED = {"number": 6117, "event": "push", "status": "killed"}
+    REUSED = {"number": 6118, "event": "pull_request", "status": "success"}
+
+    def shipper(
+        self, statuses: list[str], pipelines: list[dict], restarted_status: str
+    ) -> ship.Shipper:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
+        shipper.reported = {}
+        shipper.restarted = {}
+        shipper.forgejo = unittest.mock.Mock()
+        shipper.forgejo.call.side_effect = lambda method, path: {
+            "statuses": [
+                {
+                    "context": REQUIRED_CONTEXT,
+                    "status": statuses.pop(0) if len(statuses) > 1 else statuses[0],
+                }
+            ]
+        }
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipelines_for.return_value = pipelines
+        shipper.woodpecker.restart.return_value = {"number": 6128}
+        shipper.woodpecker.pipeline.return_value = {
+            "number": 6128,
+            "status": restarted_status,
+        }
+        shipper.woodpecker.failure_report.return_value = "report"
+        patcher = patch.object(ship.time, "sleep")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return shipper
+
+    def test_a_killed_validation_is_restarted_once_and_followed(self) -> None:
+        shipper = self.shipper(
+            ["failure", "failure", "success"], [self.KILLED, self.REUSED], "running"
+        )
+        shipper.wait_status(SHA, "PR #4")
+        shipper.woodpecker.restart.assert_called_once_with(6117)
+
+    def test_a_second_kill_fails_instead_of_restarting_again(self) -> None:
+        shipper = self.shipper(["failure"], [self.KILLED, self.REUSED], "killed")
+        with self.assertRaisesRegex(ShipError, "restarted pipeline #6128 did not"):
+            shipper.wait_status(SHA, "PR #4")
+        shipper.woodpecker.restart.assert_called_once_with(6117)
+
+    def test_a_real_failure_is_reported_without_a_restart(self) -> None:
+        failed = {"number": 6117, "event": "push", "status": "failure"}
+        shipper = self.shipper(["failure"], [failed], "running")
+        with self.assertRaisesRegex(ShipError, "Required validation failed"):
+            shipper.wait_status(SHA, "PR #4")
+        shipper.woodpecker.restart.assert_not_called()
+
+    def test_only_the_latest_kill_of_a_validation_event_is_restartable(self) -> None:
+        from scripts.agent.ship import killed_validation
+
+        self.assertEqual(killed_validation([self.KILLED, self.REUSED]), self.KILLED)
+        newer = {"number": 6130, "event": "push", "status": "running"}
+        self.assertIsNone(killed_validation([self.KILLED, newer]))
+        deploy = {"number": 6131, "event": "deployment", "status": "failure"}
+        self.assertEqual(killed_validation([self.KILLED, deploy]), self.KILLED)
+        failed = {"number": 6116, "event": "push", "status": "failure"}
+        self.assertIsNone(killed_validation([failed, self.KILLED]))
+
+
 class ShipResumeTest(unittest.TestCase):
     def shipper(self) -> ship.Shipper:
         from argparse import Namespace
@@ -604,8 +683,119 @@ class ShipRolloutTest(unittest.TestCase):
         self.assertEqual(extract_patch(log), patch)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class ShipLiveVerificationTest(unittest.TestCase):
+    def test_failed_acceptance_does_not_report_verified(self):
+        runner = ship.Shipper.__new__(ship.Shipper)
+        runner.args = unittest.mock.Mock(verify=["exit 7"])
+        runner.say = lambda _: None
+        runner.remaining = lambda: 10
+        runner.summary = {"state": "deployed"}
+        with self.assertRaisesRegex(
+            ShipError, "verification 1 failed with exit code 7"
+        ):
+            runner.verify_live(ROOT)
+        self.assertEqual(runner.summary["state"], "deployed")
+        self.assertEqual(runner.summary["verification"], [{"check": 1, "exit_code": 7}])
+
+    def test_successful_acceptance_is_recorded(self):
+        runner = ship.Shipper.__new__(ship.Shipper)
+        runner.args = unittest.mock.Mock(verify=["test -f README.md", "true"])
+        runner.say = lambda _: None
+        runner.remaining = lambda: 10
+        runner.summary = {}
+        runner.verify_live(ROOT)
+        self.assertEqual(runner.summary["state"], "verified")
+        self.assertEqual(len(runner.summary["verification"]), 2)
+
+
+class ShipBranchCleanupTest(unittest.TestCase):
+    def test_fetch_prunes_deleted_refs_even_with_main_only_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            remote, local = root / "remote.git", root / "local"
+            subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
+            subprocess.run(
+                ["git", "clone", "-q", str(remote), str(local)],
+                check=True,
+                capture_output=True,
+            )
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(local), *args], text=True
+                ).strip()
+
+            git("config", "user.name", "Fixture")
+            git("config", "user.email", "fixture@example.com")
+            git("checkout", "-qb", "main")
+            (local / "file").write_text("base")
+            git("add", "file")
+            git("commit", "-qm", "base")
+            git("push", "-q", "origin", "main", "HEAD:refs/heads/temporary")
+            git("fetch", "-q", "origin")
+            git("push", "-q", "origin", ":refs/heads/temporary")
+            git(
+                "config",
+                "remote.origin.fetch",
+                "+refs/heads/main:refs/remotes/origin/main",
+            )
+            runner = ship.Shipper.__new__(ship.Shipper)
+            runner.fetch(local)
+            refs = git("for-each-ref", "--format=%(refname)", "refs/remotes/origin/")
+            self.assertNotIn("temporary", refs)
+            self.assertIn("refs/remotes/origin/main", refs)
+
+    def test_promotion_deletes_only_successfully_merged_branch(self):
+        for succeeds in (True, False):
+            with (
+                self.subTest(succeeds=succeeds),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+
+                def git(*args, cwd=None):
+                    return subprocess.check_output(
+                        ["git", "-C", str(cwd or root), *args], text=True
+                    ).strip()
+
+                git("init", "-q")
+                git("config", "user.name", "Fixture")
+                git("config", "user.email", "fixture@example.com")
+                (root / "file").write_text("before\n")
+                git("add", "file")
+                git("commit", "-qm", "base")
+                git("update-ref", "refs/remotes/origin/main", "HEAD")
+                (root / "file").write_text("after\n")
+                patch_body = git("diff", "--no-ext-diff") + "\n"
+                git("checkout", "--", "file")
+                runner = ship.Shipper.__new__(ship.Shipper)
+                runner.args = argparse.Namespace()
+                runner.deadline = 9999999999
+                runner.summary = {"promotions": []}
+                runner.git = git
+                runner.fetch = lambda *args: None
+                runner.say = lambda _: None
+                nested = unittest.mock.Mock()
+
+                def promote(worktree):
+                    self.assertEqual((worktree / "file").read_text(), "after\n")
+                    if not succeeds:
+                        raise ShipError("fixture failed")
+                    return {"merged": "a" * 40, "state": "deployed"}
+
+                nested.ship.side_effect = promote
+                with patch.object(ship, "Shipper", return_value=nested):
+                    if succeeds:
+                        runner.promote(patch_body, "fixture")
+                    else:
+                        with self.assertRaisesRegex(ShipError, "fixture failed"):
+                            runner.promote(patch_body, "fixture")
+                branches = git("branch", "--list", "ship/promote-*").splitlines()
+                self.assertEqual(len(branches), 0 if succeeds else 1)
+                self.assertEqual(
+                    len(git("worktree", "list", "--porcelain").split("worktree ")) - 1,
+                    1,
+                )
 
 
 class AwaitingReviewTest(unittest.TestCase):
@@ -654,7 +844,13 @@ class PolicyVerdictTest(unittest.TestCase):
             "body": f"<!-- merge-policy head={head} outcome={outcome} -->\n- finding"
         }
 
-    def run_policy(self, state: str, comments: list[dict]) -> tuple[str, list]:
+    def run_policy(
+        self,
+        state: str,
+        comments: list[dict],
+        reviews: list | None = None,
+        states: list[str] | None = None,
+    ) -> tuple[str, list]:
         from scripts.agent import ship
 
         calls: list = []
@@ -663,15 +859,21 @@ class PolicyVerdictTest(unittest.TestCase):
             def call(self, method: str, path: str, body=None):
                 calls.append((method, path, body))
                 if path.startswith("/commits/"):
+                    current = states.pop(0) if states else state
                     return {
-                        "statuses": [{"context": ship.POLICY_CONTEXT, "status": state}]
+                        "statuses": [
+                            {"context": ship.POLICY_CONTEXT, "status": current}
+                        ]
                     }
                 if path.endswith("/comments"):
                     return comments
+                if path.endswith("/reviews"):
+                    return reviews or []
                 return {}
 
         class Stub:
             forgejo = Forge()
+            operator_approved = ship.Shipper.operator_approved
 
             def remaining(self) -> None:
                 pass
@@ -694,7 +896,7 @@ class PolicyVerdictTest(unittest.TestCase):
         outcome, calls = self.run_policy(
             "failure", [self.comment(self.HEAD, "rejected")]
         )
-        self.assertIn("1/3 repairs used", outcome)
+        self.assertIn("1 rejected heads", outcome)
         self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
     def test_authority_finding_escalates_immediately(self) -> None:
@@ -702,16 +904,30 @@ class PolicyVerdictTest(unittest.TestCase):
             "failure", [self.comment(self.HEAD, "escalated")]
         )
         self.assertIn("escalated to rupan", outcome)
-        self.assertIn(
-            ("POST", "/pulls/9/requested_reviewers", {"reviewers": ["rupan"]}), calls
-        )
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
-    def test_exhausted_repairs_escalate(self) -> None:
+    def test_exhausted_repairs_notify_the_operator(self) -> None:
         comments = [self.comment(c * 40, "rejected") for c in "cd"] + [
             self.comment(self.HEAD, "rejected")
         ]
         outcome, calls = self.run_policy("failure", comments)
-        self.assertIn("escalated to rupan", outcome)
+        self.assertIn("escalated to rupan after 3 rejected heads", outcome)
+        notes = [body for method, path, body in calls if method == "POST"]
+        self.assertTrue(any("@rupan" in (body or {}).get("body", "") for body in notes))
+
+    def test_approved_head_waits_for_the_policy_instead_of_escalating(self) -> None:
+        approval = [
+            {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": self.HEAD}
+        ]
+        with patch.object(ship.time, "sleep"):
+            outcome, calls = self.run_policy(
+                "success",
+                [self.comment(self.HEAD, "escalated")],
+                reviews=approval,
+                states=["failure", "failure", "success"],
+            )
+        self.assertEqual(outcome, "passed")
+        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
 
     def test_policy_requirement_follows_branch_protection(self) -> None:
         from scripts.agent.ship import POLICY_CONTEXT, policy_required
@@ -724,3 +940,7 @@ class PolicyVerdictTest(unittest.TestCase):
                     json.dumps({"status_check_contexts": contexts})
                 )
                 self.assertEqual(policy_required(root), expected)
+
+
+if __name__ == "__main__":
+    unittest.main()

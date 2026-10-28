@@ -2,8 +2,10 @@ id: shared_spaces_empty_lights_off
 alias: "Shared Spaces: Lights Off When Empty"
 description: >-
   Shared spaces only. Snapshot and switch shared lights off when the last
-  person leaves, keep them off while nobody is home, restore the snapshot on
-  daytime return. Dark returns re-apply the sunset-driven exit sign, since
+  person leaves, keep them off while nobody is home, restore the snapshot when
+  the first person returns to the empty house in daytime. Later arrivals never
+  re-apply the stale snapshot over lights others have since changed. Dark
+  returns re-apply the sunset-driven exit sign, since
   the snapshot alone would leave it off all night. Skipped while Guest Mode
   is on, so guests are never left in the dark.
 triggers:
@@ -12,6 +14,9 @@ triggers:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "not_home"
     id: "left_empty"
   - trigger: state
@@ -19,6 +24,9 @@ triggers:
       - person.rupan_sunderapandyan
       - person.sam
       - person.jayanth
+    not_from:
+      - unknown
+      - unavailable
     to: "home"
     id: "return"
   - trigger: state
@@ -30,6 +38,8 @@ triggers:
       - light.kitchen_ceiling_light_2
       - light.living_room_floor_lamp
       - light.living_room_tulip_lamp
+      - light.kitchen_dining_table_ceiling_light_1
+      - light.kitchen_dining_table_ceiling_light_2
     from: "off"
     to: "on"
     id: "enforced"
@@ -60,6 +70,8 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+                - light.kitchen_dining_table_ceiling_light_1
+                - light.kitchen_dining_table_ceiling_light_2
           - action: homeassistant.turn_off
             target:
               label_id: shared_space
@@ -77,6 +89,8 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+                - light.kitchen_dining_table_ceiling_light_1
+                - light.kitchen_dining_table_ceiling_light_2
       - conditions:
           - condition: trigger
             id: "enforced"
@@ -115,9 +129,16 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+                - light.kitchen_dining_table_ceiling_light_1
+                - light.kitchen_dining_table_ceiling_light_2
       - conditions:
           - condition: trigger
             id: "return"
+          - condition: template
+            value_template: >-
+              {{ trigger.from_state is not none
+              and trigger.from_state.state not in ('unknown', 'unavailable')
+              and states.person | selectattr('state', 'eq', 'home') | list | count == 1 }}
           - condition: template
             value_template: "{{ state_attr('scene.pre_away_shared', 'entity_id') is not none }}"
           - condition: state

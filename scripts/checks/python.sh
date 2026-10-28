@@ -13,7 +13,10 @@ if [[ -n "${CI_SCOPED_TEST_MODULES:-}" ]]; then
   read -ra scoped_modules <<< "$CI_SCOPED_TEST_MODULES"
   python -m unittest "${scoped_modules[@]}" -v &
 elif [[ "${CI_UNIT_TESTS_EXTERNAL:-0}" == "1" ]]; then
-  python -m scripts.ci.tests --start tests --pattern test_zot_registry_module.py --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}" &
+  (
+    python -m scripts.ci.tests --start tests --pattern test_zot_registry_module.py --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}"
+    python -m unittest tests.test_agent_workspace_sources -v
+  ) &
 elif [[ -n "${CI_TEST_REPORT:-}" ]]; then
   python -m scripts.ci.tests --output "$CI_TEST_REPORT" &
 else

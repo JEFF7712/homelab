@@ -15,7 +15,7 @@ runs AdGuard and NetBird; routing is a dedicated OPNsense box.
 
 ## Network
 
-OPNsense router with BGP peering, Cloudflare Tunnel for remote access,
+OPNsense router with BGP peering, Netbird and Cloudflare Tunnel for remote access,
 cert-manager for internal TLS.
 
 ## Runs here

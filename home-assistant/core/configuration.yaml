@@ -1,6 +1,12 @@
 default_config:
 homeassistant:
   external_url: https://ha.rupan.dev
+  allowlist_external_urls:
+    - http://127.0.0.1:8123
+    - http://10.0.30.15:8095
+  customize:
+    light.shared_zigbee_lights:
+      friendly_name: Shared Lights
   auth_providers:
     - type: homeassistant
     - type: trusted_networks
@@ -257,6 +263,8 @@ light:
       - light.kitchen_ceiling_light_2
       - light.kitchen_mushroom_lamp
       - light.kitchen_fuck_off_sign
+      - light.kitchen_dining_table_ceiling_light_1
+      - light.kitchen_dining_table_ceiling_light_2
   - platform: group
     name: Living Room Lights
     entities:
@@ -269,6 +277,8 @@ light:
       - light.kitchen_ceiling_light_2
       - light.living_room_floor_lamp
       - light.living_room_tulip_lamp
+      - light.kitchen_dining_table_ceiling_light_1
+      - light.kitchen_dining_table_ceiling_light_2
   - platform: group
     name: Bedroom Roku Lights
     entities:
@@ -284,6 +294,8 @@ light:
       - light.kitchen_fuck_off_sign
       - light.living_room_floor_lamp
       - light.living_room_tulip_lamp
+      - light.kitchen_dining_table_ceiling_light_1
+      - light.kitchen_dining_table_ceiling_light_2
   - platform: switch
     name: Bedroom Window Plug
     entity_id: switch.bedroom_window_plug
@@ -299,6 +311,9 @@ light:
   - platform: switch
     name: Kitchen Fuck Off Sign
     entity_id: switch.fuck_off_sign
+  - platform: switch
+    name: Exit Sign
+    entity_id: switch.exit_sign
 homekit:
   - name: Homelab Bridge
     port: 21063
@@ -310,6 +325,8 @@ homekit:
         - light.bedroom_roku_lights
         - light.kitchen_ceiling_light_1
         - light.kitchen_ceiling_light_2
+        - light.kitchen_dining_table_ceiling_light_1
+        - light.kitchen_dining_table_ceiling_light_2
         - light.living_room_floor_lamp
         - light.living_room_tulip_lamp
         - light.desk_lamp_desk_lamp
@@ -349,16 +366,6 @@ recorder:
       - light.light_strip_light_strip
     event_types:
       - call_service
-history:
-  exclude:
-    entity_globs:
-      - sensor.sm_s948u1_app_*
-      - sensor.sm_s948u1_volume_*
-      - sensor.rupan_phone_app_*
-      - sensor.*_rx_gb
-      - sensor.*_tx_gb
-      - sensor.*_last_*
-      - sensor.*_linkquality
 logbook:
   exclude:
     entity_globs:

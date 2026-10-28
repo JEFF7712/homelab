@@ -1249,9 +1249,9 @@
         },
         {
           "package": "rupan-dev-supply",
-          "version": "3",
+          "version": "4",
           "filename": "npm-cache.tar.gz",
-          "sha256": "sha256:54f928b472ae39a018544851976f0dfd52ac6da984c35c941149a63b3010cf5f",
+          "sha256": "sha256:413c340823010dc9099dc0f604987445b4512ec1029f4f4ad8d81a37f8880359",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
         },

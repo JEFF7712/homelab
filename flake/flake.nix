@@ -40,6 +40,9 @@
       tofunix,
       ...
     }:
+    let
+      kernelModulesOverlay = import ../nix/kernel-modules-overlay.nix;
+    in
     {
       nixosModules.projectctl = import ./modules/projectctl.nix;
       nixosConfigurations =
@@ -50,6 +53,7 @@
               system = "x86_64-linux";
               specialArgs = { inherit fleetInventory; };
               modules = [
+                { nixpkgs.overlays = [ kernelModulesOverlay ]; }
                 disko.nixosModules.disko
                 impermanence.nixosModules.impermanence
                 sops-nix.nixosModules.sops
@@ -93,7 +97,12 @@
           check:
           check.extend {
             # QEMU falls back to TCG when sandbox jobs have no host KVM device.
-            modules = [ { requiredFeatures.kvm = false; } ];
+            modules = [
+              {
+                requiredFeatures.kvm = false;
+                defaults.nixpkgs.overlays = [ kernelModulesOverlay ];
+              }
+            ];
           };
         python = pkgs.python313.withPackages (pythonPackages: [
           pythonPackages.bcrypt
@@ -168,6 +177,9 @@
           inherit (self) nixosConfigurations;
         };
         checks.topology = topology;
+        checks.kernel-modules-aggregation = import ./tests/kernel-modules-aggregation.nix {
+          inherit pkgs kernelModulesOverlay;
+        };
         checks.opnsense-config =
           pkgs.runCommand "opnsense-config-check"
             {

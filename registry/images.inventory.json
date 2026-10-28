@@ -806,6 +806,23 @@
     },
     {
       "consumers": [
+        "gitops/media/registry-sources.yaml:28"
+      ],
+      "destination_repository": "upstream/docker.io/clamav/clamav",
+      "id": "upstream-clamav-clamav-e67d9ebfd000",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+        "reference": "docker.io/clamav/clamav:1.5.4@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d",
+        "registry": "docker.io",
+        "repository": "clamav/clamav",
+        "tag": "1.5.4"
+      }
+    },
+    {
+      "consumers": [
         "observed:cnpg-system/cloudnative-pg-7786f6446-5llfh/manager",
         "observed:home-assistant/home-assistant-cluster-1/bootstrap-controller",
         "observed:home-assistant/home-assistant-cluster-2/bootstrap-controller",
@@ -841,6 +858,40 @@
         "registry": "ghcr.io",
         "repository": "cloudnative-pg/postgresql",
         "tag": "17"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:24"
+      ],
+      "destination_repository": "upstream/ghcr.io/doezer/questarr",
+      "id": "upstream-doezer-questarr-1de167cc5524",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+        "reference": "ghcr.io/doezer/questarr:v1.5.0@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621",
+        "registry": "ghcr.io",
+        "repository": "doezer/questarr",
+        "tag": "v1.5.0"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "id": "upstream-gameyfin-gameyfin-29e8c1e1ce78",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.5.2@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.5.2"
       }
     },
     {
@@ -1716,8 +1767,8 @@
       "producer": null,
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17",
-        "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:31076d37e3b7dc9681b32d892aa4413fa866c9a90e5c8a50324b397dce415d17",
+        "digest": "sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04",
+        "reference": "registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04",
         "registry": "registry.rupan.dev",
         "repository": "upstream/ghcr.io/home-assistant/home-assistant",
         "tag": null

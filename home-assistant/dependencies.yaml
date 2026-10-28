@@ -39,9 +39,9 @@ custom_integrations:
   - domain: spook
     name: Spook
     source: https://github.com/frenck/spook
-    version: v5.4.0
-    artifact: https://github.com/frenck/spook/releases/download/v5.4.0/spook.zip
-    sha256: 5c69e58cf14ce67b87299c1eb13c30c37a4f1e75a3e924d51c04be4e5e456a4a
+    version: v5.11.1
+    artifact: https://github.com/frenck/spook/releases/download/v5.11.1/spook.zip
+    sha256: c94d517f38ec07b78f9f7f596f94ec39a42a49c16c89b223c4daaa97ca710526
     install_path: /config/custom_components/spook
     connection: local
     status: installed
@@ -57,9 +57,9 @@ custom_integrations:
   - domain: browser_mod
     name: Browser Mod
     source: https://github.com/thomasloven/hass-browser_mod
-    version: v3.2.3
-    artifact: https://github.com/thomasloven/hass-browser_mod/archive/refs/tags/v3.2.3.zip
-    sha256: 1ad554aa2dbda5d7a0bcf148979f7c2a33cf9b2f7bdc4b25a07467fa3b3e143d
+    version: v3.4.0
+    artifact: https://github.com/thomasloven/hass-browser_mod/archive/refs/tags/v3.4.0.zip
+    sha256: c74e85d92ea91045914b51703ea18de1066493df3d5ff37ca8acbdae1bc0df09
     install_path: /config/custom_components/browser_mod
     connection: local
     status: installed
@@ -134,12 +134,21 @@ custom_frontend_cards:
     install_path: /config/www/community/button-card/button-card.js
     resource_url: /hacsfiles/button-card/button-card.js
     status: installed
+  - name: Mediocre Hass Media Player Cards
+    source: https://github.com/antontanderup/mediocre-hass-media-player-cards
+    version: v0.30.0
+    # yamllint disable-line rule:line-length
+    artifact: https://github.com/antontanderup/mediocre-hass-media-player-cards/releases/download/v0.30.0/mediocre-hass-media-player-cards.js
+    sha256: 2e07f4727ed36beb19ec88d4a89f9ccb90b5d5cfd34fdb3ea46f089bdd174754
+    install_path: /config/www/community/mediocre-hass-media-player-cards/mediocre-hass-media-player-cards.js
+    resource_url: /hacsfiles/mediocre-hass-media-player-cards/mediocre-hass-media-player-cards.js
+    status: installed
 custom_themes:
   - name: Frosted Glass Theme
     source: https://github.com/wessamlauf/homeassistant-frosted-glass-themes
-    version: v1.3
-    artifact: https://github.com/wessamlauf/homeassistant-frosted-glass-themes/archive/refs/tags/v1.3.zip
-    sha256: af86c6ec1f0bcdcfda1eb9b923621d5874a8a95050d11989618258556a5e6bc1
+    version: v1.4
+    artifact: https://github.com/wessamlauf/homeassistant-frosted-glass-themes/archive/refs/tags/v1.4.zip
+    sha256: b311c1c3f67ef40c1a5818c8de0887d80e9e3f53e3b482287958c0caab8f8cb1
     install_path: /config/themes/
     connection: local
     status: installed

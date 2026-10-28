@@ -12,6 +12,7 @@ import argparse
 import base64
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -20,6 +21,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,6 +30,7 @@ from typing import Any
 import yaml
 
 from scripts.ci.deployment_risk import APPROVAL_REQUIRED
+from scripts.verifier.freshness import OUTDATED, overlap
 
 ROOT = Path(__file__).resolve().parents[2]
 OWNER_REPO = "JEFF7712/homelab"
@@ -35,6 +38,7 @@ REQUIRED_CONTEXT = "ci/woodpecker/validation-v2"
 POLICY_CONTEXT = "policy/merge"
 POLICY_OPERATOR = "rupan"
 POLICY_REPAIRS = 3
+POLICY_SETTLE_SECONDS = 120
 WOODPECKER = "http://ci.internal:8000"
 WOODPECKER_REPO = 1
 APPROVALS = "http://ci.internal:8020"
@@ -48,10 +52,47 @@ SUPERSEDED = "Operation source must be the current main commit"
 GRANT_PATTERN = re.compile(r"\(grant ([0-9a-f]{64})\): ([^<\n]*)")
 ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
+# One ship at a time holds the merge lease from its final freshness check to
+# its merge, so main cannot move under a revalidation. The lease is a branch
+# holding one parentless commit that names the holder and its expiry; pushes
+# compare and swap its commit, so creating, renewing, taking over an expired
+# lease and releasing are atomic on the server.
+LEASE_BRANCH = "ship/merge-lease"
+LEASE_REF = f"refs/heads/{LEASE_BRANCH}"
+LEASE_TTL_SECONDS = 300
+LEASE_RENEW_SECONDS = 60
+LEASE_POLL_SECONDS = 10
 
 
 class ShipError(RuntimeError):
     pass
+
+
+class LeaseLost(ShipError):
+    pass
+
+
+def lease_message(holder: str, expires: float) -> str:
+    # [skip ci]: the lease branch is not source and must not start pipelines.
+    return (
+        "just ship merge lease [skip ci]\n\n"
+        + json.dumps({"holder": holder, "expires": int(expires)})
+        + "\n"
+    )
+
+
+def lease_holder(message: str, now: float) -> str | None:
+    """Who holds an unexpired lease; None once it expired or is unreadable."""
+    for line in reversed(message.splitlines()):
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("expires"), int):
+            if payload["expires"] > now:
+                return str(payload.get("holder", "unknown"))
+            return None
+    return None
 
 
 @dataclass(frozen=True)
@@ -163,14 +204,45 @@ def kustomization_state(
     return False, ready.get("message", "waiting for reconciliation")[:300]
 
 
+def latest_status(
+    statuses: list[dict[str, Any]], context: str = REQUIRED_CONTEXT
+) -> dict[str, Any]:
+    matches = [s for s in statuses if s.get("context") == context]
+    if not matches:
+        return {}
+    return max(matches, key=lambda s: (s.get("updated_at", ""), s.get("id", 0)))
+
+
 def required_status(
     statuses: list[dict[str, Any]], context: str = REQUIRED_CONTEXT
 ) -> str:
-    matches = [s for s in statuses if s.get("context") == context]
-    if not matches:
-        return "missing"
-    latest = max(matches, key=lambda s: (s.get("updated_at", ""), s.get("id", 0)))
-    return str(latest.get("status", "missing"))
+    return str(latest_status(statuses, context).get("status", "missing"))
+
+
+VALIDATION_EVENTS = frozenset({"push", "pull_request", "manual"})
+
+
+def killed_validation(pipelines: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The validation run to restart when the head's only problem is a kill.
+
+    A run cancelled from outside (a Woodpecker or agent restart, runner
+    pressure) is not a verdict on the change. Any failed run is, and a newer
+    run for the same event already replaced the killed one.
+    """
+    runs = [p for p in pipelines if p.get("event") in VALIDATION_EVENTS]
+    if any(p.get("status") in {"failure", "error"} for p in runs):
+        return None
+    killed = max(
+        (p for p in runs if p.get("status") in {"killed", "canceled"}),
+        key=lambda p: p["number"],
+        default=None,
+    )
+    if killed is None or any(
+        p["number"] > killed["number"] and p.get("event") == killed.get("event")
+        for p in runs
+    ):
+        return None
+    return killed
 
 
 def extract_patch(log: str) -> str | None:
@@ -182,6 +254,27 @@ def extract_patch(log: str) -> str | None:
         encoded = "".join(line.strip() for line in body.splitlines())
         return base64.b64decode(encoded, validate=True).decode()
     return body.strip("\n") + "\n"
+
+
+def pipeline_timings(pipeline: dict[str, Any]) -> dict[str, float]:
+    """API timestamps separate pipeline wait from execution, not its cause."""
+    result = {}
+    created, started, finished = (
+        pipeline.get(key) for key in ("created", "started", "finished")
+    )
+    if (
+        isinstance(created, (int, float))
+        and isinstance(started, (int, float))
+        and 0 < created <= started
+    ):
+        result["queue_seconds"] = round(started - created, 2)
+    if (
+        isinstance(started, (int, float))
+        and isinstance(finished, (int, float))
+        and 0 < started <= finished
+    ):
+        result["execution_seconds"] = round(finished - started, 2)
+    return result
 
 
 def http(
@@ -342,7 +435,141 @@ class Woodpecker:
         return self.call("POST", f"/repos/{WOODPECKER_REPO}/pipelines/{parent}?{query}")
 
 
+class MergeLease:
+    """The server-side merge lease, held through the agent remote."""
+
+    def __init__(
+        self,
+        shipper: Shipper,
+        holder: str,
+        remote: str = AGENT_REMOTE,
+        cwd: Path = ROOT,
+    ) -> None:
+        self.shipper = shipper
+        self.holder = holder
+        self.remote = remote
+        self.cwd = cwd
+        self.sha = ""
+        self.renewed = 0.0
+
+    def git(
+        self, *command: str, stdin: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", *command],
+            cwd=self.cwd,
+            input=stdin,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def current(self) -> str:
+        result = self.git("ls-remote", self.remote, LEASE_REF)
+        if result.returncode:
+            raise ShipError(f"Reading the merge lease failed: {result.stderr.strip()}")
+        return result.stdout.split()[0] if result.stdout.strip() else ""
+
+    def read(self, sha: str) -> str:
+        self.git("fetch", "--quiet", "--no-write-fetch-head", self.remote, LEASE_REF)
+        return self.git("log", "-1", "--format=%B", sha).stdout
+
+    def swap(self, expected: str, new: str) -> bool:
+        """Point the lease at new (or delete it) only if it still is expected."""
+        result = self.git(
+            "push",
+            "--quiet",
+            f"--force-with-lease={LEASE_REF}:{expected}",
+            self.remote,
+            f"{new}:{LEASE_REF}",
+        )
+        return result.returncode == 0
+
+    def commit(self) -> str:
+        tree = self.git("mktree", stdin="").stdout.strip()
+        expires = time.time() + LEASE_TTL_SECONDS
+        identity = {
+            "GIT_AUTHOR_NAME": "just ship",
+            "GIT_AUTHOR_EMAIL": "ship@localhost",
+        }
+        return subprocess.run(
+            ["git", "commit-tree", tree, "-F", "-"],
+            cwd=self.cwd,
+            input=lease_message(self.holder, expires),
+            capture_output=True,
+            text=True,
+            check=True,
+            env={
+                **os.environ,
+                **identity,
+                "GIT_COMMITTER_NAME": identity["GIT_AUTHOR_NAME"],
+                "GIT_COMMITTER_EMAIL": identity["GIT_AUTHOR_EMAIL"],
+            },
+        ).stdout.strip()
+
+    def acquire(self) -> None:
+        waiting = ""
+        while True:
+            self.shipper.remaining()
+            try:
+                expected = self.current()
+            except ShipError as error:
+                self.shipper.say(f"{error}; retrying")
+                time.sleep(RETRY_SECONDS)
+                continue
+            if expected:
+                message = self.read(expected)
+                holder = lease_holder(message, time.time())
+                if holder:
+                    if holder != waiting:
+                        self.shipper.say(
+                            f"waiting for the merge lease held by {holder}"
+                        )
+                        waiting = holder
+                    time.sleep(LEASE_POLL_SECONDS + random.uniform(0, 5))
+                    continue
+                if not message:
+                    # Unreadable is not expired; never take a lease blind.
+                    time.sleep(LEASE_POLL_SECONDS)
+                    continue
+                self.shipper.say("taking over an expired merge lease")
+            new = self.commit()
+            if self.swap(expected, new):
+                self.sha, self.renewed = new, time.monotonic()
+                self.shipper.say("holding the merge lease")
+                return
+            # Another ship won the race, or the push failed; look again.
+            time.sleep(random.uniform(1, 3))
+
+    def renew(self) -> None:
+        if time.monotonic() - self.renewed < LEASE_RENEW_SECONDS:
+            return
+        new = self.commit()
+        if self.swap(self.sha, new):
+            self.sha, self.renewed = new, time.monotonic()
+            return
+        # A failed push may be transient; retry on the next poll unless the
+        # lease already moved to another ship.
+        try:
+            current = self.current()
+        except ShipError:
+            return
+        if current != self.sha:
+            raise LeaseLost("The merge lease expired and another ship took it")
+
+    def ensure(self) -> None:
+        if self.current() != self.sha:
+            raise LeaseLost("The merge lease expired and another ship took it")
+
+    def release(self) -> None:
+        if self.sha and not self.swap(self.sha, ""):
+            self.shipper.say("could not release the merge lease; it expires on its own")
+        self.sha = ""
+
+
 class Shipper:
+    lease: MergeLease | None = None
+
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.forgejo = Forgejo()
@@ -350,14 +577,19 @@ class Shipper:
         self.deadline = time.monotonic() + args.timeout * 60
         self.summary: dict[str, Any] = {"operations": [], "promotions": []}
         self.reported: dict[str, str] = {}
+        # Head -> validation pipeline restarted once after an external kill.
+        self.restarted: dict[str, int] = {}
 
     def say(self, message: str) -> None:
         print(f"[ship {time.strftime('%H:%M:%S')}] {message}", flush=True)
 
     def remaining(self) -> float:
+        """Time left before the deadline; every wait polls it, so it renews the lease."""
         left = self.deadline - time.monotonic()
         if left <= 0:
             raise ShipError(f"Timed out after {self.args.timeout} minutes")
+        if self.lease is not None:
+            self.lease.renew()
         return left
 
     def git(self, *command: str, cwd: Path | None = None) -> str:
@@ -369,6 +601,18 @@ class Shipper:
             text=True,
         ).stdout.strip()
 
+    def fetch(self, cwd: Path | None = None) -> None:
+        # Workspaces may configure origin to fetch main only. An explicit
+        # wildcard refspec also prunes stale tracking refs from earlier fetches.
+        self.git(
+            "fetch",
+            "--quiet",
+            "--prune",
+            "origin",
+            "+refs/heads/*:refs/remotes/origin/*",
+            cwd=cwd,
+        )
+
     # Source side -----------------------------------------------------------
 
     def preflight(self, cwd: Path) -> tuple[str, str]:
@@ -377,7 +621,7 @@ class Shipper:
             raise ShipError("Ship from a feature branch, not main or a detached HEAD")
         if self.git("status", "--porcelain", "--untracked-files=no", cwd=cwd):
             raise ShipError("Commit or discard tracked changes before shipping")
-        self.git("fetch", "--quiet", "origin", "main", cwd=cwd)
+        self.fetch(cwd)
         if not self.git("rev-list", "origin/main..HEAD", cwd=cwd):
             raise ShipError("Branch has no commits beyond origin/main")
         return branch, self.git("rev-parse", "HEAD", cwd=cwd)
@@ -436,11 +680,37 @@ class Shipper:
             if state == "success":
                 return
             if state in {"failure", "error"}:
+                pipelines = self.woodpecker.pipelines_for(sha)
+                restarted = self.restarted.get(sha)
+                if restarted is not None:
+                    # The status still shows the kill until the restarted
+                    # run reports.
+                    if self.woodpecker.pipeline(restarted).get("status") in {
+                        "pending",
+                        "running",
+                        "success",
+                    }:
+                        time.sleep(POLL_SECONDS)
+                        continue
+                else:
+                    killed = killed_validation(pipelines)
+                    if killed is not None:
+                        created = self.woodpecker.restart(int(killed["number"]))
+                        self.restarted[sha] = int(created["number"])
+                        self.say(
+                            f"{label} {sha[:12]}: validation pipeline "
+                            f"#{killed['number']} was killed, not failed; "
+                            f"restarted as #{created['number']}"
+                        )
+                        time.sleep(POLL_SECONDS)
+                        continue
                 failed = [
                     p
-                    for p in self.woodpecker.pipelines_for(sha)
+                    for p in pipelines
                     if p.get("status") in {"failure", "error", "killed"}
                 ]
+                if restarted is not None:
+                    failed.sort(key=lambda p: p["number"] != restarted)
                 report = (
                     self.woodpecker.failure_report(
                         self.woodpecker.pipeline(failed[0]["number"])
@@ -448,29 +718,55 @@ class Shipper:
                     if failed
                     else "no failing Woodpecker pipeline found"
                 )
-                raise ShipError(f"Required validation failed for {sha[:12]}\n{report}")
+                again = (
+                    f" (restarted pipeline #{restarted} did not pass; check who "
+                    "cancels validation)"
+                    if restarted is not None
+                    else ""
+                )
+                raise ShipError(
+                    f"Required validation failed for {sha[:12]}{again}\n{report}"
+                )
             time.sleep(POLL_SECONDS)
 
-    def wait_policy(self, pull: dict[str, Any]) -> None:
+    def wait_policy(self, pull: dict[str, Any]) -> bool:
         """Wait for the merge policy's verdict on this exact head.
 
-        A repairable rejection goes back to the agent with the findings. The
-        operator is asked only when the change needs authority the policy
-        cannot grant, or after POLICY_REPAIRS rejected heads on this PR.
+        Returns False when the head is behind main with overlapping changes,
+        which a branch update fixes. Repairable rejections go back to the
+        agent. The operator is notified only when the change needs authority
+        the policy cannot grant, or when POLICY_REPAIRS rejected heads on this
+        PR exhaust the bounded recovery.
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
+        settle = time.monotonic() + POLICY_SETTLE_SECONDS
         while True:
             self.remaining()
             status = self.forgejo.call("GET", f"/commits/{sha}/status")
-            state = required_status(status.get("statuses") or [], POLICY_CONTEXT)
+            latest = latest_status(status.get("statuses") or [], POLICY_CONTEXT)
+            state = str(latest.get("status", "missing"))
             if state != last:
                 self.say(f"PR #{number} {sha[:12]}: {POLICY_CONTEXT} {state}")
                 last = state
             if state == "success":
-                return
+                return True
+            if state == "failure" and str(latest.get("description", "")).startswith(
+                OUTDATED
+            ):
+                return False
             if state in {"failure", "error"}:
-                break
+                # The policy polls on an interval, so an operator approval of
+                # this head can be newer than the failure it overrides. Give
+                # the policy time to re-judge instead of escalating again.
+                if not self.operator_approved(number, sha):
+                    break
+                if time.monotonic() > settle:
+                    raise ShipError(
+                        f"{POLICY_OPERATOR} approved {sha[:12]} on PR #{number} but "
+                        f"{POLICY_CONTEXT} still fails; check journalctl -u merge-policy "
+                        "on homelab-04"
+                    )
             time.sleep(POLL_SECONDS)
         comments = self.forgejo.call("GET", f"/issues/{number}/comments") or []
         verdicts = policy_verdicts(comments)
@@ -483,37 +779,110 @@ class Shipper:
             "no policy comment found",
         )
         rejected = sum(outcome == "rejected" for outcome in verdicts.values())
-        if verdicts.get(sha) == "escalated" or rejected >= POLICY_REPAIRS:
-            self.forgejo.call(
-                "POST",
-                f"/pulls/{number}/requested_reviewers",
-                {"reviewers": [POLICY_OPERATOR]},
-            )
+        if verdicts.get(sha) == "escalated":
             raise ShipError(
                 f"PR #{number} escalated to {POLICY_OPERATOR}: {pull['html_url']}\n"
                 f"{findings}"
             )
+        if rejected >= POLICY_REPAIRS:
+            self.forgejo.call(
+                "POST",
+                f"/issues/{number}/comments",
+                {
+                    "body": f"@{POLICY_OPERATOR}: {rejected} repair attempts on this PR "
+                    f"were rejected by `{POLICY_CONTEXT}`; the agent has stopped. "
+                    "Latest findings are in the comment above."
+                },
+            )
+            raise ShipError(
+                f"PR #{number} escalated to {POLICY_OPERATOR} after {rejected} "
+                f"rejected heads: {pull['html_url']}\n{findings}"
+            )
         raise ShipError(
-            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected}/{POLICY_REPAIRS} "
-            f"repairs used). Fix these, commit, and rerun just ship:\n{findings}"
+            f"{POLICY_CONTEXT} rejected PR #{number} ({rejected} rejected heads). "
+            f"Fix these, commit, and rerun just ship:\n{findings}"
         )
 
+    def operator_approved(self, number: int, sha: str) -> bool:
+        reviews = self.forgejo.call("GET", f"/pulls/{number}/reviews") or []
+        return any(
+            review.get("state") == "APPROVED"
+            and (review.get("user") or {}).get("login") == POLICY_OPERATOR
+            and review.get("commit_id") == sha
+            and not review.get("dismissed")
+            for review in reviews
+        )
+
+    def outdated(self, head: str) -> list[str]:
+        """Why main's changes since the head's merge base need a revalidation."""
+        self.fetch()
+        main = self.git("rev-parse", "origin/main")
+        try:
+            base = self.git("merge-base", main, head)
+        except subprocess.CalledProcessError:
+            raise ShipError(f"PR head {head[:12]} is not fetched from origin") from None
+        if base == main:
+            return []
+
+        def changed(target: str) -> list[str]:
+            return self.git(
+                "diff", "--name-only", "--no-renames", base, target
+            ).splitlines()
+
+        return overlap(changed(head), changed(main))
+
+    def update_branch(self, number: int, reason: str) -> None:
+        self.say(f"{reason}; updating the PR branch and revalidating")
+        self.forgejo.call("POST", f"/pulls/{number}/update?style=merge")
+        time.sleep(POLL_SECONDS)
+
     def merge(self, pull: dict[str, Any]) -> str:
+        """Validate, then merge under the merge lease.
+
+        The head is validated before queueing, so a failing change never
+        holds the lease. Under the lease the head is updated and revalidated
+        only when main's newer changes overlap it.
+        """
         number = pull["number"]
+        current = self.forgejo.call("GET", f"/pulls/{number}")
+        if current.get("merged"):
+            return current["merge_commit_sha"]
+        self.wait_status(current["head"]["sha"], f"PR #{number}")
+        while True:
+            lease = MergeLease(self, f"{current['head']['ref']} (PR #{number})")
+            lease.acquire()
+            self.lease = lease
+            try:
+                return self.merge_locked(number)
+            except LeaseLost as error:
+                self.say(f"{error}; queueing again")
+            finally:
+                self.lease = None
+                lease.release()
+
+    def merge_locked(self, number: int) -> str:
         transient = 0
         while True:
             self.remaining()
             current = self.forgejo.call("GET", f"/pulls/{number}")
             if current.get("merged"):
                 return current["merge_commit_sha"]
-            self.wait_status(current["head"]["sha"], f"PR #{number}")
-            if policy_required(ROOT):
-                self.wait_policy(current)
+            head = current["head"]["sha"]
+            self.wait_status(head, f"PR #{number}")
+            if policy_required(ROOT) and not self.wait_policy(current):
+                self.update_branch(number, f"{POLICY_CONTEXT}: {OUTDATED}")
+                continue
             waiting = awaiting_review(
                 current, self.forgejo.call("GET", f"/pulls/{number}/reviews")
             )
             if waiting:
                 raise ShipError(waiting)
+            reasons = self.outdated(head)
+            if reasons:
+                self.update_branch(number, f"{OUTDATED} ({reasons[0]})")
+                continue
+            if self.lease is not None:
+                self.lease.ensure()
             code, payload = self.forgejo.try_call(
                 "POST",
                 f"/pulls/{number}/merge",
@@ -525,9 +894,7 @@ class Shipper:
                 return merged["merge_commit_sha"]
             message = json.dumps(payload)
             if code in {405, 409} and "behind" in message:
-                self.say("head is behind main; updating the PR branch and revalidating")
-                self.forgejo.call("POST", f"/pulls/{number}/update?style=merge")
-                time.sleep(POLL_SECONDS)
+                self.update_branch(number, "branch protection requires a current head")
                 continue
             if code == 405 and "try again later" in message.lower():
                 # Forgejo answers this while it recomputes mergeability, and
@@ -546,7 +913,7 @@ class Shipper:
     def contains(self, ancestor: str, descendant: str) -> bool:
         if ancestor == descendant:
             return True
-        self.git("fetch", "--quiet", "origin", "main")
+        self.fetch()
         return (
             subprocess.run(
                 ["git", "merge-base", "--is-ancestor", ancestor, descendant],
@@ -669,7 +1036,11 @@ class Shipper:
                 continue
             self.summary.update(main=main_sha, validation_pipeline=parent)
             self.summary["operations"].append(
-                {"operation": operation, "pipeline": result["pipeline"]}
+                {
+                    "operation": operation,
+                    "pipeline": result["pipeline"],
+                    **result.get("timings", {}),
+                }
             )
             patch = extract_patch(result["log"])
             if patch:
@@ -834,7 +1205,20 @@ class Shipper:
                     if logs and (PATCH_BEGIN not in logs or PATCH_END in logs):
                         break
                     time.sleep(RETRY_SECONDS)
-                return {"operation": operation, "pipeline": number, "log": logs}
+                timings = pipeline_timings(pipeline)
+                if timings:
+                    self.say(
+                        f"{operation}: "
+                        + ", ".join(
+                            f"{key}={value:.1f}" for key, value in timings.items()
+                        )
+                    )
+                return {
+                    "operation": operation,
+                    "pipeline": number,
+                    "log": logs,
+                    "timings": timings,
+                }
             if state in {"failure", "error", "killed", "declined"}:
                 report = self.woodpecker.failure_report(pipeline)
                 if not operator and APPROVAL_REQUIRED in report:
@@ -890,9 +1274,10 @@ class Shipper:
 
     def promote(self, patch: str, source: str) -> None:
         """Ship a promotion patch emitted by an operation as its own PR."""
-        self.git("fetch", "--quiet", "origin", "main")
+        self.fetch()
         digest = re.search(r"sha256:([0-9a-f]{12})", patch)
-        branch = f"ship/promote-{source}-{digest[1] if digest else int(time.time())}"
+        branch = f"ship/promote-{source}-{digest[1] if digest else int(time.time())}-{uuid.uuid4().hex[:8]}"
+        merged = False
         with tempfile.TemporaryDirectory(prefix="ship-promote-") as directory:
             worktree = Path(directory) / "tree"
             self.git(
@@ -921,21 +1306,55 @@ class Shipper:
                         "body": f"Automatic promotion emitted by the {source} operation.",
                         "deploy": "auto",
                         "no_checks": True,
+                        "verify": [],
                     }
                 )
                 nested = Shipper(child)
                 nested.deadline = self.deadline
                 result = nested.ship(worktree)
                 self.summary["promotions"].append(result)
+                merged = bool(result.get("merged"))
             finally:
                 self.git("worktree", "remove", "--force", str(worktree))
+                if merged:
+                    # Squash merges do not preserve ancestry, so -d would
+                    # reject a successful promotion. Only this invocation's
+                    # unique branch is removed, after confirmed merge.
+                    self.git("branch", "-D", branch)
+
+    def verify_live(self, cwd: Path) -> None:
+        """Run task-specific acceptance checks inside the delivery deadline."""
+        checks = getattr(self.args, "verify", []) or []
+        for index, command in enumerate(checks, 1):
+            if not command.strip():
+                raise ShipError("Live verification command must not be empty")
+            self.say(f"live verification {index}/{len(checks)}")
+            try:
+                result = subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", command],
+                    cwd=cwd,
+                    timeout=self.remaining(),
+                )
+            except subprocess.TimeoutExpired:
+                raise ShipError(
+                    f"Live verification {index} exceeded the delivery deadline"
+                ) from None
+            self.summary.setdefault("verification", []).append(
+                {"check": index, "exit_code": result.returncode}
+            )
+            if result.returncode:
+                raise ShipError(
+                    f"Live verification {index} failed with exit code {result.returncode}; fix or recover and resume delivery"
+                )
+        if checks:
+            self.summary["state"] = "verified"
 
     # Orchestration ---------------------------------------------------------
 
     def resume(self, cwd: Path, revision: str) -> dict[str, Any]:
         if self.git("status", "--porcelain", "--untracked-files=no", cwd=cwd):
             raise ShipError("Commit or discard tracked changes before resuming")
-        self.git("fetch", "--quiet", "origin", "main", cwd=cwd)
+        self.fetch(cwd)
         merged = self.git("rev-parse", "--verify", f"{revision}^{{commit}}", cwd=cwd)
         if not self.contains(merged, self.git("rev-parse", "origin/main", cwd=cwd)):
             raise ShipError("Resume requires a commit already merged into main")
@@ -953,6 +1372,7 @@ class Shipper:
         if gitops or any(p.startswith("registry/") for p in changed):
             self.wait_flux(merged, gitops)
         self.summary["state"] = "deployed"
+        self.verify_live(cwd)
         self.say("done")
         return self.summary
 
@@ -989,6 +1409,7 @@ class Shipper:
         if gitops or any(p.startswith("registry/") for p in changed):
             self.wait_flux(merged, gitops)
         self.summary["state"] = "deployed"
+        self.verify_live(cwd)
         self.say("done")
         return self.summary
 
@@ -1005,7 +1426,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--deploy",
         default="auto",
-        help="auto (default: run routed operations; risk exceptions request approval), none, or a comma-separated operation list",
+        help="auto (default: run routed operations), none, or a comma-separated operation list",
+    )
+    parser.add_argument(
+        "--verify",
+        action="append",
+        default=[],
+        metavar="COMMAND",
+        help="task-specific live acceptance command; repeatable, runs after deployment",
     )
     parser.add_argument(
         "--no-checks", action="store_true", help="skip local just check-changed"

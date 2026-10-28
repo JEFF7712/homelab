@@ -1,6 +1,7 @@
 schema_version: "1.0"
 tested_ha_versions:
   - "2026.9.1"
+  - "2026.10.4"
 surfaces:
   - surface: "core_configuration"
     owner_mode: "git-owned"

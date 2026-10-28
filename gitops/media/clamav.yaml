@@ -1,0 +1,196 @@
+# ClamAV scanner for Questarr's pre-import scans (docs/runbooks/games.md).
+# Questarr streams each file to clamd over TCP (INSTREAM), so no media mount
+# is needed. ClamAV cannot scan files over 2 GB; StreamMaxLength refuses them
+# instead of letting MaxFileSize skip them with an OK verdict, so Questarr
+# holds such imports for manual review. The stock entrypoint edits
+# /etc/clamav in place, so freshclam and clamd run directly against a
+# config mounted at /etc/clamav-config with a read-only root filesystem.
+# /etc/clamav itself must stay visible: freshclam verifies signature
+# databases with the image's /etc/clamav/certs.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: clamav-db
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clamav-config
+  namespace: media
+data:
+  clamd.conf: |
+    Foreground yes
+    # ClamAV opens log files with O_NOFOLLOW, so /dev/stdout (a symlink)
+    # fails; keep a small rotating log on the clamd tmp volume instead.
+    LogFile /tmp/clamd.log
+    LogFileMaxSize 10M
+    LogRotate yes
+    LogTime yes
+    DatabaseDirectory /var/lib/clamav
+    TemporaryDirectory /tmp
+    TCPSocket 3310
+    TCPAddr 0.0.0.0
+    StreamMaxLength 2000M
+    MaxScanSize 2000M
+    MaxFileSize 2000M
+    SelfCheck 3600
+    ConcurrentDatabaseReload no
+    MaxThreads 4
+  freshclam.conf: |
+    Foreground yes
+    LogTime yes
+    DatabaseDirectory /var/lib/clamav
+    DatabaseMirror database.clamav.net
+    ScriptedUpdates yes
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clamav
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: clamav
+  template:
+    metadata:
+      labels:
+        app: clamav
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The image's clamav user is 100:101.
+        - name: fix-permissions
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          command:
+            - sh
+            - -c
+            - '[ "$(stat -c ''%u:%g'' /var/lib/clamav)" = "100:101" ] || chown -R 100:101 /var/lib/clamav'
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/clamav
+      containers:
+        - name: freshclam
+          image: registry.rupan.dev/upstream/docker.io/clamav/clamav@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d  # yamllint disable-line rule:line-length
+          command:
+            - freshclam
+            - --daemon
+            - --foreground
+            - --stdout
+            - --checks=12
+            - --config-file=/etc/clamav-config/freshclam.conf
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 100
+            runAsGroup: 101
+          volumeMounts:
+            - name: config
+              mountPath: /etc/clamav-config
+            - name: db
+              mountPath: /var/lib/clamav
+            - name: freshclam-tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              # TestDatabases loads each new database before swapping it in.
+              memory: 1536Mi
+        - name: clamd
+          image: registry.rupan.dev/upstream/docker.io/clamav/clamav@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d  # yamllint disable-line rule:line-length
+          # clamd refuses to start without signatures; wait for freshclam's
+          # first download on a fresh volume.
+          command:
+            - sh
+            - -c
+            - |
+              until { [ -f /var/lib/clamav/main.cvd ] || [ -f /var/lib/clamav/main.cld ]; } &&
+                    { [ -f /var/lib/clamav/daily.cvd ] || [ -f /var/lib/clamav/daily.cld ]; }; do
+                echo "waiting for freshclam to download signatures"
+                sleep 10
+              done
+              exec clamd --foreground --config-file=/etc/clamav-config/clamd.conf
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 100
+            runAsGroup: 101
+          ports:
+            - containerPort: 3310
+              name: clamd
+          volumeMounts:
+            - name: config
+              mountPath: /etc/clamav-config
+            - name: db
+              mountPath: /var/lib/clamav
+            - name: clamd-tmp
+              mountPath: /tmp
+          startupProbe:
+            tcpSocket:
+              port: clamd
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            tcpSocket:
+              port: clamd
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: clamd
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1280Mi
+            limits:
+              memory: 2560Mi
+      volumes:
+        - name: config
+          configMap:
+            name: clamav-config
+        - name: db
+          persistentVolumeClaim:
+            claimName: clamav-db
+        - name: freshclam-tmp
+          emptyDir: {}
+        # clamd spools each INSTREAM file (up to StreamMaxLength) here.
+        - name: clamd-tmp
+          emptyDir:
+            sizeLimit: 6Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clamav
+  namespace: media
+spec:
+  selector:
+    app: clamav
+  ports:
+    - name: clamd
+      port: 3310
+      targetPort: clamd

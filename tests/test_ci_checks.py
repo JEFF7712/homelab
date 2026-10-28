@@ -89,6 +89,59 @@ class AllGateTest(unittest.TestCase):
                 self.assertIn("secrets ran", result.stdout)
 
 
+class PythonCheckTest(unittest.TestCase):
+    def test_both_nix_integration_suites_are_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            (repo / "scripts/checks").mkdir(parents=True)
+            shutil.copy(ROOT / "scripts/checks/python.sh", repo / "scripts/checks")
+            binaries = repo / "bin"
+            binaries.mkdir()
+            for name, body in {
+                "ruff": "exit 0\n",
+                "pyright": "exit 0\n",
+                "python": (
+                    'printf "%s\\n" "$*" >> "$CALLS"\n'
+                    'case "$*" in\n'
+                    '  *scripts.ci.tests*) exit "$ZOT_STATUS" ;;\n'
+                    '  *tests.test_agent_workspace_sources*) exit "$SOURCE_STATUS" ;;\n'
+                    "  *) exit 99 ;;\n"
+                    "esac\n"
+                ),
+            }.items():
+                binary = binaries / name
+                binary.write_text(f"#!{shutil.which('bash')}\n" + body)
+                binary.chmod(0o755)
+            calls = repo / "calls"
+            for zot, source in ((0, 0), (5, 0), (0, 7)):
+                with self.subTest(zot=zot, source=source):
+                    calls.unlink(missing_ok=True)
+                    env = dict(
+                        os.environ,
+                        PATH=f"{binaries}:{os.environ['PATH']}",
+                        CI_UNIT_TESTS_EXTERNAL="1",
+                        CI_LINT_EXTERNAL="1",
+                        CALLS=str(calls),
+                        ZOT_STATUS=str(zot),
+                        SOURCE_STATUS=str(source),
+                    )
+                    env.pop("CI_SCOPED_TEST_MODULES", None)
+                    result = subprocess.run(
+                        ["bash", "scripts/checks/python.sh"],
+                        cwd=repo,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, zot or source, result.stderr)
+                    self.assertIn("test_zot_registry_module.py", calls.read_text())
+                    if not zot:
+                        self.assertIn(
+                            "tests.test_agent_workspace_sources", calls.read_text()
+                        )
+
+
 class GitopsCheckTest(unittest.TestCase):
     def run_check(
         self,

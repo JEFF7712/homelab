@@ -165,6 +165,19 @@ class DeploymentRiskTest(unittest.TestCase):
             require_plan_approval(Path("/repo"), "cloudflare-apply", True)
             show.assert_not_called()
 
+    def test_invalid_saved_plan_cannot_apply(self) -> None:
+        for plan in (
+            {},
+            {"resource_changes": [], "complete": False},
+            {"resource_changes": [], "errored": True},
+        ):
+            with (
+                patch("subprocess.check_output", return_value=json.dumps(plan)),
+                patch("subprocess.run"),
+                self.assertRaisesRegex(ValueError, "incomplete"),
+            ):
+                require_plan_approval(Path("/repo"), "cloudflare-apply", False)
+
     def test_scope_follows_what_the_operation_activates(self) -> None:
         catalog = json.loads(
             (

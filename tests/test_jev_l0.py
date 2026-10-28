@@ -60,20 +60,23 @@ class CanonicalParseTest(unittest.TestCase):
             assert command is not None
             self.assertEqual(command.target, "kitchen_lights")
 
-    def test_shared_zigbee_bulb_phrasings(self) -> None:
-        # Third Reality Zigbee bulbs (ex-Govee) under the same areas;
-        # "govee" stays a legacy voice alias for the same target.
+    def test_shared_space_phrasings(self) -> None:
         cases = {
             "Turn on the shared lights.": ("shared_zigbee_lights", "turn_on"),
-            "Turn on all the Zigbee lights.": ("shared_zigbee_lights", "turn_on"),
             "Turn the shared lights blue.": ("shared_zigbee_lights", "set_color"),
             "Snuff out the shared lights.": ("shared_zigbee_lights", "turn_off"),
-            "Turn on all the Govee lights.": ("shared_zigbee_lights", "turn_on"),
+            "Turn on the shared spaces lights.": ("downstairs_lights", "turn_on"),
+            "Turn off all the shared space lights.": ("downstairs_lights", "turn_off"),
         }
         for say, (target, action) in cases.items():
             command = l0.parse_canonical(say)
             assert command is not None, say
             self.assertEqual((command.target, command.action), (target, action))
+
+    def test_brand_names_are_not_aliases(self) -> None:
+        for say in ("Turn on all the Govee lights.", "Turn on all the Zigbee lights."):
+            command = l0.parse_canonical(say)
+            self.assertIsNone(command and command.target, say)
 
     def test_verb_orders(self) -> None:
         cases = {

@@ -26,6 +26,8 @@ let
     mkdir -p $out/scripts/ci $out/config/ci
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
+    cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py
+    cp ${../../config/ci/ship-routes.json} $out/config/ci/ship-routes.json
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
     PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${../..} > $out/authority-baseline.json
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py

@@ -156,7 +156,8 @@ and HomeKit, Matter, and Govee device behavior.
 
 ### Backup Coverage
 
-- **Persistent Configuration Volume (`home-assistant-config`)**: Contains `/config` (`.storage/`, `secrets.yaml`, custom components). Backed up via Kubernetes volume snapshot and restic.
+- **Persistent Configuration Volume (`home-assistant-config`)**: Contains `/config` (`.storage/`, `secrets.yaml`, custom components). Lives on `nas-01` under `tank/cluster` with daily sanoid snapshots (30 kept). The hourly `platform-backup` service on `nas-01` (`homelab.platformBackup.homeAssistantConfigPath`) copies it from an atomic ZFS snapshot into the encrypted off-site restic repository under `applications/home-assistant`, excluding regenerable `backups/`, `deps/`, `tts/`, `.cache/`, and logs. Restore by extracting that path from the newest `sovereign-platform` snapshot into the PVC directory with HA scaled to zero.
+- **Native HA backups**: The `backup` integration must have the `backup.local` agent selected (Settings, System, Backups) for `System: Weekly Backup & Verify` to succeed; it writes to `/config/backups` on the same NAS volume. This is a convenience restore point, not the off-site copy.
 - **PostgreSQL Recorder Database**: Dumped daily via Kubernetes CronJob `gitops/backups/home-assistant-db-dump.yaml` to Cloudflare R2.
 - **External Secrets**: Managed in GitLab CI / SOPS.
 

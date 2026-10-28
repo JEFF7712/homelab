@@ -3,9 +3,13 @@ alias: "A1: Print Supervisor"
 description: >-
   Single owner for all A1 print notifications: started, finished, error,
   progress milestones, stall detection, and idle reminders. Replaces six
-  single-purpose automations. Parallel mode isolates the stall timer from
-  immediate notifies; the stall branch snapshots progress before waiting so
-  a back-to-back print cannot trigger a stale alert.
+  single-purpose automations. Stall detection fires when progress has not
+  changed for 30 minutes while running, at any point in the print; it uses
+  a state trigger with for: instead of an in-run wait, so the check keeps
+  covering the whole print and re-arms on every progress change (including
+  the reset to 0 at print start). 30 minutes
+  leaves headroom for 1 percent steps on long prints. Restarts reset the
+  timers, which can delay but never fake a stall alert.
 triggers:
   - trigger: state
     entity_id: sensor.a1_03900d642327265_print_status
@@ -18,6 +22,9 @@ triggers:
     id: "finished"
   - trigger: state
     entity_id: sensor.a1_03900d642327265_print_status
+    not_from:
+      - unknown
+      - unavailable
     to: finish
     for: "01:00:00"
     id: "idle"
@@ -48,17 +55,21 @@ triggers:
     above: 74
     id: "p75"
   - trigger: state
-    entity_id: sensor.a1_03900d642327265_print_status
-    to: running
-    id: "stall_watch"
+    entity_id: sensor.a1_03900d642327265_print_progress
+    not_from:
+      - unknown
+      - unavailable
+    to: null
+    for: "00:30:00"
+    id: "stall"
 conditions: []
 actions:
   - variables:
       task_name: "{{ states('sensor.a1_03900d642327265_task_name') }}"
       eta_raw: "{{ states('sensor.a1_03900d642327265_end_time') }}"
       eta_str: >-
-        {{ (eta_raw | as_datetime | as_local).strftime('%H:%M')
-        if eta_raw not in ('unknown', 'unavailable', '') else '' }}
+        {% set eta = eta_raw | as_datetime(none) %}
+        {{ (eta | as_local).strftime('%H:%M') if eta is not none else '' }}
   - choose:
       - conditions:
           - condition: trigger
@@ -196,50 +207,24 @@ actions:
                 {%- if eta_str %}, ETA {{ eta_str }}{% endif %}.
       - conditions:
           - condition: trigger
-            id: "stall_watch"
+            id: "stall"
+          - condition: state
+            entity_id: sensor.a1_03900d642327265_print_status
+            state: running
           - condition: template
             value_template: >-
-              {{ trigger.from_state is not none and trigger.from_state.state
-              not in ('unknown', 'unavailable', 'none', '') }}
+              {% set p = states.sensor.a1_03900d642327265_print_progress %}
+              {{ p is not none and p.state not in ('unknown', 'unavailable')
+              and (now() - p.last_changed).total_seconds() >= 1800 }}
         sequence:
-          - variables:
-              stall_from: "{{ states('sensor.a1_03900d642327265_print_progress') }}"
-          - wait_for_trigger:
-              - trigger: template
-                value_template: >-
-                  {{ states('sensor.a1_03900d642327265_print_progress')
-                  not in ('unknown', 'unavailable', 'none', '')
-                  and trigger is defined and trigger.from_state is not none
-                  and trigger.to_state.state != trigger.from_state.state }}
-              - trigger: state
-                entity_id: sensor.a1_03900d642327265_print_status
-                to: finish
-              - trigger: state
-                entity_id: sensor.a1_03900d642327265_print_status
-                to: failed
-            timeout:
-              minutes: 15
-            continue_on_timeout: true
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ not wait.completed }}"
-                  - condition: state
-                    entity_id: sensor.a1_03900d642327265_print_status
-                    state: running
-                  - condition: template
-                    value_template: >-
-                      {{ states('sensor.a1_03900d642327265_print_progress')
-                      == stall_from }}
-                sequence:
-                  - action: notify.send_message
-                    target:
-                      entity_id: notify.rupan_phone
-                    data:
-                      title: "A1 Print Possibly Stalled"
-                      message: >-
-                        {{ task_name | default('Print', true) }}
-                        has been at {{ states('sensor.a1_03900d642327265_print_progress') }}%
-                        for 15 minutes without progress. Check the printer.
+          - action: notify.send_message
+            target:
+              entity_id: notify.rupan_phone
+            data:
+              title: "A1 Print Possibly Stalled"
+              message: >-
+                {{ task_name | default('Print', true) }}
+                has been at {{ states('sensor.a1_03900d642327265_print_progress') }}%
+                for 30 minutes without progress. Check the printer.
 mode: parallel
 max: 10

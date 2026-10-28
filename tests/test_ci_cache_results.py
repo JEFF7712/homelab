@@ -60,7 +60,9 @@ class CacheResultsTest(unittest.TestCase):
             ):
                 build_paths(report, 1)
 
-    def test_fast_builder_preserves_target_selection_and_publication(self) -> None:
+    def test_default_fleet_builder_bounds_evaluation_and_preserves_publication(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             fast = directory / "nix-fast-build"
@@ -75,7 +77,8 @@ class CacheResultsTest(unittest.TestCase):
                 "assert '--skip-cached' not in args\n"
                 "selection = args[args.index('--select') + 1]\n"
                 "targets = re.findall(r'target(\\d+) = flake\\.([^;]+);', selection)\n"
-                "assert len(targets) == 17\n"
+                "assert len(targets) == 23\n"
+                "assert any(t == 'checks.x86_64-linux.zot-registry-service' for _, t in targets)\n"
                 "assert targets[0][1] == 'nixosConfigurations.nas-01.config.system.build.toplevel'\n"
                 "assert targets[-1][1] == 'devShells.x86_64-linux.ops'\n"
                 "assert sum('.config.system.build.toplevel' in t for _, t in targets) == 7\n"
@@ -97,7 +100,7 @@ class CacheResultsTest(unittest.TestCase):
                 f"#!{sys.executable}\n"
                 "import sys\n"
                 "assert sys.argv[1:4] == ['--query', '--requisites', '--include-outputs']\n"
-                "assert len(sys.argv[4:]) == 17\n"
+                "assert len(sys.argv[4:]) == 23\n"
                 "print('/nix/store/build-input')\n"
             )
             attic = directory / "attic"
@@ -110,6 +113,8 @@ class CacheResultsTest(unittest.TestCase):
             for binary in (fast, nix, nix_store, attic):
                 binary.chmod(0o755)
             receipt = directory / "pushed"
+            environment = dict(os.environ)
+            environment.pop("HOMELAB_CACHE_BUILDER", None)
             for status in (0, 7):
                 with self.subTest(status=status):
                     receipt.unlink(missing_ok=True)
@@ -117,9 +122,8 @@ class CacheResultsTest(unittest.TestCase):
                         ["bash", "scripts/ci/cache.sh"],
                         cwd=ROOT,
                         env={
-                            **os.environ,
+                            **environment,
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
-                            "HOMELAB_CACHE_BUILDER": "fast",
                             "ATTIC_TOKEN": "test-only",
                             "FAST_STATUS": str(status),
                             "PUSH_RECEIPT": str(receipt),
@@ -134,7 +138,7 @@ class CacheResultsTest(unittest.TestCase):
                     else:
                         self.assertEqual(
                             set(receipt.read_text().splitlines()),
-                            {f"/nix/store/system{i}" for i in range(17)}
+                            {f"/nix/store/system{i}" for i in range(23)}
                             | {"/nix/store/source", "/nix/store/build-input"},
                         )
 

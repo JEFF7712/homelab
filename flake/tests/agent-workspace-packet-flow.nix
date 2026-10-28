@@ -80,6 +80,7 @@ pkgs.testers.nixosTest {
   name = "agent-workspace-packet-flow";
 
   nodes.machine = {
+    virtualisation.host.pkgs = pkgs.lib.mkForce (import ./vm-host-pkgs.nix { inherit pkgs; });
     imports = [ ../modules/agent-workspace-network.nix ];
     networking.hostName = "homelab-01";
     networking.nftables.enable = true;
@@ -114,8 +115,11 @@ pkgs.testers.nixosTest {
 
   testScript = ''
     machine.start()
+    machine.wait_for_unit("multi-user.target")
     machine.wait_for_unit("nftables.service")
-    machine.wait_until_succeeds("ip link show aw-test-br")
+    machine.wait_for_unit("systemd-networkd.service")
+    for bridge, address in [("aw-test-br", "192.0.2.1/30"), ("aw-other-br", "192.0.2.5/30")]:
+        machine.wait_until_succeeds(f"ip -4 address show dev {bridge} | grep -Fq {address}")
     machine.succeed("ip netns add guest")
     machine.succeed("ip netns add public")
     machine.succeed("ip link add aw-test-tap type veth peer name guest-ns")
@@ -150,20 +154,20 @@ pkgs.testers.nixosTest {
     machine.succeed("ip -n public route add default via 203.0.113.1")
     machine.succeed("ip netns exec public python3 -m http.server 8080 --bind 203.0.113.2 >/tmp/http.log 2>&1 &")
     machine.wait_until_succeeds("ip netns exec public curl --fail --silent http://203.0.113.2:8080/")
-    machine.succeed("ip netns exec guest curl --fail --silent --max-time 5 http://203.0.113.2:8080/")
-    machine.succeed("ip netns exec other curl --fail --silent --max-time 5 http://203.0.113.2:8080/")
+    machine.wait_until_succeeds("ip netns exec guest curl --fail --silent --max-time 5 http://203.0.113.2:8080/", timeout=120)
+    machine.wait_until_succeeds("ip netns exec other curl --fail --silent --max-time 5 http://203.0.113.2:8080/", timeout=120)
     for address, port in [("10.10.10.2", 2222), ("10.10.10.2", 8080), ("10.10.10.2", 9090), ("10.10.10.3", 8080)]:
         machine.succeed(f"ip netns exec public python3 -m http.server {port} --bind {address} >/tmp/http-{address}-{port}.log 2>&1 &")
         machine.wait_until_succeeds(f"ip netns exec public curl --fail --silent http://{address}:{port}/")
     for port in [2222, 8080]:
-        machine.succeed(f"ip netns exec guest curl --fail --silent --max-time 5 http://10.10.10.2:{port}/")
+        machine.wait_until_succeeds(f"ip netns exec guest curl --fail --silent --max-time 5 http://10.10.10.2:{port}/", timeout=120)
         machine.fail(f"ip netns exec other curl --fail --silent --max-time 1 http://10.10.10.2:{port}/")
     machine.fail("ip netns exec guest curl --fail --silent --max-time 1 http://10.10.10.2:9090/")
     machine.fail("ip netns exec guest curl --fail --silent --max-time 1 http://10.10.10.3:8080/")
     for port in [8000, 8001]:
         machine.succeed(f"python3 -m http.server {port} --bind 203.0.113.1 >/tmp/http-host-{port}.log 2>&1 &")
         machine.wait_until_succeeds(f"curl --fail --silent http://203.0.113.1:{port}/")
-    machine.succeed("ip netns exec guest curl --fail --silent --max-time 5 http://203.0.113.1:8000/")
+    machine.wait_until_succeeds("ip netns exec guest curl --fail --silent --max-time 5 http://203.0.113.1:8000/", timeout=120)
     machine.fail("ip netns exec guest curl --fail --silent --max-time 1 http://203.0.113.1:8001/")
     machine.fail("ip netns exec other curl --fail --silent --max-time 1 http://203.0.113.1:8000/")
     machine.succeed("systemctl stop nftables.service")

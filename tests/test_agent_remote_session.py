@@ -11,11 +11,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.agent.remote_session import (
+    claude_trusted,
     create_seed,
     main,
     mapping_for,
     native_command,
-    project_worktree,
     receive_seed,
     serve,
     server_available,
@@ -29,7 +29,17 @@ class RemoteSessionTests(unittest.TestCase):
             ["git", "-C", str(root), *args], text=True
         ).strip()
 
-    def test_codex_launches_share_project_and_request_managed_worktrees(self) -> None:
+    def test_each_launch_is_a_fresh_session_with_a_client_managed_worktree(
+        self,
+    ) -> None:
+        cases = {
+            "codex": (["--model", "m"], ["--worktree", "--model", "m"]),
+            "claude": (["--model", "m"], ["--worktree", "--model", "m"]),
+        }
+        explicit = {
+            "codex": ["--worktree=named"],
+            "claude": ["-w", "named"],
+        }
         with tempfile.TemporaryDirectory() as directory:
             remote = Path(directory) / "repo"
             self.git(Path(directory), "init", "-q", str(remote))
@@ -45,40 +55,94 @@ class RemoteSessionTests(unittest.TestCase):
                 "Initial",
             )
             run = subprocess.run
-            sessions: list[str] = []
-            worktrees: list[Path] = []
+            for client, (given, expected) in cases.items():
+                sessions: list[str] = []
+                commands: list[list[str]] = []
 
-            def intercept(command: list[str], **kwargs):
-                if command[0] != "tmux":
-                    return run(command, **kwargs)
-                if command[1] == "has-session":
-                    return subprocess.CompletedProcess(command, 1)
-                self.assertEqual(command[1], "new-session")
-                sessions.append(command[command.index("-s") + 1])
-                worktrees.append(Path(command[command.index("-c") + 1]))
+                def intercept(
+                    command: list[str], sessions=sessions, commands=commands, **kwargs
+                ):
+                    if command[0] != "tmux":
+                        return run(command, **kwargs)
+                    self.assertEqual(command[1], "new-session")
+                    sessions.append(command[command.index("-s") + 1])
+                    commands.append(command)
+                    return subprocess.CompletedProcess(command, 0)
+
+                with (
+                    patch(
+                        "scripts.agent.remote_session.subprocess.run",
+                        side_effect=intercept,
+                    ),
+                    patch(
+                        "scripts.agent.remote_session.shutil.which",
+                        return_value=f"/bin/{client}",
+                    ),
+                    patch(
+                        "scripts.agent.remote_session.claude_trusted",
+                        return_value=True,
+                    ),
+                    patch("os.execvp", side_effect=SystemExit) as execute,
+                ):
+                    for arguments in (given, given, explicit[client]):
+                        with self.assertRaises(SystemExit):
+                            serve(remote, Path("."), client, arguments)
+                        self.assertEqual(execute.call_args.args[1][-1], sessions[-1])
+
+                self.assertEqual(len(set(sessions)), 3)
+                self.assertTrue(all(f"-{client}-" in name for name in sessions))
+                for command in commands:
+                    self.assertEqual(Path(command[command.index("-c") + 1]), remote)
+                    self.assertEqual(command[command.index("--") + 1], f"/bin/{client}")
+                self.assertEqual(commands[0][-len(expected) :], expected)
                 self.assertEqual(
-                    command[-4:], ["/bin/codex", "--worktree", "--model", "test-model"]
+                    commands[2][commands[2].index("--") + 2 :], explicit[client]
                 )
-                return subprocess.CompletedProcess(command, 0)
+                self.assertEqual(
+                    len(self.git(remote, "worktree", "list").splitlines()), 1
+                )
 
+    def test_untrusted_claude_project_starts_once_without_a_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            remote = Path(directory)
+            commands: list[list[str]] = []
             with (
                 patch(
-                    "scripts.agent.remote_session.subprocess.run", side_effect=intercept
+                    "scripts.agent.remote_session.subprocess.run",
+                    side_effect=lambda command, **kwargs: commands.append(command),
                 ),
                 patch(
                     "scripts.agent.remote_session.shutil.which",
-                    return_value="/bin/codex",
+                    return_value="/bin/claude",
                 ),
-                patch("os.execvp", side_effect=SystemExit) as execute,
+                patch(
+                    "scripts.agent.remote_session.claude_trusted", return_value=False
+                ),
+                patch("os.execvp", side_effect=SystemExit),
+                self.assertRaises(SystemExit),
             ):
-                for index in range(2):
-                    with self.assertRaises(SystemExit):
-                        serve(remote, Path("."), "codex", ["--model", "test-model"])
-                    self.assertEqual(execute.call_args.args[1][-1], sessions[-1])
+                serve(remote, Path("."), "claude", ["--model", "m"])
+            self.assertEqual(commands[0][-3:], ["/bin/claude", "--model", "m"])
 
-            self.assertEqual(len(set(sessions)), 2)
-            self.assertEqual(worktrees, [remote, remote])
-            self.assertEqual(len(self.git(remote, "worktree", "list").splitlines()), 1)
+    def test_claude_trust_is_read_per_directory_from_its_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory)
+            (config / ".claude.json").write_text(
+                json.dumps(
+                    {
+                        "projects": {
+                            "/trusted": {"hasTrustDialogAccepted": True},
+                            "/declined": {"hasTrustDialogAccepted": False},
+                        }
+                    }
+                )
+            )
+            with patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": directory}):
+                self.assertTrue(claude_trusted(Path("/other"), Path("/trusted")))
+                self.assertFalse(claude_trusted(Path("/declined")))
+                self.assertFalse(claude_trusted(Path("/trusted/nested")))
+            with patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": f"{directory}/none"}):
+                self.assertFalse(claude_trusted(Path("/trusted")))
 
     def test_project_root_routes_new_nested_and_non_git_directories(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -182,22 +246,17 @@ class RemoteSessionTests(unittest.TestCase):
                 self.git(remote, "remote", "get-url", "origin"),
                 "https://example.test/repo.git",
             )
-            for client in ("codex", "claude"):
-                worktree = project_worktree(remote, client)
-                self.assertEqual(
-                    (worktree / "code.py").read_text(), "working changes\n"
-                )
-                self.assertEqual((worktree / "binary").read_bytes(), b"new\0binary")
-                self.assertFalse((worktree / "deleted.py").exists())
-                self.assertEqual(
-                    (worktree / "untracked.py").read_text(), "new source\n"
-                )
-                self.assertTrue((worktree / "internal-link").is_symlink())
-                self.assertFalse((worktree / ".env").exists())
-                self.assertFalse((worktree / "node_modules").exists())
-                (worktree / "code.py").write_text("server edits\n")
-                self.assertEqual(project_worktree(remote, client), worktree)
-                self.assertEqual((worktree / "code.py").read_text(), "server edits\n")
+            self.assertEqual((remote / "code.py").read_text(), "working changes\n")
+            self.assertEqual((remote / "binary").read_bytes(), b"new\0binary")
+            self.assertFalse((remote / "deleted.py").exists())
+            self.assertEqual((remote / "untracked.py").read_text(), "new source\n")
+            self.assertTrue((remote / "internal-link").is_symlink())
+            self.assertFalse((remote / ".env").exists())
+            self.assertFalse((remote / "node_modules").exists())
+            self.assertEqual(
+                self.git(remote, "check-ignore", ".claude/worktrees/session"),
+                ".claude/worktrees/session",
+            )
             self.assertEqual(self.git(local, "rev-parse", "HEAD"), head)
             self.assertEqual(self.git(local, "status", "--porcelain"), before)
             (remote / "code.py").write_text("server edits in base\n")
@@ -225,11 +284,10 @@ class RemoteSessionTests(unittest.TestCase):
             remote = root / "remote/.checkout"
             with archive.open("rb") as stream:
                 receive_seed(remote, stream)
-            worktree = project_worktree(remote, "codex")
-            self.assertEqual((worktree / "main.py").read_text(), "source\n")
-            self.assertTrue((worktree / ".env.example").exists())
-            self.assertFalse((worktree / ".env.local").exists())
-            self.assertFalse((worktree / ".venv").exists())
+            self.assertEqual((remote / "main.py").read_text(), "source\n")
+            self.assertTrue((remote / ".env.example").exists())
+            self.assertFalse((remote / ".env.local").exists())
+            self.assertFalse((remote / ".venv").exists())
             self.assertFalse((local / ".git").exists())
 
     def test_unborn_git_seed_keeps_staged_source_without_committing_locally(
@@ -247,7 +305,7 @@ class RemoteSessionTests(unittest.TestCase):
             with archive.open("rb") as stream:
                 receive_seed(remote, stream)
             self.assertEqual(
-                (project_worktree(remote, "codex") / "source.py").read_text(),
+                (remote / "source.py").read_text(),
                 "new project\n",
             )
             self.assertEqual(self.git(local, "status", "--porcelain"), "A  source.py")

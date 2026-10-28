@@ -126,6 +126,34 @@ class CurrentSourceTest(unittest.TestCase):
         ):
             current_source(environment)
 
+    def test_runner_preserves_only_disjoint_ancestor_sources(self) -> None:
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        environment = {"CI_COMMIT_SHA": SHA, "FORGEJO_SOURCE_READ_TOKEN": "fixture"}
+        for path, allowed in [
+            ("services/led-matrix/app.py", True),
+            ("flake/modules/kiosk.nix", False),
+            ("unknown", False),
+        ]:
+            with (
+                self.subTest(path=path),
+                patch(
+                    "scripts.ci.operation._fetch",
+                    return_value=json.dumps({"commit": {"id": "b" * 40}}).encode(),
+                ),
+                patch(
+                    "scripts.ci.operation.subprocess.check_output",
+                    side_effect=[SHA, (path + "\0").encode()],
+                ),
+                patch("scripts.ci.operation.subprocess.run") as git,
+            ):
+                if allowed:
+                    current_source(environment, "deploy-fleet", catalog)
+                else:
+                    with self.assertRaises(SupersededSource):
+                        current_source(environment, "deploy-fleet", catalog)
+                self.assertEqual(git.call_count, 2)
+                self.assertIn("--is-ancestor", git.call_args.args[0])
+
     def test_forgejo_gateway_errors_are_retried(self) -> None:
         environment = {
             "CI_COMMIT_SHA": SHA,
@@ -286,6 +314,26 @@ class PolicyTest(unittest.TestCase):
         self.assertEqual(
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
+
+    def test_job_nix_builds_without_host_shared_build_users(self) -> None:
+        # The image's nixbld UIDs equal the host's, and a host nix-daemon
+        # SIGKILLs every process of a build UID around its own builds.
+        result = configuration(self.request, self.catalog, current=SHA)
+        result["configs"] += self.deployment()["configs"]
+        for item in result["configs"]:
+            for step in yaml.safe_load(item["data"])["steps"]:
+                nix_config = step.get("environment", {}).get("NIX_CONFIG")
+                if nix_config is None:
+                    continue
+                settings = {
+                    key.strip(): value.strip()
+                    for key, _, value in (
+                        line.partition("=") for line in nix_config.splitlines()
+                    )
+                }
+                with self.subTest(workflow=item["name"], step=step["name"]):
+                    self.assertEqual(settings["sandbox"], "false")
+                    self.assertEqual(settings["build-users-group"], "")
 
     def test_nixos_publish_is_manual_and_forgejo_sourced(self) -> None:
         operation = self.catalog["nixos-publish"]
@@ -645,6 +693,31 @@ class PolicyTest(unittest.TestCase):
                 self.request, self.catalog, self.parent, SHA, authority_changes=[]
             )
 
+    def test_compatible_ancestor_keeps_its_exact_validation_parent(self) -> None:
+        self.request["pipeline"].update(
+            author="homelab-agent", event="deployment", deploy_to="deploy-fleet"
+        )
+        self.assertTrue(
+            configuration(
+                self.request,
+                self.catalog,
+                self.parent,
+                "b" * 40,
+                source_compatible=True,
+                authority_changes=[],
+            )["configs"]
+        )
+        self.parent["commit"] = "b" * 40
+        with self.assertRaisesRegex(ValueError, "Successful validation"):
+            configuration(
+                self.request,
+                self.catalog,
+                self.parent,
+                "b" * 40,
+                source_compatible=True,
+                authority_changes=[],
+            )
+
     def test_failed_unrelated_main_operation_does_not_block_validated_deployment(
         self,
     ) -> None:
@@ -927,7 +1000,7 @@ class PolicyTest(unittest.TestCase):
             )
         )
 
-    def test_pr_injects_merge_base_and_main_injects_full_validation(self) -> None:
+    def test_pr_injects_merge_base_and_main_uses_scoped_validation(self) -> None:
         pr_request = {
             "repo": {"id": 1, "owner": "JEFF7712", "name": "homelab"},
             "pipeline": {
@@ -954,9 +1027,7 @@ class PolicyTest(unittest.TestCase):
         }
         result_main = configuration(main_request, self.catalog, current=SHA)
         workflow_main = yaml.safe_load(result_main["configs"][0]["data"])
-        self.assertEqual(
-            workflow_main["steps"][0]["environment"]["CI_FULL_VALIDATION"], "1"
-        )
+        self.assertNotIn("CI_FULL_VALIDATION", workflow_main["steps"][0]["environment"])
 
     def test_branch_push_carries_branch_files_and_main_does_not(self) -> None:
         def request(ref: str) -> dict[str, Any]:
@@ -1040,10 +1111,15 @@ class PolicyTest(unittest.TestCase):
         workflow = yaml.safe_load(
             configuration(request, self.catalog)["configs"][0]["data"]
         )
-        settings = dict(
-            line.split(" = ", 1)
-            for line in workflow["steps"][0]["environment"]["NIX_CONFIG"].splitlines()
-        )
+        settings = {
+            key.strip(): value.strip()
+            for key, _, value in (
+                line.partition("=")
+                for line in workflow["steps"][0]["environment"][
+                    "NIX_CONFIG"
+                ].splitlines()
+            )
+        }
         # A dead resolver costs connect-timeout * download-attempts per nix
         # invocation before the local cache takes over; Nix defaults to 75s.
         self.assertLessEqual(

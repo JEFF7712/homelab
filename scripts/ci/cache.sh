@@ -24,6 +24,12 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#checks.x86_64-linux.agent-workspace-host-reservations"
     "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
     "$flake#checks.x86_64-linux.zot-registry"
+    "$flake#checks.x86_64-linux.zot-registry-service"
+    "$flake#checks.x86_64-linux.opnsense-types"
+    "$flake#checks.x86_64-linux.opnsense-config"
+    "$flake#checks.x86_64-linux.fleet-inventory"
+    "$flake#checks.x86_64-linux.kiosk-tty1"
+    "$flake#checks.x86_64-linux.kernel-modules-aggregation"
     "$flake#checks.x86_64-linux.topology"
     "$flake#devShells.x86_64-linux.default"
     "$flake#devShells.x86_64-linux.ci"
@@ -41,7 +47,13 @@ else
   echo "Unknown target set: $target_set" >&2
   exit 2
 fi
-builder=${HOMELAB_CACHE_BUILDER:-native}
+# Bound evaluation across the fleet; one native evaluator retains all host
+# configurations while VM builds also consume the container's memory budget.
+default_builder=native
+if [[ "$target_set" == homelab ]]; then
+  default_builder=fast
+fi
+builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
 started=$SECONDS
 case "$builder" in
   fast)

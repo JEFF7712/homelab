@@ -15,6 +15,8 @@ data:
         service: http://ism-svc.ism:80
       - hostname: nix-agent.rupan.dev
         service: http://nixagent-svc.nixagent:80
+      - hostname: nix.rupan.dev
+        service: http://nix-svc.nix:80
       - hostname: rupanism.rupan.dev
         service: http://rupanism-svc.rupanism:80
       - hostname: spatia.rupan.dev
@@ -112,4 +114,8 @@ data:
         service: http://woodpecker.cloudflare:8000
       - hostname: tally.rupan.dev
         service: http://umami.analytics:80
+      - hostname: questarr.rupan.dev
+        service: http://questarr.media:80
+      - hostname: games.rupan.dev
+        service: http://gameyfin.media:80
       - service: http_status:404

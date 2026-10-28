@@ -4,7 +4,8 @@ description: >-
   Send one reminder per evening at 10:30 PM, or whenever the battery drops
   below the Phone Bedtime Battery Threshold in the evening, if the phone is
   not charging. A latch helper prevents the time and threshold triggers
-  from double-notifying the same evening; it resets at 6 AM.
+  from double-notifying the same evening; it resets at 6 AM, and the
+  reminder window closes then too so it never nags in the morning.
 triggers:
   - trigger: time
     at: "22:30:00"
@@ -33,7 +34,7 @@ actions:
             state: "off"
           - condition: time
             after: "21:30:00"
-            before: "08:00:00"
+            before: "06:00:00"
           - condition: state
             entity_id: person.rupan_sunderapandyan
             state: "home"

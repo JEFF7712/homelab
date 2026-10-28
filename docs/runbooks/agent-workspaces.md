@@ -41,7 +41,23 @@ the 100 percent whole-domain CPU limit, and the existing bridge, tap, MAC and
 address. Its single fresh 96 GiB disk is
 `/persist/agent-workspaces/rupan/disks/nixos.qcow2`. SSH remains
 `developer@172.31.10.2` through `homelab-04`. The guest has no shared laptop
-filesystem, provider credentials, or infrastructure credentials in its image.
+filesystem, and its image carries no provider or infrastructure credentials.
+
+Since 2026-10-26, by Rupan's explicit choice, the running guest is a full
+operator workstation equivalent to the laptop. Its home directory holds the
+`homelab-agent` tea login and Git push key, a Woodpecker token, the
+cluster-admin kubeconfig, and the SOPS age key. Its own SSH key
+(`developer@agent-rupan`) is authorized for `rupan` on every fleet host through
+`flake/modules/common-base.nix`, and the network grants above admit it. To
+revoke this access, remove that key, delete those files from the guest, and
+narrow `tcpEgress.rupan` in `flake/hosts/homelab-04/default.nix`.
+
+The libvirt definition the host actually starts is
+`/persist/agent-workspaces/rupan/control/domain.xml`;
+`agent-workspace-domains.service` defines it only when the domain is missing.
+After changing `rupan-nixos.xml`, back up and replace that file, shut down only
+`agent-rupan`, `virsh define` it, and start it again. Memory and CPU changes
+need this cold restart, which ends the guest's tmux sessions.
 
 Installation is a Rupan-only authorized replacement:
 
@@ -90,7 +106,7 @@ Before enrollment, complete and record these checks against one deployed revisio
 1. Accepted 2026-09-14: two disposable guests passed bidirectional denial and simultaneous CPU, disk, and network pressure while etcd, PostgreSQL, and Home Assistant remained healthy. Retain the raw evidence linked from the acceptance record.
 2. Enroll the actual pilot identities only after their collision-checked addresses and credentials are available. Prove LAN SSH and HTTPS with NetBird stopped, remote access from an external network through NetBird, and cross-user login denial.
 3. Prove authenticated browser access, each user's own agent provider credentials, session continuity after disconnect and reboot, and restore of a quiesced encrypted backup into an isolated VM with networking disabled.
-4. Deploy and accept the HA capability API and trusted deployment worker before granting a guest automation deployment access. Guests must never receive the HA administrator credential, shared repository writer credential, infrastructure kubeconfig, or privileged runner access. Rupan's explicitly authorized personal coding pilot instead uses its own repository-scoped Git deploy key, generated inside that VM and subject to the repository's protected branches. This does not enroll other guests or grant CI/deployment API credentials.
+4. Deploy and accept the HA capability API and trusted deployment worker before granting a guest automation deployment access. Guests must never receive the HA administrator credential, shared repository writer credential, infrastructure kubeconfig, or privileged runner access. Rupan's personal VM is the explicitly authorized exception described under Rupan's NixOS guest. It does not enroll other guests or extend those credentials to them.
 
 Retain separate evidence for spoofing, tagged frames, IPv6, DNS rebinding, alternate private paths, firewall reload/reboot behavior, host-service denial, and measured throughput. Libvirt I/O weight is relative priority, not a throughput cap.
 

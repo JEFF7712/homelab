@@ -32,6 +32,14 @@ The new host CI slice is limited to three CPUs and 10 GiB, with that budget
 reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
 and 8 GiB container limits.
 
+Job Nix builds as the container's root (`build-users-group =` in the
+server-owned `NIX_CONFIG`). The `nixos/nix` image's `nixbld` users carry the
+host's build UIDs (30001+) and Docker does not remap them, so a host
+nix-daemon build, such as a fleet dry-run's `--build-host` on homelab-04 or
+homelab-05, killed every job builder holding the same UID: the job failed
+with `builder failed due to signal 9 (Killed)` and no OOM recorded anywhere.
+Without a sandbox the build users isolated nothing.
+
 The remote agent uses a dedicated SSH tunnel with a pinned homelab-04 host
 key. Its account can forward only to `127.0.0.1:9000`, cannot open a shell
 or remote listener, and has no sudo access. The server's gRPC listener
@@ -47,14 +55,14 @@ read-only work shares the single `scheduled-read-only` group, so maintenance
 holds at most one trusted slot and never queues an operator's plan behind it.
 
 The immutable server configuration extension verifies the signed request,
-repository, event, current main SHA, deployment operator, and successful
+repository, event, validated main ancestry and operation inputs, deployment identity, and successful
 validation parent. Repository YAML cannot select an executor, command, secret,
 or privileged container. Policy failures return 403 and fail the pipeline.
 Repository settings must clear extension overrides and all trusted permissions.
 
 The patched Woodpecker server records the deployment operator before policy
 evaluation and rejects restart query variable overrides. Retain the patch
-during upgrades. Deployment rights remain restricted to project operators.
+during upgrades. Deployment rights include the enrolled `homelab-agent` identity; task delivery needs no separate operator approval.
 
 ## Validation and operations
 
@@ -110,7 +118,11 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   narrow changes run the union of their checks. Validation infrastructure
   (`scripts/ci/`, `scripts/checks/`, CI config, flake inputs), shared Nix
   modules, and any unmapped path still force the full gate.
-- **Full offline gate**: Main branch pushes, periodic cron runs, release tags, and
+- **Main pushes** use the policy mirror's complete first-parent Git diff with
+  rename detection disabled, preserving both sides of moved files. The same
+  scoped classification applies as on branches. API display-list truncation
+  cannot omit checks; missing mirror evidence falls back to full validation.
+- **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
 
@@ -139,6 +151,26 @@ lanes it crossed the 8 GiB job limit and killed `repository-contract` with
 signal 9. `CI_EVAL_WORKERS` and `CI_EVAL_MAX_MEMORY_MB` trade memory for
 evaluation time.
 
+The flake lane uses the Git-filtered `./flake` reference, matching
+`cache.sh` and `just cache-populate`. Keep these source identities aligned:
+`path:.?dir=flake` includes `.git` and ignored job artifacts in the source
+of `repository-contract`, producing different derivations even for the same
+tracked files. A cached result under the Git reference cannot substitute
+that path-based derivation. Git metadata and ignored artifacts must not
+invalidate a check, while changes to tracked source must still do so.
+See the [revalidation cache investigation](../research/2026-10-27-ci-revalidation-cache.md)
+for the measured baseline and reproduction.
+
+The libvirt normalization VM copies only `scripts/agent_workspaces/` and
+`scripts/__init__.py`, through `flake/tests/agent-workspace-python-source.nix`.
+Package data and both initializers remain inputs; unrelated scripts, Git
+metadata and Python bytecode do not invalidate this VM result. Keep imports
+inside that package, or extend the source boundary when adding an external
+repository dependency. The Nix-integration lane runs
+`tests.test_agent_workspace_sources` beside the Zot integration tests. Its
+real-Nix fixture checks copied files and source identity after relevant and
+unrelated mutations without building a VM.
+
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
 and deployment work); `scripts/ci/cache.sh` and `just cache-populate` publish
@@ -153,6 +185,30 @@ an unrelated slow lane in CI. OpenTofu provisioning
 (`/tmp/tofu-plugin-cache` in CI) so repeat provider
 installs reuse the shared plugin cache instead of re-downloading.
 
+VM checks use `flake/tests/vm-host-pkgs.nix` to run virtiofsd with
+`--inode-file-handles=never`. The default mode requests CAP_DAC_READ_SEARCH
+when running as root, which ordinary Docker jobs lack. File descriptors keep
+the same VM shares and assertions working without adding container capabilities.
+The local and CI gates build the same checks.
+
+Root CI builds also use `nix/kernel-modules-overlay.nix` for module aggregation,
+applied to fleet hosts and every VM guest by `flake/flake.nix`. The pinned
+[Nixpkgs aggregator](https://github.com/NixOS/nixpkgs/blob/09063bd1f2b36fd9fd793c36dfade7bd40a93dfc/pkgs/os-specific/linux/kmod/aggregator.nix)
+uses a writable-directory test before running depmod and merging certificates.
+For a single module source, buildEnv can link the output to the kernel's
+read-only module tree. Root considers that input writable, enters it and
+fails copying `modules.cer` onto itself. This stops cache publication and
+can also fail an uncached Zot VM check.
+
+The overlay replaces that permission assumption with a resolved-path check:
+regeneration happens only inside the aggregation output. Linked input trees
+are preserved; merged output-owned trees still regenerate dependency maps
+and combine certificates. The overlay asserts the pinned upstream guard is
+still present so a Nixpkgs upgrade prompts review of the workaround.
+`checks.kernel-modules-aggregation` reproduces the old failure using a
+writable input, verifies input bytes stay unchanged with the fix, and tests
+merged certificates, empty module trees and inconsistent-version rejection.
+
 ### Dependency caching and timing visibility
 
 Attic stores its chunks on `zroot/attic` (`/srv/attic`), the system SSD
@@ -164,17 +220,22 @@ remove it once the SSD store has run cleanly for a while.
 
 ### Fleet cache builder
 
-`scripts/ci/cache.sh` uses the native builder by default for homelab, laptop
-and ISO targets. The [matched CI benchmark](../research/2026-10-23-nix-fast-build-benchmark.md)
-found no consistent complete-job benefit from enabling nix-fast-build for
-the homelab cache lane. The full gate's bounded `nix-eval-jobs` flake lane
-remains a separate validation gate.
+`scripts/ci/cache.sh` uses bounded nix-fast-build evaluation by default for
+homelab targets; laptop and ISO builds use the native builder. The
+[matched warm-cache benchmark](../research/2026-10-23-nix-fast-build-benchmark.md)
+found no consistent complete-job speed benefit from nix-fast-build. However,
+the cold 23-target native publication in pipeline #6163 exceeded the CI
+container's memory limit while evaluating configurations and building VMs;
+the host kernel confirmed a memory-cgroup OOM kill of Nix. Bounded evaluation
+keeps completed configurations out of a single long-lived evaluator.
 
-Set `HOMELAB_CACHE_BUILDER=fast` to opt into nix-fast-build from the pinned
-nixpkgs in the `ops` or `default` development shell. Its selection is
-generated from the native builder's same 17 homelab targets: seven host
-systems, seven checks and three development shells. It uses two evaluation
-workers, a 2048 MiB memory budget per worker and two concurrent build jobs.
+The fast builder comes from pinned nixpkgs in the `ops` or `default`
+development shell. Its selection is
+generated from the native builder's same 23 homelab targets: seven host
+systems, all thirteen checks and three development shells. `just cache-populate`
+publishes the same target set, including the Zot service VM check. The fast
+builder uses two evaluation workers, a 2048 MiB memory budget per worker and
+two concurrent build jobs.
 The initial 1536 MiB budget caused worker restarts; the matched CI runs also
 observed worker retries at the 4096 MiB combined budget in two fast runs.
 The worker budget does not cap total process memory. The CI container's
@@ -186,7 +247,7 @@ its output and derivation paths feed the existing source/build-input cache
 publication and per-path upload retries. Missing tooling or a failed fast
 build fails the job without silently retrying through another builder.
 
-Set `HOMELAB_CACHE_BUILDER=native` to explicitly select the default builder.
+Set `HOMELAB_CACHE_BUILDER=native` or `fast` to explicitly select a builder.
 Each invocation logs the backend, target count and build elapsed seconds.
 Compare the same source revision and cache state, and distinguish evaluation
 timing from complete build/upload timing. The fast tool's wrapper lives in
@@ -214,6 +275,14 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   from slow checks. Concurrent checks share counters, so their values
   overlap and must not be added together. SIGKILL alone does not establish
   OOM; missing cgroup files mean unavailable evidence.
+- Flake builds also report `flake-repository-contract`, `flake-topology`,
+  and the other check names in the same breakdown. Each measures the Nix
+  invocation, including substitution and dependencies, rather than only
+  the check's test process. They overlap host evaluation and sit inside
+  `check-flake`; do not add their times to the parent lane. A quick invocation
+  may indicate a cache hit; confirm substitution versus a build in the Nix
+  log. Source changes still require a fresh contract build, and publication
+  must succeed for subsequent disposable containers to reuse its output.
 
 The server wraps the pinned default clone plugin with at most three
 attempts, 60 seconds per attempt plus a five-second kill grace, and five-
@@ -317,12 +386,12 @@ Woodpecker catalog before requesting this operation. See
 and the distinction between this deployment authority and agent read access.
 
 For NixOS fleet changes, use the `deploy-fleet-dry-run` operation first, then
-the dependent `deploy-fleet` operation only after reviewing the dry-run result
-and obtaining explicit deployment authorization. These catalog operations run
-the full configured fleet; the CI policy rejects per-run variable overrides,
+the dependent `deploy-fleet` operation after the agent checks the dry-run result.
+The task request authorizes both operations. They consider the configured fleet
+and skip hosts already running their desired closure; the CI policy rejects per-run variable overrides,
 so they do not provide host-level target selection. The operation catalog
-enforces the prerequisite and consumes fresh validation for the same main
-revision. Apply operations expire after 24 hours. For a scoped deployment, use
+enforces the prerequisite and consumes fresh validation for the same source
+revision. Known disjoint main advances preserve that revision's artifacts. Apply operations expire after 24 hours. For a scoped deployment, use
 the fleet deployer's explicit `--target` option only when the task authorizes
 local deployment and the [NixOS host deployment runbook](nixos-host-deployment.md)
 allows it.
@@ -394,32 +463,24 @@ Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-The deploy policy admits `homelab-agent` for read-only operations and catalog
-mutations marked `"agent": true`. Routine infrastructure and application routes
-are automatic. The active policy compares authorization/storage source identities
-with an immutable baseline built into its deployed NixOS generation. Changed
-protected source, newly changed Nix authorization statements, unknown baselines,
-and operator-only operations require human approval. Apply operations also
-inspect saved plans for authority changes and destructive data/connectivity
-changes. `ship` sends those exceptions to the passkey dashboard.
+The deploy policy admits `homelab-agent` for all catalog operations under the
+requested task's standing delivery authorization. No protected-source baseline,
+operator-only catalog exception, or passkey grant is required. Saved plans are
+validated for completeness and risks are reported; the agent must stay within
+task scope and establish recovery before intended persistent-data destruction.
 
-The operator identity is injected by the deployed policy as
-`CI_OPERATION_OPERATOR`, never accepted from repository variables. It authorizes
-the reviewed exception; no operator token is handed to an agent. Source validation
-must pass for the exact current main SHA. A failed unrelated main operation does
-not block deployment; the operation's own prerequisites remain mandatory. Source
-checks govern supported delivery, not adversarial root-capable NixOS authors.
+Source validation must pass for the operation's exact source SHA. Both policy
+and runner reject superseded related inputs, while known disjoint main changes
+can preserve an older validated revision. A failed unrelated main operation does
+not block deployment; exact-source prerequisites remain mandatory.
 
-Triggering a deployment needs the bot's own Woodpecker API token: sign in to
+Triggering deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
 profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
-agent machine. Held operations run from the Woodpecker UI as the operator, through
-the [approvals dashboard](approvals.md) (which holds an operator token on
-homelab-04 and triggers only after a passkey approval), or through
-`just ship --deploy` with an operator token in
-`WOODPECKER_OPERATOR_TOKEN` or `~/.config/woodpecker/operator-token`. Keep the
-operator token off machines where agents run unattended. Never commit either
-token.
+agent machine. Production credentials stay in CI. Before this policy is first
+activated, the previous generation can still require its legacy
+[passkey approval](approvals.md); `ship` files that transition request.
+Never commit tokens.
 
 ## Recovery
 
@@ -427,7 +488,7 @@ A Woodpecker server restart can cancel its own deployment workflow through
 gRPC while the host switch completes. Before retrying, inspect the running
 host generation, service health and node cordon state. If activation succeeded,
 finish the remaining targets with the local `just deploy-fleet --target <host>`
-path from the exact approved commit. Preserve the required approval, drain and
+path from the exact validated commit. Preserve the required drain and
 health checks; a killed CI job does not prove the host switch failed.
 
 Keep a newly registered remote agent disabled until its host credentials,

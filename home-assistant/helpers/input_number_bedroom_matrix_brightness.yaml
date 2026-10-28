@@ -1,0 +1,3 @@
+name: Bedroom Matrix Brightness
+icon: null
+entity_id: input_number.bedroom_matrix_brightness

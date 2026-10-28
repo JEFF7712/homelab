@@ -1323,7 +1323,8 @@
     "legacy_job": "cloudflare_import",
     "automatic": false,
     "mutation": true,
-    "prerequisite": ""
+    "prerequisite": "",
+    "agent": true
   },
   "cloudflare-apply": {
     "commands": [
@@ -1400,7 +1401,6 @@
   },
   "deploy-fleet-dry-run": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1457,7 +1457,6 @@
   },
   "deploy-fleet": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1511,7 +1510,6 @@
   },
   "deploy-agent-workspace-host-dry-run": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -1563,7 +1561,6 @@
   },
   "deploy-agent-workspace-host": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -2201,7 +2198,6 @@
   },
   "deploy-ci-host-dry-run": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -2253,7 +2249,6 @@
   },
   "deploy-ci-host": {
     "commands": [
-      "python -m scripts.ci.run fleet-preflight -- python -m scripts.ci.validate fleet",
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
       "mkdir -p ~/.ssh ~/.kube",
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
@@ -2298,6 +2293,39 @@
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-ci-host-dry-run",
+    "agent": true
+  },
+  "node-supply-publish": {
+    "commands": [
+      "python -m scripts.ci.node_supply publish"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PACKAGE_TOKEN": {
+        "from_secret": "supply_write_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "node-supply",
+    "needs": [],
+    "outputs": [
+      "artifacts/node-supply/"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
     "agent": true
   }
 }

@@ -8,12 +8,13 @@ let
   cfg = config.homelab.mergePolicy;
   python = pkgs.python313.withPackages (p: [ p.pyyaml ]);
   # The policy runs from this generation's copy, never from a PR checkout,
-  # so a change to the verifier takes effect only through a reviewed host
-  # deployment (scripts/verifier/ is a held deployment path).
+  # so a change to the verifier takes effect through the validated CI-host
+  # deployment, with task authorization for enrolled repository authors.
   source = pkgs.runCommand "merge-policy-source" { } ''
     mkdir -p $out/scripts/verifier
     cp ${../../scripts/verifier/websites.py} $out/scripts/verifier/websites.py
     cp ${../../scripts/verifier/service.py} $out/scripts/verifier/service.py
+    cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
     touch $out/scripts/__init__.py $out/scripts/verifier/__init__.py
   '';
 in

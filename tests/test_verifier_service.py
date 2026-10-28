@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -9,6 +10,7 @@ from typing import Any
 
 from scripts.verifier.service import (
     CONTEXT,
+    OUTDATED,
     Forge,
     Mirror,
     decide,
@@ -99,7 +101,7 @@ class MergePolicyService(unittest.TestCase):
             "html_url": f"u/{number}",
         }
 
-    def test_routine_change_passes_and_widened_ingress_fails_with_a_comment(
+    def test_routine_change_passes_and_an_unhardened_change_fails_with_a_comment(
         self,
     ) -> None:
         def routine(repo: Path) -> None:
@@ -113,20 +115,22 @@ class MergePolicyService(unittest.TestCase):
         def widen(repo: Path) -> None:
             spec = repo / "gitops/websites/ism/site.yaml"
             spec.write_text(spec.read_text() + "\n")
-            policy = repo / "gitops/websites/ism/network-policy.yaml"
-            policy.write_text(
-                policy.read_text()
-                + "    - from:\n        - ipBlock:\n            cidr: 0.0.0.0/0\n"
+            deployment = repo / "gitops/websites/ism/deployment.yaml"
+            deployment.write_text(
+                deployment.read_text().replace(
+                    "readOnlyRootFilesystem: true", "readOnlyRootFilesystem: false"
+                )
             )
 
         good, bad = self.branch(1, routine), self.branch(2, widen)
         forge = FakeForge([self.pull(1, good), self.pull(2, bad)])
-        judged: dict[int, tuple[str, str]] = {}
+        judged: dict[int, tuple[str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         states = {sha: body["state"] for sha, body in forge.statuses}
         self.assertEqual(states, {good: "success", bad: "failure"})
         self.assertTrue(all(body["context"] == CONTEXT for _, body in forge.statuses))
-        self.assertIn("ingress may only come from", forge.comments[2][0]["body"])
+        self.assertIn("readOnlyRootFilesystem", forge.comments[2][0]["body"])
+        self.assertIn("outcome=rejected", forge.comments[2][0]["body"])
         self.assertIn(f"head={bad}", forge.comments[2][0]["body"])
 
         run_once(forge, self.mirror, judged)
@@ -135,15 +139,47 @@ class MergePolicyService(unittest.TestCase):
         )
         self.assertEqual(len(forge.comments[2]), 1, "one comment per head")
 
+    def advance_main(self, path: str) -> None:
+        target = self.remote / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("main\n")
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-q", "-m", f"main changes {path}")
+
+    def test_a_head_behind_overlapping_main_changes_fails_without_a_comment(
+        self,
+    ) -> None:
+        def media(repo: Path) -> None:
+            (repo / "gitops/media").mkdir(parents=True)
+            (repo / "gitops/media/app.yaml").write_text("branch\n")
+
+        head = self.branch(8, media)
+        forge = FakeForge([self.pull(8, head)])
+        judged: dict[int, tuple[str, str, str]] = {}
+        run_once(forge, self.mirror, judged)
+        self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
+        self.advance_main("gitops/observability/app.yaml")
+        run_once(forge, self.mirror, judged)
+        self.assertEqual(len(forge.statuses), 1, "independent main changes keep it")
+
+        self.advance_main("gitops/media/other.yaml")
+        run_once(forge, self.mirror, judged)
+        state = forge.statuses[-1][1]
+        self.assertEqual(state["state"], "failure")
+        self.assertTrue(state["description"].startswith(OUTDATED))
+        self.assertIn("gitops/media", state["description"])
+        self.assertNotIn(8, forge.comments, "a branch update fixes it, not a repair")
+
     def test_operator_approval_of_the_exact_head_overrides(self) -> None:
         def eject(repo: Path) -> None:
-            (repo / "gitops/websites/darkbit/site.yaml").unlink()
+            # Removing a site that holds stored data needs an operator.
             root = repo / "gitops/websites/kustomization.yaml"
-            root.write_text(root.read_text().replace("  - darkbit\n", ""))
+            root.write_text(root.read_text().replace("  - uwagent\n", ""))
 
         head = self.branch(3, eject)
         forge = FakeForge([self.pull(3, head)])
-        judged: dict[int, tuple[str, str]] = {}
+        judged: dict[int, tuple[str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "failure")
         self.assertIn("outcome=escalated", forge.comments[3][0]["body"])
@@ -162,6 +198,41 @@ class MergePolicyService(unittest.TestCase):
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "success")
 
+    def test_approval_carries_over_a_main_update_but_not_a_new_change(self) -> None:
+        def touch_policy(repo: Path) -> None:
+            (repo / "CODEOWNERS").write_text("x @rupan\n")
+
+        approved = self.branch(7, touch_policy)
+        # main advances, then the PR branch is updated from it.
+        (self.remote / "README").write_text("main moved\n")
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-q", "-m", "main moves")
+        git(self.remote, "checkout", "-q", "pr7")
+        git(self.remote, "merge", "-q", "--no-edit", "main")
+        updated = git(self.remote, "rev-parse", "HEAD")
+        git(self.remote, "checkout", "-q", "main")
+        approval = {
+            "state": "APPROVED",
+            "user": {"login": "rupan"},
+            "commit_id": approved,
+            "stale": True,
+        }
+
+        forge = FakeForge([self.pull(7, updated)])
+        forge.reviews[7] = [approval]
+        run_once(forge, self.mirror, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
+        git(self.remote, "checkout", "-q", "pr7")
+        (self.remote / "CODEOWNERS").write_text("y @rupan\n")
+        git(self.remote, "commit", "-qam", "new change")
+        changed = git(self.remote, "rev-parse", "HEAD")
+        git(self.remote, "checkout", "-q", "main")
+        forge = FakeForge([self.pull(7, changed)])
+        forge.reviews[7] = [approval]
+        run_once(forge, self.mirror, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "failure")
+
     def test_no_status_is_posted_when_the_head_moves_during_judgement(self) -> None:
         head = self.branch(4, lambda repo: (repo / "README").write_text("x\n"))
         forge = FakeForge([self.pull(4, head)])
@@ -171,7 +242,7 @@ class MergePolicyService(unittest.TestCase):
 
     def test_repeated_evaluation_errors_fail_closed_with_a_reason(self) -> None:
         forge = FakeForge([self.pull(5, "e" * 40)])
-        judged: dict[int, tuple[str, str]] = {}
+        judged: dict[int, tuple[str, str, str]] = {}
         errors: dict[tuple[int, str], int] = {}
         for _ in range(2):
             run_once(forge, self.mirror, judged, errors=errors)
@@ -179,6 +250,26 @@ class MergePolicyService(unittest.TestCase):
         run_once(forge, self.mirror, judged, errors=errors)
         self.assertEqual(forge.statuses[-1][1]["state"], "failure")
         self.assertIn("evaluation", forge.comments[5][0]["body"])
+
+    def test_forge_timeouts_are_retried_not_fatal(self) -> None:
+        class SlowForge(FakeForge):
+            def call(self, method: str, path: str, body: Any = None) -> Any:
+                if path.startswith("/pulls?") or path.endswith("/reviews"):
+                    raise TimeoutError("timed out")
+                return super().call(method, path, body)
+
+        head = self.branch(6, lambda repo: (repo / "README").write_text("x\n"))
+        run_once(SlowForge([self.pull(6, head)]), self.mirror, {})
+
+        class SlowReviews(FakeForge):
+            def call(self, method: str, path: str, body: Any = None) -> Any:
+                if path.endswith("/reviews"):
+                    raise TimeoutError("timed out")
+                return super().call(method, path, body)
+
+        forge = SlowReviews([self.pull(6, head)])
+        run_once(forge, self.mirror, {})
+        self.assertEqual(forge.statuses, [])
 
 
 class Decide(unittest.TestCase):
@@ -202,11 +293,104 @@ class Decide(unittest.TestCase):
         review = {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": head}
         self.assertTrue(operator_approved([review], head))
         self.assertFalse(operator_approved([{**review, "stale": True}], head))
+        self.assertFalse(
+            operator_approved(
+                [{**review, "commit_id": "c" * 40}], head, lambda a, b: False
+            )
+        )
+        self.assertTrue(
+            operator_approved(
+                [{**review, "commit_id": "c" * 40}], head, lambda a, b: True
+            )
+        )
         self.assertFalse(operator_approved([{**review, "dismissed": True}], head))
         self.assertFalse(
             operator_approved([{**review, "user": {"login": "homelab-agent"}}], head)
         )
         self.assertFalse(operator_approved([{**review, "state": "COMMENT"}], head))
+
+
+class AuthorityBoundaryTest(unittest.TestCase):
+    """Agents act broadly but cannot redefine their own authority."""
+
+    def test_every_control_that_bounds_agents_needs_an_operator(self) -> None:
+        from scripts.verifier.service import POLICY_PATHS
+
+        for path in (
+            "scripts/verifier/service.py",
+            "scripts/ci/policy.py",
+            "scripts/ci/deployment_risk.py",
+            "scripts/ci/operation.py",
+            "scripts/approvals/server.py",
+            "flake/modules/woodpecker.nix",
+            "flake/modules/merge-policy.nix",
+            "config/ci/forgejo-protection.json",
+            "scripts/agent/guard.py",
+            ".sops.yaml",
+            "CODEOWNERS",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(path.startswith(POLICY_PATHS))
+                decision = decide([path], None, None, set(), set(), False)
+                self.assertEqual((decision.state, decision.escalate), ("failure", True))
+
+    def test_operator_approval_still_overrides(self) -> None:
+        decision = decide(["scripts/ci/policy.py"], None, None, set(), set(), True)
+        self.assertEqual(decision.state, "success")
+
+    def test_ordinary_infrastructure_changes_need_no_one(self) -> None:
+        decision = decide(
+            [
+                "flake/modules/kiosk.nix",
+                "gitops/media/arr.yaml",
+                "scripts/deploy_fleet.py",
+            ],
+            None,
+            None,
+            set(),
+            set(),
+            False,
+        )
+        self.assertEqual(decision.state, "success")
+
+    def catalog(self, base: dict, head: dict):
+        files = {
+            "base": {"config/ci/operations.json": json.dumps(base)},
+            "head": {"config/ci/operations.json": json.dumps(head)},
+        }
+        return decide(
+            ["config/ci/operations.json"],
+            files["base"].get,
+            files["head"].get,
+            set(),
+            set(),
+            False,
+        )
+
+    def test_granting_an_existing_operation_to_agents_needs_an_operator(self) -> None:
+        decision = self.catalog(
+            {"provision": {"mutation": True}},
+            {"provision": {"mutation": True, "agent": True}},
+        )
+        self.assertEqual((decision.state, decision.escalate), ("failure", True))
+        self.assertIn("newly granted to agents", " ".join(decision.findings))
+
+    def test_unmarking_a_mutation_needs_an_operator(self) -> None:
+        decision = self.catalog(
+            {"apply": {"mutation": True, "agent": True}},
+            {"apply": {"mutation": False, "agent": True}},
+        )
+        self.assertTrue(decision.escalate)
+
+    def test_new_agent_operations_and_other_edits_pass(self) -> None:
+        decision = self.catalog(
+            {"apply": {"mutation": True, "agent": True, "commands": ["a"]}},
+            {
+                "apply": {"mutation": True, "agent": True, "commands": ["b"]},
+                "new-op": {"mutation": True, "agent": True},
+            },
+        )
+        self.assertEqual(decision.state, "success")
 
 
 if __name__ == "__main__":

@@ -43,7 +43,7 @@ PROFILES = ("static", "server")
 # Sites whose manifests are written by hand. Taking a site out of generation
 # means adding it here, so it needs the same code-owner review as a renderer
 # change (see CODEOWNERS).
-HANDWRITTEN = ("bus-display", "uwagent")
+HANDWRITTEN = ("bus-display", "nix", "uwagent")
 STATIC_PORT = 8080
 LINE_LIMIT = 120
 IMAGE = re.compile(

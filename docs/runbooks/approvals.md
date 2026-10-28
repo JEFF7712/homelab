@@ -2,8 +2,11 @@
 
 `https://approvals.rupan.dev` handles exceptional high-risk CI operations.
 Routine fleet, CI-host, OPNsense, Cloudflare and workspace deployments are
-automatic. Authorization-system changes and destructive changes still require
-the operator.
+automatic. A deployment that would activate a change to the controls bounding
+agents (CI policy, approvals, merge policy, Woodpecker, protection, secret
+recipients) or to storage layout, an operator-only catalog operation, and a
+saved OpenTofu plan with authorization changes, persistent-data deletion,
+management-connectivity loss or bulk destruction wait here for a passkey.
 An agent running `just ship --deploy <ops>` without an operator token files a
 request, prints its link, and waits. ntfy pushes the same link. Approving
 asks for the operator's passkey; the dashboard then triggers the deployment

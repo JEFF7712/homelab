@@ -153,9 +153,18 @@ views:
                 entity: sensor.sun_next_setting
                 name: Sunset
                 icon: mdi:weather-sunset-down
-          - type: iframe
-            url: https://ma.rupan.dev
-            aspect_ratio: 75%
+          - type: custom:mediocre-massive-media-player-card
+            entity_id: media_player.homelab_05_satellite_media_player_2
+            ma_entity_id: media_player.homelab_05_satellite_media_player_2
+            ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
+            use_art_colors: true
+            mode: card
+            speaker_group:
+              entities:
+                - media_player.bedroom_speaker
+            media_browser:
+              - entity_id: media_player.homelab_05_satellite_media_player_2
+                name: Soundbar
       - cards:
           - heading: Family
             type: heading
@@ -291,6 +300,30 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.kitchen_dining_table_ceiling_light_1
+            name: Dining Table Light 1
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_dining_table_ceiling_light_2
+            name: Dining Table Light 2
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
           - entity: light.apollo_led_strip_apollo_led_strip
             name: Light Strip
             fill_container: true
@@ -406,11 +439,10 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - name: Exit Sign
-            entity: switch.exit_sign
-            features:
-              - type: toggle
-            type: tile
+          - entity: light.exit_sign
+            name: Exit Sign
+            fill_container: true
+            type: custom:mushroom-light-card
             tap_action:
               action: toggle
             hold_action:

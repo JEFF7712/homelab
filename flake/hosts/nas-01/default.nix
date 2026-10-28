@@ -40,6 +40,7 @@
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;
   homelab.platformBackup.bookshelfConfigPath = "/tank/cluster/media-bookshelf-config-pvc-ba9f64f7-e62f-4d69-9f48-a0715b54d396";
+  homelab.platformBackup.homeAssistantConfigPath = "/tank/cluster/home-assistant-home-assistant-config-pvc-bc354a6f-5a1f-4a0e-85fd-13bbb74f666f";
   homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {

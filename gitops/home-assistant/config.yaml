@@ -8,6 +8,12 @@ data:
     default_config:
     homeassistant:
       external_url: https://ha.rupan.dev
+      allowlist_external_urls:
+        - http://127.0.0.1:8123
+        - http://10.0.30.15:8095
+      customize:
+        light.shared_zigbee_lights:
+          friendly_name: Shared Lights
       auth_providers:
         - type: homeassistant
         - type: trusted_networks
@@ -264,6 +270,8 @@ data:
           - light.kitchen_ceiling_light_2
           - light.kitchen_mushroom_lamp
           - light.kitchen_fuck_off_sign
+          - light.kitchen_dining_table_ceiling_light_1
+          - light.kitchen_dining_table_ceiling_light_2
       - platform: group
         name: Living Room Lights
         entities:
@@ -276,6 +284,8 @@ data:
           - light.kitchen_ceiling_light_2
           - light.living_room_floor_lamp
           - light.living_room_tulip_lamp
+          - light.kitchen_dining_table_ceiling_light_1
+          - light.kitchen_dining_table_ceiling_light_2
       - platform: group
         name: Bedroom Roku Lights
         entities:
@@ -291,6 +301,8 @@ data:
           - light.kitchen_fuck_off_sign
           - light.living_room_floor_lamp
           - light.living_room_tulip_lamp
+          - light.kitchen_dining_table_ceiling_light_1
+          - light.kitchen_dining_table_ceiling_light_2
       - platform: switch
         name: Bedroom Window Plug
         entity_id: switch.bedroom_window_plug
@@ -306,6 +318,9 @@ data:
       - platform: switch
         name: Kitchen Fuck Off Sign
         entity_id: switch.fuck_off_sign
+      - platform: switch
+        name: Exit Sign
+        entity_id: switch.exit_sign
     homekit:
       - name: Homelab Bridge
         port: 21063
@@ -317,6 +332,8 @@ data:
             - light.bedroom_roku_lights
             - light.kitchen_ceiling_light_1
             - light.kitchen_ceiling_light_2
+            - light.kitchen_dining_table_ceiling_light_1
+            - light.kitchen_dining_table_ceiling_light_2
             - light.living_room_floor_lamp
             - light.living_room_tulip_lamp
             - light.desk_lamp_desk_lamp
@@ -356,16 +373,6 @@ data:
           - light.light_strip_light_strip
         event_types:
           - call_service
-    history:
-      exclude:
-        entity_globs:
-          - sensor.sm_s948u1_app_*
-          - sensor.sm_s948u1_volume_*
-          - sensor.rupan_phone_app_*
-          - sensor.*_rx_gb
-          - sensor.*_tx_gb
-          - sensor.*_last_*
-          - sensor.*_linkquality
     logbook:
       exclude:
         entity_globs:
@@ -407,14 +414,16 @@ data:
             out: "light.bedroom_roku_lights"
           - in: "roku lights"
             out: "light.bedroom_roku_lights"
-          - in: "zigbee"
-            out: "light.shared_zigbee_lights"
-          - in: "zigbee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all zigbee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the zigbee lights"
-            out: "light.shared_zigbee_lights"
+          - in: "shared spaces"
+            out: "light.downstairs_lights"
+          - in: "shared spaces lights"
+            out: "light.downstairs_lights"
+          - in: "shared space lights"
+            out: "light.downstairs_lights"
+          - in: "all shared spaces lights"
+            out: "light.downstairs_lights"
+          - in: "all the shared spaces lights"
+            out: "light.downstairs_lights"
           - in: "shared lights"
             out: "light.shared_zigbee_lights"
           - in: "all shared lights"
@@ -422,48 +431,6 @@ data:
           - in: "all the shared lights"
             out: "light.shared_zigbee_lights"
           - in: "shared bulbs"
-            out: "light.shared_zigbee_lights"
-          - in: "govee"
-            out: "light.shared_zigbee_lights"
-          - in: "govee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all govee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the govee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "go vee"
-            out: "light.shared_zigbee_lights"
-          - in: "go vee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all go vee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the go vee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "go v"
-            out: "light.shared_zigbee_lights"
-          - in: "go v lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all go v lights"
-            out: "light.shared_zigbee_lights"
-          - in: "olga v"
-            out: "light.shared_zigbee_lights"
-          - in: "olga v lights"
-            out: "light.shared_zigbee_lights"
-          - in: "gobi"
-            out: "light.shared_zigbee_lights"
-          - in: "gobi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all gobi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the gobi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "gopi"
-            out: "light.shared_zigbee_lights"
-          - in: "gopi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all gopi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the gopi lights"
             out: "light.shared_zigbee_lights"
       jarvis_general_color:
         values:
@@ -511,12 +478,16 @@ data:
             out: "light.bedroom_roku_lights"
           - in: "bedroom lights"
             out: "light.bedroom_roku_lights"
-          - in: "zigbee"
-            out: "light.shared_zigbee_lights"
-          - in: "all zigbee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "zigbee lights"
-            out: "light.shared_zigbee_lights"
+          - in: "shared spaces"
+            out: "light.downstairs_lights"
+          - in: "shared spaces lights"
+            out: "light.downstairs_lights"
+          - in: "shared space lights"
+            out: "light.downstairs_lights"
+          - in: "all shared spaces lights"
+            out: "light.downstairs_lights"
+          - in: "all the shared spaces lights"
+            out: "light.downstairs_lights"
           - in: "shared lights"
             out: "light.shared_zigbee_lights"
           - in: "all shared lights"
@@ -524,42 +495,6 @@ data:
           - in: "all the shared lights"
             out: "light.shared_zigbee_lights"
           - in: "shared bulbs"
-            out: "light.shared_zigbee_lights"
-          - in: "govee"
-            out: "light.shared_zigbee_lights"
-          - in: "all govee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "go vee"
-            out: "light.shared_zigbee_lights"
-          - in: "go vee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all go vee lights"
-            out: "light.shared_zigbee_lights"
-          - in: "go v"
-            out: "light.shared_zigbee_lights"
-          - in: "go v lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all go v lights"
-            out: "light.shared_zigbee_lights"
-          - in: "olga v"
-            out: "light.shared_zigbee_lights"
-          - in: "olga v lights"
-            out: "light.shared_zigbee_lights"
-          - in: "gobi"
-            out: "light.shared_zigbee_lights"
-          - in: "gobi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all gobi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the gobi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "gopi"
-            out: "light.shared_zigbee_lights"
-          - in: "gopi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all gopi lights"
-            out: "light.shared_zigbee_lights"
-          - in: "all the gopi lights"
             out: "light.shared_zigbee_lights"
           - in: "kitchen mushroom lamp"
             out: "light.kitchen_mushroom_lamp"
@@ -1401,14 +1336,14 @@ data:
     _END_PUNCT = re.compile(r"[.!?]+$")
     _COMPOUND = re.compile(r"[,;]|\band\b|\bthen\b|\bwhile\b")
 
-    # The four shared bulbs are Third Reality Zigbee units (ex-Govee) under
-    # unchanged entity IDs; "govee" stays as a legacy voice alias.
-    _AREA = r"(?:kitchen|living room|bedroom|downstairs|govee|shared|zigbee)"
+    # "shared spaces" means every downstairs light; "shared" alone means the
+    # shared bulb group.
+    _AREA = r"(?:kitchen|living room|bedroom|downstairs|shared\s+spaces?|shared)"
     _ROOM = r"(?:kitchen|living room|bedroom|downstairs)"
     _LIGHT = (
         rf"(?:the\s+)?(?:all\s+the\s+)?(?:{_AREA})\s+lights?"
         r"|(?:the\s+)?(?:living|bed|lounge)\s+lights?"
-        r"|(?:the\s+)?(?:all\s+the\s+)?(?:govee|zigbee|shared)\s+lamp"
+        r"|(?:the\s+)?(?:all\s+the\s+)?shared\s+lamp"
         r"|(?:the\s+)?downstairs\s+lamp"
         r"|(?:the\s+)?bedrooms\s+lights?"
         r"|(?:the\s+)?livingroom\s+lights?"
@@ -1534,7 +1469,7 @@ data:
         (re.compile(r"^(?:living|lounge)\s+lights?$"), "living_room_lights"),
         (re.compile(r"^bed\s+lights?$"), "bedroom_lights"),
         (
-            re.compile(r"^(?:all\s+the\s+)?(?:govee|zigbee|shared)\s+lamp$"),
+            re.compile(r"^(?:all\s+the\s+)?shared\s+lamp$"),
             "shared_zigbee_lights",
         ),
         (re.compile(r"^downstairs\s+lamp$"), "downstairs_lights"),
@@ -1564,9 +1499,9 @@ data:
         "living room": "living_room_lights",
         "bedroom": "bedroom_lights",
         "downstairs": "downstairs_lights",
-        "govee": "shared_zigbee_lights",
+        "shared spaces": "downstairs_lights",
+        "shared space": "downstairs_lights",
         "shared": "shared_zigbee_lights",
-        "zigbee": "shared_zigbee_lights",
     }
 
     _COLOR_KEY = {c.replace("_", " "): c for c in COLORS}
@@ -1901,6 +1836,7 @@ data:
     _TARGET_EVIDENCE = {
         "downstairs_lights": re.compile(
             r"\bdownstairs (?:lights?|lamp)\b|\blights?\s+downstairs\b"
+            r"|\bshared spaces? lights?\b"
         ),
         "kitchen_lights": re.compile(
             r"(?:\bkitchen lights?\b|\blights?\s+(?:in\s+the\s+)?kitchen\b)"
@@ -1915,7 +1851,7 @@ data:
             r"|\blights?\s+(?:in\s+the\s+)?bedroom\b"
         ),
         "shared_zigbee_lights": re.compile(
-            r"\b(?:all (?:the )?)?(?:govee|zigbee|shared) (?:lights?|lamp|bulbs?)\b"
+            r"\b(?:all (?:the )?)?shared (?:lights?|lamp|bulbs?)\b"
         ),
         "kitchen_mushroom_lamp": re.compile(r"\bkitchen mushroom lamp\b"),
         "bedroom_window_plug": re.compile(r"\bbedroom window plug\b"),

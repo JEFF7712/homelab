@@ -213,7 +213,17 @@ def require_plan_approval(
             text=True,
             env=environment,
         )
-        risks = plan_risks(json.loads(output))
+        plan = json.loads(output)
+        risks = plan_risks(plan)
+        if (
+            plan.get("errored")
+            or plan.get("complete") is False
+            or not isinstance(plan.get("resource_changes"), list)
+        ):
+            raise ValueError("Invalid or incomplete infrastructure plan")
+        # Authorization changes (access policies, tokens, roles), persistent
+        # data deletion, management connectivity loss and bulk destruction
+        # widen or destroy what bounds the agents: an operator applies those.
         if risks:
             raise ValueError(f"{APPROVAL_REQUIRED}: " + "; ".join(risks))
 

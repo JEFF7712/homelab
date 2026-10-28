@@ -20,6 +20,11 @@ in
       default = "";
       description = "NAS cluster PVC directory containing Bookshelf configuration and SQLite state";
     };
+    homeAssistantConfigPath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "NAS cluster PVC directory containing the Home Assistant /config volume";
+    };
   };
   config = lib.mkIf cfg.enable {
     # homelab-04 and nas-01 write to the same Restic repository.
@@ -28,7 +33,10 @@ in
     systemd.services.platform-backup = {
       description = "Back up Git, CI, state, and recovery credentials";
       unitConfig.RequiresMountsFor =
-        "/persist" + lib.optionalString (cfg.bookshelfConfigPath != "") " /tank/cluster";
+        "/persist"
+        + lib.optionalString (
+          cfg.bookshelfConfigPath != "" || cfg.homeAssistantConfigPath != ""
+        ) " /tank/cluster";
       path = [
         pkgs.restic
         pkgs.systemd
@@ -42,7 +50,10 @@ in
           "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode backup"
           + lib.optionalString (
             cfg.bookshelfConfigPath != ""
-          ) " --bookshelf-config ${lib.escapeShellArg cfg.bookshelfConfigPath}";
+          ) " --bookshelf-config ${lib.escapeShellArg cfg.bookshelfConfigPath}"
+          + lib.optionalString (
+            cfg.homeAssistantConfigPath != ""
+          ) " --home-assistant-config ${lib.escapeShellArg cfg.homeAssistantConfigPath}";
         EnvironmentFile = config.sops.secrets."platform-backup.env".path;
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
