@@ -1,0 +1,352 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nix-web-conf
+  namespace: nix
+data:
+  default.conf: |
+    server {
+        listen 8080 default_server;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location = / {
+            try_files /index.html =404;
+        }
+
+        location = /nixos.iso {
+            alias /usr/share/nginx/html/iso/nixos.iso;
+            add_header Content-Disposition 'attachment; filename="nixos.iso"';
+            add_header Content-Type 'application/octet-stream';
+            try_files "" =404;
+        }
+
+        location = /nixos.iso.sha256 {
+            alias /usr/share/nginx/html/iso/nixos.iso.sha256;
+            add_header Content-Type 'text/plain; charset=utf-8';
+            try_files "" =404;
+        }
+
+        location /iso/ {
+            alias /usr/share/nginx/html/iso/;
+            autoindex on;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html =404;
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nix-web-html
+  namespace: nix
+data:
+  # yamllint disable rule:line-length
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Rupan's NixOS</title>
+      <style>
+        :root {
+          --bg: #0b0f17;
+          --surface: #131b26;
+          --surface-border: #1e2c3d;
+          --primary: #5277c3;
+          --primary-glow: rgba(82, 119, 195, 0.25);
+          --accent: #7ebae4;
+          --text: #e2e8f0;
+          --text-muted: #8899a6;
+          --code-bg: #080c12;
+          --code-border: #16202c;
+          --green: #48bb78;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          background: var(--bg);
+          color: var(--text);
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          line-height: 1.6;
+        }
+        .container {
+          max-width: 860px;
+          margin: 0 auto;
+          padding: 3rem 1.5rem;
+          width: 100%;
+        }
+        .hero {
+          text-align: center;
+          margin-bottom: 3.5rem;
+        }
+        .logo-wrap {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 72px;
+          height: 72px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, rgba(82, 119, 195, 0.2), rgba(126, 186, 228, 0.1));
+          border: 1px solid var(--surface-border);
+          margin-bottom: 1.25rem;
+          box-shadow: 0 8px 24px var(--primary-glow);
+        }
+        .logo-wrap svg {
+          width: 44px;
+          height: 44px;
+          fill: none;
+          stroke: var(--accent);
+          stroke-width: 1.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        h1 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: #fff;
+          letter-spacing: -0.02em;
+          margin-bottom: 0.75rem;
+        }
+        .tagline {
+          font-size: 1.15rem;
+          color: var(--text-muted);
+          max-width: 600px;
+          margin: 0 auto 2rem;
+        }
+        .actions {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          font-size: 1rem;
+          font-weight: 600;
+          border-radius: 10px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+          cursor: pointer;
+        }
+        .btn-primary {
+          background: var(--primary);
+          color: #fff;
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 4px 14px var(--primary-glow);
+        }
+        .btn-primary:hover {
+          background: #5d84d6;
+          transform: translateY(-1px);
+        }
+        .btn-secondary {
+          background: var(--surface);
+          color: var(--text);
+          border: 1px solid var(--surface-border);
+        }
+        .btn-secondary:hover {
+          background: #172230;
+          border-color: #2b3e55;
+          transform: translateY(-1px);
+        }
+        .card {
+          background: var(--surface);
+          border: 1px solid var(--surface-border);
+          border-radius: 14px;
+          padding: 1.75rem;
+          margin-bottom: 2rem;
+        }
+        .card-title {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #fff;
+          margin-bottom: 1.25rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .steps {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+        .step {
+          display: flex;
+          gap: 1rem;
+          align-items: flex-start;
+        }
+        .step-num {
+          background: rgba(82, 119, 195, 0.15);
+          color: var(--accent);
+          font-weight: 700;
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border: 1px solid rgba(82, 119, 195, 0.3);
+        }
+        .step-body {
+          flex: 1;
+        }
+        .step-title {
+          font-weight: 600;
+          color: #fff;
+          margin-bottom: 0.25rem;
+        }
+        .step-desc {
+          font-size: 0.95rem;
+          color: var(--text-muted);
+          margin-bottom: 0.5rem;
+        }
+        pre {
+          background: var(--code-bg);
+          border: 1px solid var(--code-border);
+          padding: 0.65rem 0.9rem;
+          border-radius: 8px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.88rem;
+          color: #a5d6ff;
+          overflow-x: auto;
+          position: relative;
+        }
+        .features-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 1rem;
+        }
+        .feature-card {
+          background: var(--surface);
+          border: 1px solid var(--surface-border);
+          border-radius: 12px;
+          padding: 1.25rem;
+        }
+        .feature-title {
+          font-size: 1rem;
+          font-weight: 600;
+          color: #fff;
+          margin-bottom: 0.35rem;
+        }
+        .feature-desc {
+          font-size: 0.88rem;
+          color: var(--text-muted);
+        }
+        footer {
+          margin-top: auto;
+          text-align: center;
+          padding: 2rem 1.5rem;
+          font-size: 0.88rem;
+          color: var(--text-muted);
+          border-top: 1px solid var(--surface-border);
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <header class="hero">
+          <div class="logo-wrap">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <h1>Rupan's NixOS</h1>
+          <p class="tagline">Declarative, reproducible workstation &amp; live installer ISO built with Nix flakes, Niri wayland compositor, and camp-1 impermanence.</p>
+          <div class="actions">
+            <a href="/nixos.iso" class="btn btn-primary" download>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Download ISO
+            </a>
+            <a href="https://github.com/JEFF7712/nixos-config" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              View on GitHub
+            </a>
+            <a href="/nixos.iso.sha256" class="btn btn-secondary">
+              SHA256
+            </a>
+          </div>
+        </header>
+
+        <section class="card">
+          <h2 class="card-title">Quickstart Installation</h2>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <div class="step-title">Download the Live ISO</div>
+                <div class="step-desc">Grab the bootable installer image directly:</div>
+                <pre><code>curl -LO https://nix.rupan.dev/nixos.iso</code></pre>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <div class="step-title">Flash to a USB Flash Drive</div>
+                <div class="step-desc">Replace <code>/dev/sdX</code> with your USB drive target:</div>
+                <pre><code>sudo dd if=nixos.iso of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <div class="step-title">Boot From the USB Drive</div>
+                <div class="step-desc">Boot in UEFI mode. The ISO automatically boots into the Niri Wayland session.</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-body">
+                <div class="step-title">Connect to Wi-Fi</div>
+                <div class="step-desc">Use the NetworkManager text user interface:</div>
+                <pre><code>nmtui</code></pre>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">5</div>
+              <div class="step-body">
+                <div class="step-title">Run Installation</div>
+                <div class="step-desc">Clone the configuration and trigger automated deployment:</div>
+                <pre><code>get-config</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="features-grid">
+          <div class="feature-card">
+            <div class="feature-title">Niri Compositor</div>
+            <div class="feature-desc">Scrollable tiling Wayland compositor with fluid touchpad gestures and Quickshell status bar.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-title">Dynamic Theming</div>
+            <div class="feature-desc">Runtime profile switching across Noctalia, Nord, Gruvbox, Rose Pine, Everforest, Clean, and Tinted.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-title">Impermanence</div>
+            <div class="feature-desc">Btrfs subvolumes on LUKS2 where @root rolls back to blank every boot; durable state on @persist.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-title">Hardware Offload</div>
+            <div class="feature-desc">Intel iGPU + NVIDIA Prime offload with dedicated performance specialisations for gaming.</div>
+          </div>
+        </section>
+      </div>
+
+      <footer>
+        <p>Hosted on <a href="https://rupan.dev">rupan.dev</a> cluster &bull; Maintained by Rupan &bull; Source on <a href="https://github.com/JEFF7712/nixos-config">GitHub</a></p>
+      </footer>
+    </body>
+    </html>
