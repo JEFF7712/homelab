@@ -15,9 +15,51 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 ACL = ROOT / "opnsense_reconciler/acl"
 PRIVILEGE = "page-homelab-agent-bgp-readonly"
+NAME = "Homelab: Read-only troubleshooting"
 PATTERNS = {
+    "api/core/service/search",
+    "api/diagnostics/firewall/list_rule_ids",
+    "api/diagnostics/firewall/log",
+    "api/diagnostics/firewall/pf_states",
+    "api/diagnostics/firewall/pf_statistics",
+    "api/diagnostics/firewall/query_pf_top",
+    "api/diagnostics/firewall/query_states",
+    "api/diagnostics/firewall/stats",
+    "api/diagnostics/interface/get_arp",
+    "api/diagnostics/interface/get_interface_config",
+    "api/diagnostics/interface/get_interface_names",
+    "api/diagnostics/interface/get_interface_statistics",
+    "api/diagnostics/interface/get_ndp",
+    "api/diagnostics/interface/get_routes",
+    "api/diagnostics/interface/get_vip_status",
+    "api/diagnostics/interface/search_arp",
+    "api/diagnostics/interface/search_ndp",
+    "api/diagnostics/system/memory",
+    "api/diagnostics/system/system_disk",
+    "api/diagnostics/system/system_information",
+    "api/diagnostics/system/system_resources",
+    "api/dnsmasq/leases/search",
+    "api/dnsmasq/service/status",
+    "api/firewall/alias/get_table_size",
+    "api/firewall/alias/search_item",
+    "api/firewall/d_nat/search_rule",
+    "api/firewall/filter/search_rule",
+    "api/firewall/filter_util/rule_stats",
+    "api/firewall/npt/search_rule",
+    "api/firewall/one_to_one/search_rule",
+    "api/firewall/source_nat/search_rule",
+    "api/kea/leases4/search",
+    "api/kea/leases6/search",
+    "api/kea/service/status",
     "api/quagga/diagnostics/bgpsummary",
     "api/quagga/diagnostics/search_bgproute4",
+    "api/quagga/service/status",
+    "api/routes/gateway/status",
+    "api/routes/routes/searchroute",
+    "api/unbound/diagnostics/stats",
+    "api/unbound/overview/is_enabled",
+    "api/unbound/overview/search_queries",
+    "api/unbound/service/status",
 }
 Request = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -35,15 +77,17 @@ def validate_source(content: bytes) -> str:
         privilege.tag != PRIVILEGE
         or privilege.attrib
         or [item.tag for item in privilege] != ["name", "patterns"]
-        or privilege.findtext("name") != "Homelab: Read-only BGP diagnostics"
-        or len(patterns) != 2
+        or privilege.findtext("name") != NAME
+        or len(patterns) != len(PATTERNS)
         or {pattern.text for pattern in patterns} != PATTERNS
         or any(element.attrib for element in root.iter())
         or any(len(pattern) for pattern in patterns)
         or pattern_node is None
-        or len(pattern_node) != 2
+        or len(pattern_node) != len(PATTERNS)
     ):
-        raise ValueError("ACL source must grant only the two BGP diagnostic paths")
+        raise ValueError(
+            "ACL source must grant only the reviewed troubleshooting paths"
+        )
     return hashlib.sha256(content).hexdigest()
 
 
