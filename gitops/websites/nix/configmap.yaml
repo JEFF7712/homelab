@@ -52,204 +52,259 @@ data:
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>nixos • rupan.dev</title>
-      <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20' fill='%235fb8f2'>❯</text></svg>">
+      <title>Rupan's NixOS &bull; Live Installer</title>
+      <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%23050505'/><path d='M7 16l5-8 5 8' stroke='%235fb8f2' stroke-width='2.5' fill='none'/></svg>">
       <style>
         :root {
           color-scheme: dark;
-          --black: #000;
-          --blue: #5fb8f2;
-          --blue-faint: rgb(95 184 242 / 12%);
-          --blue-soft: rgb(95 184 242 / 72%);
-          --blue-border: rgb(95 184 242 / 24%);
-          --blue-border-hover: rgb(95 184 242 / 60%);
+          --bg: #05070a;
+          --surface: #0a0e14;
+          --border: rgba(95, 184, 242, 0.16);
+          --border-hover: rgba(95, 184, 242, 0.45);
+          --accent: #5fb8f2;
+          --accent-soft: rgba(95, 184, 242, 0.75);
+          --accent-faint: rgba(95, 184, 242, 0.08);
+          --text: #e6edf3;
+          --text-muted: #8b949e;
+          --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
           min-height: 100vh;
-          background: var(--black);
-          color: var(--blue);
-          font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-          line-height: 1.5;
-          padding: clamp(2rem, 7vw, 6rem) clamp(1.5rem, 5vw, 5rem);
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--mono);
+          line-height: 1.6;
+          padding: clamp(2.5rem, 6vw, 5rem) clamp(1.5rem, 5vw, 4rem);
           display: flex;
           flex-direction: column;
           justify-content: space-between;
         }
         .container {
-          max-width: 44rem;
+          max-width: 52rem;
+          margin: 0 auto;
           width: 100%;
         }
-        .eyebrow {
+        .header {
           display: flex;
-          flex-direction: column;
-          gap: 0.45rem;
-          margin-bottom: clamp(2.5rem, 6vh, 4.5rem);
+          justify-content: space-between;
+          align-items: baseline;
+          padding-bottom: 1.5rem;
+          border-bottom: 1px solid var(--border);
+          margin-bottom: 3.5rem;
+          font-size: 0.8rem;
+          color: var(--text-muted);
         }
-        .wordmark {
+        .header a {
+          color: inherit;
+          text-decoration: none;
+          transition: color 120ms ease;
+        }
+        .header a:hover {
+          color: var(--accent);
+        }
+        .tag-pill {
           display: inline-flex;
           align-items: center;
-          gap: 0.5ch;
-          color: var(--blue);
-          font-size: 0.95rem;
-          font-weight: 500;
-          letter-spacing: -0.01em;
+          gap: 0.4rem;
+          font-size: 0.72rem;
+          color: var(--accent);
         }
-        .wordmark-prompt {
-          color: var(--blue);
+        .status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--accent);
+          box-shadow: 0 0 8px var(--accent);
         }
-        .wordmark-caret {
-          width: 0.55ch;
-          height: 1.15em;
-          background: var(--blue);
-          animation: caret-blink 1.06s steps(1) infinite;
-        }
-        .wordmark-sub {
-          color: var(--blue-soft);
-          font-size: 0.62rem;
-          letter-spacing: 0.13em;
-          text-transform: uppercase;
-        }
-        @keyframes caret-blink {
-          0%, 50% { opacity: 1; }
-          50.01%, 100% { opacity: 0; }
+        .hero {
+          margin-bottom: 3.5rem;
         }
         h1 {
-          font-size: clamp(1.9rem, 5.5vw, 3.2rem);
-          font-weight: 500;
-          letter-spacing: -0.05em;
-          line-height: 1.08;
-          color: var(--blue);
-          margin-bottom: 1.25rem;
+          font-size: clamp(2rem, 5vw, 3.25rem);
+          font-weight: 600;
+          letter-spacing: -0.04em;
+          line-height: 1.12;
+          color: #fff;
+          margin-bottom: 1rem;
         }
-        h1 span {
-          display: block;
-        }
-        .desc {
-          color: var(--blue-soft);
-          font-size: clamp(0.82rem, 1.2vw, 0.95rem);
+        .lead {
+          font-size: clamp(0.9rem, 1.3vw, 1.05rem);
+          color: var(--text-muted);
+          max-width: 44rem;
           line-height: 1.7;
           margin-bottom: 2rem;
         }
-        .prompt-box {
+        .btn-row {
           display: flex;
-          position: relative;
-          width: 100%;
-          border: 1px solid var(--blue-border);
-          background: rgb(8 8 8 / 40%);
-          transition: border-color 140ms ease;
-          margin-bottom: 1.5rem;
-        }
-        .prompt-box:hover, .prompt-box:focus-within {
-          border-color: var(--blue-border-hover);
-        }
-        .prompt-input {
-          flex: 1;
-          height: 2.75rem;
-          padding: 0 1rem;
-          background: transparent;
-          border: 0;
-          color: var(--blue);
-          font-family: inherit;
-          font-size: 0.8rem;
-          outline: none;
-          white-space: nowrap;
-          overflow-x: auto;
-        }
-        .copy-btn {
-          width: 2.75rem;
-          height: 2.75rem;
-          border: 0;
-          border-left: 1px solid var(--blue-border);
-          background: transparent;
-          color: var(--blue-soft);
-          display: grid;
-          place-items: center;
-          cursor: pointer;
-          transition: color 140ms ease, border-color 140ms ease;
-        }
-        .copy-btn:hover {
-          color: var(--blue);
-        }
-        .copy-btn svg {
-          width: 1.1rem;
-          height: 1.1rem;
-          fill: currentColor;
-        }
-        .actions {
-          display: flex;
-          gap: 1.8rem;
+          gap: 1rem;
           flex-wrap: wrap;
-          margin-bottom: 3.5rem;
+          margin-bottom: 2.5rem;
         }
-        .action-link {
+        .btn {
           display: inline-flex;
           align-items: center;
-          gap: 0.45rem;
-          color: var(--blue-soft);
+          gap: 0.6rem;
+          padding: 0.75rem 1.4rem;
+          font-size: 0.82rem;
+          font-family: inherit;
           text-decoration: none;
-          font-size: 0.8rem;
-          letter-spacing: 0.04em;
-          transition: color 120ms ease;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          transition: all 140ms ease;
+          cursor: pointer;
         }
-        .action-link:hover {
-          color: var(--blue);
+        .btn-primary {
+          background: var(--accent-faint);
+          color: var(--accent);
+          border-color: rgba(95, 184, 242, 0.35);
         }
-        .action-link svg {
-          width: 0.95rem;
-          height: 0.95rem;
+        .btn-primary:hover {
+          background: rgba(95, 184, 242, 0.16);
+          border-color: var(--accent);
+          color: #fff;
+        }
+        .btn-secondary {
+          background: transparent;
+          color: var(--text-muted);
+        }
+        .btn-secondary:hover {
+          color: var(--accent);
+          border-color: var(--border-hover);
+        }
+        .btn svg {
+          width: 1rem;
+          height: 1rem;
           fill: currentColor;
         }
-        .section-label {
-          color: var(--blue-soft);
-          font-size: 0.65rem;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          margin-bottom: 1rem;
-        }
-        .steps {
+        .cmd-bar {
           display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
+          align-items: center;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          border-radius: 6px;
+          padding: 0.65rem 1rem;
+          margin-bottom: 3.5rem;
+          transition: border-color 140ms ease;
+        }
+        .cmd-bar:hover {
+          border-color: var(--border-hover);
+        }
+        .cmd-prefix {
+          color: var(--accent-soft);
+          margin-right: 0.75rem;
+          user-select: none;
+        }
+        .cmd-text {
+          flex: 1;
+          color: var(--accent);
+          font-size: 0.82rem;
+          background: transparent;
+          border: 0;
+          outline: none;
+          font-family: inherit;
+        }
+        .cmd-copy {
+          background: transparent;
+          border: 0;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: grid;
+          place-items: center;
+          padding: 0.2rem;
+          transition: color 120ms ease;
+        }
+        .cmd-copy:hover {
+          color: var(--accent);
+        }
+        .cmd-copy svg {
+          width: 1rem;
+          height: 1rem;
+          fill: currentColor;
+        }
+        .section-title {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--accent-soft);
+          margin-bottom: 1.25rem;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 1rem;
           margin-bottom: 3.5rem;
         }
-        .step-item {
+        .card {
+          border: 1px solid var(--border);
+          background: var(--surface);
+          border-radius: 6px;
+          padding: 1.25rem;
+          transition: border-color 140ms ease;
+        }
+        .card:hover {
+          border-color: var(--border-hover);
+        }
+        .card-header {
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #fff;
+          margin-bottom: 0.4rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .card-body {
+          font-size: 0.76rem;
+          color: var(--text-muted);
+          line-height: 1.55;
+        }
+        .steps {
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          background: var(--surface);
+          margin-bottom: 3.5rem;
+          overflow: hidden;
+        }
+        .step {
           display: flex;
           align-items: baseline;
           gap: 1.25rem;
-          padding: 0.7rem 0;
-          border-bottom: 1px solid var(--blue-faint);
-          font-size: 0.82rem;
+          padding: 1rem 1.25rem;
+          border-bottom: 1px solid var(--border);
+          font-size: 0.8rem;
         }
-        .step-idx {
-          color: var(--blue-soft);
-          font-size: 0.7rem;
-          letter-spacing: 0.08em;
+        .step:last-child {
+          border-bottom: 0;
+        }
+        .step-num {
+          color: var(--accent);
+          font-size: 0.75rem;
           flex-shrink: 0;
         }
-        .step-body {
+        .step-main {
           flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
         }
-        .step-title {
-          color: var(--blue-soft);
-          font-size: 0.75rem;
+        .step-desc {
+          color: var(--text-muted);
+          font-size: 0.74rem;
+          margin-bottom: 0.35rem;
         }
         .step-code {
-          color: var(--blue);
-          font-size: 0.82rem;
+          color: var(--accent);
+          font-size: 0.8rem;
           word-break: break-all;
         }
         footer {
-          margin-top: 4rem;
-          color: var(--blue-soft);
-          font-size: 0.7rem;
-          letter-spacing: 0.08em;
           display: flex;
-          gap: 1.5rem;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 2rem;
+          border-top: 1px solid var(--border);
+          font-size: 0.75rem;
+          color: var(--text-muted);
           flex-wrap: wrap;
+          gap: 1rem;
         }
         footer a {
           color: inherit;
@@ -257,113 +312,131 @@ data:
           transition: color 120ms ease;
         }
         footer a:hover {
-          color: var(--blue);
-          text-decoration: underline;
+          color: var(--accent);
+        }
+        .footer-links {
+          display: flex;
+          gap: 1.25rem;
         }
       </style>
     </head>
     <body>
       <div class="container">
-        <header class="eyebrow">
-          <div class="wordmark">
-            <span class="wordmark-prompt">❯</span>
-            <span>nixOS</span>
-            <span class="wordmark-caret" aria-hidden="true"></span>
+        <nav class="header" aria-label="Site navigation">
+          <a href="https://rupan.dev">rupan.dev &bull; nixos</a>
+          <div class="tag-pill">
+            <span class="status-dot"></span>
+            <span>NixOS 25.11 &bull; x86_64</span>
           </div>
-          <div class="wordmark-sub">live installer &amp; workstation flake</div>
-        </header>
+        </nav>
 
-        <section>
-          <h1>
-            <span>Declarative, reproducible</span>
-            <span>workstation &amp; installer.</span>
-          </h1>
-          <p class="desc">
-            NixOS flake configuration with Niri scrollable tiling Wayland compositor,
-            Quickshell dynamic status bar, runtime desktop profile switching,
-            and camp-1 impermanence on LUKS2 + btrfs.
-          </p>
+        <main>
+          <header class="hero">
+            <h1>Rupan's NixOS</h1>
+            <p class="lead">
+              Declarative, reproducible Wayland workstation &amp; live bootable installer.
+              Configured with Niri scrollable tiling compositor, Quickshell status bar,
+              and camp-1 impermanence on encrypted Btrfs.
+            </p>
 
-          <div class="prompt-box">
-            <input
-              type="text"
-              class="prompt-input"
-              id="cmd-input"
-              readonly
-              value="curl -LO https://nix.rupan.dev/nixos.iso"
-              aria-label="Download command"
-            >
-            <button class="copy-btn" id="copy-btn" title="Copy to clipboard" aria-label="Copy download command">
-              <svg id="copy-icon" viewBox="0 0 24 24">
-                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/>
-              </svg>
-            </button>
-          </div>
+            <div class="btn-row">
+              <a href="/nixos.iso" class="btn btn-primary" download>
+                <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                <span>Download Live ISO (3.3 GB)</span>
+              </a>
+              <a href="/nixos.iso.sha256" class="btn btn-secondary">
+                <svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                <span>SHA-256</span>
+              </a>
+              <a href="https://github.com/JEFF7712/nixos-config" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
+                <span>GitHub</span>
+              </a>
+            </div>
 
-          <nav class="actions" aria-label="Quick links">
-            <a href="/nixos.iso" class="action-link" download>
-              <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-              <span>Download ISO (3.3 GB)</span>
-            </a>
-            <a href="/nixos.iso.sha256" class="action-link">
-              <svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-              <span>SHA-256</span>
-            </a>
-            <a href="https://github.com/JEFF7712/nixos-config" class="action-link" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
-              <span>Source</span>
-            </a>
-          </nav>
-        </section>
+            <div class="cmd-bar">
+              <span class="cmd-prefix">$</span>
+              <input type="text" id="curl-cmd" class="cmd-text" readonly value="curl -LO https://nix.rupan.dev/nixos.iso" aria-label="Terminal download command">
+              <button class="cmd-copy" id="copy-btn" title="Copy to clipboard" aria-label="Copy to clipboard">
+                <svg id="copy-svg" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/></svg>
+              </button>
+            </div>
+          </header>
 
-        <section>
-          <div class="section-label">Quickstart Installation</div>
-          <div class="steps">
-            <div class="step-item">
-              <div class="step-idx">01</div>
-              <div class="step-body">
-                <div class="step-title">Fetch installer ISO</div>
-                <div class="step-code">curl -LO https://nix.rupan.dev/nixos.iso</div>
+          <section>
+            <div class="section-title">Architecture &amp; Features</div>
+            <div class="grid">
+              <article class="card">
+                <div class="card-header">Niri Compositor</div>
+                <div class="card-body">Scrollable tiling Wayland compositor with touchpad swipe gestures and Quickshell status bar.</div>
+              </article>
+              <article class="card">
+                <div class="card-header">Camp-1 Impermanence</div>
+                <div class="card-body">Btrfs subvolumes on LUKS2 where @root rolls back to blank every boot; durable state preserved on @persist.</div>
+              </article>
+              <article class="card">
+                <div class="card-header">Dynamic Theming</div>
+                <div class="card-body">Runtime profile switching across Noctalia, Nord, Gruvbox, Rose Pine, Everforest, Clean, and Tinted.</div>
+              </article>
+              <article class="card">
+                <div class="card-header">Offload GPU</div>
+                <div class="card-body">Intel iGPU + NVIDIA Prime offload with dedicated performance specialisations for high-load gaming.</div>
+              </article>
+            </div>
+          </section>
+
+          <section>
+            <div class="section-title">Quickstart Installation</div>
+            <div class="steps">
+              <div class="step">
+                <span class="step-num">01</span>
+                <div class="step-main">
+                  <div class="step-desc">Write installer to USB target</div>
+                  <div class="step-code">sudo dd if=nixos.iso of=/dev/sdX bs=4M status=progress conv=fsync</div>
+                </div>
+              </div>
+              <div class="step">
+                <span class="step-num">02</span>
+                <div class="step-main">
+                  <div class="step-desc">Boot live environment in UEFI mode</div>
+                  <div class="step-code">system automatically enters the Niri Wayland session</div>
+                </div>
+              </div>
+              <div class="step">
+                <span class="step-num">03</span>
+                <div class="step-main">
+                  <div class="step-desc">Connect Wi-Fi and deploy</div>
+                  <div class="step-code">nmtui &amp;&amp; get-config</div>
+                </div>
               </div>
             </div>
-            <div class="step-item">
-              <div class="step-idx">02</div>
-              <div class="step-body">
-                <div class="step-title">Write to USB target drive</div>
-                <div class="step-code">sudo dd if=nixos.iso of=/dev/sdX bs=4M status=progress conv=fsync</div>
-              </div>
-            </div>
-            <div class="step-item">
-              <div class="step-idx">03</div>
-              <div class="step-body">
-                <div class="step-title">Boot UEFI into Niri &amp; install</div>
-                <div class="step-code">get-config</div>
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        </main>
 
         <footer>
-          <span>cluster • rupan.dev</span>
-          <a href="https://git.rupan.dev/JEFF7712/nixos-config">forgejo</a>
-          <a href="https://github.com/JEFF7712/nixos-config">github</a>
+          <span>cluster.rupan.dev &bull; homelab-01</span>
+          <div class="footer-links">
+            <a href="https://git.rupan.dev/JEFF7712/nixos-config">forgejo</a>
+            <a href="https://github.com/JEFF7712/nixos-config">github</a>
+            <a href="/iso/">iso index</a>
+          </div>
         </footer>
       </div>
 
       <script>
         const btn = document.getElementById('copy-btn');
-        const input = document.getElementById('cmd-input');
-        const icon = document.getElementById('copy-icon');
-        const copySvg = '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/>';
+        const input = document.getElementById('curl-cmd');
+        const svg = document.getElementById('copy-svg');
+        const defaultSvg = '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1Zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2Zm0 16H8V7h11v14Z"/>';
         const checkSvg = '<path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z"/>';
 
         btn.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(input.value);
-            icon.innerHTML = checkSvg;
-            btn.style.color = 'var(--blue)';
+            svg.innerHTML = checkSvg;
+            btn.style.color = 'var(--accent)';
             setTimeout(() => {
-              icon.innerHTML = copySvg;
+              svg.innerHTML = defaultSvg;
               btn.style.color = '';
             }, 1800);
           } catch (e) {
