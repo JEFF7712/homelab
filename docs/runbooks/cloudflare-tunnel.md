@@ -172,8 +172,15 @@ automation receivers are outside the hostname set. Home Assistant's
 and Cloudflare Access still apply. No other paths are excepted. Future apps
 are not restricted until explicitly added to `personal_app_hostnames`.
 
-**Rollout pending:** the existing CI tokens are documented as tunnel-only.
-Before the first WAF apply:
+**Initial adoption (2026-10-28):** Cloudflare API inspection confirmed that
+`rupan.dev` (zone `576ee677bca12261d3d02aa0f07e8ad4`, account
+`5d99d63dea23dde67ccb07e5dfb31107`) had no custom WAF entry point: the phase
+lookup returned HTTP 404 / error 10003, and the successful ruleset listing
+contained no `http_request_firewall_custom` entry. No import or existing custom
+rules need preservation for this initial creation. The operator updated the
+CI tokens' permissions before rollout.
+
+For credential provisioning or adoption in another zone:
 
 1. Add `Zone > Zone > Read` to both CI tokens, `Zone > WAF > Read` to
    `cloudflare_plan_api_token`, and `Zone > WAF > Edit` to
