@@ -1,2 +1,2 @@
 profile: static
-image: registry.rupan.dev/apps/nix-agent-site@sha256:92a0a8f973b02cb83f3d33872be2b1f1c7a6a33e3a22bc5b6e75214452d82b75
+image: registry.rupan.dev/apps/nix-agent-site@sha256:4daa53a5ec5cd3bcd556e1131a8b3a3d64e383b4133275df167191498328bee6
