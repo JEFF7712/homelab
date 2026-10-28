@@ -19,6 +19,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -27,7 +28,7 @@ STACK = ROOT / "tofu" / "cloudflare"
 MIRROR = ROOT / "gitops" / "cloudflare" / "ingress-config.yaml"
 
 
-def evaluated_ingress() -> list[dict]:
+def evaluated_configuration(expression: str) -> Any:
     with tempfile.TemporaryDirectory() as directory:
         # main.tf reads the mirror relative to path.module, so the copy keeps
         # the repository layout. backend.tf is left out.
@@ -52,7 +53,7 @@ def evaluated_ingress() -> list[dict]:
                 "console",
                 "-var=cloudflare_account_id=placeholder",
             ],
-            input="jsonencode(local.ingress)\n",
+            input=f"jsonencode({expression})\n",
             capture_output=True,
             text=True,
             check=True,
@@ -84,7 +85,50 @@ def mirrored_ingress() -> list[dict]:
 class TestTunnelIngressIsMirrored(unittest.TestCase):
     @unittest.skipUnless(shutil.which("tofu"), "tofu is not installed")
     def test_evaluated_ingress_matches_mirror(self) -> None:
-        self.assertEqual(evaluated_ingress(), mirrored_ingress())
+        self.assertEqual(evaluated_configuration("local.ingress"), mirrored_ingress())
+
+    @unittest.skipUnless(shutil.which("tofu"), "tofu is not installed")
+    def test_personal_app_country_rule_preserves_public_endpoints(self) -> None:
+        config = evaluated_configuration(
+            "{hosts = local.personal_app_hostnames, rule = local.personal_apps_waf_rule}"
+        )
+        hosts = set(config["hosts"])
+        ingress_hosts = {rule["hostname"] for rule in mirrored_ingress()}
+        self.assertTrue(hosts <= ingress_hosts)
+        self.assertTrue(
+            {"photos.rupan.dev", "ha.rupan.dev", "jellyfin.rupan.dev"} <= hosts
+        )
+        self.assertTrue(
+            hosts.isdisjoint(
+                {
+                    "rupan.dev",
+                    "www.rupan.dev",
+                    "notes.rupan.dev",
+                    "photo.rupan.dev",
+                    "git.rupan.dev",
+                    "ci.rupan.dev",
+                    "tally.rupan.dev",
+                    "ntfy.rupan.dev",
+                    "renovate-approve.rupan.dev",
+                    "flux-wh-33b0c8004348.rupan.dev",
+                }
+            )
+        )
+        rule = config["rule"]
+        self.assertEqual(rule["action"], "block")
+        self.assertTrue(rule["enabled"])
+        self.assertEqual(rule["ref"], "personal_apps_us_only")
+        # Compare the evaluated expression with a reviewed complete policy:
+        # non-US (including unknown geography) blocks only the explicit set;
+        # the webhook exception is bound to HA, never other hosts or paths.
+        host_set = " ".join(json.dumps(host) for host in sorted(hosts))
+        self.assertEqual(
+            rule["expression"],
+            f"(http.host in {{{host_set}}}) "
+            'and (ip.src.country ne "US") '
+            'and not (http.host eq "ha.rupan.dev" '
+            'and starts_with(http.request.uri.path, "/api/webhook/"))',
+        )
 
     def test_mirror_ends_in_the_catch_all(self) -> None:
         rules = mirrored_ingress()

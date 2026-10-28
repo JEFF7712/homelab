@@ -442,7 +442,12 @@ class IntegrationTest(unittest.TestCase):
         self.state = ApiState()
         handler = type("TestHandler", (Handler,), {"state": self.state})
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        # The default 0.5s selector poll delays every fixture shutdown.
+        thread = threading.Thread(
+            target=self.server.serve_forever,
+            kwargs={"poll_interval": 0.01},
+            daemon=True,
+        )
         thread.start()
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
