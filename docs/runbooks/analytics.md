@@ -26,7 +26,7 @@ Cookieless page analytics for the public sites, served at
   the `backups` namespace may use and which can read only that Secret.
 - **Edge:** tunnel rule `tally.rupan.dev -> http://umami.analytics:80`.
   The dashboard-managed Access application `Tally - owner dashboard` uses the
-  owner-only `Main - Rupan` policy. `Tally - public tracker endpoints` uses the
+  owner-only `Main - Rupan` policy. `Bypass - Tally tracker endpoints` uses the
   reusable `Bypass` policy only for `/t.js` and `/api/send`, so tracking works
   anonymously. The dashboard also requires Umami's own login.
 

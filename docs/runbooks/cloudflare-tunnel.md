@@ -70,7 +70,7 @@ Cloudflare Access public bypass configured.
 27. `apollinestore.com -> http://apolline-svc.apolline:80`
 28. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
 29. `pulseagent.dev -> http://pulse-svc.pulse:80`
-30. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux push receiver, added 2026-09-20 for GitLab and now fed by Forgejo; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
+30. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux push receiver, added 2026-09-20 for GitLab and now fed by Forgejo; Access app `Bypass - Flux webhook` reused Bypass policy, wildcard `*` app would otherwise force login)
 31. `jellyfin.rupan.dev -> http://jellyfin.media:80`
 32. `navidrome.rupan.dev -> http://navidrome.media:80`
 33. `music.rupan.dev -> http://navidrome.media:80`
@@ -217,7 +217,7 @@ be in place before the hostname serves anything useful.
 
 1. Cloudflare Access application `pod-agent-dashboard`, hostname
    `pod.rupan.dev`, with an **Allow** policy on the owner email. Do not give it
-   a Bypass policy the way `rupan.dev` and `flux-webhook-bypass` have one:
+   a Bypass policy the way the public website and Flux webhook applications have one:
    Bypass on this hostname would put the storefront on the public internet.
 2. `DASHBOARD_TOKEN` (`POD_AGENT_DASHBOARD_TOKEN` in
    `gitops/secrets/homelab-values.sops.yaml`, hex 32) is already
@@ -280,6 +280,65 @@ remove:
   rules to 44, prior rules diffed byte-identical afterwards.
 - 2026-09-29: stack added. Both failures above were parity failures between two
   copies of one list, which is the class of bug `yamldecode` removes.
+
+## Access policy organization
+
+Access applications are managed through the Cloudflare dashboard/API, separately
+from the tunnel stack. The inventory below was read back on 2026-10-28.
+
+All 12 bypass applications reference the single reusable `Bypass` policy
+(`7015eaad-fad5-462b-905c-43d74bd648aa`): Include Everyone, no Require or
+Exclude conditions. Four identical application-scoped bypass rules were replaced
+with this policy. Application IDs, destinations, cookies, and session settings
+were preserved; this cleanup did not change who can reach a hostname.
+
+| Application | Destinations |
+| --- | --- |
+| `Bypass - Requests and music tools` | `apptly.rupan.dev`, `lidarr.rupan.dev`, `aurral.rupan.dev`, `spotify.rupan.dev`, `seerr.rupan.dev` |
+| `Bypass - Tally tracker endpoints` | `tally.rupan.dev/t.js`, `tally.rupan.dev/api/send` |
+| `Bypass - Woodpecker CI` | `ci.rupan.dev` |
+| `Bypass - UWagent` | `uwagent.rupan.dev` |
+| `Bypass - Arcade controller` | `arcade.rupan.dev` |
+| `Bypass - Music Assistant and LedFx` | `ma.rupan.dev`, `ledfx.rupan.dev` |
+| `Bypass - Flux webhook` | `flux-wh-33b0c8004348.rupan.dev` |
+| `Bypass - Websites and automation` | `demo.rupan.dev`, `ntfy.rupan.dev`, `renovate-approve.rupan.dev`, `nix-agent.rupan.dev`, `photo.rupan.dev`, `majorfinder.rupan.dev`, `www.rupan.dev`, `rupan.dev` |
+| `Bypass - Home Assistant` | `ha.rupan.dev` |
+| `Bypass - Notes and project sites` | `rupanism.rupan.dev`, `ism.rupan.dev`, `notes.rupan.dev`, `pulse.rupan.dev`, `spatia.rupan.dev` |
+| `Bypass - Photos, files and dashboards` | `books.rupan.dev`, `grafana.rupan.dev`, `photos.rupan.dev`, `media.rupan.dev`, `jellyfin.rupan.dev` |
+| `Bypass - Music, sync and tools` | `music.rupan.dev`, `nix.rupan.dev`, `soluble.rupan.dev`, `obsidian.rupan.dev`, `n8n.rupan.dev` |
+
+The separate `Tally - owner dashboard` application uses the owner-only
+`Main - Rupan` policy. The two tracker paths above bypass that hostname's login.
+The wildcard `*.rupan.dev` application also uses `Main - Rupan`; dedicated
+applications override it for their destinations. Games and Forgejo retain their
+named-user Allow policies. Grafana and Immich retain separate owner-only OIDC
+login applications even though their public hostnames bypass the Access gate.
+
+### Maintenance
+
+- Name bypass applications `Bypass - <service or purpose>`. Name authenticated
+  applications for the service and intended audience, as with Tally's dashboard.
+- Attach the existing reusable `Bypass` policy instead of copying an inline rule.
+  Its meaning is public access through Access; origin authentication and WAF
+  restrictions still apply independently.
+- Review the destination list before attaching a policy. Keep endpoint-only
+  exceptions in separate applications, like Tally's tracker paths.
+- Do not change the shared policy to restrict one service: change that service's
+  application attachment. A shared policy edit affects all 12 applications.
+- Read back the application and policy, compare destination and session settings,
+  then check an anonymous request. Update this inventory with every Access change.
+  This table records live configuration; it is not an automatic reconciler.
+
+The existing destination groups include some historical aliases and mixed uses.
+Keep them explicit in this inventory until each alias is reviewed against DNS,
+tunnel routes, and clients; removing a destination can change which Access
+application handles it.
+
+`renovate-approve.rupan.dev/approve` remains in use by Renovate's ntfy Approve
+buttons. The receiver validates a bearer token, repository allowlist, open PR,
+and exact current commit before recording approval. Browser Access login would
+interrupt those notification POSTs. PR-comment approval is an alternative, but
+retiring this endpoint also requires updating the notification action producer.
 
 ## Known gaps
 
