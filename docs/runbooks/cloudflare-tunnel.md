@@ -76,27 +76,26 @@ Cloudflare Access public bypass configured.
 33. `music.rupan.dev -> http://navidrome.media:80`
 34. `seerr.rupan.dev -> http://seerr.media:80`
 35. `recommender.rupan.dev -> http://recommender-frontend.media:80`
-36. `requests.rupan.dev -> http://seerr.media:80`
-37. `lidarr.rupan.dev -> http://lidarr.media:80`
-38. `radarr.rupan.dev -> http://radarr.media:80`
-39. `sonarr.rupan.dev -> http://sonarr.media:80`
-40. `prowlarr.rupan.dev -> http://prowlarr.media:80`
-41. `bazarr.rupan.dev -> http://bazarr.media:80`
-42. `slskd.rupan.dev -> http://slskd.media:80`
-43. `torrent.rupan.dev -> http://qbittorrent.media:80`
-44. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
-45. `books.rupan.dev -> http://calibre-web.media:80`
-46. `media.rupan.dev -> http://filebrowser.media:80`
-47. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-48. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-49. `git.rupan.dev -> http://forgejo.cloudflare:3000`
-50. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
-51. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
-52. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access app and DNS are dashboard-managed by hand. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
-53. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; public Bypass because every tracked site loads `/t.js` and posts `/api/send` anonymously. The dashboard is behind Umami's own login. See [analytics](analytics.md))
-54. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
-55. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, dashboard-managed; never Bypass. See [games](games.md))
-56. `http_status:404`
+36. `lidarr.rupan.dev -> http://lidarr.media:80`
+37. `radarr.rupan.dev -> http://radarr.media:80`
+38. `sonarr.rupan.dev -> http://sonarr.media:80`
+39. `prowlarr.rupan.dev -> http://prowlarr.media:80`
+40. `bazarr.rupan.dev -> http://bazarr.media:80`
+41. `slskd.rupan.dev -> http://slskd.media:80`
+42. `torrent.rupan.dev -> http://qbittorrent.media:80`
+43. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
+44. `books.rupan.dev -> http://calibre-web.media:80`
+45. `media.rupan.dev -> http://filebrowser.media:80`
+46. `bookshelf.rupan.dev -> http://bookshelf.media:80`
+47. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+48. `git.rupan.dev -> http://forgejo.cloudflare:3000`
+49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
+50. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
+51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access app and DNS are dashboard-managed by hand. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
+52. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; owner-only Access login for the dashboard; path-scoped public Bypass for `/t.js` and `/api/send`. See [analytics](analytics.md))
+53. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
+54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, dashboard-managed; never Bypass. See [games](games.md))
+55. `http_status:404`
 
 
 Removed 2026-09-15 (v72):
