@@ -21,7 +21,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/nix-agent-site@sha256:4daa53a5ec5cd3bcd556e1131a8b3a3d64e383b4133275df167191498328bee6  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/nix-agent-site@sha256:894cb8a2189d8c26b022b72df63739846671d87de23d544f75b421b46e3d4cd4  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
