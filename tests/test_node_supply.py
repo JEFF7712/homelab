@@ -257,6 +257,42 @@ class SeedTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "already exists"):
                 node_supply.unpack_seeds(workspace, ((archive, "existing"),))
 
+    def test_verified_seed_reaches_packer(self) -> None:
+        entries = catalog(node_seeds=[["plugins.tar.gz", "quartz/.quartz"]])
+        toolchain = entries["applications"][0]["release_supply"][0]
+        toolchain["sha256"] = node_supply.digest_bytes(b"toolchain")
+        seed = {
+            **toolchain,
+            "filename": "plugins.tar.gz",
+            "sha256": node_supply.digest_bytes(b"seed"),
+        }
+        entries["applications"][0]["release_supply"].append(seed)
+        target = node_supply.plan(node_supply.Request(**REQUEST), entries)
+
+        def download(package, version, filename, dest, host, owner):
+            if filename == node_supply.CACHE_FILENAME:
+                return False
+            dest.write_bytes(b"seed" if filename == "plugins.tar.gz" else b"toolchain")
+            return True
+
+        with (
+            tempfile.TemporaryDirectory() as work,
+            mock.patch.object(node_supply, "download", side_effect=download),
+            mock.patch.object(node_supply, "toolchain_version", return_value="v24"),
+            mock.patch.object(node_supply, "nix_toolchain"),
+            mock.patch.object(node_supply, "fetch_source"),
+            mock.patch.object(node_supply, "pack") as pack,
+            mock.patch.object(
+                node_supply, "upload", side_effect=RuntimeError("stop after pack")
+            ),
+            self.assertRaisesRegex(RuntimeError, "stop after pack"),
+        ):
+            node_supply.retain(target, Path(work))
+        self.assertEqual(
+            pack.call_args.kwargs["seed_snapshots"],
+            ((Path(work) / "seed-0.tar.gz", "quartz/.quartz"),),
+        )
+
     def test_rejects_tampered_seed_before_packing(self) -> None:
         entries = catalog(node_seeds=[["plugins.tar.gz", "quartz/.quartz"]])
         seed = {
