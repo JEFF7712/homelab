@@ -85,6 +85,16 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(target.repository, "JEFF7712/site")
         self.assertEqual(target.toolchain["filename"], "node.tar.gz")
 
+    def test_plans_digest_pinned_seeds(self) -> None:
+        entries = catalog(node_seeds=[["plugins.tar.gz", "quartz/.quartz"]])
+        seed = {
+            **entries["applications"][0]["release_supply"][0],
+            "filename": "plugins.tar.gz",
+        }
+        entries["applications"][0]["release_supply"].append(seed)
+        target = node_supply.plan(self.request(), entries)
+        self.assertEqual(target.seeds, ((seed, "quartz/.quartz"),))
+
     def test_version_must_advance(self) -> None:
         for version in ("2", "3"):
             with self.subTest(version=version), self.assertRaises(ValueError):
@@ -210,6 +220,70 @@ class RetainTests(unittest.TestCase):
             node_supply.retain(target, Path(work))
         self.assertEqual(pack.call_args.kwargs["extra_libcs"], ("musl",))
         upload.assert_called_once()
+
+
+class SeedTests(unittest.TestCase):
+    def archive(self, root: Path, name: str = "plugins.tar.gz") -> Path:
+        path = root / name
+        with tarfile.open(path, "w:gz") as archive:
+            data = b"retained plugin"
+            member = tarfile.TarInfo("plugins/example/index.js")
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+        return path
+
+    def test_restores_seed_at_release_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            archive = self.archive(root)
+            node_supply.unpack_seeds(workspace, ((archive, "quartz/.quartz"),))
+            self.assertEqual(
+                (workspace / "quartz/.quartz/plugins/example/index.js").read_bytes(),
+                b"retained plugin",
+            )
+
+    def test_rejects_escaping_destination_and_existing_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            archive = self.archive(root)
+            for dest in ("../outside", "/outside"):
+                with self.subTest(dest=dest), self.assertRaises(ValueError):
+                    node_supply.unpack_seeds(workspace, ((archive, dest),))
+            (workspace / "existing").mkdir()
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                node_supply.unpack_seeds(workspace, ((archive, "existing"),))
+
+    def test_rejects_tampered_seed_before_packing(self) -> None:
+        entries = catalog(node_seeds=[["plugins.tar.gz", "quartz/.quartz"]])
+        seed = {
+            **entries["applications"][0]["release_supply"][0],
+            "filename": "plugins.tar.gz",
+        }
+        entries["applications"][0]["release_supply"].append(seed)
+        target = node_supply.plan(node_supply.Request(**REQUEST), entries)
+
+        def download(package, version, filename, dest, host, owner):
+            if package == "site-supply":
+                return False
+            dest.write_bytes(b"tampered")
+            return True
+
+        target.toolchain["sha256"] = node_supply.digest_bytes(b"tampered")
+        with (
+            tempfile.TemporaryDirectory() as work,
+            mock.patch.object(node_supply, "download", side_effect=download),
+            mock.patch.object(node_supply, "toolchain_version", return_value="v24"),
+            mock.patch.object(node_supply, "nix_toolchain"),
+            mock.patch.object(node_supply, "fetch_source"),
+            mock.patch.object(node_supply, "pack") as pack,
+            self.assertRaisesRegex(ValueError, "seed does not match its pin"),
+        ):
+            node_supply.retain(target, Path(work))
+        pack.assert_not_called()
 
 
 class PublishTests(unittest.TestCase):

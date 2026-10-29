@@ -51,8 +51,10 @@ but its pin never merged, the next run finds the retained version and pins it
 without repacking. Generic package files are immutable, so a bad upload is
 fixed with a new version number, never by replacing the file.
 
-Applications with seed snapshots (`node_seeds`, currently quartz) are rejected;
-pack those by hand.
+Applications with seed snapshots (`node_seeds`, including Quartz) reuse their
+retained archives. The operation verifies every seed against its catalog digest
+and restores it at the same workspace destination used by the release build
+before proving the offline install and build.
 
 ## Credential
 
