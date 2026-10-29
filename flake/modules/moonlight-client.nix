@@ -25,6 +25,17 @@ let
     # Launch Moonlight
     exec ${pkgs.moonlight-qt}/bin/moonlight "$@"
   '';
+
+  autostartScript =
+    if cfg.autostartHost != null && cfg.autostartApp != null then
+      pkgs.writeShellScript "moonlight-autostart" ''
+        # Automatically stream the configured app on startup.
+        # Fall back to the Moonlight GUI if streaming finishes or fails.
+        ${pkgs.moonlight-qt}/bin/moonlight stream ${lib.escapeShellArg cfg.autostartHost} ${lib.escapeShellArg cfg.autostartApp} || true
+        exec ${pkgs.moonlight-qt}/bin/moonlight
+      ''
+    else
+      "${pkgs.moonlight-qt}/bin/moonlight";
 in
 {
   options.homelab.moonlight = {
@@ -46,6 +57,18 @@ in
       type = lib.types.bool;
       default = false;
       description = "Whether to automatically launch Moonlight on boot in the session";
+    };
+
+    autostartHost = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Host IP or hostname to automatically stream on boot";
+    };
+
+    autostartApp = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "App name to automatically stream on boot (e.g. Steam Big Picture or Desktop)";
     };
 
     output = lib.mkOption {
@@ -124,7 +147,7 @@ in
           assign [class="(?i)moonlight.*"] workspace 2
         ''
         (lib.optionalString cfg.autostart ''
-          exec ${pkgs.moonlight-qt}/bin/moonlight
+          exec ${autostartScript}
         '')
       ]
     );
