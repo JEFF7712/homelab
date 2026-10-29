@@ -1067,6 +1067,32 @@
         },
         "sequence": 309
       },
+      "infrastructure-allow-netbird-mesh": {
+        "description": "Allow infrastructure replies to NetBird mesh peers; return path for tunnel-initiated flows needs no SYN since OPNsense never sees the handshake",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "100.64.0.0/10",
+            "port": ""
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "any",
+          "quick": true,
+          "source": {
+            "net": "10.0.30.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt3"
+          ]
+        },
+        "sequence": 307
+      },
       "infrastructure-allow-opnsense-acl-ssh": {
         "description": "Allow the CI deployment host to reconcile the OPNsense agent ACL",
         "enabled": true,

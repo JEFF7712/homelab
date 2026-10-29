@@ -708,6 +708,30 @@
           };
         };
       };
+      infrastructure-allow-netbird-mesh = {
+        description = "Allow infrastructure replies to NetBird mesh peers; return path for tunnel-initiated flows needs no SYN since OPNsense never sees the handshake";
+        enabled = true;
+        sequence = 307;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "any";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "100.64.0.0/10";
+            port = "";
+          };
+        };
+      };
       infrastructure-allow-bgp = {
         description = "Allow infrastructure BGP to OPNsense";
         enabled = true;
