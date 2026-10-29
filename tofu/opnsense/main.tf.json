@@ -64,6 +64,13 @@
         "mac_address": "7c:67:ab:16:23:b7",
         "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
       },
+      "sams_pc": {
+        "description": "Sam's gaming PC (Sunshine streaming host)",
+        "hostname": "wabungus",
+        "ip_address": "10.0.20.135",
+        "mac_address": "74:56:3c:71:b0:04",
+        "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
+      },
       "spotify_matrix": {
         "description": "Pico W Spotify matrix",
         "hostname": "spotify-matrix",
