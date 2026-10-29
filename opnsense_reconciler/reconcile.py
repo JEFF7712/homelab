@@ -981,6 +981,265 @@ def _live_unbound_host_overrides(response: object) -> dict[str, dict[str, object
     return live_by_key
 
 
+STATIC_ROUTE_SEARCH = "/api/routes/routes/searchroute"
+STATIC_ROUTE_ADD = "/api/routes/routes/addroute"
+STATIC_ROUTE_RECONFIGURE = "/api/routes/routes/reconfigure"
+GATEWAY_SEARCH = "/api/routing/settings/searchGateway"
+GATEWAY_ADD = "/api/routing/settings/addGateway"
+GATEWAY_RECONFIGURE = "/api/routing/settings/reconfigure"
+
+
+def reconcile_static_routes(
+    client: Client,
+    desired_routes: list[dict[str, object]],
+) -> None:
+    desired_by_network = _desired_static_routes(desired_routes)
+    desired_gateways = _desired_gateways(desired_by_network)
+    live_gateways = _live_gateways(client.get(GATEWAY_SEARCH))
+    gateways_changed = _sync_gateways(client, desired_gateways, live_gateways)
+    if gateways_changed:
+        client.post(GATEWAY_RECONFIGURE, {})
+        reverified_gateways = _live_gateways(client.get(GATEWAY_SEARCH))
+        gateway_mismatches = sorted(
+            name
+            for name, desired in desired_gateways.items()
+            if _normalize_gateway(reverified_gateways.get(name, {}))
+            != _normalize_gateway(desired)
+        )
+        if gateway_mismatches:
+            raise RuntimeError(
+                "gateway verification failed for " + ", ".join(gateway_mismatches)
+            )
+    live_by_network = _live_static_routes(client.get(STATIC_ROUTE_SEARCH))
+    unexpected = sorted(set(live_by_network) - set(desired_by_network))
+    if unexpected:
+        raise RuntimeError(
+            "unexpected static routes require human-directed removal: "
+            + ", ".join(unexpected)
+        )
+    changed = False
+    for network, desired in desired_by_network.items():
+        live = live_by_network.get(network)
+        if live is None:
+            _require_stored(
+                client.post(
+                    STATIC_ROUTE_ADD,
+                    {"route": _serialize_static_route(desired)},
+                )
+            )
+            changed = True
+        elif _normalize_static_route(live) != _normalize_static_route(desired):
+            _require_stored(
+                client.post(
+                    f"/api/routes/routes/setroute/{live['uuid']}",
+                    {"route": _serialize_static_route(desired)},
+                )
+            )
+            changed = True
+    if changed:
+        client.post(STATIC_ROUTE_RECONFIGURE, {})
+    verified = _live_static_routes(client.get(STATIC_ROUTE_SEARCH))
+    mismatches = sorted(
+        network
+        for network, desired in desired_by_network.items()
+        if _normalize_static_route(verified.get(network, {}))
+        != _normalize_static_route(desired)
+    )
+    if mismatches:
+        raise RuntimeError(
+            "static route verification failed for " + ", ".join(mismatches)
+        )
+
+
+def _sync_gateways(
+    client: Client,
+    desired_gateways: dict[str, dict[str, object]],
+    live_gateways: dict[str, dict[str, object]],
+) -> bool:
+    changed = False
+    for name, desired in desired_gateways.items():
+        live = live_gateways.get(name)
+        if live is None:
+            _require_stored(
+                client.post(
+                    GATEWAY_ADD,
+                    {"gateway_item": _serialize_gateway(desired)},
+                )
+            )
+            changed = True
+        elif _normalize_gateway(live) != _normalize_gateway(desired):
+            _require_stored(
+                client.post(
+                    f"/api/routing/settings/setGateway/{live['uuid']}",
+                    {"gateway_item": _serialize_gateway(desired)},
+                )
+            )
+            changed = True
+    return changed
+
+
+def _serialize_static_route(route: dict[str, object]) -> dict[str, object]:
+    return {
+        "network": route.get("network"),
+        "gateway": route.get("gateway_name"),
+        "descr": route.get("description"),
+        "enabled": route.get("enabled"),
+    }
+
+
+def _normalize_static_route(route: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "network": route.get("network"),
+        "gateway_name": route.get("gateway_name", route.get("gateway")),
+        "description": route.get("description", route.get("descr")),
+        "enabled": _normalize_unbound_enabled(route.get("enabled")),
+    }
+
+
+def _serialize_gateway(gateway: dict[str, object]) -> dict[str, object]:
+    return {
+        "name": gateway.get("name"),
+        "interface": gateway.get("interface"),
+        "ipprotocol": "inet",
+        "gateway": gateway.get("address"),
+        "descr": gateway.get("description"),
+        "disabled": "0" if gateway.get("enabled") == "1" else "1",
+        "monitor_disable": "1",
+        "priority": "255",
+        "weight": "1",
+    }
+
+
+def _normalize_gateway(gateway: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "name": gateway.get("name"),
+        "interface": gateway.get("interface"),
+        "address": gateway.get("address", gateway.get("gateway")),
+        "description": gateway.get("description", gateway.get("descr")),
+        "enabled": _normalize_unbound_enabled(gateway.get("enabled"))
+        if "enabled" in gateway
+        else _normalize_gateway_enabled(gateway.get("disabled")),
+    }
+
+
+def _normalize_gateway_enabled(disabled: object) -> str:
+    return "0" if disabled in (1, "1", True, "true") else "1"
+
+
+def _desired_static_routes(
+    desired_routes: list[dict[str, object]],
+) -> dict[str, dict[str, object]]:
+    desired_by_network: dict[str, dict[str, object]] = {}
+    for desired in desired_routes:
+        if not isinstance(desired, dict):
+            raise ValueError("static routes must contain objects")
+        network = desired.get("network")
+        try:
+            ipaddress.ip_network(str(network), strict=True)
+        except ValueError:
+            raise ValueError(
+                f"static route {network} network must be a valid CIDR"
+            ) from None
+        for key in ("gateway_name", "gateway_address", "gateway_interface"):
+            value = desired.get(key)
+            if not isinstance(value, str) or not value:
+                raise ValueError(
+                    f"static route {network} {key} must be a non-empty string"
+                )
+        try:
+            ipaddress.ip_address(str(desired.get("gateway_address")))
+        except ValueError:
+            raise ValueError(
+                f"static route {network} gateway_address must be an IP address"
+            ) from None
+        if desired.get("enabled") not in ("0", "1"):
+            raise ValueError(f"static route {network} enabled must be 0 or 1")
+        if network in desired_by_network:
+            raise ValueError(f"duplicate static route: {network}")
+        desired_by_network[str(network)] = {
+            "network": str(network),
+            "gateway_name": desired.get("gateway_name"),
+            "gateway_address": desired.get("gateway_address"),
+            "gateway_interface": desired.get("gateway_interface"),
+            "description": desired.get("description"),
+            "enabled": desired.get("enabled"),
+        }
+    return desired_by_network
+
+
+def _desired_gateways(
+    desired_by_network: dict[str, dict[str, object]],
+) -> dict[str, dict[str, object]]:
+    gateways: dict[str, dict[str, object]] = {}
+    for route in desired_by_network.values():
+        name = route["gateway_name"]
+        if not isinstance(name, str):
+            raise ValueError("static route gateway_name must be a string")
+        entry = {
+            "name": name,
+            "interface": route.get("gateway_interface"),
+            "address": route.get("gateway_address"),
+            "description": route.get("description"),
+            "enabled": route.get("enabled"),
+        }
+        if name in gateways and gateways[name] != entry:
+            raise ValueError(f"static route gateway {name} has conflicting definitions")
+        gateways[name] = entry
+    return gateways
+
+
+def _live_gateways(response: object) -> dict[str, dict[str, object]]:
+    rows = response.get("rows") if isinstance(response, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("gateway search response contains no rows")
+    live_by_name: dict[str, dict[str, object]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("name")
+        uuid = row.get("uuid")
+        if not isinstance(name, str) or not name or not isinstance(uuid, str):
+            continue
+        entry: dict[str, object] = {
+            "name": name,
+            "interface": row.get("interface"),
+            "address": row.get("gateway"),
+            "description": row.get("descr"),
+            "enabled": _normalize_gateway_enabled(row.get("disabled")),
+        }
+        entry["uuid"] = uuid
+        live_by_name[name] = entry
+    return live_by_name
+
+
+def _live_static_routes(response: object) -> dict[str, dict[str, object]]:
+    rows = response.get("rows") if isinstance(response, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("static route search response contains no rows")
+    live_by_network: dict[str, dict[str, object]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        network = row.get("network")
+        uuid = row.get("uuid")
+        if (
+            not isinstance(network, str)
+            or not network
+            or not isinstance(uuid, str)
+            or not uuid
+        ):
+            continue
+        entry: dict[str, object] = {
+            "network": network,
+            "gateway_name": row.get("gateway"),
+            "description": row.get("descr"),
+            "enabled": _normalize_unbound_enabled(row.get("enabled")),
+        }
+        entry["uuid"] = uuid
+        live_by_network[network] = entry
+    return live_by_network
+
+
 def main(
     argv: list[str] | None = None,
     environ: Mapping[str, str] | None = None,
@@ -1005,6 +1264,9 @@ def main(
     reconcile_host_overrides: Callable[
         [Client, list[dict[str, object]]], None
     ] = reconcile_unbound_host_overrides,
+    reconcile_static: Callable[
+        [Client, list[dict[str, object]]], None
+    ] = reconcile_static_routes,
     prove_bgp: Callable[[Reader, dict[str, int], set[str]], BgpProof] = verify_bgp,
 ) -> None:
     parser = argparse.ArgumentParser(
@@ -1019,6 +1281,7 @@ def main(
     parser.add_argument("--outbound-nat-rules", required=True, type=Path)
     parser.add_argument("--unbound-acls", required=True, type=Path)
     parser.add_argument("--unbound-host-overrides", required=True, type=Path)
+    parser.add_argument("--static-routes", required=True, type=Path)
     arguments = parser.parse_args(argv)
     environment = environ if environ is not None else os.environ
     required = (
@@ -1043,6 +1306,7 @@ def main(
     desired_outbound_nat = json.loads(arguments.outbound_nat_rules.read_text())
     desired_unbound_acls = json.loads(arguments.unbound_acls.read_text())
     desired_host_overrides = json.loads(arguments.unbound_host_overrides.read_text())
+    desired_static_routes = json.loads(arguments.static_routes.read_text())
     if not isinstance(inventory, dict) or not isinstance(
         inventory.get("assignment_api_available"), bool
     ):
@@ -1079,6 +1343,10 @@ def main(
         isinstance(item, dict) for item in desired_host_overrides
     ):
         raise ValueError("Unbound host overrides must contain a list of objects")
+    if not isinstance(desired_static_routes, list) or not all(
+        isinstance(item, dict) for item in desired_static_routes
+    ):
+        raise ValueError("static routes must contain a list of objects")
     client = client_factory(
         environment["OPNSENSE_URL"],
         Credentials(
@@ -1095,6 +1363,7 @@ def main(
     reconcile_outbound(client, desired_outbound_nat)
     reconcile_acls(client, desired_unbound_acls)
     reconcile_host_overrides(client, desired_host_overrides)
+    reconcile_static(client, desired_static_routes)
     proof = prove_bgp(client, expected_peers, set(expected_routes))
     if not proof.ready:
         raise RuntimeError(
@@ -1113,6 +1382,7 @@ def main(
                 "outbound_nat_count": len(desired_outbound_nat),
                 "unbound_acl_count": len(desired_unbound_acls),
                 "unbound_host_override_count": len(desired_host_overrides),
+                "static_route_count": len(desired_static_routes),
             },
             sort_keys=True,
         )

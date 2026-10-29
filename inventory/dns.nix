@@ -20,8 +20,8 @@
     }
     {
       name = "grafana.homelab";
-      address = "10.0.40.13";
-      description = "Adopted pre-existing override: Grafana load-balancer VIP, verified live 2026-10-06";
+      address = "10.0.40.12";
+      description = "Grafana load-balancer VIP";
       unboundOrder = 3;
     }
     {
