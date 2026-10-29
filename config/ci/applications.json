@@ -1901,9 +1901,9 @@
         },
         {
           "package": "quartz-supply",
-          "version": "3",
+          "version": "4",
           "filename": "npm-cache.tar.gz",
-          "sha256": "sha256:333cb1fd3743383c06b0f4e27465942f0553ce071ecb745ff023410d4a172123",
+          "sha256": "sha256:afc86b2aa5759496b8652b4cbaecf5aa9a049074cf39ce7d102900e3b6b32831",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
         },

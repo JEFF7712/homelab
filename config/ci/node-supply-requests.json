@@ -1,10 +1,4 @@
 {
   "schema_version": 1,
-  "requests": [
-    {
-      "application": "quartz",
-      "version": "4",
-      "source": "17825c74140b7cd08824b979accdc785eb88fde0"
-    }
-  ]
+  "requests": []
 }
