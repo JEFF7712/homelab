@@ -38,6 +38,12 @@
     description = "Sam (Game Streaming)";
   };
 
+  users.users.aditya = {
+    isNormalUser = true;
+    group = "users";
+    description = "Aditya (Game Downloads)";
+  };
+
   services.samba = {
     enable = true;
     openFirewall = true;
@@ -58,7 +64,7 @@
         browseable = "yes";
         "read only" = "no";
         "guest ok" = "no";
-        "valid users" = "sam rupan";
+        "valid users" = "sam rupan aditya";
         "create mask" = "0664";
         "directory mask" = "0775";
         "force user" = "rupan";
