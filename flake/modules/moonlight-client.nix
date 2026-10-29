@@ -89,6 +89,8 @@ in
     environment.systemPackages = [
       pkgs.moonlight-qt
       cfg.sessionPackage
+      pkgs.bluez
+      pkgs.bluez-tools
     ];
 
     # Controller and input support
@@ -107,14 +109,38 @@ in
       "uinput"
     ];
 
+    # Disable Enhanced Retransmission Mode (ERTM) to prevent Bluetooth controller disconnects
+    boot.extraModprobeConfig = ''
+      options bluetooth disable_ertm=1
+    '';
+
     # Bluetooth stack support
     hardware.bluetooth = {
       enable = lib.mkDefault true;
       powerOnBoot = lib.mkDefault true;
+      settings = {
+        General = {
+          FastConnectable = lib.mkDefault true;
+          JustWorksRepairing = lib.mkDefault "always";
+        };
+      };
       input = {
         General = {
           ClassicBondedOnly = false;
         };
+      };
+    };
+
+    # Headless Bluetooth agent to authorize Just-Works controller pairing without manual prompts
+    systemd.services.bt-agent = {
+      description = "Bluetooth NoInputNoOutput pairing agent";
+      wantedBy = [ "bluetooth.target" ];
+      after = [ "bluetooth.service" ];
+      requires = [ "bluetooth.service" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.bluez-tools}/bin/bt-agent --capability=NoInputNoOutput";
+        Restart = "always";
+        RestartSec = "5s";
       };
     };
 
