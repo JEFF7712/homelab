@@ -81,5 +81,12 @@
       unboundOrder = 9;
       adguardOrder = 1;
     }
+    {
+      name = "jellyfin.rupan.dev";
+      address = "10.0.40.16";
+      description = "Jellyfin LAN load-balancer VIP: keeps LAN playback direct instead of hairpinning through the Cloudflare Tunnel.";
+      unboundOrder = 10;
+      adguardOrder = 8;
+    }
   ];
 }
