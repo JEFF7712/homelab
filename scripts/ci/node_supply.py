@@ -30,6 +30,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scripts.ci.node_release import (
+    check_seeds_manifest,
+    check_supply_item,
+    extract_tarball,
+)
+
 
 def digest(path: Path) -> str:
     h = hashlib.sha256()
@@ -58,6 +64,17 @@ def snapshot_cache(cache: Path, dest: Path) -> None:
             archive.add(child, arcname=child.name, recursive=True)
 
 
+def unpack_seeds(workspace: Path, snapshots: tuple[tuple[Path, str], ...]) -> None:
+    check_seeds_manifest(
+        json.dumps([[archive.name, dest] for archive, dest in snapshots])
+    )
+    for archive, dest in snapshots:
+        target = workspace / dest
+        if not target.resolve().is_relative_to(workspace.resolve()):
+            raise ValueError(f"Seed destination escapes workspace: {dest}")
+        extract_tarball(archive.read_bytes(), target, f"seed {archive.name}", workspace)
+
+
 def pack(
     app_dir: Path,
     node_dir: str,
@@ -66,6 +83,7 @@ def pack(
     build_script: str = "build",
     plugin_snapshot: Path | None = None,
     extra_libcs: tuple[str, ...] = (),
+    seed_snapshots: tuple[tuple[Path, str], ...] = (),
 ) -> dict:
     app_dir = app_dir.resolve()
     builddir = app_dir if not node_dir else app_dir / node_dir
@@ -141,6 +159,8 @@ def pack(
         for child in extracted.rglob("*"):
             if child.is_symlink() and not child.resolve().is_relative_to(bound):
                 raise ValueError(f"Plugin snapshot link escapes workspace: {child}")
+
+    unpack_seeds(work, seed_snapshots)
 
     run(
         [node, str(npm_cli), "ci", "--no-audit", "--no-fund"],
@@ -316,6 +336,7 @@ class Target:
     node_dir: str
     package: str
     toolchain: dict[str, Any]
+    seeds: tuple[tuple[dict[str, Any], str], ...] = ()
 
 
 def load_requests(raw: str) -> list[Request]:
@@ -360,10 +381,14 @@ def plan(request: Request, catalog: dict[str, Any]) -> Target:
     entry = entries[0]
     if entry["node_manager"] != "npm":
         raise ValueError(f"{request.application} is not an npm application")
-    if entry["node_seeds"]:
-        raise ValueError(
-            f"{request.application} retains seed snapshots; pack it by hand"
-        )
+    seeds = []
+    for filename, dest in check_seeds_manifest(json.dumps(entry["node_seeds"])):
+        matches = [
+            item for item in entry["release_supply"] if item["filename"] == filename
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"Seed references no single retained input: {filename}")
+        seeds.append((check_supply_item(matches[0]), dest))
     package = f"{request.application}-supply"
     caches = [
         item
@@ -390,6 +415,7 @@ def plan(request: Request, catalog: dict[str, Any]) -> Target:
         node_dir=entry["node_dir"],
         package=package,
         toolchain=toolchains[0],
+        seeds=tuple(seeds),
     )
 
 
@@ -524,12 +550,32 @@ def retain(target: Target, work: Path) -> str:
     source = work / "source"
     source.mkdir()
     fetch_source(target.repository, request.source, source)
+    seed_snapshots = []
+    for index, (item, dest) in enumerate(target.seeds):
+        archive = work / f"seed-{index}.tar.gz"
+        if not download(
+            item["package"],
+            item["version"],
+            item["filename"],
+            archive,
+            FORGEJO_HOST,
+            OWNER,
+        ):
+            raise ValueError(
+                f"Pinned seed is missing from retained supply: {item['filename']}"
+            )
+        if digest(archive) != item["sha256"]:
+            raise ValueError(
+                f"Retained seed does not match its pin: {item['filename']}"
+            )
+        seed_snapshots.append((archive, dest))
     receipt = pack(
         source,
         target.node_dir,
         toolchain,
         work / "pack",
         extra_libcs=EXTRA_LIBCS,
+        seed_snapshots=tuple(seed_snapshots),
     )
     snapshot = work / "pack" / CACHE_FILENAME
     upload(target.package, request.version, snapshot, FORGEJO_HOST, OWNER)
