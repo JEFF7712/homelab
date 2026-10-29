@@ -233,6 +233,8 @@ in
       "rupan"
     ];
     autostart = true;
+    autostartHost = "10.0.20.135";
+    autostartApp = "Steam Big Picture";
     output = "HDMI-A-1";
   };
 
