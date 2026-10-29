@@ -13,22 +13,46 @@ owns routine installation and repair through
 and its PHP filesystem worker. Publishing or activating this path requires
 explicit shared-infrastructure authorization.
 
-The privilege ID is `page-homelab-agent-bgp-readonly`; the UI name is
-**Homelab: Read-only BGP diagnostics**. It grants exactly:
+The privilege ID remains `page-homelab-agent-bgp-readonly` to preserve the
+existing API account assignment; the UI name is **Homelab: Read-only
+troubleshooting**. It grants exactly 43 reviewed paths, covering NAT and filter
+rule searches, alias searches and sizes, firewall states and logs, interfaces,
+ARP/NDP, routing and gateways, DNS query statistics, DHCP leases, service status,
+and system resources. The complete path and recommended-method catalog is
+[`read-endpoints.json`](../../opnsense_reconciler/acl/read-endpoints.json).
+Key entry points include:
 
-| Endpoint | Purpose |
-| --- | --- |
-| `/api/quagga/diagnostics/bgpsummary` | Runtime BGP peer status |
-| `/api/quagga/diagnostics/search_bgproute4` | IPv4 BGP routing table |
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/quagga/diagnostics/bgpsummary` | Runtime BGP peer status |
+| GET | `/api/quagga/diagnostics/search_bgproute4` | IPv4 BGP routing table |
+| POST | `/api/firewall/d_nat/search_rule` | Configured port forwards |
+| POST | `/api/firewall/filter/search_rule` | Filter rules |
+| POST | `/api/diagnostics/firewall/query_states` | Runtime connection states |
 
-OPNsense ACL patterns authorize paths, not HTTP methods. These two installed
-FRR controller actions only read diagnostics; the agent client should use GET.
+OPNsense ACL patterns authorize paths, not HTTP methods. Every granted action
+was audited on the installed OPNsense `26.7.3_11` controller source. Searches
+can use POST without changing router configuration; the catalog records the
+recommended method. The two BGP requests continue to use GET.
 Do not add wildcards or grant **Routing**: that built-in privilege also
 authorizes routing configuration and service control. Keep the separate
 **System: Deny config write** privilege as an additional restriction.
 
-This privilege does not grant access to configuration backups, running
-configuration, user management, service controls, or other diagnostics.
+The grant has no wildcard paths. It excludes configuration backups, credential
+and certificate settings, user management, full interface settings and overview,
+packet capture, and service or firewall mutation. The interface overview was
+excluded because it includes configuration properties; operational interface
+data comes from the diagnostics controller instead. Network addresses, lease
+identities, DNS queries, alias URLs, descriptions, and firewall logs are visible.
+ACLs cannot redact secrets an operator embeds in those fields. Do not put
+credentials there or export raw diagnostic responses to task reports.
+
+The audit catalog records controller SHA-256 fingerprints and inherited action
+implementations as review evidence, not as a request-time firmware guard.
+Re-audit controller and backend behavior after firmware/plugin upgrades before
+relying on the same read-only boundary. Configured NAT rules are not proof that
+traffic traverses the desired translation; verify runtime states and traffic
+separately.
 The BGP table alone does not establish kernel routing or data-plane health;
 follow the [BGP proof runbook](opnsense-bgp-proof.md) for complete acceptance.
 
@@ -102,7 +126,7 @@ isolation change; agent instructions alone cannot enforce declarative writes.
 
 1. Confirm the router's identity against its existing trusted SSH host key.
    Inspect the installed OPNsense and `os-frr` versions, the FRR ACL, and the
-   two controller actions before installing. The preparation on 2026-10-15
+   cataloged controller actions before installing. The preparation on 2026-10-15
    observed OPNsense `26.7.3_11` and `os-frr` `1.55` at `192.168.1.1`.
 2. Review the XML and existing destination. If a file already exists,
    inspect and retain its exact bytes for rollback before replacing it.
@@ -115,13 +139,14 @@ isolation change; agent instructions alone cannot enforce declarative writes.
 4. Load `/usr/local/opnsense/mvc/script/load_phalcon.php` in PHP and refresh
    the OPNsense ACL cache through `OPNsense\Core\ACL::persist(false)`.
    Check its return value and
-   confirm `getPrivList()` contains the new ID and exact two patterns.
+   confirm `getPrivList()` contains the expected ID and exact cataloged patterns.
    Do not restart routing or the web server.
 5. In **System > Access > Users**, edit the dedicated API user. Remove
    administrative group memberships and broad privileges. Assign only
    **System: Deny config write** and
-   **Homelab: Read-only BGP diagnostics**, then save.
-6. Confirm **System > Access > Privileges** shows exactly the two endpoint
+   **Homelab: Read-only troubleshooting**, then save. Existing accounts retain
+   their assignment through the unchanged privilege ID.
+6. Confirm **System > Access > Privileges** shows exactly the reviewed endpoint
    patterns for the custom privilege. Check all inherited privileges too;
    narrower privileges do not cancel broader grants.
 
@@ -136,11 +161,16 @@ Use the dedicated user's API key and secret with HTTP Basic authentication
 and the OPNsense CA. Preserve TLS certificate verification and address the
 firewall as `https://OPNsense.internal`, matching its certificate.
 
-Verify both GET requests authenticate and return the expected JSON. Then
+Verify both BGP GET requests and the cataloged diagnostic searches authenticate
+and return the expected JSON. Use paginated POST searches for NAT/filter rules,
+leases, and connection states; an empty list can be valid for unused services.
+Record status and schema/count checks rather than full responses. Then
 check the installed ACL engine denies this user access to at least
 `/api/quagga/bgp/set`, `/api/quagga/bgp/add_neighbor`,
 `/api/quagga/service/reconfigure`, and `/api/core/backup/providers`.
-Check denial through `isPageAccessible()` on the router; do not execute
+Also check denial of NAT add/set/delete/toggle actions, state flush/kill,
+service restart, Unbound settings, interface overview/settings, certificate
+settings, and packet capture. Check denial through `isPageAccessible()` on the router; do not execute
 potentially mutating requests just to test rejection. Retain only sanitized
 results, never API secrets, Authorization headers, or raw configuration.
 
@@ -191,7 +221,7 @@ by Git's common directory. Environment-injected identities and normal SOPS
 identity resolution remain supported. No credentials are decrypted during
 agent startup, `just doctor`, or offline checks.
 
-The probe makes only the two GET requests in this ACL, checks the desired
+The BGP probe makes only the two BGP GET requests in this ACL, checks the desired
 peers and ASNs from `opnsense_reconciler/bgp-neighbors.json`, and requires
 every route in `opnsense_reconciler/bgp-expected-routes.json`. Missing peers,
 wrong ASNs, missing routes, incomplete or malformed responses, API failures,

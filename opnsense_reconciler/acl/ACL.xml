@@ -1,9 +1,50 @@
 <acl>
   <page-homelab-agent-bgp-readonly>
-    <name>Homelab: Read-only BGP diagnostics</name>
+    <name>Homelab: Read-only troubleshooting</name>
     <patterns>
+      <pattern>api/core/service/search</pattern>
+      <pattern>api/diagnostics/firewall/list_rule_ids</pattern>
+      <pattern>api/diagnostics/firewall/log</pattern>
+      <pattern>api/diagnostics/firewall/pf_states</pattern>
+      <pattern>api/diagnostics/firewall/pf_statistics</pattern>
+      <pattern>api/diagnostics/firewall/query_pf_top</pattern>
+      <pattern>api/diagnostics/firewall/query_states</pattern>
+      <pattern>api/diagnostics/firewall/stats</pattern>
+      <pattern>api/diagnostics/interface/get_arp</pattern>
+      <pattern>api/diagnostics/interface/get_interface_config</pattern>
+      <pattern>api/diagnostics/interface/get_interface_names</pattern>
+      <pattern>api/diagnostics/interface/get_interface_statistics</pattern>
+      <pattern>api/diagnostics/interface/get_ndp</pattern>
+      <pattern>api/diagnostics/interface/get_routes</pattern>
+      <pattern>api/diagnostics/interface/get_vip_status</pattern>
+      <pattern>api/diagnostics/interface/search_arp</pattern>
+      <pattern>api/diagnostics/interface/search_ndp</pattern>
+      <pattern>api/diagnostics/system/memory</pattern>
+      <pattern>api/diagnostics/system/system_disk</pattern>
+      <pattern>api/diagnostics/system/system_information</pattern>
+      <pattern>api/diagnostics/system/system_resources</pattern>
+      <pattern>api/dnsmasq/leases/search</pattern>
+      <pattern>api/dnsmasq/service/status</pattern>
+      <pattern>api/firewall/alias/get_table_size</pattern>
+      <pattern>api/firewall/alias/search_item</pattern>
+      <pattern>api/firewall/d_nat/search_rule</pattern>
+      <pattern>api/firewall/filter/search_rule</pattern>
+      <pattern>api/firewall/filter_util/rule_stats</pattern>
+      <pattern>api/firewall/npt/search_rule</pattern>
+      <pattern>api/firewall/one_to_one/search_rule</pattern>
+      <pattern>api/firewall/source_nat/search_rule</pattern>
+      <pattern>api/kea/leases4/search</pattern>
+      <pattern>api/kea/leases6/search</pattern>
+      <pattern>api/kea/service/status</pattern>
       <pattern>api/quagga/diagnostics/bgpsummary</pattern>
       <pattern>api/quagga/diagnostics/search_bgproute4</pattern>
+      <pattern>api/quagga/service/status</pattern>
+      <pattern>api/routes/gateway/status</pattern>
+      <pattern>api/routes/routes/searchroute</pattern>
+      <pattern>api/unbound/diagnostics/stats</pattern>
+      <pattern>api/unbound/overview/is_enabled</pattern>
+      <pattern>api/unbound/overview/search_queries</pattern>
+      <pattern>api/unbound/service/status</pattern>
     </patterns>
   </page-homelab-agent-bgp-readonly>
 </acl>
