@@ -140,6 +140,29 @@
         "deploy-ci-host"
       ],
       "auto": true
+    },
+    {
+      "name": "state-backend",
+      "paths": [
+        "scripts/ci/state.py"
+      ],
+      "operations": [
+        "deploy-fleet-dry-run",
+        "deploy-fleet"
+      ],
+      "auto": true
+    },
+    {
+      "name": "cloudflare-access",
+      "paths": [
+        "tofu/cloudflare-access/",
+        "scripts/cloudflare/access.py"
+      ],
+      "operations": [
+        "cloudflare-access-plan",
+        "cloudflare-access-apply"
+      ],
+      "auto": true
     }
   ]
 }

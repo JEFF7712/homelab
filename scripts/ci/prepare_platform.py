@@ -133,7 +133,12 @@ def main() -> None:
     }
     automatic_events: dict[str, set[str]] = {}
     for event, targets in {
-        "push": ["opnsense-plan", "cloudflare-plan", "registry-lock-import"],
+        "push": [
+            "opnsense-plan",
+            "cloudflare-plan",
+            "cloudflare-access-plan",
+            "registry-lock-import",
+        ],
         "cron": sorted({target for names in SCHEDULES.values() for target in names}),
     }.items():
         for target in targets:

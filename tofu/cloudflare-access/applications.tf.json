@@ -1,0 +1,691 @@
+{
+  "resource": {
+    "cloudflare_zero_trust_access_application": {
+      "approvals": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "approvals.rupan.dev"
+          }
+        ],
+        "domain": "approvals.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "approvals",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.approvals_owner.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_arcade_controller": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "arcade.rupan.dev"
+          }
+        ],
+        "domain": "arcade.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Arcade controller",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_flux_webhook": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "flux-wh-33b0c8004348.rupan.dev"
+          }
+        ],
+        "domain": "flux-wh-33b0c8004348.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Flux webhook",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_home_assistant": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "ha.rupan.dev"
+          }
+        ],
+        "domain": "ha.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Home Assistant",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_music_assistant_and_ledfx": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "ma.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "ledfx.rupan.dev"
+          }
+        ],
+        "domain": "ma.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Music Assistant and LedFx",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_music_sync_and_tools": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "music.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "nix.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "soluble.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "obsidian.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "n8n.rupan.dev"
+          }
+        ],
+        "domain": "music.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": false,
+        "name": "Bypass - Music, sync and tools",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_notes_and_project_sites": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "rupanism.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "ism.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "notes.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "pulse.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "spatia.rupan.dev"
+          }
+        ],
+        "domain": "rupanism.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": false,
+        "name": "Bypass - Notes and project sites",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_photos_files_and_dashboards": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "books.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "grafana.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "photos.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "media.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "jellyfin.rupan.dev"
+          }
+        ],
+        "domain": "books.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": false,
+        "name": "Bypass - Photos, files and dashboards",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_requests_and_music_tools": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "apptly.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "lidarr.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "aurral.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "spotify.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "seerr.rupan.dev"
+          }
+        ],
+        "domain": "apptly.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Requests and music tools",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_tally_tracker_endpoints": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": false,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "tally.rupan.dev/t.js"
+          },
+          {
+            "type": "public",
+            "uri": "tally.rupan.dev/api/send"
+          }
+        ],
+        "domain": "tally.rupan.dev/t.js",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Tally tracker endpoints",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_uwagent": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "uwagent.rupan.dev"
+          }
+        ],
+        "domain": "uwagent.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - UWagent",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_websites_and_automation": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "demo.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "ntfy.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "renovate-approve.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "nix-agent.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "photo.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "majorfinder.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "www.rupan.dev"
+          },
+          {
+            "type": "public",
+            "uri": "rupan.dev"
+          }
+        ],
+        "domain": "demo.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Websites and automation",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "bypass_woodpecker_ci": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": false,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "ci.rupan.dev"
+          }
+        ],
+        "domain": "ci.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Bypass - Woodpecker CI",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "default": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "*.rupan.dev"
+          }
+        ],
+        "domain": "*.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": false,
+        "name": "*",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.main_rupan.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "forgejo": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "git.rupan.dev"
+          }
+        ],
+        "domain": "git.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "forgejo",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.roommates.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "games": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "allowed_idps": [
+          "d052562e-7c79-4bcc-bb0c-1808eb5e9c66"
+        ],
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": true,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "games.rupan.dev"
+          }
+        ],
+        "domain": "games.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": false,
+        "name": "games",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.friends.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "grafana_oidc": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "allowed_idps": [
+          "7f9f5ab9-64b6-46ec-a8a4-33d10351f5ba",
+          "d052562e-7c79-4bcc-bb0c-1808eb5e9c66"
+        ],
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "domain": "rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/a3ecc26035113025380ef4894c0fd69740739507d6b73e75c849c7ad29ab16a8",
+        "name": "Grafana OIDC",
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.main_rupan.id}",
+            "precedence": 1
+          }
+        ],
+        "saas_app": {
+          "access_token_lifetime": "15m",
+          "allow_pkce_without_client_secret": false,
+          "app_launcher_url": "https://grafana.rupan.dev",
+          "auth_type": "oidc",
+          "grant_types": [
+            "authorization_code_with_pkce"
+          ],
+          "redirect_uris": [
+            "https://grafana.rupan.dev/login/generic_oauth"
+          ],
+          "scopes": [
+            "openid",
+            "email",
+            "profile"
+          ]
+        },
+        "session_duration": "24h",
+        "type": "saas",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "immich_oidc": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "allowed_idps": [
+          "7f9f5ab9-64b6-46ec-a8a4-33d10351f5ba",
+          "d052562e-7c79-4bcc-bb0c-1808eb5e9c66"
+        ],
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "domain": "rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/788ef25d0a3b1074d0dbe1e635cbbe8f237901415f822d2f9ac9184e470fb6c0",
+        "name": "Immich OIDC",
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.main_rupan.id}",
+            "precedence": 1
+          }
+        ],
+        "saas_app": {
+          "access_token_lifetime": "15m",
+          "app_launcher_url": "https://photos.rupan.dev",
+          "auth_type": "oidc",
+          "grant_types": [
+            "authorization_code"
+          ],
+          "redirect_uris": [
+            "https://photos.rupan.dev/auth/login",
+            "https://photos.rupan.dev/user-settings",
+            "https://photos.rupan.dev/api/oauth/mobile-redirect"
+          ],
+          "scopes": [
+            "openid",
+            "email",
+            "profile"
+          ]
+        },
+        "session_duration": "24h",
+        "type": "saas",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "sovereign": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": true,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "sovereign.rupan.dev"
+          }
+        ],
+        "domain": "sovereign.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "sovereign",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.sovereign_owner.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "tally_owner_dashboard": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": false,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "tally.rupan.dev"
+          }
+        ],
+        "domain": "tally.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "name": "Tally - owner dashboard",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.main_rupan.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "warp_login_app": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "auto_redirect_to_identity": false,
+        "domain": "rupan.cloudflareaccess.com/warp",
+        "name": "Warp Login App",
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.main_rupan.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "warp",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      }
+    }
+  }
+}

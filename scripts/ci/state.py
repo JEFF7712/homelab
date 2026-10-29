@@ -14,7 +14,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-STATES = {"opnsense", "cloudflare"}
+REQUIRED_STATES = {"opnsense", "cloudflare"}
+STATES = REQUIRED_STATES | {"cloudflare-access"}
 
 
 class Store:
@@ -42,6 +43,14 @@ class Store:
     def authority(self) -> str:
         with self.connection() as db:
             return db.execute("SELECT value FROM authority").fetchone()[0]
+
+    def check_ready(self) -> None:
+        with self.connection() as db:
+            imported = {row[0] for row in db.execute("SELECT name FROM states")}
+        if not REQUIRED_STATES <= imported <= STATES:
+            raise ValueError(
+                "Required production states must be imported before serving"
+            )
 
     def request(
         self,
@@ -264,9 +273,7 @@ def main() -> None:
     parser.add_argument("--key", type=Path, required=True)
     args = parser.parse_args()
     store = Store(args.database)
-    with store.connection() as db:
-        if {row[0] for row in db.execute("SELECT name FROM states")} != STATES:
-            raise ValueError("Both production states must be imported before serving")
+    store.check_ready()
     server = ThreadingHTTPServer(
         ("0.0.0.0", 3902),
         handler(store, json.loads(args.credentials.read_text())),

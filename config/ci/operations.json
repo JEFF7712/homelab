@@ -2327,5 +2327,180 @@
     "mutation": true,
     "prerequisite": "",
     "agent": true
+  },
+  "cloudflare-access-plan": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [],
+    "outputs": [
+      "tofu/cloudflare-access/desired.tfplan"
+    ],
+    "prerequisite": "",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "python -m scripts.cloudflare.access --inventory",
+      "tofu -chdir=tofu/cloudflare-access validate",
+      "tofu -chdir=tofu/cloudflare-access plan -input=false -out=desired.tfplan",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json desired.tfplan > access-plan.json; python -m scripts.cloudflare.access access-plan.json'"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "legacy_job": "cloudflare_access_plan",
+    "mutation": false
+  },
+  "cloudflare-access-import": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [],
+    "outputs": [],
+    "prerequisite": "",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "python -m scripts.cloudflare.access --inventory",
+      "tofu -chdir=tofu/cloudflare-access plan -input=false -out=import.tfplan",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json import.tfplan > access-import.json; python -m scripts.cloudflare.access access-import.json --mode import'",
+      "tofu -chdir=tofu/cloudflare-access apply -input=false import.tfplan"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "legacy_job": "cloudflare_access_import",
+    "mutation": true,
+    "agent": true
+  },
+  "cloudflare-access-apply": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [
+      "cloudflare-access-plan"
+    ],
+    "outputs": [],
+    "prerequisite": "cloudflare-access-plan",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json desired.tfplan > access-plan.json; python -m scripts.cloudflare.access access-plan.json'",
+      "tofu -chdir=tofu/cloudflare-access apply -input=false desired.tfplan"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_deploy_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "legacy_job": "cloudflare_access_apply",
+    "mutation": true,
+    "agent": true
+  },
+  "cloudflare-access-drift": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [],
+    "outputs": [],
+    "prerequisite": "",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "python -m scripts.cloudflare.access --inventory",
+      "tofu -chdir=tofu/cloudflare-access plan -input=false -out=drift.tfplan",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json drift.tfplan > access-drift.json; python -m scripts.cloudflare.access access-drift.json --mode drift'"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "legacy_job": "cloudflare_access_drift",
+    "mutation": false
   }
 }
