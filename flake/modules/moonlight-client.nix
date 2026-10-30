@@ -36,6 +36,15 @@ let
       ''
     else
       "${pkgs.moonlight-qt}/bin/moonlight";
+
+  pairerPython = pkgs.python3.withPackages (ps: [ ps.paho-mqtt ]);
+
+  pairerScript = pkgs.writeTextFile {
+    name = "controller-pairer";
+    executable = true;
+    destination = "/bin/controller-pairer";
+    text = builtins.readFile ./controller-pairer.py;
+  };
 in
 {
   options.homelab.moonlight = {
@@ -83,6 +92,40 @@ in
       readOnly = true;
       description = "Package providing bin/moonlight-session. Reference it by store path from compositor bindings, whose systemd PATH excludes the system profile.";
     };
+
+    controllerPairer = {
+      enable = lib.mkEnableOption "Home Assistant MQTT Bluetooth controller pairer service";
+
+      mqttHost = lib.mkOption {
+        type = lib.types.str;
+        default = "10.0.30.10";
+        description = "MQTT broker host";
+      };
+
+      mqttPort = lib.mkOption {
+        type = lib.types.int;
+        default = 1883;
+        description = "MQTT broker port";
+      };
+
+      mqttUser = lib.mkOption {
+        type = lib.types.str;
+        default = "roku-bridge";
+        description = "MQTT broker user";
+      };
+
+      passwordFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = "Path to file containing MQTT password";
+      };
+
+      scanTimeout = lib.mkOption {
+        type = lib.types.int;
+        default = 60;
+        description = "Scan timeout in seconds";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -91,6 +134,9 @@ in
       cfg.sessionPackage
       pkgs.bluez
       pkgs.bluez-tools
+      (pkgs.writeShellScriptBin "pair-controller" ''
+        exec ${pairerPython}/bin/python3 ${pairerScript}/bin/controller-pairer --cli "$@"
+      '')
     ];
 
     # Controller and input support
@@ -142,6 +188,46 @@ in
         Restart = "always";
         RestartSec = "5s";
       };
+    };
+
+    # Automated Bluetooth game controller pairing daemon connected to Home Assistant MQTT
+    systemd.services.controller-pairer = lib.mkIf cfg.controllerPairer.enable {
+      description = "Home Assistant Bluetooth Game Controller Pairer";
+      wantedBy = [ "multi-user.target" ];
+      after = [
+        "network-online.target"
+        "bluetooth.service"
+        "bt-agent.service"
+      ];
+      wants = [
+        "network-online.target"
+        "bluetooth.service"
+        "bt-agent.service"
+      ];
+      unitConfig.ConditionPathExists = lib.optional (cfg.controllerPairer.passwordFile != null) (
+        toString cfg.controllerPairer.passwordFile
+      );
+      path = [
+        pkgs.bluez
+        pkgs.bluez-tools
+        pkgs.coreutils
+      ];
+      serviceConfig = {
+        Type = "simple";
+        User = "root";
+        Restart = "always";
+        RestartSec = "5s";
+      };
+      script = ''
+        ${lib.optionalString (cfg.controllerPairer.passwordFile != null) ''
+          export MQTT_PASS="$(${pkgs.coreutils}/bin/cat ${cfg.controllerPairer.passwordFile})"
+        ''}
+        exec ${pairerPython}/bin/python3 -u ${pairerScript}/bin/controller-pairer \
+          --mqtt-host "${cfg.controllerPairer.mqttHost}" \
+          --mqtt-port "${toString cfg.controllerPairer.mqttPort}" \
+          --mqtt-user "${cfg.controllerPairer.mqttUser}" \
+          --timeout "${toString cfg.controllerPairer.scanTimeout}"
+      '';
     };
 
     # Ensure users have access to display, rendering, audio, and controller input devices

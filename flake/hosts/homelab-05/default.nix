@@ -94,9 +94,12 @@ in
     # Apollo publishes as the roku-bridge broker user on adguard-netbird-01.
     mosquitto-roku-bridge-password = {
       sopsFile = ../../../secrets/shared/mqtt-roku-bridge.sops.yaml;
-      restartUnits = map (device: "apollo-ble-bridge-${device}.service") (
+      restartUnits = [
+        "controller-pairer.service"
+      ]
+      ++ (map (device: "apollo-ble-bridge-${device}.service") (
         builtins.attrNames config.homelab.apollo-ble-bridge.devices
-      );
+      ));
     };
   };
 
@@ -236,6 +239,10 @@ in
     autostartHost = "10.0.20.135";
     autostartApp = "Steam Big Picture";
     output = "HDMI-A-1";
+    controllerPairer = {
+      enable = true;
+      passwordFile = config.sops.secrets.mosquitto-roku-bridge-password.path;
+    };
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated

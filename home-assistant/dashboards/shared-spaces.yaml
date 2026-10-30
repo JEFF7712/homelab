@@ -165,6 +165,27 @@ views:
             media_browser:
               - entity_id: media_player.homelab_05_satellite_media_player_2
                 name: Soundbar
+          - heading: Gaming
+            type: heading
+          - type: custom:mushroom-template-card
+            primary: Pair Controller
+            secondary: >-
+              {{ states('sensor.homelab_05_controller_status') | default('Ready', true) }}
+            icon: mdi:controller
+            icon_color: >-
+              {% set s = states('sensor.homelab_05_controller_status') %}
+              {% if 'Scanning' in s or 'Pairing' in s %}
+                blue
+              {% elif 'Connected' in s %}
+                green
+              {% else %}
+                amber
+              {% endif %}
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.homelab_05_pair_controller
       - cards:
           - heading: Family
             type: heading
