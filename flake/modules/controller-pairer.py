@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -58,18 +59,6 @@ async def run_cmd(*args: str, timeout: float = 10.0) -> tuple[int, str]:
         return 1, ""
 
 
-async def get_paired_macs() -> set[str]:
-    """Retrieve already paired Bluetooth MAC addresses."""
-    paired = set()
-    code, out = await run_cmd("bluetoothctl", "paired-devices", timeout=5.0)
-    if code == 0:
-        for line in out.splitlines():
-            m = MAC_REGEX.search(line)
-            if m:
-                paired.add(m.group(1).upper())
-    return paired
-
-
 def is_controller_candidate(name: str, dev_class: str, icon: str) -> bool:
     """Determine if a Bluetooth device is a game controller."""
     if icon.lower() == "input-gaming":
@@ -90,6 +79,35 @@ def is_controller_candidate(name: str, dev_class: str, icon: str) -> bool:
             pass
 
     return False
+
+
+async def get_connected_controllers() -> list[tuple[str, str]]:
+    """Retrieve currently connected controller MAC addresses and names."""
+    connected: list[tuple[str, str]] = []
+    code, out = await run_cmd("bluetoothctl", "devices", "Connected", timeout=5.0)
+    if code == 0:
+        for line in out.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 2 and parts[0] == "Device":
+                mac = parts[1].upper()
+                name = " ".join(parts[2:]) if len(parts) > 2 else "Gamepad"
+                if is_controller_candidate(name, "", ""):
+                    connected.append((mac, name))
+                else:
+                    _, info_txt = await run_cmd(
+                        "bluetoothctl", "info", mac, timeout=3.0
+                    )
+                    icon = ""
+                    dev_class = ""
+                    for info_line in info_txt.splitlines():
+                        info_line = info_line.strip()
+                        if info_line.startswith("Icon:"):
+                            icon = info_line.split("Icon:")[1].strip()
+                        elif info_line.startswith("Class:"):
+                            dev_class = info_line.split("Class:")[1].strip().split()[0]
+                    if is_controller_candidate(name, dev_class, icon):
+                        connected.append((mac, name))
+    return connected
 
 
 class ControllerPairer:
@@ -118,6 +136,7 @@ class ControllerPairer:
 
         self._mqtt_client: mqtt.Client | None = None
         self._is_scanning = False
+        self._last_status: str | None = None
         self._lock = asyncio.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
 
@@ -164,10 +183,12 @@ class ControllerPairer:
         logger.info("Published Home Assistant MQTT discovery payloads.")
 
     def set_status(self, status: str, retain: bool = True) -> None:
-        """Publish status update to MQTT."""
-        logger.info("Status update: %s", status)
-        if self._mqtt_client:
-            self._mqtt_client.publish(self.state_topic, status, retain=retain)
+        """Publish status update to MQTT if changed."""
+        if status != self._last_status:
+            logger.info("Status update: %s", status)
+            self._last_status = status
+            if self._mqtt_client:
+                self._mqtt_client.publish(self.state_topic, status, retain=retain)
 
     async def run_pairing_session(self) -> tuple[bool, str]:
         """Perform a Bluetooth scan and pair the first detected controller."""
@@ -179,12 +200,15 @@ class ControllerPairer:
             self._is_scanning = True
 
         try:
-            paired_macs = await get_paired_macs()
-            logger.info("Initial paired devices: %s", paired_macs)
+            connected = await get_connected_controllers()
+            connected_macs = {mac for mac, _ in connected}
+            logger.info("Currently connected controllers: %s", connected)
             self.set_status("Scanning for controllers (60s)...")
 
             proc = await asyncio.create_subprocess_exec(
                 "bluetoothctl",
+                "--timeout",
+                str(self.scan_timeout),
                 "scan",
                 "on",
                 stdout=asyncio.subprocess.PIPE,
@@ -224,7 +248,7 @@ class ControllerPairer:
                         continue
 
                     mac = parts[mac_idx].upper()
-                    if mac in paired_macs:
+                    if mac in connected_macs:
                         continue
 
                     if mac not in detected_devices:
@@ -249,19 +273,22 @@ class ControllerPairer:
                     dev_class = detected_devices[mac]["class"]
                     icon = detected_devices[mac]["icon"]
 
-                    if not name:
-                        _, info_out = await run_cmd(
+                    if not name or not icon or not dev_class:
+                        _, info_txt = await run_cmd(
                             "bluetoothctl", "info", mac, timeout=2.0
                         )
-                        for inf_line in info_out.splitlines():
-                            if "Name:" in inf_line:
-                                name = inf_line.split("Name:", 1)[1].strip()
+                        for info_line in info_txt.splitlines():
+                            info_line = info_line.strip()
+                            if info_line.startswith("Name:") and not name:
+                                name = info_line.split("Name:")[1].strip()
                                 detected_devices[mac]["name"] = name
-                            elif "Icon:" in inf_line:
-                                icon = inf_line.split("Icon:", 1)[1].strip()
+                            elif info_line.startswith("Icon:") and not icon:
+                                icon = info_line.split("Icon:")[1].strip()
                                 detected_devices[mac]["icon"] = icon
-                            elif "Class:" in inf_line:
-                                dev_class = inf_line.split("Class:", 1)[1].strip()
+                            elif info_line.startswith("Class:") and not dev_class:
+                                dev_class = (
+                                    info_line.split("Class:")[1].strip().split()[0]
+                                )
                                 detected_devices[mac]["class"] = dev_class
 
                     if is_controller_candidate(name, dev_class, icon):
@@ -270,20 +297,26 @@ class ControllerPairer:
                         found_name = name or "Gamepad"
                         break
 
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 proc.terminate()
                 await proc.wait()
-            except ProcessLookupError:
-                pass
 
             if not found_controller:
+                connected_now = await get_connected_controllers()
+                if connected_now:
+                    self.set_status(f"Connected: {connected_now[0][1]}")
+                    return True, f"Connected: {connected_now[0][1]}"
+
                 self.set_status("Pairing timed out (no controller found)")
-                await asyncio.sleep(10)
+                await asyncio.sleep(5)
                 self.set_status("Ready")
                 return False, "Pairing timed out"
 
             self.set_status(f"Pairing with {found_name}...")
             logger.info("Attempting pairing with %s...", found_controller)
+
+            await run_cmd("bluetoothctl", "remove", found_controller, timeout=5.0)
+            await asyncio.sleep(0.5)
 
             await run_cmd("bluetoothctl", "pair", found_controller, timeout=15.0)
             await run_cmd("bluetoothctl", "trust", found_controller, timeout=10.0)
@@ -293,15 +326,14 @@ class ControllerPairer:
                 "bluetoothctl", "info", found_controller, timeout=5.0
             )
 
-            if "Paired: yes" in info_txt or "Connected: yes" in info_txt:
+            if "Connected: yes" in info_txt or "Paired: yes" in info_txt:
                 self.set_status(f"Connected: {found_name}")
                 logger.info(
                     "Successfully paired and connected %s (%s)",
                     found_name,
                     found_controller,
                 )
-                await asyncio.sleep(15)
-                self.set_status("Ready")
+                await asyncio.sleep(5)
                 return True, f"Connected: {found_name}"
 
             self.set_status(f"Pairing failed for {found_name}")
@@ -310,8 +342,7 @@ class ControllerPairer:
                 found_name,
                 info_txt,
             )
-            await asyncio.sleep(10)
-            self.set_status("Ready")
+            await asyncio.sleep(5)
             return False, f"Pairing failed for {found_name}"
 
         finally:
@@ -322,7 +353,6 @@ class ControllerPairer:
         if rc == 0:
             logger.info("Connected to MQTT broker successfully.")
             self.publish_discovery()
-            self.set_status("Ready")
             client.subscribe(self.command_topic)
             logger.info("Subscribed to command topic: %s", self.command_topic)
         else:
@@ -335,6 +365,25 @@ class ControllerPairer:
 
         if topic == self.command_topic and self._loop:
             asyncio.run_coroutine_threadsafe(self.run_pairing_session(), self._loop)
+
+    async def _status_monitor_loop(self, stop_event: asyncio.Event) -> None:
+        """Periodically refresh connection status of controllers."""
+        while not stop_event.is_set():
+            try:
+                if not self._is_scanning:
+                    connected = await get_connected_controllers()
+                    if connected:
+                        status = f"Connected: {connected[0][1]}"
+                    else:
+                        status = "Ready"
+                    self.set_status(status)
+            except (OSError, TimeoutError) as e:
+                logger.debug("Error checking connected controllers: %s", e)
+
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=5.0)
+            except TimeoutError:
+                pass
 
     async def start_service(self) -> None:
         """Start daemon loop connected to MQTT."""
@@ -368,7 +417,12 @@ class ControllerPairer:
         for sig in (signal.SIGINT, signal.SIGTERM):
             self._loop.add_signal_handler(sig, _signal_handler)
 
+        monitor_task = asyncio.create_task(self._status_monitor_loop(stop_event))
+
         await stop_event.wait()
+        monitor_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await monitor_task
 
         self.set_status("Offline", retain=False)
         self._mqtt_client.loop_stop()
