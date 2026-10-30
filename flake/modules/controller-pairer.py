@@ -110,6 +110,16 @@ async def get_connected_controllers() -> list[tuple[str, str]]:
     return connected
 
 
+def format_connected_status(connected: list[tuple[str, str]]) -> str:
+    """Format status string representing currently connected controller(s)."""
+    if not connected:
+        return "Ready"
+    names = [name for _, name in connected]
+    if len(names) == 1:
+        return f"Connected: {names[0]}"
+    return f"Connected ({len(names)}): {', '.join(names)}"
+
+
 class ControllerPairer:
     def __init__(
         self,
@@ -133,10 +143,14 @@ class ControllerPairer:
         )
         self.command_topic = "homeassistant/button/homelab_05_pair_controller/set"
         self.state_topic = "homeassistant/sensor/homelab_05_controller_status/state"
+        self.attributes_topic = (
+            "homeassistant/sensor/homelab_05_controller_status/attributes"
+        )
 
         self._mqtt_client: mqtt.Client | None = None
         self._is_scanning = False
         self._last_status: str | None = None
+        self._last_attrs_json: str | None = None
         self._lock = asyncio.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
 
@@ -166,6 +180,7 @@ class ControllerPairer:
             "unique_id": "homelab_05_controller_status",
             "object_id": "homelab_05_controller_status",
             "state_topic": self.state_topic,
+            "json_attributes_topic": self.attributes_topic,
             "icon": "mdi:bluetooth-connect",
             "device": device_info,
         }
@@ -182,13 +197,32 @@ class ControllerPairer:
         )
         logger.info("Published Home Assistant MQTT discovery payloads.")
 
-    def set_status(self, status: str, retain: bool = True) -> None:
-        """Publish status update to MQTT if changed."""
+    def set_status(
+        self,
+        status: str,
+        connected: list[tuple[str, str]] | None = None,
+        retain: bool = True,
+    ) -> None:
+        """Publish status and attributes update to MQTT if changed."""
         if status != self._last_status:
             logger.info("Status update: %s", status)
             self._last_status = status
             if self._mqtt_client:
                 self._mqtt_client.publish(self.state_topic, status, retain=retain)
+
+        if connected is not None:
+            attrs = {
+                "connected_count": len(connected),
+                "connected_controllers": [name for _, name in connected],
+                "controllers": [{"mac": mac, "name": name} for mac, name in connected],
+            }
+            attrs_json = json.dumps(attrs, sort_keys=True)
+            if attrs_json != self._last_attrs_json:
+                self._last_attrs_json = attrs_json
+                if self._mqtt_client:
+                    self._mqtt_client.publish(
+                        self.attributes_topic, attrs_json, retain=retain
+                    )
 
     async def run_pairing_session(self) -> tuple[bool, str]:
         """Perform a Bluetooth scan and pair the first detected controller."""
@@ -203,7 +237,11 @@ class ControllerPairer:
             connected = await get_connected_controllers()
             connected_macs = {mac for mac, _ in connected}
             logger.info("Currently connected controllers: %s", connected)
-            self.set_status("Scanning for controllers (60s)...")
+
+            if connected:
+                self.set_status("Scanning for additional controller (60s)...")
+            else:
+                self.set_status("Scanning for controllers (60s)...")
 
             proc = await asyncio.create_subprocess_exec(
                 "bluetoothctl",
@@ -303,13 +341,11 @@ class ControllerPairer:
 
             if not found_controller:
                 connected_now = await get_connected_controllers()
-                if connected_now:
-                    self.set_status(f"Connected: {connected_now[0][1]}")
-                    return True, f"Connected: {connected_now[0][1]}"
-
-                self.set_status("Pairing timed out (no controller found)")
-                await asyncio.sleep(5)
-                self.set_status("Ready")
+                self.set_status("No new controller found", connected=connected_now)
+                await asyncio.sleep(4)
+                self.set_status(
+                    format_connected_status(connected_now), connected=connected_now
+                )
                 return False, "Pairing timed out"
 
             self.set_status(f"Pairing with {found_name}...")
@@ -327,22 +363,28 @@ class ControllerPairer:
             )
 
             if "Connected: yes" in info_txt or "Paired: yes" in info_txt:
-                self.set_status(f"Connected: {found_name}")
+                connected_all = await get_connected_controllers()
+                self.set_status(
+                    format_connected_status(connected_all), connected=connected_all
+                )
                 logger.info(
                     "Successfully paired and connected %s (%s)",
                     found_name,
                     found_controller,
                 )
-                await asyncio.sleep(5)
                 return True, f"Connected: {found_name}"
 
-            self.set_status(f"Pairing failed for {found_name}")
+            connected_all = await get_connected_controllers()
+            self.set_status(f"Pairing failed for {found_name}", connected=connected_all)
             logger.error(
                 "Pairing failed for %s. Current info: %s",
                 found_name,
                 info_txt,
             )
-            await asyncio.sleep(5)
+            await asyncio.sleep(4)
+            self.set_status(
+                format_connected_status(connected_all), connected=connected_all
+            )
             return False, f"Pairing failed for {found_name}"
 
         finally:
@@ -355,8 +397,19 @@ class ControllerPairer:
             self.publish_discovery()
             client.subscribe(self.command_topic)
             logger.info("Subscribed to command topic: %s", self.command_topic)
+            if self._loop:
+                asyncio.run_coroutine_threadsafe(
+                    self._initial_status_sync(), self._loop
+                )
         else:
             logger.error("Failed to connect to MQTT broker, return code %d", rc)
+
+    async def _initial_status_sync(self) -> None:
+        try:
+            connected = await get_connected_controllers()
+            self.set_status(format_connected_status(connected), connected=connected)
+        except (OSError, TimeoutError) as e:
+            logger.debug("Error in initial status sync: %s", e)
 
     def on_mqtt_message(self, client: Any, userdata: Any, msg: Any) -> None:
         topic = msg.topic
@@ -372,11 +425,8 @@ class ControllerPairer:
             try:
                 if not self._is_scanning:
                     connected = await get_connected_controllers()
-                    if connected:
-                        status = f"Connected: {connected[0][1]}"
-                    else:
-                        status = "Ready"
-                    self.set_status(status)
+                    status = format_connected_status(connected)
+                    self.set_status(status, connected=connected)
             except (OSError, TimeoutError) as e:
                 logger.debug("Error checking connected controllers: %s", e)
 

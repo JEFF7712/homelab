@@ -186,6 +186,21 @@ views:
               {% else %}
                 amber
               {% endif %}
+            badge_icon: >-
+              {% set s = 'sensor.shared_spaces_gaming_controller_pairing_status' %}
+              {% set count = state_attr(s, 'connected_count') | int(0) %}
+              {% if count == 1 %}
+                mdi:numeric-1
+              {% elif count == 2 %}
+                mdi:numeric-2
+              {% elif count == 3 %}
+                mdi:numeric-3
+              {% elif count == 4 %}
+                mdi:numeric-4
+              {% elif count > 4 %}
+                mdi:numeric-9-plus
+              {% endif %}
+            badge_color: green
             tap_action:
               action: perform-action
               perform_action: button.press
