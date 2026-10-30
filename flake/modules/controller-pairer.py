@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import signal
 import sys
 import time
@@ -243,12 +244,18 @@ class ControllerPairer:
             else:
                 self.set_status("Scanning for controllers (60s)...")
 
-            proc = await asyncio.create_subprocess_exec(
+            scan_cmd = [
                 "bluetoothctl",
                 "--timeout",
                 str(self.scan_timeout),
                 "scan",
                 "on",
+            ]
+            if shutil.which("stdbuf"):
+                scan_cmd = ["stdbuf", "-oL", "-eL", *scan_cmd]
+
+            proc = await asyncio.create_subprocess_exec(
+                *scan_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
@@ -351,8 +358,16 @@ class ControllerPairer:
             self.set_status(f"Pairing with {found_name}...")
             logger.info("Attempting pairing with %s...", found_controller)
 
-            await run_cmd("bluetoothctl", "remove", found_controller, timeout=5.0)
-            await asyncio.sleep(0.5)
+            _, check_info = await run_cmd(
+                "bluetoothctl", "info", found_controller, timeout=3.0
+            )
+            if "Paired: yes" in check_info:
+                logger.info(
+                    "Device %s has stale pairing; removing before re-pair",
+                    found_controller,
+                )
+                await run_cmd("bluetoothctl", "remove", found_controller, timeout=5.0)
+                await asyncio.sleep(0.5)
 
             await run_cmd("bluetoothctl", "pair", found_controller, timeout=15.0)
             await run_cmd("bluetoothctl", "trust", found_controller, timeout=10.0)
