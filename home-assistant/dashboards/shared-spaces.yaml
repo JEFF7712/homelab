@@ -170,10 +170,15 @@ views:
           - type: custom:mushroom-template-card
             primary: Pair Controller
             secondary: >-
-              {{ states('sensor.homelab_05_controller_status') | default('Ready', true) }}
+              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
+              {% if s in ['unknown', 'unavailable', ''] %}
+                Ready
+              {% else %}
+                {{ s }}
+              {% endif %}
             icon: mdi:controller
             icon_color: >-
-              {% set s = states('sensor.homelab_05_controller_status') %}
+              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
               {% if 'Scanning' in s or 'Pairing' in s %}
                 blue
               {% elif 'Connected' in s %}
@@ -185,7 +190,7 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: button.homelab_05_pair_controller
+                entity_id: button.shared_spaces_gaming_pair_game_controller
       - cards:
           - heading: Family
             type: heading
