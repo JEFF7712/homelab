@@ -123,6 +123,7 @@
           curl
           dnsutils
           getent
+          k9s
           (pkgs.writeShellScriptBin "nix-fast-build" ''exec ${pkgs.nix-fast-build}/bin/nix-fast-build "$@"'')
           nixos-rebuild-ng
           oras
