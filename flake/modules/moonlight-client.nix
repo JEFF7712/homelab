@@ -65,7 +65,7 @@ in
     autostart = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Whether to automatically launch Moonlight on boot in the session";
+      description = "Whether to autostart Moonlight under a supervised moonlight-stream service that restarts the client whenever it exits. Closing the Moonlight GUI returns to the autostart stream after the restart delay.";
     };
 
     autostartHost = lib.mkOption {
@@ -248,7 +248,10 @@ in
       ];
     });
 
-    # Wire output and autostart options directly into Sway if kiosk compositor is active
+    # Wire output assignment into Sway if the kiosk compositor is active.
+    # Launch and supervision live in moonlight-stream.service below: sway exec
+    # runs once per compositor start, so a quit or crashed client stayed down
+    # until the next reboot.
     homelab.kiosk.swayExtraConfig = lib.concatStringsSep "\n" (
       lib.filter (s: s != "") [
         (lib.optionalString (cfg.output != null) ''
@@ -258,10 +261,48 @@ in
           assign [app_id="(?i)moonlight.*"] workspace 2
           assign [class="(?i)moonlight.*"] workspace 2
         ''
-        (lib.optionalString cfg.autostart ''
-          exec ${autostartScript}
-        '')
       ]
     );
+
+    assertions = [
+      {
+        assertion = !cfg.autostart || config.users.users.${cfg.user}.uid != null;
+        message = "homelab.moonlight: autostart needs a statically assigned uid for user ${cfg.user}";
+      }
+    ];
+
+    # Supervised autostart: the sway exec it replaces is unsupervised, so any
+    # client exit (stream quit, crash, display loss) left Moonlight down until
+    # reboot. Restarting on every exit also reconnects automatically when the
+    # Sunshine host wakes. `after` on a missing sway unit is a harmless no-op,
+    # so hosts without the kiosk compositor need no special-casing.
+    systemd.services.moonlight-stream = lib.mkIf cfg.autostart {
+      description = "Moonlight game streaming autostart";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "sway-tty1.service" ];
+      environment = {
+        XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${cfg.user}.uid}";
+        XDG_SESSION_TYPE = "wayland";
+      };
+      path = [ pkgs.coreutils ];
+      serviceConfig = {
+        User = cfg.user;
+        Restart = "always";
+        RestartSec = "10s";
+      };
+      script = ''
+        # The compositor names its socket dynamically; wait for it instead of
+        # assuming WAYLAND_DISPLAY.
+        for _ in $(seq 1 60); do
+          sock=$(ls "$XDG_RUNTIME_DIR"/wayland-[0-9] 2>/dev/null | head -n 1)
+          if [ -n "$sock" ]; then
+            export WAYLAND_DISPLAY="$(basename "$sock")"
+            break
+          fi
+          sleep 2
+        done
+        exec ${autostartScript}
+      '';
+    };
   };
 }
