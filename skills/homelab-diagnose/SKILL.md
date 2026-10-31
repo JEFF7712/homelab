@@ -28,6 +28,7 @@ Triage ladder for the k3s cluster (Flux-reconciled, `gitops/clusters/homelab-01/
 - Node-shell curl to a remote pod IP or VIP proves nothing: host-netns traffic to remote pods hangs even on healthy clusters (BPF CT entry created, nothing forwarded, no drop event). Probe from a tmp pod on the same node (`kubectl run`) or from a real client instead.
 - A Cilium LB VIP serves only the Service port (jellyfin 80, not backend 8096), and LAN clients need a DHCP-provided route to 10.0.40.0/24; check `ip route get` on the client before blaming the cluster.
 - In multi-node Cilium with `externalTrafficPolicy: Cluster`, traffic hitting node A for a backend on node B gets SNAT'd to node A's router IP (`10.42.0.x`) with identity `world`. Any ingress NetworkPolicy on the backend pod allowing only private client CIDRs (`10.0.0.0/16`) will drop the forwarded SYN on node B (`Policy denied` in `bpf_lxc.c`).
+- Moonlight on homelab-05 is supervised by `moonlight-stream.service`, not the sway exec it replaced: `systemctl status moonlight-stream` separates a dead client from an idle one, and `moonlight list <host>` as kiosk separates unpaired/unreachable from idle.
 
 ## Reply shape
 
