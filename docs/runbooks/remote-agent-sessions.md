@@ -122,9 +122,11 @@ The repository's SSH command selects that identity explicitly and disables agent
 use. Protected branches still require the normal PR and CI workflow; this key
 does not provide API tokens, cluster access, or deployment credentials.
 
-The host-owned network policy grants only the Rupan guest access to NAS TCP
-2222 (Git) and 8080 (signed Nix cache). Other private addresses and ports remain
-denied. The VM's NixOS configuration installs the cache signing key, keeps
+The host-owned network policy grants the Rupan guest the development endpoints
+listed in [agent workspaces](agent-workspaces.md), including OPNsense HTTPS
+on TCP 443. The guest maps `OPNsense.internal` to the inventory address locally;
+its public resolver does not provide internal names. Other private destinations
+remain denied. The VM's NixOS configuration installs the cache signing key, keeps
 signature verification enabled and `trusted-users` limited to root, and accepts
 flake settings so `direnv allow` does not wait for an interactive Nix prompt.
 The first development-shell load can download dependencies; later loads use

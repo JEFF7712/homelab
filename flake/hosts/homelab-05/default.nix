@@ -47,6 +47,8 @@ in
   };
 
   homelab.omarchyVm.enable = true;
+  # 4G guest: at the 8G default homelab-05's pods ran at 191% of allocatable.
+  homelab.omarchyVm.memoryMiB = 4096;
   homelab.woodpeckerSandbox.enable = true;
 
   homelab.disk.device = "/dev/disk/by-id/nvme-KXG70ZNV1T02_NVMe_KIOXIA_1024GB_42MFC3FQFTC5";
@@ -92,9 +94,12 @@ in
     # Apollo publishes as the roku-bridge broker user on adguard-netbird-01.
     mosquitto-roku-bridge-password = {
       sopsFile = ../../../secrets/shared/mqtt-roku-bridge.sops.yaml;
-      restartUnits = map (device: "apollo-ble-bridge-${device}.service") (
+      restartUnits = [
+        "controller-pairer.service"
+      ]
+      ++ (map (device: "apollo-ble-bridge-${device}.service") (
         builtins.attrNames config.homelab.apollo-ble-bridge.devices
-      );
+      ));
     };
   };
 
@@ -231,7 +236,13 @@ in
       "rupan"
     ];
     autostart = true;
+    autostartHost = "10.0.20.135";
+    autostartApp = "Steam Big Picture";
     output = "HDMI-A-1";
+    controllerPairer = {
+      enable = true;
+      passwordFile = config.sops.secrets.mosquitto-roku-bridge-password.path;
+    };
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated

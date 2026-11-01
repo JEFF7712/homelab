@@ -142,6 +142,17 @@ service behavior described by that appliance's runbook. Report dry-run,
 deployment, live acceptance, and recovery evidence separately. A successful
 `nixos-rebuild switch` does not by itself prove the service is healthy.
 
+### NVIDIA driver changes
+
+`flake/modules/nvidia.nix` pins NVIDIA `595.104.02` so the certificate-trust
+security rollout can switch live while matching the GPU hosts' loaded driver.
+A live switch to `595.112.07` failed the CDI generator with an NVML
+driver/library mismatch and triggered automatic rollback. Upgrade the driver
+as part of a rolling reboot, then verify the CDI generator and NVML metrics
+at `http://<host>:9835/metrics` before returning each GPU node to service.
+`nvidia-smi` is unsuitable for this check because it crashes with the current
+glibc; the exporter reads NVML directly.
+
 ## Preparation, verification and recovery
 
 The deployer evaluates the exact `system.build.toplevel.outPath` for each host

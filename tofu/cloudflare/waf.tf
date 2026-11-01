@@ -23,7 +23,6 @@ locals {
     "music.rupan.dev",
     "seerr.rupan.dev",
     "recommender.rupan.dev",
-    "requests.rupan.dev",
     "lidarr.rupan.dev",
     "radarr.rupan.dev",
     "sonarr.rupan.dev",

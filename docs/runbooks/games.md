@@ -21,7 +21,7 @@ questarr.rupan.dev -> Questarr -> Prowlarr (indexers) -> qBittorrent (AirVPN)
   `gameyfin-app-key` Secret.
 
 `questarr.rupan.dev` sits behind the wildcard Cloudflare Access app (owner
-login). `games.rupan.dev` has its own dashboard-managed Access app `games`: an
+login). `games.rupan.dev` has its own Access app `games`, declared in `tofu/cloudflare-access/`: an
 Allow policy on named emails with one-time PIN login, so invited users get an
 emailed code and then log in to Gameyfin. Never give it a Bypass policy.
 

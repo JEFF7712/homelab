@@ -187,7 +187,7 @@ def require_plan_approval(
         return
     import subprocess
 
-    for directory in ("opnsense", "cloudflare"):
+    for directory in ("opnsense", "cloudflare", "cloudflare-access"):
         if operation != f"{directory}-apply":
             continue
         subprocess.run(

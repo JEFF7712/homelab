@@ -1,0 +1,428 @@
+{
+  "audited_on": "2026-10-28",
+  "router_version": "26.7.3_11",
+  "source_root": "/usr/local/opnsense/mvc/app/controllers/OPNsense",
+  "endpoints": [
+    {
+      "path": "api/core/service/search",
+      "method": "POST",
+      "controller": "Core/Api/ServiceController.php",
+      "implementation": "Core/Api/ServiceController.php",
+      "action": "searchAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/list_rule_ids",
+      "method": "GET",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "listRuleIdsAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/log",
+      "method": "GET",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "logAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/pf_states",
+      "method": "GET",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "pfStatesAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/pf_statistics",
+      "method": "GET",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "pfStatisticsAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/query_pf_top",
+      "method": "POST",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "queryPfTopAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/query_states",
+      "method": "POST",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "queryStatesAction"
+    },
+    {
+      "path": "api/diagnostics/firewall/stats",
+      "method": "GET",
+      "controller": "Diagnostics/Api/FirewallController.php",
+      "implementation": "Diagnostics/Api/FirewallController.php",
+      "action": "statsAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_arp",
+      "method": "GET",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getArpAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_interface_config",
+      "method": "GET",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getInterfaceConfigAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_interface_names",
+      "method": "GET",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getInterfaceNamesAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_interface_statistics",
+      "method": "GET",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getInterfaceStatisticsAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_ndp",
+      "method": "GET",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getNdpAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_routes",
+      "method": "GET",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getRoutesAction"
+    },
+    {
+      "path": "api/diagnostics/interface/get_vip_status",
+      "method": "POST",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "getVipStatusAction"
+    },
+    {
+      "path": "api/diagnostics/interface/search_arp",
+      "method": "POST",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "searchArpAction"
+    },
+    {
+      "path": "api/diagnostics/interface/search_ndp",
+      "method": "POST",
+      "controller": "Diagnostics/Api/InterfaceController.php",
+      "implementation": "Diagnostics/Api/InterfaceController.php",
+      "action": "searchNdpAction"
+    },
+    {
+      "path": "api/diagnostics/system/memory",
+      "method": "GET",
+      "controller": "Diagnostics/Api/SystemController.php",
+      "implementation": "Diagnostics/Api/SystemController.php",
+      "action": "memoryAction"
+    },
+    {
+      "path": "api/diagnostics/system/system_disk",
+      "method": "GET",
+      "controller": "Diagnostics/Api/SystemController.php",
+      "implementation": "Diagnostics/Api/SystemController.php",
+      "action": "systemDiskAction"
+    },
+    {
+      "path": "api/diagnostics/system/system_information",
+      "method": "GET",
+      "controller": "Diagnostics/Api/SystemController.php",
+      "implementation": "Diagnostics/Api/SystemController.php",
+      "action": "systemInformationAction"
+    },
+    {
+      "path": "api/diagnostics/system/system_resources",
+      "method": "GET",
+      "controller": "Diagnostics/Api/SystemController.php",
+      "implementation": "Diagnostics/Api/SystemController.php",
+      "action": "systemResourcesAction"
+    },
+    {
+      "path": "api/dnsmasq/leases/search",
+      "method": "POST",
+      "controller": "Dnsmasq/Api/LeasesController.php",
+      "implementation": "Dnsmasq/Api/LeasesController.php",
+      "action": "searchAction"
+    },
+    {
+      "path": "api/dnsmasq/service/status",
+      "method": "GET",
+      "controller": "Dnsmasq/Api/ServiceController.php",
+      "implementation": "Base/ApiMutableServiceControllerBase.php",
+      "action": "statusAction"
+    },
+    {
+      "path": "api/firewall/alias/get_table_size",
+      "method": "GET",
+      "controller": "Firewall/Api/AliasController.php",
+      "implementation": "Firewall/Api/AliasController.php",
+      "action": "getTableSizeAction"
+    },
+    {
+      "path": "api/firewall/alias/search_item",
+      "method": "POST",
+      "controller": "Firewall/Api/AliasController.php",
+      "implementation": "Firewall/Api/AliasController.php",
+      "action": "searchItemAction"
+    },
+    {
+      "path": "api/firewall/d_nat/search_rule",
+      "method": "POST",
+      "controller": "Firewall/Api/DNatController.php",
+      "implementation": "Firewall/Api/DNatController.php",
+      "action": "searchRuleAction"
+    },
+    {
+      "path": "api/firewall/filter/search_rule",
+      "method": "POST",
+      "controller": "Firewall/Api/FilterController.php",
+      "implementation": "Firewall/Api/FilterController.php",
+      "action": "searchRuleAction"
+    },
+    {
+      "path": "api/firewall/filter_util/rule_stats",
+      "method": "GET",
+      "controller": "Firewall/Api/FilterUtilController.php",
+      "implementation": "Firewall/Api/FilterUtilController.php",
+      "action": "ruleStatsAction"
+    },
+    {
+      "path": "api/firewall/npt/search_rule",
+      "method": "POST",
+      "controller": "Firewall/Api/NptController.php",
+      "implementation": "Firewall/Api/NptController.php",
+      "action": "searchRuleAction"
+    },
+    {
+      "path": "api/firewall/one_to_one/search_rule",
+      "method": "POST",
+      "controller": "Firewall/Api/OneToOneController.php",
+      "implementation": "Firewall/Api/OneToOneController.php",
+      "action": "searchRuleAction"
+    },
+    {
+      "path": "api/firewall/source_nat/search_rule",
+      "method": "POST",
+      "controller": "Firewall/Api/SourceNatController.php",
+      "implementation": "Firewall/Api/SourceNatController.php",
+      "action": "searchRuleAction"
+    },
+    {
+      "path": "api/kea/leases4/search",
+      "method": "POST",
+      "controller": "Kea/Api/Leases4Controller.php",
+      "implementation": "Kea/Api/LeasesController.php",
+      "action": "searchAction"
+    },
+    {
+      "path": "api/kea/leases6/search",
+      "method": "POST",
+      "controller": "Kea/Api/Leases6Controller.php",
+      "implementation": "Kea/Api/LeasesController.php",
+      "action": "searchAction"
+    },
+    {
+      "path": "api/kea/service/status",
+      "method": "GET",
+      "controller": "Kea/Api/ServiceController.php",
+      "implementation": "Base/ApiMutableServiceControllerBase.php",
+      "action": "statusAction"
+    },
+    {
+      "path": "api/quagga/diagnostics/bgpsummary",
+      "method": "GET",
+      "controller": "Quagga/Api/DiagnosticsController.php",
+      "implementation": "Quagga/Api/DiagnosticsController.php",
+      "action": "bgpsummaryAction"
+    },
+    {
+      "path": "api/quagga/diagnostics/search_bgproute4",
+      "method": "GET",
+      "controller": "Quagga/Api/DiagnosticsController.php",
+      "implementation": "Quagga/Api/DiagnosticsController.php",
+      "action": "searchBgproute4Action"
+    },
+    {
+      "path": "api/quagga/service/status",
+      "method": "GET",
+      "controller": "Quagga/Api/ServiceController.php",
+      "implementation": "Base/ApiMutableServiceControllerBase.php",
+      "action": "statusAction"
+    },
+    {
+      "path": "api/routes/gateway/status",
+      "method": "GET",
+      "controller": "Routes/Api/GatewayController.php",
+      "implementation": "Routes/Api/GatewayController.php",
+      "action": "statusAction"
+    },
+    {
+      "path": "api/routes/routes/searchroute",
+      "method": "POST",
+      "controller": "Routes/Api/RoutesController.php",
+      "implementation": "Routes/Api/RoutesController.php",
+      "action": "searchrouteAction"
+    },
+    {
+      "path": "api/unbound/diagnostics/stats",
+      "method": "GET",
+      "controller": "Unbound/Api/DiagnosticsController.php",
+      "implementation": "Unbound/Api/DiagnosticsController.php",
+      "action": "statsAction"
+    },
+    {
+      "path": "api/unbound/overview/is_enabled",
+      "method": "GET",
+      "controller": "Unbound/Api/OverviewController.php",
+      "implementation": "Unbound/Api/OverviewController.php",
+      "action": "isEnabledAction"
+    },
+    {
+      "path": "api/unbound/overview/search_queries",
+      "method": "POST",
+      "controller": "Unbound/Api/OverviewController.php",
+      "implementation": "Unbound/Api/OverviewController.php",
+      "action": "searchQueriesAction"
+    },
+    {
+      "path": "api/unbound/service/status",
+      "method": "GET",
+      "controller": "Unbound/Api/ServiceController.php",
+      "implementation": "Base/ApiMutableServiceControllerBase.php",
+      "action": "statusAction"
+    }
+  ],
+  "limitations": [
+    "HTTP method is client guidance; router authorization remains an exact path allowlist.",
+    "Audit excludes generic interface overview and settings, credential and certificate endpoints, configuration backups, packet capture and service mutation.",
+    "Operational responses expose network metadata and operator-entered fields; this is not a generic secret-redaction layer.",
+    "Re-audit controller and backend behavior after firmware or plugin upgrades."
+  ],
+  "sources": [
+    {
+      "path": "Base/ApiControllerBase.php",
+      "sha256": "50bac13353346dd013c51f7bfd9a24ab0e553f954bb51454016d240202850b74"
+    },
+    {
+      "path": "Base/ApiMutableModelControllerBase.php",
+      "sha256": "b9c7d89acb044851742b6e15ec95bf36be43d8f29c76d13b1d2599c53da3848d"
+    },
+    {
+      "path": "Base/ApiMutableServiceControllerBase.php",
+      "sha256": "58a10f6eecc0596389e493206831b4f320533ce866833794a588caa910d24792"
+    },
+    {
+      "path": "Core/Api/ServiceController.php",
+      "sha256": "e62d6f734067542eaba3bd5cb8f5d2f8ecdad6dcc279c10aee84bf8b58cdb533"
+    },
+    {
+      "path": "Diagnostics/Api/FirewallController.php",
+      "sha256": "82aeccfa713e62daf7c4373a58a9aa8d6433e6f091e62dc1b5de4a2e9728e3f7"
+    },
+    {
+      "path": "Diagnostics/Api/InterfaceController.php",
+      "sha256": "74ff1e484e9be1663e67f1822642099e7c7668b0bc04a1cfe878c7dc15b60e19"
+    },
+    {
+      "path": "Diagnostics/Api/SystemController.php",
+      "sha256": "34f0d29fee4bdc27eb7ed6141cc5959c9389e71f60fc9fe95cf535aa1f87ec47"
+    },
+    {
+      "path": "Dnsmasq/Api/LeasesController.php",
+      "sha256": "83e870c5faa40da86b771795554dcc16582db317200d559049bbe47ba10bd4a0"
+    },
+    {
+      "path": "Dnsmasq/Api/ServiceController.php",
+      "sha256": "0c2e93890360c9b9b07adf8f7565f0d4beecab5da6f4132e5c4d412a0e615123"
+    },
+    {
+      "path": "Firewall/Api/AliasController.php",
+      "sha256": "c5f556dbf12b30685f2f2a0372376b4abc8aa1c78761b9b966798b73a7b30417"
+    },
+    {
+      "path": "Firewall/Api/DNatController.php",
+      "sha256": "e04008a150bbd89b1bdea5558617f50b46ffba7096252b2dea64f4cd3a70cf23"
+    },
+    {
+      "path": "Firewall/Api/FilterBaseController.php",
+      "sha256": "a4b92984c0b8224c5f9516cee29d09e0db2a465edafc61d9e99b0526c848b778"
+    },
+    {
+      "path": "Firewall/Api/FilterController.php",
+      "sha256": "a1245b6a24b0b960098eaa649eaf55c1bf1f8b19684bc5b8a13a0d5b4f4d4b71"
+    },
+    {
+      "path": "Firewall/Api/FilterUtilController.php",
+      "sha256": "b507bec5a2470d08d261cd6878472926b20261cf3e5a0da48e4fba63787e9cff"
+    },
+    {
+      "path": "Firewall/Api/NptController.php",
+      "sha256": "9f01fc4c1cd790ed9978ddd11a8e97a8c366970629fe70069222b56b4875bac2"
+    },
+    {
+      "path": "Firewall/Api/OneToOneController.php",
+      "sha256": "0bac5073e2e315a7253e341c46e9e73d85eaa75b00d6c697c7d400eef7371cb8"
+    },
+    {
+      "path": "Firewall/Api/SourceNatController.php",
+      "sha256": "e772ba7bc94aaeae9b43072e31884002c490b88f7277914fec636942ca55b50f"
+    },
+    {
+      "path": "Kea/Api/Leases4Controller.php",
+      "sha256": "3e8e251eb724ac285230beb3bbca1adab561523e418798322b834e87f2128d0f"
+    },
+    {
+      "path": "Kea/Api/Leases6Controller.php",
+      "sha256": "db4fb90a06e3083106e3bf2d694ccbb03950cb97b3f2bc1cac953e62d01084a2"
+    },
+    {
+      "path": "Kea/Api/LeasesController.php",
+      "sha256": "9f7599156440d59b6fbf4a660655e6534fd8ff67dd7180ab718c53a849be0da1"
+    },
+    {
+      "path": "Kea/Api/ServiceController.php",
+      "sha256": "729abb002d5e9ad6e6edea113066c23583d76db12dd223b5353053a3af48851d"
+    },
+    {
+      "path": "Quagga/Api/DiagnosticsController.php",
+      "sha256": "4a266f01123e0e1e4dc8be5835d996c5a280c439cc9cb091341c232bb2cde497"
+    },
+    {
+      "path": "Quagga/Api/ServiceController.php",
+      "sha256": "7da9be9a12595701be3755d7ab287cad39b63c4777157ce5fe03c62dd1283ae7"
+    },
+    {
+      "path": "Routes/Api/GatewayController.php",
+      "sha256": "b7064cbdfd92b93939a84ffb623d78e2756c7f039757395f9d5516d6b3861357"
+    },
+    {
+      "path": "Routes/Api/RoutesController.php",
+      "sha256": "346a6459a54ee44ef232f74ee0e5893002a52cf5b5ad7d44abde80d80d7d7b8e"
+    },
+    {
+      "path": "Unbound/Api/DiagnosticsController.php",
+      "sha256": "a8b0df24b5da666074fa45cf3d647c903dfe7784f7cc9f73c7fee9dffac210f2"
+    },
+    {
+      "path": "Unbound/Api/OverviewController.php",
+      "sha256": "705c625897ef6cb6297c2610e05d9a7e111b54bcd719a8bf05ee371bf17b39c2"
+    },
+    {
+      "path": "Unbound/Api/ServiceController.php",
+      "sha256": "e5062ffbe15c28042f5e7e0866320acb68b4ebaa70c1e04c9a283ee2355a352f"
+    }
+  ]
+}

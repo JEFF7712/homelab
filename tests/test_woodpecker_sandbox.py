@@ -62,7 +62,7 @@ class SandboxConfigurationTest(unittest.TestCase):
         self.assertEqual(self.config["workerLimits"]["MemoryMax"], "10G")
         self.assertEqual(self.config["workerLimits"]["CPUQuota"], "300%")
         self.assertIn(
-            "--kubelet-arg=system-reserved=cpu=8,memory=21504Mi",
+            "--kubelet-arg=system-reserved=cpu=8,memory=17408Mi",
             self.config["workerKubelet"],
         )
 

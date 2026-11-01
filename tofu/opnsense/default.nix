@@ -50,6 +50,7 @@ in
         inventoryJSON = builtins.toJSON inventory;
         adguardJSON = builtins.toJSON fleetInventory.dns.adguardRewrites;
         unboundJSON = builtins.toJSON fleetInventory.dns.unboundOverrides;
+        staticRoutesJSON = builtins.toJSON fleetInventory.staticRoutes;
         corednsYAML = fleetInventory.dns.corednsManifest;
         fleetJSON = builtins.toJSON {
           hosts = fleetInventory.deployment;
@@ -62,6 +63,7 @@ in
           "inventoryJSON"
           "adguardJSON"
           "unboundJSON"
+          "staticRoutesJSON"
           "corednsYAML"
           "fleetJSON"
         ];
@@ -74,6 +76,7 @@ in
         cp "$inventoryJSONPath" "$out/inventory.json"
         cp "$adguardJSONPath" "$out/adguard-rewrites.json"
         cp "$unboundJSONPath" "$out/unbound-host-overrides.json"
+        cp "$staticRoutesJSONPath" "$out/static-routes.json"
         cp "$corednsYAMLPath" "$out/coredns-custom.yaml"
         cp "$fleetJSONPath" "$out/fleet.json"
         ${lib.concatStringsSep "\n" (

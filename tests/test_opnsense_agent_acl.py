@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from opnsense_reconciler.agent_acl import (
     ACL,
+    PATTERNS,
     PRIVILEGE,
     SshRouter,
     apply_plan,
@@ -23,10 +24,31 @@ from opnsense_reconciler.agent_acl import (
 )
 
 CONTENT = (ACL / "ACL.xml").read_bytes()
+FORBIDDEN_PATHS = (
+    "api/firewall/d_nat/add_rule",
+    "api/firewall/d_nat/set_rule",
+    "api/firewall/d_nat/del_rule",
+    "api/firewall/d_nat/toggle_rule",
+    "api/firewall/filter/apply",
+    "api/core/service/restart",
+    "api/diagnostics/firewall/flush_states",
+    "api/diagnostics/firewall/kill_states",
+    "api/diagnostics/log/core/filter/clear",
+    "api/diagnostics/interface/carp_status",
+    "api/interfaces/overview/interfaces_info",
+    "api/interfaces/settings/get",
+    "api/core/backup/providers",
+    "api/trust/cert/get",
+    "api/quagga/bgp/set",
+    "api/quagga/service/reconfigure",
+    "api/unbound/settings/get",
+    "api/unbound/overview/reset",
+    "api/kea/leases4/del_lease",
+)
 
 
 class AclSourceTests(unittest.TestCase):
-    def test_only_the_two_diagnostic_paths_are_accepted(self) -> None:
+    def test_only_reviewed_diagnostic_paths_are_accepted(self) -> None:
         self.assertEqual(validate_source(CONTENT), hashlib.sha256(CONTENT).hexdigest())
         invalid = [
             CONTENT.replace(b"api/quagga/diagnostics/bgpsummary", b"api/quagga/*"),
@@ -40,6 +62,30 @@ class AclSourceTests(unittest.TestCase):
         for content in invalid:
             with self.subTest(content=content), self.assertRaises(ValueError):
                 validate_source(content)
+
+    def test_write_secret_and_unreviewed_read_paths_are_rejected(self) -> None:
+        for path in FORBIDDEN_PATHS:
+            content = CONTENT.replace(
+                b"api/quagga/diagnostics/bgpsummary", path.encode()
+            )
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                validate_source(content)
+
+    def test_audit_catalog_covers_exact_grants_and_supported_methods(self) -> None:
+        audit = json.loads((ACL / "read-endpoints.json").read_text())
+        entries = audit["endpoints"]
+        sources = {item["path"]: item["sha256"] for item in audit["sources"]}
+        self.assertEqual({entry["path"] for entry in entries}, PATTERNS)
+        self.assertEqual(len(entries), len(PATTERNS))
+        for entry in entries:
+            self.assertIn(entry["method"], {"GET", "POST"})
+            self.assertNotIn("*", entry["path"])
+            self.assertIn(entry["implementation"], sources)
+            self.assertRegex(sources[entry["implementation"]], r"^[0-9a-f]{64}$")
+        methods = {entry["path"]: entry["method"] for entry in entries}
+        self.assertEqual(methods["api/firewall/d_nat/search_rule"], "POST")
+        self.assertEqual(methods["api/diagnostics/firewall/query_states"], "POST")
+        self.assertEqual(methods["api/quagga/diagnostics/bgpsummary"], "GET")
 
     def test_changed_source_cannot_reuse_an_old_plan(self) -> None:
         calls = []
@@ -242,6 +288,28 @@ class ACL {
         self.assertFalse(self.lock.exists())
         self.assertFalse(self.recovery.exists())
 
+    def test_existing_bgp_privilege_expands_and_retains_its_id(self) -> None:
+        root = ET.fromstring(CONTENT)
+        privilege = root[0]
+        privilege.find("name").text = "Homelab: Read-only BGP diagnostics"
+        patterns = privilege.find("patterns")
+        for pattern in list(patterns):
+            if pattern.text not in {
+                "api/quagga/diagnostics/bgpsummary",
+                "api/quagga/diagnostics/search_bgproute4",
+            }:
+                patterns.remove(pattern)
+        self.seed(ET.tostring(root))
+        self.assertEqual(len(json.loads(self.cache.read_text())[PRIVILEGE]["match"]), 2)
+        result = apply_plan(CONTENT, make_plan(CONTENT, self.request), self.request)
+        self.assertTrue(result["changed"])
+        entries = json.loads(self.cache.read_text())
+        self.assertEqual(set(entries), {PRIVILEGE})
+        self.assertEqual(set(entries[PRIVILEGE]["match"]), PATTERNS)
+        self.assertEqual(
+            entries[PRIVILEGE]["name"], "Homelab: Read-only troubleshooting"
+        )
+
     def test_file_directory_and_cache_drift_are_repaired(self) -> None:
         self.seed()
         self.destination.chmod(0o600)
@@ -266,7 +334,7 @@ class ACL {
 
     def test_cache_failure_restores_prior_file_and_metadata(self) -> None:
         previous = CONTENT.replace(
-            b"Read-only BGP diagnostics", b"Previous BGP diagnostics"
+            b"Read-only troubleshooting", b"Previous BGP diagnostics"
         )
         self.seed(previous)
         self.destination.chmod(0o640)
@@ -294,7 +362,7 @@ class ACL {
 
     def test_failed_apply_can_retry_with_a_new_source_revision(self) -> None:
         previous = CONTENT.replace(
-            b"Read-only BGP diagnostics", b"Previous BGP diagnostics"
+            b"Read-only troubleshooting", b"Previous BGP diagnostics"
         )
         self.seed(previous)
         plan = make_plan(CONTENT, self.request)
@@ -333,6 +401,22 @@ class ACL {
                     "expected_fingerprint": "0" * 64,
                 }
             )
+
+    def test_worker_rejects_unreviewed_actions_before_mutation(self) -> None:
+        for path in FORBIDDEN_PATHS:
+            content = CONTENT.replace(
+                b"api/quagga/diagnostics/bgpsummary", path.encode()
+            )
+            with (
+                self.subTest(path=path),
+                self.assertRaisesRegex(RuntimeError, "unexpected access"),
+            ):
+                self.request(
+                    {"action": "inspect", "content": base64.b64encode(content).decode()}
+                )
+        self.assertFalse(self.destination.exists())
+        self.assertFalse(self.lock.exists())
+        self.assertFalse(self.recovery.exists())
         self.assertFalse(self.base.exists())
 
     def test_cli_distinguishes_drift_from_plan_and_protects_output(self) -> None:

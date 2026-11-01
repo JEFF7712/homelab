@@ -2,8 +2,9 @@
 
 The owning configuration is `flake/modules/omarchy-vm.nix`, enabled by
 `flake/hosts/homelab-05/default.nix`. The guest is `omarchy-akshath`, username
-`akshath`, at `10.250.60.2` behind `br-akshath`. Initial resources are 4 vCPUs,
-8192 MiB guest RAM and a 100 GiB qcow2 disk. Cloud model inference is external;
+`akshath`, at `10.250.60.2` behind `br-akshath`. Resources are 4 vCPUs,
+4096 MiB guest RAM (down from 8192 MiB on 2026-10-28, when homelab-05's
+pods ran at 191% of allocatable) and a 100 GiB qcow2 disk. Cloud model inference is external;
 the host's NVIDIA GPU remains with Kubernetes.
 
 ## Lifecycle and isolation

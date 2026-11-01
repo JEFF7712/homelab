@@ -78,8 +78,6 @@ data:
         service: http://seerr.media:80
       - hostname: recommender.rupan.dev
         service: http://recommender-frontend.media:80
-      - hostname: requests.rupan.dev
-        service: http://seerr.media:80
       - hostname: lidarr.rupan.dev
         service: http://lidarr.media:80
       - hostname: radarr.rupan.dev

@@ -193,6 +193,13 @@ in
           8020
         ];
       }
+      {
+        address =
+          (builtins.head (
+            builtins.filter (record: record.name == "OPNsense.internal") fleetInventory.dns.records
+          )).address;
+        ports = [ 443 ];
+      }
     ]
     ++
       map

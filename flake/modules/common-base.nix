@@ -11,7 +11,6 @@
   };
 
   config = {
-    boot.initrd.systemd.enable = lib.mkDefault true;
     boot.loader.grub.configurationLimit = lib.mkDefault 10;
     boot.loader.systemd-boot.configurationLimit = lib.mkDefault 10;
 

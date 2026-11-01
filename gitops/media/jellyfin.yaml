@@ -137,7 +137,13 @@ kind: Service
 metadata:
   name: jellyfin
   namespace: media
+  labels:
+    bgp-advertise: "true"
+  annotations:
+    io.cilium/lb-ipam-ips: 10.0.40.16
 spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
   selector:
     app: jellyfin
   ports:

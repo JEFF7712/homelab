@@ -80,9 +80,9 @@ class GitLabRecoveryGraphTest(unittest.TestCase):
         self.assertNotIn("environment", workflow["validate"])
         self.assertEqual(
             set(workflow["operate"]["needs"]),
-            {"validate", "opnsense-plan", "cloudflare-plan"},
+            {"validate", "opnsense-plan", "cloudflare-plan", "cloudflare-access-plan"},
         )
-        for name in ["opnsense-plan", "cloudflare-plan"]:
+        for name in ["opnsense-plan", "cloudflare-plan", "cloudflare-access-plan"]:
             job = workflow[name]
             self.assertEqual(job["stage"], "plan")
             self.assertEqual(job["extends"], ".production-operation")
@@ -297,6 +297,7 @@ class PolicyTest(unittest.TestCase):
                 VALIDATION + ".yaml",
                 "opnsense-plan.yaml",
                 "cloudflare-plan.yaml",
+                "cloudflare-access-plan.yaml",
                 "registry-lock-import.yaml",
             ],
         )
@@ -1410,6 +1411,50 @@ class StateTest(unittest.TestCase):
         self.assertEqual(
             self.request("UNLOCK", user="plan", lock=True, body=self.lock)[0], 200
         )
+
+    def test_access_state_bootstraps_without_replacing_existing_states(self) -> None:
+        with self.assertRaises(ValueError):
+            self.store.check_ready()
+        self.store.import_state("cloudflare", self.original)
+        self.store.check_ready()
+        self.assertEqual(
+            self.store.request(
+                "GET", "cloudflare-access", False, "plan", "plan", b"", ""
+            )[0],
+            404,
+        )
+        self.assertEqual(
+            self.store.request(
+                "LOCK", "cloudflare-access", True, "deploy", "deploy", self.lock, ""
+            )[0],
+            200,
+        )
+        self.assertEqual(
+            self.store.request(
+                "POST",
+                "cloudflare-access",
+                False,
+                "plan",
+                "plan",
+                self.original,
+                "lock-1",
+            )[0],
+            403,
+        )
+        self.assertEqual(
+            self.store.request(
+                "POST",
+                "cloudflare-access",
+                False,
+                "deploy",
+                "deploy",
+                self.original,
+                "lock-1",
+            )[0],
+            200,
+        )
+        self.store.check_ready()
+        self.assertEqual(self.request("GET"), (200, self.original))
 
     def test_state_writes_require_matching_owner_and_preserve_lineage(self) -> None:
         self.assertEqual(self.request("POST", body=self.original)[0], 409)

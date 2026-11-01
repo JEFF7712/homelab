@@ -57,10 +57,19 @@ cloudflare-plan:
   script:
     - CI_OPERATION=cloudflare-plan nix develop ./flake -c python -m scripts.ci.gitlab_operation
 
+cloudflare-access-plan:
+  extends: .production-operation
+  stage: plan
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
+  script:
+    - CI_OPERATION=cloudflare-access-plan nix develop ./flake -c python -m scripts.ci.gitlab_operation
+
 operate:
   extends: .production-operation
   stage: operate
-  needs: [validate, opnsense-plan, cloudflare-plan]
+  needs: [validate, opnsense-plan, cloudflare-plan, cloudflare-access-plan]
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
       when: manual

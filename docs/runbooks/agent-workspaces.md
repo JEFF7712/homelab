@@ -20,7 +20,7 @@ just workspace-deprovision <id> --authorized
 
 It accepts only a domain whose UUID, manifest hash, receipt, and disks agree. It destroys and undefines the domain but preserves both disks, seed material, domain XML, and receipt. Re-provisioning a matching deprovisioned workspace reuses those verified assets.
 
-`flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule; a grant to one of the hypervisor's own addresses is also admitted on host input. Rupan's personal development VM is a full development environment: NAS Forgejo Git (2222) and API (3000), the signed cache (8080), Woodpecker (8000) and the approvals service (8020) on `homelab-04`, the Kubernetes API (6443, via `kubernetes_api`), and SSH (22) to every fleet host, which `just doctor --live` and `just ship` require. The guest resolves `git.internal` and `ci.internal` from its own host entries in `nixos-config`, since its DNS is public. Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
+`flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule; a grant to one of the hypervisor's own addresses is also admitted on host input. Rupan's personal development VM is a full development environment: NAS Forgejo Git (2222) and API (3000), the signed cache (8080), Woodpecker (8000) and the approvals service (8020) on `homelab-04`, OPNsense HTTPS (443, at the address from `inventory/dns.nix`), the Kubernetes API (6443, via `kubernetes_api`), and SSH (22) to every fleet host, which `just doctor --live` and `just ship` require. The guest resolves `git.internal`, `ci.internal`, and `OPNsense.internal` from its own host entries in `nixos-config`, since its DNS is public. Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
 
 The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 14 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 13 GiB memory pressure threshold, and has a 14 GiB hard memory limit. The limit covers Rupan's 8 GiB guest, Sam's 4 GiB guest, and QEMU overhead. The versioned enrollment inventory remains empty; the existing guests have separately maintained libvirt registrations and network-only recovery definitions.
 
@@ -28,10 +28,10 @@ For the `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-04/default.ni
 
 ## Rupan's NixOS guest
 
-Rupan's replacement guest is built by `nixosConfigurations.agent-rupan` in the
+Rupan's replacement guest is built by `nixosConfigurations.vm` in the
 `JEFF7712/nixos-config` repository, sharing the laptop's lock and headless CLI
-package definitions. Its source is `hosts/agent-rupan/configuration.nix` and
-`home/rupan/agent-vm.nix` there. Its hypervisor definition is
+package definitions. Its source is `hosts/vm/configuration.nix` and
+`home/rupan/vm.nix` there. Its hypervisor definition is
 [`config/agent-workspaces/rupan-nixos.xml`](../../config/agent-workspaces/rupan-nixos.xml).
 This guest is outside the Ubuntu cloud-image provisioning lifecycle. Do not
 add a guessed enrollment record or run `workspace-provision` against its disks.
@@ -61,7 +61,7 @@ need this cold restart, which ends the guest's tmux sessions.
 
 Installation is a Rupan-only authorized replacement:
 
-1. Build `.#nixosConfigurations.agent-rupan.config.system.build.qcow2` in
+1. Build `.#nixosConfigurations.vm.config.system.build.qcow2` in
    `nixos-config`; validate the compact 8 GiB image and copy `nixos.qcow2` to the
    disk path above, owned by `qemu-libvirtd:agent-workspace-storage` with mode
    `0660`. Expand only that installed copy with `qemu-img resize` to `96G`

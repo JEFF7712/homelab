@@ -239,6 +239,7 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
     ),
     "nightly": (
         "registry-gc-fixture",
+        "cloudflare-access-drift",
         "opnsense-plan",
         "opnsense-dataplane",
         "opnsense-inventory",
@@ -701,7 +702,11 @@ def configuration(
         if main and current == pipeline.get("commit"):
             if event == "push":
                 # Only the plans that apply operations consume run here.
-                for target in ["opnsense-plan", "cloudflare-plan"]:
+                for target in [
+                    "opnsense-plan",
+                    "cloudflare-plan",
+                    "cloudflare-access-plan",
+                ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
                 # A committed lock asserts its content is in the registry;
                 # nothing else fetches it, so the push that changes the lock

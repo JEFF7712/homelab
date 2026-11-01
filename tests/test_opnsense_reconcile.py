@@ -11,6 +11,7 @@ from opnsense_reconciler.reconcile import (
     reconcile_interfaces,
     reconcile_kea_interfaces,
     reconcile_outbound_nat,
+    reconcile_static_routes,
     reconcile_udp_broadcast_relays,
     reconcile_unbound_acls,
     reconcile_unbound_host_overrides,
@@ -198,6 +199,10 @@ class ReconcileInterfaceTests(unittest.TestCase):
             seen["override_client"] = client
             seen["host_overrides"] = desired
 
+        def reconcile_static(client: object, desired: list[dict[str, object]]) -> None:
+            seen["static_client"] = client
+            seen["static_routes"] = desired
+
         def reconcile_relays(client: object, desired: list[dict[str, object]]) -> None:
             seen["relay_client"] = client
             seen["relays"] = desired
@@ -228,6 +233,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
             outbound_nat_rules = root / "outbound-nat-rules.json"
             unbound_acls = root / "unbound-acls.json"
             unbound_host_overrides = root / "unbound-host-overrides.json"
+            static_routes = root / "static-routes.json"
             assignments.write_text('[{"parent":"igb0","tag":30}]')
             inventory.write_text('{"assignment_api_available":true}')
             kea_interfaces.write_text('["opt1","opt2"]')
@@ -237,6 +243,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
             outbound_nat_rules.write_text("[]")
             unbound_acls.write_text("[]")
             unbound_host_overrides.write_text("[]")
+            static_routes.write_text("[]")
 
             main(
                 [
@@ -258,6 +265,8 @@ class ReconcileInterfaceTests(unittest.TestCase):
                     str(unbound_acls),
                     "--unbound-host-overrides",
                     str(unbound_host_overrides),
+                    "--static-routes",
+                    str(static_routes),
                 ],
                 environ={
                     "OPNSENSE_URL": "https://192.168.1.1",
@@ -273,6 +282,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
                 reconcile_outbound=reconcile_outbound,
                 reconcile_acls=reconcile_acls,
                 reconcile_host_overrides=reconcile_host_overrides,
+                reconcile_static=reconcile_static,
                 reconcile_relays=reconcile_relays,
                 ensure_relay_plugin=ensure_relay_plugin,
                 prove_bgp=prove_bgp,
@@ -290,6 +300,7 @@ class ReconcileInterfaceTests(unittest.TestCase):
         self.assertEqual(seen["outbound_rules"], [])
         self.assertEqual(seen["acls"], [])
         self.assertEqual(seen["host_overrides"], [])
+        self.assertEqual(seen["static_routes"], [])
         self.assertEqual(seen["relays"], [])
 
     def test_resolve_vlan_devices_uses_live_parent_and_tag(self) -> None:
@@ -1595,8 +1606,261 @@ class UnboundHostOverrideReconciliationTests(unittest.TestCase):
         self.assertEqual(by_key["git.rupan.dev/A"]["enabled"], "1")
         # Adopted pre-existing overrides: removing either entry returns the
         # reconciler to fail-closed on the next apply.
-        self.assertEqual(by_key["grafana.homelab/A"]["server"], "10.0.40.13")
+        self.assertEqual(by_key["grafana.homelab/A"]["server"], "10.0.40.12")
         self.assertEqual(by_key["ntfy.homelab/A"]["server"], "10.0.40.12")
+
+
+class StaticRouteReconciliationTests(unittest.TestCase):
+    def desired(self) -> list[dict[str, object]]:
+        return [
+            {
+                "network": "10.0.40.16/32",
+                "gateway_name": "GW_HOMELAB_04",
+                "gateway_address": "10.0.30.14",
+                "gateway_interface": "opt3",
+                "description": "Jellyfin LAN VIP return path",
+                "enabled": "1",
+            },
+            {
+                "network": "100.64.0.0/10",
+                "gateway_name": "GW_ADGUARD_NETBIRD",
+                "gateway_address": "10.0.30.10",
+                "gateway_interface": "opt3",
+                "description": "NetBird mesh return path",
+                "enabled": "1",
+            },
+        ]
+
+    def live_state(self) -> dict[str, list[dict[str, object]]]:
+        return {
+            "gateways": [
+                {
+                    "uuid": "uuid-gw-h4",
+                    "name": "GW_HOMELAB_04",
+                    "interface": "opt3",
+                    "gateway": "10.0.30.14",
+                    "descr": "Jellyfin LAN VIP return path",
+                    "disabled": "0",
+                },
+                {
+                    "uuid": "uuid-gw-ag",
+                    "name": "GW_ADGUARD_NETBIRD",
+                    "interface": "opt3",
+                    "gateway": "10.0.30.10",
+                    "descr": "NetBird mesh return path",
+                    "disabled": "0",
+                },
+            ],
+            "routes": [
+                {
+                    "uuid": "uuid-route-vip",
+                    "network": "10.0.40.16/32",
+                    "gateway": "GW_HOMELAB_04",
+                    "descr": "Jellyfin LAN VIP return path",
+                    "enabled": "1",
+                },
+                {
+                    "uuid": "uuid-route-mesh",
+                    "network": "100.64.0.0/10",
+                    "gateway": "GW_ADGUARD_NETBIRD",
+                    "descr": "NetBird mesh return path",
+                    "enabled": "1",
+                },
+            ],
+        }
+
+    def test_noop_when_live_matches_desired(self) -> None:
+        state = self.live_state()
+
+        class StaticClient:
+            def __init__(self) -> None:
+                self.calls: list[str] = []
+
+            def get(self, path: str) -> object:
+                self.calls.append(path)
+                if path == "/api/routing/settings/searchGateway":
+                    return {"rows": state["gateways"]}
+                return {"rows": state["routes"]}
+
+            def post(self, path: str, payload: object) -> object:
+                raise AssertionError(f"matching routes must not write: {path}")
+
+        client = StaticClient()
+        reconcile_static_routes(client, self.desired())
+        self.assertEqual(
+            client.calls,
+            [
+                "/api/routing/settings/searchGateway",
+                "/api/routes/routes/searchroute",
+                "/api/routes/routes/searchroute",
+            ],
+        )
+
+    def test_adds_missing_gateway_and_route_with_reconfigures(self) -> None:
+        state = {"gateways": [], "routes": []}
+
+        class StaticClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, str, object | None]] = []
+
+            def get(self, path: str) -> object:
+                self.calls.append(("GET", path, None))
+                if path == "/api/routing/settings/searchGateway":
+                    return {"rows": state["gateways"]}
+                return {"rows": state["routes"]}
+
+            def post(self, path: str, payload: object) -> object:
+                self.calls.append(("POST", path, payload))
+                if path == "/api/routing/settings/addGateway":
+                    item = payload["gateway_item"]
+                    state["gateways"].append(
+                        {
+                            "uuid": "uuid-gw-h4",
+                            "name": item["name"],
+                            "interface": item["interface"],
+                            "gateway": item["gateway"],
+                            "descr": item["descr"],
+                            "disabled": item["disabled"],
+                        }
+                    )
+                if path == "/api/routes/routes/addroute":
+                    item = payload["route"]
+                    state["routes"].append(
+                        {
+                            "uuid": "uuid-route-vip",
+                            "network": item["network"],
+                            "gateway": item["gateway"],
+                            "descr": item["descr"],
+                            "enabled": item["enabled"],
+                        }
+                    )
+                return {"result": "saved"}
+
+        client = StaticClient()
+        desired = self.desired()
+        reconcile_static_routes(client, desired[:1])
+        posts = [call for call in client.calls if call[0] == "POST"]
+        self.assertIn(
+            (
+                "POST",
+                "/api/routing/settings/addGateway",
+                {
+                    "gateway_item": {
+                        "name": "GW_HOMELAB_04",
+                        "interface": "opt3",
+                        "ipprotocol": "inet",
+                        "gateway": "10.0.30.14",
+                        "descr": "Jellyfin LAN VIP return path",
+                        "disabled": "0",
+                        "monitor_disable": "1",
+                        "priority": "255",
+                        "weight": "1",
+                    }
+                },
+            ),
+            posts,
+        )
+        self.assertIn(("POST", "/api/routing/settings/reconfigure", {}), posts)
+        self.assertIn(
+            (
+                "POST",
+                "/api/routes/routes/addroute",
+                {
+                    "route": {
+                        "network": "10.0.40.16/32",
+                        "gateway": "GW_HOMELAB_04",
+                        "descr": "Jellyfin LAN VIP return path",
+                        "enabled": "1",
+                    }
+                },
+            ),
+            posts,
+        )
+        self.assertIn(("POST", "/api/routes/routes/reconfigure", {}), posts)
+
+    def test_updates_drifted_gateway_address_by_uuid(self) -> None:
+        state = self.live_state()
+        state["gateways"][0]["gateway"] = "10.0.30.99"
+
+        class StaticClient:
+            def get(self, path: str) -> object:
+                if path == "/api/routing/settings/searchGateway":
+                    return {"rows": state["gateways"]}
+                return {"rows": state["routes"]}
+
+            def post(self, path: str, payload: object) -> object:
+                if path == "/api/routing/settings/setGateway/uuid-gw-h4":
+                    state["gateways"][0]["gateway"] = "10.0.30.14"
+                return {"result": "saved"}
+
+        reconcile_static_routes(StaticClient(), self.desired())
+
+    def test_refuses_unknown_live_route_without_writing(self) -> None:
+        class StaticClient:
+            def get(self, path: str) -> object:
+                if path == "/api/routing/settings/searchGateway":
+                    return {"rows": []}
+                return {
+                    "rows": [
+                        {
+                            "uuid": "uuid-rogue",
+                            "network": "192.0.2.0/24",
+                            "gateway": "GW_ROGUE",
+                            "descr": "rogue",
+                            "enabled": "1",
+                        }
+                    ]
+                }
+
+            def post(self, path: str, payload: object) -> object:
+                raise AssertionError(
+                    f"unexpected route must not be removed automatically: {path}"
+                )
+
+        with self.assertRaisesRegex(RuntimeError, "192.0.2.0/24"):
+            reconcile_static_routes(StaticClient(), [])
+
+    def test_rejects_invalid_network(self) -> None:
+        with self.assertRaisesRegex(ValueError, "valid CIDR"):
+            reconcile_static_routes(
+                client=FakeClient(),
+                desired_routes=[
+                    {
+                        "network": "not-a-cidr",
+                        "gateway_name": "GW_X",
+                        "gateway_address": "10.0.30.14",
+                        "gateway_interface": "opt3",
+                        "description": "bad",
+                        "enabled": "1",
+                    }
+                ],
+            )
+
+    def test_rejects_duplicate_network(self) -> None:
+        desired = self.desired()
+        with self.assertRaisesRegex(ValueError, "duplicate static route"):
+            reconcile_static_routes(
+                client=FakeClient(),
+                desired_routes=[desired[0], dict(desired[0])],
+            )
+
+    def test_rendered_static_routes_cover_vip_and_mesh(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "opnsense_reconciler/static-routes.json"
+        )
+        routes = json.loads(path.read_text())
+
+        self.assertIsInstance(routes, list)
+        by_network = {item["network"]: item for item in routes}
+        self.assertEqual(by_network["10.0.40.16/32"]["gateway_address"], "10.0.30.14")
+        self.assertEqual(by_network["10.0.40.16/32"]["gateway_name"], "GW_HOMELAB_04")
+        self.assertEqual(by_network["100.64.0.0/10"]["gateway_address"], "10.0.30.10")
+        self.assertEqual(
+            by_network["100.64.0.0/10"]["gateway_name"], "GW_ADGUARD_NETBIRD"
+        )
+        for item in routes:
+            self.assertEqual(item["enabled"], "1")
 
 
 if __name__ == "__main__":

@@ -70,33 +70,32 @@ Cloudflare Access public bypass configured.
 27. `apollinestore.com -> http://apolline-svc.apolline:80`
 28. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
 29. `pulseagent.dev -> http://pulse-svc.pulse:80`
-30. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux push receiver, added 2026-09-20 for GitLab and now fed by Forgejo; Access app `flux-webhook-bypass` reused Bypass policy, wildcard `*` app would otherwise force login)
+30. `flux-wh-33b0c8004348.rupan.dev -> http://webhook-receiver.flux-system:80` (Flux push receiver, added 2026-09-20 for GitLab and now fed by Forgejo; Access app `Bypass - Flux webhook` reused Bypass policy, wildcard `*` app would otherwise force login)
 31. `jellyfin.rupan.dev -> http://jellyfin.media:80`
 32. `navidrome.rupan.dev -> http://navidrome.media:80`
 33. `music.rupan.dev -> http://navidrome.media:80`
 34. `seerr.rupan.dev -> http://seerr.media:80`
 35. `recommender.rupan.dev -> http://recommender-frontend.media:80`
-36. `requests.rupan.dev -> http://seerr.media:80`
-37. `lidarr.rupan.dev -> http://lidarr.media:80`
-38. `radarr.rupan.dev -> http://radarr.media:80`
-39. `sonarr.rupan.dev -> http://sonarr.media:80`
-40. `prowlarr.rupan.dev -> http://prowlarr.media:80`
-41. `bazarr.rupan.dev -> http://bazarr.media:80`
-42. `slskd.rupan.dev -> http://slskd.media:80`
-43. `torrent.rupan.dev -> http://qbittorrent.media:80`
-44. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
-45. `books.rupan.dev -> http://calibre-web.media:80`
-46. `media.rupan.dev -> http://filebrowser.media:80`
-47. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-48. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-49. `git.rupan.dev -> http://forgejo.cloudflare:3000`
-50. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
-51. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
-52. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access app and DNS are dashboard-managed by hand. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
-53. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; public Bypass because every tracked site loads `/t.js` and posts `/api/send` anonymously. The dashboard is behind Umami's own login. See [analytics](analytics.md))
-54. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
-55. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, dashboard-managed; never Bypass. See [games](games.md))
-56. `http_status:404`
+36. `lidarr.rupan.dev -> http://lidarr.media:80`
+37. `radarr.rupan.dev -> http://radarr.media:80`
+38. `sonarr.rupan.dev -> http://sonarr.media:80`
+39. `prowlarr.rupan.dev -> http://prowlarr.media:80`
+40. `bazarr.rupan.dev -> http://bazarr.media:80`
+41. `slskd.rupan.dev -> http://slskd.media:80`
+42. `torrent.rupan.dev -> http://qbittorrent.media:80`
+43. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
+44. `books.rupan.dev -> http://calibre-web.media:80`
+45. `media.rupan.dev -> http://filebrowser.media:80`
+46. `bookshelf.rupan.dev -> http://bookshelf.media:80`
+47. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+48. `git.rupan.dev -> http://forgejo.cloudflare:3000`
+49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
+50. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
+51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access is declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
+52. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; owner-only Access login for the dashboard; path-scoped public Bypass for `/t.js` and `/api/send`. See [analytics](analytics.md))
+53. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
+54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, declared in `tofu/cloudflare-access/`; never Bypass. See [games](games.md))
+55. `http_status:404`
 
 
 Removed 2026-09-15 (v72):
@@ -218,7 +217,7 @@ be in place before the hostname serves anything useful.
 
 1. Cloudflare Access application `pod-agent-dashboard`, hostname
    `pod.rupan.dev`, with an **Allow** policy on the owner email. Do not give it
-   a Bypass policy the way `rupan.dev` and `flux-webhook-bypass` have one:
+   a Bypass policy the way the public website and Flux webhook applications have one:
    Bypass on this hostname would put the storefront on the public internet.
 2. `DASHBOARD_TOKEN` (`POD_AGENT_DASHBOARD_TOKEN` in
    `gitops/secrets/homelab-values.sops.yaml`, hex 32) is already
@@ -243,7 +242,7 @@ all, so the hostname is the only way in.
 
 The Sovereign concept site is not a public launch: it exists for owner review
 and early customer discovery. It stays behind a dedicated Cloudflare Access
-application, dashboard managed like DNS (see "Known gaps"):
+application declared in `tofu/cloudflare-access/` (see [Access](cloudflare-access.md)):
 
 1. Access application `sovereign`, hostname `sovereign.rupan.dev`, with an
    **Allow** policy on the owner email only. No Bypass policy: Bypass on this
@@ -282,9 +281,69 @@ remove:
 - 2026-09-29: stack added. Both failures above were parity failures between two
   copies of one list, which is the class of bug `yamldecode` removes.
 
+## Access policy organization
+
+Access applications are declared in `tofu/cloudflare-access/`, separately
+from the tunnel stack; see [Access management](cloudflare-access.md). The inventory below was read back on 2026-10-28.
+
+All 12 bypass applications reference the single reusable `Bypass` policy
+(`7015eaad-fad5-462b-905c-43d74bd648aa`): Include Everyone, no Require or
+Exclude conditions. Four identical application-scoped bypass rules were replaced
+with this policy. Application IDs, destinations, cookies, and session settings
+were preserved; this cleanup did not change who can reach a hostname.
+
+| Application | Destinations |
+| --- | --- |
+| `Bypass - Requests and music tools` | `apptly.rupan.dev`, `lidarr.rupan.dev`, `aurral.rupan.dev`, `spotify.rupan.dev`, `seerr.rupan.dev` |
+| `Bypass - Tally tracker endpoints` | `tally.rupan.dev/t.js`, `tally.rupan.dev/api/send` |
+| `Bypass - Woodpecker CI` | `ci.rupan.dev` |
+| `Bypass - UWagent` | `uwagent.rupan.dev` |
+| `Bypass - Arcade controller` | `arcade.rupan.dev` |
+| `Bypass - Music Assistant and LedFx` | `ma.rupan.dev`, `ledfx.rupan.dev` |
+| `Bypass - Flux webhook` | `flux-wh-33b0c8004348.rupan.dev` |
+| `Bypass - Websites and automation` | `demo.rupan.dev`, `ntfy.rupan.dev`, `renovate-approve.rupan.dev`, `nix-agent.rupan.dev`, `photo.rupan.dev`, `majorfinder.rupan.dev`, `www.rupan.dev`, `rupan.dev` |
+| `Bypass - Home Assistant` | `ha.rupan.dev` |
+| `Bypass - Notes and project sites` | `rupanism.rupan.dev`, `ism.rupan.dev`, `notes.rupan.dev`, `pulse.rupan.dev`, `spatia.rupan.dev` |
+| `Bypass - Photos, files and dashboards` | `books.rupan.dev`, `grafana.rupan.dev`, `photos.rupan.dev`, `media.rupan.dev`, `jellyfin.rupan.dev` |
+| `Bypass - Music, sync and tools` | `music.rupan.dev`, `nix.rupan.dev`, `soluble.rupan.dev`, `obsidian.rupan.dev`, `n8n.rupan.dev` |
+
+The separate `Tally - owner dashboard` application uses the owner-only
+`Main - Rupan` policy. The two tracker paths above bypass that hostname's login.
+The wildcard `*.rupan.dev` application also uses `Main - Rupan`; dedicated
+applications override it for their destinations. Games and Forgejo retain their
+named-user Allow policies. Grafana and Immich retain separate owner-only OIDC
+login applications even though their public hostnames bypass the Access gate.
+
+### Maintenance
+
+- Name bypass applications `Bypass - <service or purpose>`. Name authenticated
+  applications for the service and intended audience, as with Tally's dashboard.
+- Attach the existing reusable `Bypass` policy instead of copying an inline rule.
+  Its meaning is public access through Access; origin authentication and WAF
+  restrictions still apply independently.
+- Review the destination list before attaching a policy. Keep endpoint-only
+  exceptions in separate applications, like Tally's tracker paths.
+- Do not change the shared policy to restrict one service: change that service's
+  application attachment. A shared policy edit affects all 12 applications.
+- Read back the application and policy, compare destination and session settings,
+  then check an anonymous request. Update this inventory with every Access change.
+  This table is a readable inventory; the OpenTofu configuration owns desired state.
+
+The existing destination groups include some historical aliases and mixed uses.
+Keep them explicit in this inventory until each alias is reviewed against DNS,
+tunnel routes, and clients; removing a destination can change which Access
+application handles it.
+
+`renovate-approve.rupan.dev/approve` remains in use by Renovate's ntfy Approve
+buttons. The receiver validates a bearer token, repository allowlist, open PR,
+and exact current commit before recording approval. Browser Access login would
+interrupt those notification POSTs. PR-comment approval is an alternative, but
+retiring this endpoint also requires updating the notification action producer.
+
 ## Known gaps
 
-DNS records and Access policies are still dashboard managed, deliberately.
+DNS records remain dashboard managed. Access applications and policies have a
+separate declarative stack; see [Access management](cloudflare-access.md).
 
 - DNS spans at least five zones including apexes (`rupan.dev`,
   `distrojeff.com`, `apollinestore.com`, `darkbitapparel.com`,
@@ -292,11 +351,6 @@ DNS records and Access policies are still dashboard managed, deliberately.
   where the `cname` convenience attribute was removed, so each target is built
   as `<tunnel-id>.cfargotunnel.com`. Worth doing, but zone by zone, and not
   before the tunnel config is boring.
-- Access should stay out of this stack for now. In provider v5 the
-  application-scoped policies moved inline onto
-  `cloudflare_zero_trust_access_application`, and applying an application whose
-  `policies` list is empty detaches every policy from it, after which Cloudflare
-  garbage-collects the orphans. There is already a wildcard `*` Access app
-  gating this account's hostnames, so the first bad apply is a lockout rather
-  than a downtime. If it is ever adopted, import first, never auto-apply, and
-  give the `*` app its own state.
+- Access remains outside the tunnel/WAF state and credentials. Its dedicated
+  stack imports existing resources and checks policy attachments before apply;
+  an empty policy list is rejected instead of detaching policies at the edge.

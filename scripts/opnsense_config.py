@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS = {
     "adguard-rewrites.json": "inventory/adguard-rewrites.json",
     "unbound-host-overrides.json": "opnsense_reconciler/unbound-host-overrides.json",
+    "static-routes.json": "opnsense_reconciler/static-routes.json",
     "fleet.json": "inventory/fleet.json",
     "main.tf.json": "tofu/opnsense/main.tf.json",
     "assignments.json": "opnsense_reconciler/assignments.json",
