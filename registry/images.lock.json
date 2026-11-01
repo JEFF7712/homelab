@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-01T21:33:55+00:00",
+  "generated_at": "2026-11-01T23:33:45+00:00",
   "images": [
     {
       "authenticity": {
@@ -810,10 +810,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000025",
-        "retention-deployed-85bbb46c79025b41"
+        "0.0.1000030",
+        "retention-deployed-407146c9f6174d01"
       ],
-      "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
+      "digest": "sha256:407146c9f6174d015b2ae2b6e048b59b4643fb5fd4ede90b3b61e7cab45635fb",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -833,11 +833,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000025@sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
+        "digest": "sha256:407146c9f6174d015b2ae2b6e048b59b4643fb5fd4ede90b3b61e7cab45635fb",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000030@sha256:407146c9f6174d015b2ae2b6e048b59b4643fb5fd4ede90b3b61e7cab45635fb",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000025"
+        "tag": "0.0.1000030"
       }
     },
     {
@@ -851,10 +851,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000025",
-        "retention-deployed-85bbb46c79025b41"
+        "0.0.1000030",
+        "retention-deployed-407146c9f6174d01"
       ],
-      "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
+      "digest": "sha256:407146c9f6174d015b2ae2b6e048b59b4643fb5fd4ede90b3b61e7cab45635fb",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -874,11 +874,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000025@sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
+        "digest": "sha256:407146c9f6174d015b2ae2b6e048b59b4643fb5fd4ede90b3b61e7cab45635fb",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000030@sha256:407146c9f6174d015b2ae2b6e048b59b4643fb5fd4ede90b3b61e7cab45635fb",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000025"
+        "tag": "0.0.1000030"
       }
     },
     {
