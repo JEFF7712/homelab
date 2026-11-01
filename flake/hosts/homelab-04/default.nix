@@ -144,6 +144,8 @@ in
   };
 
   homelab.monero.enable = true;
+  homelab.monero.tor.enable = true;
+  environment.persistence."/persist".directories = [ "/var/lib/tor" ];
 
   # System partition (ESP is part1) holding the btrfs /persist subvolume.
   homelab.monero.ioDevice = "/dev/disk/by-id/nvme-PC_SN810_NVMe_WDC_1024GB_230907801780-part2";

@@ -51,6 +51,8 @@ in
       description = "Accept inbound TCP on p2pPort so the node serves full history to peers.";
     };
 
+    tor.enable = lib.mkEnableOption "Tor onion P2P listener for monerod";
+
     requiredAvailGiB = lib.mkOption {
       type = lib.types.ints.positive;
       default = 625;
@@ -147,17 +149,60 @@ in
       prune = false;
       rpc.address = "127.0.0.1";
       rpc.port = 18081;
+      environmentFile = lib.mkIf cfg.tor.enable "/run/monero-onion.env";
       extraConfig = ''
         p2p-bind-port=${toString cfg.p2pPort}
         check-updates=disabled
         enable-dns-blocklist=1
         out-peers=12
         in-peers=48
+        ${lib.optionalString cfg.tor.enable ''
+          anonymous-inbound=''${MONERO_ONION_ADDRESS}:18084,127.0.0.1:18084,48
+          tx-proxy=tor,127.0.0.1:9050,disable_noise
+        ''}
         ${lib.optionalString cfg.restrictedRpc.enable ''
           rpc-restricted-bind-ip=0.0.0.0
           rpc-restricted-bind-port=${toString cfg.restrictedRpc.port}
           disable-rpc-ban=1
         ''}
+      '';
+    };
+
+    services.tor = lib.mkIf cfg.tor.enable {
+      enable = true;
+      client.enable = true;
+      relay.onionServices.monero = {
+        version = 3;
+        map = [
+          {
+            port = 18084;
+            target = {
+              addr = "127.0.0.1";
+              port = 18084;
+            };
+          }
+        ];
+      };
+    };
+
+    systemd.services.monero-onion-env = lib.mkIf cfg.tor.enable {
+      description = "Prepare monerod onion address";
+      requires = [ "tor.service" ];
+      after = [ "tor.service" ];
+      before = [ "monero.service" ];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        set -eu
+        hostname=/var/lib/tor/onion/monero/hostname
+        for attempt in $(seq 1 30); do
+          if [ -s "$hostname" ]; then
+            break
+          fi
+          sleep 1
+        done
+        test -s "$hostname"
+        printf 'MONERO_ONION_ADDRESS=%s\n' "$(cat "$hostname")" > /run/monero-onion.env
+        chmod 0644 /run/monero-onion.env
       '';
     };
 
@@ -186,6 +231,8 @@ in
     ];
 
     systemd.services.monero = {
+      requires = lib.optionals cfg.tor.enable [ "monero-onion-env.service" ];
+      after = lib.optionals cfg.tor.enable [ "monero-onion-env.service" ];
       # A failed preflight exits non-zero and blocks daemon startup. Ordered
       # before the upstream config-generation preStart.
       preStart = lib.mkBefore "${preflight}";
