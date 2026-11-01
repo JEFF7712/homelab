@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-10-28T05:33:53+00:00",
+  "generated_at": "2026-11-01T21:33:55+00:00",
   "images": [
     {
       "authenticity": {
@@ -810,16 +810,14 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000021",
-        "retention-deployed-e4ef61939a2c7ac8"
+        "0.0.1000025",
+        "retention-deployed-85bbb46c79025b41"
       ],
-      "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+      "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-quartz",
         "location": "JEFF7712/obsidian-vault",
@@ -835,11 +833,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+        "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000025@sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000021"
+        "tag": "0.0.1000025"
       }
     },
     {
@@ -853,16 +851,14 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000021",
-        "retention-deployed-e4ef61939a2c7ac8"
+        "0.0.1000025",
+        "retention-deployed-85bbb46c79025b41"
       ],
-      "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+      "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
+      "platforms": [],
       "producer": {
         "local_publisher": "forgejo-quartz",
         "location": "JEFF7712/obsidian-vault",
@@ -878,11 +874,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000021@sha256:e4ef61939a2c7ac857d50120d6538988523a2dc5197810c1c8b66a3d75a1b8ad",
+        "digest": "sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000025@sha256:85bbb46c79025b41cfcdae1c52d345bfa69c25bd553708d8a1df439653c81ed0",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000021"
+        "tag": "0.0.1000025"
       }
     },
     {
