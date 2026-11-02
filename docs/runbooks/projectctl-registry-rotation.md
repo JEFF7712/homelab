@@ -49,16 +49,16 @@ password or secret-value columns from service databases.
 | Woodpecker homelab repository | registry_node_password_file | Replace the protected file-secret value through the trusted operator UI |
 | Woodpecker homelab repository | registry_read_password | Replace the plain node password used by service, native and application release builders to pull pinned bases; a stale value fails every `*-publish` operation with 401 on the base pull |
 | Woodpecker homelab repository | registry_htpasswd_file | Refresh the protected bcrypt file from the accepted Zot account set, including projectctl-pull |
-| Woodpecker repository registries | Thirteen active node entries below | Replace only registry.rupan.dev passwords through supported settings operations |
+| Woodpecker repository registries | Active node entries below | Replace only registry.rupan.dev passwords through supported settings operations |
 | Woodpecker application repositories | Per-repository registry_read_password copies listed below | Replace each copy with the new node password; a stale copy fails that application's release at prepare-retained-inputs with a Zot bcrypt mismatch for node |
 
-The observed Woodpecker repository IDs are 1, 2, 23, 24, 25, 26, 27, 28, 29, 31,
-33, 34 and 35. Their names are JEFF7712/homelab, JEFF7712/darkbit-site,
-JEFF7712/autocompress, JEFF7712/resume-agent, JEFF7712/cctop,
-JEFF7712/roku-bulb-local, JEFF7712/predmarkbot,
-JEFF7712/bayesian-reaction-optimization-engine, JEFF7712/musicthing,
-JEFF7712/spotify-clone-temp-name, JEFF7712/neuralnet-in-c, JEFF7712/NaviSync
-and JEFF7712/md-engine. Re-read current metadata to confirm this set. Registry
+The observed Woodpecker repository IDs on 2026-11-02 are 1, 2, 4, 20, 21 and
+36: JEFF7712/homelab, JEFF7712/darkbit-site, JEFF7712/rupan.dev,
+JEFF7712/bookshelf, JEFF7712/nixos-config and JEFF7712/uwagent. nixos-config
+needs its entry because application-validation pulls the pinned Python image
+from registry.rupan.dev; without it the pull fails with "no basic auth
+credentials" on any agent that has not cached the image. Re-read current
+metadata to confirm this set. Registry
 and secret values stay outside task records, tool output and Git.
 
 Application release pipelines read their own registry_read_password secret
