@@ -60,7 +60,9 @@ builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
 NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
 # Job Nix builds as root, and one Go build creating /homeless-shelter fails
 # every later build in the container; build as unprivileged users instead.
-if ((EUID == 0)); then
+# Repository tests run this script as root inside a Nix build, which must
+# not touch the builder's users.
+if ((EUID == 0)) && [[ -z "${NIX_BUILD_TOP:-}" ]]; then
   NIX_CONFIG+=$'\n'"$(python -m scripts.ci.build_users)"
 fi
 export NIX_CONFIG
