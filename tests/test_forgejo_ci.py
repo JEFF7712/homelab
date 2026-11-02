@@ -463,6 +463,22 @@ class PolicyTest(unittest.TestCase):
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
+    def test_scheduled_operations_start_after_their_needs(self) -> None:
+        for name, targets in SCHEDULES.items():
+            self.request["pipeline"].update(event="cron", cron=name)
+            result = configuration(self.request, self.catalog, current=SHA)
+            for item in result["configs"][1:]:
+                target = item["name"].removesuffix(".yaml")
+                needs = self.catalog[target]["needs"]
+                with self.subTest(schedule=name, operation=target):
+                    self.assertTrue(set(needs) <= set(targets))
+                    if target != "webhook-watchdog":
+                        self.assertEqual(
+                            yaml.safe_load(item["data"])["depends_on"],
+                            [VALIDATION, *needs],
+                        )
+        self.assertIn("opnsense-plan", self.catalog["opnsense-dataplane"]["needs"])
+
     def test_operations_serialize_per_resource(self) -> None:
         result = configuration(self.request, self.catalog, current=SHA)
         groups = {
