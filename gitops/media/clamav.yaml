@@ -90,7 +90,7 @@ spec:
               mountPath: /var/lib/clamav
       containers:
         - name: freshclam
-          image: registry.rupan.dev/upstream/docker.io/clamav/clamav@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/clamav/clamav@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a  # yamllint disable-line rule:line-length
           command:
             - freshclam
             - --daemon
@@ -119,7 +119,7 @@ spec:
               # TestDatabases loads each new database before swapping it in.
               memory: 1536Mi
         - name: clamd
-          image: registry.rupan.dev/upstream/docker.io/clamav/clamav@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/clamav/clamav@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a  # yamllint disable-line rule:line-length
           # clamd refuses to start without signatures; wait for freshclam's
           # first download on a fresh volume.
           command:
