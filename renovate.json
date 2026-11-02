@@ -144,6 +144,19 @@
       "enabled": false
     },
     {
+      "description": "Node majors for producer base images need a new node-toolchain supply and catalog pins first (docs/runbooks/node-supply.md); a base-image bump alone fails the registry gate",
+      "matchFileNames": [
+        "gitops/producer-base-images/**"
+      ],
+      "matchPackageNames": [
+        "/(^|/)node$/"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Never automerge Nix inputs: a merged flake bump is undeployed fleet drift until deploy-fleet runs, and nixpkgs can carry a k3s minor upgrade",
       "matchManagers": [
         "nix"
