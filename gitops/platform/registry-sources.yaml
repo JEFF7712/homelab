@@ -1,0 +1,18 @@
+# Inventory-only upstream image declarations for platform Helm charts whose
+# post-renderers pin mirrored digests. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# pinned by digest in the owning HelmRelease's postRenderers.
+#
+# This file is NOT listed in gitops/platform/kustomization.yaml: it is an
+# inventory source only and must never be applied to the cluster.
+#
+# Chart upgrade flow: list the new chart's images here, import them, and only
+# then bump the chart and its post-renderer digests together.
+apiVersion: v1
+kind: List
+metadata:
+  name: platform-registry-sources
+items:
+  # external-secrets 2.14.0
+  - image: ghcr.io/external-secrets/external-secrets:v2.14.0@sha256:10608eb53e636e744903d5f3657a4d9c44e28d9d9c181b73e07bc7dd2e6884dc  # yamllint disable-line rule:line-length
