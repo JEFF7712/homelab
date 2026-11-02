@@ -751,9 +751,15 @@ def configuration(
                             },
                         )
                     return {"configs": configs}
+                # An operation unpacks its needs' artifacts from this
+                # pipeline, so it must start after they finish.
                 for target in schedule:
                     if target != "webhook-watchdog":
-                        operation_workflow(target, "${CI_PIPELINE_NUMBER}", gate)
+                        operation_workflow(
+                            target,
+                            "${CI_PIPELINE_NUMBER}",
+                            gate + list(operations[target]["needs"]),
+                        )
         return {"configs": configs}
 
     if not main or pipeline.get("author") not in DEPLOY_AUTHORS:
