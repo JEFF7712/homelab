@@ -41,7 +41,11 @@ state. This does not substitute for the production import below.
    Woodpecker secrets. `cloudflare_access_plan_api_token` has only **Access:
    Apps and Policies Read**, available to `push`, `cron`, and `deployment` events.
    `cloudflare_access_deploy_api_token` has only **Access: Apps and Policies Write**,
-   available to `deployment` events. No PR receives either secret. Do not widen
+   available to `deployment` events. The shared `cloudflare_account_id` secret
+   must also allow `cron`: the nightly schedule runs `cloudflare-access-drift`,
+   and Woodpecker rejects the whole nightly pipeline at parse time when any
+   step's secret excludes the event (2026-10-30 to 2026-11-02, which also
+   stopped `nixos-deploy`). No PR receives either secret. Do not widen
    the tunnel token. Keep recovery copies SOPS-encrypted for the existing operator
    recipients; never print the tokens or include them in logs or PR descriptions.
 3. Deliver with `just ship`. Routes deploy the updated CI host and NAS state
