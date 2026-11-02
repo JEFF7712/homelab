@@ -122,3 +122,10 @@ From an authorized workstation, an SSH local forward through
 listener on `127.0.0.1`, and keep credentials and configuration backups out of
 Git and command output. Back up both switches before firmware upgrades and
 upgrade one at a time: either switch's restart interrupts WAN transit.
+
+The native Easy Smart protocol sends replies from UDP port 29808 to client
+port 29809, including broadcast replies. The appliance's input rule accepts
+that source/destination port pair only from `10.0.10.2` and `10.0.10.3`.
+There is no continuously running management listener; OpenTofu binds the
+client port while it is running. This input rule needs operator approval
+before activation because it changes host exposure.
