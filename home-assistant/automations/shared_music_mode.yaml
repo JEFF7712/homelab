@@ -6,6 +6,8 @@ description: >-
   applied by script.shared_music_album_color. Pausing keeps the last colour.
   The pre-music state is snapshotted first; when turned off, the snapshot is
   restored, then Adaptive Lighting control and circadian state resume.
+  The Govee dining bulbs have their own Adaptive Lighting entry (2700K
+  floor), so each call is split per switch.
   The LedFx music scene is deactivated on exit so the zigbee bridge stops
   driving the bulbs; LedFx itself stays up for future LED strips.
 mode: queued
@@ -48,6 +50,11 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+              manual_control: true
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_govee_dining_bulbs
+              lights:
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
               manual_control: true
@@ -86,6 +93,11 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+              manual_control: false
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_govee_dining_bulbs
+              lights:
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
               manual_control: false
@@ -97,6 +109,11 @@ actions:
                 - light.kitchen_ceiling_light_2
                 - light.living_room_floor_lamp
                 - light.living_room_tulip_lamp
+              turn_on_lights: false
+          - action: adaptive_lighting.apply
+            data:
+              entity_id: switch.adaptive_lighting_govee_dining_bulbs
+              lights:
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
               turn_on_lights: false
