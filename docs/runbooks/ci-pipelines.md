@@ -28,7 +28,11 @@ starts. `cache-publish` pushes all three shells. The three homelab-04 agents
 each have two workflow slots. An additional sandbox-only agent on homelab-05
 has one slot, bringing sandbox capacity to three. Trusted and deployment
 concurrency stay unchanged. Its server-side filter enforces `tier=sandbox`.
-The new host CI slice is limited to three CPUs and 10 GiB, with that budget
+homelab-04's kubelet reserves 8 GiB for typical concurrent CI (one validation
+and one operation) beside the system's 2 GiB and the agent workspaces'
+14 GiB, so GPU pods there are not scheduled into CI memory. monerod on
+homelab-04 is capped at 2 GiB, and the CPU-only, NFS-backed games apps
+prefer homelab-02 and homelab-03. The homelab-05 CI slice is limited to three CPUs and 10 GiB, with that budget
 reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
 and 8 GiB container limits.
 
@@ -229,7 +233,9 @@ remove it once the SSD store has run cleanly for a while.
 ### niks3 cache (staged rollout)
 
 nas-01 runs a niks3 cache on port 8090 alongside Attic. The maintenance
-`cache-publish` operation pushes the same paths to niks3 after Attic. Hosts
+`cache-publish` operation, and the laptop's `nixos-publish`,
+`nixos-lock-update` and `nixos-deploy` operations, push the same paths to
+niks3 after Attic. Hosts
 (`flake/modules/common-base.nix`), the flake's `nixConfig` and CI jobs
 substitute from niks3 first and fall back to Attic: niks3 advertises
 priority 30 and Attic 41, and CI's `NIX_CONFIG` pins them at 30 and 35, all
