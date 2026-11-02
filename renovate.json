@@ -27,7 +27,8 @@
     "registry/**",
     "schemas/**",
     "artifacts/**",
-    "secrets/**"
+    "secrets/**",
+    ".gitlab-ci.yml"
   ],
   "printConfig": false,
   "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
