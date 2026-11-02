@@ -337,7 +337,8 @@
           pkgs.runCommand "agent-workspace-host-reservations" { } ''
             ${
               if
-                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=16384Mi" host.services.k3s.extraFlags
+                # system 2048 + agent workspaces 14336 + typical CI 8192
+                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=24576Mi" host.services.k3s.extraFlags
               then
                 "true"
               else

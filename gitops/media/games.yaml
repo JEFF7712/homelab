@@ -52,6 +52,18 @@ spec:
         app: questarr
     spec:
       automountServiceAccountToken: false
+      # NFS-backed and CPU-only: keep homelab-04 memory for GPU work and CI.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - homelab-02
+                      - homelab-03
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
@@ -209,6 +221,18 @@ spec:
         app: gameyfin
     spec:
       automountServiceAccountToken: false
+      # NFS-backed and CPU-only: keep homelab-04 memory for GPU work and CI.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - homelab-02
+                      - homelab-03
       securityContext:
         seccompProfile:
           type: RuntimeDefault
