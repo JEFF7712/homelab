@@ -38,7 +38,10 @@
     acmeEmail = "rupanpandyan@gmail.com";
   };
   homelab.s3.enable = true;
-  homelab.niks3Cache.enable = true;
+  homelab.niks3Cache = {
+    enable = true;
+    address = "10.0.30.20";
+  };
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;
   homelab.platformBackup.bookshelfConfigPath = "/tank/cluster/media-bookshelf-config-pvc-ba9f64f7-e62f-4d69-9f48-a0715b54d396";

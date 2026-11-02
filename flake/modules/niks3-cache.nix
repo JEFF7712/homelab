@@ -18,7 +18,7 @@ let
     rpc_public_addr = "127.0.0.1:${toString cfg.garageRpcPort}";
     rpc_secret_file = "${cfg.storageDir}/rpc-secret";
     s3_api = {
-      api_bind_addr = "127.0.0.1:${toString cfg.garageS3Port}";
+      api_bind_addr = "0.0.0.0:${toString cfg.garageS3Port}";
       s3_region = "homelab";
     };
   };
@@ -27,6 +27,14 @@ in
 {
   options.homelab.niks3Cache = {
     enable = lib.mkEnableOption "niks3 Nix binary cache with its own Garage store";
+    address = lib.mkOption {
+      type = lib.types.str;
+      example = "10.0.30.20";
+      description = ''
+        Address clients reach this host at. Pushing clients upload NARs
+        straight to Garage through presigned URLs built on it.
+      '';
+    };
     port = lib.mkOption {
       type = lib.types.port;
       default = 8090;
@@ -45,7 +53,7 @@ in
     garageS3Port = lib.mkOption {
       type = lib.types.port;
       default = 3910;
-      description = "Loopback S3 port of the cache's Garage.";
+      description = "S3 port of the cache's Garage, reachable by pushing clients.";
     };
     garageRpcPort = lib.mkOption {
       type = lib.types.port;
@@ -65,7 +73,10 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    networking.firewall.allowedTCPPorts = [ cfg.port ];
+    networking.firewall.allowedTCPPorts = [
+      cfg.port
+      cfg.garageS3Port
+    ];
 
     environment.persistence."/persist".directories = [
       {
@@ -133,6 +144,7 @@ in
         region = "homelab";
         useSSL = false;
         bucketLookup = "path";
+        publicUrl = "http://${cfg.address}:${toString cfg.garageS3Port}";
         accessKeyFile = "${secretsDir}/s3-access-key";
         secretKeyFile = "${secretsDir}/s3-secret-key";
       };

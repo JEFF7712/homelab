@@ -227,7 +227,10 @@ benchmark and the defect behind the patch are in
 
 - niks3 keeps metadata in a local PostgreSQL (`/var/lib/postgresql`,
   persisted) and objects in its own Garage instance (`garage-nix-cache`) on
-  `zroot/nix-cache`. Its S3 and RPC ports listen on loopback only. The
+  `zroot/nix-cache`. Its S3 API listens on port 3910 on the LAN, because
+  pushing clients upload NARs straight to it through presigned URLs that
+  niks3 builds on `homelab.niks3Cache.address`; its RPC port stays on
+  loopback. The
   fleet's main Garage stays on `tank`, which is too slow for cache reads
   (see above).
 - `niks3-provision` creates the Garage layout, bucket, key, API token and
