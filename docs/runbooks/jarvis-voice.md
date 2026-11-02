@@ -48,9 +48,7 @@ build cache, checks a Docker GPU corpus, and publishes a candidate. A k3s GPU Jo
 using the production NVIDIA runtime must pass before final release tagging.
 Promotion remains a separate protected GitOps PR. Follow
 `services/voice-supply/README.md` for the retained inputs and offline build recipe.
-The older network-fetching Dockerfile in `gitops/voice/nemotron-bridge/` is
-historical and is not the accepted release recipe. Publish only with the
-`publisher-jarvis-nemotron` identity. The protected file variable
+Publish only with the `publisher-jarvis-nemotron` identity. The protected file variable
 `REGISTRY_JARVIS_PUBLISHER_AUTH_FILE` supplies that identity; the manual
 `provision_jarvis_publisher` CI job provisions its initial policy and credential.
 It compares existing policy before mutation and retains protected rollback
