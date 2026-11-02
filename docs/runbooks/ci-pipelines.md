@@ -229,7 +229,9 @@ remove it once the SSD store has run cleanly for a while.
 ### niks3 cache (staged rollout)
 
 nas-01 runs a niks3 cache on port 8090 alongside Attic. The maintenance
-`cache-publish` operation pushes the same paths to niks3 after Attic. Hosts
+`cache-publish` operation, and the laptop's `nixos-publish`,
+`nixos-lock-update` and `nixos-deploy` operations, push the same paths to
+niks3 after Attic. Hosts
 (`flake/modules/common-base.nix`), the flake's `nixConfig` and CI jobs
 substitute from niks3 first and fall back to Attic: niks3 advertises
 priority 30 and Attic 41, and CI's `NIX_CONFIG` pins them at 30 and 35, all
