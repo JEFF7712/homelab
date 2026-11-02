@@ -530,6 +530,21 @@ views:
             features:
               - type: toggle
             type: tile
+          - entity: switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
+            name: Dining Sleep Mode
+            features:
+              - type: toggle
+            type: tile
+          - entity: switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness
+            name: Dining Adapt Brightness
+            features:
+              - type: toggle
+            type: tile
+          - entity: switch.adaptive_lighting_govee_dining_bulbs_adapt_color
+            name: Dining Adapt Color
+            features:
+              - type: toggle
+            type: tile
       - cards:
           - heading: Climate
             type: heading
