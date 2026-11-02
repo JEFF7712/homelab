@@ -25,6 +25,7 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
     "$flake#checks.x86_64-linux.zot-registry"
     "$flake#checks.x86_64-linux.zot-registry-service"
+    "$flake#checks.x86_64-linux.niks3-cache-service"
     "$flake#checks.x86_64-linux.opnsense-types"
     "$flake#checks.x86_64-linux.opnsense-config"
     "$flake#checks.x86_64-linux.fleet-inventory"
@@ -54,6 +55,15 @@ if [[ "$target_set" == homelab ]]; then
   default_builder=fast
 fi
 builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
+# A dropped cache.nixos.org download (an HTTP 416 on resume) otherwise fails
+# the derivation outright; build it from source instead.
+NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
+# Job Nix builds as root, and one Go build creating /homeless-shelter fails
+# every later build in the container; build as unprivileged users instead.
+if ((EUID == 0)); then
+  NIX_CONFIG+=$'\n'"$(python -m scripts.ci.build_users)"
+fi
+export NIX_CONFIG
 started=$SECONDS
 case "$builder" in
   fast)
