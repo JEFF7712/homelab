@@ -24,11 +24,13 @@ Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
 of 3.9 GiB), so an operation container copies far less from Attic before it
-starts. `cache-publish` pushes all three shells. The three homelab-04 agents
-each have two workflow slots. An additional sandbox-only agent on homelab-05
-has one slot, bringing sandbox capacity to three. Trusted and deployment
-concurrency stay unchanged. Its server-side filter enforces `tier=sandbox`.
-homelab-04's kubelet reserves 8 GiB for typical concurrent CI (one validation
+starts. `cache-publish` pushes all three shells. On homelab-04 the trusted
+and deployment agents have two workflow slots each and the sandbox agent has
+one: a second concurrent validation pushed homelab-04's ci.slice to its limit
+millions of times and into swap. A sandbox-only agent on homelab-05 has the
+other slot, so sandbox capacity is two. Its server-side filter enforces
+`tier=sandbox`. homelab-04's ci.slice is capped at 12 GiB (MemoryHigh 10 GiB),
+and its kubelet reserves 8 GiB for typical concurrent CI (one validation
 and one operation) beside the system's 2 GiB and the agent workspaces'
 14 GiB, so GPU pods there are not scheduled into CI memory. monerod on
 homelab-04 is capped at 2 GiB, and the CPU-only, NFS-backed games apps

@@ -109,9 +109,12 @@ in
 
   config = lib.mkIf cfg.enable {
     homelab.woodpeckerSandbox.acceptTunnel = true;
+    # 22G on a 32G host with agent VMs and GPU pods hit MemoryMax millions
+    # of times and swapped. The kubelet reserves typical CI use (8G); the
+    # rest of this cap overlaps pod memory only when both peak.
     systemd.slices.ci.sliceConfig = {
-      MemoryHigh = "18G";
-      MemoryMax = "22G";
+      MemoryHigh = "10G";
+      MemoryMax = "12G";
       CPUQuota = "1000%";
       CPUWeight = 50;
     };
@@ -265,7 +268,9 @@ in
       };
     };
     services.woodpecker-agents.agents = {
-      sandbox = agent "sandbox" 2;
+      # One sandbox slot: a second 8G validation overcommitted the host's
+      # memory; homelab-05 carries the other sandbox slot.
+      sandbox = agent "sandbox" 1;
       # Two trusted slots: scheduled read-only work holds at most one (its
       # shared concurrency group), so pushes and operator plans keep the other.
       trusted = agent "trusted" 2;
