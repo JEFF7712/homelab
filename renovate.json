@@ -124,6 +124,19 @@
       "automerge": false
     },
     {
+      "description": "Review Helm chart minor bumps: a chart can move to images not yet mirrored, and Helm never upgrades CRDs; patch releases still automerge",
+      "matchManagers": [
+        "flux"
+      ],
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false
+    },
+    {
       "description": "Lock maintenance is for the Nix flakes only; uv and provider locks move with their dependency updates",
       "matchUpdateTypes": [
         "lockFileMaintenance"
