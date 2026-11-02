@@ -44,13 +44,15 @@ spec:
         - ports:
             - port: "443"
               protocol: TCP
+    # Cilium matches the pod port after Service translation: the ntfy chart
+    # (1.7.0+) serves on 2586 behind Service port 80.
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: observability
             app.kubernetes.io/name: ntfy
       toPorts:
         - ports:
-            - port: "80"
+            - port: "2586"
               protocol: TCP
     - toCIDRSet:
         - cidr: 0.0.0.0/0
