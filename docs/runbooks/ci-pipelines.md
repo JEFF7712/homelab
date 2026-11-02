@@ -40,6 +40,14 @@ homelab-05, killed every job builder holding the same UID: the job failed
 with `builder failed due to signal 9 (Killed)` and no OOM recorded anywhere.
 Without a sandbox the build users isolated nothing.
 
+A root builder can, however, create its home `/homeless-shelter` (Go writes
+`$HOME/.config/go/telemetry`), and Nix then refuses every later build in that
+container with `home directory "/homeless-shelter" exists`. `cache-publish`,
+the job that builds uncached host closures, therefore adds its own `cibld`
+build users at UIDs 40001+, which no CI host allocates, via
+`scripts/ci/build_users.py`. It also sets `fallback = true`, so a dropped
+cache.nixos.org download builds from source instead of failing.
+
 The remote agent uses a dedicated SSH tunnel with a pinned homelab-04 host
 key. Its account can forward only to `127.0.0.1:9000`, cannot open a shell
 or remote listener, and has no sudo access. The server's gRPC listener
