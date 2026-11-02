@@ -96,6 +96,28 @@
         "type": "github"
       }
     },
+    "niks3": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "treefmt-nix": "treefmt-nix"
+      },
+      "locked": {
+        "lastModified": 1793555647,
+        "narHash": "sha256-tTcoDWiraSB1FlnYlhdBv9ZylcGhGTiU1lbi5OZN5Gw=",
+        "owner": "Mic92",
+        "repo": "niks3",
+        "rev": "b8ab8359e51e7f6b70a879a5aae2f778f2e4137d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "ref": "v1.16.0",
+        "repo": "niks3",
+        "type": "github"
+      }
+    },
     "nix-topology": {
       "inputs": {
         "flake-parts": "flake-parts",
@@ -169,6 +191,7 @@
         "disko": "disko",
         "flake-utils": "flake-utils",
         "impermanence": "impermanence",
+        "niks3": "niks3",
         "nix-topology": "nix-topology",
         "nixpkgs": "nixpkgs_2",
         "sops-nix": "sops-nix",
@@ -225,6 +248,27 @@
         "ref": "v3.0.1",
         "repo": "tofunix",
         "type": "gitlab"
+      }
+    },
+    "treefmt-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "niks3",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791885023,
+        "narHash": "sha256-C3alQ2MEt0zVrUSho5NUDo3jmhbff72++bfwoqT9Omo=",
+        "owner": "numtide",
+        "repo": "treefmt-nix",
+        "rev": "0d6d739a833ba9a9c93034862e4a7b061a062a1c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "treefmt-nix",
+        "type": "github"
       }
     }
   },

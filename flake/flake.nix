@@ -14,6 +14,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     impermanence.url = "github:nix-community/impermanence";
+    niks3 = {
+      url = "github:Mic92/niks3/v1.16.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -35,6 +39,7 @@
       flake-utils,
       disko,
       impermanence,
+      niks3,
       sops-nix,
       nix-topology,
       tofunix,
@@ -56,6 +61,7 @@
                 { nixpkgs.overlays = [ kernelModulesOverlay ]; }
                 disko.nixosModules.disko
                 impermanence.nixosModules.impermanence
+                niks3.nixosModules.niks3
                 sops-nix.nixosModules.sops
                 (./hosts + "/${hostName}")
               ]
@@ -369,6 +375,16 @@
               nixpkgs
               impermanence
               sops-nix
+              system
+              ;
+          }
+        );
+        checks.niks3-cache-service = vmCheck (
+          import ./tests/niks3-cache.nix {
+            inherit
+              nixpkgs
+              impermanence
+              niks3
               system
               ;
           }

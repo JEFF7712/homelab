@@ -18,6 +18,7 @@
     ../../modules/forgejo.nix
     ../../modules/git-dr-mirror.nix
     ../../modules/nas-s3.nix
+    ../../modules/niks3-cache.nix
     ../../modules/tofu-state.nix
     ../../modules/platform-backup.nix
     ../../modules/nas-syncthing.nix
@@ -37,6 +38,7 @@
     acmeEmail = "rupanpandyan@gmail.com";
   };
   homelab.s3.enable = true;
+  homelab.niks3Cache.enable = true;
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;
   homelab.platformBackup.bookshelfConfigPath = "/tank/cluster/media-bookshelf-config-pvc-ba9f64f7-e62f-4d69-9f48-a0715b54d396";
