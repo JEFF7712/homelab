@@ -86,15 +86,6 @@
       }
     },
     {
-      "description": "Group Flux and Kubernetes manifest updates",
-      "matchManagers": [
-        "flux",
-        "kubernetes"
-      ],
-      "groupName": "GitOps Kubernetes updates",
-      "groupSlug": "gitops-k8s-updates"
-    },
-    {
       "description": "Group Nix Flake inputs updates",
       "matchManagers": [
         "nix"
@@ -152,6 +143,20 @@
         "/(^|/)node$/"
       ],
       "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Python release images, bus-display and led-matrix pin python 3.12 by digest outside this file, so a newer minor here would only mirror an image nothing builds from; move them together (3.12 is supported until 2028-10)",
+      "matchFileNames": [
+        "gitops/producer-base-images/**"
+      ],
+      "matchPackageNames": [
+        "/(^|/)python$/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
         "major"
       ],
       "enabled": false
