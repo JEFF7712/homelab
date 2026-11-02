@@ -136,6 +136,7 @@
     {
       "description": "Chart image declarations move with their chart's upgrade, never on their own",
       "matchFileNames": [
+        "gitops/cert-manager/registry-sources.yaml",
         "gitops/observability/registry-sources.yaml",
         "gitops/platform/registry-sources.yaml"
       ],
