@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
@@ -58,7 +59,13 @@ def probe_target(
     open_url = opener if opener is not None else urllib.request.urlopen
     try:
         response = open_url(url, timeout=timeout)
-    except (urllib.error.URLError, OSError, ValueError):
+    except urllib.error.HTTPError as error:
+        # The VIP answered, so the route works; the status decides readiness.
+        print(f"{url}: HTTP {error.code}", file=sys.stderr)
+        return True, error.code
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        reason = getattr(error, "reason", error)
+        print(f"{url}: {type(reason).__name__}: {reason}", file=sys.stderr)
         return False, None
     status = getattr(response, "status", None)
     close = getattr(response, "close", None)
