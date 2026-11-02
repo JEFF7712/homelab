@@ -220,8 +220,9 @@ remove it once the SSD store has run cleanly for a while.
 
 ### niks3 cache (staged rollout)
 
-nas-01 runs a niks3 cache on port 8090 alongside Attic. Nothing pushes to
-it or reads from it yet; Attic remains the only cache CI and hosts use. The
+nas-01 runs a niks3 cache on port 8090 alongside Attic. The maintenance
+`cache-publish` operation pushes the same paths to niks3 after Attic, but
+hosts and CI still substitute from Attic only. The
 benchmark and the defect behind the patch are in
 `bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
 
@@ -236,15 +237,18 @@ benchmark and the defect behind the patch are in
 - `niks3-provision` creates the Garage layout, bucket, key, API token and
   signing key on first start and keeps them afterwards. The public key is
   `/persist/niks3/signing-key.pub`; the push token is
-  `/persist/niks3/api-token`.
+  `/persist/niks3/api-token`. CI holds a copy as the Woodpecker secret
+  `niks3_token` (cron and deployment events) and the GitLab production
+  variable `NIKS3_TOKEN`; after rotating the file, update both.
+- A niks3 error fails `cache-publish` once the Attic push has finished, so a
+  niks3 fault shows as a red maintenance run without leaving Attic behind.
 - The server carries `flake/patches/niks3-garage-multipart-aborts.patch`
   (Mic92/niks3#661). Without it, parallel pushes against Garage can exit 0
   while leaving a narinfo whose NAR is gone. Drop the patch once upstream
   ships an equivalent fix.
 
-Remaining stages: CI pushes to both caches, a fresh host restores from
-niks3 alone, hosts switch their substituter, and Attic is retired after
-about 30 days.
+Remaining stages: a fresh host restores from niks3 alone, hosts switch
+their substituter, and Attic is retired after about 30 days.
 
 ### Fleet cache builder
 

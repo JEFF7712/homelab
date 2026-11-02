@@ -123,3 +123,27 @@ if ((${#skipped[@]})); then
     exit 1
   fi
 fi
+
+# niks3 is staged alongside Attic (docs/runbooks/ci-pipelines.md): hosts still
+# substitute from Attic, so niks3 runs after it and any niks3 error fails the
+# job without holding back the Attic push.
+if [[ -z "${NIKS3_TOKEN:-}" ]]; then
+  echo "NIKS3_TOKEN is not set, so the niks3 push is skipped."
+  exit 0
+fi
+printf '%s' "$NIKS3_TOKEN" > "$cache_work/niks3-token"
+started=$SECONDS
+niks3_status=0
+niks3 push --stdin --server-url http://10.0.30.20:8090 \
+  --auth-token-path "$cache_work/niks3-token" --retry-timeout 2m \
+  < "$cache_work/unique" > "$cache_work/niks3.jsonl" || niks3_status=$?
+jq -r 'select(.status == "error") | "  \(.path): \(.message)"' \
+  "$cache_work/niks3.jsonl" > "$cache_work/niks3-errors"
+ok=$(jq -s '[.[] | select(.status == "ok")] | length' "$cache_work/niks3.jsonl")
+echo "niks3 push: ok=$ok elapsed_seconds=$((SECONDS - started))"
+if [[ -s "$cache_work/niks3-errors" || "$niks3_status" -ne 0 ]]; then
+  printf 'niks3 failed %d path(s) (exit %d):\n' \
+    "$(wc -l < "$cache_work/niks3-errors")" "$niks3_status" >&2
+  cat "$cache_work/niks3-errors" >&2
+  exit 1
+fi
