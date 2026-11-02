@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: ntfy
-      version: 1.7.0
+      version: 1.2.2
       sourceRef:
         kind: HelmRepository
         name: helmforge
@@ -18,7 +18,7 @@ spec:
         images:
           - name: docker.io/binwiederhier/ntfy
             newName: registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy  # yamllint disable-line rule:line-length
-            digest: sha256:59250e1d8be2ee2186c4560322f625faef22ace380331f05b63f8842dbd62602
+            digest: sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da
   values:
     ntfy:
       baseUrl: https://ntfy.rupan.dev
