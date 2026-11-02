@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: loki
-      version: 7.3.0
+      version: 7.5.0
       sourceRef:
         kind: HelmRepository
         name: grafana
@@ -21,7 +21,7 @@ spec:
             digest: sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d
           - name: docker.io/grafana/loki-canary
             newName: registry.rupan.dev/upstream/docker.io/grafana/loki-canary  # yamllint disable-line rule:line-length
-            digest: sha256:0dac7d5cb383adb8d3723676a70ed0c65b582e636846f4ce48703556dd509ad1
+            digest: sha256:6d53ce040b436e558936fe05514729c230e9e04edf1fe411d02701025e515924
           - name: docker.io/grafana/loki-helm-test
             newName: registry.rupan.dev/upstream/docker.io/grafana/loki-helm-test  # yamllint disable-line rule:line-length
             digest: sha256:2ed6447bbdbcd23019c3fdb02bce6db3fbef296d5a8f77a68d3dbc386bfa43fb
