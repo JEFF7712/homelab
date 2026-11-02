@@ -58,14 +58,6 @@ builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
 # A dropped cache.nixos.org download (an HTTP 416 on resume) otherwise fails
 # the derivation outright; build it from source instead.
 NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
-# Job Nix builds as root, and one Go build creating /homeless-shelter fails
-# every later build in the container; build as unprivileged users instead.
-# Repository tests run this script as root inside a Nix build (HOME is
-# /homeless-shelter there; nix develop also sets NIX_BUILD_TOP, so that
-# cannot tell them apart), which must not touch the builder's users.
-if ((EUID == 0)) && [[ "${HOME:-}" != /homeless-shelter ]]; then
-  NIX_CONFIG+=$'\n'"$(python -m scripts.ci.build_users)"
-fi
 export NIX_CONFIG
 started=$SECONDS
 case "$builder" in

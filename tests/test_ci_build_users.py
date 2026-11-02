@@ -3,12 +3,18 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.ci.build_users import GID, GROUP, missing_entries
+from scripts.ci.build_users import (
+    COUNT,
+    GID,
+    GROUP,
+    NIX_SETTING,
+    entries,
+    setup_command,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE_PASSWD = (
@@ -20,47 +26,36 @@ IMAGE_GROUP = "root:x:0:\nnixbld:x:30000:nixbld1\n"
 
 class BuildUsersTest(unittest.TestCase):
     def test_users_avoid_host_build_uids(self) -> None:
-        passwd, group = missing_entries(IMAGE_PASSWD, IMAGE_GROUP, 3)
+        passwd, group = entries(3)
         uids = [int(line.split(":")[2]) for line in passwd]
         self.assertEqual(uids, [GID + 1, GID + 2, GID + 3])
         # Host nix-daemons own 30001+ and kill those UIDs around their builds.
         self.assertTrue(all(uid > 30100 for uid in uids))
-        self.assertEqual(group, [f"{GROUP}:x:{GID}:{GROUP}1,{GROUP}2,{GROUP}3"])
+        self.assertEqual(group, f"{GROUP}:x:{GID}:{GROUP}1,{GROUP}2,{GROUP}3")
+        self.assertEqual(NIX_SETTING, f"build-users-group = {GROUP}")
 
-    def test_cli_appends_once_and_prints_setting(self) -> None:
+    def test_setup_command_survives_woodpecker_substitution(self) -> None:
+        # Woodpecker expands $VAR and ${VAR} in step commands.
+        self.assertNotIn("$", setup_command())
+
+    def test_setup_command_adds_the_users(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             passwd = Path(temporary) / "passwd"
             group = Path(temporary) / "group"
             passwd.write_text(IMAGE_PASSWD)
-            group.write_text(IMAGE_GROUP.rstrip("\n"))
-            for _ in range(2):
-                result = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "scripts.ci.build_users",
-                        "--passwd",
-                        str(passwd),
-                        "--group",
-                        str(group),
-                        "--count",
-                        "2",
-                    ],
-                    cwd=ROOT,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                self.assertEqual(result.stdout, f"build-users-group = {GROUP}\n")
-            self.assertEqual(passwd.read_text().count(f"{GROUP}1:"), 1)
-            self.assertEqual(passwd.read_text().count(f"{GROUP}2:"), 1)
+            group.write_text(IMAGE_GROUP)
+            command = setup_command().replace("/etc/passwd", str(passwd))
+            command = command.replace("/etc/group", str(group))
+            subprocess.run(["sh", "-c", command], check=True)
+            expected_passwd, expected_group = entries()
+            self.assertEqual(
+                passwd.read_text().splitlines(),
+                IMAGE_PASSWD.splitlines() + expected_passwd,
+            )
+            self.assertEqual(len(expected_passwd), COUNT)
             self.assertEqual(
                 group.read_text().splitlines(),
-                [
-                    "root:x:0:",
-                    "nixbld:x:30000:nixbld1",
-                    f"{GROUP}:x:{GID}:cibld1,cibld2",
-                ],
+                IMAGE_GROUP.splitlines() + [expected_group],
             )
 
 
@@ -95,8 +90,7 @@ class CacheNixConfigTest(unittest.TestCase):
                 check=True,
             )
             lines = (repo / "config.log").read_text().splitlines()
-            self.assertEqual(lines[0], "sandbox = false")
-            self.assertIn("fallback = true", lines)
+            self.assertEqual(lines, ["sandbox = false", "fallback = true"])
 
 
 if __name__ == "__main__":

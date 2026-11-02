@@ -31,6 +31,7 @@ let
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
     PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${../..} > $out/authority-baseline.json
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
+    cp ${../../scripts/ci/build_users.py} $out/scripts/ci/build_users.py
     cp ${../../scripts/ci/development_projects.py} $out/scripts/ci/development_projects.py
     cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
     cp ${../../scripts/ci/static_release.py} $out/scripts/ci/static_release.py
