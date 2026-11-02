@@ -287,6 +287,19 @@ Key rules:
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
 - **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **Flux system manifests:** Renovate does not update `gitops/clusters/homelab-01/flux-system/gotk-components.yaml`. Its image has no `flux` binary, so it could only bump the version comment, and two such header-only bumps merged before 2026-11 while the controllers stayed on Flux v2.9.0.
+
+### Upgrading Flux
+
+1. Generate the new components with the matching CLI:
+   `flux install --version=<v2.x.y> --components=source-controller,kustomize-controller,helm-controller,notification-controller --export > gotk-components.yaml`.
+2. Mirror the four controller images at the tags that manifest names, merging
+   only their new records into `registry/images.inventory.json` and
+   `registry/images.lock.json`, and confirm `registry-lock-import` copied them.
+3. Replace each `ghcr.io/fluxcd/<controller>:<tag>` in the manifest with its
+   `registry.rupan.dev/upstream/ghcr.io/fluxcd/<controller>@sha256:...` mirror
+   digest, then review the CRD and RBAC diff before shipping. The
+   `kustomization.yaml` patch keeps the namespace's Pod Security label.
 
 ### Decoupled CVE audits and delta reporting
 

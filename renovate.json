@@ -157,6 +157,16 @@
       "enabled": false
     },
     {
+      "description": "Flux system upgrades regenerate gotk-components.yaml and mirror its controller images (docs/runbooks/local-registry.md); the Renovate image has no flux binary, so it could only bump the version comment",
+      "matchManagers": [
+        "flux"
+      ],
+      "matchFileNames": [
+        "gitops/clusters/*/flux-system/gotk-components.yaml"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Never automerge Nix inputs: a merged flake bump is undeployed fleet drift until deploy-fleet runs, and nixpkgs can carry a k3s minor upgrade",
       "matchManagers": [
         "nix"
