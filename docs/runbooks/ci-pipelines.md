@@ -76,7 +76,9 @@ Repository settings must clear extension overrides and all trusted permissions.
 
 The patched Woodpecker server records the deployment operator before policy
 evaluation and rejects restart query variable overrides. Retain the patch
-during upgrades. Deployment rights include the enrolled `homelab-agent` identity; task delivery needs no separate operator approval.
+during upgrades. Deployment rights include the enrolled `homelab-agent` identity;
+routine task delivery needs no separate operator approval. Authority-changing
+and destructive exceptions retain the operator gates described below.
 
 ## Validation and operations
 
@@ -522,11 +524,19 @@ Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-The deploy policy admits `homelab-agent` for all catalog operations under the
-requested task's standing delivery authorization. No protected-source baseline,
-operator-only catalog exception, or passkey grant is required. Saved plans are
-validated for completeness and risks are reported; the agent must stay within
-task scope and establish recovery before intended persistent-data destruction.
+The deploy policy admits `homelab-agent` for routine catalog mutations marked
+`"agent": true` under the task's standing delivery authorization. Operator-only
+operations remain held. Before admitting an agent mutation, the active policy
+compares the operation's protected source inputs with its deployed baseline.
+Changed authorization/storage sources require an exact-content passkey grant;
+changing a covered file invalidates the grant, while unrelated main commits do
+not. `policy/merge` independently holds changes to agent-bounding controls before
+merge. See [approvals](approvals.md) and [merge policy](merge-policy.md).
+
+Saved plans are checked for completeness. Authorization changes, persistent-data
+deletion, management-connectivity loss and bulk destruction require the operator
+before apply. The agent must stay within task scope and establish backups and
+recovery before intended persistent-data destruction.
 
 Source validation must pass for the operation's exact source SHA. Both policy
 and runner reject superseded related inputs, while known disjoint main changes
@@ -536,10 +546,9 @@ not block deployment; exact-source prerequisites remain mandatory.
 Triggering deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
 profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
-agent machine. Production credentials stay in CI. Before this policy is first
-activated, the previous generation can still require its legacy
-[passkey approval](approvals.md); `ship` files that transition request.
-Never commit tokens.
+agent machine. Production credentials stay in CI. High-risk exceptions use the
+[passkey approvals service](approvals.md); `ship` files the request rather than
+giving an operator token to the agent. Never commit tokens.
 
 ## Recovery
 
