@@ -21,8 +21,8 @@ items:
   - image: ghcr.io/jessepesse/jellyfin-ai-recommender-frontend:latest@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30  # yamllint disable-line rule:line-length
   # Questarr (*arr-style game manager: IGDB discovery, Prowlarr indexers,
   # qBittorrent downloads)
-  - image: ghcr.io/doezer/questarr:v1.5.0@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621  # yamllint disable-line rule:line-length
+  - image: ghcr.io/doezer/questarr:v1.6.0@sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972  # yamllint disable-line rule:line-length
   # Gameyfin (web library for /tank/media/games with per-user downloads)
-  - image: ghcr.io/gameyfin/gameyfin:2.5.2@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93  # yamllint disable-line rule:line-length
+  - image: ghcr.io/gameyfin/gameyfin:2.6.0@sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138  # yamllint disable-line rule:line-length
   # ClamAV (clamd + freshclam) for Questarr's pre-import INSTREAM scans
-  - image: docker.io/clamav/clamav:1.5.4@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d  # yamllint disable-line rule:line-length
+  - image: docker.io/clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a  # yamllint disable-line rule:line-length

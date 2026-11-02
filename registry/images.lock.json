@@ -1252,6 +1252,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/music-assistant/registry-sources.yaml:18"
+      ],
+      "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
+      "destination_tags": [
+        "2.0.2",
+        "retention-deployed-d7d34108b76e52c7"
+      ],
+      "digest": "sha256:d7d34108b76e52c7d3b575fe9e797e4bf41c1b2a08f80c5292eff6f851ce8472",
+      "id": "upstream-brainicism-bgutil-ytdlp-pot-provider-961e753ce635",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:d7d34108b76e52c7d3b575fe9e797e4bf41c1b2a08f80c5292eff6f851ce8472",
+        "reference": "docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.2@sha256:d7d34108b76e52c7d3b575fe9e797e4bf41c1b2a08f80c5292eff6f851ce8472",
+        "registry": "docker.io",
+        "repository": "brainicism/bgutil-ytdlp-pot-provider",
+        "tag": "2.0.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/music-assistant/server.yaml:90"
       ],
       "destination_repository": "upstream/docker.io/brainicism/bgutil-ytdlp-pot-provider",
@@ -1429,6 +1468,43 @@
       ],
       "destination_repository": "upstream/docker.io/clamav/clamav",
       "destination_tags": [
+        "retention-deployed-6d87c712e3391e13"
+      ],
+      "digest": "sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a",
+      "id": "upstream-clamav-clamav-c0591b4b4f75",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a",
+        "reference": "docker.io/clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a",
+        "registry": "docker.io",
+        "repository": "clamav/clamav",
+        "tag": "1.5.4"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:28"
+      ],
+      "destination_repository": "upstream/docker.io/clamav/clamav",
+      "destination_tags": [
         "1.5.4",
         "retention-deployed-bda39705e2911050"
       ],
@@ -1494,6 +1570,45 @@
         "registry": "ghcr.io",
         "repository": "doezer/questarr",
         "tag": "v1.5.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:24"
+      ],
+      "destination_repository": "upstream/ghcr.io/doezer/questarr",
+      "destination_tags": [
+        "retention-deployed-495a1648f1ad8ddd",
+        "v1.6.0"
+      ],
+      "digest": "sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972",
+      "id": "upstream-doezer-questarr-56d8bb0924ec",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972",
+        "reference": "ghcr.io/doezer/questarr:v1.6.0@sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972",
+        "registry": "ghcr.io",
+        "repository": "doezer/questarr",
+        "tag": "v1.6.0"
       }
     },
     {
@@ -1779,6 +1894,45 @@
         "registry": "ghcr.io",
         "repository": "gameyfin/gameyfin",
         "tag": "2.5.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "destination_tags": [
+        "2.6.0",
+        "retention-deployed-c0c94f348c0cee5a"
+      ],
+      "digest": "sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138",
+      "id": "upstream-gameyfin-gameyfin-9179ae6370ca",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.6.0@sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.6.0"
       }
     },
     {
@@ -4374,6 +4528,45 @@
         "registry": "ghcr.io",
         "repository": "umami-software/umami",
         "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/analytics/registry-sources.yaml:13"
+      ],
+      "destination_repository": "upstream/ghcr.io/umami-software/umami",
+      "destination_tags": [
+        "3.4.1",
+        "retention-deployed-e69d1a7932e9dab0"
+      ],
+      "digest": "sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8",
+      "id": "upstream-umami-software-umami-72fb9932c53c",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8",
+        "reference": "ghcr.io/umami-software/umami:3.4.1@sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8",
+        "registry": "ghcr.io",
+        "repository": "umami-software/umami",
+        "tag": "3.4.1"
       }
     },
     {
