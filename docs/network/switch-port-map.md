@@ -106,3 +106,19 @@ their uplinks.
 Use a LAN port, never the WAN/Internet port, for each AP uplink. Both APs use
 the same SSID and security settings for client roaming. Assign different
 non-overlapping radio channels where their coverage overlaps.
+
+## Automated management access
+
+`adguard-netbird-01` reaches only the two switch management addresses through
+its existing VLAN 60 interface, with host routes via `10.0.60.1` and source
+`10.0.60.2`. The routes belong to
+`flake/modules/adguard-netbird-appliance.nix`. OPNsense's existing NetBird
+permission admits this traffic to VLAN 10; the infrastructure default route
+cannot be used for switch management. No switch port or firewall permission
+needs to change for this access.
+
+From an authorized workstation, an SSH local forward through
+`rupan@10.0.30.10` can reach each switch's HTTP management interface. Keep the
+listener on `127.0.0.1`, and keep credentials and configuration backups out of
+Git and command output. Back up both switches before firmware upgrades and
+upgrade one at a time: either switch's restart interrupts WAN transit.
