@@ -218,6 +218,31 @@ disk shared with media and NFS that held IO pressure above 80% and made
 every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
 remove it once the SSD store has run cleanly for a while.
 
+### niks3 cache (staged rollout)
+
+nas-01 runs a niks3 cache on port 8090 alongside Attic. Nothing pushes to
+it or reads from it yet; Attic remains the only cache CI and hosts use. The
+benchmark and the defect behind the patch are in
+`bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
+
+- niks3 keeps metadata in a local PostgreSQL (`/var/lib/postgresql`,
+  persisted) and objects in its own Garage instance (`garage-nix-cache`) on
+  `zroot/nix-cache`. Its S3 and RPC ports listen on loopback only. The
+  fleet's main Garage stays on `tank`, which is too slow for cache reads
+  (see above).
+- `niks3-provision` creates the Garage layout, bucket, key, API token and
+  signing key on first start and keeps them afterwards. The public key is
+  `/persist/niks3/signing-key.pub`; the push token is
+  `/persist/niks3/api-token`.
+- The server carries `flake/patches/niks3-garage-multipart-aborts.patch`
+  (Mic92/niks3#661). Without it, parallel pushes against Garage can exit 0
+  while leaving a narinfo whose NAR is gone. Drop the patch once upstream
+  ships an equivalent fix.
+
+Remaining stages: CI pushes to both caches, a fresh host restores from
+niks3 alone, hosts switch their substituter, and Attic is retired after
+about 30 days.
+
 ### Fleet cache builder
 
 `scripts/ci/cache.sh` uses bounded nix-fast-build evaluation by default for
