@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scripts.ci import build_users
+
 
 @dataclass(frozen=True)
 class Application:
@@ -441,17 +443,17 @@ def configuration(
                             "experimental-features = nix-command flakes\n"
                             "accept-flake-config = true\n"
                             "sandbox = false\n"
-                            # Host daemons kill builders sharing nixbld UIDs.
-                            "build-users-group =\n"
+                            f"{build_users.NIX_SETTING}\n"
                             "max-jobs = 2\n"
                             "cores = 2\n"
                             "connect-timeout = 5\n"
                             "download-attempts = 3\n"
-                            "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
-                            "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
+                            "extra-substituters = http://10.0.30.20:8090?priority=30 http://10.0.30.20:8080/homelab?priority=35\n"
+                            "extra-trusted-public-keys = homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec= homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
                         )
                     },
                     "commands": [
+                        build_users.setup_command(),
                         "nix fmt -- --fail-on-change --no-cache",
                         "nix flake check --no-write-lock-file",
                     ],

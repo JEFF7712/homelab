@@ -27,6 +27,7 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from scripts.ci import build_users
 from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import SupersededSource, current_source, pack, unpack
@@ -269,7 +270,7 @@ class PolicyTest(unittest.TestCase):
             self.assertTrue(VALIDATION_COMMAND.startswith("nix develop ./flake#ci "))
             self.assertEqual(
                 workflow["steps"][0]["commands"],
-                [VALIDATION_COMMAND],
+                [build_users.setup_command(), VALIDATION_COMMAND],
             )
             self.assertNotIn("from_secret", json.dumps(workflow))
 
@@ -316,9 +317,10 @@ class PolicyTest(unittest.TestCase):
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
-    def test_job_nix_builds_without_host_shared_build_users(self) -> None:
+    def test_job_nix_builds_as_users_the_host_does_not_own(self) -> None:
         # The image's nixbld UIDs equal the host's, and a host nix-daemon
-        # SIGKILLs every process of a build UID around its own builds.
+        # SIGKILLs every process of a build UID around its own builds; root
+        # builders can create /homeless-shelter and fail every later build.
         result = configuration(self.request, self.catalog, current=SHA)
         result["configs"] += self.deployment()["configs"]
         for item in result["configs"]:
@@ -334,7 +336,8 @@ class PolicyTest(unittest.TestCase):
                 }
                 with self.subTest(workflow=item["name"], step=step["name"]):
                     self.assertEqual(settings["sandbox"], "false")
-                    self.assertEqual(settings["build-users-group"], "")
+                    self.assertEqual(settings["build-users-group"], build_users.GROUP)
+                    self.assertEqual(step["commands"][0], build_users.setup_command())
 
     def test_nixos_publish_is_manual_and_forgejo_sourced(self) -> None:
         operation = self.catalog["nixos-publish"]

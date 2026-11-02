@@ -507,6 +507,7 @@ class DeployFleetTest(unittest.TestCase):
         self.assertEqual(len(nfs), 1)
         self.assertEqual(nfs[0][-2], "rupan@10.0.30.20")
         self.assertIn("http://10.0.30.20:8080/", checked_urls)
+        self.assertIn("http://10.0.30.20:8090/nix-cache-info", checked_urls)
 
     def test_nas_probes_wait_for_activation_to_settle(self) -> None:
         for failures in (3, 100):
@@ -544,6 +545,27 @@ class DeployFleetTest(unittest.TestCase):
                     min(failures + 1, APPLIANCE_SETTLE_ATTEMPTS)
                     * (2 if failures >= APPLIANCE_SETTLE_ATTEMPTS else 1),
                 )
+
+    def test_nas_verification_fails_when_niks3_stays_down(self) -> None:
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            del kwargs
+            if argv[:2] == ["nix", "eval"] and "--raw" not in argv:
+                return subprocess.CompletedProcess(argv, 0, "[]", "")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        deployer = self.deployer(
+            targets=[FLEET_HOSTS["nas-01"]],
+            skip_preflight=True,
+            skip_cooldown=True,
+            runner=runner,
+            socket_checker=lambda host, port, timeout: False,
+            http_checker=lambda url, timeout: ":8090/" not in url,
+            sleeper=lambda seconds: None,
+        )
+        with self.assertRaisesRegex(FleetDeploymentError, "niks3 cache"):
+            deployer.execute()
 
     def test_circuit_breaker_halts_on_failure_and_uncordons(self) -> None:
         executed_commands: list[list[str]] = []

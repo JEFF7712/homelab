@@ -2,8 +2,14 @@
   description = "NixOS homelab development and validation tools";
 
   nixConfig = {
-    extra-substituters = [ "http://10.0.30.20:8080/homelab" ];
-    extra-trusted-public-keys = [ "homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=" ];
+    extra-substituters = [
+      "http://10.0.30.20:8090"
+      "http://10.0.30.20:8080/homelab"
+    ];
+    extra-trusted-public-keys = [
+      "homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec="
+      "homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk="
+    ];
   };
 
   inputs = {
