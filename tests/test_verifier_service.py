@@ -124,7 +124,7 @@ class MergePolicyService(unittest.TestCase):
 
         good, bad = self.branch(1, routine), self.branch(2, widen)
         forge = FakeForge([self.pull(1, good), self.pull(2, bad)])
-        judged: dict[int, tuple[str, str, str]] = {}
+        judged: dict[int, tuple[str, str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         states = {sha: body["state"] for sha, body in forge.statuses}
         self.assertEqual(states, {good: "success", bad: "failure"})
@@ -155,7 +155,7 @@ class MergePolicyService(unittest.TestCase):
 
         head = self.branch(8, media)
         forge = FakeForge([self.pull(8, head)])
-        judged: dict[int, tuple[str, str, str]] = {}
+        judged: dict[int, tuple[str, str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "success")
 
@@ -179,7 +179,7 @@ class MergePolicyService(unittest.TestCase):
 
         head = self.branch(3, eject)
         forge = FakeForge([self.pull(3, head)])
-        judged: dict[int, tuple[str, str, str]] = {}
+        judged: dict[int, tuple[str, str, str, str]] = {}
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "failure")
         self.assertIn("outcome=escalated", forge.comments[3][0]["body"])
@@ -197,6 +197,33 @@ class MergePolicyService(unittest.TestCase):
         )
         run_once(forge, self.mirror, judged)
         self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
+    def test_approved_head_behind_overlapping_main_reports_the_new_reason(
+        self,
+    ) -> None:
+        def touch_policy(repo: Path) -> None:
+            (repo / "CODEOWNERS").write_text("x @rupan\n")
+
+        head = self.branch(9, touch_policy)
+        forge = FakeForge([self.pull(9, head)])
+        judged: dict[int, tuple[str, str, str, str]] = {}
+        run_once(forge, self.mirror, judged)
+        self.assertEqual(
+            forge.statuses[-1][1]["description"],
+            "needs operator approval of this commit",
+        )
+
+        self.advance_main("CODEOWNERS")
+        forge.reviews[9] = [
+            {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": head}
+        ]
+        run_once(forge, self.mirror, judged)
+        state = forge.statuses[-1][1]
+        self.assertEqual(state["state"], "failure")
+        self.assertTrue(state["description"].startswith(OUTDATED), state)
+
+        run_once(forge, self.mirror, judged)
+        self.assertEqual(len(forge.statuses), 2, "an unchanged reason is not re-posted")
 
     def test_approval_carries_over_a_main_update_but_not_a_new_change(self) -> None:
         def touch_policy(repo: Path) -> None:
@@ -242,7 +269,7 @@ class MergePolicyService(unittest.TestCase):
 
     def test_repeated_evaluation_errors_fail_closed_with_a_reason(self) -> None:
         forge = FakeForge([self.pull(5, "e" * 40)])
-        judged: dict[int, tuple[str, str, str]] = {}
+        judged: dict[int, tuple[str, str, str, str]] = {}
         errors: dict[tuple[int, str], int] = {}
         for _ in range(2):
             run_once(forge, self.mirror, judged, errors=errors)

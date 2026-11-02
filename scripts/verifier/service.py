@@ -387,7 +387,7 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
 def run_once(
     forge: Forge,
     mirror: Mirror,
-    judged: dict[int, tuple[str, str, str]],
+    judged: dict[int, tuple[str, str, str, str]],
     dry_run: bool = False,
     errors: dict[tuple[int, str], int] | None = None,
 ) -> None:
@@ -410,15 +410,19 @@ def run_once(
         number, head = pull["number"], pull["head"]["sha"]
         previous = judged.get(number)
         # A passing head stays passing until it or main moves.
-        if previous == (head, "success", main):
+        if previous and previous[:2] == (head, "success") and previous[3] == main:
             continue
         try:
             head, decision, judged_main = judge(forge, mirror, pull)
-            if previous and previous[:2] == (head, decision.state):
-                judged[number] = (head, decision.state, judged_main)
+            judgment = (head, decision.state, decision.description, judged_main)
+            # The reason matters as well as the state: an operator approval
+            # turns "needs operator approval" into "behind main", which ship
+            # answers with a branch update only once it is published.
+            if previous and previous[:3] == judgment[:3]:
+                judged[number] = judgment
                 continue
             if dry_run:
-                judged[number] = (head, decision.state, judged_main)
+                judged[number] = judgment
                 print(
                     json.dumps(
                         {
@@ -431,7 +435,7 @@ def run_once(
                 )
                 continue
             if publish(forge, pull, head, decision):
-                judged[number] = (head, decision.state, judged_main)
+                judged[number] = judgment
                 log.info(
                     "PR #%s %s: %s %s",
                     number,
@@ -480,7 +484,7 @@ def main(argv: list[str] | None = None) -> int:
     mirror = Mirror(
         args.state / "mirror.git", f"{args.forgejo}/{args.repository}.git", token
     )
-    judged: dict[int, tuple[str, str, str]] = {}
+    judged: dict[int, tuple[str, str, str, str]] = {}
     errors: dict[tuple[int, str], int] = {}
     while True:
         run_once(forge, mirror, judged, args.dry_run, errors)
