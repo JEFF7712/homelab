@@ -964,40 +964,6 @@
     },
     {
       "consumers": [
-        "gitops/producer-base-images/base-images.yaml:38"
-      ],
-      "destination_repository": "upstream/docker.io/library/node",
-      "id": "upstream-library-node-ba1f51cd8218",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39",
-        "reference": "docker.io/library/node:26-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39",
-        "registry": "docker.io",
-        "repository": "library/node",
-        "tag": "26-slim"
-      }
-    },
-    {
-      "consumers": [
-        "gitops/producer-base-images/base-images.yaml:39"
-      ],
-      "destination_repository": "upstream/docker.io/library/node",
-      "id": "upstream-library-node-fe1bd3ecaff0",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94",
-        "reference": "docker.io/library/node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94",
-        "registry": "docker.io",
-        "repository": "library/node",
-        "tag": "26-alpine"
-      }
-    },
-    {
-      "consumers": [
         "gitops/producer-base-images/base-images.yaml:31"
       ],
       "destination_repository": "upstream/docker.io/library/python",
