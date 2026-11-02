@@ -18,6 +18,7 @@ from scripts.agent.opnsense_status import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+KERNEL = [{"proto": "ipv4", "destination": "10.0.40.10", "gateway": "10.0.30.11"}]
 
 
 class OpnsenseStatusTest(unittest.TestCase):
@@ -35,18 +36,50 @@ class OpnsenseStatusTest(unittest.TestCase):
         expected_peers = {"10.0.30.11": 64512}
         expected_routes = {"10.0.40.10/32"}
         self.assertEqual(
-            diagnostic_health(summary, routes, expected_peers, expected_routes)[
+            diagnostic_health(summary, routes, KERNEL, expected_peers, expected_routes)[
                 "status"
             ],
             "pass",
         )
         summary["response"]["ipv4Unicast"]["peers"]["10.0.30.11"]["remoteAs"] = 64513
         result = diagnostic_health(
-            summary, routes, expected_peers, expected_routes | {"10.0.40.13/32"}
+            summary,
+            routes,
+            KERNEL,
+            expected_peers,
+            expected_routes | {"10.0.40.13/32"},
         )
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["missing_peers"], ["10.0.30.11"])
         self.assertEqual(result["missing_routes"], ["10.0.40.13/32"])
+
+    def test_route_in_rib_but_not_kernel_fib_fails(self) -> None:
+        # 2026-11-02: after an FRR restart the RIB held every VIP while the
+        # kernel kept only the connected /24, so the VIPs blackholed.
+        summary = {
+            "response": {
+                "ipv4Unicast": {
+                    "peers": {"10.0.30.11": {"state": "Established", "remoteAs": 64512}}
+                }
+            }
+        }
+        routes = {"total": 1, "rows": [{"prefix": "10.0.40.10"}]}
+        connected_only = [
+            {"proto": "ipv4", "destination": "10.0.40.0/24", "gateway": "link#11"},
+            {"proto": "ipv4", "destination": "10.0.40.16", "gateway": "10.0.30.14"},
+        ]
+        result = diagnostic_health(
+            summary, routes, connected_only, {"10.0.30.11": 64512}, {"10.0.40.10/32"}
+        )
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["missing_routes"], [])
+        self.assertEqual(result["uninstalled_routes"], ["10.0.40.10/32"])
+        self.assertIn("restart FRR", result["detail"])
+        self.assertIn("opnsense-bgp-proof.md", result["detail"])
+        with self.assertRaises(ValueError):
+            diagnostic_health(
+                summary, routes, {}, {"10.0.30.11": 64512}, {"10.0.40.10/32"}
+            )
 
     def test_partial_or_malformed_responses_cannot_pass(self) -> None:
         summary = {"response": {"peers": {}}}
@@ -57,14 +90,14 @@ class OpnsenseStatusTest(unittest.TestCase):
             {"total": 1, "rows": [{}]},
         ):
             with self.subTest(routes=routes), self.assertRaises(ValueError):
-                diagnostic_health(summary, routes, *expectations)
+                diagnostic_health(summary, routes, KERNEL, *expectations)
         with self.assertRaises(ValueError):
-            diagnostic_health({}, {"total": 0, "rows": []}, *expectations)
+            diagnostic_health({}, {"total": 0, "rows": []}, KERNEL, *expectations)
 
     def test_empty_expectations_cannot_pass(self) -> None:
         with self.assertRaises(ValueError):
             diagnostic_health(
-                {"response": {"peers": {}}}, {"total": 0, "rows": []}, {}, set()
+                {"response": {"peers": {}}}, {"total": 0, "rows": []}, KERNEL, {}, set()
             )
 
     @patch.dict(os.environ, {"OPNSENSE_READONLY_API_KEY": "readonly-key"}, clear=True)
@@ -95,9 +128,14 @@ class OpnsenseStatusTest(unittest.TestCase):
                 subprocess.CompletedProcess([], 0, "readonly-key\n", ""),
                 subprocess.CompletedProcess([], 0, "readonly-secret\n", ""),
             ]
-            with patch(
-                "scripts.agent.opnsense_status.subprocess.run", side_effect=results
-            ) as run:
+            # An agent VM's own identity would select the VM-scoped source.
+            with (
+                patch("scripts.agent.opnsense_status.Path.home", return_value=root),
+                patch(
+                    "scripts.agent.opnsense_status.subprocess.run",
+                    side_effect=results,
+                ) as run,
+            ):
                 self.assertEqual(credentials(root), ("readonly-key", "readonly-secret"))
             commands = [call.args[0] for call in run.call_args_list]
             self.assertIn('["stringData"]["OPNSENSE_READONLY_API_KEY"]', commands[0])
@@ -105,7 +143,7 @@ class OpnsenseStatusTest(unittest.TestCase):
             self.assertNotIn("admin-key", str(commands))
             self.assertNotIn("readonly-secret", str(commands))
 
-    def test_probe_uses_verified_tls_and_only_the_two_get_endpoints(self) -> None:
+    def test_probe_uses_verified_tls_and_only_the_read_endpoints(self) -> None:
         response = Mock(status=200)
         response.read.return_value = b"{}"
         connection = Mock()
@@ -135,7 +173,7 @@ class OpnsenseStatusTest(unittest.TestCase):
                     probe(ROOT, "https://OPNsense.internal")["status"], "pass"
                 )
             context.assert_called_once_with(cafile=str(ca_file))
-            self.assertEqual(connect.call_count, 2)
+            self.assertEqual(connect.call_count, len(ENDPOINTS))
             self.assertIs(connect.call_args.kwargs["context"], context.return_value)
             self.assertEqual(
                 [
