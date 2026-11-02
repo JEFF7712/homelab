@@ -15,8 +15,14 @@ from unittest.mock import patch
 
 import yaml
 
+from scripts.ci import (
+    build_users,
+    dotnet_service,
+    firmware,
+    nixos_config,
+    python_service,
+)
 from scripts.ci import container_release as release
-from scripts.ci import dotnet_service, firmware, nixos_config, python_service
 from scripts.ci.applications import configuration, load_catalog
 from scripts.ci.dockerfile_supply import parse_dockerfile
 
@@ -1022,8 +1028,10 @@ class NixOSLaneTest(unittest.TestCase):
         self.assertIn("nix flake check --no-write-lock-file", check["commands"])
         # nixbld UIDs are shared with the host daemon, which kills them.
         self.assertIn(
-            "build-users-group =\n", check["environment"]["NIX_CONFIG"].splitlines(True)
+            build_users.NIX_SETTING + "\n",
+            check["environment"]["NIX_CONFIG"].splitlines(True),
         )
+        self.assertEqual(check["commands"][0], build_users.setup_command())
         self.assertNotIn("environment", workflow["steps"][0])
 
 

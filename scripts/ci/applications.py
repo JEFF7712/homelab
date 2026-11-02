@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scripts.ci import build_users
+
 
 @dataclass(frozen=True)
 class Application:
@@ -441,8 +443,7 @@ def configuration(
                             "experimental-features = nix-command flakes\n"
                             "accept-flake-config = true\n"
                             "sandbox = false\n"
-                            # Host daemons kill builders sharing nixbld UIDs.
-                            "build-users-group =\n"
+                            f"{build_users.NIX_SETTING}\n"
                             "max-jobs = 2\n"
                             "cores = 2\n"
                             "connect-timeout = 5\n"
@@ -452,6 +453,7 @@ def configuration(
                         )
                     },
                     "commands": [
+                        build_users.setup_command(),
                         "nix fmt -- --fail-on-change --no-cache",
                         "nix flake check --no-write-lock-file",
                     ],
