@@ -405,6 +405,15 @@
 - disabled_by: user
   entity_id: sensor.remotes
   labels: []
+- disabled_by: integration
+  entity_id: sensor.rupan_phone_hinge_angle
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.rupan_phone_hinge_status
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.rupan_phone_pose
+  labels: []
 - disabled_by: user
   entity_id: sensor.scenes
   labels: []
