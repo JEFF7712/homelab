@@ -287,6 +287,7 @@ Key rules:
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
 - **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A Helm chart bump needs only review, while a `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together.
 - **Flux system manifests:** Renovate does not update `gitops/clusters/homelab-01/flux-system/gotk-components.yaml`. Its image has no `flux` binary, so it could only bump the version comment, and two such header-only bumps merged before 2026-11 while the controllers stayed on Flux v2.9.0.
 
 ### Upgrading Flux
