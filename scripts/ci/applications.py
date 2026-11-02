@@ -448,8 +448,8 @@ def configuration(
                             "cores = 2\n"
                             "connect-timeout = 5\n"
                             "download-attempts = 3\n"
-                            "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
-                            "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
+                            "extra-substituters = http://10.0.30.20:8090?priority=30 http://10.0.30.20:8080/homelab?priority=35\n"
+                            "extra-trusted-public-keys = homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec= homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
                         )
                     },
                     "commands": [
