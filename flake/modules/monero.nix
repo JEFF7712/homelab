@@ -71,6 +71,12 @@ in
       description = "systemd CPUQuota for monerod, bounding initial sync on shared hosts.";
     };
 
+    memoryHigh = lib.mkOption {
+      type = lib.types.str;
+      default = "6G";
+      description = "systemd MemoryHigh for monerod; reclaim starts here, below memoryMax.";
+    };
+
     memoryMax = lib.mkOption {
       type = lib.types.str;
       default = "8G";
@@ -245,7 +251,7 @@ in
         # enforced by the cgroup I/O controller regardless of elevator.
         IOReadBandwidthMax = "${cfg.ioDevice} ${cfg.readBandwidthMax}";
         IOWriteBandwidthMax = "${cfg.ioDevice} ${cfg.writeBandwidthMax}";
-        MemoryHigh = "6G";
+        MemoryHigh = cfg.memoryHigh;
         MemoryMax = cfg.memoryMax;
         TimeoutStopSec = "300s";
         RestartSec = "30s";
