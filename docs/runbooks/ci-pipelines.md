@@ -229,8 +229,13 @@ remove it once the SSD store has run cleanly for a while.
 ### niks3 cache (staged rollout)
 
 nas-01 runs a niks3 cache on port 8090 alongside Attic. The maintenance
-`cache-publish` operation pushes the same paths to niks3 after Attic, but
-hosts and CI still substitute from Attic only. The
+`cache-publish` operation pushes the same paths to niks3 after Attic. Hosts
+(`flake/modules/common-base.nix`), the flake's `nixConfig` and CI jobs
+substitute from niks3 first and fall back to Attic: niks3 advertises
+priority 30 and Attic 41, and CI's `NIX_CONFIG` pins them at 30 and 35, all
+ahead of `cache.nixos.org` (40). A path niks3 lacks costs one 404 before
+Attic serves it. Fleet deployment verifies both caches after activating
+nas-01. The
 benchmark and the defect behind the patch are in
 `bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
 
@@ -250,13 +255,18 @@ benchmark and the defect behind the patch are in
   variable `NIKS3_TOKEN`; after rotating the file, update both.
 - A niks3 error fails `cache-publish` once the Attic push has finished, so a
   niks3 fault shows as a red maintenance run without leaving Attic behind.
+- Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
+  Rotating `/persist/niks3/signing-key` needs the new public key in every
+  substituter list above first.
 - The server carries `flake/patches/niks3-garage-multipart-aborts.patch`
   (Mic92/niks3#661). Without it, parallel pushes against Garage can exit 0
   while leaving a narinfo whose NAR is gone. Drop the patch once upstream
   ships an equivalent fix.
 
-Remaining stages: a fresh host restores from niks3 alone, hosts switch
-their substituter, and Attic is retired after about 30 days.
+A CI-published nas-01 closure (1180 paths) restored into an empty store
+from niks3 alone, trusting only its key, on 2026-11-01. Remaining stage:
+retire Attic after about 30 days of niks3 serving the fleet, removing it
+from the substituter lists and `cache.sh`.
 
 ### Fleet cache builder
 
@@ -294,9 +304,10 @@ timing from complete build/upload timing. The fast tool's wrapper lives in
 the operations tools, keeping its Python dependencies out of repository
 Python and its closure out of ordinary validation shells.
 
-All pipelines resolve the dev shell and build outputs from the local Attic
-substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
-ensures the local cache takes precedence over `cache.nixos.org` (priority 40).
+All pipelines resolve the dev shell and build outputs from the local niks3
+cache (`http://10.0.30.20:8090?priority=30`), then Attic
+(`http://10.0.30.20:8080/homelab?priority=35`). Both priorities put the local
+caches ahead of `cache.nixos.org` (priority 40).
 `just cache-populate` and `scripts/ci/cache.sh` use `--ignore-upstream-cache-filter --jobs 8`
 to ensure all devShell dependencies are cached locally. `cache.sh` pushes in
 batches of 200 and retries a failed batch path by path, so one NAR Attic rejects

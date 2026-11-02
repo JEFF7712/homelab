@@ -854,7 +854,7 @@ class FleetDeployer:
     def verify_nas_appliance(self, ip: str) -> None:
         if self.dry_run:
             logger.info(
-                "[%s] [DRY RUN] Would verify the NFS server and Attic (port 8080)",
+                "[%s] [DRY RUN] Would verify the NFS server, Attic (port 8080) and niks3 (port 8090)",
                 ip,
             )
             return
@@ -872,6 +872,14 @@ class FleetDeployer:
                 f"NAS verification failed: Attic HTTP endpoint on http://{ip}:8080/ not responding"
             )
         logger.info("Attic binary cache check passed for %s", ip)
+
+        cache = f"http://{ip}:8090/nix-cache-info"
+        logger.info("Verifying niks3 binary cache on %s...", cache)
+        if not self.settled(lambda: self.http_checker(cache, 5.0)):
+            raise FleetDeploymentError(
+                f"NAS verification failed: niks3 cache on {cache} not responding"
+            )
+        logger.info("niks3 binary cache check passed for %s", ip)
 
     def cooldown(self, host_name: str) -> None:
         if self.dry_run or self.skip_cooldown or self.cooldown_seconds <= 0:
