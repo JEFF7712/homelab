@@ -16,6 +16,9 @@ VARIABLES = ("OPNSENSE_READONLY_API_KEY", "OPNSENSE_READONLY_API_SECRET")
 ENDPOINTS = (
     "/api/quagga/diagnostics/bgpsummary",
     "/api/quagga/diagnostics/search_bgproute4",
+    # FRR can hold a route in its RIB without installing it in the kernel
+    # FIB, which blackholes the VIP (docs/runbooks/opnsense-bgp-proof.md).
+    "/api/diagnostics/interface/get_routes",
 )
 
 
@@ -88,9 +91,26 @@ def credentials(root: Path) -> tuple[str, str]:
     return values[0], values[1]
 
 
+def kernel_routes(kernel: Any, next_hops: set[str]) -> set[str]:
+    """Host routes the kernel forwards through one of the BGP peers."""
+    if not isinstance(kernel, list):
+        raise ValueError("invalid kernel route table")
+    installed = set()
+    for row in kernel:
+        if not isinstance(row, dict) or row.get("proto") != "ipv4":
+            continue
+        destination, gateway = row.get("destination"), row.get("gateway")
+        if gateway in next_hops and isinstance(destination, str):
+            network = ipaddress.ip_network(destination, strict=False)
+            if network.prefixlen == 32:
+                installed.add(str(network))
+    return installed
+
+
 def diagnostic_health(
     summary: Any,
     routes: Any,
+    kernel: Any,
     expected_peers: dict[str, int],
     expected_routes: set[str],
 ) -> dict[str, Any]:
@@ -122,16 +142,28 @@ def diagnostic_health(
         ):
             missing_peers.append(address)
     missing_routes = expected_routes - prefixes
+    uninstalled = expected_routes - kernel_routes(kernel, set(expected_peers))
+    detail = (
+        f"{len(expected_peers) - len(missing_peers)}/{len(expected_peers)} "
+        "expected BGP peers established; "
+        f"{len(expected_routes) - len(missing_routes)}/{len(expected_routes)} "
+        "expected IPv4 BGP routes present; "
+        f"{len(expected_routes) - len(uninstalled)}/{len(expected_routes)} "
+        "installed in the kernel FIB"
+    )
+    if uninstalled - missing_routes:
+        detail += (
+            "; FRR holds routes it did not install, so those VIPs are "
+            "unreachable: restart FRR (docs/runbooks/opnsense-bgp-proof.md)"
+        )
     return {
-        "status": "failed" if missing_peers or missing_routes else "pass",
-        "detail": (
-            f"{len(expected_peers) - len(missing_peers)}/{len(expected_peers)} "
-            "expected BGP peers established; "
-            f"{len(expected_routes) - len(missing_routes)}/{len(expected_routes)} "
-            "expected IPv4 BGP routes present"
-        ),
+        "status": "failed"
+        if missing_peers or missing_routes or uninstalled
+        else "pass",
+        "detail": detail,
         "missing_peers": sorted(missing_peers),
         "missing_routes": sorted(missing_routes),
+        "uninstalled_routes": sorted(uninstalled),
     }
 
 
@@ -197,7 +229,7 @@ def probe(root: Path, url: str) -> dict[str, Any]:
             (root / "opnsense_reconciler/bgp-expected-routes.json").read_text()
         )
     }
-    return diagnostic_health(payloads[0], payloads[1], peers, routes)
+    return diagnostic_health(payloads[0], payloads[1], payloads[2], peers, routes)
 
 
 def main() -> int:

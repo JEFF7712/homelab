@@ -111,6 +111,11 @@ def main(
         )
     )
     if not proof.ready:
+        print(
+            "VIP data plane failed; if BGP is up, compare OPNsense's kernel routes "
+            "with its BGP RIB: docs/runbooks/opnsense-bgp-proof.md",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
 
