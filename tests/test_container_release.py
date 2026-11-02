@@ -28,7 +28,7 @@ from scripts.ci.dockerfile_supply import parse_dockerfile
 
 LOCAL_BASE = (
     "registry.rupan.dev/upstream/docker.io/library/python"
-    ":3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258"
+    ":3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337"
 )
 
 
