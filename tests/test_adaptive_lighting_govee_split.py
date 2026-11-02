@@ -83,6 +83,28 @@ class AdaptiveLightingSwitchSplitTests(unittest.TestCase):
         for target in targets:
             self.assertEqual(set(target), {f"{s}_sleep_mode" for s in SWITCH_LIGHTS})
 
+    def test_shared_spaces_toggles_drive_both_entries(self) -> None:
+        core = yaml.load(
+            (HA / "core/configuration.yaml").read_text(encoding="utf-8"),
+            Loader=DuplicateKeySafeLoader,
+        )
+        switches = {
+            s["unique_id"]: s for block in core["template"] for s in block["switch"]
+        }
+        dashboard = (HA / "dashboards/shared-spaces.yaml").read_text(encoding="utf-8")
+        for key in ("sleep_mode", "adapt_brightness", "adapt_color"):
+            expected = {f"{s}_{key}" for s in SWITCH_LIGHTS}
+            switch = switches[f"shared_spaces_{key}"]
+            for verb in ("turn_on", "turn_off"):
+                (step,) = switch[verb]
+                self.assertEqual(step["action"], f"switch.{verb}", key)
+                self.assertEqual(set(step["target"]["entity_id"]), expected, key)
+            for entity in expected:
+                self.assertIn(entity, switch["state"], key)
+                # The dashboard shows only the combined toggle.
+                self.assertNotIn(entity, dashboard, key)
+            self.assertIn(f"switch.shared_spaces_{key}", dashboard, key)
+
 
 if __name__ == "__main__":
     unittest.main()
