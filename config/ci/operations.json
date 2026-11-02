@@ -1918,6 +1918,9 @@
       "ATTIC_TOKEN": {
         "from_secret": "attic_token"
       },
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
+      },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
         "from_secret": "state_deploy_password"
@@ -1948,6 +1951,9 @@
     "environment": {
       "ATTIC_TOKEN": {
         "from_secret": "attic_token"
+      },
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1982,6 +1988,9 @@
     "environment": {
       "ATTIC_TOKEN": {
         "from_secret": "attic_token"
+      },
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {

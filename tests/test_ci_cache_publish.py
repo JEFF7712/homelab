@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -116,6 +117,32 @@ class CachePublishTests(unittest.TestCase):
         self.assertEqual(receipts["attic"], f"{OUTPUT}\n{DEPENDENCY}\n")
         self.assertIsNone(receipts["niks3"])
         self.assertIn("NIKS3_TOKEN is not set", result.stdout)
+
+
+class CachePublishOperationTests(unittest.TestCase):
+    PUBLISHERS = ("scripts/ci/cache.sh", "nixos_publish.sh", "nixos_deploy")
+
+    def test_every_cache_publishing_operation_receives_the_niks3_token(self) -> None:
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        publishers = {
+            name: operation
+            for name, operation in catalog.items()
+            if any(
+                marker in command
+                for command in operation["commands"]
+                for marker in self.PUBLISHERS
+            )
+        }
+        self.assertEqual(
+            set(publishers),
+            {"cache-publish", "nixos-publish", "nixos-lock-update", "nixos-deploy"},
+        )
+        for name, operation in publishers.items():
+            with self.subTest(operation=name):
+                self.assertEqual(
+                    operation["environment"].get("NIKS3_TOKEN"),
+                    {"from_secret": "niks3_token"},
+                )
 
 
 if __name__ == "__main__":
