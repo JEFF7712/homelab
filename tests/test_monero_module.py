@@ -152,6 +152,16 @@ class MoneroModuleTests(unittest.TestCase):
             f"{IO_DEVICE} 150M",
         )
 
+    def test_memory_limits_are_host_tunable(self) -> None:
+        defaults = evaluate("")["serviceConfig"]
+        self.assertEqual(defaults["MemoryHigh"], "6G")
+        self.assertEqual(defaults["MemoryMax"], "8G")
+        tuned = evaluate(
+            'homelab.monero.memoryHigh = "1536M"; homelab.monero.memoryMax = "2G";'
+        )["serviceConfig"]
+        self.assertEqual(tuned["MemoryHigh"], "1536M")
+        self.assertEqual(tuned["MemoryMax"], "2G")
+
     def test_requires_io_device(self) -> None:
         expression = f"""
           let
