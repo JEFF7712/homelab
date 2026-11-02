@@ -77,6 +77,19 @@
       "60-netbird-policy" = {
         matchConfig.Name = "netbird-vlan";
         networkConfig.Address = "10.0.60.2/24";
+        # Use the existing NetBird management permission for these two switches.
+        # The infrastructure default gateway intentionally blocks VLAN 10.
+        routes =
+          map
+            (destination: {
+              Destination = destination;
+              Gateway = fleetInventory.networks.netbird.gateway;
+              PreferredSource = "10.0.60.2";
+            })
+            [
+              "10.0.10.2/32"
+              "10.0.10.3/32"
+            ];
       };
     };
   };
