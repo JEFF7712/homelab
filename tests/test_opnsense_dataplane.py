@@ -2,6 +2,7 @@ import ipaddress
 import json
 import unittest
 import urllib.error
+from email.message import Message
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -74,6 +75,36 @@ class DataPlaneVerificationTests(unittest.TestCase):
         self.assertEqual(
             probe_target("http://10.0.40.10/", 1.0, failing_opener), (False, None)
         )
+
+    def test_probe_target_reports_http_errors_as_answered(self) -> None:
+        def not_found(url: str, timeout: float) -> object:
+            del timeout
+            raise urllib.error.HTTPError(url, 404, "Not Found", Message(), None)
+
+        with patch("sys.stderr", new_callable=StringIO) as stderr:
+            result = probe_target("http://10.0.40.10/", 1.0, not_found)
+
+        self.assertEqual(result, (True, 404))
+        self.assertIn("HTTP 404", stderr.getvalue())
+        proof = verify_lb_data_plane(
+            targets(),
+            {
+                "http://10.0.40.10/": result,
+                "http://10.0.40.13:8123/manifest.json": (True, 200),
+            },
+        )
+        self.assertEqual(proof.unreachable, {"http://10.0.40.10/"})
+
+    def test_probe_target_names_the_transport_error(self) -> None:
+        def timing_out(url: str, timeout: float) -> object:
+            del url, timeout
+            raise urllib.error.URLError(TimeoutError("timed out"))
+
+        with patch("sys.stderr", new_callable=StringIO) as stderr:
+            self.assertEqual(
+                probe_target("http://10.0.40.10/", 1.0, timing_out), (False, None)
+            )
+        self.assertIn("http://10.0.40.10/: TimeoutError: timed out", stderr.getvalue())
 
     def test_probe_target_returns_status_and_closes(self) -> None:
         closed: list[bool] = []
