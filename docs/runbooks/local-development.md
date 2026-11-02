@@ -57,7 +57,8 @@ Use `just check` for the complete offline validation gate before handoff.
 Attic. Before publication it also runs `nix flake archive` and includes the
 root source plus every recursive pinned input in the publication roots.
 Malformed or incomplete archive metadata fails before publication. Without
-`ATTIC_TOKEN`, the job builds the closures but skips publication.
+`ATTIC_TOKEN`, the job builds the closures but skips publication; without
+`NIKS3_TOKEN`, it publishes to Attic only.
 
 The job also retains every declared build root's available input graph,
 including derivation metadata and already valid outputs. This covers the

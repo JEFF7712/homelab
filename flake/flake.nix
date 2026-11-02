@@ -130,6 +130,7 @@
           dnsutils
           getent
           k9s
+          niks3.packages.${system}.niks3
           (pkgs.writeShellScriptBin "nix-fast-build" ''exec ${pkgs.nix-fast-build}/bin/nix-fast-build "$@"'')
           nixos-rebuild-ng
           oras
