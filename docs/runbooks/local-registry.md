@@ -287,7 +287,26 @@ Key rules:
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
 - **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
-- **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A Helm chart bump needs only review, while a `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. Helm chart patch releases automerge; minor and major chart bumps wait for review, since a chart can move to unmirrored images and Helm never upgrades CRDs.
+- **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
+
+### Upgrading a Helm chart
+
+HelmReleases pin their app images through `postRenderers` digests, so a
+chart-only bump runs new templates and CRDs on the old image (external-secrets
+had drifted to app v2.10 under chart 2.12). For each chart upgrade:
+
+1. Render the old and new chart with the release's values (`helm template
+   --repo <url> --version <v>`) and diff the whole pod specs: images, args,
+   `securityContext` and container ports. ntfy 1.7.0 switched to uid 1000,
+   which root-owned files on NFS cannot accommodate (NFS ignores `fsGroup`),
+   and moved its pod port, which Cilium policies match after Service
+   translation.
+2. Add the new images as `tag@digest` to the area's inventory-only
+   `registry-sources.yaml`, generate the inventory and lock into scratch
+   files, merge in only the new records, ship, and confirm
+   `registry-lock-import` copied them.
+3. Then bump the chart version and its post-renderer digests in one change and
+   verify the HelmRelease and the running digests.
 - **Flux system manifests:** Renovate does not update `gitops/clusters/homelab-01/flux-system/gotk-components.yaml`. Its image has no `flux` binary, so it could only bump the version comment, and two such header-only bumps merged before 2026-11 while the controllers stayed on Flux v2.9.0.
 
 ### Upgrading Flux

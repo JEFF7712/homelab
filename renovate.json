@@ -124,17 +124,22 @@
       "automerge": false
     },
     {
-      "description": "Review Helm chart minor bumps: a chart can move to images not yet mirrored, and Helm never upgrades CRDs; patch releases still automerge",
+      "description": "Review every Helm chart bump: post-renderers pin the app images, so the chart and its mirrored image digests move together by hand (docs/runbooks/local-registry.md)",
       "matchManagers": [
         "flux"
       ],
       "matchDatasources": [
         "helm"
       ],
-      "matchUpdateTypes": [
-        "minor"
-      ],
       "automerge": false
+    },
+    {
+      "description": "Chart image declarations move with their chart's upgrade, never on their own",
+      "matchFileNames": [
+        "gitops/observability/registry-sources.yaml",
+        "gitops/platform/registry-sources.yaml"
+      ],
+      "enabled": false
     },
     {
       "description": "Lock maintenance is for the Nix flakes only; uv and provider locks move with their dependency updates",
