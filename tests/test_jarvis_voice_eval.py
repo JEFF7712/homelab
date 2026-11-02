@@ -685,9 +685,15 @@ class EvalCorpusTest(unittest.TestCase):
         for intent, service in DEFAULT_LIGHTS_INTENTS.items():
             entry = scripts[intent]
             self.assertEqual(entry["speech"]["text"], "Done.", intent)
-            self.assertEqual(entry["action"][0]["service"], service, intent)
+            # Bare on/off also release Adaptive Lighting manual control, so
+            # locate the light step instead of assuming it comes first.
+            light_steps = [
+                step for step in entry["action"] if step["service"].startswith("light.")
+            ]
+            self.assertEqual(len(light_steps), 1, intent)
+            self.assertEqual(light_steps[0]["service"], service, intent)
             self.assertEqual(
-                entry["action"][0]["target"]["entity_id"],
+                light_steps[0]["target"]["entity_id"],
                 DEFAULT_LIGHTS_TARGET,
                 intent,
             )
