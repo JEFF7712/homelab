@@ -4045,7 +4045,6 @@
       ],
       "destination_repository": "upstream/docker.io/oven/bun",
       "destination_tags": [
-        "1.4-debian",
         "retention-deployed-93d5032fe06d1634"
       ],
       "digest": "sha256:93d5032fe06d163427822dc1598f420363759bb18155c9cc90eb1be05a64a19e",
@@ -4084,6 +4083,7 @@
       ],
       "destination_repository": "upstream/docker.io/oven/bun",
       "destination_tags": [
+        "1.4-debian",
         "retention-deployed-4f6e31d1a54d6a3d"
       ],
       "digest": "sha256:4f6e31d1a54d6a3dd312daef655fc998101b5043d52e12592ac293ef04b9bc73",

@@ -88,7 +88,7 @@ spec:
               mountPath: /logs
       containers:
         - name: questarr
-          image: registry.rupan.dev/upstream/ghcr.io/doezer/questarr@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/doezer/questarr@sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972  # yamllint disable-line rule:line-length
           # Upstream entrypoint.sh starts as root to usermod/chown and then
           # su-exec's to the app user; run the app directly instead so the root
           # filesystem stays read-only and nothing runs as root. 911:1001 with
@@ -257,7 +257,7 @@ spec:
               mountPath: /state
       containers:
         - name: gameyfin
-          image: registry.rupan.dev/upstream/ghcr.io/gameyfin/gameyfin@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/gameyfin/gameyfin@sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138  # yamllint disable-line rule:line-length
           # The entrypoint starts as root only to gosu to the gameyfin user
           # (1337) before launching the JVM.
           securityContext:
