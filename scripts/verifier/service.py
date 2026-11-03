@@ -6,16 +6,17 @@ never executes them. Because the status is attached to one commit, any push
 or branch update produces a new head with no status, and branch protection
 blocks the merge until that exact commit is judged.
 
-Agents have broad authority to change infrastructure but not to redefine
-their own authority. A head passes unless it changes a control that bounds
-agents (this policy, CI policy and deployment holds, branch protection, the
-approvals service, agent guards, secret recipients), grants an operation to
-agents, or crosses a website boundary (scripts/verifier/websites.py). Repair
-findings go back to the agent; authority findings need an operator's
-approval of that exact head (or of a byte-identical change) on the approvals
-dashboard, the one place the operator approves anything. The policy files
-the request itself; Forgejo reviews grant nothing. Notices are recorded and
-do not block.
+Agents decide and record everything except the operator's gates
+(scripts/verifier/enforcement.py): spending caps and the enforcement code
+that judges merges and deployments. A head passes unless it changes
+enforcement code, unmarks a catalog mutation (which would take it out of the
+deployment gate), or crosses a website boundary
+(scripts/verifier/websites.py). Repair findings go back to the agent;
+authority findings need an operator's approval of that exact head (or of a
+byte-identical change) on the approvals dashboard, the one place the
+operator approves anything. The policy files the request itself; Forgejo
+reviews grant nothing. Notices, such as granting an operation to agents,
+are recorded and do not block.
 
 A head that lags main also fails when main's changes since the merge base
 overlap the PR's (`scripts/verifier/freshness.py`), so branch protection need
@@ -38,6 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.ci.deployment_risk import protected
+from scripts.verifier.enforcement import enforcement
 from scripts.verifier.freshness import OUTDATED, overlap
 from scripts.verifier.websites import (
     SPEC,
@@ -52,25 +54,6 @@ CONTEXT = "policy/merge"
 # Approved merge requests record the head's versions of these files (what a
 # deployment's authority check compares), up to the dashboard's limit.
 FILES_LIMIT = 500
-# The controls that bound agents. Changing any of them needs an operator, so
-# no agent can widen its own authority, merge-time or deploy-time.
-POLICY_PATHS = (
-    "scripts/verifier/",
-    "flake/modules/merge-policy.nix",
-    "scripts/ci/policy.py",
-    "scripts/ci/state.py",
-    "scripts/ci/operation.py",
-    "scripts/ci/deployment_risk.py",
-    "scripts/approvals/",
-    "flake/modules/approvals.nix",
-    "flake/modules/woodpecker.nix",
-    "config/ci/forgejo-protection.json",
-    "config/ci/woodpecker-repository.json",
-    "scripts/agent/guard.py",
-    "hooks/pre-tool-use",
-    ".sops.yaml",
-    "CODEOWNERS",
-)
 CATALOG = "config/ci/operations.json"
 MARKER = "<!-- merge-policy head={head} outcome={outcome} -->"
 MARKER_PREFIX = "<!-- merge-policy head={head} "
@@ -93,7 +76,8 @@ class Decision:
 
 
 def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
-    """Operations newly granted to agents, or no longer marked as mutations."""
+    """Operations newly granted to agents (recorded), or no longer marked as
+    mutations (held: an unmarked operation skips the deployment gate)."""
     try:
         base = json.loads(read_base(CATALOG) or "{}")
         head = json.loads(read_head(CATALOG) or "{}")
@@ -105,16 +89,15 @@ def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
             continue
         before = base.get(name) if isinstance(base.get(name), dict) else None
         if operation.get("agent") and not (before or {}).get("agent"):
-            if before is None:
-                findings.append(
-                    Finding("notice", "catalog", f"new agent operation {name}")
+            findings.append(
+                Finding(
+                    "notice",
+                    "catalog",
+                    f"new agent operation {name}"
+                    if before is None
+                    else f"{name} is newly granted to agents",
                 )
-            else:
-                findings.append(
-                    Finding(
-                        "authority", "catalog", f"{name} is newly granted to agents"
-                    )
-                )
+            )
         if before and before.get("mutation") and not operation.get("mutation"):
             findings.append(
                 Finding(
@@ -148,10 +131,8 @@ def decide(
             findings = [Finding("repair", "websites", str(error))]
     if CATALOG in changed:
         findings += catalog_findings(read_base, read_head)
-    for path in sorted(path for path in changed if path.startswith(POLICY_PATHS)):
-        findings.append(
-            Finding("authority", "policy", f"{path} bounds agent authority")
-        )
+    for path in sorted(path for path in changed if enforcement(path)):
+        findings.append(Finding("authority", "policy", f"{path} is enforcement code"))
     blocking = [finding for finding in findings if finding.severity != "notice"]
     if not blocking:
         return Decision(
