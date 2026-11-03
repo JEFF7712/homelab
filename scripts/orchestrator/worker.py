@@ -193,9 +193,14 @@ class Session(Protocol):
 
 
 class Backend(Protocol):
-    name: str
-    provider: str
-    model: str
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def provider(self) -> str: ...
+
+    @property
+    def model(self) -> str: ...
 
     def open(self, attempt_dir: Path, workspace: Path) -> Session: ...
 
@@ -393,11 +398,19 @@ class AttemptRunner:
         backend: Backend,
         config: RunnerConfig,
         clock: Callable[[], float] = time.monotonic,
+        finalize: Callable[[], Mapping[str, str]] | None = None,
+        secrets: Collection[str] = (),
     ) -> None:
+        """`finalize` runs after the backend settles and before settlement is
+        reported, for example to commit and push the attempt branch. If it
+        raises, the attempt fails (retryable) instead of settling.
+        """
         self.channel = channel
         self.backend = backend
         self.config = config
         self.clock = clock
+        self.finalize = finalize
+        self.extra_secrets = tuple(secrets)
 
     def run(self, brief: str, workspace: Path) -> Outcome:
         config = self.config
@@ -471,9 +484,9 @@ class AttemptRunner:
             if event is None:
                 continue
             if event.kind == "session":
-                channel.session(redact(event.key, self.backend.secrets()))
+                channel.session(redact(event.key, self._secrets()))
             elif event.kind == "question":
-                secret_values = self.backend.secrets()
+                secret_values = self._secrets()
                 question_id = channel.ask(
                     event.key,
                     redact(event.prompt, secret_values),
@@ -485,15 +498,26 @@ class AttemptRunner:
                 return self._finish(event.text, event.retryable, "failed")
             elif event.kind == "settled":
                 close_session()
+                extra: Mapping[str, str] = {}
+                if self.finalize is not None:
+                    try:
+                        extra = self.finalize()
+                    except Exception as error:
+                        return self._finish(f"finalize failed: {error}", True, "failed")
                 channel.settle(
                     {
+                        **extra,
                         "backend": self.backend.name,
                         "provider": self.backend.provider,
                         "model": self.backend.model,
-                        "final_text": redact(event.text, self.backend.secrets()),
+                        "final_text": redact(event.text, self._secrets()),
                     }
                 )
                 return Outcome("settled", "settled")
+
+    def _secrets(self) -> tuple[str, ...]:
+        """Every credential value this worker holds, for redaction."""
+        return (*self.backend.secrets(), *self.extra_secrets)
 
     def _abort(self, session: Session) -> None:
         try:
@@ -502,7 +526,7 @@ class AttemptRunner:
             pass
 
     def _finish(self, reason: str, retryable: bool, status: str) -> Outcome:
-        reason = redact(reason, self.backend.secrets())
+        reason = redact(reason, self._secrets())
         try:
             self.channel.finish(reason, retryable)
         except OrchestratorError as error:

@@ -5,8 +5,10 @@
     python -m scripts.orchestrator migrate --db PATH
     python -m scripts.orchestrator supervisor-audit --letta-dir DIR [--approve NAME]
         [--allow-chatgpt-sign-in]
+    python -m scripts.orchestrator serve --config FILE
 
-Each prints one JSON object. Backup and check run alongside a live
+serve runs the controller daemon (scripts/orchestrator/daemon.py). The store commands each
+print one JSON object. Backup and check run alongside a live
 controller. Migrate takes the controller lock, so it refuses to run while a
 controller is active, and snapshots the store before every schema step.
 """
@@ -42,7 +44,13 @@ def main(argv: list[str] | None = None) -> int:
     supervisor.add_argument("--letta-dir", type=Path, required=True)
     supervisor.add_argument("--approve", action="append", default=[])
     supervisor.add_argument("--allow-chatgpt-sign-in", action="store_true")
+    serve = commands.add_parser("serve")
+    serve.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command == "serve":
+        from scripts.orchestrator.daemon import main as serve_main
+
+        return serve_main(args.config)
     if args.command == "supervisor-audit":
         audit = audit_letta(
             args.letta_dir, os.environ, args.approve, args.allow_chatgpt_sign_in

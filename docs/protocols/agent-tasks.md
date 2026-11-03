@@ -73,8 +73,9 @@ access-controlled artifact store, referenced by `context_ref`.
 
 Callers may pass the status they observed; a mismatch is `STALE` and nothing
 changes. Every transition is appended to `transitions` with actor and reason.
-Completion has three separate stages, and `transition()` refuses both
-`in_review` and `completed`:
+Completion has three separate stages. `transition()` never enters
+`in_review` or `completed`; it only moves `in_review` back to `validating`
+for re-verification:
 
 1. **Worker-reported.** `settle_attempt()` moves `running` to `validating`.
    The worker says it is done; nothing is proven.
@@ -83,8 +84,10 @@ Completion has three separate stages, and `transition()` refuses both
    state of `success`, every acceptance criterion) and moves `validating` to
    `in_review`. Evidence that fails any check is refused and the task stays in
    `validating`.
-3. **Finalized.** `complete()` takes no evidence. It re-checks the stored
-   verification and moves `in_review` to `completed`.
+3. **Finalized.** `complete()` takes no evidence, only the head SHA the
+   controller has just read from the pull request. It re-checks the stored
+   verification, refuses (`EVIDENCE_REJECTED`) a head that differs from the
+   verified one, and moves `in_review` to `completed`.
 
 Both later stages are controller-only (`NOT_CONTROLLER` otherwise). The worker
 API and the supervisor's tools expose neither. The verifier builds `Evidence`
@@ -290,20 +293,109 @@ Anything that triggers a CI deployment uses the existing
 
 | Topic | Payload | Consumer |
 | --- | --- | --- |
-| `task.status` | `task_id`, `from`, `to`, `reason` for `claimed`, `needs_input`, `in_review`, `completed`, `failed`, `cancelled` | supervisor notification |
-| `question.open` | `question_id`, `prompt`, `choices`, `blocking`, `revision` | supervisor, Forgejo comment |
-| `question.expired` | `question_id`, `attempt_id` | supervisor |
-| `worker.answer` | `attempt_id`, `question_id`, `answer` | worker adapter |
-| `worker.cancel` | `attempt_id`, `reason` | worker adapter |
-| `approval.open` | `approval_id`, `action`, `expires` | supervisor |
+| `task.status` | `task_id`, `from`, `to`, `reason` for `claimed`, `needs_input`, `in_review`, `completed`, `failed`, `cancelled` | sinks, clients |
+| `question.open` | `question_id`, `prompt`, `choices`, `blocking`, `revision` | sinks, clients |
+| `question.expired` | `question_id`, `attempt_id` | sinks, clients |
+| `worker.answer` | `attempt_id`, `question_id`, `answer` | the attempt's runner |
+| `worker.cancel` | `attempt_id`, `reason` | the controller's Job manager |
+| `approval.open` | `approval_id`, `action`, `expires` | sinks, clients |
 
 Messages for a worker carry their `attempt_id`; each runner reads only its
 own (`attempt_messages`), so other attempts' backlog cannot starve it.
-Consumers acknowledge after delivery. Delivery is at least once; consumers
-deduplicate by key.
+`worker.cancel` is acknowledged by the controller after it stops the Job.
+Notification topics fan out: every sink and every client has its own
+delivery record (`sink_deliveries`, schema v2), so one consumer's failure
+neither blocks nor hides a message from another. Delivery is at least once;
+consumers deduplicate by key.
+
+## Controller loop
+
+`scripts/orchestrator/controller.py` reconciles from durable state on every
+tick (`python -m scripts.orchestrator serve --config FILE`,
+`scripts/orchestrator/daemon.py`), so stopping it at any instant is safe:
+
+1. Expire overdue questions; reap expired leases. On its first tick a
+   controller first extends every unfinished attempt's lease by one lease
+   period, so workers that waited out the restart (they retry an unreachable
+   controller for up to 10 minutes) are not reaped for leases nobody could
+   renew.
+2. Fence: stop the Job of every pending `worker.cancel`, then acknowledge it.
+   The Job is deleted with foreground propagation, so it stays visible until
+   its Pods are gone, and the cancel is acknowledged only once the Job is no
+   longer running. A stop the Kubernetes API does not confirm (DELETE other
+   than 200, 202 or 404) or a Pod still terminating leaves the cancel pending
+   for the next tick.
+3. Reconcile: an unfinished attempt whose Job is observed missing or done is
+   finished as retryable. An attempt whose Job state cannot be read is left
+   alone.
+4. Ensure every open task has its forge issue.
+5. Dispatch ready tasks under the stored cap: claim with a first lease of
+   `startup_seconds` (default 600, covering scheduling and image pulls),
+   mint the worker token,
+   start the Job with a job file holding the brief, the token and the
+   attempt branch `agent/<task>/<attempt number>`. A failed start is only
+   logged: the Job may exist anyway, so reconciliation finishes the attempt
+   once the Job is observed missing. A Job whose Secret cannot be created is
+   deleted at once.
+6. Verify `validating` tasks: ensure the pull request for the attempt branch,
+   read CI and reviews (`scripts/orchestrator/verifier.py`), then
+   `record_verification` and `complete`. Failed CI or a missing branch sends
+   the task back to `ready` until attempt 3, then `failed`. A task left in
+   `in_review` by a crash is finalized only after a fresh read shows the same
+   head still passing; otherwise it goes back to `validating`.
+7. Apply issue commands from the task principal's forge login only:
+   `/answer <question> <revision> <text>`, `/approve <id>`, `/decline <id>`,
+   `/cancel`. Each comment is processed once (`forge_cursors`, schema v2);
+   rejected commands become `command.rejected` events. Comments by the
+   controller's own login, or carrying its message marker, never count: they
+   quote worker text.
+8. Deliver notifications to each sink (forge comments, ntfy) within a
+   per-tick budget (`delivery_budget_seconds`, default 10). The daemon does
+   not hold the store lock across a tick, so a slow sink never blocks the
+   worker API.
+
+Acceptance criteria are checked without worker input: `ci:<context>` needs
+that status context to succeed on the pull request head; any other criterion
+needs an approving review of that exact head from the principal's forge
+login. CI is read from every status on the head (`/commits/<sha>/statuses`,
+all pages), keeping the newest per context among those posted by the
+configured `verifier.ci_logins`. Anyone with repository write access, which
+includes every worker, can post a status, and the forge's combined view
+keeps only the newest per context, so statuses from other accounts are
+ignored rather than trusted. With no CI login configured nothing passes.
+Reviews are read across all pages; the newest per reviewer counts.
+
+### Forge writes and reconciliation
+
+`scripts/orchestrator/forge.py` makes every write findable again, so a
+controller that dies just before or just after a write converges to one
+object: issues carry `<!-- orchestrator:task=<id> -->` and the
+`orchestrator` label and are found by label scan before creation; pull
+requests are unique per head branch and looked up by base and head first
+(a 409 on create is resolved by the same lookup); comments carry
+`<!-- orchestrator:message=<outbox key> -->`. A marker counts only as the
+final line of an issue or comment authored by the controller's own login
+(`GET /api/v1/user`), and controller comments break `<!--` in the text they
+quote, so worker text reflected through the controller cannot carry one.
+Another account therefore cannot pre-post a marker to hijack an issue or
+suppress a notice. Workers push only their attempt branch; the controller
+opens pull requests and reads CI.
+
+## Client API
+
+`scripts/orchestrator/client_api.py` is the only surface a supervising agent
+uses, and it knows no particular agent. Each bearer token (stored as a
+SHA-256) maps to one client name and one principal. Client names are unique,
+and `forge` and `ntfy` are reserved for the sinks. A client acts only on its
+principal's tasks in the configured project: `create_task` (idempotency key
+required), `get_task`, `list_tasks`, `cancel_task`, `answer_question`, and
+`events`/`ack` for its own notification feed. It cannot decide approvals;
+those come from the human principal on the forge. The controller binds it to
+loopback; the bridge runs beside it.
 
 ## Error codes
 
 `INVALID_SPEC`, `NOT_FOUND`, `IDEMPOTENCY_CONFLICT`, `DEPENDENCY_CYCLE`,
 `INVALID_TRANSITION`, `STALE`, `EVIDENCE_REQUIRED`, `EVIDENCE_REJECTED`,
-`LEASE_LOST`, `ALREADY_ANSWERED`, `INVALID_ANSWER`, `FORBIDDEN`, `SCHEMA`.
+`LEASE_LOST`, `ALREADY_ANSWERED`, `INVALID_ANSWER`, `FORBIDDEN`, `SCHEMA`,
+`CONFLICT`, `UNREACHABLE`.
