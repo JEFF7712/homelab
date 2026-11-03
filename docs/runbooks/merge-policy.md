@@ -55,10 +55,9 @@ applies.
   secrets or routing. StatefulSets, Jobs and
   CronJobs get the same pod checks as Deployments.
 
-Replaying every merged website PR through the policy on 2026-10-26 approved
-41 of 44. The three it held were real authority expansions: a Cilium egress
-policy (uwagent), LAN exposure (bus-display) and a synced secret plus a
-protection change (the Forgejo migration).
+Historical replay results describe the policy at the time of the replay.
+Current authority decisions are implemented in `scripts/verifier/service.py`;
+website checks are implemented in `scripts/verifier/websites.py`.
 
 ## Outcomes and recovery
 
@@ -107,7 +106,10 @@ with diagnostic evidence, rather than leaving the PR silently pending.
 
 ## Activation
 
-Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). Steps 5 and 6 land together. In order:
+The service is enabled in `flake/hosts/homelab-04/default.nix`, and
+`config/ci/forgejo-protection.json` requires `policy/merge` alongside validation.
+Verify the deployed service and live branch protection before relying on them.
+For a new installation or disaster recovery, use this sequence:
 
 1. Operator, in Forgejo: create the `homelab-policy` user and add it to
    `JEFF7712/homelab` as a collaborator with write access, which commit

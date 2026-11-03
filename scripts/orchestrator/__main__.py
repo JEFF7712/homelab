@@ -5,7 +5,7 @@
     python -m scripts.orchestrator migrate --db PATH
     python -m scripts.orchestrator supervisor-audit --letta-dir DIR [--approve NAME]
         [--allow-chatgpt-sign-in]
-    python -m scripts.orchestrator serve --config FILE
+    python -m scripts.orchestrator serve --config FILE [--allow-local-jobs]
     python -m scripts.orchestrator render-manifests --params FILE
     python -m scripts.orchestrator bridge --letta-url URL --agent-id ID
         --conversation-id ID --controller-url URL --token-file FILE
@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 from scripts.orchestrator.core import (
@@ -36,14 +37,45 @@ from scripts.orchestrator.supervisor_policy import audit_letta
 POLICY = "operator-cli"
 
 
+BACKUP_PREFIX = "orchestrator-"
+
+
+def rotate(
+    store: Store, directory: Path, keep: int, group: int | None
+) -> dict[str, object]:
+    """Write a dated, integrity-checked snapshot and keep the newest `keep`.
+
+    The store is 0600 for its owner. With `group`, the snapshot is handed to
+    that group read-only so the off-site shipper can read it without any
+    access to the live store.
+    """
+    if keep < 1:
+        raise OrchestratorError("INVALID_SPEC", "keep at least one snapshot")
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    destination = directory / f"{BACKUP_PREFIX}{stamp}.sqlite"
+    store.backup(destination)
+    if group is not None:
+        os.chown(destination, -1, group)
+        destination.chmod(0o640)
+    snapshots = sorted(directory.glob(f"{BACKUP_PREFIX}*.sqlite"))
+    removed = snapshots[:-keep]
+    for old in removed:
+        old.unlink()
+    return {"backup": str(destination), "removed": [str(old) for old in removed]}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m scripts.orchestrator")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("check", "migrate", "backup"):
+    for name in ("check", "migrate", "backup", "backup-rotate"):
         command = commands.add_parser(name)
         command.add_argument("--db", type=Path, required=True)
         if name == "backup":
             command.add_argument("destination", type=Path)
+        if name == "backup-rotate":
+            command.add_argument("--dir", type=Path, required=True)
+            command.add_argument("--keep", type=int, default=7)
+            command.add_argument("--group", type=int)
     supervisor = commands.add_parser("supervisor-audit")
     supervisor.add_argument("--letta-dir", type=Path, required=True)
     supervisor.add_argument("--approve", action="append", default=[])
@@ -52,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     manifests.add_argument("--params", type=Path, required=True)
     serve = commands.add_parser("serve")
     serve.add_argument("--config", type=Path, required=True)
+    serve.add_argument("--allow-local-jobs", action="store_true")
     bridge = commands.add_parser("bridge")
     for option in ("letta-url", "agent-id", "conversation-id", "controller-url"):
         bridge.add_argument(f"--{option}", required=True)
@@ -60,19 +93,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "render-manifests":
         import yaml
 
-        from scripts.orchestrator.manifests import DeployParams, render
+        from scripts.orchestrator.manifests import DeployParams, IntakeParams, render
 
         raw = json.loads(args.params.read_text())
         raw["required_contexts"] = tuple(raw.get("required_contexts") or ())
         raw["api_endpoints"] = tuple(
             tuple(item) for item in raw.get("api_endpoints") or ()
         )
+        if raw.get("intake"):
+            raw["intake"] = IntakeParams(**raw["intake"])
         print(yaml.safe_dump_all(render(DeployParams(**raw)), sort_keys=False), end="")
         return 0
     if args.command == "serve":
         from scripts.orchestrator.daemon import main as serve_main
 
-        return serve_main(args.config)
+        return serve_main(args.config, args.allow_local_jobs)
     if args.command == "bridge":
         import asyncio
         import logging
@@ -125,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "backup":
             store.backup(args.destination)
             result["backup"] = str(args.destination)
+        elif args.command == "backup-rotate":
+            result.update(rotate(store, args.dir, args.keep, args.group))
     except OrchestratorError as error:
         print(json.dumps({"ok": False, "code": error.code, "error": str(error)}))
         return 1

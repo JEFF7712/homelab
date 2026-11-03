@@ -27,10 +27,12 @@ just ship --verify 'curl --fail https://service.example/health'
    the tail of each failing Woodpecker step and exits nonzero. A validation
    run that was killed rather than failed (an agent or server restart, runner
    pressure) is restarted once per head; a second kill fails the ship.
-6. Merges through the merge queue (see below). When the PR has a pending review
-   request (CODEOWNERS requests one for code-owned paths, and branch
-   protection blocks the merge until it is approved), it stops and prints the
-   PR link; rerun `just ship` on the branch after the owner approves.
+6. Waits for `policy/merge` and merges through the merge queue (see below).
+   Repair findings return to the agent; authority findings require operator
+   passkey approval of that exact head on the [approvals dashboard](approvals.md).
+   `CODEOWNERS` creates no mandatory review
+   requests. If someone explicitly requests a review, branch protection also
+   requires resolving it before merge. See [merge policy](merge-policy.md).
 7. When operations are planned, waits for the main push pipeline covering the
    merge commit to finish with successful source validation. Unrelated failed
    operations do not invalidate that validation. If main advances to a commit that contains the

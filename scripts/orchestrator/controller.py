@@ -41,7 +41,7 @@ from scripts.orchestrator.forge import (
     PullRequest,
     parse_commands,
 )
-from scripts.orchestrator.jobs import JobManager, JobSpec
+from scripts.orchestrator.jobs import CleanupFailed, JobManager, JobSpec
 from scripts.orchestrator.ntfy import render
 from scripts.orchestrator.publisher import PatchRejected, Publication, PublishConflict
 from scripts.orchestrator.verifier import VerifierConfig, verify
@@ -122,7 +122,14 @@ class ForgeCommentSink:
     """Mirrors questions, approvals and outcomes onto the task's issue."""
 
     name = "forge"
-    topics = ("question.open", "question.expired", "approval.open", "task.status")
+    topics = (
+        "question.open",
+        "question.expired",
+        "approval.open",
+        "answer.proposed",
+        "security.incident",
+        "task.status",
+    )
 
     def __init__(self, forge: Forge) -> None:
         self.forge = forge
@@ -206,7 +213,17 @@ class Controller:
                 self.jobs.stop(attempt_id)
                 stopped = self.jobs.state(attempt_id) != "running"
             except Exception as error:
+                # A worker that should be stopped may still be running with its
+                # credentials: retried every tick and reported once.
                 log.warning("stopping %s failed: %s", attempt_id, error)
+                self.store.report_incident(
+                    f"fence:{attempt_id}",
+                    message.task_id,
+                    "worker-stop-failed",
+                    str(error),
+                    self.clock(),
+                    attempt_id,
+                )
                 continue
             if stopped:
                 self.store.acknowledge(message.key, self.clock())
@@ -238,8 +255,8 @@ class Controller:
                 task.title,
                 f"{task.goal}\n\nAcceptance criteria:\n{criteria}\n\nRequested by "
                 f"{task.principal}. Managed by the orchestrator; reply with "
-                "`/answer <question> <revision> <text>`, `/approve <id>`, "
-                "`/decline <id>` or `/cancel`.",
+                "`/answer <question> <revision> <text>`, `/confirm <proposal>`, "
+                "`/approve <id>`, `/decline <id>` or `/cancel`.",
             )
             self.store.set_issue_ref(task.id, str(number))
 
@@ -289,6 +306,17 @@ class Controller:
             )
             try:
                 self.jobs.start(spec)
+            except CleanupFailed as error:
+                log.warning("starting %s failed: %s", attempt.id, error)
+                self.store.report_incident(
+                    f"cleanup:{attempt.id}",
+                    task.id,
+                    "worker-cleanup-failed",
+                    str(error),
+                    now,
+                    attempt.id,
+                )
+                return
             except Exception as error:
                 # The Job may exist anyway (a lost response); reconciliation
                 # finishes the attempt only once the Job is observed missing.
@@ -347,6 +375,15 @@ class Controller:
                 artifact.submitted,
             )
         except (PatchRejected, PublishConflict) as error:
+            if isinstance(error, PublishConflict):
+                self.store.report_incident(
+                    f"branch:{attempt.id}",
+                    task.id,
+                    "branch-written-by-another",
+                    str(error),
+                    self.clock(),
+                    attempt.id,
+                )
             self.store.reject_artifact(attempt.id, str(error))
             self._retry_or_fail(task, f"patch not published: {error}")
             return None
@@ -397,8 +434,19 @@ class Controller:
             if head is None:
                 continue
             pull, verdict = self._check(task, head)
-            if pull is None or verdict is None:
-                self._retry_or_fail(task, "the published branch is gone")
+            if pull is None or verdict is None or verdict.tampered:
+                attempt = self.store.last_attempt(task.id)
+                self.store.report_incident(
+                    f"branch:{attempt.id if attempt else task.id}",
+                    task.id,
+                    "published-branch-changed",
+                    verdict.detail if verdict else "the published branch is gone",
+                    self.clock(),
+                    attempt.id if attempt else None,
+                )
+                self._retry_or_fail(
+                    task, verdict.detail if verdict else "the published branch is gone"
+                )
             elif verdict.state == "failed":
                 self._retry_or_fail(task, verdict.detail)
             elif verdict.state == "passed" and verdict.evidence is not None:
@@ -444,6 +492,10 @@ class Controller:
                     command.text,
                     f"{task.principal} via forge",
                     now,
+                )
+            elif command.verb == "confirm":
+                self.store.confirm_proposal(
+                    command.target, task.id, f"{task.principal} via forge", now
                 )
             elif command.verb in {"approve", "decline"}:
                 approval = self.store.approval(command.target)

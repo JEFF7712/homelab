@@ -305,6 +305,8 @@ Anything that triggers a CI deployment uses the existing
 | `worker.answer` | `attempt_id`, `question_id`, `answer` | the attempt's runner |
 | `worker.cancel` | `attempt_id`, `reason` | the controller's Job manager |
 | `approval.open` | `approval_id`, `action`, `expires` | sinks, clients |
+| `answer.proposed` | `proposal_id`, `question_id`, `revision`, `answer`, `proposed_by` | forge and ntfy sinks |
+| `security.incident` | `kind`, `attempt_id`, `detail` | forge and ntfy sinks |
 
 Messages for a worker carry their `attempt_id`; each runner reads only its
 own (`attempt_messages`), so other attempts' backlog cannot starve it.
@@ -355,9 +357,10 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    crash is finalized only after a fresh read shows the published commit
    still passing; otherwise it goes back to `validating`.
 7. Apply issue commands from the task principal's forge login only:
-   `/answer <question> <revision> <text>`, `/approve <id>`, `/decline <id>`,
-   `/cancel`. Each comment is processed once (`forge_cursors`, schema v2);
-   rejected commands become `command.rejected` events. Comments by the
+   `/answer <question> <revision> <text>`, `/confirm <proposal>`,
+   `/approve <id>`, `/decline <id>`, `/cancel`. Each comment is processed
+   once (`forge_cursors`, schema v2); rejected commands become
+   `command.rejected` events. Comments by the
    controller's own login, or carrying its message marker, never count: they
    quote worker text.
 8. Deliver notifications to each sink (forge comments, ntfy) within a
@@ -365,13 +368,22 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    not hold the store lock across a tick, so a slow sink never blocks the
    worker API.
 
+Steps 2, 5 and 6 report security incidents as they happen
+(`security.incident`, once per key, to the forge and ntfy sinks): a worker
+stop the Kubernetes API did not confirm (`worker-stop-failed`; the stop is
+retried every tick until the Job is gone), a Job whose Secret failed and
+whose deletion also failed (`worker-cleanup-failed`; its attempt is reaped
+after the startup lease and then fenced), and a published branch that
+someone else wrote (`branch-written-by-another`, `published-branch-changed`;
+the attempt is void).
+
 Acceptance criteria are checked without worker input: `ci:<context>` needs
 that status context to succeed on the pull request head; any other criterion
 needs an approving review of that exact head from the principal's forge
 login. CI is read from every status on the head (`/commits/<sha>/statuses`,
 all pages), keeping the newest per context among those posted by the
-configured `verifier.ci_logins`. Anyone with repository write access, which
-includes every worker, can post a status, and the forge's combined view
+configured `verifier.ci_logins`. Anyone with repository write access can
+post a status, and the forge's combined view
 keeps only the newest per context, so statuses from other accounts are
 ignored rather than trusted. With no CI login configured nothing passes.
 Reviews are read across all pages; the newest per reviewer counts.
@@ -453,17 +465,41 @@ required), `get_task`, `list_tasks`, `cancel_task`, `answer_question`, and
 those come from the human principal on the forge. The controller binds it to
 loopback; the bridge runs beside it.
 
+A client is an agent with state-changing tools, so worker-originated text is
+kept out of it in application code, not by prompting:
+
+- No response carries text a worker wrote. Task views list open questions
+  as `question_id`, `revision` and `choice_count`; attempts as `number` and
+  `finished`. Events carry only the fields in `EVENT_FIELDS` (identifiers
+  and controller states): `task.status` `from`/`to`, `question.open`
+  `question_id`/`revision`/`blocking`, `question.expired` `question_id`,
+  `approval.open` `approval_id`/`expires`. Question prompts, choices,
+  failure reasons, final text and approval descriptions go only to the human
+  channels (the forge issue and ntfy).
+- `answer_question` does not answer. It validates the question, revision and
+  choice and records a proposal (`answer_proposals`, schema v4), which the
+  forge and ntfy sinks show as `answer.proposed` with its `/confirm <id>`
+  command. The principal's `/confirm` on the issue answers the question,
+  only if the proposal is pending, belongs to that task, and the question is
+  still open at the proposed revision with a live attempt. A stranger's or
+  the controller's own `/confirm` is ignored like any other command.
+- Errors carry their code and a fixed sentence (`ERROR_TEXT`), never the
+  store's message, which can quote stored values.
+- Since no worker text reaches the supervisor, none can be promoted into its
+  persistent memory either.
+
 `scripts/orchestrator/letta_bridge.py` is one such client. It registers those
 operations as Letta external tools in `runtime_start`, answers
 `external_tool_call_request` from the client API, re-registers after every
 reconnect, and delivers events as `input`/`create_message` user turns wrapped
-in `<system-reminder>` with the outbox key as `client_message_id`. Worker
-text inside those turns is quoted and labelled untrusted. The bridge acks an
+in `<system-reminder>` with the outbox key as `client_message_id`. Those turns
+render identifiers and controller states only (anything else becomes
+`(invalid)`), plus the principal's own task title, quoted so it cannot close
+the wrapper. The bridge acks an
 event only after Letta answers its `input` with `input_accepted` and
 `accepted: true`; a rejection or no answer within `accept_seconds` leaves
 the event pending for redelivery, and a failed ack is retried on the next
-poll. Worker text has `<`, `>` and `&` escaped, so it cannot close the
-wrapper. Replacing Letta replaces only this file.
+poll. Replacing Letta replaces only this file.
 
 ## Error codes
 

@@ -14,7 +14,18 @@ from dataclasses import dataclass
 
 from scripts.orchestrator.core import Message, Task
 
-TOPICS = ("question.open", "question.expired", "approval.open", "task.status")
+TOPICS = (
+    "question.open",
+    "question.expired",
+    "approval.open",
+    "answer.proposed",
+    "security.incident",
+    "task.status",
+    "intake.escalation",
+)
+# Tasks opened by alert intake notify only through intake.escalation; their
+# routine status changes stay on the forge issue.
+QUIET_PRINCIPALS = frozenset({"intake"})
 NOTIFY_STATUSES = frozenset(
     {"needs_input", "in_review", "completed", "failed", "cancelled"}
 )
@@ -49,6 +60,24 @@ def render(message: Message, issue_url: str | None) -> Notice | None:
             "default",
             "hourglass",
         )
+    if message.topic == "answer.proposed":
+        return Notice(
+            f"Proposed answer on {message.task_id}",
+            f"{payload.get('proposed_by')} proposes answering "
+            f"{payload.get('question_id')} (revision {payload.get('revision')}) "
+            f"with: {payload.get('answer')}\nConfirm on the issue: /confirm "
+            f"{payload.get('proposal_id')}{where}",
+            "high",
+            "question",
+        )
+    if message.topic == "security.incident":
+        return Notice(
+            f"Security incident on {message.task_id}",
+            f"{payload.get('kind')} (attempt {payload.get('attempt_id')}): "
+            f"{payload.get('detail')}{where}",
+            "urgent",
+            "warning",
+        )
     if message.topic == "approval.open":
         return Notice(
             f"Approval requested on {message.task_id}",
@@ -56,6 +85,24 @@ def render(message: Message, issue_url: str | None) -> Notice | None:
             f"{payload.get('approval_id')} or /decline {payload.get('approval_id')}{where}",
             "high",
             "lock",
+        )
+    if message.topic == "intake.escalation":
+        if payload.get("reason") == "open_limit":
+            body = (
+                f"{payload.get('open_limit')} intake tasks are already open, so this "
+                f"signal was not taken: {payload.get('title')}"
+            )
+        else:
+            body = (
+                f"{payload.get('title')}\nThe controller could not resolve it "
+                f"({payload.get('failures')} failed attempts, reason "
+                f"{payload.get('reason')})."
+            )
+        return Notice(
+            f"Escalated: {payload.get('title')}",
+            f"{body}{where}",
+            "urgent" if payload.get("severity") == "critical" else "high",
+            "rotating_light",
         )
     if message.topic == "task.status" and payload.get("to") in NOTIFY_STATUSES:
         return Notice(
@@ -83,6 +130,12 @@ class NtfySink:
     def deliver(
         self, message: Message, task: Task | None, issue_url: str | None
     ) -> None:
+        if (
+            message.topic == "task.status"
+            and task is not None
+            and task.principal in QUIET_PRINCIPALS
+        ):
+            return
         notice = render(message, issue_url)
         if notice is None:
             return

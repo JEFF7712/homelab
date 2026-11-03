@@ -32,13 +32,60 @@ CONTROLLER = "orchestrator-controller"
 WORKER = "orchestrator-worker"
 WORKER_API_PORT = 8090
 CLIENT_API_PORT = 8091
+INTAKE_PORT = 8092
+# Read-only access for intake evidence. Secrets and ConfigMaps are absent on
+# purpose and a test keeps them out; this list mirrors intake.KINDS.
+EVIDENCE_RULES = (
+    {
+        "apiGroups": [""],
+        "resources": ["pods", "pods/log", "persistentvolumeclaims", "nodes"],
+        "verbs": ["get"],
+    },
+    {"apiGroups": [""], "resources": ["events"], "verbs": ["list"]},
+    {
+        "apiGroups": ["apps"],
+        "resources": ["deployments", "statefulsets", "daemonsets"],
+        "verbs": ["get"],
+    },
+    {"apiGroups": ["batch"], "resources": ["jobs", "cronjobs"], "verbs": ["get"]},
+)
 DATA_PATH = "/var/lib/orchestrator"
 # The architecture decision: the controller runs on homelab-02 or homelab-03,
 # whichever fresh resource measurements favour; never homelab-05.
 CONTROLLER_NODES = frozenset({"homelab-02", "homelab-03"})
-CREDENTIAL_KEY = re.compile(
-    r"(?i)(token|secret|password|api_key|apikey|credential)(?!_file|_dir)"
+# The worker backend configuration is a closed schema. Every key is known,
+# every value has a shape that cannot carry an inline credential, and the
+# settings that name a credential may only point at an approved secret source.
+EXECUTABLE = re.compile(r"^(/[A-Za-z0-9._+/-]+|[A-Za-z0-9._+-]+)$")
+NAME = re.compile(r"^[A-Za-z0-9._:/+-]{1,100}$")
+PATH = re.compile(r"^/[A-Za-z0-9._/-]{1,200}$")
+TOKEN_SHAPE = re.compile(
+    r"(?i)(sk-|ghp_|gho_|ghs_|github_pat_|glpat-|xox[abprs]-|eyJ[A-Za-z0-9_-]{8,})"
 )
+CLAUDE_TOKEN = "/run/worker/claude-oauth-token"
+CODEX_HOME = "/var/lib/codex-auth"
+APPROVED_CREDENTIALS = {"token_file": {CLAUDE_TOKEN}, "codex_home": {CODEX_HOME}}
+BACKEND_SCHEMA: dict[str, dict[str, Any]] = {
+    "pi": {"pi": EXECUTABLE, "provider": NAME, "model": NAME, "experimental": bool},
+    "codex": {
+        "codex": EXECUTABLE,
+        "model": NAME,
+        "codex_home": "credential",
+        "sandbox": ("external", "host"),
+    },
+    "claude": {
+        "claude": EXECUTABLE,
+        "model": NAME,
+        "config_dir": PATH,
+        "token_file": "credential",
+        "sandbox": ("external", "host"),
+    },
+}
+BACKEND_REQUIRED = {
+    "pi": {"pi", "provider", "model"},
+    "codex": {"codex", "model", "codex_home"},
+    "claude": {"claude", "model", "config_dir", "token_file"},
+}
 PINNED = re.compile(r"^[a-z0-9.\-/:]+@sha256:[0-9a-f]{64}$")
 PRIVATE = (
     "10.0.0.0/8",
@@ -49,6 +96,17 @@ PRIVATE = (
 )
 NO_PRUNE = {"kustomize.toolkit.fluxcd.io/prune": "disabled"}
 LABELS = {"app.kubernetes.io/part-of": "persistent-agent"}
+
+
+@dataclass(frozen=True)
+class IntakeParams:
+    """Alert intake: who may post signals, and where failed pipelines are read."""
+
+    woodpecker_url: str
+    woodpecker_ip: str
+    woodpecker_port: int
+    woodpecker_repo_id: int
+    open_limit: int = 3
 
 
 @dataclass(frozen=True)
@@ -77,16 +135,20 @@ class DeployParams:
     secret_name: str = "orchestrator-secrets"
     worker_secret_name: str = "orchestrator-worker-secrets"
     extra_worker_mounts: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    intake: IntakeParams | None = None
+    # Nightly store snapshots on their own NFS volume, which dumps-to-r2
+    # mounts read-only and ships off site; the group the shipper reads as.
+    backup: bool = False
+    backup_group: int = 1000
 
     def validate(self) -> None:
         if self.node not in CONTROLLER_NODES:
             raise ValueError(f"node {self.node!r} is not an allowed controller node")
-        for key in _keys(self.backend):
-            if CREDENTIAL_KEY.search(key):
-                raise ValueError(
-                    f"backend config key {key!r} looks like an inline credential; "
-                    "mount it from a Secret and pass a file path"
-                )
+        validate_backend(self.backend, [*self.extra_worker_mounts, *codex_mounts(self)])
+        if self.backend.get("kind") == "codex" and self.max_running != 1:
+            # The Codex login refreshes its token on use; one Job at a time
+            # keeps a single writer of the shared store.
+            raise ValueError("a Codex backend needs max_running 1")
         for image in (self.controller_image, self.worker_image):
             if not PINNED.match(image):
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
@@ -94,12 +156,51 @@ class DeployParams:
             raise ValueError("host_path must live under /persist")
 
 
-def _keys(value: Any) -> list[str]:
-    if isinstance(value, Mapping):
-        return [str(k) for k in value] + [k for v in value.values() for k in _keys(v)]
-    if isinstance(value, list | tuple):
-        return [k for item in value for k in _keys(item)]
-    return []
+def validate_backend(
+    backend: Mapping[str, Any], mounts: Sequence[Mapping[str, Any]] = ()
+) -> None:
+    """Check the worker backend configuration against the closed schema.
+
+    Unknown keys (including `env`) are refused, so no setting can smuggle a
+    credential under an innocuous name; values must match their shape; and
+    `token_file` and `codex_home` must be the approved secret locations,
+    which the manifests mount from a Secret or a dedicated volume.
+    """
+    kind = backend.get("kind")
+    if kind not in BACKEND_SCHEMA:
+        raise ValueError(f"unknown backend kind {kind!r}")
+    schema = BACKEND_SCHEMA[kind]
+    unknown = set(backend) - set(schema) - {"kind"}
+    if unknown:
+        raise ValueError(f"backend keys {sorted(unknown)} are not allowed for {kind}")
+    missing = BACKEND_REQUIRED[kind] - set(backend)
+    if missing:
+        raise ValueError(f"backend keys {sorted(missing)} are required for {kind}")
+    mounted = {str(m.get("mountPath")) for m in mounts}
+    for key, value in backend.items():
+        if key == "kind":
+            continue
+        rule = schema[key]
+        if rule == "credential":
+            if value not in APPROVED_CREDENTIALS[key]:
+                raise ValueError(
+                    f"{key} must be an approved secret source: "
+                    f"{sorted(APPROVED_CREDENTIALS[key])}"
+                )
+            if key == "codex_home" and value not in mounted:
+                raise ValueError(f"{key} {value} is not mounted into workers")
+        elif rule is bool:
+            if not isinstance(value, bool):
+                raise ValueError(f"{key} must be a boolean")
+        elif isinstance(rule, tuple):
+            if value not in rule:
+                raise ValueError(f"{key} must be one of {list(rule)}")
+        elif (
+            not isinstance(value, str)
+            or not rule.match(value)
+            or TOKEN_SHAPE.search(value)
+        ):
+            raise ValueError(f"{key} has an invalid value")
 
 
 def meta(
@@ -146,6 +247,64 @@ def worker_secret_keys(backend: Mapping[str, Any]) -> tuple[str, ...]:
     return WORKER_SECRET_KEYS[kind]
 
 
+CODEX_VOLUME = "codex-auth"
+
+
+def codex_mounts(params: DeployParams) -> list[dict[str, Any]]:
+    if params.backend.get("kind") != "codex":
+        return []
+    return [{"name": CODEX_VOLUME, "mountPath": CODEX_HOME}]
+
+
+def codex_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """The Codex login store: a node-local volume beside, not inside, the
+    controller's, mounted only into Codex worker Jobs."""
+    if params.backend.get("kind") != "codex":
+        return []
+    name = "orchestrator-codex-auth"
+    return [
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolume",
+            "metadata": {"name": name, "labels": dict(LABELS), "annotations": NO_PRUNE},
+            "spec": {
+                "capacity": {"storage": "64Mi"},
+                "accessModes": ["ReadWriteOnce"],
+                "persistentVolumeReclaimPolicy": "Retain",
+                "storageClassName": "local-nvme",
+                "local": {"path": f"{params.host_path}-codex-auth"},
+                "nodeAffinity": {
+                    "required": {
+                        "nodeSelectorTerms": [
+                            {
+                                "matchExpressions": [
+                                    {
+                                        "key": "kubernetes.io/hostname",
+                                        "operator": "In",
+                                        "values": [params.node],
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "claimRef": {"namespace": NAMESPACE, "name": name},
+            },
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": meta(name, annotations=NO_PRUNE),
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "storageClassName": "local-nvme",
+                "volumeName": name,
+                "resources": {"requests": {"storage": "64Mi"}},
+            },
+        },
+    ]
+
+
 def worker_volumes(params: DeployParams) -> tuple[list[Any], list[Any]]:
     keys = worker_secret_keys(params.backend)
     volumes: list[Any] = []
@@ -165,7 +324,14 @@ def worker_volumes(params: DeployParams) -> tuple[list[Any], list[Any]]:
         mounts.append(
             {"name": "worker-secrets", "mountPath": "/run/worker", "readOnly": True}
         )
-    return volumes, [*mounts, *params.extra_worker_mounts]
+    if params.backend.get("kind") == "codex":
+        volumes.append(
+            {
+                "name": CODEX_VOLUME,
+                "persistentVolumeClaim": {"claimName": "orchestrator-codex-auth"},
+            }
+        )
+    return volumes, [*mounts, *codex_mounts(params), *params.extra_worker_mounts]
 
 
 def controller_config(params: DeployParams) -> dict[str, Any]:
@@ -214,6 +380,7 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "worker": f"0.0.0.0:{WORKER_API_PORT}",
             "client": f"127.0.0.1:{CLIENT_API_PORT}",
         },
+        **intake_config(params, secrets),
         "jobs": {
             "kind": "kubernetes",
             "namespace": NAMESPACE,
@@ -223,6 +390,180 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "extra_volumes": volumes,
             "extra_mounts": mounts,
         },
+    }
+
+
+def intake_config(params: DeployParams, secrets: str) -> dict[str, Any]:
+    if params.intake is None:
+        return {}
+    return {
+        "intake": {
+            "listen": f"0.0.0.0:{INTAKE_PORT}",
+            "token_files": {
+                "alertmanager": f"{secrets}/alertmanager-intake-token",
+                "sentinel": f"{secrets}/sentinel-intake-token",
+            },
+            "open_limit": params.intake.open_limit,
+            "kubernetes_evidence": True,
+            "woodpecker": {
+                "url": params.intake.woodpecker_url,
+                "repo_id": params.intake.woodpecker_repo_id,
+                "token_file": f"{secrets}/woodpecker-token",
+            },
+        }
+    }
+
+
+def intake_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """The evidence ClusterRole and its binding to the controller."""
+    if params.intake is None:
+        return []
+    name = "orchestrator-evidence"
+    return [
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1",
+            "kind": "ClusterRole",
+            "metadata": {"name": name, "labels": dict(LABELS)},
+            "rules": [dict(rule) for rule in EVIDENCE_RULES],
+        },
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1",
+            "kind": "ClusterRoleBinding",
+            "metadata": {"name": name, "labels": dict(LABELS)},
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": name,
+            },
+            "subjects": [
+                {"kind": "ServiceAccount", "name": CONTROLLER, "namespace": NAMESPACE}
+            ],
+        },
+    ]
+
+
+def backup_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """A nightly snapshot of the store onto a volume of its own.
+
+    The volume holds only these snapshots, so the job cannot read or alter
+    other datasets' dumps. dumps-to-r2 mounts it read-only and ships it off
+    site at 03:00, and the restore drill restores and checks the newest
+    snapshot. The job runs on the controller's node beside the local volume
+    and needs no network.
+    """
+    if not params.backup:
+        return []
+    name = "orchestrator-backup"
+    return [
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": meta("orchestrator-dumps", annotations=NO_PRUNE),
+            "spec": {
+                "accessModes": ["ReadWriteMany"],
+                "storageClassName": "nfs-cluster",
+                "resources": {"requests": {"storage": "1Gi"}},
+            },
+        },
+        {
+            "apiVersion": "batch/v1",
+            "kind": "CronJob",
+            "metadata": meta(name),
+            "spec": {
+                "schedule": "30 2 * * *",
+                "concurrencyPolicy": "Forbid",
+                "successfulJobsHistoryLimit": 2,
+                "failedJobsHistoryLimit": 3,
+                "jobTemplate": {
+                    "spec": {
+                        "backoffLimit": 2,
+                        "activeDeadlineSeconds": 900,
+                        "template": {
+                            "metadata": {
+                                "labels": {**LABELS, "app.kubernetes.io/name": name}
+                            },
+                            "spec": {
+                                "automountServiceAccountToken": False,
+                                "restartPolicy": "OnFailure",
+                                "nodeSelector": {"kubernetes.io/hostname": params.node},
+                                "securityContext": {
+                                    "fsGroup": 10001,
+                                    "supplementalGroups": [params.backup_group],
+                                },
+                                "containers": [
+                                    {
+                                        **restricted_container(
+                                            "backup",
+                                            params.controller_image,
+                                            [
+                                                "python",
+                                                "-m",
+                                                "scripts.orchestrator",
+                                                "backup-rotate",
+                                                "--db",
+                                                f"{DATA_PATH}/orchestrator.sqlite",
+                                                "--dir",
+                                                "/dumps",
+                                                "--keep",
+                                                "7",
+                                                "--group",
+                                                str(params.backup_group),
+                                            ],
+                                        ),
+                                        "resources": {
+                                            "requests": {
+                                                "cpu": "50m",
+                                                "memory": "64Mi",
+                                            },
+                                            "limits": {"memory": "256Mi"},
+                                        },
+                                        "volumeMounts": [
+                                            {"name": "data", "mountPath": DATA_PATH},
+                                            {"name": "dumps", "mountPath": "/dumps"},
+                                            {"name": "tmp", "mountPath": "/tmp"},
+                                        ],
+                                    }
+                                ],
+                                "volumes": [
+                                    {
+                                        "name": "data",
+                                        "persistentVolumeClaim": {
+                                            "claimName": "orchestrator-data"
+                                        },
+                                    },
+                                    {
+                                        "name": "dumps",
+                                        "persistentVolumeClaim": {
+                                            "claimName": "orchestrator-dumps"
+                                        },
+                                    },
+                                    {"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
+                                ],
+                            },
+                        },
+                    }
+                },
+            },
+        },
+    ]
+
+
+def intake_ingress() -> dict[str, Any]:
+    """Only Alertmanager and cluster-sentinel may post signals."""
+    return {
+        "from": [
+            {
+                "namespaceSelector": {
+                    "matchLabels": {"kubernetes.io/metadata.name": namespace}
+                },
+                "podSelector": {"matchLabels": {"app.kubernetes.io/name": name}},
+            }
+            for namespace, name in (
+                ("observability", "alertmanager"),
+                ("automation", "cluster-sentinel"),
+            )
+        ],
+        "ports": [{"protocol": "TCP", "port": INTAKE_PORT}],
     }
 
 
@@ -245,7 +586,7 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
         "to": [{"ipBlock": {"cidr": f"{params.forge_ip}/32"}}],
         "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 3000}],
     }
-    return [
+    documents = [
         {
             "apiVersion": "v1",
             "kind": "Namespace",
@@ -296,7 +637,11 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                 "name": "orchestrator-worker-jobs",
             },
             "subjects": [
-                {"kind": "ServiceAccount", "name": CONTROLLER, "namespace": NAMESPACE}
+                {
+                    "kind": "ServiceAccount",
+                    "name": CONTROLLER,
+                    "namespace": NAMESPACE,
+                }
             ],
         },
         {
@@ -380,7 +725,17 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                                     {
                                         "name": "worker-api",
                                         "containerPort": WORKER_API_PORT,
-                                    }
+                                    },
+                                    *(
+                                        [
+                                            {
+                                                "name": "intake",
+                                                "containerPort": INTAKE_PORT,
+                                            }
+                                        ]
+                                        if params.intake
+                                        else []
+                                    ),
                                 ],
                                 "resources": {
                                     "requests": {"cpu": "100m", "memory": "128Mi"},
@@ -437,7 +792,18 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                         "name": "worker-api",
                         "port": WORKER_API_PORT,
                         "targetPort": "worker-api",
-                    }
+                    },
+                    *(
+                        [
+                            {
+                                "name": "intake",
+                                "port": INTAKE_PORT,
+                                "targetPort": "intake",
+                            }
+                        ]
+                        if params.intake
+                        else []
+                    ),
                 ],
             },
         },
@@ -458,7 +824,8 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                     {
                         "from": [{"podSelector": {"matchLabels": worker_selector}}],
                         "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                    }
+                    },
+                    *([intake_ingress()] if params.intake else []),
                 ],
                 "egress": [
                     dns,
@@ -485,6 +852,27 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                         }
                         for ip, port in params.api_endpoints
                     ),
+                    *(
+                        [
+                            {
+                                "to": [
+                                    {
+                                        "ipBlock": {
+                                            "cidr": f"{params.intake.woodpecker_ip}/32"
+                                        }
+                                    }
+                                ],
+                                "ports": [
+                                    {
+                                        "protocol": "TCP",
+                                        "port": params.intake.woodpecker_port,
+                                    }
+                                ],
+                            }
+                        ]
+                        if params.intake
+                        else []
+                    ),
                 ],
             },
         },
@@ -504,7 +892,12 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                     },
                     {
                         "to": [
-                            {"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE)}}
+                            {
+                                "ipBlock": {
+                                    "cidr": "0.0.0.0/0",
+                                    "except": list(PRIVATE),
+                                }
+                            }
                         ],
                         "ports": [{"protocol": "TCP", "port": 443}],
                     },
@@ -512,3 +905,9 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
             },
         },
     ]
+    return (
+        documents
+        + codex_documents(params)
+        + intake_documents(params)
+        + backup_documents(params)
+    )

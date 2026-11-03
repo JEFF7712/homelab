@@ -23,7 +23,7 @@ cert-manager for internal TLS.
 - **Media**: Jellyfin plus the *arr suite, Seerr requests, an AI
   recommender, Navidrome music, Calibre ebooks, Spotify sync, and Immich
 - **Music**: Music Assistant with LedFx lighting effects
-- **Voice**: Local voice assistant (Whisper, Piper, satellite mics)
+- **Voice**: Local Nemotron recognition, satellite mics, and display-only replies
 - **Smart home**: source-first Home Assistant, all config in this repo
 - **Notes**: Obsidian LiveSync (CouchDB) with a Quartz published site
 - **Websites**: personal static sites plus live apps
@@ -39,7 +39,7 @@ cert-manager for internal TLS.
 
 NixOS via flakes and the fleet deployer, firewall via OpenTofu plus a small
 reconciler, and Kubernetes via Flux. Protected CI owns provider changes and
-approved fleet operations; Flux reconciles Kubernetes state from Forgejo. The
+fleet operations within the task scope; Flux reconciles Kubernetes state from Forgejo. The
 repo is the source of truth; live state is verified, never hand-edited. See
 [AGENT_MAP.md](AGENT_MAP.md) for owning source, minimum checks, and runbooks
 before making or applying changes.

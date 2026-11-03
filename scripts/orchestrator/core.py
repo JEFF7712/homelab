@@ -216,7 +216,44 @@ CREATE TABLE IF NOT EXISTS artifacts (
 ALTER TABLE verifications ADD COLUMN record TEXT NOT NULL DEFAULT '{}';
 """
 
-MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3)
+# v4: answers proposed by a client (an agent) wait for the principal's
+# authenticated confirmation before they reach a worker.
+SCHEMA_V4 = """
+CREATE TABLE IF NOT EXISTS answer_proposals (
+  id TEXT PRIMARY KEY,
+  question_id TEXT NOT NULL REFERENCES questions(id),
+  task_id TEXT NOT NULL REFERENCES tasks(id),
+  revision INTEGER NOT NULL,
+  answer TEXT NOT NULL,
+  proposed_by TEXT NOT NULL,
+  status TEXT NOT NULL,
+  decided_by TEXT,
+  created REAL NOT NULL
+);
+"""
+
+# v5: tasks opened by alert intake. One row per task, keyed by the signal
+# fingerprint that opened it, so a repeating alert never opens a second open
+# task and a resolution finds the task to cancel. `escalated` records the one
+# escalation notice per task; `cursors` holds poller positions.
+SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS intake_tasks (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+  fingerprint TEXT NOT NULL,
+  source TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  created REAL NOT NULL,
+  resolved REAL,
+  escalated REAL
+);
+CREATE INDEX IF NOT EXISTS intake_tasks_fingerprint ON intake_tasks(fingerprint);
+CREATE TABLE IF NOT EXISTS intake_cursors (
+  source TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+"""
+
+MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5)
 SCHEMA_VERSION = len(MIGRATIONS)
 NETWORK_FILESYSTEMS = frozenset(
     {
@@ -469,6 +506,23 @@ class ControllerLock:
             self.fd = None
 
 
+def private(path: Path) -> None:
+    """Make the store owner-only before SQLite opens it.
+
+    SQLite creates the database under the process umask and gives its WAL
+    and shared-memory files the database's mode, so creating it 0600 here
+    keeps all three private. An existing store this process owns with group
+    or other bits is tightened; another user's copy (a restored snapshot
+    under test) is left as it is.
+    """
+    try:
+        os.close(os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600))
+    except FileExistsError:
+        info = path.stat()
+        if info.st_uid == os.getuid() and info.st_mode & 0o077:
+            path.chmod(info.st_mode & 0o700)
+
+
 def backup(source: sqlite3.Connection, destination: Path) -> None:
     """Write a consistent, integrity-checked copy that only the owner can read."""
     if destination.exists():
@@ -514,6 +568,7 @@ class Store:
         if controller:
             self.controller_lock = ControllerLock(path).__enter__()
         self.lock = threading.RLock()
+        private(path)
         self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys=ON")
@@ -640,53 +695,309 @@ class Store:
         silent replacement, so a retried tool call cannot mutate a task.
         """
         spec.validate()
-        request_digest = digest(spec.request())
         with self.transaction() as db:
-            row = db.execute(
-                "SELECT * FROM tasks WHERE principal = ? AND idempotency_key = ?",
-                (principal, idempotency_key),
-            ).fetchone()
-            if row is not None:
-                if row["request_digest"] != request_digest:
-                    raise OrchestratorError(
-                        "IDEMPOTENCY_CONFLICT",
-                        f"key {idempotency_key} was used for a different task",
-                    )
-                return self._task(row), False
-            for reference in (spec.parent_id, *spec.depends_on):
-                if reference is not None and self._row(db, reference) is None:
-                    raise OrchestratorError("NOT_FOUND", f"unknown task {reference}")
-            identifier = new_id("task")
-            status = "draft" if draft else "ready"
+            return self._insert_task(db, principal, idempotency_key, spec, now, draft)
+
+    def _insert_task(
+        self,
+        db: sqlite3.Connection,
+        principal: str,
+        idempotency_key: str,
+        spec: TaskSpec,
+        now: float,
+        draft: bool = False,
+    ) -> tuple[Task, bool]:
+        request_digest = digest(spec.request())
+        row = db.execute(
+            "SELECT * FROM tasks WHERE principal = ? AND idempotency_key = ?",
+            (principal, idempotency_key),
+        ).fetchone()
+        if row is not None:
+            if row["request_digest"] != request_digest:
+                raise OrchestratorError(
+                    "IDEMPOTENCY_CONFLICT",
+                    f"key {idempotency_key} was used for a different task",
+                )
+            return self._task(row), False
+        for reference in (spec.parent_id, *spec.depends_on):
+            if reference is not None and self._row(db, reference) is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown task {reference}")
+        identifier = new_id("task")
+        status = "draft" if draft else "ready"
+        db.execute(
+            "INSERT INTO tasks (id, principal, idempotency_key, request_digest, "
+            "project, title, goal, acceptance_criteria, requested_capabilities, "
+            "priority, parent_id, status, policy_version, created, updated) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                identifier,
+                principal,
+                idempotency_key,
+                request_digest,
+                spec.project,
+                spec.title,
+                spec.goal,
+                json.dumps(list(spec.acceptance_criteria)),
+                json.dumps(sorted(spec.requested_capabilities)),
+                spec.priority,
+                spec.parent_id,
+                status,
+                self.policy_version,
+                now,
+                now,
+            ),
+        )
+        db.executemany(
+            "INSERT INTO dependencies (task_id, depends_on) VALUES (?, ?)",
+            [(identifier, item) for item in sorted(set(spec.depends_on))],
+        )
+        self._record(db, identifier, None, status, principal, "created", now)
+        return self._task(self._row(db, identifier)), True  # type: ignore[arg-type]
+
+    # Intake
+
+    def open_intake(self, fingerprint: str) -> Task | None:
+        """The open task an intake signal with this fingerprint opened, if any."""
+        with self.lock:
+            return self._open_intake(self.db, fingerprint)
+
+    def open_intake_fingerprints(self, source: str) -> list[str]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT DISTINCT i.fingerprint FROM intake_tasks i "
+                "JOIN tasks t ON t.id = i.task_id WHERE i.source = ? "
+                f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                (source, *sorted(TERMINAL)),
+            ).fetchall()
+            return sorted(row["fingerprint"] for row in rows)
+
+    def create_intake_task(
+        self,
+        principal: str,
+        fingerprint: str,
+        source: str,
+        severity: str,
+        spec: TaskSpec,
+        now: float,
+        open_limit: int,
+    ) -> tuple[str, Task | None]:
+        """Open a task for a firing signal unless one is already open for it.
+
+        Returns ("created", task), ("duplicate", the open task) or
+        ("limited", None). The duplicate check and the open-task limit are
+        evaluated in the same transaction as the insert, so concurrent
+        deliveries of one alert cannot open two tasks or exceed the limit.
+        """
+        spec.validate()
+        with self.transaction() as db:
+            existing = self._open_intake(db, fingerprint)
+            if existing is not None:
+                return "duplicate", existing
+            if self._open_intake_count(db) >= open_limit:
+                self._limit_escalation(
+                    db, fingerprint, spec.title, severity, now, open_limit
+                )
+                return "limited", None
+            task, _ = self._insert_task(
+                db, principal, f"intake:{fingerprint}:{new_id('signal')}", spec, now
+            )
             db.execute(
-                "INSERT INTO tasks (id, principal, idempotency_key, request_digest, "
-                "project, title, goal, acceptance_criteria, requested_capabilities, "
-                "priority, parent_id, status, policy_version, created, updated) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    identifier,
-                    principal,
-                    idempotency_key,
-                    request_digest,
-                    spec.project,
-                    spec.title,
-                    spec.goal,
-                    json.dumps(list(spec.acceptance_criteria)),
-                    json.dumps(sorted(spec.requested_capabilities)),
-                    spec.priority,
-                    spec.parent_id,
-                    status,
-                    self.policy_version,
-                    now,
-                    now,
-                ),
+                "INSERT INTO intake_tasks (task_id, fingerprint, source, severity, "
+                "created) VALUES (?, ?, ?, ?, ?)",
+                (task.id, fingerprint, source, severity, now),
             )
-            db.executemany(
-                "INSERT INTO dependencies (task_id, depends_on) VALUES (?, ?)",
-                [(identifier, item) for item in sorted(set(spec.depends_on))],
+            return "created", task
+
+    def intake_full(
+        self, fingerprint: str, title: str, severity: str, now: float, open_limit: int
+    ) -> bool:
+        """Whether intake is at its open-task limit, escalating if so.
+
+        Checked before any evidence is collected, so signals beyond the limit
+        cost no Kubernetes or Woodpecker reads.
+        """
+        with self.transaction() as db:
+            if self._open_intake_count(db) < open_limit:
+                return False
+            self._limit_escalation(db, fingerprint, title, severity, now, open_limit)
+            return True
+
+    def _limit_escalation(
+        self,
+        db: sqlite3.Connection,
+        fingerprint: str,
+        title: str,
+        severity: str,
+        now: float,
+        open_limit: int,
+    ) -> None:
+        # One notice per hour for all overflow, however many fingerprints a
+        # sender invents; the count of signals turned away rides along.
+        key = f"intake.limit:{int(now // 3600)}"
+        row = db.execute("SELECT payload FROM outbox WHERE key = ?", (key,)).fetchone()
+        if row is None:
+            self._enqueue(
+                db,
+                key,
+                "intake.escalation",
+                None,
+                {
+                    "reason": "open_limit",
+                    "fingerprint": fingerprint,
+                    "title": title,
+                    "severity": severity,
+                    "open_limit": open_limit,
+                    "turned_away": 1,
+                },
+                now,
             )
-            self._record(db, identifier, None, status, principal, "created", now)
-            return self._task(self._row(db, identifier)), True  # type: ignore[arg-type]
+            return
+        payload = json.loads(row["payload"])
+        payload["turned_away"] = int(payload.get("turned_away", 1)) + 1
+        if severity == "critical":
+            payload["severity"] = "critical"
+        db.execute(
+            "UPDATE outbox SET payload = ? WHERE key = ? AND delivered IS NULL",
+            (canonical(payload), key),
+        )
+
+    def resolve_intake(
+        self, fingerprint: str, actor: str, now: float
+    ) -> list[tuple[str, str]]:
+        """Record that the signal behind open intake tasks has resolved.
+
+        A task no worker has started is cancelled; one already under way is
+        left to finish (its fix may still be wanted) and only marked resolved.
+        """
+        outcomes = []
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT i.task_id, t.status FROM intake_tasks i JOIN tasks t "
+                "ON t.id = i.task_id WHERE i.fingerprint = ? AND i.resolved IS NULL "
+                f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                (fingerprint, *sorted(TERMINAL)),
+            ).fetchall()
+            for row in rows:
+                started = db.execute(
+                    "SELECT 1 FROM attempts WHERE task_id = ? LIMIT 1",
+                    (row["task_id"],),
+                ).fetchone()
+                if row["status"] in {"draft", "ready"} and started is None:
+                    self._move(
+                        db,
+                        row["task_id"],
+                        "cancelled",
+                        actor,
+                        "signal resolved before work started",
+                        now,
+                        None,
+                    )
+                    outcomes.append((row["task_id"], "cancelled"))
+                else:
+                    self._event(
+                        db,
+                        f"intake.resolved:{row['task_id']}",
+                        row["task_id"],
+                        None,
+                        "intake.resolved",
+                        actor,
+                        {"fingerprint": fingerprint},
+                        None,
+                        now,
+                    )
+                    outcomes.append((row["task_id"], "resolved"))
+                db.execute(
+                    "UPDATE intake_tasks SET resolved = ? WHERE task_id = ?",
+                    (now, row["task_id"]),
+                )
+        return outcomes
+
+    def escalate_intake(self, failures: int, now: float) -> list[str]:
+        """Queue one escalation for each intake task that keeps failing.
+
+        A failure is an attempt that ended without a result, or a settled
+        attempt the controller sent back (failed CI or verification) for a
+        new one. A task that reached `failed` escalates regardless.
+        """
+        escalated = []
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT i.task_id, i.fingerprint, i.severity, t.status, t.title "
+                "FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+                "WHERE i.escalated IS NULL AND t.status NOT IN ('completed', 'cancelled')"
+            ).fetchall()
+            for row in rows:
+                attempts = db.execute(
+                    "SELECT number, finished, exit_reason FROM attempts "
+                    "WHERE task_id = ? ORDER BY number",
+                    (row["task_id"],),
+                ).fetchall()
+                latest = attempts[-1]["number"] if attempts else 0
+                failed = sum(
+                    1
+                    for attempt in attempts
+                    if attempt["finished"] is not None
+                    and (
+                        attempt["exit_reason"] != "settled"
+                        or attempt["number"] < latest
+                    )
+                )
+                if failed < failures and row["status"] != "failed":
+                    continue
+                self._enqueue(
+                    db,
+                    f"intake.escalation:{row['task_id']}",
+                    "intake.escalation",
+                    row["task_id"],
+                    {
+                        "reason": "failed" if row["status"] == "failed" else "retries",
+                        "fingerprint": row["fingerprint"],
+                        "title": row["title"],
+                        "severity": row["severity"],
+                        "failures": failed,
+                    },
+                    now,
+                )
+                db.execute(
+                    "UPDATE intake_tasks SET escalated = ? WHERE task_id = ?",
+                    (now, row["task_id"]),
+                )
+                escalated.append(row["task_id"])
+        return escalated
+
+    def intake_cursor(self, source: str) -> str | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT value FROM intake_cursors WHERE source = ?", (source,)
+            ).fetchone()
+            return None if row is None else str(row["value"])
+
+    def set_intake_cursor(self, source: str, value: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO intake_cursors (source, value) VALUES (?, ?) "
+                "ON CONFLICT(source) DO UPDATE SET value = excluded.value",
+                (source, value),
+            )
+
+    def _open_intake(self, db: sqlite3.Connection, fingerprint: str) -> Task | None:
+        row = db.execute(
+            "SELECT t.* FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+            "WHERE i.fingerprint = ? "
+            f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))}) "
+            "ORDER BY i.created DESC LIMIT 1",
+            (fingerprint, *sorted(TERMINAL)),
+        ).fetchone()
+        return None if row is None else self._task(row)
+
+    def _open_intake_count(self, db: sqlite3.Connection) -> int:
+        return int(
+            db.execute(
+                "SELECT COUNT(*) FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+                f"WHERE t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                tuple(sorted(TERMINAL)),
+            ).fetchone()[0]
+        )
 
     def add_dependency(self, task_id: str, depends_on: str) -> None:
         with self.transaction() as db:
@@ -1220,6 +1531,27 @@ class Store:
             raise OrchestratorError("NOT_FOUND", f"no artifact for {attempt_id}")
         return Artifact(**{key: row[key] for key in Artifact.__dataclass_fields__})
 
+    def report_incident(
+        self,
+        key: str,
+        task_id: str | None,
+        kind: str,
+        detail: str,
+        now: float,
+        attempt_id: str | None = None,
+    ) -> None:
+        """Record a security-relevant failure once per key, for every sink."""
+        self._require_controller("report incidents")
+        with self.transaction() as db:
+            self._enqueue(
+                db,
+                f"incident:{key}",
+                "security.incident",
+                task_id,
+                {"kind": kind, "attempt_id": attempt_id, "detail": detail[:500]},
+                now,
+            )
+
     def extend_leases(self, until: float) -> int:
         """Push every unfinished attempt's lease to at least `until`.
 
@@ -1502,7 +1834,9 @@ class Store:
                 )
             if question.choices and answer not in question.choices:
                 raise OrchestratorError(
-                    "INVALID_ANSWER", f"answer must be one of {list(question.choices)}"
+                    "INVALID_ANSWER",
+                    f"answer must be one of the question's {len(question.choices)} "
+                    "choices",
                 )
             db.execute(
                 "UPDATE questions SET status = 'answered', answer = ?, answered_by = ? "
@@ -1527,6 +1861,113 @@ class Store:
                 db.execute(
                     "SELECT * FROM questions WHERE id = ?", (question_id,)
                 ).fetchone()
+            )
+
+    def propose_answer(
+        self,
+        question_id: str,
+        revision: int,
+        answer: str,
+        proposed_by: str,
+        now: float,
+    ) -> str:
+        """Record a client's proposed answer; nothing reaches the worker.
+
+        The principal confirms it on the forge (`/confirm <id>`), which then
+        answers the question if it is still open at this revision.
+        """
+        self.expire_questions(now)
+        with self.transaction() as db:
+            row = db.execute(
+                "SELECT * FROM questions WHERE id = ?", (question_id,)
+            ).fetchone()
+            if row is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown question {question_id}")
+            question = self._question(row)
+            if question.status != "open":
+                raise OrchestratorError(
+                    "STALE", f"question {question_id} is {question.status}"
+                )
+            if revision != question.revision:
+                raise OrchestratorError(
+                    "STALE",
+                    f"question {question_id} is at revision {question.revision}",
+                )
+            if question.choices and answer not in question.choices:
+                raise OrchestratorError(
+                    "INVALID_ANSWER",
+                    f"answer must be one of the question's {len(question.choices)} "
+                    "choices",
+                )
+            proposal_id = new_id("prop")
+            db.execute(
+                "INSERT INTO answer_proposals (id, question_id, task_id, revision, "
+                "answer, proposed_by, status, created) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)",
+                (
+                    proposal_id,
+                    question_id,
+                    question.task_id,
+                    revision,
+                    answer[:PAYLOAD_LIMIT],
+                    proposed_by,
+                    now,
+                ),
+            )
+            self._enqueue(
+                db,
+                f"proposal:{proposal_id}",
+                "answer.proposed",
+                question.task_id,
+                {
+                    "proposal_id": proposal_id,
+                    "question_id": question_id,
+                    "revision": revision,
+                    "answer": answer[:PAYLOAD_LIMIT],
+                    "proposed_by": proposed_by,
+                },
+                now,
+            )
+            return proposal_id
+
+    def confirm_proposal(
+        self, proposal_id: str, task_id: str, confirmed_by: str, now: float
+    ) -> Question:
+        """The principal's confirmation: answer the question as proposed.
+
+        Refused unless the proposal is pending, belongs to this task, and its
+        question is still open at the proposed revision with a live attempt.
+        """
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM answer_proposals WHERE id = ?", (proposal_id,)
+            ).fetchone()
+        if row is None or row["task_id"] != task_id:
+            raise OrchestratorError("NOT_FOUND", f"unknown proposal {proposal_id}")
+        if row["status"] != "pending":
+            raise OrchestratorError(
+                "STALE", f"proposal {proposal_id} is {row['status']}"
+            )
+        try:
+            question = self.answer(
+                row["question_id"],
+                row["revision"],
+                row["answer"],
+                f"{confirmed_by} confirming {row['proposed_by']}",
+                now,
+            )
+        except OrchestratorError:
+            self._decide_proposal(proposal_id, "stale", confirmed_by)
+            raise
+        self._decide_proposal(proposal_id, "confirmed", confirmed_by)
+        return question
+
+    def _decide_proposal(self, proposal_id: str, status: str, actor: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE answer_proposals SET status = ?, decided_by = ? "
+                "WHERE id = ? AND status = 'pending'",
+                (status, actor, proposal_id),
             )
 
     def revise(

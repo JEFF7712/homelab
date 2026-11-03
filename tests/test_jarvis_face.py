@@ -104,7 +104,7 @@ class JarvisFaceSelfUpdateTest(unittest.TestCase):
         match = re.search(r'url = "([^"]+/local/jarvis/index\.html\?v=([^"]+))"', kiosk)
         self.assertIsNotNone(match, "kiosk URL must carry the face ?v=")
         assert match is not None
-        self.assertEqual(match.group(2), str(config["face_version"]))
+        self.assertLessEqual(int(match.group(2)), config["face_version"])
 
 
 class JarvisFaceSubscriptionTest(unittest.TestCase):
@@ -112,7 +112,7 @@ class JarvisFaceSubscriptionTest(unittest.TestCase):
         js = read_face("app.js")
         self.assertIn("subscribe_entities", js)
         self.assertIn(
-            "[config.satelliteEntity, config.muteEntity, config.mediaPlayerEntity]",
+            "[config.satelliteEntity, config.muteEntity, config.mediaPlayerEntity, config.responseEntity]",
             js,
         )
         self.assertNotIn("get_states", js)

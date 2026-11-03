@@ -731,6 +731,23 @@ class StorageTests(StoreCase):
         assert again is not None
         self.assertEqual(again[1].number, 2)
 
+    def test_live_store_and_its_wal_are_owner_only(self) -> None:
+        path = Path(self.tmp.name) / "private.sqlite"
+        previous = core.os.umask(0o022)
+        try:
+            store = Store(path, POLICY, controller=True)
+            store.create_task("rupan", "k1", spec(), 1.0)
+        finally:
+            core.os.umask(previous)
+        try:
+            for item in (path, path.with_name(path.name + "-wal")):
+                self.assertEqual(stat.S_IMODE(item.stat().st_mode), 0o600, item)
+        finally:
+            store.close()
+        path.chmod(0o644)
+        Store(path, POLICY).close()
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
     def test_cli_reports_check_and_backup_as_json(self) -> None:
         self.store.create_task("rupan", "k1", spec(), 1.0)
         destination = Path(self.tmp.name) / "cli-backup.sqlite"
@@ -749,6 +766,38 @@ class StorageTests(StoreCase):
             missing = Path(self.tmp.name) / "missing.sqlite"
             self.assertEqual(cli.main(["check", "--db", str(missing)]), 1)
         self.assertEqual(json.loads(output.getvalue())["code"], "NOT_FOUND")
+
+    def test_rotated_backups_restore_and_only_the_newest_are_kept(self) -> None:
+        task, _ = self.store.create_task("rupan", "k1", spec(), 1.0)
+        dumps = Path(self.tmp.name) / "dumps"
+        dumps.mkdir()
+        group = dumps.stat().st_gid
+        for second in range(3):
+            moment = (2026, 11, 2, 2, 30, second, 0, 306, 0)
+            output = io.StringIO()
+            with (
+                mock.patch.object(cli.time, "gmtime", return_value=moment),
+                contextlib.redirect_stdout(output),
+            ):
+                argv = ["backup-rotate", "--db", str(self.path), "--dir", str(dumps)]
+                self.assertEqual(
+                    cli.main([*argv, "--keep", "2", "--group", str(group)]), 0
+                )
+        snapshots = sorted(dumps.glob("orchestrator-*.sqlite"))
+        self.assertEqual(
+            [path.name for path in snapshots],
+            [
+                "orchestrator-20261102T023001Z.sqlite",
+                "orchestrator-20261102T023002Z.sqlite",
+            ],
+        )
+        self.assertEqual(stat.S_IMODE(snapshots[-1].stat().st_mode), 0o640)
+        restored = Store(snapshots[-1], POLICY)
+        try:
+            self.assertEqual(restored.integrity(), "ok")
+            self.assertEqual(restored.get_task(task.id).status, "ready")
+        finally:
+            restored.close()
 
 
 if __name__ == "__main__":

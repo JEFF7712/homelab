@@ -55,6 +55,12 @@ add plaintext Kubernetes Secret data to an ordinary YAML file.
 
 Inspect the `ExternalSecret` or `SecretStore` and the owning service runbook to
 find its remote secret owner, scope, key mapping, refresh policy, and consumer.
+The shared `homelab-secrets` ClusterSecretStore (`gitops/eso/secretstore.yaml`)
+reads Secret `homelab-values` in namespace `secret-source`, decrypted by Flux
+from `gitops/secrets/homelab-values.sops.yaml`. GitLab project variables no
+longer supply these ExternalSecrets. Edit the encrypted properties, ship,
+wait for Flux and ESO refresh, and restart consumers that read secrets only
+at startup. The `remoteRef.property` can differ from the target Secret key.
 Change the source at its authoritative owner. Do not copy values into Git or
 replace an `ExternalSecret` with a SOPS Secret for convenience. Credential
 creation, rotation, and revocation follow the service-specific procedure

@@ -141,6 +141,20 @@ spec:
               resources:
                 requests:
                   storage: 20Gi
+    kubelet:
+      serviceMonitor:
+        metricRelabelings:
+          # Preserve the chart's default storage histogram bucket filter:
+          # Helm replaces lists rather than appending to them.
+          - action: drop
+            sourceLabels: [__name__, le]
+            regex: '(csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?'
+          # k3s also exports control-plane metrics on kubelet /metrics.
+          # The apiserver job already collects these; keep kubelet and
+          # cAdvisor/probe metrics while avoiding duplicate series.
+          - action: drop
+            sourceLabels: [__name__]
+            regex: '(apiserver|etcd|scheduler)_.*'
     kubeControllerManager:
       enabled: false
     kubeScheduler:
