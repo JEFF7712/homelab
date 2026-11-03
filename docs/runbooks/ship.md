@@ -29,7 +29,8 @@ just ship --verify 'curl --fail https://service.example/health'
    pressure) is restarted once per head; a second kill fails the ship.
 6. Waits for `policy/merge` and merges through the merge queue (see below).
    Repair findings return to the agent; authority findings require operator
-   approval of that exact head. `CODEOWNERS` creates no mandatory review
+   passkey approval of that exact head on the [approvals dashboard](approvals.md).
+   `CODEOWNERS` creates no mandatory review
    requests. If someone explicitly requests a review, branch protection also
    requires resolving it before merge. See [merge policy](merge-policy.md).
 7. When operations are planned, waits for the main push pipeline covering the
@@ -93,13 +94,22 @@ Cloudflare and application releases. CI-host-only paths select that host instead
 of also deploying the entire fleet. `--deploy` selects an explicit operation
 list and includes prerequisites; `--deploy none` merges without operations.
 
-The task request authorizes routine catalog operations. Changes to controls
-that bound agents, persistent-data destruction, and host-level exposure require
-operator approval of the exact change under [merge policy](merge-policy.md).
-Deployment also holds protected authorization or storage source changes,
-operator-only operations, and risky saved OpenTofu plans through the
-[approvals dashboard](approvals.md). `ship` prints the approval link and follows
-the result. Production credentials stay in CI; validation remains credential-free.
+The task request authorizes routine catalog operations. Changes to the controls
+that bound agents still require the operator's approval of the exact change,
+always given with a passkey on the approvals dashboard: `policy/merge` holds
+authority-changing PRs and files a merge request there, which `ship` prints and
+waits on. The deployed CI policy checks agent mutations against its immutable
+authorization/storage source baseline; an exact-content grant authorizes a
+deployment without expiring when unrelated main commits land, and a grant for
+file versions an approved merge already covered is approved without asking
+again. Operator-only catalog operations also remain held. See
+[merge policy](merge-policy.md) and [approvals](approvals.md).
+
+Saved OpenTofu plans must be recognized and complete. Authorization changes,
+persistent-data destruction, management-connectivity loss and bulk destruction
+require operator approval before apply. Ordinary application releases, fleet
+updates, DNS edits and small firewall cleanup proceed autonomously within the
+task scope. Production credentials stay in CI; validation is credential-free.
 
 An operation can finish against an older main revision when every intervening
 change is known to affect a different catalog resource group. Both the deployed
@@ -138,9 +148,10 @@ approved switch, follow [CI recovery](ci-pipelines.md#recovery).
 
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
 token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. Operations run in
-CI with CI-held credentials. It never prints a token. The approvals service
-handles current protected deployment holds; it is not a retired migration
-mechanism. Routine agent operations need no operator token or passkey.
+CI with CI-held credentials. It never prints a token. Routine catalog operations
+need no operator token or passkey. The approvals service handles high-risk
+exceptions and exact-content grants; `ship` files the request, prints the link
+and follows the decision. Declined or expired requests stop delivery.
 
 ## Acceptance
 

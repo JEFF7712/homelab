@@ -20,15 +20,15 @@ metadata:
 items:
   # JEFF7712/rupan.dev Dockerfile, JEFF7712/rupanism Dockerfile,
   # JEFF7712/obsidian-vault quartz/Dockerfile (builder stage)
-  - image: docker.io/library/node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+  - image: docker.io/library/node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
   # JEFF7712/rupanism Dockerfile (deps stage), JEFF7712/distrojeff-site Dockerfile (builder stage)
-  - image: docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+  - image: docker.io/library/node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
   # JEFF7712/rupanism Dockerfile (deps stage)
-  - image: docker.io/oven/bun:1.4-debian@sha256:4f6e31d1a54d6a3dd312daef655fc998101b5043d52e12592ac293ef04b9bc73
+  - image: docker.io/oven/bun:1.4-debian@sha256:93d5032fe06d163427822dc1598f420363759bb18155c9cc90eb1be05a64a19e
   # JEFF7712/obsidian-vault quartz/Dockerfile (runner stage)
-  - image: docker.io/library/nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+  - image: docker.io/library/nginx:1.31-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
   # JEFF7712/pod-agent Dockerfile
-  - image: docker.io/library/python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258  # yamllint disable-line rule:line-length
+  - image: docker.io/library/python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337  # yamllint disable-line rule:line-length
   # JEFF7712/pod-agent Dockerfile (uv copy stage)
-  - image: ghcr.io/astral-sh/uv:0.12.11@sha256:79c6f4776b851471cc73b7d21d0cc834bb94383c292e83640d27eff512864df7
-  - image: docker.io/woodpeckerci/plugin-git:2.10.0@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964  # yamllint disable-line rule:line-length
+  - image: ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0
+  - image: docker.io/woodpeckerci/plugin-git:2.11.0@sha256:9802cb7852dcf31f9c5c1d1ddeadfb9002d4fae85751f7b6a792eedb267bcc59  # yamllint disable-line rule:line-length

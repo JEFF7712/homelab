@@ -41,6 +41,10 @@ def evaluate(extra_config: str) -> dict:
         prune = cfg.services.monero.prune;
         rpcAddress = cfg.services.monero.rpc.address;
         extraConfig = cfg.services.monero.extraConfig;
+        environmentFile = cfg.services.monero.environmentFile;
+        torEnabled = cfg.services.tor.enable;
+        onionMap = if cfg.homelab.monero.tor.enable then cfg.services.tor.relay.onionServices.monero.map else [];
+        onionEnv = if cfg.homelab.monero.tor.enable then cfg.systemd.services.monero-onion-env.script else "";
         requiredAvailGiB = cfg.homelab.monero.requiredAvailGiB;
         minFreeGiB = cfg.homelab.monero.minFreeGiB;
         firewall = cfg.networking.firewall.extraInputRules;
@@ -83,6 +87,17 @@ class MoneroModuleTests(unittest.TestCase):
         self.assertEqual(result["timer"], "daily")
         self.assertTrue(any("/persist/monero" in rule for rule in result["tmpfiles"]))
         self.assertIn("p2p-bind-port=18080", result["extraConfig"])
+
+    def test_tor_onion_listener_uses_runtime_address(self) -> None:
+        result = evaluate("homelab.monero.tor.enable = true;")
+        self.assertTrue(result["torEnabled"])
+        self.assertEqual(result["environmentFile"], "/run/monero-onion.env")
+        self.assertEqual(result["onionMap"][0]["port"], 18084)
+        self.assertEqual(result["onionMap"][0]["target"]["addr"], "127.0.0.1")
+        self.assertIn(
+            "anonymous-inbound=${MONERO_ONION_ADDRESS}:18084", result["extraConfig"]
+        )
+        self.assertIn("/var/lib/tor/onion/monero/hostname", result["onionEnv"])
 
     def test_restricted_rpc_serves_lan_wallets_only(self) -> None:
         result = evaluate("")
@@ -136,6 +151,16 @@ class MoneroModuleTests(unittest.TestCase):
             result["serviceConfig"]["IOWriteBandwidthMax"],
             f"{IO_DEVICE} 150M",
         )
+
+    def test_memory_limits_are_host_tunable(self) -> None:
+        defaults = evaluate("")["serviceConfig"]
+        self.assertEqual(defaults["MemoryHigh"], "6G")
+        self.assertEqual(defaults["MemoryMax"], "8G")
+        tuned = evaluate(
+            'homelab.monero.memoryHigh = "1536M"; homelab.monero.memoryMax = "2G";'
+        )["serviceConfig"]
+        self.assertEqual(tuned["MemoryHigh"], "1536M")
+        self.assertEqual(tuned["MemoryMax"], "2G")
 
     def test_requires_io_device(self) -> None:
         expression = f"""

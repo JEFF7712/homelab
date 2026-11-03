@@ -276,6 +276,49 @@ Key rules:
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
 - **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **No mirror lookups:** Renovate skips every `registry.rupan.dev/**` reference. Mirror tags never repoint (below), so a lookup could never find a newer digest, and Renovate holds no registry credential. An image is tracked only through its tagged upstream declaration in a `registry-sources.yaml` or `base-images.yaml`; images used across several areas are declared in `gitops/shared-images/registry-sources.yaml`. A pin whose upstream tag has since moved is declared under that tag with the pinned digest, so Renovate proposes the current build. Its lock record carries only the retention tag, because the digest is already mirrored and the floating tag may already point elsewhere. LinuxServer images use regex versioning in `renovate.json`, because docker versioning never moves past their `-lsN` suffix. PostgreSQL majors are disabled.
+- **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
+
+### Refreshing an image under the same tag
+
+`registry-lock-import` never repoints an existing destination tag ("refusing
+to overwrite conflicting destination tag"), so a floating tag such as
+`1.4-debian` stays on the first digest imported under it. When a rebuild
+keeps its tag (a digest refresh), merge the new lock record with only its
+`retention-deployed-*` tag and leave the floating tag on the old record;
+consumers pin digests, so nothing reads the floating tag.
+
+### Upgrading a Helm chart
+
+HelmReleases pin their app images through `postRenderers` digests, so a
+chart-only bump runs new templates and CRDs on the old image (external-secrets
+had drifted to app v2.10 under chart 2.12). For each chart upgrade:
+
+1. Render the old and new chart with the release's values (`helm template
+   --repo <url> --version <v>`) and diff the whole pod specs: images, args,
+   `securityContext` and container ports. ntfy 1.7.0 switched to uid 1000,
+   which root-owned files on NFS cannot accommodate (NFS ignores `fsGroup`),
+   and moved its pod port, which Cilium policies match after Service
+   translation.
+2. Add the new images as `tag@digest` to the area's inventory-only
+   `registry-sources.yaml`, generate the inventory and lock into scratch
+   files, merge in only the new records, ship, and confirm
+   `registry-lock-import` copied them.
+3. Then bump the chart version and its post-renderer digests in one change and
+   verify the HelmRelease and the running digests.
+- **Flux system manifests:** Renovate does not update `gitops/clusters/homelab-01/flux-system/gotk-components.yaml`. Its image has no `flux` binary, so it could only bump the version comment, and two such header-only bumps merged before 2026-11 while the controllers stayed on Flux v2.9.0.
+
+### Upgrading Flux
+
+1. Generate the new components with the matching CLI:
+   `flux install --version=<v2.x.y> --components=source-controller,kustomize-controller,helm-controller,notification-controller --export > gotk-components.yaml`.
+2. Mirror the four controller images at the tags that manifest names, merging
+   only their new records into `registry/images.inventory.json` and
+   `registry/images.lock.json`, and confirm `registry-lock-import` copied them.
+3. Replace each `ghcr.io/fluxcd/<controller>:<tag>` in the manifest with its
+   `registry.rupan.dev/upstream/ghcr.io/fluxcd/<controller>@sha256:...` mirror
+   digest, then review the CRD and RBAC diff before shipping. The
+   `kustomization.yaml` patch keeps the namespace's Pod Security label.
 
 ### Decoupled CVE audits and delta reporting
 

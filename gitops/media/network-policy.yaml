@@ -30,3 +30,8 @@ spec:
     - from:
         - ipBlock:
             cidr: 10.0.0.0/16
+    # 6. NetBird clients arrive with 100.64.0.0/10 source addresses (the
+    # mesh CIDR), not 10.x, so the LAN VIP is unreachable without this.
+    - from:
+        - ipBlock:
+            cidr: 100.64.0.0/10

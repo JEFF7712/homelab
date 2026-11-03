@@ -7,7 +7,10 @@
 let
   workspaces = config.services.agent-workspaces;
   reservedCpu = 1 + workspaces.aggregateCpuPercent / 100;
-  reservedMemoryMiB = 2048 + workspaces.aggregateMemoryMaxMiB;
+  # Typical concurrent CI (one validation and one operation) in the ci.slice
+  # from woodpecker.nix, so GPU pods are not scheduled into CI memory.
+  ciReservedMemoryMiB = 8192;
+  reservedMemoryMiB = 2048 + workspaces.aggregateMemoryMaxMiB + ciReservedMemoryMiB;
 in
 {
   imports = [
@@ -144,6 +147,12 @@ in
   };
 
   homelab.monero.enable = true;
+  homelab.monero.tor.enable = true;
+  environment.persistence."/persist".directories = [ "/var/lib/tor" ];
+  # monerod peaked at about 1 GiB, mostly reclaimable LMDB pages; the 8G
+  # default left that room to CI. Tor runs in its own unit.
+  homelab.monero.memoryHigh = "1536M";
+  homelab.monero.memoryMax = "2G";
 
   # System partition (ESP is part1) holding the btrfs /persist subvolume.
   homelab.monero.ioDevice = "/dev/disk/by-id/nvme-PC_SN810_NVMe_WDC_1024GB_230907801780-part2";
@@ -170,7 +179,7 @@ in
   services.agent-workspace-network = {
     enable = true;
     # Rupan's personal VM is a full development environment: Forgejo Git and
-    # API, the signed cache, Woodpecker and approvals, the Kubernetes API
+    # API, the signed caches (niks3, then Attic), Woodpecker and approvals, the Kubernetes API
     # (kubernetes_api below), and SSH to every fleet host, as
     # `just doctor --live` and `just ship` require.
     tcpEgress.rupan = [
@@ -181,6 +190,7 @@ in
           2222
           3000
           8080
+          8090
         ];
       }
       {

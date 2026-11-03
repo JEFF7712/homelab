@@ -19,6 +19,7 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from scripts.ci import build_users
 from scripts.ci.applications import Application, load_catalog
 from scripts.ci.applications import configuration as application_configuration
 from scripts.ci.deployment_risk import (
@@ -38,21 +39,21 @@ from scripts.ci.development_projects import configuration as development_configu
 
 IMAGE = "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
-# The image's nixbld users share host UIDs 30001+ (no userns remap), and a
-# host nix-daemon SIGKILLs every process of a build UID around each build,
-# so a fleet dry-run on a CI host killed job builders ("signal 9"). Without
-# a sandbox, build users isolate nothing; build as the container's root.
+# Job steps build as the unprivileged users that BUILD_USERS adds first;
+# see scripts/ci/build_users.py for why neither the image's nixbld users nor
+# root work.
+BUILD_USERS = build_users.setup_command()
 NIX_CONFIG = (
     "experimental-features = nix-command flakes\n"
     "accept-flake-config = true\n"
     "sandbox = false\n"
-    "build-users-group =\n"
+    f"{build_users.NIX_SETTING}\n"
     "max-jobs = 2\n"
     "cores = 2\n"
     "connect-timeout = 5\n"
     "download-attempts = 3\n"
-    "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
-    "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
+    "extra-substituters = http://10.0.30.20:8090?priority=30 http://10.0.30.20:8080/homelab?priority=35\n"
+    "extra-trusted-public-keys = homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec= homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
 )
 # One dev-shell resolution for the whole gate. Dependency provisioning
 # is managed inside validate repository. Formatting and the Jev fixture
@@ -239,6 +240,7 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
     ),
     "nightly": (
         "registry-gc-fixture",
+        "cloudflare-access-drift",
         "opnsense-plan",
         "opnsense-dataplane",
         "opnsense-inventory",
@@ -608,7 +610,8 @@ def configuration(
                     "image": IMAGE,
                     "environment": environment,
                     "commands": [
-                        f"nix develop ./flake#ops -c python -m scripts.ci.operation {target}"
+                        BUILD_USERS,
+                        f"nix develop ./flake#ops -c python -m scripts.ci.operation {target}",
                     ],
                 }
             ],
@@ -693,7 +696,7 @@ def configuration(
                             "name": VALIDATION,
                             "image": IMAGE,
                             "environment": validation_env,
-                            "commands": [VALIDATION_COMMAND],
+                            "commands": [BUILD_USERS, VALIDATION_COMMAND],
                         }
                     ],
                 },
@@ -701,7 +704,11 @@ def configuration(
         if main and current == pipeline.get("commit"):
             if event == "push":
                 # Only the plans that apply operations consume run here.
-                for target in ["opnsense-plan", "cloudflare-plan"]:
+                for target in [
+                    "opnsense-plan",
+                    "cloudflare-plan",
+                    "cloudflare-access-plan",
+                ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
                 # A committed lock asserts its content is in the registry;
                 # nothing else fetches it, so the push that changes the lock
@@ -744,9 +751,15 @@ def configuration(
                             },
                         )
                     return {"configs": configs}
+                # An operation unpacks its needs' artifacts from this
+                # pipeline, so it must start after they finish.
                 for target in schedule:
                     if target != "webhook-watchdog":
-                        operation_workflow(target, "${CI_PIPELINE_NUMBER}", gate)
+                        operation_workflow(
+                            target,
+                            "${CI_PIPELINE_NUMBER}",
+                            gate + list(operations[target]["needs"]),
+                        )
         return {"configs": configs}
 
     if not main or pipeline.get("author") not in DEPLOY_AUTHORS:

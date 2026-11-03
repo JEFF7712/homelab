@@ -9,6 +9,7 @@ Wyoming libraries required.
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 import types
 import unittest
@@ -415,11 +416,15 @@ class NativePackagingAndContractTest(unittest.TestCase):
     def test_packaging_uses_upstream_not_replacement_recognizer(self):
         folder = REPO_ROOT / "gitops/voice/nemotron-bridge"
         self.assertFalse((folder / "nemo_speech_asr_c.c").exists())
-        dockerfile = (folder / "Dockerfile").read_text()
-        self.assertIn("https://github.com/NVIDIA/NeMo-Speech.cpp.git", dockerfile)
-        self.assertIn("07003daa7eefea542076310722ccaa89709ee3c3", dockerfile)
-        self.assertIn("cmake --install build", dockerfile)
-        self.assertIn("verify_contract.py --abi-only", dockerfile)
+        supply = REPO_ROOT / "services/voice-supply"
+        source = json.loads((supply / "native-source-manifest.json").read_text())
+        self.assertEqual(
+            source["nemo_revision"], "07003daa7eefea542076310722ccaa89709ee3c3"
+        )
+        dockerfile = (supply / "Dockerfile.nemotron").read_text()
+        self.assertIn("tar -xzf /inputs/native-source.tar.gz -C /source", dockerfile)
+        self.assertIn("cmake --install /build", dockerfile)
+        self.assertIn("COPY bridge.py proxy.py verify_contract.py /app/", dockerfile)
 
     def test_verifier_rejects_missing_library_and_model(self):
         import importlib.util

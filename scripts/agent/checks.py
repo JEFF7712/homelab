@@ -179,10 +179,101 @@ def _route(path: str) -> list[tuple[str, str]]:
     return [("full", f"{path} has no narrower maintained mapping")]
 
 
+# Recipes the validation gates run: CI validation (fmt-check), the offline
+# proof (provision-check-deps, check), and agents (check-changed, fmt).
+VALIDATION_RECIPES = frozenset(
+    {"check", "check-changed", "fmt", "fmt-check", "provision-check-deps"}
+)
+
+
+def justfile_routes(
+    base: dict[str, Any] | None,
+    current: dict[str, Any] | None,
+    test_modules: tuple[str, ...],
+) -> list[tuple[str, str]]:
+    """Route a justfile change from its two parsed (``just --dump``) versions.
+
+    Only a change confined to recipes outside validation avoids the full
+    gate; it runs the unit modules that load the justfile instead.
+    """
+    if base is None or current is None:
+        return [("full", "justfile could not be compared with its base")]
+    for key in sorted(set(base) | set(current)):
+        if key not in {"recipes", "source"} and base.get(key) != current.get(key):
+            return [("full", f"justfile changes its {key}")]
+    validation: set[str] = set()
+    for recipes in (base["recipes"], current["recipes"]):
+        pending = [name for name in VALIDATION_RECIPES if name in recipes]
+        pending += [
+            name
+            for name, recipe in recipes.items()
+            if "scripts/checks/" in json.dumps(recipe["body"])
+        ]
+        while pending:
+            name = pending.pop()
+            if name in validation or name not in recipes:
+                continue
+            validation.add(name)
+            pending += [item["recipe"] for item in recipes[name]["dependencies"]]
+    changed = sorted(
+        name
+        for name in set(base["recipes"]) | set(current["recipes"])
+        if base["recipes"].get(name) != current["recipes"].get(name)
+    )
+    if validation.intersection(changed):
+        return [("full", "justfile changes a validation recipe")]
+    reason = "justfile changes recipes " + ", ".join(changed)
+    return [(f"unit-{module}", reason) for module in test_modules]
+
+
+def _justfile_dump(text: str) -> dict[str, Any] | None:
+    with tempfile.TemporaryDirectory() as directory:
+        justfile = Path(directory) / "justfile"
+        justfile.write_text(text, encoding="utf-8")
+        command = ["just", "--justfile", str(justfile), "--working-directory"]
+        command += [directory, "--dump", "--dump-format", "json"]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True)
+        except OSError:
+            return None
+    if result.returncode != 0:
+        return None
+    return json.loads(result.stdout)
+
+
+def _justfile_change(state: GitState) -> list[tuple[str, str]]:
+    current = state.root / "justfile"
+    # Without a base, the changes are the uncommitted ones relative to HEAD.
+    base = state.base.merge_base or state.head
+    if base is None or not current.is_file():
+        return [("full", "justfile could not be compared with its base")]
+    shown = subprocess.run(
+        ["git", "show", f"{base}:justfile"],
+        cwd=state.root,
+        capture_output=True,
+        text=True,
+    )
+    if shown.returncode != 0:
+        return [("full", "justfile could not be compared with its base")]
+    test_modules = tuple(
+        sorted(
+            path.stem
+            for path in (state.root / "tests").glob("test_*.py")
+            if "justfile" in path.read_text(encoding="utf-8")
+        )
+    )
+    return justfile_routes(
+        _justfile_dump(shown.stdout),
+        _justfile_dump(current.read_text(encoding="utf-8")),
+        test_modules,
+    )
+
+
 def select_checks(state: GitState) -> CheckSelection:
     reasons: dict[str, list[str]] = {}
     for path in state.affected_paths:
-        for name, reason in _route(path):
+        routes = _justfile_change(state) if path == "justfile" else _route(path)
+        for name, reason in routes:
             reasons.setdefault(name, []).append(reason)
     if "full" in reasons:
         reasons = {"full": reasons["full"]}

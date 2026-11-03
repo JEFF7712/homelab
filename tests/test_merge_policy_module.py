@@ -57,6 +57,9 @@ class MergePolicyModuleTest(unittest.TestCase):
         self.assertTrue(self.config["noNewPrivileges"])
         self.assertEqual(self.config["protectSystem"], "strict")
 
+    def test_escalations_go_to_the_local_approvals_service(self) -> None:
+        self.assertIn("--approvals http://127.0.0.1:8020", self.config["execStart"])
+
     def test_deployed_on_the_ci_host(self) -> None:
         self.assertTrue(self.config["deployed"])
 

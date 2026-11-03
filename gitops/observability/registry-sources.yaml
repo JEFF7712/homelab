@@ -1,0 +1,25 @@
+# Inventory-only upstream image declarations for observability Helm charts
+# whose post-renderers pin mirrored digests. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# pinned by digest in the owning HelmRelease's postRenderers.
+#
+# This file is NOT listed in gitops/observability/kustomization.yaml: it is
+# an inventory source only and must never be applied to the cluster.
+#
+# Chart upgrade flow: list the new chart's images here, import them, and only
+# then bump the chart and its post-renderer digests together.
+apiVersion: v1
+kind: List
+metadata:
+  name: observability-registry-sources
+items:
+  # kube-prometheus-stack 92.17.0
+  - image: docker.io/grafana/grafana:13.3.0-distroless@sha256:540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df  # yamllint disable-line rule:line-length
+  - image: quay.io/kiwigrid/k8s-sidecar:2.14.1@sha256:092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7  # yamllint disable-line rule:line-length
+  - image: quay.io/prometheus-operator/prometheus-operator:v0.94.2@sha256:c7edf0379b7271ef1705dce258d2bb73820e299cc95559369e9f6fc3321639ec  # yamllint disable-line rule:line-length
+  - image: ghcr.io/jkroepke/kube-webhook-certgen:1.11.0@sha256:778d97dc3986355625e14392419b3364c487a7c807d4d86ddad1df369129b082  # yamllint disable-line rule:line-length
+  # loki 7.5.0
+  - image: docker.io/grafana/loki-canary:3.6.16@sha256:6d53ce040b436e558936fe05514729c230e9e04edf1fe411d02701025e515924  # yamllint disable-line rule:line-length
+  # ntfy 1.7.0
+  - image: docker.io/binwiederhier/ntfy:v2.32.0@sha256:59250e1d8be2ee2186c4560322f625faef22ace380331f05b63f8842dbd62602  # yamllint disable-line rule:line-length

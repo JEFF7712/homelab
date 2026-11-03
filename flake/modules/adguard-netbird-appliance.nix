@@ -1,4 +1,10 @@
 { pkgs, fleetInventory, ... }:
+let
+  switchManagementAddresses = [
+    "10.0.10.2/32"
+    "10.0.10.3/32"
+  ];
+in
 {
   imports = [
     ./adguard-netbird/adguard.nix
@@ -30,6 +36,8 @@
       enable = true;
       allowedUDPPorts = [ 51820 ];
       extraInputRules = ''
+        # Easy Smart switches broadcast native management replies to a fixed port.
+        ip saddr { 10.0.10.2, 10.0.10.3 } udp sport 29808 udp dport 29809 accept
         ip saddr 10.0.10.0/24 tcp dport { 22, 3000 } accept
         ip saddr 10.0.10.0/24 tcp dport 53 accept
         ip saddr 10.0.10.0/24 udp dport 53 accept
@@ -71,12 +79,34 @@
             Destination = "172.31.10.6/32";
             Gateway = fleetInventory.hosts.homelab-04.address;
           }
-        ];
+        ]
+        ++ map (destination: {
+          Destination = destination;
+          Scope = "link";
+          Table = 29808;
+          PreferredSource = fleetInventory.hosts.adguard-netbird-01.address;
+        }) switchManagementAddresses;
+        # ESCP session traffic needs the direct L2 path; keep HTTP via VLAN 60.
+        routingPolicyRules = map (destination: {
+          To = destination;
+          IPProtocol = "udp";
+          DestinationPort = 29808;
+          Table = 29808;
+          # NetBird's main-table lookup has priority 105.
+          Priority = 100;
+        }) switchManagementAddresses;
         linkConfig.RequiredForOnline = "routable";
       };
       "60-netbird-policy" = {
         matchConfig.Name = "netbird-vlan";
         networkConfig.Address = "10.0.60.2/24";
+        # Use the existing NetBird management permission for these two switches.
+        # The infrastructure default gateway intentionally blocks VLAN 10.
+        routes = map (destination: {
+          Destination = destination;
+          Gateway = fleetInventory.networks.netbird.gateway;
+          PreferredSource = "10.0.60.2";
+        }) switchManagementAddresses;
       };
     };
   };

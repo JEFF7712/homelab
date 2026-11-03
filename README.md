@@ -23,7 +23,7 @@ cert-manager for internal TLS.
 - **Media**: Jellyfin plus the *arr suite, Seerr requests, an AI
   recommender, Navidrome music, Calibre ebooks, Spotify sync, and Immich
 - **Music**: Music Assistant with LedFx lighting effects
-- **Voice**: Local voice assistant (Whisper, Piper, satellite mics)
+- **Voice**: Local Nemotron recognition, satellite mics, and display-only replies
 - **Smart home**: source-first Home Assistant, all config in this repo
 - **Notes**: Obsidian LiveSync (CouchDB) with a Quartz published site
 - **Websites**: personal static sites plus live apps

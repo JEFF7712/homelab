@@ -11,25 +11,41 @@ pipeline, conversation agent, exposed entities) is UI-managed config-entry
 state, which this repo treats as `observe-only`; the required settings are
 recorded here so a rebuild restores them exactly.
 
-## Signal chain
+## Current signal chain (display-only replies)
 
-Microphone on `homelab-05` (`HyperX QuadCast S` via Pipewire, pinned with
-top priority 3500 in WirePlumber, above sink monitors at 100) -> satellite
-container (`linux-voice-assistant`,
-wake word `hey_jarvis.tflite`, port 6053, device substring match `QuadCast`)
--> Home Assistant on `homelab-03` -> stable STT gateway
-(`wyoming-whisper.voice:10300`) -> Nemotron primary and Groq cloud fallback
--> transcript with an optional `speaker <Name>` tag (Nemotron only; Groq
-transcripts carry no speaker). Local Whisper was removed on 2026-10-27 to
-free homelab-04 memory; the gateway Service keeps its `wyoming-whisper` name
-because Home Assistant targets it.
-TTS uses the stable `wyoming-chatterbox.voice:10201` gateway with Chatterbox
-Turbo primary and Piper fallback. Backend preference and circuit state belong to
-the gateways, so HA pipeline identifiers do not change during backend failover.
-There is no local LLM: Qwen/Ollama was removed in Phase 0 to free the
-T1000 GPU, and the cloud replacement is not wired yet.
--> audio back to the `homelab-05` soundbar (USB SPDIF optical adapter,
-prioritized at 3000 in WirePlumber) -> face state via the HA websocket.
+QuadCast microphone on `homelab-05` -> Linux Voice Assistant satellite ->
+Home Assistant Assist -> stable STT gateway (`wyoming-whisper.voice:10300`)
+-> Nemotron on `homelab-04` (including speaker identification) -> local
+intents / Jev Router / configured conversation fallback -> display bridge
+(`wyoming-chatterbox.voice:10201`) -> `sensor.jarvis_response` -> face.
+
+Chatterbox, Piper, the TTS gateway, and Groq STT fallback are removed from
+Flux. Nemotron is the only STT backend. Recognition is unavailable if it fails.
+The old TTS Service name and `jarvis` voice identity are retained solely for
+HA pipeline compatibility. The display bridge performs no synthesis: it writes
+reply text into the response sensor's `text` attribute using the existing
+Jarvis HA credential, then returns 50ms of silent PCM to complete the satellite
+turn. Failed publication returns a Wyoming error rather than invisible success.
+The satellite also forwards every TTS-start text event to the bridge on port
+10202, so HA audio-cache hits still refresh the display.
+The satellite runs with `JARVIS_TEXT_ONLY=1`, suppressing even previously cached
+spoken replies. Wake chimes, timers and music remain separate audio paths.
+No UI-managed pipeline edits are needed. Music playback still uses the soundbar.
+
+The face subscribes to the response sensor along with its three existing
+entities. It renders plain text, retains the latest response across idle and
+reconnects, and scrolls long replies. Face version 20 is adopted by the existing
+config polling mechanism even when the kiosk boot URL has an earlier version.
+
+Model caches and encrypted Groq credentials are retained for recovery; this
+change does not delete persistent data or revoke an external API key. Roll back
+by reverting the integration commit through Git/Flux. Historical TTS and Groq
+procedures below describe the retired stack and are not current deployment steps.
+
+Acceptance: confirm removed deployments are absent, Nemotron and the satellite
+are Ready, send a non-actuating request through Assist, and check that the face
+receives the same text via `sensor.jarvis_response`. The Python display bridge
+returns silence only; no cloud or local speech synthesis is called.
 
 ## Native STT image ownership
 
@@ -48,9 +64,7 @@ build cache, checks a Docker GPU corpus, and publishes a candidate. A k3s GPU Jo
 using the production NVIDIA runtime must pass before final release tagging.
 Promotion remains a separate protected GitOps PR. Follow
 `services/voice-supply/README.md` for the retained inputs and offline build recipe.
-The older network-fetching Dockerfile in `gitops/voice/nemotron-bridge/` is
-historical and is not the accepted release recipe. Publish only with the
-`publisher-jarvis-nemotron` identity. The protected file variable
+Publish only with the `publisher-jarvis-nemotron` identity. The protected file variable
 `REGISTRY_JARVIS_PUBLISHER_AUTH_FILE` supplies that identity; the manual
 `provision_jarvis_publisher` CI job provisions its initial policy and credential.
 It compares existing policy before mutation and retains protected rollback
@@ -100,8 +114,8 @@ neither the live verifier nor access-control policy changed.
 
 Read back the destination manifest digest before changing the consumer and
 registry lock. A local Docker image ID is not the published manifest digest.
-Before replacing the primary, prove a recorded-WAV transcript through the
-`wyoming-stt-groq.voice:10300` fallback. After Flux reconciliation, verify native GPU
+Before replacing the only STT backend, record a working baseline and recovery
+image; there is no deployed fallback. After Flux reconciliation, verify native GPU
 recognition on `homelab-04`, speaker-ID startup, gateway outcomes, and metrics.
 Rollback by reverting the complete integration commit through Git and Flux;
 retain the old host library directory until acceptance is complete.
@@ -129,10 +143,10 @@ automation referencing them.
 1. Wyoming integrations pointing at the in-cluster services:
    `voice-satellite.voice:6053` is the satellite link from HA;
    `wyoming-whisper.voice:10300` for stable STT and
-   `wyoming-chatterbox.voice:10201` for stable TTS. HA never points directly at
-   a backend Service. Gateway preference order owns routine backend failover.
-2. One Assist pipeline with the stable STT gateway and Chatterbox `jarvis`
-   through the stable TTS gateway,
+   `wyoming-chatterbox.voice:10201` for the display bridge. HA keeps these
+   compatibility identities; the STT gateway currently has only Nemotron.
+2. One Assist pipeline with the stable STT gateway and the display bridge
+   advertising the compatibility voice `jarvis`,
    and the `Jarvis Jev Router` custom
    conversation agent as the brain. There is no local LLM since Phase 0
    (Ollama removed to free the T1000).
@@ -506,66 +520,13 @@ a TTS-text feed into the proxy that does not exist yet; the mute gate
 already covers the window where semantic echo occurs. Revisit if echo
 turns survive both layers.
 
-## TTS (Chatterbox Turbo primary, Piper fallback)
+## Retired speech output
 
-`gitops/voice/chatterbox.yaml` runs a custom Wyoming TTS bridge
-(`gitops/voice/chatterbox-bridge/server.py`, offline-tested in
-`tests/test_chatterbox_bridge.py`) serving Chatterbox Turbo 350M
-(`chatterbox-tts==0.1.7`, weights `ResembleAI/chatterbox-turbo` pinned at
-`749d1c1a`) on the `homelab-05` T600 as `wyoming-chatterbox:10201`.
-Chatterbox has no upstream Wyoming image, hence the in-repo server; it
-answers `describe`/`synthesize` (plus buffered streaming synthesize) with
-24 kHz 16-bit mono PCM. The stable TTS gateway selects Chatterbox first and
-Piper second. HA remains bound to the gateway during backend failure.
-
-GPU sharing: the bridge claims one `nvidia.com/gpu` resource on the T600 and
-uses `NVIDIA_VISIBLE_DEVICES=all`. Immich ML was moved to CPU before this
-allocation, leaving Turbo as the only model resident on that GPU. Turbo needs
-roughly 2 GB at steady state.
-
-Voice enrollment: drop one clean 5+ second English reference clip at
-`/persist/voice-models/chatterbox/voices/jarvis.wav` on `homelab-05`
-(the directory is created empty by the manifest). Conditionals are
-prepared once at startup; a missing or rejected clip falls back to the
-model's builtin voice under the same `jarvis` name. `[laugh]`-style
-paralinguistic tags are stripped by default (`CHATTERBOX_ALLOW_TAGS=1`
-to keep them).
-
-The bridge permits unwatermarked audio when Perth watermark support is
-unavailable, and exports `jarvis_tts_unwatermarked_audio` as `1` in that
-case. Set `CHATTERBOX_REQUIRE_WATERMARK=1` to fail startup instead. Synthesis
-exceptions emit a Wyoming `error` event before any audio; the TTS gateway
-buffers only the small text request and retries Piper once. If Chatterbox has
-already emitted `audio-start`, the gateway closes that turn and never splices
-Piper audio into the partial response.
-
-Hugging Face, Torch, Triton, XDG, and Numba caches use writable subdirectories
-under `/runtime/cache`; the model volume remains read-only to the bridge.
-
-Bench results 2026-09-21 (live, `wyoming-chatterbox:10201`):
-
-- GPU co-residency FAILED: the T1000 exposes 3.62 GiB usable with
-  Nemotron resident at ~2.67 GiB, and Turbo load OOMs (`CUDA out of
-  memory`, pod log). Sequential pipeline use does not help: both
-  models stay resident in their own pods.
-- CPU fallback (`CHATTERBOX_DEVICE=cpu`, 4 threads) serves correctly
-  but is too slow for interactive use: `Done.` TTFA 1.92 s (RTF
-  2.67x), a 2 s reply TTFA 3.05 s (RTF 1.52x).
-- T600 verdict 2026-09-21: the bridge moved to `homelab-05` with a
-  clean `nvidia.com/gpu` allocation after Immich ML was demoted to
-  CPU (its indexing jobs run slower; photo serving unaffected).
-  Turbo loads with ~2 GB headroom to spare, no OOM. Warmed latency:
-  `Done.` TTFA 0.91 s, a 2 s reply 1.26 s. Better than CPU but still
-  above Piper's sub-second steady state, so switching the Assist
-  pipeline to the `jarvis` voice trades roughly half a second of
-  responsiveness for voice quality plus cloning. That switch is a HA
-  UI step (select the `wyoming-chatterbox` TTS in the preferred
-  pipeline); no manifest change needed. To enroll the cloned voice,
-  drop the 5 s+ clip at
-  `/persist/voice-models/chatterbox/voices/jarvis.wav` on
-  `homelab-05` and roll the pod. The orphaned
-  `/persist/voice-models/chatterbox` tree on `homelab-04` can be
-  reclaimed by hand.
+The former Chatterbox/Piper stack and its dated benchmarks are retained in
+[historical synthesis notes](../research/2026-11-03-retired-voice-synthesis.md).
+Current replies are display-only. The old Service and voice names are compatibility
+identities; they do not indicate a running synthesizer. Preserve retained model
+files and credentials until their recovery requirements are assessed.
 
 ## Satellite health
 
@@ -593,41 +554,33 @@ service, not a replacement conversational backend.
 
 ## Model storage
 
-Voice host paths are declared beside their consumers:
+Active model paths are declared beside their consumers:
 
 | Consumer | Host | State under `/persist/voice-models/` |
 | --- | --- | --- |
 | Native STT (`gitops/voice/stt-nemotron.yaml`) | `homelab-04` | `nemotron`, `whisper` |
-| Piper (`gitops/voice/piper.yaml`) | `homelab-04` | `piper` |
 | Shadow decision service (`gitops/voice/local-decision.yaml`) | `homelab-04` | `local-decision/models`, `local-decision/runtime` |
 | VON (`gitops/voice/von.yaml`) | `homelab-04` | `von/models`, `von/runtime` |
-| Chatterbox (`gitops/voice/chatterbox.yaml`) | `homelab-05` | `chatterbox/models`, `runtime`, `voices`, `supply-20261013` |
 
-Chatterbox's model snapshot, reference voice and hashed wheel supply must exist
-before startup; the init container installs from retained wheels without network
-resolution. Native STT likewise requires its model directory. Treat these as
-recovery inputs, not disposable caches that an empty directory can reconstruct.
-See [retained voice supply](../../services/voice-supply/README.md) for retained
-packages and the dated independent recovery drill. Confirm current recovery
-copies before deleting or moving host state. Local NVMe avoids a NAS dependency
-for inference, but does not provide an independent backup.
+Retired Piper data remains under `piper` on homelab-04; retired Chatterbox data
+under `chatterbox/{models,runtime,voices,supply-20261013}` on homelab-05 is
+retained for recovery. These consumers are absent from the current Flux resource
+list. Their old manifests and [retained voice supply](../../services/voice-supply/README.md)
+describe the former runtime, not deployed services.
+
+Native STT requires its model directory. Retained Chatterbox recovery requires
+the exact model snapshot, reference voice and hashed wheels before startup;
+an empty directory cannot reconstruct them without external recovery inputs.
+Confirm independent recovery copies before deleting or moving host state.
+Local NVMe avoids a NAS dependency for inference, but is not an independent backup.
 
 ## Latency notes
 
-- There is no local LLM since Phase 0, so no VRAM residency to maintain
-  and no cold KV-cache evaluation. Per-turn latency is STT plus Jev API
-  plus TTS. Keep Assist exposures pruned anyway: a lean tool schema keeps
-  the cloud fallback prompt cheap.
-- Groq (`whisper-large-v3-turbo`) is the only STT fallback. It needs
-  internet egress and the `groq-stt` Secret; a turn that falls back adds a
-  cloud round trip and loses speaker ID. Local CPU Whisper (`base.en`) was
-  removed for memory; CPU `turbo` had been rejected for ~6s turns.
-- Piper is sub-second at steady state but re-downloads its voice on every pod
-  restart unless its model cache persists. Voices persist on the
-  `/persist/voice-models/piper` hostPath (`gitops/voice/piper.yaml`); do not revert that volume
-  to `emptyDir`.
-- Model pulls (Piper) hit the network only on first-ever
-  start; after that they load off local NVMe.
+- Measure transcription, routing and display publication separately. There is
+  no synthesis phase in the current pipeline and no Groq fallback. Nemotron
+  cold starts and remote conversation latency can still delay a reply.
+- Keep Assist exposures pruned to limit the cloud fallback's tool schema.
+
 - The face is a Cozmo-style procedural eye engine in
   `home-assistant/www/jarvis/app.js`: expression presets per state (eye
   scale plus upper/lower lids with y/angle/bend, with a right-eye
@@ -676,27 +629,19 @@ The report records every voice Deployment and desired replica count, the
 ordered STT and TTS gateway backends, Service selectors and targets, live
 endpoints, and the Assist pipeline engines. A failed live read is reported as
 `unknown`; it is not evidence that a resource was deleted or unhealthy. The
-drift check validates the Git-owned invariants only. Deployment and live
-reconciliation remain Flux and operator actions.
+drift check validates the Git-owned invariants only. Deployment uses the task delivery workflow and Flux; live reads remain
+separate from offline source checks.
 
 The stable HA targets are `wyoming-whisper.voice:10300` for STT and
-`wyoming-chatterbox.voice:10201` for TTS. The gateways choose their backend
-preference internally, so failing over from Nemotron to Groq or Chatterbox to
-Piper does not change the HA pipeline identity.
+`wyoming-chatterbox.voice:10201` for display-only replies. Recover the STT gateway
+or display bridge through its owning Flux manifests. Nemotron is the sole STT
+backend; if it is unavailable, recognition fails rather than selecting Groq.
+Verify the display bridge publishes `sensor.jarvis_response`, including cached
+HA replies delivered by the satellite's text-forwarding path.
 
-Recovery follows the same boundary:
-
-- If a gateway pod is unavailable, restore its Deployment and Service through
-  Flux. HA should remain pointed at the stable Service names.
-- If the primary backend is unavailable, the gateway opens its circuit and
-  uses the configured fallback. Check the gateway backend availability and
-  fallback counters before changing HA.
-- If all backends are unavailable, the gateway stays unavailable and HA must
-  surface the failed pipeline. Do not point HA directly at a backend as a
-  manual workaround.
-- If the generated report shows HA pipeline drift, inspect the UI-managed
-  config-entry state and correct the pipeline in HA. Do not silently edit or
-  overwrite UI-managed state from Git.
+If the generated report shows HA pipeline drift, inspect the UI-managed
+config-entry state and correct the pipeline in HA. Do not silently overwrite
+UI-managed state from Git.
 
 `gitops/voice/exporter.yaml` runs `jarvis-exporter`, a dependency-free
 Python exporter that holds the HA websocket, tracks satellite state
@@ -717,7 +662,8 @@ Metrics and their exact semantics:
   utterance time plus transcription. It is not pure STT compute; compare
   turns, not against compute budgets.
 - `jarvis_llm_latency_seconds{satellite}`: processing-phase duration.
-- `jarvis_tts_latency_seconds{satellite}`: responding-phase duration.
+- `jarvis_tts_latency_seconds{satellite}`: responding-phase duration. The name is
+  retained; on the display-only pipeline it does not measure speech synthesis.
 - `jarvis_tool_calls_total{satellite}`: service calls on the shared bus
   during processing. Adjacent automations firing mid-turn can inflate this.
 - `jarvis_failed_requests_total{satellite,stage}`: turns abandoned from
@@ -789,7 +735,7 @@ routing and personalization without modifying Home Assistant core:
    (importable in tests as `scripts.voice_id.proxy` via symlink) and is
    copied byte-for-byte into the `jarvis-nemotron` image as
    `nemotron-bridge/proxy.py`, which the Nemotron bridge imports in process.
-   Only Nemotron identifies speakers; the Groq fallback does not.
+   Nemotron is the sole deployed recognizer and owns speaker identification.
 2. As the client streams audio, the bridge feeds recognition while buffering
    the 16kHz PCM audio in memory.
 3. Upon `audio-stop`, the proxy uses `sherpa-onnx` CAMP++ ONNX model
@@ -867,10 +813,12 @@ To add or update speaker voice profiles:
 - Face shows IDLE but never LISTENING: satellite pod not ready or HA Wyoming
   entry pointing at the wrong host. `just status cluster` plus the satellite
   pod events; confirm the HA Wyoming host is `voice-satellite.voice`.
-- First turn after deploy is very slow, later turns fine: Nemotron or Piper
-  cold start. Check probe status on nemotron/piper before tuning anything.
-- Every turn slow and no `speaker` tags: STT is on the Groq fallback. Check
-  the Nemotron pod and the gateway's `jarvis_gateway_fallbacks_total`.
+- First turn after deploy is very slow, later turns fine: check Nemotron cold
+  start and readiness before tuning routing.
+- Recognition fails or loses speaker tags: inspect Nemotron and voice-ID startup.
+  There is no deployed Groq fallback.
+- Replies do not appear on the face: check display bridge publication errors,
+  satellite text forwarding, and the `sensor.jarvis_response` subscription.
 - Face state frozen while voice works: HA websocket broken in
 `app.js`; use keys 1-6 on the kiosk keyboard to confirm the face itself
 still cycles states.

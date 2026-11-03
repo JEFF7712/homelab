@@ -25,6 +25,7 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
     "$flake#checks.x86_64-linux.zot-registry"
     "$flake#checks.x86_64-linux.zot-registry-service"
+    "$flake#checks.x86_64-linux.niks3-cache-service"
     "$flake#checks.x86_64-linux.opnsense-types"
     "$flake#checks.x86_64-linux.opnsense-config"
     "$flake#checks.x86_64-linux.fleet-inventory"
@@ -54,6 +55,10 @@ if [[ "$target_set" == homelab ]]; then
   default_builder=fast
 fi
 builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
+# A dropped cache.nixos.org download (an HTTP 416 on resume) otherwise fails
+# the derivation outright; build it from source instead.
+NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
+export NIX_CONFIG
 started=$SECONDS
 case "$builder" in
   fast)
@@ -122,4 +127,28 @@ if ((${#skipped[@]})); then
   if ((pushed == 0)); then
     exit 1
   fi
+fi
+
+# niks3 is staged alongside Attic (docs/runbooks/ci-pipelines.md): hosts still
+# substitute from Attic, so niks3 runs after it and any niks3 error fails the
+# job without holding back the Attic push.
+if [[ -z "${NIKS3_TOKEN:-}" ]]; then
+  echo "NIKS3_TOKEN is not set, so the niks3 push is skipped."
+  exit 0
+fi
+printf '%s' "$NIKS3_TOKEN" > "$cache_work/niks3-token"
+started=$SECONDS
+niks3_status=0
+niks3 push --stdin --server-url http://10.0.30.20:8090 \
+  --auth-token-path "$cache_work/niks3-token" --retry-timeout 2m \
+  < "$cache_work/unique" > "$cache_work/niks3.jsonl" || niks3_status=$?
+jq -r 'select(.status == "error") | "  \(.path): \(.message)"' \
+  "$cache_work/niks3.jsonl" > "$cache_work/niks3-errors"
+ok=$(jq -s '[.[] | select(.status == "ok")] | length' "$cache_work/niks3.jsonl")
+echo "niks3 push: ok=$ok elapsed_seconds=$((SECONDS - started))"
+if [[ -s "$cache_work/niks3-errors" || "$niks3_status" -ne 0 ]]; then
+  printf 'niks3 failed %d path(s) (exit %d):\n' \
+    "$(wc -l < "$cache_work/niks3-errors")" "$niks3_status" >&2
+  cat "$cache_work/niks3-errors" >&2
+  exit 1
 fi

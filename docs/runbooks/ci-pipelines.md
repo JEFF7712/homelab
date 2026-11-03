@@ -24,21 +24,35 @@ Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
 of 3.9 GiB), so an operation container copies far less from Attic before it
-starts. `cache-publish` pushes all three shells. The three homelab-04 agents
-each have two workflow slots. An additional sandbox-only agent on homelab-05
-has one slot, bringing sandbox capacity to three. Trusted and deployment
-concurrency stay unchanged. Its server-side filter enforces `tier=sandbox`.
-The new host CI slice is limited to three CPUs and 10 GiB, with that budget
+starts. `cache-publish` pushes all three shells. On homelab-04 the trusted
+and deployment agents have two workflow slots each and the sandbox agent has
+one: a second concurrent validation pushed homelab-04's ci.slice to its limit
+millions of times and into swap. A sandbox-only agent on homelab-05 has the
+other slot, so sandbox capacity is two. Its server-side filter enforces
+`tier=sandbox`. homelab-04's ci.slice is capped at 12 GiB (MemoryHigh 10 GiB),
+and its kubelet reserves 8 GiB for typical concurrent CI (one validation
+and one operation) beside the system's 2 GiB and the agent workspaces'
+14 GiB, so GPU pods there are not scheduled into CI memory. monerod on
+homelab-04 is capped at 2 GiB, and the CPU-only, NFS-backed games apps
+prefer homelab-02 and homelab-03. The homelab-05 CI slice is limited to three CPUs and 10 GiB, with that budget
 reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
 and 8 GiB container limits.
 
-Job Nix builds as the container's root (`build-users-group =` in the
-server-owned `NIX_CONFIG`). The `nixos/nix` image's `nixbld` users carry the
-host's build UIDs (30001+) and Docker does not remap them, so a host
-nix-daemon build, such as a fleet dry-run's `--build-host` on homelab-04 or
-homelab-05, killed every job builder holding the same UID: the job failed
-with `builder failed due to signal 9 (Killed)` and no OOM recorded anywhere.
-Without a sandbox the build users isolated nothing.
+Job Nix builds as the `cibld` users (UIDs 40001+) that every server-owned
+Nix step adds to its container as its first command, selected by
+`build-users-group = cibld` in the server-owned `NIX_CONFIG`; both come from
+`scripts/ci/build_users.py`. Neither alternative works. The `nixos/nix`
+image's `nixbld` users carry the host's build UIDs (30001+) and Docker does
+not remap them, so a host nix-daemon build, such as a fleet dry-run's
+`--build-host` on homelab-04 or homelab-05, killed every job builder holding
+the same UID: the job failed with `builder failed due to signal 9 (Killed)`
+and no OOM recorded anywhere. A root builder can create its home
+`/homeless-shelter` (Go writes `$HOME/.config/go/telemetry`), and Nix then
+refuses every later build in that container with `home directory
+"/homeless-shelter" exists`; that failed every `cache-publish` run once an
+uncached Go package entered the host closures. `cache-publish` also sets
+`fallback = true`, so a dropped cache.nixos.org download builds from source
+instead of failing.
 
 The remote agent uses a dedicated SSH tunnel with a pinned homelab-04 host
 key. Its account can forward only to `127.0.0.1:9000`, cannot open a shell
@@ -62,9 +76,9 @@ Repository settings must clear extension overrides and all trusted permissions.
 
 The patched Woodpecker server records the deployment operator before policy
 evaluation and rejects restart query variable overrides. Retain the patch
-during upgrades. Deployment rights include the enrolled `homelab-agent` identity.
-Routine task delivery uses standing authorization; protected control changes,
-operator-only operations and risky plans retain [approval holds](approvals.md).
+during upgrades. Deployment rights include the enrolled `homelab-agent` identity;
+routine task delivery needs no separate operator approval. Authority-changing
+and destructive exceptions retain the operator gates described below.
 
 ## Validation and operations
 
@@ -218,6 +232,50 @@ disk shared with media and NFS that held IO pressure above 80% and made
 every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
 remove it once the SSD store has run cleanly for a while.
 
+### niks3 cache (staged rollout)
+
+nas-01 runs a niks3 cache on port 8090 alongside Attic. The maintenance
+`cache-publish` operation, and the laptop's `nixos-publish`,
+`nixos-lock-update` and `nixos-deploy` operations, push the same paths to
+niks3 after Attic. Hosts
+(`flake/modules/common-base.nix`), the flake's `nixConfig` and CI jobs
+substitute from niks3 first and fall back to Attic: niks3 advertises
+priority 30 and Attic 41, and CI's `NIX_CONFIG` pins them at 30 and 35, all
+ahead of `cache.nixos.org` (40). A path niks3 lacks costs one 404 before
+Attic serves it. Fleet deployment verifies both caches after activating
+nas-01. The
+benchmark and the defect behind the patch are in
+`bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
+
+- niks3 keeps metadata in a local PostgreSQL (`/var/lib/postgresql`,
+  persisted) and objects in its own Garage instance (`garage-nix-cache`) on
+  `zroot/nix-cache`. Its S3 API listens on port 3910 on the LAN, because
+  pushing clients upload NARs straight to it through presigned URLs that
+  niks3 builds on `homelab.niks3Cache.address`; its RPC port stays on
+  loopback. The
+  fleet's main Garage stays on `tank`, which is too slow for cache reads
+  (see above).
+- `niks3-provision` creates the Garage layout, bucket, key, API token and
+  signing key on first start and keeps them afterwards. The public key is
+  `/persist/niks3/signing-key.pub`; the push token is
+  `/persist/niks3/api-token`. CI holds a copy as the Woodpecker secret
+  `niks3_token` (cron and deployment events) and the GitLab production
+  variable `NIKS3_TOKEN`; after rotating the file, update both.
+- A niks3 error fails `cache-publish` once the Attic push has finished, so a
+  niks3 fault shows as a red maintenance run without leaving Attic behind.
+- Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
+  Rotating `/persist/niks3/signing-key` needs the new public key in every
+  substituter list above first.
+- The server carries `flake/patches/niks3-garage-multipart-aborts.patch`
+  (Mic92/niks3#661). Without it, parallel pushes against Garage can exit 0
+  while leaving a narinfo whose NAR is gone. Drop the patch once upstream
+  ships an equivalent fix.
+
+A CI-published nas-01 closure (1180 paths) restored into an empty store
+from niks3 alone, trusting only its key, on 2026-11-01. Remaining stage:
+retire Attic after about 30 days of niks3 serving the fleet, removing it
+from the substituter lists and `cache.sh`.
+
 ### Fleet cache builder
 
 `scripts/ci/cache.sh` uses bounded nix-fast-build evaluation by default for
@@ -254,9 +312,10 @@ timing from complete build/upload timing. The fast tool's wrapper lives in
 the operations tools, keeping its Python dependencies out of repository
 Python and its closure out of ordinary validation shells.
 
-All pipelines resolve the dev shell and build outputs from the local Attic
-substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
-ensures the local cache takes precedence over `cache.nixos.org` (priority 40).
+All pipelines resolve the dev shell and build outputs from the local niks3
+cache (`http://10.0.30.20:8090?priority=30`), then Attic
+(`http://10.0.30.20:8080/homelab?priority=35`). Both priorities put the local
+caches ahead of `cache.nixos.org` (priority 40).
 `just cache-populate` and `scripts/ci/cache.sh` use `--ignore-upstream-cache-filter --jobs 8`
 to ensure all devShell dependencies are cached locally. `cache.sh` pushes in
 batches of 200 and retries a failed batch path by path, so one NAR Attic rejects
@@ -455,12 +514,19 @@ Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-The deploy policy admits `homelab-agent` for routine agent-enabled catalog
-operations under the requested task's standing delivery authorization. It holds
-operator-only operations and protected authorization or storage changes against
-the deployed source baseline. Saved plans with authorization changes, data
-loss or management-connectivity risks also require the operator; see
-[approvals](approvals.md) for exact-content grants and passkey requests.
+The deploy policy admits `homelab-agent` for routine catalog mutations marked
+`"agent": true` under the task's standing delivery authorization. Operator-only
+operations remain held. Before admitting an agent mutation, the active policy
+compares the operation's protected source inputs with its deployed baseline.
+Changed authorization/storage sources require an exact-content passkey grant;
+changing a covered file invalidates the grant, while unrelated main commits do
+not. `policy/merge` independently holds changes to agent-bounding controls before
+merge. See [approvals](approvals.md) and [merge policy](merge-policy.md).
+
+Saved plans are checked for completeness. Authorization changes, persistent-data
+deletion, management-connectivity loss and bulk destruction require the operator
+before apply. The agent must stay within task scope and establish backups and
+recovery before intended persistent-data destruction.
 
 Source validation must pass for the operation's exact source SHA. Both policy
 and runner reject superseded related inputs, while known disjoint main changes
@@ -470,9 +536,9 @@ not block deployment; exact-source prerequisites remain mandatory.
 Triggering deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
 profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
-agent machine. Production credentials stay in CI. `ship` files current
-protected-operation requests through the [approvals dashboard](approvals.md).
-Never commit tokens.
+agent machine. Production credentials stay in CI. High-risk exceptions use the
+[passkey approvals service](approvals.md); `ship` files the request rather than
+giving an operator token to the agent. Never commit tokens.
 
 ## Recovery
 

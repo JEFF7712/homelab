@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import sys
 import tempfile
 import unittest
@@ -8,6 +9,7 @@ from pathlib import Path
 from scripts.agent.checks import (
     CheckSelection,
     SelectedCheck,
+    justfile_routes,
     render_check_changed_text,
     run_selection,
     select_checks,
@@ -211,6 +213,95 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "docs: docs/readme.md changes documentation\n"
             "result docs: exit 1, evidence /tmp/evidence/docs.log\n",
         )
+
+
+def recipe(body: str, dependencies: tuple[str, ...] = ()) -> dict[str, object]:
+    return {
+        "body": [[body]],
+        "dependencies": [{"recipe": name, "arguments": []} for name in dependencies],
+    }
+
+
+def dump(**recipes: dict[str, object]) -> dict[str, object]:
+    return {
+        "settings": {"shell": None},
+        "source": "/tmp/a/justfile",
+        "recipes": {name.replace("_", "-"): value for name, value in recipes.items()},
+    }
+
+
+class JustfileRoutingTest(unittest.TestCase):
+    BASE = dump(
+        check=recipe("bash scripts/checks/all.sh"),
+        check_gitops=recipe("bash scripts/checks/gitops.sh"),
+        provision_check_deps=recipe("python -m scripts.ci.deps", ("tofu-sync",)),
+        tofu_sync=recipe("python -m scripts.tofu_sync"),
+        cache_populate=recipe("nix build"),
+    )
+
+    def route(self, **changes: dict[str, object]) -> list[tuple[str, str]]:
+        current = dict(self.BASE, recipes=dict(self.BASE["recipes"]))
+        current["source"] = "/tmp/b/justfile"
+        for name, value in changes.items():
+            current["recipes"][name.replace("_", "-")] = value
+        return justfile_routes(self.BASE, current, ("test_docs_check",))
+
+    def test_operational_recipe_runs_justfile_tests(self) -> None:
+        self.assertEqual(
+            self.route(cache_populate=recipe("nix build --keep-going")),
+            [("unit-test_docs_check", "justfile changes recipes cache-populate")],
+        )
+        self.assertEqual(
+            [name for name, _ in self.route(ship=recipe("python -m ship"))],
+            ["unit-test_docs_check"],
+        )
+
+    def test_validation_recipes_and_their_dependencies_run_everything(self) -> None:
+        for changes in (
+            {"check": recipe("bash scripts/checks/all.sh --serial")},
+            # Its body runs a scripts/checks/ lane.
+            {"check_gitops": recipe("bash scripts/checks/gitops.sh -v")},
+            # A dependency of provision-check-deps.
+            {"tofu_sync": recipe("python -m scripts.tofu_sync --all")},
+            # A new recipe that a validation recipe now depends on.
+            {
+                "provision_check_deps": recipe("true", ("new-step",)),
+                "new_step": recipe("true"),
+            },
+        ):
+            with self.subTest(changes=list(changes)):
+                self.assertEqual([name for name, _ in self.route(**changes)], ["full"])
+
+    def test_settings_and_unparsable_justfiles_run_everything(self) -> None:
+        current = dict(self.BASE, settings={"shell": ["sh", "-c"]})
+        self.assertEqual(
+            justfile_routes(self.BASE, current, ()),
+            [("full", "justfile changes its settings")],
+        )
+        self.assertEqual(
+            [name for name, _ in justfile_routes(self.BASE, None, ())], ["full"]
+        )
+
+    @unittest.skipUnless(shutil.which("just"), "requires just")
+    def test_selection_compares_the_justfile_with_its_base(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = make_repository(Path(directory))
+            justfile = repository / "justfile"
+            justfile.write_text(
+                "check:\n    bash scripts/checks/all.sh\n\ndeploy:\n    echo deploy\n"
+            )
+            (repository / "tests").mkdir()
+            (repository / "tests/test_recipes.py").write_text('JUST = "justfile"\n')
+            (repository / "tests/test_other.py").write_text("")
+            commit(repository, "initial")
+            justfile.write_text(justfile.read_text().replace("echo deploy", "true"))
+            selection = select_checks(collect_git_state(repository))
+            self.assertEqual(
+                [item.name for item in selection.checks], ["unit-test_recipes"]
+            )
+            justfile.write_text(justfile.read_text().replace("all.sh", "all.sh -x"))
+            selection = select_checks(collect_git_state(repository))
+            self.assertEqual([item.name for item in selection.checks], ["full"])
 
 
 if __name__ == "__main__":

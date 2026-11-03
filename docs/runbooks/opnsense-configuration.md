@@ -39,6 +39,21 @@ subnets, DHCP pool bounds, duplicate device identities and VLAN tags, alias
 device references, and rule sequence collisions. Static reservations inside
 dynamic DHCP pools remain supported, matching existing Kea behavior.
 
+## Load-balancer VIP next hop and static routes
+
+Static routes and their gateways are repository-owned and declared in
+`inventory/static-routes.nix`. They are reconciled via `opnsense_reconciler`:
+- `10.0.40.16/32` via `10.0.30.14` (`homelab-04`, interface `opt3`): routes
+  Jellyfin directly to its pinned backend node. This bypasses the node-to-node
+  SNAT issue where Cilium forward paths from `homelab-01` translate source IPs
+  to the node router address (`10.42.0.x`), which the media ingress NetworkPolicy
+  drops.
+- `100.64.0.0/10` via `10.0.30.10` (`adguard-netbird-01`, interface `opt3`):
+  NetBird mesh return path so LAN replies reach tunnel clients directly.
+
+These routes survive reboots and filter reloads and are managed by CI deployment
+operation `opnsense-apply`.
+
 ## Provider updates
 
 `tofu/opnsense/generated/provider.nix` contains provider options generated from

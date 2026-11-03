@@ -27,6 +27,7 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from scripts.ci import build_users
 from scripts.ci.authority import select
 from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import SupersededSource, current_source, pack, unpack
@@ -80,9 +81,9 @@ class GitLabRecoveryGraphTest(unittest.TestCase):
         self.assertNotIn("environment", workflow["validate"])
         self.assertEqual(
             set(workflow["operate"]["needs"]),
-            {"validate", "opnsense-plan", "cloudflare-plan"},
+            {"validate", "opnsense-plan", "cloudflare-plan", "cloudflare-access-plan"},
         )
-        for name in ["opnsense-plan", "cloudflare-plan"]:
+        for name in ["opnsense-plan", "cloudflare-plan", "cloudflare-access-plan"]:
             job = workflow[name]
             self.assertEqual(job["stage"], "plan")
             self.assertEqual(job["extends"], ".production-operation")
@@ -269,7 +270,7 @@ class PolicyTest(unittest.TestCase):
             self.assertTrue(VALIDATION_COMMAND.startswith("nix develop ./flake#ci "))
             self.assertEqual(
                 workflow["steps"][0]["commands"],
-                [VALIDATION_COMMAND],
+                [build_users.setup_command(), VALIDATION_COMMAND],
             )
             self.assertNotIn("from_secret", json.dumps(workflow))
 
@@ -297,6 +298,7 @@ class PolicyTest(unittest.TestCase):
                 VALIDATION + ".yaml",
                 "opnsense-plan.yaml",
                 "cloudflare-plan.yaml",
+                "cloudflare-access-plan.yaml",
                 "registry-lock-import.yaml",
             ],
         )
@@ -315,9 +317,10 @@ class PolicyTest(unittest.TestCase):
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
-    def test_job_nix_builds_without_host_shared_build_users(self) -> None:
+    def test_job_nix_builds_as_users_the_host_does_not_own(self) -> None:
         # The image's nixbld UIDs equal the host's, and a host nix-daemon
-        # SIGKILLs every process of a build UID around its own builds.
+        # SIGKILLs every process of a build UID around its own builds; root
+        # builders can create /homeless-shelter and fail every later build.
         result = configuration(self.request, self.catalog, current=SHA)
         result["configs"] += self.deployment()["configs"]
         for item in result["configs"]:
@@ -333,7 +336,8 @@ class PolicyTest(unittest.TestCase):
                 }
                 with self.subTest(workflow=item["name"], step=step["name"]):
                     self.assertEqual(settings["sandbox"], "false")
-                    self.assertEqual(settings["build-users-group"], "")
+                    self.assertEqual(settings["build-users-group"], build_users.GROUP)
+                    self.assertEqual(step["commands"][0], build_users.setup_command())
 
     def test_nixos_publish_is_manual_and_forgejo_sourced(self) -> None:
         operation = self.catalog["nixos-publish"]
@@ -458,6 +462,22 @@ class PolicyTest(unittest.TestCase):
         self.assertEqual(
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
+
+    def test_scheduled_operations_start_after_their_needs(self) -> None:
+        for name, targets in SCHEDULES.items():
+            self.request["pipeline"].update(event="cron", cron=name)
+            result = configuration(self.request, self.catalog, current=SHA)
+            for item in result["configs"][1:]:
+                target = item["name"].removesuffix(".yaml")
+                needs = self.catalog[target]["needs"]
+                with self.subTest(schedule=name, operation=target):
+                    self.assertTrue(set(needs) <= set(targets))
+                    if target != "webhook-watchdog":
+                        self.assertEqual(
+                            yaml.safe_load(item["data"])["depends_on"],
+                            [VALIDATION, *needs],
+                        )
+        self.assertIn("opnsense-plan", self.catalog["opnsense-dataplane"]["needs"])
 
     def test_operations_serialize_per_resource(self) -> None:
         result = configuration(self.request, self.catalog, current=SHA)
@@ -1410,6 +1430,50 @@ class StateTest(unittest.TestCase):
         self.assertEqual(
             self.request("UNLOCK", user="plan", lock=True, body=self.lock)[0], 200
         )
+
+    def test_access_state_bootstraps_without_replacing_existing_states(self) -> None:
+        with self.assertRaises(ValueError):
+            self.store.check_ready()
+        self.store.import_state("cloudflare", self.original)
+        self.store.check_ready()
+        self.assertEqual(
+            self.store.request(
+                "GET", "cloudflare-access", False, "plan", "plan", b"", ""
+            )[0],
+            404,
+        )
+        self.assertEqual(
+            self.store.request(
+                "LOCK", "cloudflare-access", True, "deploy", "deploy", self.lock, ""
+            )[0],
+            200,
+        )
+        self.assertEqual(
+            self.store.request(
+                "POST",
+                "cloudflare-access",
+                False,
+                "plan",
+                "plan",
+                self.original,
+                "lock-1",
+            )[0],
+            403,
+        )
+        self.assertEqual(
+            self.store.request(
+                "POST",
+                "cloudflare-access",
+                False,
+                "deploy",
+                "deploy",
+                self.original,
+                "lock-1",
+            )[0],
+            200,
+        )
+        self.store.check_ready()
+        self.assertEqual(self.request("GET"), (200, self.original))
 
     def test_state_writes_require_matching_owner_and_preserve_lineage(self) -> None:
         self.assertEqual(self.request("POST", body=self.original)[0], 409)

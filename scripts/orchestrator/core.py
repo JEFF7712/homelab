@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 PAYLOAD_LIMIT = 16 * 1024
+PATCH_LIMIT = 4 * 1024 * 1024
 MAX_ATTEMPTS = 3
 
 TERMINAL = frozenset({"completed", "failed", "cancelled"})
@@ -36,7 +37,9 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     ),
     "needs_input": frozenset({"running", "retryable_failed", "failed", "cancelled"}),
     "validating": frozenset({"in_review", "retryable_failed", "failed", "cancelled"}),
-    "in_review": frozenset({"completed", "retryable_failed", "failed", "cancelled"}),
+    "in_review": frozenset(
+        {"completed", "validating", "retryable_failed", "failed", "cancelled"}
+    ),
     "retryable_failed": frozenset({"ready", "failed", "cancelled"}),
     "completed": frozenset(),
     "failed": frozenset(),
@@ -176,7 +179,81 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('max_running', '1');
 
 # Ordered, append-only. Each entry upgrades the schema to its index + 1 inside
 # one transaction; never edit a released entry, add a new one.
-MIGRATIONS: tuple[str, ...] = (SCHEMA,)
+# v2: per-sink delivery of notifications (several consumers read the same
+# outbox row) and the last processed forge comment per task.
+SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS sink_deliveries (
+  sink TEXT NOT NULL,
+  key TEXT NOT NULL REFERENCES outbox(key),
+  delivered REAL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  PRIMARY KEY(sink, key)
+);
+CREATE TABLE IF NOT EXISTS forge_cursors (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+  last_comment_id INTEGER NOT NULL
+);
+"""
+
+# v3: the trusted publisher. Each attempt is bound at dispatch to its base
+# commit and branch; the worker submits a patch, never a push, and the
+# publisher records the commit it pushed. Verifications keep the exact CI
+# statuses and reviews they relied on.
+SCHEMA_V3 = """
+CREATE TABLE IF NOT EXISTS artifacts (
+  attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
+  task_id TEXT NOT NULL REFERENCES tasks(id),
+  base_sha TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  patch BLOB,
+  patch_digest TEXT,
+  submitted REAL,
+  published_head TEXT,
+  published REAL,
+  rejected TEXT
+);
+ALTER TABLE verifications ADD COLUMN record TEXT NOT NULL DEFAULT '{}';
+"""
+
+# v4: answers proposed by a client (an agent) wait for the principal's
+# authenticated confirmation before they reach a worker.
+SCHEMA_V4 = """
+CREATE TABLE IF NOT EXISTS answer_proposals (
+  id TEXT PRIMARY KEY,
+  question_id TEXT NOT NULL REFERENCES questions(id),
+  task_id TEXT NOT NULL REFERENCES tasks(id),
+  revision INTEGER NOT NULL,
+  answer TEXT NOT NULL,
+  proposed_by TEXT NOT NULL,
+  status TEXT NOT NULL,
+  decided_by TEXT,
+  created REAL NOT NULL
+);
+"""
+
+# v5: tasks opened by alert intake. One row per task, keyed by the signal
+# fingerprint that opened it, so a repeating alert never opens a second open
+# task and a resolution finds the task to cancel. `escalated` records the one
+# escalation notice per task; `cursors` holds poller positions.
+SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS intake_tasks (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+  fingerprint TEXT NOT NULL,
+  source TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  created REAL NOT NULL,
+  resolved REAL,
+  escalated REAL
+);
+CREATE INDEX IF NOT EXISTS intake_tasks_fingerprint ON intake_tasks(fingerprint);
+CREATE TABLE IF NOT EXISTS intake_cursors (
+  source TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+"""
+
+MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5)
 SCHEMA_VERSION = len(MIGRATIONS)
 NETWORK_FILESYSTEMS = frozenset(
     {
@@ -352,6 +429,31 @@ class Evidence:
     ci_state: str
     criteria_met: tuple[str, ...]
     summary: str
+    # The exact CI statuses (context, state, creator, id) and approving
+    # reviews (login, id) on `head_sha` that this verification relied on.
+    ci_statuses: tuple[tuple[str, str, str, int], ...] = ()
+    reviews: tuple[tuple[str, int], ...] = ()
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "ci": [list(item) for item in self.ci_statuses],
+            "reviews": [list(item) for item in self.reviews],
+        }
+
+
+@dataclass(frozen=True)
+class Artifact:
+    """An attempt's bound base commit and branch, its patch, and what the
+    publisher pushed for it."""
+
+    attempt_id: str
+    task_id: str
+    base_sha: str
+    branch: str
+    patch_digest: str | None
+    submitted: float | None
+    published_head: str | None
+    rejected: str | None
 
 
 def filesystem_type(path: Path, mounts: Path = Path("/proc/self/mounts")) -> str:
@@ -492,7 +594,7 @@ class Store:
                 )
             snapshots = []
             for version in range(current + 1, SCHEMA_VERSION + 1):
-                if version > 1 or current >= 1:
+                if current >= 1:
                     snapshot = self.path.with_name(
                         f"{self.path.name}.pre-v{version}-{secrets.token_hex(4)}.sqlite"
                     )
@@ -575,53 +677,268 @@ class Store:
         silent replacement, so a retried tool call cannot mutate a task.
         """
         spec.validate()
-        request_digest = digest(spec.request())
         with self.transaction() as db:
-            row = db.execute(
-                "SELECT * FROM tasks WHERE principal = ? AND idempotency_key = ?",
-                (principal, idempotency_key),
-            ).fetchone()
-            if row is not None:
-                if row["request_digest"] != request_digest:
-                    raise OrchestratorError(
-                        "IDEMPOTENCY_CONFLICT",
-                        f"key {idempotency_key} was used for a different task",
-                    )
-                return self._task(row), False
-            for reference in (spec.parent_id, *spec.depends_on):
-                if reference is not None and self._row(db, reference) is None:
-                    raise OrchestratorError("NOT_FOUND", f"unknown task {reference}")
-            identifier = new_id("task")
-            status = "draft" if draft else "ready"
+            return self._insert_task(db, principal, idempotency_key, spec, now, draft)
+
+    def _insert_task(
+        self,
+        db: sqlite3.Connection,
+        principal: str,
+        idempotency_key: str,
+        spec: TaskSpec,
+        now: float,
+        draft: bool = False,
+    ) -> tuple[Task, bool]:
+        request_digest = digest(spec.request())
+        row = db.execute(
+            "SELECT * FROM tasks WHERE principal = ? AND idempotency_key = ?",
+            (principal, idempotency_key),
+        ).fetchone()
+        if row is not None:
+            if row["request_digest"] != request_digest:
+                raise OrchestratorError(
+                    "IDEMPOTENCY_CONFLICT",
+                    f"key {idempotency_key} was used for a different task",
+                )
+            return self._task(row), False
+        for reference in (spec.parent_id, *spec.depends_on):
+            if reference is not None and self._row(db, reference) is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown task {reference}")
+        identifier = new_id("task")
+        status = "draft" if draft else "ready"
+        db.execute(
+            "INSERT INTO tasks (id, principal, idempotency_key, request_digest, "
+            "project, title, goal, acceptance_criteria, requested_capabilities, "
+            "priority, parent_id, status, policy_version, created, updated) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                identifier,
+                principal,
+                idempotency_key,
+                request_digest,
+                spec.project,
+                spec.title,
+                spec.goal,
+                json.dumps(list(spec.acceptance_criteria)),
+                json.dumps(sorted(spec.requested_capabilities)),
+                spec.priority,
+                spec.parent_id,
+                status,
+                self.policy_version,
+                now,
+                now,
+            ),
+        )
+        db.executemany(
+            "INSERT INTO dependencies (task_id, depends_on) VALUES (?, ?)",
+            [(identifier, item) for item in sorted(set(spec.depends_on))],
+        )
+        self._record(db, identifier, None, status, principal, "created", now)
+        return self._task(self._row(db, identifier)), True  # type: ignore[arg-type]
+
+    # Intake
+
+    def open_intake(self, fingerprint: str) -> Task | None:
+        """The open task an intake signal with this fingerprint opened, if any."""
+        with self.lock:
+            return self._open_intake(self.db, fingerprint)
+
+    def open_intake_fingerprints(self, source: str) -> list[str]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT DISTINCT i.fingerprint FROM intake_tasks i "
+                "JOIN tasks t ON t.id = i.task_id WHERE i.source = ? "
+                f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                (source, *sorted(TERMINAL)),
+            ).fetchall()
+            return sorted(row["fingerprint"] for row in rows)
+
+    def create_intake_task(
+        self,
+        principal: str,
+        fingerprint: str,
+        source: str,
+        severity: str,
+        spec: TaskSpec,
+        now: float,
+        open_limit: int,
+    ) -> tuple[str, Task | None]:
+        """Open a task for a firing signal unless one is already open for it.
+
+        Returns ("created", task), ("duplicate", the open task) or
+        ("limited", None). The duplicate check and the open-task limit are
+        evaluated in the same transaction as the insert, so concurrent
+        deliveries of one alert cannot open two tasks or exceed the limit. A
+        limited signal queues one escalation per fingerprint per hour.
+        """
+        spec.validate()
+        with self.transaction() as db:
+            existing = self._open_intake(db, fingerprint)
+            if existing is not None:
+                return "duplicate", existing
+            if self._open_intake_count(db) >= open_limit:
+                self._enqueue(
+                    db,
+                    f"intake.limit:{fingerprint}:{int(now // 3600)}",
+                    "intake.escalation",
+                    None,
+                    {
+                        "reason": "open_limit",
+                        "fingerprint": fingerprint,
+                        "title": spec.title,
+                        "severity": severity,
+                        "open_limit": open_limit,
+                    },
+                    now,
+                )
+                return "limited", None
+            task, _ = self._insert_task(
+                db, principal, f"intake:{fingerprint}:{new_id('signal')}", spec, now
+            )
             db.execute(
-                "INSERT INTO tasks (id, principal, idempotency_key, request_digest, "
-                "project, title, goal, acceptance_criteria, requested_capabilities, "
-                "priority, parent_id, status, policy_version, created, updated) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    identifier,
-                    principal,
-                    idempotency_key,
-                    request_digest,
-                    spec.project,
-                    spec.title,
-                    spec.goal,
-                    json.dumps(list(spec.acceptance_criteria)),
-                    json.dumps(sorted(spec.requested_capabilities)),
-                    spec.priority,
-                    spec.parent_id,
-                    status,
-                    self.policy_version,
-                    now,
-                    now,
-                ),
+                "INSERT INTO intake_tasks (task_id, fingerprint, source, severity, "
+                "created) VALUES (?, ?, ?, ?, ?)",
+                (task.id, fingerprint, source, severity, now),
             )
-            db.executemany(
-                "INSERT INTO dependencies (task_id, depends_on) VALUES (?, ?)",
-                [(identifier, item) for item in sorted(set(spec.depends_on))],
+            return "created", task
+
+    def resolve_intake(
+        self, fingerprint: str, actor: str, now: float
+    ) -> list[tuple[str, str]]:
+        """Record that the signal behind open intake tasks has resolved.
+
+        A task no worker has started is cancelled; one already under way is
+        left to finish (its fix may still be wanted) and only marked resolved.
+        """
+        outcomes = []
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT i.task_id, t.status FROM intake_tasks i JOIN tasks t "
+                "ON t.id = i.task_id WHERE i.fingerprint = ? AND i.resolved IS NULL "
+                f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                (fingerprint, *sorted(TERMINAL)),
+            ).fetchall()
+            for row in rows:
+                started = db.execute(
+                    "SELECT 1 FROM attempts WHERE task_id = ? LIMIT 1",
+                    (row["task_id"],),
+                ).fetchone()
+                if row["status"] in {"draft", "ready"} and started is None:
+                    self._move(
+                        db,
+                        row["task_id"],
+                        "cancelled",
+                        actor,
+                        "signal resolved before work started",
+                        now,
+                        None,
+                    )
+                    outcomes.append((row["task_id"], "cancelled"))
+                else:
+                    self._event(
+                        db,
+                        f"intake.resolved:{row['task_id']}",
+                        row["task_id"],
+                        None,
+                        "intake.resolved",
+                        actor,
+                        {"fingerprint": fingerprint},
+                        None,
+                        now,
+                    )
+                    outcomes.append((row["task_id"], "resolved"))
+                db.execute(
+                    "UPDATE intake_tasks SET resolved = ? WHERE task_id = ?",
+                    (now, row["task_id"]),
+                )
+        return outcomes
+
+    def escalate_intake(self, failures: int, now: float) -> list[str]:
+        """Queue one escalation for each intake task that keeps failing.
+
+        A failure is an attempt that ended without a result, or a settled
+        attempt the controller sent back (failed CI or verification) for a
+        new one. A task that reached `failed` escalates regardless.
+        """
+        escalated = []
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT i.task_id, i.fingerprint, i.severity, t.status, t.title "
+                "FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+                "WHERE i.escalated IS NULL AND t.status NOT IN ('completed', 'cancelled')"
+            ).fetchall()
+            for row in rows:
+                attempts = db.execute(
+                    "SELECT number, finished, exit_reason FROM attempts "
+                    "WHERE task_id = ? ORDER BY number",
+                    (row["task_id"],),
+                ).fetchall()
+                latest = attempts[-1]["number"] if attempts else 0
+                failed = sum(
+                    1
+                    for attempt in attempts
+                    if attempt["finished"] is not None
+                    and (
+                        attempt["exit_reason"] != "settled"
+                        or attempt["number"] < latest
+                    )
+                )
+                if failed < failures and row["status"] != "failed":
+                    continue
+                self._enqueue(
+                    db,
+                    f"intake.escalation:{row['task_id']}",
+                    "intake.escalation",
+                    row["task_id"],
+                    {
+                        "reason": "failed" if row["status"] == "failed" else "retries",
+                        "fingerprint": row["fingerprint"],
+                        "title": row["title"],
+                        "severity": row["severity"],
+                        "failures": failed,
+                    },
+                    now,
+                )
+                db.execute(
+                    "UPDATE intake_tasks SET escalated = ? WHERE task_id = ?",
+                    (now, row["task_id"]),
+                )
+                escalated.append(row["task_id"])
+        return escalated
+
+    def intake_cursor(self, source: str) -> str | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT value FROM intake_cursors WHERE source = ?", (source,)
+            ).fetchone()
+            return None if row is None else str(row["value"])
+
+    def set_intake_cursor(self, source: str, value: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO intake_cursors (source, value) VALUES (?, ?) "
+                "ON CONFLICT(source) DO UPDATE SET value = excluded.value",
+                (source, value),
             )
-            self._record(db, identifier, None, status, principal, "created", now)
-            return self._task(self._row(db, identifier)), True  # type: ignore[arg-type]
+
+    def _open_intake(self, db: sqlite3.Connection, fingerprint: str) -> Task | None:
+        row = db.execute(
+            "SELECT t.* FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+            "WHERE i.fingerprint = ? "
+            f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))}) "
+            "ORDER BY i.created DESC LIMIT 1",
+            (fingerprint, *sorted(TERMINAL)),
+        ).fetchone()
+        return None if row is None else self._task(row)
+
+    def _open_intake_count(self, db: sqlite3.Connection) -> int:
+        return int(
+            db.execute(
+                "SELECT COUNT(*) FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+                f"WHERE t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                tuple(sorted(TERMINAL)),
+            ).fetchone()[0]
+        )
 
     def add_dependency(self, task_id: str, depends_on: str) -> None:
         with self.transaction() as db:
@@ -733,10 +1050,11 @@ class Store:
             if row is None:
                 raise OrchestratorError("NOT_FOUND", f"unknown task {task_id}")
             self._check_evidence(row, evidence)
+            self._check_published(db, task_id, evidence.head_sha)
             db.execute(
                 "INSERT INTO verifications (id, task_id, pull_request, head_sha, "
-                "ci_state, criteria_met, summary, verifier, at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "ci_state, criteria_met, summary, verifier, at, record) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     new_id("ver"),
                     task_id,
@@ -747,6 +1065,7 @@ class Store:
                     evidence.summary[:PAYLOAD_LIMIT],
                     verifier,
                     now,
+                    canonical(evidence.record()),
                 ),
             )
             return self._move(
@@ -759,10 +1078,15 @@ class Store:
                 "validating",
             )
 
-    def complete(self, task_id: str, actor: str, now: float) -> Task:
+    def complete(
+        self, task_id: str, actor: str, now: float, observed_head: str
+    ) -> Task:
         """Authorized finalization: complete from the stored verification only.
 
-        No caller-supplied evidence is accepted here. Controller-only.
+        No caller-supplied evidence is accepted here. `observed_head` is the
+        pull request head the controller has just read; if it differs from
+        the verified head, the work changed after verification and the task
+        cannot complete. Controller-only.
         """
         self._require_controller("complete tasks")
         with self.transaction() as db:
@@ -784,6 +1108,12 @@ class Store:
                 verification["summary"],
             )
             self._check_evidence(row, evidence)
+            if observed_head != evidence.head_sha:
+                raise OrchestratorError(
+                    "EVIDENCE_REJECTED",
+                    f"head moved from {evidence.head_sha[:12]} to {observed_head[:12]}",
+                )
+            self._check_published(db, task_id, evidence.head_sha)
             task = self._move(
                 db, task_id, "completed", actor, "finalized", now, "in_review"
             )
@@ -802,11 +1132,29 @@ class Store:
                     "ci_state": evidence.ci_state,
                     "criteria_met": sorted(evidence.criteria_met),
                     "summary": evidence.summary,
+                    "record": json.loads(verification["record"]),
                 },
                 None,
                 now,
             )
             return task
+
+    def _check_published(
+        self, db: sqlite3.Connection, task_id: str, head_sha: str
+    ) -> None:
+        """Evidence must be about the commit the publisher pushed for the
+        task's latest attempt, when that attempt went through the publisher."""
+        artifact = db.execute(
+            "SELECT a.published_head FROM artifacts a JOIN attempts t "
+            "ON t.id = a.attempt_id WHERE a.task_id = ? ORDER BY t.number DESC "
+            "LIMIT 1",
+            (task_id,),
+        ).fetchone()
+        if artifact is not None and artifact["published_head"] != head_sha:
+            raise OrchestratorError(
+                "EVIDENCE_REJECTED",
+                f"{head_sha[:12]} is not the commit the publisher pushed",
+            )
 
     def _check_evidence(self, row: sqlite3.Row, evidence: Evidence) -> None:
         if evidence.ci_state != "success":
@@ -986,6 +1334,13 @@ class Store:
                 raise OrchestratorError(
                     "LEASE_LOST", f"{owner} no longer holds attempt {attempt_id}"
                 )
+            bound = db.execute(
+                "SELECT submitted FROM artifacts WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+            if bound is not None and bound["submitted"] is None:
+                raise OrchestratorError(
+                    "INVALID_SPEC", "submit the patch before settling"
+                )
             self._event(
                 db,
                 f"settled_{attempt_id}",
@@ -1006,6 +1361,152 @@ class Store:
             )
             self._expire_questions(db, attempt_id)
             return self._task(self._row(db, attempt.task_id))  # type: ignore[arg-type]
+
+    # Artifacts
+
+    def bind_artifact(
+        self, attempt_id: str, base_sha: str, branch: str, now: float
+    ) -> Artifact:
+        """Bind a dispatched attempt to its base commit and branch.
+
+        Controller-only, before the worker starts; idempotent for the same
+        binding and refused for a different one.
+        """
+        self._require_controller("bind attempts")
+        if not SHA.match(base_sha):
+            raise OrchestratorError("INVALID_SPEC", "base must be a full commit id")
+        with self.transaction() as db:
+            attempt = self._attempt(db, attempt_id)
+            db.execute(
+                "INSERT OR IGNORE INTO artifacts (attempt_id, task_id, base_sha, "
+                "branch) VALUES (?, ?, ?, ?)",
+                (attempt_id, attempt.task_id, base_sha, branch),
+            )
+            artifact = self._artifact(db, attempt_id)
+            if (artifact.base_sha, artifact.branch) != (base_sha, branch):
+                raise OrchestratorError(
+                    "CONFLICT", f"attempt {attempt_id} is bound elsewhere"
+                )
+            return artifact
+
+    def submit_artifact(
+        self, attempt_id: str, owner: str, patch: bytes, now: float
+    ) -> Artifact:
+        """Store the live attempt's patch once; a resubmission must match."""
+        if not patch or len(patch) > PATCH_LIMIT:
+            raise OrchestratorError(
+                "INVALID_SPEC", f"a patch must be 1 to {PATCH_LIMIT} bytes"
+            )
+        patch_digest = "sha256:" + hashlib.sha256(patch).hexdigest()
+        with self.transaction() as db:
+            attempt = self._attempt(db, attempt_id)
+            if (
+                attempt.finished is not None
+                or attempt.lease_owner != owner
+                or attempt.lease_expires <= now
+            ):
+                raise OrchestratorError(
+                    "LEASE_LOST", f"{owner} no longer holds attempt {attempt_id}"
+                )
+            artifact = self._artifact(db, attempt_id)
+            if artifact.patch_digest is not None:
+                if artifact.patch_digest != patch_digest:
+                    raise OrchestratorError(
+                        "CONFLICT", "a different patch was already submitted"
+                    )
+                return artifact
+            db.execute(
+                "UPDATE artifacts SET patch = ?, patch_digest = ?, submitted = ? "
+                "WHERE attempt_id = ?",
+                (patch, patch_digest, now, attempt_id),
+            )
+            return self._artifact(db, attempt_id)
+
+    def artifact(self, attempt_id: str) -> Artifact | None:
+        with self.lock:
+            try:
+                return self._artifact(self.db, attempt_id)
+            except OrchestratorError:
+                return None
+
+    def artifact_patch(self, attempt_id: str) -> bytes:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT patch FROM artifacts WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+        if row is None or row["patch"] is None:
+            raise OrchestratorError("NOT_FOUND", f"no patch for {attempt_id}")
+        return bytes(row["patch"])
+
+    def record_publication(self, attempt_id: str, head: str, now: float) -> Artifact:
+        """Record the commit the publisher pushed; controller-only, once."""
+        self._require_controller("record publications")
+        if not SHA.match(head):
+            raise OrchestratorError("INVALID_SPEC", "head must be a full commit id")
+        with self.transaction() as db:
+            artifact = self._artifact(db, attempt_id)
+            if artifact.published_head not in (None, head):
+                raise OrchestratorError(
+                    "CONFLICT", f"{attempt_id} was published as another commit"
+                )
+            db.execute(
+                "UPDATE artifacts SET published_head = ?, published = ? "
+                "WHERE attempt_id = ?",
+                (head, now, attempt_id),
+            )
+            return self._artifact(db, attempt_id)
+
+    def reject_artifact(self, attempt_id: str, reason: str) -> None:
+        self._require_controller("reject artifacts")
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE artifacts SET rejected = ? WHERE attempt_id = ?",
+                (reason[:PAYLOAD_LIMIT], attempt_id),
+            )
+
+    def _artifact(self, db: sqlite3.Connection, attempt_id: str) -> Artifact:
+        row = db.execute(
+            "SELECT * FROM artifacts WHERE attempt_id = ?", (attempt_id,)
+        ).fetchone()
+        if row is None:
+            raise OrchestratorError("NOT_FOUND", f"no artifact for {attempt_id}")
+        return Artifact(**{key: row[key] for key in Artifact.__dataclass_fields__})
+
+    def report_incident(
+        self,
+        key: str,
+        task_id: str | None,
+        kind: str,
+        detail: str,
+        now: float,
+        attempt_id: str | None = None,
+    ) -> None:
+        """Record a security-relevant failure once per key, for every sink."""
+        self._require_controller("report incidents")
+        with self.transaction() as db:
+            self._enqueue(
+                db,
+                f"incident:{key}",
+                "security.incident",
+                task_id,
+                {"kind": kind, "attempt_id": attempt_id, "detail": detail[:500]},
+                now,
+            )
+
+    def extend_leases(self, until: float) -> int:
+        """Push every unfinished attempt's lease to at least `until`.
+
+        Run once when a controller starts: leases ran out while nobody could
+        renew them, so live workers get one lease period to reconnect before
+        reaping. Attempts whose Job is gone are finished by reconciliation.
+        """
+        self._require_controller()
+        with self.transaction() as db:
+            return db.execute(
+                "UPDATE attempts SET lease_expires = ? WHERE finished IS NULL "
+                "AND lease_expires < ?",
+                (until, until),
+            ).rowcount
 
     def reap(self, now: float, actor: str = "reconciler") -> list[str]:
         """Finish every attempt whose lease expired and fence its worker.
@@ -1045,6 +1546,81 @@ class Store:
                 )
                 expired.append(attempt_id)
         return expired
+
+    def live_attempts(self) -> list[Attempt]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT id FROM attempts WHERE finished IS NULL ORDER BY started"
+            ).fetchall()
+            return [self._attempt(self.db, row["id"]) for row in rows]
+
+    def last_attempt(self, task_id: str) -> Attempt | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT id FROM attempts WHERE task_id = ? ORDER BY number DESC LIMIT 1",
+                (task_id,),
+            ).fetchone()
+            return None if row is None else self._attempt(self.db, row["id"])
+
+    def set_issue_ref(self, task_id: str, ref: str) -> None:
+        """Record the forge issue for a task once; a different ref is a conflict."""
+        with self.transaction() as db:
+            row = self._row(db, task_id)
+            if row is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown task {task_id}")
+            if row["external_issue_ref"] not in (None, ref):
+                raise OrchestratorError(
+                    "CONFLICT",
+                    f"task {task_id} already has {row['external_issue_ref']}",
+                )
+            db.execute(
+                "UPDATE tasks SET external_issue_ref = ? WHERE id = ?", (ref, task_id)
+            )
+
+    def comment_cursor(self, task_id: str) -> int:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT last_comment_id FROM forge_cursors WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        return 0 if row is None else int(row["last_comment_id"])
+
+    def set_comment_cursor(self, task_id: str, comment_id: int) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO forge_cursors (task_id, last_comment_id) VALUES (?, ?) "
+                "ON CONFLICT(task_id) DO UPDATE SET last_comment_id = "
+                "MAX(forge_cursors.last_comment_id, excluded.last_comment_id)",
+                (task_id, comment_id),
+            )
+
+    def open_questions(self, task_id: str | None = None) -> list[Question]:
+        query = "SELECT * FROM questions WHERE status = 'open'"
+        values: tuple[Any, ...] = ()
+        if task_id is not None:
+            query += " AND task_id = ?"
+            values = (task_id,)
+        with self.lock:
+            rows = self.db.execute(query + " ORDER BY created", values).fetchall()
+        return [self._question(row) for row in rows]
+
+    def question(self, question_id: str) -> Question:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM questions WHERE id = ?", (question_id,)
+            ).fetchone()
+        if row is None:
+            raise OrchestratorError("NOT_FOUND", f"unknown question {question_id}")
+        return self._question(row)
+
+    def approval(self, approval_id: str) -> Approval:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM approvals WHERE id = ?", (approval_id,)
+            ).fetchone()
+        if row is None:
+            raise OrchestratorError("NOT_FOUND", f"unknown approval {approval_id}")
+        return self._approval(row)
 
     def attempt(self, attempt_id: str) -> Attempt:
         with self.lock:
@@ -1199,7 +1775,9 @@ class Store:
                 )
             if question.choices and answer not in question.choices:
                 raise OrchestratorError(
-                    "INVALID_ANSWER", f"answer must be one of {list(question.choices)}"
+                    "INVALID_ANSWER",
+                    f"answer must be one of the question's {len(question.choices)} "
+                    "choices",
                 )
             db.execute(
                 "UPDATE questions SET status = 'answered', answer = ?, answered_by = ? "
@@ -1224,6 +1802,113 @@ class Store:
                 db.execute(
                     "SELECT * FROM questions WHERE id = ?", (question_id,)
                 ).fetchone()
+            )
+
+    def propose_answer(
+        self,
+        question_id: str,
+        revision: int,
+        answer: str,
+        proposed_by: str,
+        now: float,
+    ) -> str:
+        """Record a client's proposed answer; nothing reaches the worker.
+
+        The principal confirms it on the forge (`/confirm <id>`), which then
+        answers the question if it is still open at this revision.
+        """
+        self.expire_questions(now)
+        with self.transaction() as db:
+            row = db.execute(
+                "SELECT * FROM questions WHERE id = ?", (question_id,)
+            ).fetchone()
+            if row is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown question {question_id}")
+            question = self._question(row)
+            if question.status != "open":
+                raise OrchestratorError(
+                    "STALE", f"question {question_id} is {question.status}"
+                )
+            if revision != question.revision:
+                raise OrchestratorError(
+                    "STALE",
+                    f"question {question_id} is at revision {question.revision}",
+                )
+            if question.choices and answer not in question.choices:
+                raise OrchestratorError(
+                    "INVALID_ANSWER",
+                    f"answer must be one of the question's {len(question.choices)} "
+                    "choices",
+                )
+            proposal_id = new_id("prop")
+            db.execute(
+                "INSERT INTO answer_proposals (id, question_id, task_id, revision, "
+                "answer, proposed_by, status, created) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)",
+                (
+                    proposal_id,
+                    question_id,
+                    question.task_id,
+                    revision,
+                    answer[:PAYLOAD_LIMIT],
+                    proposed_by,
+                    now,
+                ),
+            )
+            self._enqueue(
+                db,
+                f"proposal:{proposal_id}",
+                "answer.proposed",
+                question.task_id,
+                {
+                    "proposal_id": proposal_id,
+                    "question_id": question_id,
+                    "revision": revision,
+                    "answer": answer[:PAYLOAD_LIMIT],
+                    "proposed_by": proposed_by,
+                },
+                now,
+            )
+            return proposal_id
+
+    def confirm_proposal(
+        self, proposal_id: str, task_id: str, confirmed_by: str, now: float
+    ) -> Question:
+        """The principal's confirmation: answer the question as proposed.
+
+        Refused unless the proposal is pending, belongs to this task, and its
+        question is still open at the proposed revision with a live attempt.
+        """
+        with self.lock:
+            row = self.db.execute(
+                "SELECT * FROM answer_proposals WHERE id = ?", (proposal_id,)
+            ).fetchone()
+        if row is None or row["task_id"] != task_id:
+            raise OrchestratorError("NOT_FOUND", f"unknown proposal {proposal_id}")
+        if row["status"] != "pending":
+            raise OrchestratorError(
+                "STALE", f"proposal {proposal_id} is {row['status']}"
+            )
+        try:
+            question = self.answer(
+                row["question_id"],
+                row["revision"],
+                row["answer"],
+                f"{confirmed_by} confirming {row['proposed_by']}",
+                now,
+            )
+        except OrchestratorError:
+            self._decide_proposal(proposal_id, "stale", confirmed_by)
+            raise
+        self._decide_proposal(proposal_id, "confirmed", confirmed_by)
+        return question
+
+    def _decide_proposal(self, proposal_id: str, status: str, actor: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE answer_proposals SET status = ?, decided_by = ? "
+                "WHERE id = ? AND status = 'pending'",
+                (status, actor, proposal_id),
             )
 
     def revise(
@@ -1477,6 +2162,49 @@ class Store:
             )
             for row in rows
         ]
+
+    def pending_for_sink(
+        self, sink: str, topics: tuple[str, ...], limit: int = 50
+    ) -> list[Message]:
+        """Outbox messages of these topics not yet delivered to this sink."""
+        marks = ",".join("?" for _ in topics)
+        with self.lock:
+            rows = self.db.execute(
+                f"SELECT o.*, d.attempts AS sink_attempts FROM outbox o "
+                f"LEFT JOIN sink_deliveries d ON d.key = o.key AND d.sink = ? "
+                f"WHERE o.topic IN ({marks}) AND d.delivered IS NULL "
+                f"ORDER BY o.created, o.rowid LIMIT ?",
+                (sink, *topics, limit),
+            ).fetchall()
+        return [
+            Message(
+                row["key"],
+                row["topic"],
+                row["task_id"],
+                json.loads(row["payload"]),
+                row["sink_attempts"] or 0,
+            )
+            for row in rows
+        ]
+
+    def ack_sink(self, sink: str, key: str, now: float) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO sink_deliveries (sink, key, delivered, attempts) "
+                "VALUES (?, ?, ?, 1) ON CONFLICT(sink, key) DO UPDATE SET "
+                "delivered = COALESCE(sink_deliveries.delivered, excluded.delivered), "
+                "attempts = sink_deliveries.attempts + 1",
+                (sink, key, now),
+            )
+
+    def sink_failed(self, sink: str, key: str, error: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO sink_deliveries (sink, key, attempts, last_error) "
+                "VALUES (?, ?, 1, ?) ON CONFLICT(sink, key) DO UPDATE SET "
+                "attempts = sink_deliveries.attempts + 1, last_error = excluded.last_error",
+                (sink, key, error[:PAYLOAD_LIMIT]),
+            )
 
     def acknowledge(self, key: str, now: float) -> None:
         with self.transaction() as db:

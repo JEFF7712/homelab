@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: 92.1.0
+      version: 92.17.0
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -18,19 +18,19 @@ spec:
         images:
           - name: docker.io/grafana/grafana
             newName: registry.rupan.dev/upstream/docker.io/grafana/grafana  # yamllint disable-line rule:line-length
-            digest: sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
+            digest: sha256:540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df
           - name: ghcr.io/jkroepke/kube-webhook-certgen
             newName: registry.rupan.dev/upstream/ghcr.io/jkroepke/kube-webhook-certgen  # yamllint disable-line rule:line-length
-            digest: sha256:8ce13c365c8e9ced0aad5ef350a53c50b7ca5817f99d856b9eec895db1056728
+            digest: sha256:778d97dc3986355625e14392419b3364c487a7c807d4d86ddad1df369129b082
           - name: quay.io/kiwigrid/k8s-sidecar
             newName: registry.rupan.dev/upstream/quay.io/kiwigrid/k8s-sidecar  # yamllint disable-line rule:line-length
-            digest: sha256:694950d736c8b532eba4006527ccbdac98fefc9f30b3346ba2de50b6cad91c94
+            digest: sha256:092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7
           - name: quay.io/prometheus-operator/prometheus-config-reloader
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-config-reloader  # yamllint disable-line rule:line-length
             digest: sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7
           - name: quay.io/prometheus-operator/prometheus-operator
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-operator  # yamllint disable-line rule:line-length
-            digest: sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55
+            digest: sha256:c7edf0379b7271ef1705dce258d2bb73820e299cc95559369e9f6fc3321639ec
           - name: quay.io/prometheus/alertmanager
             newName: registry.rupan.dev/upstream/quay.io/prometheus/alertmanager  # yamllint disable-line rule:line-length
             digest: sha256:51a825c2a40acc3e338fdd00d622e01ec090f72be2b3ea46be0839cd47a4d286
@@ -141,6 +141,20 @@ spec:
               resources:
                 requests:
                   storage: 20Gi
+    kubelet:
+      serviceMonitor:
+        metricRelabelings:
+          # Preserve the chart's default storage histogram bucket filter:
+          # Helm replaces lists rather than appending to them.
+          - action: drop
+            sourceLabels: [__name__, le]
+            regex: '(csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?'
+          # k3s also exports control-plane metrics on kubelet /metrics.
+          # The apiserver job already collects these; keep kubelet and
+          # cAdvisor/probe metrics while avoiding duplicate series.
+          - action: drop
+            sourceLabels: [__name__]
+            regex: '(apiserver|etcd|scheduler)_.*'
     kubeControllerManager:
       enabled: false
     kubeScheduler:
