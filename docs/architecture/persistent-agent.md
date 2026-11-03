@@ -450,8 +450,15 @@ The first tasks come from operations, not from a supervisor
   Gate 4 must then prove live: admission denials, Secret isolation,
   controller DNS success, refusal of other names, wrong or missing SNI
   rejected on shared provider IPs, private-network isolation and
-  cross-attempt API denial. A fourth, offline pass is required before gate
-  3 closes.
+  cross-attempt API denial.
+- **Gate 3 pass 4 (2026-11-03).** The same reviewer found the pass 3 fixes
+  sound, including 50 local gitleaks probes (8 MiB inputs, long lines,
+  boundary-straddling tokens, archive-like headers) and strict schema
+  validation of all 52 rendered resources. One medium finding, fixed: a file
+  name that is not UTF-8 raised an unexpected error the controller retried
+  every tick, so such names are now a patch rejection that ends the
+  attempt. With that fixed, the reviewer's remaining checks are gate 4's
+  live ones; gate 3 closes once this fix is merged.
 
 Remaining before a deployment request:
 

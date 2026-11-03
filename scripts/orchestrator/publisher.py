@@ -112,6 +112,18 @@ class PatchRejected(ValueError):
     """The patch is not acceptable; the attempt failed."""
 
 
+def utf8_paths(raw: bytes) -> str:
+    """Git's NUL-separated path list, or a rejection for a non-UTF-8 name.
+
+    Git accepts any bytes in a path; a name that does not decode is refused
+    as a patch, so it ends the attempt instead of failing every retry.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise PatchRejected("file names must be UTF-8") from error
+
+
 class PublishConflict(RuntimeError):
     """The branch already holds a different commit: someone else wrote it."""
 
@@ -255,8 +267,8 @@ class Publisher:
         """(new mode, path) for every path the patch adds, changes or removes."""
         raw = self._git(
             "diff-index", "--cached", "--raw", "-z", "--no-renames", base_sha, env=index
-        ).stdout.decode()
-        fields = raw.split("\0")
+        ).stdout
+        fields = utf8_paths(raw).split("\0")
         changes = []
         for meta, path in zip(fields[0::2], fields[1::2]):
             if not meta:
@@ -356,8 +368,8 @@ class Publisher:
             "-z",
             base_sha,
             env=index,
-        ).stdout.decode()
-        fields = raw.split("\0")
+        ).stdout
+        fields = utf8_paths(raw).split("\0")
         content = []
         for meta, path in zip(fields[0::2], fields[1::2]):
             if not meta:

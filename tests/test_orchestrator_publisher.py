@@ -208,6 +208,19 @@ class SecretScanTests(PublisherCase):
             self.publisher.publish(self.base, BRANCH, latin, "t", 1)
         self.assertNotIn(BRANCH, git("branch", "--list", cwd=self.bare))
 
+    def test_a_non_utf8_file_name_is_a_rejection_not_a_retry(self) -> None:
+        # Git accepts any bytes in a path; decoding it once raised an
+        # unexpected error the controller retried on every tick.
+        def change(work: Path) -> None:
+            name = os.fsencode(work) + b"/bad-\xff.txt"
+            with open(name, "wb") as handle:
+                handle.write(b"ordinary text\n")
+
+        patch = self.patch(change)
+        with self.assertRaisesRegex(PatchRejected, "file names must be UTF-8"):
+            self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+        self.assertNotIn(BRANCH, git("branch", "--list", cwd=self.bare))
+
     def test_a_clean_patch_still_publishes(self) -> None:
         patch = self.patch(write("src/clean.txt", "nothing secret here\n"))
         self.publisher.publish(self.base, BRANCH, patch, "t", 1)
