@@ -141,6 +141,15 @@ spec:
               resources:
                 requests:
                   storage: 20Gi
+    kubelet:
+      serviceMonitor:
+        metricRelabelings:
+          # k3s also exports control-plane metrics on kubelet /metrics.
+          # The apiserver job already collects these; keep kubelet and
+          # cAdvisor/probe metrics while avoiding duplicate series.
+          - action: drop
+            sourceLabels: [__name__]
+            regex: '(apiserver|etcd|scheduler)_.*'
     kubeControllerManager:
       enabled: false
     kubeScheduler:
