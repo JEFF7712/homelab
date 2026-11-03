@@ -24,6 +24,7 @@ from tests.orchestrator_fakes import (
     CI_CONTEXT,
     CI_LOGIN,
     FakeForgejo,
+    FakeKubernetes,
     FakePublisher,
     advance,
     bare_repository,
@@ -681,6 +682,11 @@ class PublishedCommitTests(unittest.TestCase):
         attempt = self.store.last_attempt(task_id)
         assert attempt is not None
         self.assertEqual(attempt.number, 2)
+        kinds = [
+            m.payload["kind"]
+            for m in self.store.pending_for_sink("ntfy", ("security.incident",))
+        ]
+        self.assertEqual(kinds, ["published-branch-changed"])
 
     def test_a_push_between_verification_and_finalization_does_not_complete(
         self,
@@ -706,6 +712,90 @@ class PublishedCommitTests(unittest.TestCase):
         history = [to for _, to, _, _ in self.store.history(task_id)]
         self.assertIn("in_review", history)
         self.assertNotIn("completed", history)
+
+
+class IncidentTests(unittest.TestCase):
+    """Cleanup failures are retried and reported, never silently dropped."""
+
+    def setUp(self) -> None:
+        from scripts.orchestrator.forge import ForgejoForge
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        self.kube = FakeKubernetes()
+        self.addCleanup(self.kube.close)
+        self.forge = FakeForgejo(bare_repository(root))
+        self.addCleanup(self.forge.close)
+        self.store = Store(root / "db.sqlite", "v", controller=True)
+        self.addCleanup(self.store.close)
+        token = root / "sa-token"
+        token.write_text("sa")
+        self.clock = [1000.0]
+        self.controller = Controller(
+            self.store,
+            KubernetesJobManager(
+                KubernetesJobConfig(
+                    namespace="persistent-agent",
+                    image="registry/worker@sha256:" + "0" * 64,
+                ),
+                api=self.kube.url,
+                token_file=token,
+                ca_file=root / "missing-ca",
+            ),
+            ForgejoForge(self.forge.url, "owner", "sandbox", "t"),
+            [],
+            ControllerConfig(
+                owner="c",
+                project="sandbox",
+                api_url="http://x",
+                base_branch="main",
+                backend={"kind": "pi"},
+                verifier=VerifierConfig((), {}),
+            ),
+            FakePublisher(),
+            clock=lambda: self.clock[0],
+        )
+
+    def incidents(self) -> list[Message]:
+        return [m for m in self.store.pending_for_sink("ntfy", ("security.incident",))]
+
+    def test_a_failed_worker_stop_is_retried_and_reported_once(self) -> None:
+        task, _ = self.store.create_task(
+            "rupan", "k", TaskSpec("sandbox", "t", "g", ("c",)), 1000.0
+        )
+        self.controller.tick()
+        self.assertEqual(len(self.kube.jobs), 1)
+        self.store.cancel(task.id, "rupan", "stop", 1000.0)
+        self.kube.delete_failures = 2
+        self.controller.tick()
+        self.controller.tick()
+        self.assertEqual(len(self.store.pending_messages("worker.cancel")), 1)
+        (incident,) = self.incidents()
+        self.assertEqual(incident.payload["kind"], "worker-stop-failed")
+        deletes = [c for c in self.kube.calls if c[0] == "DELETE"]
+        self.assertEqual(len(deletes), 2)
+        self.controller.tick()
+        self.assertEqual(self.kube.jobs, {})
+        self.assertEqual(self.store.pending_messages("worker.cancel"), [])
+        self.assertEqual(len(self.incidents()), 1)
+
+    def test_a_job_left_by_a_failed_secret_is_reported_and_later_fenced(
+        self,
+    ) -> None:
+        self.kube.secret_status = 500
+        self.kube.delete_failures = 1
+        self.store.create_task(
+            "rupan", "k", TaskSpec("sandbox", "t", "g", ("c",)), 1000.0
+        )
+        self.controller.tick()
+        (incident,) = self.incidents()
+        self.assertEqual(incident.payload["kind"], "worker-cleanup-failed")
+        self.assertEqual(len(self.kube.jobs), 1)
+        self.clock[0] += 601
+        self.controller.tick()
+        self.assertEqual(self.kube.jobs, {})
+        self.assertEqual(self.store.pending_messages("worker.cancel"), [])
 
 
 class MarkerTests(unittest.TestCase):

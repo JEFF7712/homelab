@@ -319,6 +319,70 @@ class FakeNtfy:
         self.server.server_close()
 
 
+class FakeKubernetes:
+    """The slice of the Kubernetes API the Job manager uses, with failure
+    injection: `secret_status` for Secret creation, `delete_failures` for the
+    next DELETEs (any kind) to answer 500."""
+
+    def __init__(self) -> None:
+        self.jobs: dict[str, dict[str, Any]] = {}
+        self.secrets: dict[str, dict[str, Any]] = {}
+        self.secret_status = 201
+        self.delete_failures = 0
+        self.calls: list[tuple[str, str]] = []
+        fake = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, format: str, *args: object) -> None:
+                pass
+
+            def reply(self, status: int, body: Any = None) -> None:
+                data = json.dumps(body).encode() if body is not None else b""
+                self.send_response(status)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_POST(self) -> None:
+                fake.calls.append(("POST", self.path))
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                name = body["metadata"]["name"]
+                if body["kind"] == "Job":
+                    body["metadata"]["uid"] = f"uid-{name}"
+                    body["status"] = {"active": 1}
+                    fake.jobs[name] = body
+                    return self.reply(201, body)
+                if fake.secret_status != 201:
+                    return self.reply(fake.secret_status, {})
+                fake.secrets[name] = body
+                self.reply(201, body)
+
+            def do_GET(self) -> None:
+                name = self.path.rsplit("/", 1)[-1]
+                job = fake.jobs.get(name)
+                self.reply(200, job) if job else self.reply(404, {})
+
+            def do_DELETE(self) -> None:
+                path = self.path.split("?")[0]
+                fake.calls.append(("DELETE", path))
+                if fake.delete_failures:
+                    fake.delete_failures -= 1
+                    return self.reply(500, {})
+                name = path.rsplit("/", 1)[-1]
+                fake.jobs.pop(name, None) if "/jobs/" in path else fake.secrets.pop(
+                    name, None
+                )
+                self.reply(200, {})
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
 class FakeLetta:
     """A Letta App Server that registers external tools and records turns."""
 

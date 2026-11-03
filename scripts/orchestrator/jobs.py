@@ -25,6 +25,10 @@ from typing import Any, Literal, Protocol
 JobState = Literal["running", "succeeded", "failed", "missing"]
 
 
+class CleanupFailed(RuntimeError):
+    """A worker Job could not be cleaned up and may still run; report it."""
+
+
 @dataclass(frozen=True)
 class JobSpec:
     attempt_id: str
@@ -323,12 +327,17 @@ class KubernetesJobManager:
             status = 0
         if status not in (200, 201, 409):
             try:
-                self.request(
+                deleted, _ = self.request(
                     "DELETE",
-                    f"{jobs}/{job_name(spec.attempt_id)}?propagationPolicy=Background",
+                    f"{jobs}/{job_name(spec.attempt_id)}?propagationPolicy=Foreground",
                 )
             except OSError:
-                pass
+                deleted = 0
+            if deleted not in (200, 202, 404):
+                raise CleanupFailed(
+                    f"creating Secret failed with {status} and deleting the Job "
+                    f"failed with {deleted}"
+                )
             raise RuntimeError(f"creating Secret failed with {status}")
 
     def state(self, attempt_id: str) -> JobState:
