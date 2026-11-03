@@ -4,7 +4,7 @@ terraform {
   required_providers {
     tplinkeasysmart = {
       source  = "registry.terraform.io/davidlukac/tplinkeasysmart"
-      version = "= 0.32.4"
+      version = "0.32.6"
     }
   }
 
