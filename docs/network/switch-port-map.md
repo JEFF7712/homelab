@@ -129,3 +129,11 @@ that source/destination port pair only from `10.0.10.2` and `10.0.10.3`.
 There is no continuously running management listener; OpenTofu binds the
 client port while it is running. This input rule needs operator approval
 before activation because it changes host exposure.
+
+Native session traffic also needs a direct layer 2 path. Both switches answer
+ARP with their inventory MAC addresses on the appliance's infrastructure link.
+Two destination-port policy rules select table `29808` only for UDP management
+requests to these switch addresses. That table has on-link `/32` routes through
+`enp1s0`, with source `10.0.30.10`. HTTP and other traffic retain the VLAN 60
+routes in the main table. These routes and rules belong to the same appliance
+module; no switch VLAN membership changes are required.
