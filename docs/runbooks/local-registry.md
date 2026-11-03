@@ -287,6 +287,7 @@ Key rules:
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
 - **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **No mirror lookups:** Renovate skips every `registry.rupan.dev/**` reference. Mirror tags never repoint (below), so a lookup could never find a newer digest, and Renovate holds no registry credential. An image is tracked only through its tagged upstream declaration in a `registry-sources.yaml` or `base-images.yaml`.
 - **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
 
 ### Refreshing an image under the same tag

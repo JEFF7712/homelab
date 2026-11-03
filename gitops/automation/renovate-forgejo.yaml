@@ -56,6 +56,11 @@ spec:
     envList:
       - name: LOG_LEVEL
         value: info
+      # uid 1000 has no passwd entry in the image, so without HOME the nix
+      # used for flake lock maintenance aborts with "cannot determine user's
+      # home directory".
+      - name: HOME
+        value: /tmp/renovate-home
       - name: RENOVATE_TOKEN
         valueFrom:
           secretKeyRef:
