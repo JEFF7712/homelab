@@ -1,7 +1,7 @@
 ---
 # Weekly proof that the Immich library repository restores: read a sample of
-# its packs, require a snapshot from the last two days, and restore a slice
-# of the latest snapshot. Evidence goes to restore-drill-evidence in this
+# its packs, require a snapshot from the last two days, and stream a random
+# sample of files from the latest snapshot. Evidence goes to restore-drill-evidence in this
 # namespace, beside the claim it proves (see restore-drill.yaml).
 apiVersion: v1
 kind: ServiceAccount
@@ -129,14 +129,22 @@ spec:
                   if [ -z "${recent}" ] || [ ! "${recent}" \> "${cutoff}" ]; then
                     fail "latest snapshot ${recent:-none} is older than two days"
                   fi
-                  files="$(restic --retry-lock 1h ls latest | grep -c '^/library/' || true)"
+                  # The library is far larger than scratch space: stream a random sample
+                  # of files through restic dump, which decrypts and verifies every blob.
+                  restic --retry-lock 1h ls --json latest \
+                    | grep '"type":"file"' | sed -n 's/.*"path":"\(\/library\/[^"\\]*\)".*/\1/p' \
+                    > /tmp/files
+                  files="$(wc -l < /tmp/files)"
                   [ "${files}" -gt 0 ] || fail "latest snapshot lists no library files"
-                  restic --retry-lock 1h restore latest --target /work/restore \
-                    --include /library/upload --include /library/library 2>/dev/null \
-                    | tail -n 2 || true
-                  restored="$(find /work/restore -type f | head -n 200 | wc -l)"
-                  [ "${restored}" -gt 0 ] || fail "nothing restored from the latest snapshot"
-                  echo "pass: snapshot ${recent} ${files} entries, sample restore ok" > /work/results/immich-library
+                  awk 'BEGIN { srand() } { print rand() "\t" $0 }' /tmp/files \
+                    | sort -n | cut -f 2- | head -n 50 > /tmp/sample
+                  checked=0
+                  while IFS= read -r path; do
+                    restic --retry-lock 1h dump latest "${path}" > /dev/null || fail "restic dump ${path}"
+                    checked=$((checked + 1))
+                  done < /tmp/sample
+                  echo "pass: snapshot ${recent} ${files} files, ${checked} sampled files verified" \
+                    > /work/results/immich-library
                   cat /work/results/immich-library
               volumeMounts:
                 - name: repo
@@ -180,7 +188,7 @@ spec:
                 claimName: immich-local-repo
             - name: work
               emptyDir:
-                sizeLimit: 20Gi
+                sizeLimit: 1Gi
             - name: tmp
               emptyDir: {}
             - name: scripts
