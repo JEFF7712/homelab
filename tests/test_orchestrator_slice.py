@@ -661,10 +661,10 @@ class HostileWorkerTests(SliceCase):
             artifact = rig.store.artifact(attempt.id) if attempt else None
             return artifact if artifact and artifact.rejected else None
 
-        # The loot holds the attempt's own worker token, so the publisher's
-        # secret scan refuses it: nothing the worker gathered is published.
+        # The loot holds the attempt's own worker token in a binary file, so
+        # the publisher refuses it: nothing the worker gathered is published.
         artifact = until(rejected, timeout=60)
-        self.assertIn("looks like a secret", artifact.rejected)
+        self.assertIn("binary files are not accepted", artifact.rejected)
         self.assertIsNone(artifact.published_head)
         # /proc environ holds NUL bytes, so git encodes loot.txt as a binary
         # hunk (which a line-based scan never saw): apply it to read it.

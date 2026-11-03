@@ -177,10 +177,32 @@ class ManifestTests(unittest.TestCase):
         # let a query carry data to an outside nameserver.
         [dns] = [r for r in fqdn["spec"]["egress"] if "toEndpoints" in r]
         patterns = dns["toPorts"][0]["rules"]["dns"]
-        self.assertNotIn({"matchPattern": "*"}, patterns)
+        # Exact names only: no wildcard, which either stops at a dot in
+        # Cilium or covers a zone CoreDNS forwards upstream.
         self.assertEqual(
-            {p.get("matchPattern") for p in patterns} - {None},
-            {"*.cluster.local", "*.svc"},
+            patterns,
+            [
+                {"matchName": name}
+                for name in (
+                    "api.anthropic.com",
+                    "api.openai.com",
+                    "auth.openai.com",
+                    "chatgpt.com",
+                    "orchestrator-controller.persistent-agent.svc.cluster.local",
+                )
+            ],
+        )
+        [config_map] = by_kind(docs, "ConfigMap")
+        config = json.loads(config_map["data"]["config.json"])
+        # The URL workers dial is exactly the name their DNS policy admits.
+        self.assertEqual(
+            config["worker_api_url"],
+            "http://orchestrator-controller.persistent-agent.svc.cluster.local:8090",
+        )
+        _, job = self.worker_job(PARAMS)
+        self.assertEqual(
+            job["spec"]["template"]["spec"]["dnsConfig"],
+            {"options": [{"name": "ndots", "value": "1"}]},
         )
         # The plain NetworkPolicy grants workers no DNS of its own.
         self.assertNotIn("53", json.dumps(worker["egress"]))

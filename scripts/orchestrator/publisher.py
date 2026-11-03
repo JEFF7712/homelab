@@ -96,6 +96,7 @@ def _limit_memory() -> None:
 # scanner or a scan error rejects the patch: the publisher fails closed.
 # This is a tripwire, not a guarantee; encoded data can pass it, which is why
 # credentials also stay out of reach of worker tools.
+SCAN_PREAMBLE = b"orchestrator patch content follows; plain text only.\n" * 64
 SECRET_SCANNER = (
     "gitleaks",
     "stdin",
@@ -365,11 +366,22 @@ class Publisher:
             if status == "D" or set(new_sha) == {"0"}:
                 continue
             blob = self._git("cat-file", "blob", new_sha, env=index).stdout
+            # gitleaks skips input it identifies as binary or an archive, by
+            # magic bytes, so binary content could hide anything after it.
+            # Workers may submit text only.
+            if b"\0" in blob:
+                raise PatchRejected(f"{path}: binary files are not accepted")
+            try:
+                blob.decode("utf-8")
+            except UnicodeDecodeError as error:
+                raise PatchRejected(f"{path}: files must be UTF-8 text") from error
             content.append(f"### {path}\n".encode() + blob)
         try:
             result = subprocess.run(
                 self.scanner,
-                input=b"\n".join(content),
+                # The preamble occupies every offset file-type sniffing reads,
+                # so no file's opening bytes can make the stream look binary.
+                input=SCAN_PREAMBLE + b"\n".join(content),
                 capture_output=True,
                 timeout=120,
                 # Built-in rules only: no .gitleaks.toml in the working

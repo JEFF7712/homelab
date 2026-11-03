@@ -104,6 +104,9 @@ BACKEND_REQUIRED = {
     "claude": {"claude", "model", "config_dir", "token_file"},
 }
 PINNED = re.compile(r"^[a-z0-9.\-/:]+@sha256:[0-9a-f]{64}$")
+# Workers reach the controller by its fully qualified name, the only
+# cluster-internal name their DNS policy admits.
+CONTROLLER_FQDN = f"{CONTROLLER}.{NAMESPACE}.svc.cluster.local"
 # Fixed by config/orchestrator/worker-admission.yaml.
 WORKER_IMAGE = re.compile(
     r"^registry\.rupan\.dev/apps/orchestrator-worker@sha256:[0-9a-f]{64}$"
@@ -397,7 +400,7 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
         "owner": CONTROLLER,
         "project": params.project,
         "max_running": params.max_running,
-        "worker_api_url": f"http://{CONTROLLER}.{NAMESPACE}.svc:{WORKER_API_PORT}",
+        "worker_api_url": f"http://{CONTROLLER_FQDN}:{WORKER_API_PORT}",
         "base_branch": params.base_branch,
         "publisher": {
             "repository_url": params.repository_url,
@@ -649,15 +652,16 @@ def worker_egress(params: DeployParams) -> dict[str, Any]:
                                 {"port": "53", "protocol": "UDP"},
                                 {"port": "53", "protocol": "TCP"},
                             ],
-                            # Only names a worker needs: the providers and
-                            # cluster-internal names (CoreDNS answers those
-                            # itself and forwards nothing), so a query cannot
-                            # carry data to an outside nameserver.
+                            # Exact names only: the providers and the
+                            # controller. Wildcards either match a single
+                            # label (Cilium's "*" stops at dots) or cover a
+                            # zone CoreDNS forwards upstream (".svc."), which
+                            # would let a query carry data out. Workers use
+                            # ndots 1, so these are queried as written.
                             "rules": {
                                 "dns": [
-                                    *({"matchName": host} for host in PROVIDER_HOSTS),
-                                    {"matchPattern": "*.cluster.local"},
-                                    {"matchPattern": "*.svc"},
+                                    {"matchName": name}
+                                    for name in (*PROVIDER_HOSTS, CONTROLLER_FQDN)
                                 ]
                             },
                         }

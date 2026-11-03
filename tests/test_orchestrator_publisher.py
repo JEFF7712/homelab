@@ -183,13 +183,30 @@ class SecretScanTests(PublisherCase):
             ("diff-header lookalike", "a.txt", f'++token = "{leaked}"\n'),
             # Inline allow comments must not suppress a finding.
             ("allow comment", "b.py", f'TOKEN = "{leaked}"  # gitleaks:allow\n'),
-            # Binary hunks are compressed in the patch; the blob is scanned.
-            ("binary file", "c.bin", "\x00\x01" + f'token = "{leaked}"' + "\x00\n"),
+            # A file that opens like a PDF is still scanned as text.
+            ("pdf header", "c.txt", f'%PDF-1.7\ntoken = "{leaked}"\n'),
         ):
             with self.subTest(name):
                 patch = self.patch(write(path, content))
                 with self.assertRaisesRegex(PatchRejected, "looks like a secret"):
                     self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+
+    def test_binary_content_is_refused_before_scanning(self) -> None:
+        leaked = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
+        # Tar magic at offset 257 once made gitleaks skip the whole stream.
+        tar_magic = "x" * 251 + "ustar\x0000" + f'\ntoken = "{leaked}"\n'
+        for name, content in (
+            ("tar magic", tar_magic),
+            ("NUL bytes", "\x00\x01" + f'token = "{leaked}"' + "\x00\n"),
+        ):
+            with self.subTest(name):
+                patch = self.patch(write("c.bin", content))
+                with self.assertRaisesRegex(PatchRejected, "binary files are not"):
+                    self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+        latin = self.patch(lambda work: (work / "d.txt").write_bytes(b"caf\xe9\n"))
+        with self.assertRaisesRegex(PatchRejected, "UTF-8"):
+            self.publisher.publish(self.base, BRANCH, latin, "t", 1)
+        self.assertNotIn(BRANCH, git("branch", "--list", cwd=self.bare))
 
     def test_a_clean_patch_still_publishes(self) -> None:
         patch = self.patch(write("src/clean.txt", "nothing secret here\n"))
