@@ -305,6 +305,8 @@ Anything that triggers a CI deployment uses the existing
 | `worker.answer` | `attempt_id`, `question_id`, `answer` | the attempt's runner |
 | `worker.cancel` | `attempt_id`, `reason` | the controller's Job manager |
 | `approval.open` | `approval_id`, `action`, `expires` | sinks, clients |
+| `answer.proposed` | `proposal_id`, `question_id`, `revision`, `answer`, `proposed_by` | forge and ntfy sinks |
+| `security.incident` | `kind`, `attempt_id`, `detail` | forge and ntfy sinks |
 
 Messages for a worker carry their `attempt_id`; each runner reads only its
 own (`attempt_messages`), so other attempts' backlog cannot starve it.
@@ -356,8 +358,9 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    still passing; otherwise it goes back to `validating`.
 7. Apply issue commands from the task principal's forge login only:
    `/answer <question> <revision> <text>`, `/confirm <proposal>`,
-   `/approve <id>`, `/decline <id>`, `/cancel`. Each comment is processed once (`forge_cursors`, schema v2);
-   rejected commands become `command.rejected` events. Comments by the
+   `/approve <id>`, `/decline <id>`, `/cancel`. Each comment is processed
+   once (`forge_cursors`, schema v2); rejected commands become
+   `command.rejected` events. Comments by the
    controller's own login, or carrying its message marker, never count: they
    quote worker text.
 8. Deliver notifications to each sink (forge comments, ntfy) within a
@@ -365,13 +368,22 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    not hold the store lock across a tick, so a slow sink never blocks the
    worker API.
 
+Steps 2, 5 and 6 report security incidents as they happen
+(`security.incident`, once per key, to the forge and ntfy sinks): a worker
+stop the Kubernetes API did not confirm (`worker-stop-failed`; the stop is
+retried every tick until the Job is gone), a Job whose Secret failed and
+whose deletion also failed (`worker-cleanup-failed`; its attempt is reaped
+after the startup lease and then fenced), and a published branch that
+someone else wrote (`branch-written-by-another`, `published-branch-changed`;
+the attempt is void).
+
 Acceptance criteria are checked without worker input: `ci:<context>` needs
 that status context to succeed on the pull request head; any other criterion
 needs an approving review of that exact head from the principal's forge
 login. CI is read from every status on the head (`/commits/<sha>/statuses`,
 all pages), keeping the newest per context among those posted by the
-configured `verifier.ci_logins`. Anyone with repository write access, which
-includes every worker, can post a status, and the forge's combined view
+configured `verifier.ci_logins`. Anyone with repository write access can
+post a status, and the forge's combined view
 keeps only the newest per context, so statuses from other accounts are
 ignored rather than trusted. With no CI login configured nothing passes.
 Reviews are read across all pages; the newest per reviewer counts.

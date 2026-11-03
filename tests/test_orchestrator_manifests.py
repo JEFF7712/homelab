@@ -148,6 +148,60 @@ class ManifestTests(unittest.TestCase):
             config["jobs"]["node_selector"], {"kubernetes.io/hostname": "homelab-02"}
         )
 
+    def test_backend_settings_follow_a_closed_schema(self) -> None:
+        from scripts.orchestrator.manifests import validate_backend
+
+        claude = {
+            "kind": "claude",
+            "claude": "claude",
+            "model": "claude-opus-5-5",
+            "config_dir": "/work/claude",
+            "token_file": "/run/worker/claude-oauth-token",
+        }
+        codex = {
+            "kind": "codex",
+            "codex": "codex",
+            "model": "gpt-5.6-sol",
+            "codex_home": "/var/lib/codex-auth",
+        }
+        codex_mount = ({"name": "codex-auth", "mountPath": "/var/lib/codex-auth"},)
+        validate_backend(PARAMS.backend)
+        validate_backend(claude)
+        validate_backend(codex, codex_mount)
+        refused = {
+            # credentials under innocuous names, in values, or in env
+            "innocuous key": {**PARAMS.backend, "notes": "sk-live-abc"},
+            "env": {**PARAMS.backend, "env": {"OPENAI_API_KEY": "x"}},
+            "credential in model": {**PARAMS.backend, "model": "gpt sk-abc def"},
+            "token-shaped model": {**PARAMS.backend, "model": "sk-ant-oat01-abc"},
+            "token-shaped provider": {**PARAMS.backend, "provider": "ghp_abcdef"},
+            "url userinfo": {**PARAMS.backend, "pi": "https://u:p@host/pi"},
+            "token elsewhere": {
+                **claude,
+                "token_file": "/run/orchestrator/forge-publisher-token",
+            },
+            "inline token": {**claude, "token_file": "sk-ant-oat01-abc"},
+            "unmounted codex home": codex,
+            "other codex home": {**codex, "codex_home": "/home/rupan/.codex"},
+            "missing token": {k: v for k, v in claude.items() if k != "token_file"},
+            "bad sandbox": {**claude, "sandbox": "none"},
+            "flag type": {**PARAMS.backend, "experimental": "yes"},
+            "unknown kind": {"kind": "shell"},
+        }
+        for name, backend in refused.items():
+            with self.subTest(name), self.assertRaises(ValueError):
+                validate_backend(
+                    backend, codex_mount if name != "unmounted codex home" else ()
+                )
+
+    def test_production_never_enables_local_jobs(self) -> None:
+        docs = render(PARAMS)
+        (deployment,) = by_kind(docs, "Deployment")
+        args = deployment["spec"]["template"]["spec"]["containers"][0]["args"]
+        self.assertNotIn("--allow-local-jobs", args)
+        config = json.loads(by_kind(docs, "ConfigMap")[0]["data"]["config.json"])
+        self.assertEqual(config["jobs"]["kind"], "kubernetes")
+
     def worker_job(self, params: DeployParams) -> tuple[dict, dict]:
         """The Secret and Job the controller would create for one attempt."""
         config = json.loads(
@@ -176,7 +230,7 @@ class ManifestTests(unittest.TestCase):
                 "kind": "codex",
                 "codex": "codex",
                 "model": "m",
-                "codex_home": "/c",
+                "codex_home": "/var/lib/codex-auth",
             },
             "claude": {
                 "kind": "claude",
@@ -186,9 +240,14 @@ class ManifestTests(unittest.TestCase):
                 "token_file": "/run/worker/claude-oauth-token",
             },
         }
+        codex_mount = ({"name": "codex-auth", "mountPath": "/var/lib/codex-auth"},)
         for name, backend in backends.items():
             with self.subTest(name):
-                params = replace(PARAMS, backend=backend)
+                params = replace(
+                    PARAMS,
+                    backend=backend,
+                    extra_worker_mounts=codex_mount if name == "codex" else (),
+                )
                 secret, job = self.worker_job(params)
                 document = json.dumps(job)
                 self.assertNotIn("forge", document)
