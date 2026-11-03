@@ -1,11 +1,12 @@
 # Switch configuration with OpenTofu
 
 `tofu/switches/inventory.json` owns the existing ports, VLAN membership and
-PVIDs on the upstairs TL-SG108E v6 and downstairs TL-SG105E v5. The firmware
+PVIDs and descriptions on the upstairs TL-SG108E v6 and downstairs TL-SG105E v5. The firmware
 and MAC checks bind each stack to the verified device. The port map remains
 in [switch-port-map.md](../network/switch-port-map.md).
 
-The pinned `davidlukac/tplinkeasysmart` 0.32.4 provider uses native UDP from
+The `davidlukac/tplinkeasysmart` provider version is pinned in
+`tofu/switches/.terraform.lock.hcl`. It uses native UDP from
 `adguard-netbird-01`; its layer 2 route and reply firewall are declared in
 `flake/modules/adguard-netbird-appliance.nix`. Running this provider directly
 from a routed agent workspace cannot read the settings reliably.
@@ -23,7 +24,11 @@ Inventory edits select `switches-plan` and `switches-apply`. Worker or blueprint
 changes also select the scoped management-host and NAS deployment first. CI uses
 its existing SSH deployment identity and verified host keys; it sends data requests to the installed worker,
 never executable source over SSH. The management host refuses a blueprint or
-worker digest that differs from CI's source.
+worker digest that differs from CI's source. If dependency automation merges a
+provider update without a runtime rollout, resume that merge with
+`just ship --resume <merge-sha> --deploy deploy-switch-runtime,switches-plan`
+before applying settings. Review the new saved plan, then resume with
+`--deploy switches-apply`.
 
 Each switch has a separate TLS HTTP state namespace:
 `switches-upstairs` and `switches-downstairs`, on the existing NAS state service.
