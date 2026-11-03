@@ -91,6 +91,11 @@ def main() -> None:
         result = request(args.action, name, revision, inventory, backend, receipt)
         output = path if args.action == "plan" else artifacts / (name + "-apply.json")
         output.write_bytes(canonical(result))
+        if args.action == "apply":
+            verification = request("plan", name, revision, inventory, backend)
+            (artifacts / (name + "-verify.json")).write_bytes(canonical(verification))
+            if not verification["review"]["zero_change"]:
+                raise ValueError(f"Post-apply verification found drift on {name}")
         print(
             json.dumps(
                 {"switch": name, "operation": args.action, "review": result["review"]}

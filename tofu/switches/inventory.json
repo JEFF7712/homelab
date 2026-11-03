@@ -82,7 +82,8 @@
             1
           ]
         }
-      }
+      },
+      "description": null
     },
     "upstairs": {
       "host": "10.0.10.2",
@@ -218,7 +219,8 @@
             2
           ]
         }
-      }
+      },
+      "description": null
     }
   }
 }

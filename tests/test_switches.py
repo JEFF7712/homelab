@@ -25,9 +25,11 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = json.loads((ROOT / "tofu/switches/inventory.json").read_text())
 
 
-def plan_document(name: str = "upstairs", imports: bool = False) -> dict:
+def plan_document(
+    name: str = "upstairs", imports: bool = False, inventory: dict = INVENTORY
+) -> dict:
     items = []
-    for address in sorted(addresses(INVENTORY, name)):
+    for address in sorted(addresses(inventory, name)):
         change = {"actions": ["no-op"], "after": {"allow_disruptive": False}}
         if imports:
             change["importing"] = {"id": "1"}
@@ -74,6 +76,28 @@ class InventoryTest(unittest.TestCase):
             mutate(candidate["switches"]["upstairs"])
             with self.assertRaises(ValueError):
                 validate_inventory(candidate)
+
+    def test_cosmetic_description_is_adopted_after_the_network_baseline(self) -> None:
+        candidate = copy.deepcopy(INVENTORY)
+        for invalid in ("Upstairs_TL-SG108E", "", "bad name", "a" * 33):
+            candidate["switches"]["upstairs"]["description"] = invalid
+            with self.assertRaises(ValueError):
+                validate_inventory(candidate)
+        candidate["switches"]["upstairs"]["description"] = "Upstairs-TL-SG108E"
+        validate_inventory(candidate)
+        self.assertEqual(len(addresses(candidate, "upstairs")), 26)
+        document = plan_document(inventory=candidate)
+        item = next(
+            x
+            for x in document["resource_changes"]
+            if x["type"] == "tplinkeasysmart_system"
+        )
+        item["change"].update(actions=["update"], importing={"id": "system"})
+        review = review_plan(document, candidate, "upstairs")
+        self.assertEqual(review["imports"], 1)
+        self.assertEqual(len(review["changes"]), 1)
+        with self.assertRaisesRegex(ValueError, "Adoption"):
+            review_plan(document, candidate, "upstairs", adoption=True)
 
     def test_adoption_requires_only_noop_imports(self) -> None:
         document = plan_document(imports=True)
@@ -203,6 +227,64 @@ class SavedPlanTest(unittest.TestCase):
         self.assertNotIn("TF_CLI_ARGS_apply", env)
         self.assertEqual(env["TPLINK_EASYSMART_PASSWORD"], "readonly")
         self.assertNotIn("TF_VAR_password", env)
+
+
+class CiVerificationTest(unittest.TestCase):
+    def test_apply_requires_a_fresh_zero_change_plan_for_each_switch(self) -> None:
+        from scripts.switches import ci
+
+        for drift in (False, True):
+            with self.subTest(drift=drift), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "tofu/switches").mkdir(parents=True)
+                (root / "tofu/switches/inventory.json").write_bytes(
+                    canonical(INVENTORY)
+                )
+                artifacts = root / "artifacts/switches"
+                artifacts.mkdir(parents=True)
+                for name in ("upstairs", "downstairs"):
+                    (artifacts / (name + "-plan.json")).write_text(
+                        '{"plan_id":"original"}'
+                    )
+                ca = root / "ca.pem"
+                ca.write_text("public-ca")
+
+                def request(
+                    action: str,
+                    name: str,
+                    revision: str,
+                    inventory: dict,
+                    backend: dict,
+                    receipt: dict | None = None,
+                ) -> dict:
+                    if action == "apply":
+                        self.assertEqual(receipt, {"plan_id": "original"})
+                    return {"review": {"zero_change": not drift}}
+
+                environment = {
+                    "CI_COMMIT_SHA": "a" * 40,
+                    "TF_HTTP_USERNAME": "deploy",
+                    "TF_HTTP_PASSWORD": "backend-test",
+                    "STATE_CA_FILE": str(ca),
+                }
+                with (
+                    patch.object(ci, "ROOT", root),
+                    patch.object(ci, "request", side_effect=request) as remote,
+                    patch.dict(os.environ, environment),
+                    patch("sys.argv", ["switch-ci", "apply"]),
+                ):
+                    if drift:
+                        with self.assertRaisesRegex(ValueError, "Post-apply"):
+                            ci.main()
+                    else:
+                        ci.main()
+                expected = [("apply", "downstairs"), ("plan", "downstairs")]
+                if not drift:
+                    expected += [("apply", "upstairs"), ("plan", "upstairs")]
+                self.assertEqual(
+                    [(call.args[0], call.args[1]) for call in remote.call_args_list],
+                    expected,
+                )
 
 
 @unittest.skipUnless(shutil.which("tofu"), "pinned OpenTofu is required")

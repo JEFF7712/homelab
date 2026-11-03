@@ -67,6 +67,24 @@ resource "tplinkeasysmart_vlan_mode" "switch" {
   }
 }
 
+# Descriptions are adopted separately after the network baseline import. The
+# original vendor descriptions contain underscores, which this provider rejects.
+resource "tplinkeasysmart_system" "description" {
+  count    = local.switch.description == null ? 0 : 1
+  hostname = coalesce(local.switch.description, "unused")
+
+  depends_on = [tplinkeasysmart_vlan_mode.switch]
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+import {
+  for_each = local.switch.description == null ? {} : { description = "system" }
+  to       = tplinkeasysmart_system.description[0]
+  id       = each.value
+}
+
 resource "tplinkeasysmart_port" "ports" {
   for_each = local.switch.ports
 

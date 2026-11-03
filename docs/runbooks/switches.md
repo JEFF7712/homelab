@@ -12,18 +12,24 @@ from a routed agent workspace cannot read the settings reliably.
 
 ## Plan and apply
 
+Initial activation changes CI authority and the state backend. Use
+`just ship --deploy deploy-ci-host,deploy-switch-runtime,switches-apply` so only
+the CI host, management host and NAS are activated, after exact operator
+approval. Keep their normal preflight, health and rollback checks enabled.
+
 Edit the inventory, validate with `nix develop ./flake -c python -m unittest
 tests.test_switches tests.test_ci_offline_inputs -v`, then `just ship`.
 Inventory edits select `switches-plan` and `switches-apply`. Worker or blueprint
-changes also select fleet deployment first. CI uses its existing SSH deployment
-identity and verified host keys; it sends data requests to the installed worker,
+changes also select the scoped management-host and NAS deployment first. CI uses
+its existing SSH deployment identity and verified host keys; it sends data requests to the installed worker,
 never executable source over SSH. The management host refuses a blueprint or
 worker digest that differs from CI's source.
 
 Each switch has a separate TLS HTTP state namespace:
 `switches-upstairs` and `switches-downstairs`, on the existing NAS state service.
 The first plan imports all existing objects and rejects any settings update.
-After applying those imports, both stacks must show zero changes. A plan uses
+Apply finishes with a fresh plan and fails unless each switch shows zero
+changes. A plan uses
 placeholder switch credentials; actual admin credentials are loaded only when
 applying an exact saved plan that contains settings changes.
 
@@ -72,6 +78,10 @@ operator authorized normalizing the existing underscore descriptions to hyphens,
 then temporarily changing and restoring the normalized description. The current
 provider rejects underscores on writes, so the original descriptions cannot be
 restored through its system resource. Import the network settings first, then
-perform that explicit cosmetic change in a separate source change, checking
-management addressing, VLANs, PVIDs and link state before and after. Finish with
+set `description` in the inventory to `Upstairs-TL-SG108E` and
+`Downstairs-TL-SG105E` in a separate source change. The optional system resource
+imports the existing description and updates only that field. After adoption,
+keep it managed; removing it is blocked by `prevent_destroy`. Perform the
+temporary name change and restoration through subsequent inventory changes,
+checking management addressing, VLANs, PVIDs and link state before and after. Finish with
 zero-change plans on both switches.

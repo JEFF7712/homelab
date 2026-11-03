@@ -23,6 +23,7 @@ PORT_TYPE = "tplinkeasysmart_port"
 VLAN_TYPE = "tplinkeasysmart_vlan_8021q_group"
 PVID_TYPE = "tplinkeasysmart_vlan_8021q_pvid"
 MODE_TYPE = "tplinkeasysmart_vlan_mode"
+SYSTEM_TYPE = "tplinkeasysmart_system"
 
 
 def canonical(value: Any) -> bytes:
@@ -51,6 +52,7 @@ def validate_inventory(document: dict[str, Any]) -> None:
             "model",
             "hardware",
             "firmware",
+            "description",
             "ports",
             "vlans",
         }:
@@ -78,6 +80,17 @@ def validate_inventory(document: dict[str, Any]) -> None:
         ):
             raise ValueError(
                 "VLAN 1 must remain present and the table must fit the hardware"
+            )
+        description = switch["description"]
+        if description is not None and (
+            not isinstance(description, str)
+            or len(description) > 32
+            or not re.fullmatch(
+                r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", description
+            )
+        ):
+            raise ValueError(
+                "Description must use the provider-supported letters, digits and hyphens"
             )
         memberships: dict[int, set[int]] = {port: set() for port in range(1, count + 1)}
         for key, vlan in switch["vlans"].items():
@@ -138,6 +151,11 @@ def addresses(inventory: dict[str, Any], name: str) -> set[str]:
     switch = inventory["switches"][name]
     return (
         {MODE_TYPE + ".switch"}
+        | (
+            {SYSTEM_TYPE + ".description[0]"}
+            if switch["description"] is not None
+            else set()
+        )
         | {f'{PORT_TYPE}.ports["{port}"]' for port in switch["ports"]}
         | {f'{PVID_TYPE}.pvids["{port}"]' for port in switch["ports"]}
         | {f'{VLAN_TYPE}.vlans["{vlan}"]' for vlan in switch["vlans"]}
