@@ -253,6 +253,45 @@ spec:
             summary: "Job {{ $labels.namespace }}/{{ $labels.job_name }} failed"
             description: "A standalone Job failed within the last day. CronJob runs alert through CronJobLastRunFailed."
 
+    # Platform backups (Forgejo, Garage, Tofu state, Woodpecker, Bookshelf,
+    # Home Assistant config) are proven weekly by platform-restore-drill on
+    # nas-01. In-cluster drills alert through cluster-sentinel instead.
+    - name: restore-drill.rules
+      rules:
+        - alert: RestoreDrillFailed
+          expr: homelab_restore_drill_last_result == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Restore drill for {{ $labels.dataset }} failed"
+            description: >-
+              The latest weekly restore of {{ $labels.dataset }} did not verify. Run
+              `systemctl status platform-restore-drill` on nas-01 and read
+              /var/lib/platform-backup/drill.json for the reason.
+
+        - alert: RestoreDrillStale
+          expr: time() - homelab_restore_drill_last_success_timestamp_seconds > 8 * 86400
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: "No passing restore drill for {{ $labels.dataset }} in eight days"
+            description: >-
+              {{ $labels.dataset }} has not restored successfully since
+              {{ $value | humanizeDuration }} ago. Backups are unproven until a drill passes.
+
+        - alert: RestoreDrillMissing
+          expr: absent(homelab_restore_drill_last_success_timestamp_seconds{dataset="platform-nas-01"})
+          for: 6h
+          labels:
+            severity: critical
+          annotations:
+            summary: "Platform restore drill evidence is missing"
+            description: >-
+              nas-01 publishes no restore drill result. Check that platform-restore-drill
+              has run and node exporter reads /var/lib/zot-monitoring.
+
     - name: cnpg.rules
       rules:
         - alert: PostgresPrimaryWithoutReplica

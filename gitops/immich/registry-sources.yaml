@@ -1,0 +1,25 @@
+# Inventory-only upstream image declarations for gitops/immich
+# consumers. Renovate tracks these tagged references; the workloads pin the
+# mirrored digest. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# referenced by digest in the owning manifest.
+#
+# This file is NOT listed in gitops/immich/kustomization.yaml: it is
+# an inventory source only and must never be applied to the cluster.
+#
+# Update flow: change the digest below, import it, then update the consumer
+# manifest digest, so a pod never pulls an image the mirror lacks.
+apiVersion: v1
+kind: List
+metadata:
+  name: immich-registry-sources
+items:
+  # Immich server (server.yaml)
+  - image: ghcr.io/immich-app/immich-server:v3.1.0@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb  # yamllint disable-line rule:line-length
+  # Immich machine learning (machine-learning.yaml)
+  - image: ghcr.io/immich-app/immich-machine-learning:v3.1.0@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e  # yamllint disable-line rule:line-length
+  # Immich PostgreSQL (postgres.yaml)
+  - image: ghcr.io/immich-app/postgres:16-vectorchord0.4.3-pgvector0.8.1-pgvectors0.2.0@sha256:1a078b237c1d9b420b0ee59147386b4aa60d3a07a8e6a402fc84a57e41b043a4  # yamllint disable-line rule:line-length
+  # Valkey (valkey.yaml)
+  - image: docker.io/valkey/valkey:9.1.2@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d

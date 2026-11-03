@@ -132,6 +132,39 @@
       "enabled": false
     },
     {
+      "description": "LinuxServer tags end in a build counter (-ls322) that docker versioning treats as an exact-match suffix, so it never finds an update; version x.y.z(.build)-lsN numerically instead",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/{prowlarr,radarr,sonarr}"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-ls(?<revision>\\d+)$"
+    },
+    {
+      "description": "Three-part LinuxServer tags: the -lsN counter is the build; jellyfin's ubuNNNN base stays fixed and qbittorrent's _vX.Y.Z libtorrent part moves with the release",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/{bazarr,beets,jellyfin,qbittorrent}"
+      ],
+      "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?<compatibility>ubu\\d+)?(?:_v\\d+(?:\\.\\d+)*)?-ls(?<build>\\d+)$"
+    },
+    {
+      "description": "PostgreSQL majors need a dump and restore or pg_upgrade of the data directory, never an image bump",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "/(^|/)postgres$/"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Review every Helm chart bump: post-renderers pin the app images, so the chart and its mirrored image digests move together by hand (docs/runbooks/local-registry.md)",
       "matchManagers": [
         "flux"
