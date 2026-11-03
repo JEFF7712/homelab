@@ -539,330 +539,323 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
         "to": [{"ipBlock": {"cidr": f"{params.forge_ip}/32"}}],
         "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 3000}],
     }
-    return (
-        [
-            {
-                "apiVersion": "v1",
-                "kind": "Namespace",
-                "metadata": {
-                    "name": NAMESPACE,
-                    "labels": {
-                        **LABELS,
-                        "pod-security.kubernetes.io/enforce": "restricted",
-                    },
-                    "annotations": NO_PRUNE,
+    documents = [
+        {
+            "apiVersion": "v1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": NAMESPACE,
+                "labels": {
+                    **LABELS,
+                    "pod-security.kubernetes.io/enforce": "restricted",
                 },
+                "annotations": NO_PRUNE,
             },
-            {
-                "apiVersion": "v1",
-                "kind": "ServiceAccount",
-                "metadata": meta(CONTROLLER),
-            },
-            {
-                "apiVersion": "v1",
-                "kind": "ServiceAccount",
-                "metadata": meta(WORKER),
-                "automountServiceAccountToken": False,
-            },
-            {
-                "apiVersion": "rbac.authorization.k8s.io/v1",
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "ServiceAccount",
+            "metadata": meta(CONTROLLER),
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "ServiceAccount",
+            "metadata": meta(WORKER),
+            "automountServiceAccountToken": False,
+        },
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1",
+            "kind": "Role",
+            "metadata": meta("orchestrator-worker-jobs"),
+            "rules": [
+                {
+                    "apiGroups": ["batch"],
+                    "resources": ["jobs"],
+                    "verbs": ["create", "get", "delete"],
+                },
+                {
+                    "apiGroups": [""],
+                    "resources": ["secrets"],
+                    "verbs": ["create", "delete"],
+                },
+            ],
+        },
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1",
+            "kind": "RoleBinding",
+            "metadata": meta("orchestrator-worker-jobs"),
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
                 "kind": "Role",
-                "metadata": meta("orchestrator-worker-jobs"),
-                "rules": [
-                    {
-                        "apiGroups": ["batch"],
-                        "resources": ["jobs"],
-                        "verbs": ["create", "get", "delete"],
-                    },
-                    {
-                        "apiGroups": [""],
-                        "resources": ["secrets"],
-                        "verbs": ["create", "delete"],
-                    },
-                ],
+                "name": "orchestrator-worker-jobs",
             },
-            {
-                "apiVersion": "rbac.authorization.k8s.io/v1",
-                "kind": "RoleBinding",
-                "metadata": meta("orchestrator-worker-jobs"),
-                "roleRef": {
-                    "apiGroup": "rbac.authorization.k8s.io",
-                    "kind": "Role",
-                    "name": "orchestrator-worker-jobs",
-                },
-                "subjects": [
-                    {
-                        "kind": "ServiceAccount",
-                        "name": CONTROLLER,
-                        "namespace": NAMESPACE,
-                    }
-                ],
+            "subjects": [
+                {
+                    "kind": "ServiceAccount",
+                    "name": CONTROLLER,
+                    "namespace": NAMESPACE,
+                }
+            ],
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolume",
+            "metadata": {
+                "name": "orchestrator-data",
+                "labels": dict(LABELS),
+                "annotations": NO_PRUNE,
             },
-            {
-                "apiVersion": "v1",
-                "kind": "PersistentVolume",
-                "metadata": {
-                    "name": "orchestrator-data",
-                    "labels": dict(LABELS),
-                    "annotations": NO_PRUNE,
-                },
-                "spec": {
-                    "capacity": {"storage": params.storage},
-                    "accessModes": ["ReadWriteOnce"],
-                    "persistentVolumeReclaimPolicy": "Retain",
-                    "storageClassName": "local-nvme",
-                    "local": {"path": params.host_path},
-                    "nodeAffinity": {
-                        "required": {
-                            "nodeSelectorTerms": [
-                                {
-                                    "matchExpressions": [
-                                        {
-                                            "key": "kubernetes.io/hostname",
-                                            "operator": "In",
-                                            "values": [params.node],
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    },
-                    "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-data"},
-                },
-            },
-            {
-                "apiVersion": "v1",
-                "kind": "PersistentVolumeClaim",
-                "metadata": meta("orchestrator-data", annotations=NO_PRUNE),
-                "spec": {
-                    "accessModes": ["ReadWriteOnce"],
-                    "storageClassName": "local-nvme",
-                    "volumeName": "orchestrator-data",
-                    "resources": {"requests": {"storage": params.storage}},
-                },
-            },
-            {
-                "apiVersion": "v1",
-                "kind": "ConfigMap",
-                "metadata": meta("orchestrator-config"),
-                "data": {
-                    "config.json": json.dumps(controller_config(params), indent=2)
-                },
-            },
-            {
-                "apiVersion": "apps/v1",
-                "kind": "Deployment",
-                "metadata": meta(CONTROLLER),
-                "spec": {
-                    "replicas": 1,
-                    "strategy": {"type": "Recreate"},
-                    "selector": {"matchLabels": selector},
-                    "template": {
-                        "metadata": {"labels": {**LABELS, **selector}},
-                        "spec": {
-                            "serviceAccountName": CONTROLLER,
-                            "nodeSelector": {"kubernetes.io/hostname": params.node},
-                            "securityContext": {"fsGroup": 10001},
-                            "containers": [
-                                {
-                                    **restricted_container(
-                                        "controller",
-                                        params.controller_image,
-                                        [
-                                            "python",
-                                            "-m",
-                                            "scripts.orchestrator",
-                                            "serve",
-                                            "--config",
-                                            "/etc/orchestrator/config.json",
-                                        ],
-                                    ),
-                                    "ports": [
-                                        {
-                                            "name": "worker-api",
-                                            "containerPort": WORKER_API_PORT,
-                                        },
-                                        *(
-                                            [
-                                                {
-                                                    "name": "intake",
-                                                    "containerPort": INTAKE_PORT,
-                                                }
-                                            ]
-                                            if params.intake
-                                            else []
-                                        ),
-                                    ],
-                                    "resources": {
-                                        "requests": {"cpu": "100m", "memory": "128Mi"},
-                                        "limits": {"cpu": "1", "memory": "512Mi"},
-                                    },
-                                    "volumeMounts": [
-                                        {
-                                            "name": "config",
-                                            "mountPath": "/etc/orchestrator",
-                                            "readOnly": True,
-                                        },
-                                        {
-                                            "name": "secrets",
-                                            "mountPath": "/run/orchestrator",
-                                            "readOnly": True,
-                                        },
-                                        {"name": "data", "mountPath": DATA_PATH},
-                                        {"name": "tmp", "mountPath": "/tmp"},
-                                    ],
-                                }
-                            ],
-                            "volumes": [
-                                {
-                                    "name": "config",
-                                    "configMap": {"name": "orchestrator-config"},
-                                },
-                                {
-                                    "name": "secrets",
-                                    "secret": {
-                                        "secretName": params.secret_name,
-                                        "defaultMode": 0o400,
-                                    },
-                                },
-                                {
-                                    "name": "data",
-                                    "persistentVolumeClaim": {
-                                        "claimName": "orchestrator-data"
-                                    },
-                                },
-                                {"name": "tmp", "emptyDir": {"sizeLimit": "256Mi"}},
-                            ],
-                        },
-                    },
-                },
-            },
-            {
-                "apiVersion": "v1",
-                "kind": "Service",
-                "metadata": meta(CONTROLLER),
-                "spec": {
-                    "selector": selector,
-                    "ports": [
-                        {
-                            "name": "worker-api",
-                            "port": WORKER_API_PORT,
-                            "targetPort": "worker-api",
-                        },
-                        *(
-                            [
-                                {
-                                    "name": "intake",
-                                    "port": INTAKE_PORT,
-                                    "targetPort": "intake",
-                                }
-                            ]
-                            if params.intake
-                            else []
-                        ),
-                    ],
-                },
-            },
-            {
-                "apiVersion": "networking.k8s.io/v1",
-                "kind": "NetworkPolicy",
-                "metadata": meta("default-deny"),
-                "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"]},
-            },
-            {
-                "apiVersion": "networking.k8s.io/v1",
-                "kind": "NetworkPolicy",
-                "metadata": meta(CONTROLLER),
-                "spec": {
-                    "podSelector": {"matchLabels": selector},
-                    "policyTypes": ["Ingress", "Egress"],
-                    "ingress": [
-                        {
-                            "from": [{"podSelector": {"matchLabels": worker_selector}}],
-                            "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                        },
-                        *([intake_ingress()] if params.intake else []),
-                    ],
-                    "egress": [
-                        dns,
-                        forge,
-                        {
-                            "to": [
-                                {
-                                    "namespaceSelector": {
-                                        "matchLabels": {
-                                            "kubernetes.io/metadata.name": "observability"
-                                        }
-                                    },
-                                    "podSelector": {
-                                        "matchLabels": {
-                                            "app.kubernetes.io/name": "ntfy"
-                                        }
-                                    },
-                                }
-                            ],
-                            "ports": [{"protocol": "TCP", "port": "http"}],
-                        },
-                        *(
+            "spec": {
+                "capacity": {"storage": params.storage},
+                "accessModes": ["ReadWriteOnce"],
+                "persistentVolumeReclaimPolicy": "Retain",
+                "storageClassName": "local-nvme",
+                "local": {"path": params.host_path},
+                "nodeAffinity": {
+                    "required": {
+                        "nodeSelectorTerms": [
                             {
-                                "to": [{"ipBlock": {"cidr": f"{ip}/32"}}],
-                                "ports": [{"protocol": "TCP", "port": port}],
-                            }
-                            for ip, port in params.api_endpoints
-                        ),
-                        *(
-                            [
-                                {
-                                    "to": [
-                                        {
-                                            "ipBlock": {
-                                                "cidr": f"{params.intake.woodpecker_ip}/32"
-                                            }
-                                        }
-                                    ],
-                                    "ports": [
-                                        {
-                                            "protocol": "TCP",
-                                            "port": params.intake.woodpecker_port,
-                                        }
-                                    ],
-                                }
-                            ]
-                            if params.intake
-                            else []
-                        ),
-                    ],
-                },
-            },
-            {
-                "apiVersion": "networking.k8s.io/v1",
-                "kind": "NetworkPolicy",
-                "metadata": meta(WORKER),
-                "spec": {
-                    "podSelector": {"matchLabels": worker_selector},
-                    "policyTypes": ["Ingress", "Egress"],
-                    "ingress": [],
-                    "egress": [
-                        dns,
-                        {
-                            "to": [{"podSelector": {"matchLabels": selector}}],
-                            "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                        },
-                        {
-                            "to": [
-                                {
-                                    "ipBlock": {
-                                        "cidr": "0.0.0.0/0",
-                                        "except": list(PRIVATE),
+                                "matchExpressions": [
+                                    {
+                                        "key": "kubernetes.io/hostname",
+                                        "operator": "In",
+                                        "values": [params.node],
                                     }
-                                }
-                            ],
-                            "ports": [{"protocol": "TCP", "port": 443}],
-                        },
-                    ],
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-data"},
+            },
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": meta("orchestrator-data", annotations=NO_PRUNE),
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "storageClassName": "local-nvme",
+                "volumeName": "orchestrator-data",
+                "resources": {"requests": {"storage": params.storage}},
+            },
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": meta("orchestrator-config"),
+            "data": {"config.json": json.dumps(controller_config(params), indent=2)},
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": meta(CONTROLLER),
+            "spec": {
+                "replicas": 1,
+                "strategy": {"type": "Recreate"},
+                "selector": {"matchLabels": selector},
+                "template": {
+                    "metadata": {"labels": {**LABELS, **selector}},
+                    "spec": {
+                        "serviceAccountName": CONTROLLER,
+                        "nodeSelector": {"kubernetes.io/hostname": params.node},
+                        "securityContext": {"fsGroup": 10001},
+                        "containers": [
+                            {
+                                **restricted_container(
+                                    "controller",
+                                    params.controller_image,
+                                    [
+                                        "python",
+                                        "-m",
+                                        "scripts.orchestrator",
+                                        "serve",
+                                        "--config",
+                                        "/etc/orchestrator/config.json",
+                                    ],
+                                ),
+                                "ports": [
+                                    {
+                                        "name": "worker-api",
+                                        "containerPort": WORKER_API_PORT,
+                                    },
+                                    *(
+                                        [
+                                            {
+                                                "name": "intake",
+                                                "containerPort": INTAKE_PORT,
+                                            }
+                                        ]
+                                        if params.intake
+                                        else []
+                                    ),
+                                ],
+                                "resources": {
+                                    "requests": {"cpu": "100m", "memory": "128Mi"},
+                                    "limits": {"cpu": "1", "memory": "512Mi"},
+                                },
+                                "volumeMounts": [
+                                    {
+                                        "name": "config",
+                                        "mountPath": "/etc/orchestrator",
+                                        "readOnly": True,
+                                    },
+                                    {
+                                        "name": "secrets",
+                                        "mountPath": "/run/orchestrator",
+                                        "readOnly": True,
+                                    },
+                                    {"name": "data", "mountPath": DATA_PATH},
+                                    {"name": "tmp", "mountPath": "/tmp"},
+                                ],
+                            }
+                        ],
+                        "volumes": [
+                            {
+                                "name": "config",
+                                "configMap": {"name": "orchestrator-config"},
+                            },
+                            {
+                                "name": "secrets",
+                                "secret": {
+                                    "secretName": params.secret_name,
+                                    "defaultMode": 0o400,
+                                },
+                            },
+                            {
+                                "name": "data",
+                                "persistentVolumeClaim": {
+                                    "claimName": "orchestrator-data"
+                                },
+                            },
+                            {"name": "tmp", "emptyDir": {"sizeLimit": "256Mi"}},
+                        ],
+                    },
                 },
             },
-        ]
-        + intake_documents(params)
-        + backup_documents(params)
-    )
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": meta(CONTROLLER),
+            "spec": {
+                "selector": selector,
+                "ports": [
+                    {
+                        "name": "worker-api",
+                        "port": WORKER_API_PORT,
+                        "targetPort": "worker-api",
+                    },
+                    *(
+                        [
+                            {
+                                "name": "intake",
+                                "port": INTAKE_PORT,
+                                "targetPort": "intake",
+                            }
+                        ]
+                        if params.intake
+                        else []
+                    ),
+                ],
+            },
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "NetworkPolicy",
+            "metadata": meta("default-deny"),
+            "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"]},
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "NetworkPolicy",
+            "metadata": meta(CONTROLLER),
+            "spec": {
+                "podSelector": {"matchLabels": selector},
+                "policyTypes": ["Ingress", "Egress"],
+                "ingress": [
+                    {
+                        "from": [{"podSelector": {"matchLabels": worker_selector}}],
+                        "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
+                    },
+                    *([intake_ingress()] if params.intake else []),
+                ],
+                "egress": [
+                    dns,
+                    forge,
+                    {
+                        "to": [
+                            {
+                                "namespaceSelector": {
+                                    "matchLabels": {
+                                        "kubernetes.io/metadata.name": "observability"
+                                    }
+                                },
+                                "podSelector": {
+                                    "matchLabels": {"app.kubernetes.io/name": "ntfy"}
+                                },
+                            }
+                        ],
+                        "ports": [{"protocol": "TCP", "port": "http"}],
+                    },
+                    *(
+                        {
+                            "to": [{"ipBlock": {"cidr": f"{ip}/32"}}],
+                            "ports": [{"protocol": "TCP", "port": port}],
+                        }
+                        for ip, port in params.api_endpoints
+                    ),
+                    *(
+                        [
+                            {
+                                "to": [
+                                    {
+                                        "ipBlock": {
+                                            "cidr": f"{params.intake.woodpecker_ip}/32"
+                                        }
+                                    }
+                                ],
+                                "ports": [
+                                    {
+                                        "protocol": "TCP",
+                                        "port": params.intake.woodpecker_port,
+                                    }
+                                ],
+                            }
+                        ]
+                        if params.intake
+                        else []
+                    ),
+                ],
+            },
+        },
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "NetworkPolicy",
+            "metadata": meta(WORKER),
+            "spec": {
+                "podSelector": {"matchLabels": worker_selector},
+                "policyTypes": ["Ingress", "Egress"],
+                "ingress": [],
+                "egress": [
+                    dns,
+                    {
+                        "to": [{"podSelector": {"matchLabels": selector}}],
+                        "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
+                    },
+                    {
+                        "to": [
+                            {
+                                "ipBlock": {
+                                    "cidr": "0.0.0.0/0",
+                                    "except": list(PRIVATE),
+                                }
+                            }
+                        ],
+                        "ports": [{"protocol": "TCP", "port": 443}],
+                    },
+                ],
+            },
+        },
+    ]
+    return documents + intake_documents(params) + backup_documents(params)
