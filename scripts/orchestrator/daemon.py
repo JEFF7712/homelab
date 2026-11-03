@@ -13,6 +13,7 @@ import json
 import logging
 import signal
 import threading
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from http.server import ThreadingHTTPServer
@@ -32,6 +33,16 @@ from scripts.orchestrator.controller import (
 )
 from scripts.orchestrator.core import Store
 from scripts.orchestrator.forge import ForgejoForge
+from scripts.orchestrator.intake import (
+    Intake,
+    KubernetesEvidence,
+    KubernetesReader,
+    PipelinePoller,
+    SourceEvidence,
+    Woodpecker,
+    WoodpeckerEvidence,
+    serve_intake,
+)
 from scripts.orchestrator.jobs import (
     JobManager,
     KubernetesJobConfig,
@@ -62,14 +73,26 @@ class Daemon:
     controller: Controller
     servers: list[ThreadingHTTPServer]
     tick_seconds: float
+    intake: Intake | None = None
+    poller: PipelinePoller | None = None
+    poll_seconds: float = 60
 
     def run(self, stop: threading.Event) -> None:
         for server in self.servers:
             threading.Thread(target=server.serve_forever, daemon=True).start()
+        next_poll = 0.0
         while not stop.is_set():
+            if self.poller is not None and time.monotonic() >= next_poll:
+                next_poll = time.monotonic() + self.poll_seconds
+                try:
+                    self.poller.poll()
+                except Exception:
+                    log.exception("pipeline poll failed; retrying next interval")
             try:
                 # Each store operation locks itself; holding the lock across a
                 # tick would stall worker lease renewals behind slow sinks.
+                if self.intake is not None:
+                    self.intake.tick()
                 self.controller.tick()
             except Exception:
                 log.exception("tick failed; retrying next interval")
@@ -194,10 +217,55 @@ def build(config: Mapping[str, Any], allow_local: bool = False) -> Daemon:
                 client_port,
             ),
         ]
+        intake, poller = intake_from(config, store, servers)
     except BaseException:
         store.close()
         raise
-    return Daemon(store, controller, servers, float(config.get("tick_seconds", 5)))
+    return Daemon(
+        store,
+        controller,
+        servers,
+        float(config.get("tick_seconds", 5)),
+        intake,
+        poller,
+        float((config.get("intake") or {}).get("poll_seconds", 60)),
+    )
+
+
+def intake_from(
+    config: Mapping[str, Any], store: Store, servers: list[ThreadingHTTPServer]
+) -> tuple[Intake | None, PipelinePoller | None]:
+    """Alert intake is optional: absent, the controller takes client tasks only."""
+    settings = config.get("intake")
+    if not settings:
+        return None, None
+    collectors: dict[str, Any] = {}
+    if settings.get("kubernetes_evidence"):
+        collectors["alertmanager"] = KubernetesEvidence(KubernetesReader())
+    woodpecker = None
+    if settings.get("woodpecker"):
+        pipelines = settings["woodpecker"]
+        woodpecker = Woodpecker(
+            str(pipelines["url"]),
+            int(pipelines["repo_id"]),
+            secret(pipelines["token_file"]) or "",
+        )
+        collectors["woodpecker"] = WoodpeckerEvidence(woodpecker)
+    intake = Intake(
+        store,
+        str(config["project"]),
+        SourceEvidence(collectors),
+        open_limit=int(settings.get("open_limit", 3)),
+        escalate_after=int(settings.get("escalate_after", 2)),
+    )
+    tokens = {
+        source: secret(path) or ""
+        for source, path in (settings.get("token_files") or {}).items()
+    }
+    host, port = address(str(settings.get("listen", "0.0.0.0:8092")))
+    servers.append(serve_intake(intake, tokens, host, port))
+    poller = PipelinePoller(intake, woodpecker) if woodpecker else None
+    return intake, poller
 
 
 def main(config_path: Path, allow_local: bool = False) -> int:

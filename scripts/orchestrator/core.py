@@ -232,7 +232,28 @@ CREATE TABLE IF NOT EXISTS answer_proposals (
 );
 """
 
-MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4)
+# v5: tasks opened by alert intake. One row per task, keyed by the signal
+# fingerprint that opened it, so a repeating alert never opens a second open
+# task and a resolution finds the task to cancel. `escalated` records the one
+# escalation notice per task; `cursors` holds poller positions.
+SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS intake_tasks (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+  fingerprint TEXT NOT NULL,
+  source TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  created REAL NOT NULL,
+  resolved REAL,
+  escalated REAL
+);
+CREATE INDEX IF NOT EXISTS intake_tasks_fingerprint ON intake_tasks(fingerprint);
+CREATE TABLE IF NOT EXISTS intake_cursors (
+  source TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+"""
+
+MIGRATIONS: tuple[str, ...] = (SCHEMA, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5)
 SCHEMA_VERSION = len(MIGRATIONS)
 NETWORK_FILESYSTEMS = frozenset(
     {
@@ -656,53 +677,268 @@ class Store:
         silent replacement, so a retried tool call cannot mutate a task.
         """
         spec.validate()
-        request_digest = digest(spec.request())
         with self.transaction() as db:
-            row = db.execute(
-                "SELECT * FROM tasks WHERE principal = ? AND idempotency_key = ?",
-                (principal, idempotency_key),
-            ).fetchone()
-            if row is not None:
-                if row["request_digest"] != request_digest:
-                    raise OrchestratorError(
-                        "IDEMPOTENCY_CONFLICT",
-                        f"key {idempotency_key} was used for a different task",
-                    )
-                return self._task(row), False
-            for reference in (spec.parent_id, *spec.depends_on):
-                if reference is not None and self._row(db, reference) is None:
-                    raise OrchestratorError("NOT_FOUND", f"unknown task {reference}")
-            identifier = new_id("task")
-            status = "draft" if draft else "ready"
+            return self._insert_task(db, principal, idempotency_key, spec, now, draft)
+
+    def _insert_task(
+        self,
+        db: sqlite3.Connection,
+        principal: str,
+        idempotency_key: str,
+        spec: TaskSpec,
+        now: float,
+        draft: bool = False,
+    ) -> tuple[Task, bool]:
+        request_digest = digest(spec.request())
+        row = db.execute(
+            "SELECT * FROM tasks WHERE principal = ? AND idempotency_key = ?",
+            (principal, idempotency_key),
+        ).fetchone()
+        if row is not None:
+            if row["request_digest"] != request_digest:
+                raise OrchestratorError(
+                    "IDEMPOTENCY_CONFLICT",
+                    f"key {idempotency_key} was used for a different task",
+                )
+            return self._task(row), False
+        for reference in (spec.parent_id, *spec.depends_on):
+            if reference is not None and self._row(db, reference) is None:
+                raise OrchestratorError("NOT_FOUND", f"unknown task {reference}")
+        identifier = new_id("task")
+        status = "draft" if draft else "ready"
+        db.execute(
+            "INSERT INTO tasks (id, principal, idempotency_key, request_digest, "
+            "project, title, goal, acceptance_criteria, requested_capabilities, "
+            "priority, parent_id, status, policy_version, created, updated) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                identifier,
+                principal,
+                idempotency_key,
+                request_digest,
+                spec.project,
+                spec.title,
+                spec.goal,
+                json.dumps(list(spec.acceptance_criteria)),
+                json.dumps(sorted(spec.requested_capabilities)),
+                spec.priority,
+                spec.parent_id,
+                status,
+                self.policy_version,
+                now,
+                now,
+            ),
+        )
+        db.executemany(
+            "INSERT INTO dependencies (task_id, depends_on) VALUES (?, ?)",
+            [(identifier, item) for item in sorted(set(spec.depends_on))],
+        )
+        self._record(db, identifier, None, status, principal, "created", now)
+        return self._task(self._row(db, identifier)), True  # type: ignore[arg-type]
+
+    # Intake
+
+    def open_intake(self, fingerprint: str) -> Task | None:
+        """The open task an intake signal with this fingerprint opened, if any."""
+        with self.lock:
+            return self._open_intake(self.db, fingerprint)
+
+    def open_intake_fingerprints(self, source: str) -> list[str]:
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT DISTINCT i.fingerprint FROM intake_tasks i "
+                "JOIN tasks t ON t.id = i.task_id WHERE i.source = ? "
+                f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                (source, *sorted(TERMINAL)),
+            ).fetchall()
+            return sorted(row["fingerprint"] for row in rows)
+
+    def create_intake_task(
+        self,
+        principal: str,
+        fingerprint: str,
+        source: str,
+        severity: str,
+        spec: TaskSpec,
+        now: float,
+        open_limit: int,
+    ) -> tuple[str, Task | None]:
+        """Open a task for a firing signal unless one is already open for it.
+
+        Returns ("created", task), ("duplicate", the open task) or
+        ("limited", None). The duplicate check and the open-task limit are
+        evaluated in the same transaction as the insert, so concurrent
+        deliveries of one alert cannot open two tasks or exceed the limit. A
+        limited signal queues one escalation per fingerprint per hour.
+        """
+        spec.validate()
+        with self.transaction() as db:
+            existing = self._open_intake(db, fingerprint)
+            if existing is not None:
+                return "duplicate", existing
+            if self._open_intake_count(db) >= open_limit:
+                self._enqueue(
+                    db,
+                    f"intake.limit:{fingerprint}:{int(now // 3600)}",
+                    "intake.escalation",
+                    None,
+                    {
+                        "reason": "open_limit",
+                        "fingerprint": fingerprint,
+                        "title": spec.title,
+                        "severity": severity,
+                        "open_limit": open_limit,
+                    },
+                    now,
+                )
+                return "limited", None
+            task, _ = self._insert_task(
+                db, principal, f"intake:{fingerprint}:{new_id('signal')}", spec, now
+            )
             db.execute(
-                "INSERT INTO tasks (id, principal, idempotency_key, request_digest, "
-                "project, title, goal, acceptance_criteria, requested_capabilities, "
-                "priority, parent_id, status, policy_version, created, updated) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    identifier,
-                    principal,
-                    idempotency_key,
-                    request_digest,
-                    spec.project,
-                    spec.title,
-                    spec.goal,
-                    json.dumps(list(spec.acceptance_criteria)),
-                    json.dumps(sorted(spec.requested_capabilities)),
-                    spec.priority,
-                    spec.parent_id,
-                    status,
-                    self.policy_version,
-                    now,
-                    now,
-                ),
+                "INSERT INTO intake_tasks (task_id, fingerprint, source, severity, "
+                "created) VALUES (?, ?, ?, ?, ?)",
+                (task.id, fingerprint, source, severity, now),
             )
-            db.executemany(
-                "INSERT INTO dependencies (task_id, depends_on) VALUES (?, ?)",
-                [(identifier, item) for item in sorted(set(spec.depends_on))],
+            return "created", task
+
+    def resolve_intake(
+        self, fingerprint: str, actor: str, now: float
+    ) -> list[tuple[str, str]]:
+        """Record that the signal behind open intake tasks has resolved.
+
+        A task no worker has started is cancelled; one already under way is
+        left to finish (its fix may still be wanted) and only marked resolved.
+        """
+        outcomes = []
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT i.task_id, t.status FROM intake_tasks i JOIN tasks t "
+                "ON t.id = i.task_id WHERE i.fingerprint = ? AND i.resolved IS NULL "
+                f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                (fingerprint, *sorted(TERMINAL)),
+            ).fetchall()
+            for row in rows:
+                started = db.execute(
+                    "SELECT 1 FROM attempts WHERE task_id = ? LIMIT 1",
+                    (row["task_id"],),
+                ).fetchone()
+                if row["status"] in {"draft", "ready"} and started is None:
+                    self._move(
+                        db,
+                        row["task_id"],
+                        "cancelled",
+                        actor,
+                        "signal resolved before work started",
+                        now,
+                        None,
+                    )
+                    outcomes.append((row["task_id"], "cancelled"))
+                else:
+                    self._event(
+                        db,
+                        f"intake.resolved:{row['task_id']}",
+                        row["task_id"],
+                        None,
+                        "intake.resolved",
+                        actor,
+                        {"fingerprint": fingerprint},
+                        None,
+                        now,
+                    )
+                    outcomes.append((row["task_id"], "resolved"))
+                db.execute(
+                    "UPDATE intake_tasks SET resolved = ? WHERE task_id = ?",
+                    (now, row["task_id"]),
+                )
+        return outcomes
+
+    def escalate_intake(self, failures: int, now: float) -> list[str]:
+        """Queue one escalation for each intake task that keeps failing.
+
+        A failure is an attempt that ended without a result, or a settled
+        attempt the controller sent back (failed CI or verification) for a
+        new one. A task that reached `failed` escalates regardless.
+        """
+        escalated = []
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT i.task_id, i.fingerprint, i.severity, t.status, t.title "
+                "FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+                "WHERE i.escalated IS NULL AND t.status NOT IN ('completed', 'cancelled')"
+            ).fetchall()
+            for row in rows:
+                attempts = db.execute(
+                    "SELECT number, finished, exit_reason FROM attempts "
+                    "WHERE task_id = ? ORDER BY number",
+                    (row["task_id"],),
+                ).fetchall()
+                latest = attempts[-1]["number"] if attempts else 0
+                failed = sum(
+                    1
+                    for attempt in attempts
+                    if attempt["finished"] is not None
+                    and (
+                        attempt["exit_reason"] != "settled"
+                        or attempt["number"] < latest
+                    )
+                )
+                if failed < failures and row["status"] != "failed":
+                    continue
+                self._enqueue(
+                    db,
+                    f"intake.escalation:{row['task_id']}",
+                    "intake.escalation",
+                    row["task_id"],
+                    {
+                        "reason": "failed" if row["status"] == "failed" else "retries",
+                        "fingerprint": row["fingerprint"],
+                        "title": row["title"],
+                        "severity": row["severity"],
+                        "failures": failed,
+                    },
+                    now,
+                )
+                db.execute(
+                    "UPDATE intake_tasks SET escalated = ? WHERE task_id = ?",
+                    (now, row["task_id"]),
+                )
+                escalated.append(row["task_id"])
+        return escalated
+
+    def intake_cursor(self, source: str) -> str | None:
+        with self.lock:
+            row = self.db.execute(
+                "SELECT value FROM intake_cursors WHERE source = ?", (source,)
+            ).fetchone()
+            return None if row is None else str(row["value"])
+
+    def set_intake_cursor(self, source: str, value: str) -> None:
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO intake_cursors (source, value) VALUES (?, ?) "
+                "ON CONFLICT(source) DO UPDATE SET value = excluded.value",
+                (source, value),
             )
-            self._record(db, identifier, None, status, principal, "created", now)
-            return self._task(self._row(db, identifier)), True  # type: ignore[arg-type]
+
+    def _open_intake(self, db: sqlite3.Connection, fingerprint: str) -> Task | None:
+        row = db.execute(
+            "SELECT t.* FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+            "WHERE i.fingerprint = ? "
+            f"AND t.status NOT IN ({','.join('?' * len(TERMINAL))}) "
+            "ORDER BY i.created DESC LIMIT 1",
+            (fingerprint, *sorted(TERMINAL)),
+        ).fetchone()
+        return None if row is None else self._task(row)
+
+    def _open_intake_count(self, db: sqlite3.Connection) -> int:
+        return int(
+            db.execute(
+                "SELECT COUNT(*) FROM intake_tasks i JOIN tasks t ON t.id = i.task_id "
+                f"WHERE t.status NOT IN ({','.join('?' * len(TERMINAL))})",
+                tuple(sorted(TERMINAL)),
+            ).fetchone()[0]
+        )
 
     def add_dependency(self, task_id: str, depends_on: str) -> None:
         with self.transaction() as db:
