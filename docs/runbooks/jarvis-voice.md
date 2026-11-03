@@ -11,25 +11,41 @@ pipeline, conversation agent, exposed entities) is UI-managed config-entry
 state, which this repo treats as `observe-only`; the required settings are
 recorded here so a rebuild restores them exactly.
 
-## Signal chain
+## Current signal chain (display-only replies)
 
-Microphone on `homelab-05` (`HyperX QuadCast S` via Pipewire, pinned with
-top priority 3500 in WirePlumber, above sink monitors at 100) -> satellite
-container (`linux-voice-assistant`,
-wake word `hey_jarvis.tflite`, port 6053, device substring match `QuadCast`)
--> Home Assistant on `homelab-03` -> stable STT gateway
-(`wyoming-whisper.voice:10300`) -> Nemotron primary and Groq cloud fallback
--> transcript with an optional `speaker <Name>` tag (Nemotron only; Groq
-transcripts carry no speaker). Local Whisper was removed on 2026-10-27 to
-free homelab-04 memory; the gateway Service keeps its `wyoming-whisper` name
-because Home Assistant targets it.
-TTS uses the stable `wyoming-chatterbox.voice:10201` gateway with Chatterbox
-Turbo primary and Piper fallback. Backend preference and circuit state belong to
-the gateways, so HA pipeline identifiers do not change during backend failover.
-There is no local LLM: Qwen/Ollama was removed in Phase 0 to free the
-T1000 GPU, and the cloud replacement is not wired yet.
--> audio back to the `homelab-05` soundbar (USB SPDIF optical adapter,
-prioritized at 3000 in WirePlumber) -> face state via the HA websocket.
+QuadCast microphone on `homelab-05` -> Linux Voice Assistant satellite ->
+Home Assistant Assist -> stable STT gateway (`wyoming-whisper.voice:10300`)
+-> Nemotron on `homelab-04` (including speaker identification) -> local
+intents / Jev Router / configured conversation fallback -> display bridge
+(`wyoming-chatterbox.voice:10201`) -> `sensor.jarvis_response` -> face.
+
+Chatterbox, Piper, the TTS gateway, and Groq STT fallback are removed from
+Flux. Nemotron is the only STT backend. Recognition is unavailable if it fails.
+The old TTS Service name and `jarvis` voice identity are retained solely for
+HA pipeline compatibility. The display bridge performs no synthesis: it writes
+reply text into the response sensor's `text` attribute using the existing
+Jarvis HA credential, then returns 50ms of silent PCM to complete the satellite
+turn. Failed publication returns a Wyoming error rather than invisible success.
+The satellite also forwards every TTS-start text event to the bridge on port
+10202, so HA audio-cache hits still refresh the display.
+The satellite runs with `JARVIS_TEXT_ONLY=1`, suppressing even previously cached
+spoken replies. Wake chimes, timers and music remain separate audio paths.
+No UI-managed pipeline edits are needed. Music playback still uses the soundbar.
+
+The face subscribes to the response sensor along with its three existing
+entities. It renders plain text, retains the latest response across idle and
+reconnects, and scrolls long replies. Face version 20 is adopted by the existing
+config polling mechanism even when the kiosk boot URL has an earlier version.
+
+Model caches and encrypted Groq credentials are retained for recovery; this
+change does not delete persistent data or revoke an external API key. Roll back
+by reverting the integration commit through Git/Flux. Historical TTS and Groq
+procedures below describe the retired stack and are not current deployment steps.
+
+Acceptance: confirm removed deployments are absent, Nemotron and the satellite
+are Ready, send a non-actuating request through Assist, and check that the face
+receives the same text via `sensor.jarvis_response`. The Python display bridge
+returns silence only; no cloud or local speech synthesis is called.
 
 ## Native STT image ownership
 

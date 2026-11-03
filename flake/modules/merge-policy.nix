@@ -11,11 +11,12 @@ let
   # so a change to the verifier takes effect through the validated CI-host
   # deployment, with task authorization for enrolled repository authors.
   source = pkgs.runCommand "merge-policy-source" { } ''
-    mkdir -p $out/scripts/verifier
+    mkdir -p $out/scripts/verifier $out/scripts/ci
     cp ${../../scripts/verifier/websites.py} $out/scripts/verifier/websites.py
     cp ${../../scripts/verifier/service.py} $out/scripts/verifier/service.py
     cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
-    touch $out/scripts/__init__.py $out/scripts/verifier/__init__.py
+    cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
+    touch $out/scripts/__init__.py $out/scripts/verifier/__init__.py $out/scripts/ci/__init__.py
   '';
 in
 {
@@ -32,6 +33,11 @@ in
     interval = lib.mkOption {
       type = lib.types.int;
       default = 15;
+    };
+    approvals = lib.mkOption {
+      type = lib.types.str;
+      default = "http://127.0.0.1:8020";
+      description = "Approvals service where the operator approves escalated heads.";
     };
   };
 
@@ -50,7 +56,7 @@ in
       path = [ pkgs.git ];
       environment.PYTHONPATH = toString source;
       serviceConfig = {
-        ExecStart = "${python}/bin/python -m scripts.verifier.service --forgejo ${cfg.forgejo} --repository ${cfg.repository} --token-file %d/token --state %S/merge-policy --interval ${toString cfg.interval}";
+        ExecStart = "${python}/bin/python -m scripts.verifier.service --forgejo ${cfg.forgejo} --repository ${cfg.repository} --token-file %d/token --state %S/merge-policy --interval ${toString cfg.interval} --approvals ${cfg.approvals}";
         User = "merge-policy";
         Group = "merge-policy";
         StateDirectory = "merge-policy";
