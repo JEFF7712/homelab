@@ -8,7 +8,7 @@ from dataclasses import replace
 import yaml
 
 from scripts.orchestrator.jobs import JobSpec, KubernetesJobConfig, render_job
-from scripts.orchestrator.manifests import DeployParams, render
+from scripts.orchestrator.manifests import DeployParams, IntakeParams, render
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DIGEST = "sha256:" + "1" * 64
@@ -37,6 +37,16 @@ PARAMS = DeployParams(
     ),
     ntfy_topic="orchestrator",
 )
+INTAKE = replace(
+    PARAMS,
+    intake=IntakeParams(
+        woodpecker_url="http://ci.internal:8000",
+        woodpecker_ip="10.0.30.20",
+        woodpecker_port=8000,
+        woodpecker_repo_id=1,
+    ),
+    backup_nfs_path="/tank/cluster/backups-db-dumps-pvc-dcd285d5",
+)
 
 
 def by_kind(docs: list[dict], kind: str) -> list[dict]:
@@ -59,7 +69,7 @@ class ManifestTests(unittest.TestCase):
                 render(bad)
 
     def test_rendered_manifests_pass_the_repository_schemas(self) -> None:
-        docs = render(PARAMS)
+        docs = render(INTAKE)
         spec = JobSpec("att_1", "task_1", "http://c", "t", "b", {"kind": "pi"})
         secret, job = render_job(
             spec,
@@ -303,6 +313,112 @@ class ManifestTests(unittest.TestCase):
             [v.get("secret", {}).get("secretName") for v in volumes],
         )
         self.assertNotIn("/run/orchestrator", json.dumps(config["jobs"]))
+
+    def test_intake_evidence_rbac_never_reaches_secrets(self) -> None:
+        self.assertEqual(by_kind(render(PARAMS), "ClusterRole"), [])
+        docs = render(INTAKE)
+        [role] = by_kind(docs, "ClusterRole")
+        [binding] = by_kind(docs, "ClusterRoleBinding")
+        self.assertEqual(
+            binding["subjects"],
+            [
+                {
+                    "kind": "ServiceAccount",
+                    "name": "orchestrator-controller",
+                    "namespace": "persistent-agent",
+                }
+            ],
+        )
+        for rule in role["rules"]:
+            self.assertFalse({"secrets", "configmaps", "*"} & set(rule["resources"]))
+            self.assertLessEqual(set(rule["verbs"]), {"get", "list"})
+        for doc in by_kind(docs, "Role") + by_kind(docs, "ClusterRole"):
+            for rule in doc["rules"]:
+                if "secrets" in rule["resources"]:
+                    self.assertFalse(
+                        {"get", "list", "watch"} & set(rule["verbs"]), doc["metadata"]
+                    )
+
+    def test_only_alert_sources_reach_the_intake_port(self) -> None:
+        docs = render(INTAKE)
+        policy = next(
+            doc
+            for doc in by_kind(docs, "NetworkPolicy")
+            if doc["metadata"]["name"] == "orchestrator-controller"
+        )
+        intake = [
+            rule
+            for rule in policy["spec"]["ingress"]
+            if rule["ports"] == [{"protocol": "TCP", "port": 8092}]
+        ]
+        [rule] = intake
+        sources = {
+            (
+                peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"],
+                peer["podSelector"]["matchLabels"]["app.kubernetes.io/name"],
+            )
+            for peer in rule["from"]
+        }
+        self.assertEqual(
+            sources,
+            {("observability", "alertmanager"), ("automation", "cluster-sentinel")},
+        )
+        self.assertIn(
+            {
+                "to": [{"ipBlock": {"cidr": "10.0.30.20/32"}}],
+                "ports": [{"protocol": "TCP", "port": 8000}],
+            },
+            policy["spec"]["egress"],
+        )
+        worker = next(
+            doc
+            for doc in by_kind(docs, "NetworkPolicy")
+            if doc["metadata"]["name"] == "orchestrator-worker"
+        )
+        self.assertEqual(worker["spec"]["ingress"], [])
+        [config_map] = by_kind(docs, "ConfigMap")
+        config = json.loads(config_map["data"]["config.json"])
+        self.assertEqual(config["intake"]["open_limit"], 3)
+        self.assertTrue(
+            all(
+                path.startswith("/run/orchestrator/")
+                for path in config["intake"]["token_files"].values()
+            )
+        )
+        self.assertNotIn("intake", json.dumps(config["jobs"]))
+
+    def test_backup_runs_beside_the_store_and_hands_snapshots_to_the_shipper(
+        self,
+    ) -> None:
+        with self.assertRaises(ValueError):
+            render(replace(INTAKE, backup_nfs_path="/tank/cluster/immich-library"))
+        self.assertEqual(by_kind(render(PARAMS), "CronJob"), [])
+        docs = render(INTAKE)
+        [cron] = by_kind(docs, "CronJob")
+        pod = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]
+        self.assertEqual(pod["nodeSelector"], {"kubernetes.io/hostname": "homelab-02"})
+        self.assertFalse(pod["automountServiceAccountToken"])
+        self.assertEqual(pod["securityContext"]["supplementalGroups"], [1000])
+        [container] = pod["containers"]
+        self.assertIn("backup-rotate", container["args"] + container.get("command", []))
+        claims = {
+            volume["persistentVolumeClaim"]["claimName"]
+            for volume in pod["volumes"]
+            if "persistentVolumeClaim" in volume
+        }
+        self.assertEqual(claims, {"orchestrator-data", "orchestrator-dumps"})
+        dumps = next(
+            doc
+            for doc in by_kind(docs, "PersistentVolume")
+            if doc["metadata"]["name"] == "orchestrator-dumps"
+        )
+        self.assertEqual(
+            dumps["spec"]["nfs"],
+            {
+                "server": "10.0.30.20",
+                "path": "/tank/cluster/backups-db-dumps-pvc-dcd285d5",
+            },
+        )
 
 
 if __name__ == "__main__":

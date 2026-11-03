@@ -2,7 +2,7 @@
 
 Target architecture for [RFC-001](../research/2026-10-22-persistent-agent-pi-workers-rfc.md)
 after the [Phase 0 audit](../research/2026-10-22-persistent-agent-audit.md) and
-the operator decisions of 2026-10-22. **Nothing here is deployed.** Offline
+the operator decisions of 2026-10-22 and 2026-11-02. **Nothing here is deployed.** Offline
 implementation is approved; deployment needs a separate authorization after
 the gates in [Deployment gates](#deployment-gates) pass.
 
@@ -11,13 +11,14 @@ the gates in [Deployment gates](#deployment-gates) pass.
 | Area | Decision |
 | --- | --- |
 | Worker runtimes | Pi is the preferred general runtime. Native CLI adapters run behind the same interface. Codex runs through the official Codex CLI with ChatGPT login. Claude runs through the unmodified Claude Code CLI with `claude setup-token`. Pi's `openai-codex` provider stays experimental. Pi never uses `anthropic`. Antigravity and Muse are deferred. |
-| Supervisor inference | First choice: OpenAI's documented Sign in with ChatGPT through Letta's `OpenAI (ChatGPT subscription)` connection (see the audit below). Fallback: a separately approved, budget-capped API key. No local model as the primary supervisor. No CLI-to-Letta inference proxy. |
+| Supervisor inference | Primary (2026-11-02): a budget-capped API key, registered as a consumer in `config/spend.json` with the operator's monthly cap. Sign in with ChatGPT through Letta's `OpenAI (ChatGPT subscription)` connection replaces it once the upstream fixes below land in an audited release. No local model as the primary supervisor. No CLI-to-Letta inference proxy. |
+| Rollout order | Phase 1: the controller and workers alone, fed by [alert intake](#alert-intake-phase-1). No supervisor, so no supervisor key. Phase 2: Letta and Telegram attach as the front door. |
 | Paid APIs | None without explicit approval. Backends refuse API-key variables. |
 | Credentials | A provisioning plan is approved. Shared credentials and automatic credential creation are not. pod-agent's logins and refresh jobs stay untouched. |
 | Controller | One active controller, SQLite in WAL mode on a node-local volume, transactional claims, migrations, backups. |
 | Approvals and notifications | Reuse the approvals dashboard and ntfy. |
 | Packaging | Start from Letta Code's upstream flake (`packages.<system>.letta-code`, `nixosModules.default`) pinned to an audited tag. Build the OCI image from that package if the cluster needs one. |
-| Placement | Choose homelab-02 or homelab-03 only after fresh resource measurements. Never homelab-05. Cluster-internal only. |
+| Placement | homelab-02, with a static `local-nvme` PV under `/persist/` (measured and approved 2026-11-02, see gate 2). Never homelab-05. Cluster-internal only. |
 | Testing | A disposable Forgejo repository with explicitly scoped enrollment. |
 
 ## Components and trust boundaries
@@ -327,12 +328,53 @@ rehearsals only. The daemon offers them only behind `serve
 Deployment never passes, and the manager itself refuses to start inside a
 Kubernetes pod.
 
+## Alert intake (phase 1)
+
+The first tasks come from operations, not from a supervisor
+(`scripts/orchestrator/intake.py`):
+
+- **Sources.** Alertmanager posts to the controller as a webhook receiver;
+  cluster-sentinel posts each state change as a second notify target; the
+  controller polls Woodpecker read-only for failed main pipelines. The
+  restore drills (backups/restore-drill, immich/library-restore-drill, nas-01
+  platform-restore-drill) reach it through sentinel's `restore-drills` check.
+  Each source has its own bearer token, and the NetworkPolicy admits only
+  Alertmanager and cluster-sentinel pods to the intake port.
+- **Dedupe and limits.** A signal's fingerprint (alert labels, sentinel
+  check key, or failed step names) opens at most one open task. At most
+  three intake tasks are open at once; beyond that the signal escalates. A
+  resolved signal cancels its task when no worker has started it. A task
+  that fails twice escalates once. Escalations are the only ntfy messages
+  intake tasks send; their routine status stays on the forge issue.
+- **Evidence.** Workers stay off the private network. The controller attaches
+  the alert, the affected object's status (never its spec), events, recent
+  logs and failing step logs, capped per section and in total and passed
+  through the same `redact()` as worker text. The `orchestrator-evidence`
+  ClusterRole reads object status, events and pod logs and names no Secrets
+  or ConfigMaps; the controller's namespaced Role can create and delete
+  per-attempt Secrets but never read them.
+- **Cutover.** The controller is added as a second Alertmanager receiver
+  while ntfy keeps receiving everything. Warnings then move behind the
+  controller first. Critical alerts go to both until autonomy metrics justify
+  dropping ntfy. The controller's dead-man alert always goes straight to ntfy.
+- **State.** `backup-rotate` snapshots the store nightly into the db-dumps
+  share that dumps-to-r2 ships off site; the restore drill restores and
+  checks the newest snapshot once the first one exists. Deleting the
+  controller's PV stays held until a drill has passed.
+
+## Gate evidence
+
+- **Gate 2 (2026-11-02).** Requests left unreserved: homelab-02 about 2.9
+  CPU and 5.4 GiB (55% memory in use), homelab-03 about 3.8 CPU and 3.5 GiB
+  (75% in use); homelab-05 was over 100% CPU and memory. homelab-02 is the
+  only node with room for one 4 GiB worker Job and the controller.
+
 Remaining before a deployment request:
 
 | Priority | Work |
 | --- | --- |
-| P0 | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs). Supervisor inference stays off until an audited Letta release has them |
-| P2 | Controller and worker images through the registry lane (the controller image carries git for the publisher); Letta from its upstream flake with the bridge beside it |
-| P2 | Fresh resource measurements on homelab-02 and homelab-03, then the node choice |
-| P2 | Credential-free rehearsal on the chosen node with the rendered manifests and a scripted loopback model |
-| Gate | Security review of the rendered manifests and credential boundaries, the negative tests, credential provisioning, live subscription checks |
+| P1 | Controller and worker images through the registry lane (the controller image carries git for the publisher) |
+| P1 | Credential-free rehearsal on homelab-02 with the rendered manifests, intake and a scripted loopback model |
+| Gate | Security review of the rendered manifests, intake and credential boundaries; the negative tests against real pods; worker credential provisioning |
+| Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key in `config/spend.json` (after the gate model in #734), Telegram |
+| Parallel | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs); not blocking |

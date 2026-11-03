@@ -32,6 +32,25 @@ CONTROLLER = "orchestrator-controller"
 WORKER = "orchestrator-worker"
 WORKER_API_PORT = 8090
 CLIENT_API_PORT = 8091
+INTAKE_PORT = 8092
+NFS_SERVER = "10.0.30.20"
+BACKUP_NFS_PREFIX = "/tank/cluster/backups-db-dumps-"
+# Read-only access for intake evidence. Secrets and ConfigMaps are absent on
+# purpose and a test keeps them out; this list mirrors intake.KINDS.
+EVIDENCE_RULES = (
+    {
+        "apiGroups": [""],
+        "resources": ["pods", "pods/log", "persistentvolumeclaims", "nodes"],
+        "verbs": ["get"],
+    },
+    {"apiGroups": [""], "resources": ["events"], "verbs": ["list"]},
+    {
+        "apiGroups": ["apps"],
+        "resources": ["deployments", "statefulsets", "daemonsets"],
+        "verbs": ["get"],
+    },
+    {"apiGroups": ["batch"], "resources": ["jobs", "cronjobs"], "verbs": ["get"]},
+)
 DATA_PATH = "/var/lib/orchestrator"
 # The architecture decision: the controller runs on homelab-02 or homelab-03,
 # whichever fresh resource measurements favour; never homelab-05.
@@ -82,6 +101,17 @@ LABELS = {"app.kubernetes.io/part-of": "persistent-agent"}
 
 
 @dataclass(frozen=True)
+class IntakeParams:
+    """Alert intake: who may post signals, and where failed pipelines are read."""
+
+    woodpecker_url: str
+    woodpecker_ip: str
+    woodpecker_port: int
+    woodpecker_repo_id: int
+    open_limit: int = 3
+
+
+@dataclass(frozen=True)
 class DeployParams:
     node: str
     controller_image: str
@@ -107,6 +137,11 @@ class DeployParams:
     secret_name: str = "orchestrator-secrets"
     worker_secret_name: str = "orchestrator-worker-secrets"
     extra_worker_mounts: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    intake: IntakeParams | None = None
+    # The db-dumps NFS directory that dumps-to-r2 ships off site, and the
+    # group the shipper reads as.
+    backup_nfs_path: str | None = None
+    backup_group: int = 1000
 
     def validate(self) -> None:
         if self.node not in CONTROLLER_NODES:
@@ -117,6 +152,10 @@ class DeployParams:
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
         if not self.host_path.startswith("/persist/"):
             raise ValueError("host_path must live under /persist")
+        if self.backup_nfs_path is not None and not self.backup_nfs_path.startswith(
+            BACKUP_NFS_PREFIX
+        ):
+            raise ValueError(f"backup_nfs_path must live under {BACKUP_NFS_PREFIX}")
 
 
 def validate_backend(
@@ -278,6 +317,7 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "worker": f"0.0.0.0:{WORKER_API_PORT}",
             "client": f"127.0.0.1:{CLIENT_API_PORT}",
         },
+        **intake_config(params, secrets),
         "jobs": {
             "kind": "kubernetes",
             "namespace": NAMESPACE,
@@ -287,6 +327,196 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "extra_volumes": volumes,
             "extra_mounts": mounts,
         },
+    }
+
+
+def intake_config(params: DeployParams, secrets: str) -> dict[str, Any]:
+    if params.intake is None:
+        return {}
+    return {
+        "intake": {
+            "listen": f"0.0.0.0:{INTAKE_PORT}",
+            "token_files": {
+                "alertmanager": f"{secrets}/alertmanager-intake-token",
+                "sentinel": f"{secrets}/sentinel-intake-token",
+            },
+            "open_limit": params.intake.open_limit,
+            "kubernetes_evidence": True,
+            "woodpecker": {
+                "url": params.intake.woodpecker_url,
+                "repo_id": params.intake.woodpecker_repo_id,
+                "token_file": f"{secrets}/woodpecker-token",
+            },
+        }
+    }
+
+
+def intake_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """The evidence ClusterRole and its binding to the controller."""
+    if params.intake is None:
+        return []
+    name = "orchestrator-evidence"
+    return [
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1",
+            "kind": "ClusterRole",
+            "metadata": {"name": name, "labels": dict(LABELS)},
+            "rules": [dict(rule) for rule in EVIDENCE_RULES],
+        },
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1",
+            "kind": "ClusterRoleBinding",
+            "metadata": {"name": name, "labels": dict(LABELS)},
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": name,
+            },
+            "subjects": [
+                {"kind": "ServiceAccount", "name": CONTROLLER, "namespace": NAMESPACE}
+            ],
+        },
+    ]
+
+
+def backup_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """A nightly snapshot of the store into the db-dumps share.
+
+    dumps-to-r2 ships that share off site at 03:00, and the restore drill
+    restores and checks the newest snapshot. The job runs on the controller's
+    node beside the local volume and needs no network.
+    """
+    if params.backup_nfs_path is None:
+        return []
+    name = "orchestrator-backup"
+    return [
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolume",
+            "metadata": {
+                "name": "orchestrator-dumps",
+                "labels": dict(LABELS),
+                "annotations": NO_PRUNE,
+            },
+            "spec": {
+                "capacity": {"storage": "1Gi"},
+                "accessModes": ["ReadWriteMany"],
+                "persistentVolumeReclaimPolicy": "Retain",
+                "storageClassName": "",
+                "nfs": {"server": NFS_SERVER, "path": params.backup_nfs_path},
+                "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-dumps"},
+            },
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": meta("orchestrator-dumps", annotations=NO_PRUNE),
+            "spec": {
+                "accessModes": ["ReadWriteMany"],
+                "storageClassName": "",
+                "volumeName": "orchestrator-dumps",
+                "resources": {"requests": {"storage": "1Gi"}},
+            },
+        },
+        {
+            "apiVersion": "batch/v1",
+            "kind": "CronJob",
+            "metadata": meta(name),
+            "spec": {
+                "schedule": "30 2 * * *",
+                "concurrencyPolicy": "Forbid",
+                "successfulJobsHistoryLimit": 2,
+                "failedJobsHistoryLimit": 3,
+                "jobTemplate": {
+                    "spec": {
+                        "backoffLimit": 2,
+                        "activeDeadlineSeconds": 900,
+                        "template": {
+                            "metadata": {
+                                "labels": {**LABELS, "app.kubernetes.io/name": name}
+                            },
+                            "spec": {
+                                "automountServiceAccountToken": False,
+                                "restartPolicy": "OnFailure",
+                                "nodeSelector": {"kubernetes.io/hostname": params.node},
+                                "securityContext": {
+                                    "fsGroup": 10001,
+                                    "supplementalGroups": [params.backup_group],
+                                },
+                                "containers": [
+                                    {
+                                        **restricted_container(
+                                            "backup",
+                                            params.controller_image,
+                                            [
+                                                "python",
+                                                "-m",
+                                                "scripts.orchestrator",
+                                                "backup-rotate",
+                                                "--db",
+                                                f"{DATA_PATH}/orchestrator.sqlite",
+                                                "--dir",
+                                                "/dumps",
+                                                "--keep",
+                                                "7",
+                                                "--group",
+                                                str(params.backup_group),
+                                            ],
+                                        ),
+                                        "resources": {
+                                            "requests": {
+                                                "cpu": "50m",
+                                                "memory": "64Mi",
+                                            },
+                                            "limits": {"memory": "256Mi"},
+                                        },
+                                        "volumeMounts": [
+                                            {"name": "data", "mountPath": DATA_PATH},
+                                            {"name": "dumps", "mountPath": "/dumps"},
+                                            {"name": "tmp", "mountPath": "/tmp"},
+                                        ],
+                                    }
+                                ],
+                                "volumes": [
+                                    {
+                                        "name": "data",
+                                        "persistentVolumeClaim": {
+                                            "claimName": "orchestrator-data"
+                                        },
+                                    },
+                                    {
+                                        "name": "dumps",
+                                        "persistentVolumeClaim": {
+                                            "claimName": "orchestrator-dumps"
+                                        },
+                                    },
+                                    {"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
+                                ],
+                            },
+                        },
+                    }
+                },
+            },
+        },
+    ]
+
+
+def intake_ingress() -> dict[str, Any]:
+    """Only Alertmanager and cluster-sentinel may post signals."""
+    return {
+        "from": [
+            {
+                "namespaceSelector": {
+                    "matchLabels": {"kubernetes.io/metadata.name": namespace}
+                },
+                "podSelector": {"matchLabels": {"app.kubernetes.io/name": name}},
+            }
+            for namespace, name in (
+                ("observability", "alertmanager"),
+                ("automation", "cluster-sentinel"),
+            )
+        ],
+        "ports": [{"protocol": "TCP", "port": INTAKE_PORT}],
     }
 
 
@@ -309,7 +539,7 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
         "to": [{"ipBlock": {"cidr": f"{params.forge_ip}/32"}}],
         "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 3000}],
     }
-    return [
+    documents = [
         {
             "apiVersion": "v1",
             "kind": "Namespace",
@@ -360,7 +590,11 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                 "name": "orchestrator-worker-jobs",
             },
             "subjects": [
-                {"kind": "ServiceAccount", "name": CONTROLLER, "namespace": NAMESPACE}
+                {
+                    "kind": "ServiceAccount",
+                    "name": CONTROLLER,
+                    "namespace": NAMESPACE,
+                }
             ],
         },
         {
@@ -444,7 +678,17 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                                     {
                                         "name": "worker-api",
                                         "containerPort": WORKER_API_PORT,
-                                    }
+                                    },
+                                    *(
+                                        [
+                                            {
+                                                "name": "intake",
+                                                "containerPort": INTAKE_PORT,
+                                            }
+                                        ]
+                                        if params.intake
+                                        else []
+                                    ),
                                 ],
                                 "resources": {
                                     "requests": {"cpu": "100m", "memory": "128Mi"},
@@ -501,7 +745,18 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                         "name": "worker-api",
                         "port": WORKER_API_PORT,
                         "targetPort": "worker-api",
-                    }
+                    },
+                    *(
+                        [
+                            {
+                                "name": "intake",
+                                "port": INTAKE_PORT,
+                                "targetPort": "intake",
+                            }
+                        ]
+                        if params.intake
+                        else []
+                    ),
                 ],
             },
         },
@@ -522,7 +777,8 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                     {
                         "from": [{"podSelector": {"matchLabels": worker_selector}}],
                         "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                    }
+                    },
+                    *([intake_ingress()] if params.intake else []),
                 ],
                 "egress": [
                     dns,
@@ -549,6 +805,27 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                         }
                         for ip, port in params.api_endpoints
                     ),
+                    *(
+                        [
+                            {
+                                "to": [
+                                    {
+                                        "ipBlock": {
+                                            "cidr": f"{params.intake.woodpecker_ip}/32"
+                                        }
+                                    }
+                                ],
+                                "ports": [
+                                    {
+                                        "protocol": "TCP",
+                                        "port": params.intake.woodpecker_port,
+                                    }
+                                ],
+                            }
+                        ]
+                        if params.intake
+                        else []
+                    ),
                 ],
             },
         },
@@ -568,7 +845,12 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                     },
                     {
                         "to": [
-                            {"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE)}}
+                            {
+                                "ipBlock": {
+                                    "cidr": "0.0.0.0/0",
+                                    "except": list(PRIVATE),
+                                }
+                            }
                         ],
                         "ports": [{"protocol": "TCP", "port": 443}],
                     },
@@ -576,3 +858,4 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
             },
         },
     ]
+    return documents + intake_documents(params) + backup_documents(params)
