@@ -21,6 +21,7 @@ from scripts.orchestrator.publisher import (
     PatchRejected,
     PublishConflict,
     Publisher,
+    added_lines,
 )
 from tests.orchestrator_fakes import bare_repository, git
 
@@ -164,6 +165,32 @@ class PublishTests(PublisherCase):
             extra.publish(
                 self.base, BRANCH, self.patch(write("hooks/session-start")), "t", 1
             )
+
+
+class SecretScanTests(PublisherCase):
+    def test_a_patch_adding_a_secret_is_rejected_before_anything_is_pushed(
+        self,
+    ) -> None:
+        leaked = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
+        patch = self.patch(write("config/settings.yaml", f'token: "{leaked}"\n'))
+        with self.assertRaisesRegex(PatchRejected, "looks like a secret"):
+            self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+        self.assertNotIn(BRANCH, git("branch", "--list", cwd=self.bare))
+
+    def test_removing_a_secret_is_not_a_finding(self) -> None:
+        leaked = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
+        self.assertNotIn(leaked.encode(), added_lines(f"-{leaked}\n+clean\n".encode()))
+
+    def test_the_scan_fails_closed_without_a_scanner(self) -> None:
+        missing = Publisher(
+            str(self.bare),
+            "main",
+            self.root / "unscanned",
+            scanner=("/nonexistent/gitleaks", "stdin"),
+        )
+        patch = self.patch(write("src/feature.txt", "hello\n"))
+        with self.assertRaisesRegex(PatchRejected, "secret scan could not run"):
+            missing.publish(missing.base_head(), BRANCH, patch, "t", 1)
 
 
 class ExpansionTests(PublisherCase):
