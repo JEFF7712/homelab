@@ -45,6 +45,7 @@ INTAKE = replace(
         woodpecker_port=8000,
         woodpecker_repo_id=1,
     ),
+    backup_nfs_path="/tank/cluster/backups-db-dumps-pvc-dcd285d5",
 )
 
 
@@ -385,6 +386,39 @@ class ManifestTests(unittest.TestCase):
             )
         )
         self.assertNotIn("intake", json.dumps(config["jobs"]))
+
+    def test_backup_runs_beside_the_store_and_hands_snapshots_to_the_shipper(
+        self,
+    ) -> None:
+        with self.assertRaises(ValueError):
+            render(replace(INTAKE, backup_nfs_path="/tank/cluster/immich-library"))
+        self.assertEqual(by_kind(render(PARAMS), "CronJob"), [])
+        docs = render(INTAKE)
+        [cron] = by_kind(docs, "CronJob")
+        pod = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]
+        self.assertEqual(pod["nodeSelector"], {"kubernetes.io/hostname": "homelab-02"})
+        self.assertFalse(pod["automountServiceAccountToken"])
+        self.assertEqual(pod["securityContext"]["supplementalGroups"], [1000])
+        [container] = pod["containers"]
+        self.assertIn("backup-rotate", container["args"] + container.get("command", []))
+        claims = {
+            volume["persistentVolumeClaim"]["claimName"]
+            for volume in pod["volumes"]
+            if "persistentVolumeClaim" in volume
+        }
+        self.assertEqual(claims, {"orchestrator-data", "orchestrator-dumps"})
+        dumps = next(
+            doc
+            for doc in by_kind(docs, "PersistentVolume")
+            if doc["metadata"]["name"] == "orchestrator-dumps"
+        )
+        self.assertEqual(
+            dumps["spec"]["nfs"],
+            {
+                "server": "10.0.30.20",
+                "path": "/tank/cluster/backups-db-dumps-pvc-dcd285d5",
+            },
+        )
 
 
 if __name__ == "__main__":

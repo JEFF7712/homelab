@@ -33,6 +33,8 @@ WORKER = "orchestrator-worker"
 WORKER_API_PORT = 8090
 CLIENT_API_PORT = 8091
 INTAKE_PORT = 8092
+NFS_SERVER = "10.0.30.20"
+BACKUP_NFS_PREFIX = "/tank/cluster/backups-db-dumps-"
 # Read-only access for intake evidence. Secrets and ConfigMaps are absent on
 # purpose and a test keeps them out; this list mirrors intake.KINDS.
 EVIDENCE_RULES = (
@@ -136,6 +138,10 @@ class DeployParams:
     worker_secret_name: str = "orchestrator-worker-secrets"
     extra_worker_mounts: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     intake: IntakeParams | None = None
+    # The db-dumps NFS directory that dumps-to-r2 ships off site, and the
+    # group the shipper reads as.
+    backup_nfs_path: str | None = None
+    backup_group: int = 1000
 
     def validate(self) -> None:
         if self.node not in CONTROLLER_NODES:
@@ -146,6 +152,10 @@ class DeployParams:
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
         if not self.host_path.startswith("/persist/"):
             raise ValueError("host_path must live under /persist")
+        if self.backup_nfs_path is not None and not self.backup_nfs_path.startswith(
+            BACKUP_NFS_PREFIX
+        ):
+            raise ValueError(f"backup_nfs_path must live under {BACKUP_NFS_PREFIX}")
 
 
 def validate_backend(
@@ -369,6 +379,128 @@ def intake_documents(params: DeployParams) -> list[dict[str, Any]]:
     ]
 
 
+def backup_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """A nightly snapshot of the store into the db-dumps share.
+
+    dumps-to-r2 ships that share off site at 03:00, and the restore drill
+    restores and checks the newest snapshot. The job runs on the controller's
+    node beside the local volume and needs no network.
+    """
+    if params.backup_nfs_path is None:
+        return []
+    name = "orchestrator-backup"
+    return [
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolume",
+            "metadata": {
+                "name": "orchestrator-dumps",
+                "labels": dict(LABELS),
+                "annotations": NO_PRUNE,
+            },
+            "spec": {
+                "capacity": {"storage": "1Gi"},
+                "accessModes": ["ReadWriteMany"],
+                "persistentVolumeReclaimPolicy": "Retain",
+                "storageClassName": "",
+                "nfs": {"server": NFS_SERVER, "path": params.backup_nfs_path},
+                "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-dumps"},
+            },
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": meta("orchestrator-dumps", annotations=NO_PRUNE),
+            "spec": {
+                "accessModes": ["ReadWriteMany"],
+                "storageClassName": "",
+                "volumeName": "orchestrator-dumps",
+                "resources": {"requests": {"storage": "1Gi"}},
+            },
+        },
+        {
+            "apiVersion": "batch/v1",
+            "kind": "CronJob",
+            "metadata": meta(name),
+            "spec": {
+                "schedule": "30 2 * * *",
+                "concurrencyPolicy": "Forbid",
+                "successfulJobsHistoryLimit": 2,
+                "failedJobsHistoryLimit": 3,
+                "jobTemplate": {
+                    "spec": {
+                        "backoffLimit": 2,
+                        "activeDeadlineSeconds": 900,
+                        "template": {
+                            "metadata": {
+                                "labels": {**LABELS, "app.kubernetes.io/name": name}
+                            },
+                            "spec": {
+                                "automountServiceAccountToken": False,
+                                "restartPolicy": "OnFailure",
+                                "nodeSelector": {"kubernetes.io/hostname": params.node},
+                                "securityContext": {
+                                    "fsGroup": 10001,
+                                    "supplementalGroups": [params.backup_group],
+                                },
+                                "containers": [
+                                    {
+                                        **restricted_container(
+                                            "backup",
+                                            params.controller_image,
+                                            [
+                                                "python",
+                                                "-m",
+                                                "scripts.orchestrator",
+                                                "backup-rotate",
+                                                "--db",
+                                                f"{DATA_PATH}/orchestrator.sqlite",
+                                                "--dir",
+                                                "/dumps",
+                                                "--keep",
+                                                "7",
+                                                "--group",
+                                                str(params.backup_group),
+                                            ],
+                                        ),
+                                        "resources": {
+                                            "requests": {
+                                                "cpu": "50m",
+                                                "memory": "64Mi",
+                                            },
+                                            "limits": {"memory": "256Mi"},
+                                        },
+                                        "volumeMounts": [
+                                            {"name": "data", "mountPath": DATA_PATH},
+                                            {"name": "dumps", "mountPath": "/dumps"},
+                                            {"name": "tmp", "mountPath": "/tmp"},
+                                        ],
+                                    }
+                                ],
+                                "volumes": [
+                                    {
+                                        "name": "data",
+                                        "persistentVolumeClaim": {
+                                            "claimName": "orchestrator-data"
+                                        },
+                                    },
+                                    {
+                                        "name": "dumps",
+                                        "persistentVolumeClaim": {
+                                            "claimName": "orchestrator-dumps"
+                                        },
+                                    },
+                                    {"name": "tmp", "emptyDir": {"sizeLimit": "64Mi"}},
+                                ],
+                            },
+                        },
+                    }
+                },
+            },
+        },
+    ]
+
+
 def intake_ingress() -> dict[str, Any]:
     """Only Alertmanager and cluster-sentinel may post signals."""
     return {
@@ -407,313 +539,330 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
         "to": [{"ipBlock": {"cidr": f"{params.forge_ip}/32"}}],
         "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 3000}],
     }
-    return [
-        {
-            "apiVersion": "v1",
-            "kind": "Namespace",
-            "metadata": {
-                "name": NAMESPACE,
-                "labels": {
-                    **LABELS,
-                    "pod-security.kubernetes.io/enforce": "restricted",
+    return (
+        [
+            {
+                "apiVersion": "v1",
+                "kind": "Namespace",
+                "metadata": {
+                    "name": NAMESPACE,
+                    "labels": {
+                        **LABELS,
+                        "pod-security.kubernetes.io/enforce": "restricted",
+                    },
+                    "annotations": NO_PRUNE,
                 },
-                "annotations": NO_PRUNE,
             },
-        },
-        {
-            "apiVersion": "v1",
-            "kind": "ServiceAccount",
-            "metadata": meta(CONTROLLER),
-        },
-        {
-            "apiVersion": "v1",
-            "kind": "ServiceAccount",
-            "metadata": meta(WORKER),
-            "automountServiceAccountToken": False,
-        },
-        {
-            "apiVersion": "rbac.authorization.k8s.io/v1",
-            "kind": "Role",
-            "metadata": meta("orchestrator-worker-jobs"),
-            "rules": [
-                {
-                    "apiGroups": ["batch"],
-                    "resources": ["jobs"],
-                    "verbs": ["create", "get", "delete"],
-                },
-                {
-                    "apiGroups": [""],
-                    "resources": ["secrets"],
-                    "verbs": ["create", "delete"],
-                },
-            ],
-        },
-        {
-            "apiVersion": "rbac.authorization.k8s.io/v1",
-            "kind": "RoleBinding",
-            "metadata": meta("orchestrator-worker-jobs"),
-            "roleRef": {
-                "apiGroup": "rbac.authorization.k8s.io",
+            {
+                "apiVersion": "v1",
+                "kind": "ServiceAccount",
+                "metadata": meta(CONTROLLER),
+            },
+            {
+                "apiVersion": "v1",
+                "kind": "ServiceAccount",
+                "metadata": meta(WORKER),
+                "automountServiceAccountToken": False,
+            },
+            {
+                "apiVersion": "rbac.authorization.k8s.io/v1",
                 "kind": "Role",
-                "name": "orchestrator-worker-jobs",
+                "metadata": meta("orchestrator-worker-jobs"),
+                "rules": [
+                    {
+                        "apiGroups": ["batch"],
+                        "resources": ["jobs"],
+                        "verbs": ["create", "get", "delete"],
+                    },
+                    {
+                        "apiGroups": [""],
+                        "resources": ["secrets"],
+                        "verbs": ["create", "delete"],
+                    },
+                ],
             },
-            "subjects": [
-                {"kind": "ServiceAccount", "name": CONTROLLER, "namespace": NAMESPACE}
-            ],
-        },
-        {
-            "apiVersion": "v1",
-            "kind": "PersistentVolume",
-            "metadata": {
-                "name": "orchestrator-data",
-                "labels": dict(LABELS),
-                "annotations": NO_PRUNE,
-            },
-            "spec": {
-                "capacity": {"storage": params.storage},
-                "accessModes": ["ReadWriteOnce"],
-                "persistentVolumeReclaimPolicy": "Retain",
-                "storageClassName": "local-nvme",
-                "local": {"path": params.host_path},
-                "nodeAffinity": {
-                    "required": {
-                        "nodeSelectorTerms": [
-                            {
-                                "matchExpressions": [
-                                    {
-                                        "key": "kubernetes.io/hostname",
-                                        "operator": "In",
-                                        "values": [params.node],
-                                    }
-                                ]
-                            }
-                        ]
+            {
+                "apiVersion": "rbac.authorization.k8s.io/v1",
+                "kind": "RoleBinding",
+                "metadata": meta("orchestrator-worker-jobs"),
+                "roleRef": {
+                    "apiGroup": "rbac.authorization.k8s.io",
+                    "kind": "Role",
+                    "name": "orchestrator-worker-jobs",
+                },
+                "subjects": [
+                    {
+                        "kind": "ServiceAccount",
+                        "name": CONTROLLER,
+                        "namespace": NAMESPACE,
                     }
-                },
-                "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-data"},
-            },
-        },
-        {
-            "apiVersion": "v1",
-            "kind": "PersistentVolumeClaim",
-            "metadata": meta("orchestrator-data", annotations=NO_PRUNE),
-            "spec": {
-                "accessModes": ["ReadWriteOnce"],
-                "storageClassName": "local-nvme",
-                "volumeName": "orchestrator-data",
-                "resources": {"requests": {"storage": params.storage}},
-            },
-        },
-        {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": meta("orchestrator-config"),
-            "data": {"config.json": json.dumps(controller_config(params), indent=2)},
-        },
-        {
-            "apiVersion": "apps/v1",
-            "kind": "Deployment",
-            "metadata": meta(CONTROLLER),
-            "spec": {
-                "replicas": 1,
-                "strategy": {"type": "Recreate"},
-                "selector": {"matchLabels": selector},
-                "template": {
-                    "metadata": {"labels": {**LABELS, **selector}},
-                    "spec": {
-                        "serviceAccountName": CONTROLLER,
-                        "nodeSelector": {"kubernetes.io/hostname": params.node},
-                        "securityContext": {"fsGroup": 10001},
-                        "containers": [
-                            {
-                                **restricted_container(
-                                    "controller",
-                                    params.controller_image,
-                                    [
-                                        "python",
-                                        "-m",
-                                        "scripts.orchestrator",
-                                        "serve",
-                                        "--config",
-                                        "/etc/orchestrator/config.json",
-                                    ],
-                                ),
-                                "ports": [
-                                    {
-                                        "name": "worker-api",
-                                        "containerPort": WORKER_API_PORT,
-                                    },
-                                    *(
-                                        [
-                                            {
-                                                "name": "intake",
-                                                "containerPort": INTAKE_PORT,
-                                            }
-                                        ]
-                                        if params.intake
-                                        else []
-                                    ),
-                                ],
-                                "resources": {
-                                    "requests": {"cpu": "100m", "memory": "128Mi"},
-                                    "limits": {"cpu": "1", "memory": "512Mi"},
-                                },
-                                "volumeMounts": [
-                                    {
-                                        "name": "config",
-                                        "mountPath": "/etc/orchestrator",
-                                        "readOnly": True,
-                                    },
-                                    {
-                                        "name": "secrets",
-                                        "mountPath": "/run/orchestrator",
-                                        "readOnly": True,
-                                    },
-                                    {"name": "data", "mountPath": DATA_PATH},
-                                    {"name": "tmp", "mountPath": "/tmp"},
-                                ],
-                            }
-                        ],
-                        "volumes": [
-                            {
-                                "name": "config",
-                                "configMap": {"name": "orchestrator-config"},
-                            },
-                            {
-                                "name": "secrets",
-                                "secret": {
-                                    "secretName": params.secret_name,
-                                    "defaultMode": 0o400,
-                                },
-                            },
-                            {
-                                "name": "data",
-                                "persistentVolumeClaim": {
-                                    "claimName": "orchestrator-data"
-                                },
-                            },
-                            {"name": "tmp", "emptyDir": {"sizeLimit": "256Mi"}},
-                        ],
-                    },
-                },
-            },
-        },
-        {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "metadata": meta(CONTROLLER),
-            "spec": {
-                "selector": selector,
-                "ports": [
-                    {
-                        "name": "worker-api",
-                        "port": WORKER_API_PORT,
-                        "targetPort": "worker-api",
-                    },
-                    *(
-                        [
-                            {
-                                "name": "intake",
-                                "port": INTAKE_PORT,
-                                "targetPort": "intake",
-                            }
-                        ]
-                        if params.intake
-                        else []
-                    ),
                 ],
             },
-        },
-        {
-            "apiVersion": "networking.k8s.io/v1",
-            "kind": "NetworkPolicy",
-            "metadata": meta("default-deny"),
-            "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"]},
-        },
-        {
-            "apiVersion": "networking.k8s.io/v1",
-            "kind": "NetworkPolicy",
-            "metadata": meta(CONTROLLER),
-            "spec": {
-                "podSelector": {"matchLabels": selector},
-                "policyTypes": ["Ingress", "Egress"],
-                "ingress": [
-                    {
-                        "from": [{"podSelector": {"matchLabels": worker_selector}}],
-                        "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                    },
-                    *([intake_ingress()] if params.intake else []),
-                ],
-                "egress": [
-                    dns,
-                    forge,
-                    {
-                        "to": [
-                            {
-                                "namespaceSelector": {
-                                    "matchLabels": {
-                                        "kubernetes.io/metadata.name": "observability"
-                                    }
-                                },
-                                "podSelector": {
-                                    "matchLabels": {"app.kubernetes.io/name": "ntfy"}
-                                },
-                            }
-                        ],
-                        "ports": [{"protocol": "TCP", "port": "http"}],
-                    },
-                    *(
-                        {
-                            "to": [{"ipBlock": {"cidr": f"{ip}/32"}}],
-                            "ports": [{"protocol": "TCP", "port": port}],
-                        }
-                        for ip, port in params.api_endpoints
-                    ),
-                    *(
-                        [
-                            {
-                                "to": [
-                                    {
-                                        "ipBlock": {
-                                            "cidr": f"{params.intake.woodpecker_ip}/32"
+            {
+                "apiVersion": "v1",
+                "kind": "PersistentVolume",
+                "metadata": {
+                    "name": "orchestrator-data",
+                    "labels": dict(LABELS),
+                    "annotations": NO_PRUNE,
+                },
+                "spec": {
+                    "capacity": {"storage": params.storage},
+                    "accessModes": ["ReadWriteOnce"],
+                    "persistentVolumeReclaimPolicy": "Retain",
+                    "storageClassName": "local-nvme",
+                    "local": {"path": params.host_path},
+                    "nodeAffinity": {
+                        "required": {
+                            "nodeSelectorTerms": [
+                                {
+                                    "matchExpressions": [
+                                        {
+                                            "key": "kubernetes.io/hostname",
+                                            "operator": "In",
+                                            "values": [params.node],
                                         }
-                                    }
-                                ],
-                                "ports": [
-                                    {
-                                        "protocol": "TCP",
-                                        "port": params.intake.woodpecker_port,
-                                    }
-                                ],
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-data"},
+                },
+            },
+            {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": meta("orchestrator-data", annotations=NO_PRUNE),
+                "spec": {
+                    "accessModes": ["ReadWriteOnce"],
+                    "storageClassName": "local-nvme",
+                    "volumeName": "orchestrator-data",
+                    "resources": {"requests": {"storage": params.storage}},
+                },
+            },
+            {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "metadata": meta("orchestrator-config"),
+                "data": {
+                    "config.json": json.dumps(controller_config(params), indent=2)
+                },
+            },
+            {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "metadata": meta(CONTROLLER),
+                "spec": {
+                    "replicas": 1,
+                    "strategy": {"type": "Recreate"},
+                    "selector": {"matchLabels": selector},
+                    "template": {
+                        "metadata": {"labels": {**LABELS, **selector}},
+                        "spec": {
+                            "serviceAccountName": CONTROLLER,
+                            "nodeSelector": {"kubernetes.io/hostname": params.node},
+                            "securityContext": {"fsGroup": 10001},
+                            "containers": [
+                                {
+                                    **restricted_container(
+                                        "controller",
+                                        params.controller_image,
+                                        [
+                                            "python",
+                                            "-m",
+                                            "scripts.orchestrator",
+                                            "serve",
+                                            "--config",
+                                            "/etc/orchestrator/config.json",
+                                        ],
+                                    ),
+                                    "ports": [
+                                        {
+                                            "name": "worker-api",
+                                            "containerPort": WORKER_API_PORT,
+                                        },
+                                        *(
+                                            [
+                                                {
+                                                    "name": "intake",
+                                                    "containerPort": INTAKE_PORT,
+                                                }
+                                            ]
+                                            if params.intake
+                                            else []
+                                        ),
+                                    ],
+                                    "resources": {
+                                        "requests": {"cpu": "100m", "memory": "128Mi"},
+                                        "limits": {"cpu": "1", "memory": "512Mi"},
+                                    },
+                                    "volumeMounts": [
+                                        {
+                                            "name": "config",
+                                            "mountPath": "/etc/orchestrator",
+                                            "readOnly": True,
+                                        },
+                                        {
+                                            "name": "secrets",
+                                            "mountPath": "/run/orchestrator",
+                                            "readOnly": True,
+                                        },
+                                        {"name": "data", "mountPath": DATA_PATH},
+                                        {"name": "tmp", "mountPath": "/tmp"},
+                                    ],
+                                }
+                            ],
+                            "volumes": [
+                                {
+                                    "name": "config",
+                                    "configMap": {"name": "orchestrator-config"},
+                                },
+                                {
+                                    "name": "secrets",
+                                    "secret": {
+                                        "secretName": params.secret_name,
+                                        "defaultMode": 0o400,
+                                    },
+                                },
+                                {
+                                    "name": "data",
+                                    "persistentVolumeClaim": {
+                                        "claimName": "orchestrator-data"
+                                    },
+                                },
+                                {"name": "tmp", "emptyDir": {"sizeLimit": "256Mi"}},
+                            ],
+                        },
+                    },
+                },
+            },
+            {
+                "apiVersion": "v1",
+                "kind": "Service",
+                "metadata": meta(CONTROLLER),
+                "spec": {
+                    "selector": selector,
+                    "ports": [
+                        {
+                            "name": "worker-api",
+                            "port": WORKER_API_PORT,
+                            "targetPort": "worker-api",
+                        },
+                        *(
+                            [
+                                {
+                                    "name": "intake",
+                                    "port": INTAKE_PORT,
+                                    "targetPort": "intake",
+                                }
+                            ]
+                            if params.intake
+                            else []
+                        ),
+                    ],
+                },
+            },
+            {
+                "apiVersion": "networking.k8s.io/v1",
+                "kind": "NetworkPolicy",
+                "metadata": meta("default-deny"),
+                "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"]},
+            },
+            {
+                "apiVersion": "networking.k8s.io/v1",
+                "kind": "NetworkPolicy",
+                "metadata": meta(CONTROLLER),
+                "spec": {
+                    "podSelector": {"matchLabels": selector},
+                    "policyTypes": ["Ingress", "Egress"],
+                    "ingress": [
+                        {
+                            "from": [{"podSelector": {"matchLabels": worker_selector}}],
+                            "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
+                        },
+                        *([intake_ingress()] if params.intake else []),
+                    ],
+                    "egress": [
+                        dns,
+                        forge,
+                        {
+                            "to": [
+                                {
+                                    "namespaceSelector": {
+                                        "matchLabels": {
+                                            "kubernetes.io/metadata.name": "observability"
+                                        }
+                                    },
+                                    "podSelector": {
+                                        "matchLabels": {
+                                            "app.kubernetes.io/name": "ntfy"
+                                        }
+                                    },
+                                }
+                            ],
+                            "ports": [{"protocol": "TCP", "port": "http"}],
+                        },
+                        *(
+                            {
+                                "to": [{"ipBlock": {"cidr": f"{ip}/32"}}],
+                                "ports": [{"protocol": "TCP", "port": port}],
                             }
-                        ]
-                        if params.intake
-                        else []
-                    ),
-                ],
+                            for ip, port in params.api_endpoints
+                        ),
+                        *(
+                            [
+                                {
+                                    "to": [
+                                        {
+                                            "ipBlock": {
+                                                "cidr": f"{params.intake.woodpecker_ip}/32"
+                                            }
+                                        }
+                                    ],
+                                    "ports": [
+                                        {
+                                            "protocol": "TCP",
+                                            "port": params.intake.woodpecker_port,
+                                        }
+                                    ],
+                                }
+                            ]
+                            if params.intake
+                            else []
+                        ),
+                    ],
+                },
             },
-        },
-        {
-            "apiVersion": "networking.k8s.io/v1",
-            "kind": "NetworkPolicy",
-            "metadata": meta(WORKER),
-            "spec": {
-                "podSelector": {"matchLabels": worker_selector},
-                "policyTypes": ["Ingress", "Egress"],
-                "ingress": [],
-                "egress": [
-                    dns,
-                    {
-                        "to": [{"podSelector": {"matchLabels": selector}}],
-                        "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                    },
-                    {
-                        "to": [
-                            {"ipBlock": {"cidr": "0.0.0.0/0", "except": list(PRIVATE)}}
-                        ],
-                        "ports": [{"protocol": "TCP", "port": 443}],
-                    },
-                ],
+            {
+                "apiVersion": "networking.k8s.io/v1",
+                "kind": "NetworkPolicy",
+                "metadata": meta(WORKER),
+                "spec": {
+                    "podSelector": {"matchLabels": worker_selector},
+                    "policyTypes": ["Ingress", "Egress"],
+                    "ingress": [],
+                    "egress": [
+                        dns,
+                        {
+                            "to": [{"podSelector": {"matchLabels": selector}}],
+                            "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
+                        },
+                        {
+                            "to": [
+                                {
+                                    "ipBlock": {
+                                        "cidr": "0.0.0.0/0",
+                                        "except": list(PRIVATE),
+                                    }
+                                }
+                            ],
+                            "ports": [{"protocol": "TCP", "port": 443}],
+                        },
+                    ],
+                },
             },
-        },
-    ] + intake_documents(params)
+        ]
+        + intake_documents(params)
+        + backup_documents(params)
+    )

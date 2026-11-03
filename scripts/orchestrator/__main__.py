@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 from scripts.orchestrator.core import (
@@ -36,14 +37,45 @@ from scripts.orchestrator.supervisor_policy import audit_letta
 POLICY = "operator-cli"
 
 
+BACKUP_PREFIX = "orchestrator-"
+
+
+def rotate(
+    store: Store, directory: Path, keep: int, group: int | None
+) -> dict[str, object]:
+    """Write a dated, integrity-checked snapshot and keep the newest `keep`.
+
+    The store is 0600 for its owner. With `group`, the snapshot is handed to
+    that group read-only so the off-site shipper can read it without any
+    access to the live store.
+    """
+    if keep < 1:
+        raise OrchestratorError("INVALID_SPEC", "keep at least one snapshot")
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    destination = directory / f"{BACKUP_PREFIX}{stamp}.sqlite"
+    store.backup(destination)
+    if group is not None:
+        os.chown(destination, -1, group)
+        destination.chmod(0o640)
+    snapshots = sorted(directory.glob(f"{BACKUP_PREFIX}*.sqlite"))
+    removed = snapshots[:-keep]
+    for old in removed:
+        old.unlink()
+    return {"backup": str(destination), "removed": [str(old) for old in removed]}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m scripts.orchestrator")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("check", "migrate", "backup"):
+    for name in ("check", "migrate", "backup", "backup-rotate"):
         command = commands.add_parser(name)
         command.add_argument("--db", type=Path, required=True)
         if name == "backup":
             command.add_argument("destination", type=Path)
+        if name == "backup-rotate":
+            command.add_argument("--dir", type=Path, required=True)
+            command.add_argument("--keep", type=int, default=7)
+            command.add_argument("--group", type=int)
     supervisor = commands.add_parser("supervisor-audit")
     supervisor.add_argument("--letta-dir", type=Path, required=True)
     supervisor.add_argument("--approve", action="append", default=[])
@@ -128,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "backup":
             store.backup(args.destination)
             result["backup"] = str(args.destination)
+        elif args.command == "backup-rotate":
+            result.update(rotate(store, args.dir, args.keep, args.group))
     except OrchestratorError as error:
         print(json.dumps({"ok": False, "code": error.code, "error": str(error)}))
         return 1
