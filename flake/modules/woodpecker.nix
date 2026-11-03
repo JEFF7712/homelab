@@ -23,7 +23,8 @@ let
     exec env PYTHONPATH=${serviceReleaseSource} ${pkgs.python3}/bin/python3 -m scripts.ci.service_release worker
   '';
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
-    mkdir -p $out/scripts/ci $out/config/ci
+    mkdir -p $out/scripts/ci $out/scripts/verifier $out/config/ci
+    cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py
@@ -44,7 +45,7 @@ let
     cp ${../../scripts/ci/container_release.py} $out/scripts/ci/container_release.py
     cp ${../../scripts/ci/node_release.py} $out/scripts/ci/node_release.py
     cp ${../../scripts/ci/dotnet_release.py} $out/scripts/ci/dotnet_release.py
-    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
+    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py $out/scripts/verifier/__init__.py
     PYTHONPATH=$out ${python}/bin/python -c ${lib.escapeShellArg ''
       from pathlib import Path
       from scripts.ci.applications import load_catalog, configuration

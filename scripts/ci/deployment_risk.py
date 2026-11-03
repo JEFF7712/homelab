@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scripts.verifier.enforcement import DATA_PATHS, ENFORCEMENT_PATHS
+
 APPROVAL_REQUIRED = "Human approval required"
 
 # Executed from the operation's own commit by every catalog operation, so a
@@ -17,56 +19,15 @@ RUNTIME_PATHS = (
     "scripts/ci/operation.py",
     "scripts/ci/deployment_risk.py",
 )
-OPERATION_PATHS = {
-    "switches-apply": (
-        "scripts/switches/model.py",
-        "scripts/switches/runner.py",
-        "tofu/switches/main.tf",
-    ),
-    "opnsense-apply": (
-        "opnsense_reconciler/agent_acl",
-        "opnsense_reconciler/unbound-acls.json",
-    ),
-}
-# Authorization and storage sources that a host deployment activates.
-HOST_PATHS = (
-    "flake/modules/switch-tofu.nix",
-    "scripts/switches/model.py",
-    "scripts/switches/runner.py",
-    "tofu/switches/main.tf",
-    "scripts/ci/policy.py",
-    "scripts/ci/state.py",
-    "scripts/approvals/",
-    "scripts/verifier/",
-    "flake/modules/merge-policy.nix",
-    "scripts/projectctl/authorization.py",
-    "scripts/projectctl/gateway.py",
-    "scripts/registry/provision",
-    "config/ci/operations.json",
-    "config/ci/forgejo-protection.json",
-    "config/ci/woodpecker-repository.json",
-    "config/projectctl/",
-    "config/agent-workspaces/",
-    "config/netbird/",
-    "flake/patches/",
-    "flake/modules/woodpecker.nix",
-    "flake/modules/approvals.nix",
-    "flake/modules/projectctl.nix",
-    "flake/modules/tofu-state.nix",
-    "flake/modules/common-base.nix",
-    "flake/modules/zot-registry.nix",
-    "flake/modules/agent-workspace-network.nix",
-    "flake/modules/github-runner-nixos",
-    "flake/profiles/projectctl-pilot.nix",
-    ".sops.yaml",
-    "flake/modules/disko",
-    "flake/disks/",
-    "flake/modules/nas-data.nix",
-)
+# What a host deployment activates that the operator gates: enforcement code
+# (scripts/verifier/enforcement.py) and disk layouts that can destroy data.
+HOST_PATHS = ENFORCEMENT_PATHS + DATA_PATHS
+# Root access to a host reaches the enforcement code running there, and disk
+# commands destroy data.
 SENSITIVE_NIX = re.compile(
     r"authorizedKeys|security\.sudo|security\.pam|PermitRootLogin|"
     r"PasswordAuthentication|trusted-users|trustedUsers|extraRules|"
-    r"\"wheel\"|homelab\.(woodpecker|approvals)|services\.projectctl|"
+    r"\"wheel\"|homelab\.(woodpecker|approvals)|"
     r"disko\.|mkfs\b|wipefs\b|zfs destroy"
 )
 
@@ -76,14 +37,10 @@ def host_operation(spec: dict[str, Any]) -> bool:
 
 
 def protected_paths(operation: str, host: bool) -> tuple[str, ...]:
-    return (
-        RUNTIME_PATHS
-        + OPERATION_PATHS.get(operation, ())
-        + (HOST_PATHS if host else ())
-    )
+    return RUNTIME_PATHS + (HOST_PATHS if host else ())
 
 
-ALL_PATHS = RUNTIME_PATHS + HOST_PATHS + sum(OPERATION_PATHS.values(), ())
+ALL_PATHS = RUNTIME_PATHS + HOST_PATHS
 
 
 def protected(path: str, paths: tuple[str, ...] = ALL_PATHS) -> bool:
@@ -143,33 +100,51 @@ def nix_authority_change(before: str, after: str) -> bool:
     )
 
 
+AUTHORIZATION_KINDS = (
+    "access_policy",
+    "access_application",
+    "api_token",
+    "service_token",
+    "role",
+    "permission",
+    "opnsense_user",
+    "opnsense_group",
+)
+
+
+def _changes(plan: dict[str, Any]):
+    for resource in plan.get("resource_changes", []):
+        actions = resource.get("change", {}).get("actions", [])
+        if actions == ["no-op"] or actions == ["read"]:
+            continue
+        yield (
+            resource.get("type", "").lower(),
+            resource.get("address", "unknown resource"),
+            actions,
+        )
+
+
+def plan_notices(plan: dict[str, Any]) -> list[str]:
+    """Authorization changes agents may apply: recorded, never held."""
+    if not isinstance(plan.get("resource_changes"), list):
+        return []
+    return [
+        f"authorization change: {address}"
+        for kind, address, _ in _changes(plan)
+        if any(word in kind for word in AUTHORIZATION_KINDS)
+    ]
+
+
 def plan_risks(plan: dict[str, Any]) -> list[str]:
+    """What the operator applies: data destruction and changes that would cut
+    off management or destroy in bulk, which only the operator can recover."""
     if plan.get("errored") or plan.get("complete") is False:
         return ["incomplete infrastructure plan"]
     if not isinstance(plan.get("resource_changes"), list):
         return ["unrecognized infrastructure plan"]
     risks = []
     deletions = 0
-    for resource in plan.get("resource_changes", []):
-        actions = resource.get("change", {}).get("actions", [])
-        if actions == ["no-op"] or actions == ["read"]:
-            continue
-        kind = resource.get("type", "").lower()
-        address = resource.get("address", "unknown resource")
-        if any(
-            word in kind
-            for word in (
-                "access_policy",
-                "access_application",
-                "api_token",
-                "service_token",
-                "role",
-                "permission",
-                "opnsense_user",
-                "opnsense_group",
-            )
-        ):
-            risks.append(f"authorization change: {address}")
+    for kind, address, actions in _changes(plan):
         if "delete" in actions and any(
             word in kind
             for word in ("volume", "disk", "database", "bucket", "filesystem", "pool")
@@ -230,9 +205,12 @@ def require_plan_approval(
             or not isinstance(plan.get("resource_changes"), list)
         ):
             raise ValueError("Invalid or incomplete infrastructure plan")
-        # Authorization changes (access policies, tokens, roles), persistent
-        # data deletion, management connectivity loss and bulk destruction
-        # widen or destroy what bounds the agents: an operator applies those.
+        # Authorization changes are the agents' to make and are recorded in
+        # the job log. Persistent data deletion waits for restore evidence;
+        # management connectivity loss and bulk destruction only the operator
+        # can recover from, so the operator applies those.
+        for notice in plan_notices(plan):
+            print(f"recorded: {notice}")
         if risks:
             raise ValueError(f"{APPROVAL_REQUIRED}: " + "; ".join(risks))
 

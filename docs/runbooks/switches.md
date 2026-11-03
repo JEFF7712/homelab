@@ -44,8 +44,8 @@ before retrying; never delete production state to force adoption.
 The workflow prevents resource destruction, VLAN mode changes, disruptive
 provider overrides, hardware or firmware substitutions, and creation of physical
 ports or PVIDs. A rejected maintenance change needs a separate procedure and
-review. Changes to the worker's safety controls or CI authority require exact
-operator approval under `AGENTS.md`.
+review. Changes to CI enforcement, including the state service, require exact operator
+approval under `AGENTS.md`.
 
 ## Encryption and recovery
 
