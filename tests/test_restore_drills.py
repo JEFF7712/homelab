@@ -106,6 +106,24 @@ class RestoreDrillCoverageTest(unittest.TestCase):
                     self.assertIn("limits", container["resources"])
 
 
+class DrillScratchTest(unittest.TestCase):
+    """Non-root drill containers cannot chmod a volume's mount root."""
+
+    def test_no_container_chmods_a_mount_root(self) -> None:
+        for name, job in cronjobs().items():
+            if "drill" not in name:
+                continue
+            spec = pod(job)
+            for container in spec.get("initContainers", []) + spec["containers"]:
+                roots = {m["mountPath"] for m in container.get("volumeMounts", [])}
+                for line in script(container).splitlines():
+                    if "chmod" not in line:
+                        continue
+                    targets = set(line.split("chmod", 1)[1].split()[1:])
+                    with self.subTest(job=name, container=container["name"]):
+                        self.assertEqual(targets & roots, set(), line.strip())
+
+
 class RecordScriptTest(unittest.TestCase):
     """record.sh writes evidence per dataset and fails on any failure."""
 
