@@ -22,6 +22,8 @@ from scripts.orchestrator.core import (
 )
 
 POLICY = "policy-1"
+# A schema step past the real ones, for migration tests.
+NEXT = core.SCHEMA_VERSION + 1
 CRITERIA = ("tests pass", "README documents the flag")
 
 
@@ -166,7 +168,7 @@ class TransitionTests(StoreCase):
             self.assertEqual(self.store.get_task(task_id).status, "validating")
         self.store.record_verification(task_id, evidence(), "verifier", 3.0)
         self.assertEqual(self.store.get_task(task_id).status, "in_review")
-        done = self.store.complete(task_id, "controller", 4.0)
+        done = self.store.complete(task_id, "controller", 4.0, "a" * 40)
         self.assertEqual(done.status, "completed")
         completed = [
             e for e in self.store.events(task_id) if e["type"] == "task.completed"
@@ -174,10 +176,18 @@ class TransitionTests(StoreCase):
         self.assertEqual(completed[0]["payload"]["head_sha"], "a" * 40)
         self.assertEqual(completed[0]["payload"]["verifier"], "verifier")
 
+    def test_completion_refuses_a_head_that_moved_after_verification(self) -> None:
+        task_id = self.validating()
+        self.store.record_verification(task_id, evidence(), "verifier", 3.0)
+        with self.assertRaises(OrchestratorError) as raised:
+            self.store.complete(task_id, "controller", 4.0, "b" * 40)
+        self.assertEqual(raised.exception.code, "EVIDENCE_REJECTED")
+        self.assertEqual(self.store.get_task(task_id).status, "in_review")
+
     def test_completion_needs_review_state_and_a_stored_verification(self) -> None:
         task_id = self.validating()
         with self.assertRaises(OrchestratorError) as raised:
-            self.store.complete(task_id, "controller", 2.0)
+            self.store.complete(task_id, "controller", 2.0, "a" * 40)
         self.assertEqual(raised.exception.code, "EVIDENCE_REQUIRED")
 
     def test_only_the_controller_verifies_and_completes(self) -> None:
@@ -186,7 +196,7 @@ class TransitionTests(StoreCase):
         try:
             for call in (
                 lambda: reader.record_verification(task_id, evidence(), "w", 2.0),
-                lambda: reader.complete(task_id, "w", 2.0),
+                lambda: reader.complete(task_id, "w", 2.0, "a" * 40),
             ):
                 with self.assertRaises(OrchestratorError) as raised:
                     call()
@@ -221,7 +231,7 @@ class SchedulingTests(StoreCase):
         self.assertIsNone(self.claim(max_running=5))
         self.store.settle_attempt(attempt, "sched", {"final_text": "done"}, 2.0)
         self.store.record_verification(base_id, evidence(), "verifier", 2.0)
-        self.store.complete(base_id, "controller", 2.0)
+        self.store.complete(base_id, "controller", 2.0, "a" * 40)
         claimed = self.claim(3.0)
         assert claimed is not None
         self.assertEqual(claimed[0].id, child.id)
@@ -624,13 +634,13 @@ class StorageTests(StoreCase):
         upgrade = "ALTER TABLE tasks ADD COLUMN note TEXT;"
         with (
             mock.patch.object(core, "MIGRATIONS", (*core.MIGRATIONS, upgrade)),
-            mock.patch.object(core, "SCHEMA_VERSION", 2),
+            mock.patch.object(core, "SCHEMA_VERSION", NEXT),
         ):
             self.store = Store(self.path, POLICY, controller=True)
-            self.assertEqual(self.store.schema_version(), 2)
-        (snapshot,) = self.path.parent.glob(self.path.name + ".pre-v2-*.sqlite")
+            self.assertEqual(self.store.schema_version(), NEXT)
+        (snapshot,) = self.path.parent.glob(self.path.name + f".pre-v{NEXT}-*.sqlite")
         old = sqlite3.connect(snapshot)
-        self.assertEqual(old.execute("PRAGMA user_version").fetchone()[0], 1)
+        self.assertEqual(old.execute("PRAGMA user_version").fetchone()[0], NEXT - 1)
         old.close()
         self.assertEqual(self.store.get_task(task.id).title, spec().title)
         columns = {row[1] for row in self.store.db.execute("PRAGMA table_info(tasks)")}
@@ -641,13 +651,13 @@ class StorageTests(StoreCase):
         upgrade = "ALTER TABLE tasks ADD COLUMN note TEXT;"
         with (
             mock.patch.object(core, "MIGRATIONS", (*core.MIGRATIONS, upgrade)),
-            mock.patch.object(core, "SCHEMA_VERSION", 2),
+            mock.patch.object(core, "SCHEMA_VERSION", NEXT),
         ):
             with self.assertRaises(OrchestratorError) as raised:
                 Store(self.path, POLICY)
             self.assertEqual(raised.exception.code, "SCHEMA")
             self.store = Store(self.path, POLICY, controller=True)
-            self.assertEqual(self.store.schema_version(), 2)
+            self.assertEqual(self.store.schema_version(), NEXT)
 
     def test_failed_migration_leaves_the_store_unchanged(self) -> None:
         task, _ = self.store.create_task("rupan", "k1", spec(), 1.0)
@@ -655,12 +665,12 @@ class StorageTests(StoreCase):
         broken = "ALTER TABLE tasks ADD COLUMN note TEXT; SELECT * FROM missing;"
         with (
             mock.patch.object(core, "MIGRATIONS", (*core.MIGRATIONS, broken)),
-            mock.patch.object(core, "SCHEMA_VERSION", 2),
+            mock.patch.object(core, "SCHEMA_VERSION", NEXT),
             self.assertRaises(sqlite3.OperationalError),
         ):
             Store(self.path, POLICY, controller=True)
         self.store = Store(self.path, POLICY, controller=True)
-        self.assertEqual(self.store.schema_version(), 1)
+        self.assertEqual(self.store.schema_version(), NEXT - 1)
         columns = {row[1] for row in self.store.db.execute("PRAGMA table_info(tasks)")}
         self.assertNotIn("note", columns)
         self.assertEqual(self.store.get_task(task.id).id, task.id)

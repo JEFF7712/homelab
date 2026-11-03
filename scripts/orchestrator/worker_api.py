@@ -124,7 +124,14 @@ class WorkerApi:
             payload = body.get("payload")
             if not isinstance(payload, dict):
                 raise OrchestratorError("INVALID_SPEC", "payload must be an object")
-            allowed = {"backend", "provider", "model", "final_text"}
+            allowed = {
+                "backend",
+                "provider",
+                "model",
+                "final_text",
+                "branch",
+                "head_sha",
+            }
             channel.settle(
                 {k: clean(str(v)) for k, v in payload.items() if k in allowed}
             )
@@ -271,10 +278,21 @@ def serve(
 class HttpChannel:
     """WorkerChannel client used inside the worker pod."""
 
-    def __init__(self, base_url: str, token: str, timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        timeout: float = 30.0,
+        retry_seconds: float = 600.0,
+    ) -> None:
+        """`retry_seconds` bounds how long the worker waits out an unreachable
+        controller (a restart) before giving up on a call. It may exceed the
+        lease: a starting controller extends live leases before it reaps.
+        """
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.timeout = timeout
+        self.retry_seconds = retry_seconds
 
     def call(
         self, operation: str, body: dict[str, Any] | None = None
@@ -288,6 +306,25 @@ class HttpChannel:
             },
             method="POST",
         )
+        deadline = time.monotonic() + self.retry_seconds
+        delay = 0.2
+        while True:
+            try:
+                return self._send(request)
+            except (OrchestratorError, urllib.error.URLError, OSError) as error:
+                busy = isinstance(error, OrchestratorError) and error.code == "HTTP_503"
+                if isinstance(error, OrchestratorError) and not busy:
+                    raise
+                if time.monotonic() + delay > deadline:
+                    if busy:
+                        raise
+                    raise OrchestratorError(
+                        "UNREACHABLE", f"controller unreachable: {error}"
+                    ) from None
+                time.sleep(delay)
+                delay = min(delay * 2, 5.0)
+
+    def _send(self, request: urllib.request.Request) -> dict[str, Any]:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read() or b"{}")
