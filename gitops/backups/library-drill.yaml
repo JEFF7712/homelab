@@ -120,8 +120,10 @@ spec:
                 - |
                   mkdir -p /work/results && chmod 1777 /work/results
                   fail() { echo "fail: $*" > /work/results/immich-library; echo "fail: $*"; exit 0; }
-                  # Wait for a running backup's lock rather than read a repository
-                  # mid-write.
+                  # Clear locks left by killed runs (unlock removes only stale ones,
+                  # as the backup job does), then wait for a running backup's lock
+                  # rather than read a repository mid-write.
+                  restic unlock || true
                   restic --retry-lock 1h check --read-data-subset=2% || fail "restic check"
                   cutoff="$(date -u -d "@$(( $(date +%s) - 2 * 86400 ))" +%Y-%m-%dT%H:%M:%S)"
                   recent="$(restic --retry-lock 1h snapshots --json | grep -o '"time":"[^"]*"' \
