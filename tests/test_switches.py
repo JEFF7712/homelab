@@ -22,7 +22,11 @@ from scripts.switches.model import (
 from scripts.switches.runner import BLUEPRINT_FILES, Engine, blueprint_digest
 
 ROOT = Path(__file__).resolve().parents[1]
-INVENTORY = json.loads((ROOT / "tofu/switches/inventory.json").read_text())
+DESIRED_INVENTORY = json.loads((ROOT / "tofu/switches/inventory.json").read_text())
+# Network adoption is tested before optional description management.
+INVENTORY = copy.deepcopy(DESIRED_INVENTORY)
+for switch in INVENTORY["switches"].values():
+    switch["description"] = None
 
 
 def plan_document(
@@ -50,6 +54,7 @@ def plan_document(
 
 class InventoryTest(unittest.TestCase):
     def test_snapshot_covers_all_physical_resources(self) -> None:
+        validate_inventory(DESIRED_INVENTORY)
         validate_inventory(INVENTORY)
         self.assertEqual(len(addresses(INVENTORY, "upstairs")), 25)
         self.assertEqual(len(addresses(INVENTORY, "downstairs")), 16)
