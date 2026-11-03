@@ -542,6 +542,16 @@ giving an operator token to the agent. Never commit tokens.
 
 ## Recovery
 
+A pipeline can fail before posting a validation status. Read its API `errors`
+field when no workflows exist: connection refused at `127.0.0.1:8010/config`
+points to `woodpecker-policy.service` on homelab-04. If configuration succeeds
+but clone and validation are killed without logs, inspect the assigned agent's
+journal and Docker availability. An active agent process does not prove that
+`docker.service` and `docker.socket` are running. Confirm target identity,
+declared unit state and maintenance activity before restoring stopped services
+within authorized recovery. Retry only the affected pipeline after those
+prerequisites are healthy; preserve the original failure evidence.
+
 A Woodpecker server restart can cancel its own deployment workflow through
 gRPC while the host switch completes. Before retrying, inspect the running
 host generation, service health and node cordon state. If activation succeeded,
