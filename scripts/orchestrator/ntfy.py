@@ -14,7 +14,14 @@ from dataclasses import dataclass
 
 from scripts.orchestrator.core import Message, Task
 
-TOPICS = ("question.open", "question.expired", "approval.open", "task.status")
+TOPICS = (
+    "question.open",
+    "question.expired",
+    "approval.open",
+    "answer.proposed",
+    "security.incident",
+    "task.status",
+)
 NOTIFY_STATUSES = frozenset(
     {"needs_input", "in_review", "completed", "failed", "cancelled"}
 )
@@ -48,6 +55,24 @@ def render(message: Message, issue_url: str | None) -> Notice | None:
             f"{payload.get('question_id')} was not answered in time; the attempt stops.{where}",
             "default",
             "hourglass",
+        )
+    if message.topic == "answer.proposed":
+        return Notice(
+            f"Proposed answer on {message.task_id}",
+            f"{payload.get('proposed_by')} proposes answering "
+            f"{payload.get('question_id')} (revision {payload.get('revision')}) "
+            f"with: {payload.get('answer')}\nConfirm on the issue: /confirm "
+            f"{payload.get('proposal_id')}{where}",
+            "high",
+            "question",
+        )
+    if message.topic == "security.incident":
+        return Notice(
+            f"Security incident on {message.task_id}",
+            f"{payload.get('kind')} (attempt {payload.get('attempt_id')}): "
+            f"{payload.get('detail')}{where}",
+            "urgent",
+            "warning",
         )
     if message.topic == "approval.open":
         return Notice(

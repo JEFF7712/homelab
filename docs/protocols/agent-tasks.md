@@ -184,9 +184,10 @@ names; nothing else from the controller is inherited.
 ### Worker API
 
 The runner never holds the store. It talks to the controller through a
-`WorkerChannel` with eight operations: `start`, `renew`, `ask`, `inbox`,
-`acknowledge`, `session`, `settle`, `finish`. In a worker pod that channel is
-`HttpChannel`, a client of `scripts/orchestrator/worker_api.py`:
+`WorkerChannel` with nine operations: `start`, `renew`, `ask`, `inbox`,
+`acknowledge`, `session`, `submit`, `settle`, `finish`. In a worker pod that
+channel is `HttpChannel`, a client of `scripts/orchestrator/worker_api.py`,
+which also serves `source`:
 
 - At claim the controller mints a random token (`issue_token`), stores only
   its SHA-256 on the attempt, and gives the token to that attempt's Job.
@@ -200,8 +201,13 @@ The runner never holds the store. It talks to the controller through a
   other attempts. `acknowledge` accepts only this attempt's answer keys; a
   worker can never acknowledge its own `worker.cancel`. `renew` fails once
   the task is cancelled. `settle` keeps only `backend`, `provider`, `model`
-  and `final_text`. `Content-Length` must be a non-negative integer of at most
-  64 KiB.
+  and `final_text`, never a branch or commit, and a bound attempt cannot
+  settle before it has submitted its patch. `Content-Length` must be a
+  non-negative integer of at most 64 KiB (4 MiB for `submit`).
+- `source` returns the attempt's bound base commit as a tar archive, with no
+  Git metadata. `submit` takes the attempt's binary patch (raw bytes) once; a
+  different second patch is `CONFLICT`. These replace the forge: a worker
+  holds no forge credential, has no Git remote and no forge egress.
 - The token is checked before any body is read. Each connection carries one
   request (HTTP/1.0), every socket read times out after 10 seconds, and a
   watchdog closes any connection still open after 15 seconds, however slowly
@@ -299,6 +305,8 @@ Anything that triggers a CI deployment uses the existing
 | `worker.answer` | `attempt_id`, `question_id`, `answer` | the attempt's runner |
 | `worker.cancel` | `attempt_id`, `reason` | the controller's Job manager |
 | `approval.open` | `approval_id`, `action`, `expires` | sinks, clients |
+| `answer.proposed` | `proposal_id`, `question_id`, `revision`, `answer`, `proposed_by` | forge and ntfy sinks |
+| `security.incident` | `kind`, `attempt_id`, `detail` | forge and ntfy sinks |
 
 Messages for a worker carry their `attempt_id`; each runner reads only its
 own (`attempt_messages`), so other attempts' backlog cannot starve it.
@@ -333,20 +341,26 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    `startup_seconds` (default 600, covering scheduling and image pulls),
    mint the worker token,
    start the Job with a job file holding the brief, the token and the
-   attempt branch `agent/<task>/<attempt number>`. A failed start is only
+   attempt branch `agent/<task>/<attempt number>`, and bind the attempt to
+   that branch and to the base branch's current commit, read by the
+   publisher before the claim (`artifacts`, schema v3). A failed start is only
    logged: the Job may exist anyway, so reconciliation finishes the attempt
    once the Job is observed missing. A Job whose Secret cannot be created is
    deleted at once.
-6. Verify `validating` tasks: ensure the pull request for the attempt branch,
-   read CI and reviews (`scripts/orchestrator/verifier.py`), then
-   `record_verification` and `complete`. Failed CI or a missing branch sends
-   the task back to `ready` until attempt 3, then `failed`. A task left in
-   `in_review` by a crash is finalized only after a fresh read shows the same
-   head still passing; otherwise it goes back to `validating`.
+6. Publish and verify `validating` tasks (see "Publishing" below): publish
+   the attempt's patch, ensure the pull request for the attempt branch, read
+   CI and reviews for the published commit
+   (`scripts/orchestrator/verifier.py`), `record_verification`, then re-read
+   and re-verify before `complete`. Failed CI, a missing or rejected patch, or
+   a pull request head that is not the published commit sends the task back
+   to `ready` until attempt 3, then `failed`. A task left in `in_review` by a
+   crash is finalized only after a fresh read shows the published commit
+   still passing; otherwise it goes back to `validating`.
 7. Apply issue commands from the task principal's forge login only:
-   `/answer <question> <revision> <text>`, `/approve <id>`, `/decline <id>`,
-   `/cancel`. Each comment is processed once (`forge_cursors`, schema v2);
-   rejected commands become `command.rejected` events. Comments by the
+   `/answer <question> <revision> <text>`, `/confirm <proposal>`,
+   `/approve <id>`, `/decline <id>`, `/cancel`. Each comment is processed
+   once (`forge_cursors`, schema v2); rejected commands become
+   `command.rejected` events. Comments by the
    controller's own login, or carrying its message marker, never count: they
    quote worker text.
 8. Deliver notifications to each sink (forge comments, ntfy) within a
@@ -354,13 +368,22 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    not hold the store lock across a tick, so a slow sink never blocks the
    worker API.
 
+Steps 2, 5 and 6 report security incidents as they happen
+(`security.incident`, once per key, to the forge and ntfy sinks): a worker
+stop the Kubernetes API did not confirm (`worker-stop-failed`; the stop is
+retried every tick until the Job is gone), a Job whose Secret failed and
+whose deletion also failed (`worker-cleanup-failed`; its attempt is reaped
+after the startup lease and then fenced), and a published branch that
+someone else wrote (`branch-written-by-another`, `published-branch-changed`;
+the attempt is void).
+
 Acceptance criteria are checked without worker input: `ci:<context>` needs
 that status context to succeed on the pull request head; any other criterion
 needs an approving review of that exact head from the principal's forge
 login. CI is read from every status on the head (`/commits/<sha>/statuses`,
 all pages), keeping the newest per context among those posted by the
-configured `verifier.ci_logins`. Anyone with repository write access, which
-includes every worker, can post a status, and the forge's combined view
+configured `verifier.ci_logins`. Anyone with repository write access can
+post a status, and the forge's combined view
 keeps only the newest per context, so statuses from other accounts are
 ignored rather than trusted. With no CI login configured nothing passes.
 Reviews are read across all pages; the newest per reviewer counts.
@@ -378,8 +401,57 @@ final line of an issue or comment authored by the controller's own login
 (`GET /api/v1/user`), and controller comments break `<!--` in the text they
 quote, so worker text reflected through the controller cannot carry one.
 Another account therefore cannot pre-post a marker to hijack an issue or
-suppress a notice. Workers push only their attempt branch; the controller
-opens pull requests and reads CI.
+suppress a notice. Only the publisher writes Git; the controller opens pull
+requests and reads CI. Nothing merges: workers produce reviewable pull
+requests, and the controller has no merge call.
+
+### Publishing
+
+`scripts/orchestrator/publisher.py` is the only component with a forge write
+credential. It runs in the controller pod, which workers reach only through
+the worker API, and its token reaches git through the environment for one
+command at a time, never argv or a file. For a settled attempt it:
+
+1. refuses an empty patch, one over 4 MiB, one with a `delta` binary hunk
+   or a `literal` hunk over 8 MiB, one that does not apply to the bound base
+   commit, one whose resulting files exceed 8 MiB each or grow the tree by
+   over 32 MiB, one that touches a protected path, and one that adds a
+   symlink or submodule. Protected paths are matched case-insensitively
+   against every path suffix, so they apply at any depth: any `.git`
+   component, `.gitattributes`, `.gitmodules`, `CODEOWNERS`, CI and forge
+   configuration (`.woodpecker*`, `.forgejo/`, `.gitea/`, `.github/`,
+   `.gitlab-ci.yml`, `.pre-commit-config.yaml`), and agent configuration
+   (`.claude/`, `.codex/`, `.cursor/`, `.opencode/`, `.mcp.json`, `.envrc`,
+   `AGENTS.md`, `CLAUDE.md`), plus any per-repository patterns. There is no
+   override; such changes need a human pull request;
+2. applies the patch to a temporary index of the base commit with
+   `git apply --cached` under a 512 MiB address-space limit, so nothing is
+   checked out, filtered or executed, hooks are disabled, and a hunk that
+   inflates cannot exhaust the controller;
+3. commits the tree with a fixed identity and the submission time, so the
+   same patch on the same base is always the same commit;
+4. pushes it to `agent/<task>/<attempt>` (the only branches it accepts) with
+   `--force-with-lease=<branch>:`, so the branch must not exist. A rejected
+   push succeeds only if the branch already holds exactly that commit (a
+   crash between push and record); a different commit there is a conflict
+   and voids the attempt; no branch at all means the push failed for
+   another reason and is retried.
+
+The base archive served by `source` is built once per commit (at most
+128 MiB of blobs), one build at a time, and served from disk afterwards.
+
+The publisher records the pushed commit (`record_publication`). From then on
+verification is bound to it: the verifier fails a pull request whose head is
+any other commit, `record_verification` and `complete` refuse evidence about
+any other commit, and the stored evidence lists the exact statuses
+(context, state, creator, status id) and reviews (login, review id) it
+relied on. Finalization re-reads the pull request and re-runs the checks
+immediately before `complete`.
+
+Merging stays manual. Forgejo 15.0.10's merge endpoint accepts
+`head_commit_id` and compares it with the head it fetched into the merge
+clone, which it then merges, so an autonomous merge could be bound to the
+verified commit; that capability is not enabled.
 
 ## Client API
 
@@ -393,17 +465,41 @@ required), `get_task`, `list_tasks`, `cancel_task`, `answer_question`, and
 those come from the human principal on the forge. The controller binds it to
 loopback; the bridge runs beside it.
 
+A client is an agent with state-changing tools, so worker-originated text is
+kept out of it in application code, not by prompting:
+
+- No response carries text a worker wrote. Task views list open questions
+  as `question_id`, `revision` and `choice_count`; attempts as `number` and
+  `finished`. Events carry only the fields in `EVENT_FIELDS` (identifiers
+  and controller states): `task.status` `from`/`to`, `question.open`
+  `question_id`/`revision`/`blocking`, `question.expired` `question_id`,
+  `approval.open` `approval_id`/`expires`. Question prompts, choices,
+  failure reasons, final text and approval descriptions go only to the human
+  channels (the forge issue and ntfy).
+- `answer_question` does not answer. It validates the question, revision and
+  choice and records a proposal (`answer_proposals`, schema v4), which the
+  forge and ntfy sinks show as `answer.proposed` with its `/confirm <id>`
+  command. The principal's `/confirm` on the issue answers the question,
+  only if the proposal is pending, belongs to that task, and the question is
+  still open at the proposed revision with a live attempt. A stranger's or
+  the controller's own `/confirm` is ignored like any other command.
+- Errors carry their code and a fixed sentence (`ERROR_TEXT`), never the
+  store's message, which can quote stored values.
+- Since no worker text reaches the supervisor, none can be promoted into its
+  persistent memory either.
+
 `scripts/orchestrator/letta_bridge.py` is one such client. It registers those
 operations as Letta external tools in `runtime_start`, answers
 `external_tool_call_request` from the client API, re-registers after every
 reconnect, and delivers events as `input`/`create_message` user turns wrapped
-in `<system-reminder>` with the outbox key as `client_message_id`. Worker
-text inside those turns is quoted and labelled untrusted. The bridge acks an
+in `<system-reminder>` with the outbox key as `client_message_id`. Those turns
+render identifiers and controller states only (anything else becomes
+`(invalid)`), plus the principal's own task title, quoted so it cannot close
+the wrapper. The bridge acks an
 event only after Letta answers its `input` with `input_accepted` and
 `accepted: true`; a rejection or no answer within `accept_seconds` leaves
 the event pending for redelivery, and a failed ack is retried on the next
-poll. Worker text has `<`, `>` and `&` escaped, so it cannot close the
-wrapper. Replacing Letta replaces only this file.
+poll. Replacing Letta replaces only this file.
 
 ## Error codes
 

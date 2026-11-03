@@ -60,18 +60,7 @@ class ManifestTests(unittest.TestCase):
 
     def test_rendered_manifests_pass_the_repository_schemas(self) -> None:
         docs = render(PARAMS)
-        spec = JobSpec(
-            "att_1",
-            "task_1",
-            "http://c",
-            "t",
-            "b",
-            "r",
-            "main",
-            "agent/task_1/1",
-            {"kind": "pi"},
-            "m",
-        )
+        spec = JobSpec("att_1", "task_1", "http://c", "t", "b", {"kind": "pi"})
         secret, job = render_job(
             spec,
             KubernetesJobConfig(
@@ -158,6 +147,162 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             config["jobs"]["node_selector"], {"kubernetes.io/hostname": "homelab-02"}
         )
+
+    def test_backend_settings_follow_a_closed_schema(self) -> None:
+        from scripts.orchestrator.manifests import validate_backend
+
+        claude = {
+            "kind": "claude",
+            "claude": "claude",
+            "model": "claude-opus-5-5",
+            "config_dir": "/work/claude",
+            "token_file": "/run/worker/claude-oauth-token",
+        }
+        codex = {
+            "kind": "codex",
+            "codex": "codex",
+            "model": "gpt-5.6-sol",
+            "codex_home": "/var/lib/codex-auth",
+        }
+        codex_mount = ({"name": "codex-auth", "mountPath": "/var/lib/codex-auth"},)
+        validate_backend(PARAMS.backend)
+        validate_backend(claude)
+        validate_backend(codex, codex_mount)
+        refused = {
+            # credentials under innocuous names, in values, or in env
+            "innocuous key": {**PARAMS.backend, "notes": "sk-live-abc"},
+            "env": {**PARAMS.backend, "env": {"OPENAI_API_KEY": "x"}},
+            "credential in model": {**PARAMS.backend, "model": "gpt sk-abc def"},
+            "token-shaped model": {**PARAMS.backend, "model": "sk-ant-oat01-abc"},
+            "token-shaped provider": {**PARAMS.backend, "provider": "ghp_abcdef"},
+            "url userinfo": {**PARAMS.backend, "pi": "https://u:p@host/pi"},
+            "token elsewhere": {
+                **claude,
+                "token_file": "/run/orchestrator/forge-publisher-token",
+            },
+            "inline token": {**claude, "token_file": "sk-ant-oat01-abc"},
+            "unmounted codex home": codex,
+            "other codex home": {**codex, "codex_home": "/home/rupan/.codex"},
+            "missing token": {k: v for k, v in claude.items() if k != "token_file"},
+            "bad sandbox": {**claude, "sandbox": "none"},
+            "flag type": {**PARAMS.backend, "experimental": "yes"},
+            "unknown kind": {"kind": "shell"},
+        }
+        for name, backend in refused.items():
+            with self.subTest(name), self.assertRaises(ValueError):
+                validate_backend(
+                    backend, codex_mount if name != "unmounted codex home" else ()
+                )
+
+    def test_production_never_enables_local_jobs(self) -> None:
+        docs = render(PARAMS)
+        (deployment,) = by_kind(docs, "Deployment")
+        args = deployment["spec"]["template"]["spec"]["containers"][0]["args"]
+        self.assertNotIn("--allow-local-jobs", args)
+        config = json.loads(by_kind(docs, "ConfigMap")[0]["data"]["config.json"])
+        self.assertEqual(config["jobs"]["kind"], "kubernetes")
+
+    def worker_job(self, params: DeployParams) -> tuple[dict, dict]:
+        """The Secret and Job the controller would create for one attempt."""
+        config = json.loads(
+            by_kind(render(params), "ConfigMap")[0]["data"]["config.json"]
+        )
+        jobs = config["jobs"]
+        spec = JobSpec(
+            "att_1", "task_1", "http://c", "attempt-token", "b", params.backend
+        )
+        return render_job(
+            spec,
+            KubernetesJobConfig(
+                namespace=jobs["namespace"],
+                image=jobs["image"],
+                extra_volumes=tuple(jobs["extra_volumes"]),
+                extra_mounts=tuple(jobs["extra_mounts"]),
+            ),
+        )
+
+    def test_workers_hold_no_forge_credential_and_cannot_reach_the_forge(
+        self,
+    ) -> None:
+        backends = {
+            "pi": PARAMS.backend,
+            "codex": {
+                "kind": "codex",
+                "codex": "codex",
+                "model": "m",
+                "codex_home": "/var/lib/codex-auth",
+            },
+            "claude": {
+                "kind": "claude",
+                "claude": "claude",
+                "model": "m",
+                "config_dir": "/c",
+                "token_file": "/run/worker/claude-oauth-token",
+            },
+        }
+        codex_mount = ({"name": "codex-auth", "mountPath": "/var/lib/codex-auth"},)
+        for name, backend in backends.items():
+            with self.subTest(name):
+                params = replace(
+                    PARAMS,
+                    backend=backend,
+                    extra_worker_mounts=codex_mount if name == "codex" else (),
+                )
+                secret, job = self.worker_job(params)
+                document = json.dumps(job)
+                self.assertNotIn("forge", document)
+                self.assertNotIn(params.secret_name, document)
+                pod = job["spec"]["template"]["spec"]
+                (container,) = pod["containers"]
+                self.assertEqual(
+                    {e["name"] for e in container["env"]}, {"HOME", "TMPDIR"}
+                )
+                mounted = [
+                    item["key"]
+                    for volume in pod["volumes"]
+                    for item in volume.get("secret", {}).get("items", [])
+                ]
+                self.assertEqual(
+                    mounted, ["claude-oauth-token"] if name == "claude" else []
+                )
+                job_file = json.loads(secret["stringData"]["job.json"])
+                self.assertEqual(
+                    set(job_file),
+                    {
+                        "attempt_id",
+                        "task_id",
+                        "api_url",
+                        "token",
+                        "brief",
+                        "backend",
+                        "lease_seconds",
+                        "deadline_seconds",
+                        "poll_seconds",
+                        "work_root",
+                    },
+                )
+        docs = render(PARAMS)
+        policies = {d["metadata"]["name"]: d for d in by_kind(docs, "NetworkPolicy")}
+        egress = json.dumps(policies["orchestrator-worker"]["spec"]["egress"])
+        self.assertNotIn(PARAMS.forge_ip, egress)
+        controller_egress = json.dumps(policies["orchestrator-controller"]["spec"])
+        self.assertIn(PARAMS.forge_ip, controller_egress)
+
+    def test_only_the_controller_mounts_the_publisher_credential(self) -> None:
+        docs = render(PARAMS)
+        config = json.loads(by_kind(docs, "ConfigMap")[0]["data"]["config.json"])
+        self.assertEqual(
+            config["publisher"]["token_file"],
+            "/run/orchestrator/forge-publisher-token",
+        )
+        self.assertNotIn("worker_git_token_file", config)
+        (deployment,) = by_kind(docs, "Deployment")
+        volumes = deployment["spec"]["template"]["spec"]["volumes"]
+        self.assertIn(
+            PARAMS.secret_name,
+            [v.get("secret", {}).get("secretName") for v in volumes],
+        )
+        self.assertNotIn("/run/orchestrator", json.dumps(config["jobs"]))
 
 
 if __name__ == "__main__":

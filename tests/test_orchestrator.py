@@ -144,6 +144,38 @@ class TransitionTests(StoreCase):
         self.store.settle_attempt(attempt, "sched", {"final_text": "done"}, 1.0)
         return task_id
 
+    def test_settling_a_bound_attempt_needs_its_patch(self) -> None:
+        task_id, attempt = self.running()
+        self.store.bind_artifact(attempt, "b" * 40, "agent/x/1", 1.0)
+        with self.assertRaises(OrchestratorError) as raised:
+            self.store.settle_attempt(attempt, "sched", {}, 1.0)
+        self.assertEqual(raised.exception.code, "INVALID_SPEC")
+        self.store.submit_artifact(attempt, "sched", b"diff", 1.0)
+        with self.assertRaises(OrchestratorError) as raised:
+            self.store.submit_artifact(attempt, "sched", b"another diff", 1.0)
+        self.assertEqual(raised.exception.code, "CONFLICT")
+        self.store.settle_attempt(attempt, "sched", {}, 1.0)
+        self.assertEqual(self.store.get_task(task_id).status, "validating")
+
+    def test_evidence_must_be_about_the_published_commit(self) -> None:
+        task_id, attempt = self.running()
+        self.store.bind_artifact(attempt, "b" * 40, "agent/x/1", 1.0)
+        self.store.submit_artifact(attempt, "sched", b"diff", 1.0)
+        self.store.settle_attempt(attempt, "sched", {}, 1.0)
+        with self.assertRaises(OrchestratorError) as raised:
+            self.store.record_verification(task_id, evidence(), "verifier", 2.0)
+        self.assertEqual(raised.exception.code, "EVIDENCE_REJECTED")
+        self.store.record_publication(attempt, "c" * 40, 2.0)
+        with self.assertRaises(OrchestratorError):
+            self.store.record_publication(attempt, "d" * 40, 2.0)
+        with self.assertRaises(OrchestratorError):
+            self.store.record_verification(task_id, evidence(), "verifier", 2.0)
+        self.store.record_verification(
+            task_id, evidence(head_sha="c" * 40), "verifier", 3.0
+        )
+        self.store.complete(task_id, "controller", 4.0, "c" * 40)
+        self.assertEqual(self.store.get_task(task_id).status, "completed")
+
     def test_review_and_completion_cannot_be_reached_by_plain_transitions(
         self,
     ) -> None:

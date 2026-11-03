@@ -4,9 +4,11 @@ At claim time the controller mints a random token, stores its SHA-256 on the
 attempt and hands the token to that attempt's Job. Every request resolves the
 token to its one live attempt; once the attempt finishes (settled, failed,
 cancelled or reaped) the token stops working. The API offers exactly the
-WorkerChannel operations: no task creation, no answers, no approvals, no
-completion and no reads of other attempts. Inputs are size-limited and
-redacted before they reach the store.
+WorkerChannel operations, plus `source` (the attempt's bound base commit as
+a tar archive) and `submit` (the attempt's patch, raw bytes): no task
+creation, no answers, no approvals, no completion, no reads of other
+attempts and no forge access. Inputs are size-limited and redacted before
+they reach the store.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from scripts.orchestrator.core import OrchestratorError, Store
+from scripts.orchestrator.core import PATCH_LIMIT, OrchestratorError, Store
 from scripts.orchestrator.worker import Inbox, LocalChannel, redact
 
 BODY_LIMIT = 64 * 1024
@@ -35,6 +37,7 @@ MAX_PER_PEER = 4
 OPERATIONS = frozenset(
     {"start", "renew", "ask", "inbox", "acknowledge", "session", "settle", "finish"}
 )
+RAW_OPERATIONS = frozenset({"source", "submit"})
 
 
 def issue_token() -> tuple[str, str]:
@@ -54,11 +57,43 @@ class WorkerApi:
         lease_seconds: float = 120.0,
         question_ttl: float = 24 * 3600.0,
         clock: Callable[[], float] = time.time,
+        source: Callable[[str], bytes] | None = None,
     ) -> None:
+        """`source` returns a base commit's tar archive (the publisher's)."""
         self.store = store
         self.lease_seconds = lease_seconds
         self.question_ttl = question_ttl
         self.clock = clock
+        self.source_archive = source
+
+    def _live(self, token: str) -> Any:
+        attempt = self.store.attempt_for_token(token_digest(token), self.clock())
+        if attempt is None or not hmac.compare_digest(
+            attempt.token_digest or "", token_digest(token)
+        ):
+            raise OrchestratorError("LEASE_LOST", "token does not match a live attempt")
+        return attempt
+
+    def source(self, token: str) -> bytes:
+        """The bound base commit of the token's attempt, as a tar archive."""
+        with self.store.lock:
+            attempt = self._live(token)
+        artifact = self.store.artifact(attempt.id)
+        if artifact is None or self.source_archive is None:
+            raise OrchestratorError("NOT_FOUND", "this attempt has no bound source")
+        try:
+            return self.source_archive(artifact.base_sha)
+        except Exception as error:
+            raise OrchestratorError(
+                "UNAVAILABLE", f"source unavailable: {type(error).__name__}"
+            ) from None
+
+    def submit(self, token: str, patch: bytes) -> None:
+        with self.store.lock:
+            attempt = self._live(token)
+            self.store.submit_artifact(
+                attempt.id, attempt.lease_owner, patch, self.clock()
+            )
 
     def authenticated(self, token: str) -> bool:
         """Whether a token belongs to a live attempt; checked before reading a body."""
@@ -79,11 +114,7 @@ class WorkerApi:
     def _handle(
         self, token: str, operation: str, body: dict[str, Any]
     ) -> dict[str, Any]:
-        attempt = self.store.attempt_for_token(token_digest(token), self.clock())
-        if attempt is None or not hmac.compare_digest(
-            attempt.token_digest or "", token_digest(token)
-        ):
-            raise OrchestratorError("LEASE_LOST", "token does not match a live attempt")
+        attempt = self._live(token)
         channel = LocalChannel(
             self.store, attempt.id, self.lease_seconds, self.question_ttl, self.clock
         )
@@ -124,14 +155,8 @@ class WorkerApi:
             payload = body.get("payload")
             if not isinstance(payload, dict):
                 raise OrchestratorError("INVALID_SPEC", "payload must be an object")
-            allowed = {
-                "backend",
-                "provider",
-                "model",
-                "final_text",
-                "branch",
-                "head_sha",
-            }
+            # Never a branch or commit: the publisher decides what was pushed.
+            allowed = {"backend", "provider", "model", "final_text"}
             channel.settle(
                 {k: clean(str(v)) for k, v in payload.items() if k in allowed}
             )
@@ -223,10 +248,17 @@ def serve(
                 watchdog.cancel()
                 release(peer)
 
-        def reply(self, status: int, payload: dict[str, Any]) -> None:
-            data = json.dumps(payload).encode()
+        def reply(
+            self,
+            status: int,
+            payload: dict[str, Any] | bytes,
+            content_type: str = "application/json",
+        ) -> None:
+            data = (
+                payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+            )
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -242,7 +274,8 @@ def serve(
                 self.reply(400, {"code": "INVALID_SPEC"})
                 return
             length = int(raw)
-            if length > BODY_LIMIT:
+            operation = self.path[len(prefix) :]
+            if length > (PATCH_LIMIT if operation == "submit" else BODY_LIMIT):
                 self.reply(413, {"code": "TOO_LARGE"})
                 return
             if not api.authenticated(header[7:]):
@@ -259,10 +292,18 @@ def serve(
                 self.reply(400, {"code": "INVALID_SPEC"})
                 return
             try:
+                if operation == "source":
+                    archive = api.source(header[7:])
+                    self.reply(200, archive, "application/x-tar")
+                    return
+                if operation == "submit":
+                    api.submit(header[7:], data)
+                    self.reply(200, {})
+                    return
                 body = json.loads(data or b"{}")
                 if not isinstance(body, dict):
                     raise ValueError("body must be an object")
-                result = api.handle(header[7:], self.path[len(prefix) :], body)
+                result = api.handle(header[7:], operation, body)
             except OrchestratorError as error:
                 status = 403 if error.code == "LEASE_LOST" else 409
                 self.reply(status, {"code": error.code, "error": str(error)})
@@ -297,12 +338,20 @@ class HttpChannel:
     def call(
         self, operation: str, body: dict[str, Any] | None = None
     ) -> dict[str, Any]:
+        return json.loads(self.raw(operation, json.dumps(body or {}).encode()) or b"{}")
+
+    def raw(
+        self,
+        operation: str,
+        data: bytes,
+        content_type: str = "application/json",
+    ) -> bytes:
         request = urllib.request.Request(
             f"{self.base_url}/v1/attempt/{operation}",
-            data=json.dumps(body or {}).encode(),
+            data=data,
             headers={
                 "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
+                "Content-Type": content_type,
             },
             method="POST",
         )
@@ -324,10 +373,10 @@ class HttpChannel:
                 time.sleep(delay)
                 delay = min(delay * 2, 5.0)
 
-    def _send(self, request: urllib.request.Request) -> dict[str, Any]:
+    def _send(self, request: urllib.request.Request) -> bytes:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                return json.loads(response.read() or b"{}")
+                return response.read()
         except urllib.error.HTTPError as error:
             try:
                 detail = json.loads(error.read() or b"{}")
@@ -363,6 +412,12 @@ class HttpChannel:
 
     def session(self, key: str) -> None:
         self.call("session", {"key": key})
+
+    def source(self) -> bytes:
+        return self.raw("source", b"")
+
+    def submit(self, patch: bytes) -> None:
+        self.raw("submit", patch, "application/octet-stream")
 
     def settle(self, payload: dict[str, Any]) -> None:
         self.call("settle", {"payload": payload})

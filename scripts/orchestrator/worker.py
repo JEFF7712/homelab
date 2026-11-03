@@ -272,6 +272,8 @@ class WorkerChannel(Protocol):
 
     def session(self, key: str) -> None: ...
 
+    def submit(self, patch: bytes) -> None: ...
+
     def settle(self, payload: dict[str, Any]) -> None: ...
 
     def finish(self, reason: str, retryable: bool) -> None: ...
@@ -362,6 +364,9 @@ class LocalChannel:
             self.clock(),
         )
 
+    def submit(self, patch: bytes) -> None:
+        self.store.submit_artifact(self.attempt_id, self.owner, patch, self.clock())
+
     def settle(self, payload: dict[str, Any]) -> None:
         clean = {
             key: redact(value) if isinstance(value, str) else value
@@ -398,12 +403,13 @@ class AttemptRunner:
         backend: Backend,
         config: RunnerConfig,
         clock: Callable[[], float] = time.monotonic,
-        finalize: Callable[[], Mapping[str, str]] | None = None,
+        finalize: Callable[[], bytes] | None = None,
         secrets: Collection[str] = (),
     ) -> None:
-        """`finalize` runs after the backend settles and before settlement is
-        reported, for example to commit and push the attempt branch. If it
-        raises, the attempt fails (retryable) instead of settling.
+        """`finalize` runs after the backend settles and returns the patch
+        the worker submits for the trusted publisher; the worker itself never
+        pushes. If it raises, the attempt fails (retryable) instead of
+        settling.
         """
         self.channel = channel
         self.backend = backend
@@ -498,15 +504,14 @@ class AttemptRunner:
                 return self._finish(event.text, event.retryable, "failed")
             elif event.kind == "settled":
                 close_session()
-                extra: Mapping[str, str] = {}
                 if self.finalize is not None:
                     try:
-                        extra = self.finalize()
+                        patch = self.finalize()
                     except Exception as error:
                         return self._finish(f"finalize failed: {error}", True, "failed")
+                    channel.submit(patch)
                 channel.settle(
                     {
-                        **extra,
                         "backend": self.backend.name,
                         "provider": self.backend.provider,
                         "model": self.backend.model,

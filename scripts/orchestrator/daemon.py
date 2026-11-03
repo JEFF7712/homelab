@@ -38,7 +38,9 @@ from scripts.orchestrator.jobs import (
     KubernetesJobManager,
     LocalProcessJobManager,
 )
+from scripts.orchestrator.manifests import validate_backend
 from scripts.orchestrator.ntfy import NtfySink
+from scripts.orchestrator.publisher import Publisher
 from scripts.orchestrator.verifier import VerifierConfig
 from scripts.orchestrator.worker_api import WorkerApi, serve
 
@@ -78,9 +80,15 @@ class Daemon:
         self.store.close()
 
 
-def jobs_from(config: Mapping[str, Any]) -> JobManager:
+def jobs_from(config: Mapping[str, Any], allow_local: bool = False) -> JobManager:
     kind = config.get("kind")
     if kind == "local":
+        # Only the command line can allow it, never the config file.
+        if not allow_local:
+            raise ValueError(
+                "local jobs give workers no isolation; they need serve "
+                "--allow-local-jobs and are for offline rehearsals only"
+            )
         return LocalProcessJobManager(Path(config["root"]), env=config.get("env") or {})
     if kind == "kubernetes":
         return KubernetesJobManager(
@@ -101,7 +109,7 @@ def jobs_from(config: Mapping[str, Any]) -> JobManager:
     raise ValueError(f"unknown jobs kind {kind!r}")
 
 
-def build(config: Mapping[str, Any]) -> Daemon:
+def build(config: Mapping[str, Any], allow_local: bool = False) -> Daemon:
     store = Store(Path(config["db"]), str(config["policy_version"]), controller=True)
     try:
         if "max_running" in config:
@@ -121,21 +129,32 @@ def build(config: Mapping[str, Any]) -> Daemon:
                     str(ntfy["url"]), str(ntfy["topic"]), secret(ntfy.get("token_file"))
                 )
             )
+        base_branch = str(config.get("base_branch", "main"))
+        publishing = config["publisher"]
+        publisher = Publisher(
+            str(publishing["repository_url"]),
+            base_branch,
+            Path(publishing["work_dir"]),
+            Path(publishing["token_file"]) if publishing.get("token_file") else None,
+        )
+        if config["jobs"].get("kind") == "kubernetes":
+            validate_backend(
+                config["backend"], config["jobs"].get("extra_mounts") or ()
+            )
         verifier = config["verifier"]
         ci_logins = frozenset(str(login) for login in verifier.get("ci_logins") or ())
         if not ci_logins:
             raise ValueError("verifier.ci_logins must name the CI's forge account")
         controller = Controller(
             store,
-            jobs_from(config["jobs"]),
+            jobs_from(config["jobs"], allow_local),
             forge,
             sinks,
             ControllerConfig(
                 owner=str(config.get("owner", "controller")),
                 project=str(config["project"]),
                 api_url=str(config["worker_api_url"]),
-                repository_url=str(config["repository_url"]),
-                base_branch=str(config.get("base_branch", "main")),
+                base_branch=base_branch,
                 backend=dict(config["backend"]),
                 verifier=VerifierConfig(
                     tuple(verifier.get("required_contexts") or ()),
@@ -146,9 +165,9 @@ def build(config: Mapping[str, Any]) -> Daemon:
                 issue_url_prefix=config.get("issue_url_prefix"),
                 lease_seconds=float(config.get("lease_seconds", 120)),
                 deadline_seconds=float(config.get("deadline_seconds", 3600)),
-                git_token_file=config.get("worker_git_token_file"),
                 work_root=config.get("work_root"),
             ),
+            publisher,
         )
         clients = {
             client_digest(secret(item["token_file"]) or ""): Client(
@@ -161,7 +180,11 @@ def build(config: Mapping[str, Any]) -> Daemon:
         client_host, client_port = address(str(listen.get("client", "127.0.0.1:8091")))
         servers = [
             serve(
-                WorkerApi(store, lease_seconds=float(config.get("lease_seconds", 120))),
+                WorkerApi(
+                    store,
+                    lease_seconds=float(config.get("lease_seconds", 120)),
+                    source=publisher.archive,
+                ),
                 worker_host,
                 worker_port,
             ),
@@ -177,11 +200,11 @@ def build(config: Mapping[str, Any]) -> Daemon:
     return Daemon(store, controller, servers, float(config.get("tick_seconds", 5)))
 
 
-def main(config_path: Path) -> int:
+def main(config_path: Path, allow_local: bool = False) -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
     )
-    daemon = build(json.loads(config_path.read_text()))
+    daemon = build(json.loads(config_path.read_text()), allow_local)
     stop = threading.Event()
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: stop.set())
