@@ -1,6 +1,12 @@
 # Home Assistant Automation Best Practices
 
-Local reference for agents working in `home-assistant/`. Synthesized from official HA docs (2026.7 release notes, automation trigger/condition/action/mode pages), the `homeassistant-ai/skills` best-practices skill (v31), and community guides (TechDailyAI 2026.7 trigger model, TechFuelHQ practical guide, smarthome-aber-sicher automation mistakes, Zack Wagner unavailable hardening, HomeAutoCentral scenes/scripts/blueprints). Last updated 2026-09-13 against HA 2026.9.1.
+Local conventions for `home-assistant/`. For runtime behavior, consult the
+[official trigger reference](https://www.home-assistant.io/docs/automation/trigger/),
+[run modes](https://www.home-assistant.io/docs/automation/modes/), and
+[script actions](https://www.home-assistant.io/docs/scripts/).
+The [2026.7 release notes](https://www.home-assistant.io/blog/2026/07/01/release-20267/)
+record the purpose-specific trigger renames. Confirm feature availability against
+the deployed HA version before introducing new trigger types.
 
 Related: `docs/runbooks/home-assistant-configuration.md` (ownership, Workflow A source-first, Workflow B UI adoption, locking, secrets boundary). Read that first before touching `home-assistant/`. This doc covers how to write good automations, not how to deploy them.
 
@@ -22,9 +28,12 @@ For every new automation, follow this order:
 
 1. Check for a purpose-specific trigger/condition matching the intent. Prefer area/floor/label targets over entity lists so the automation follows membership as devices change (for example, motion in the living room area, not three named sensors).
 2. Fall back to a generic native trigger/condition (`state`, `numeric_state`, `sun`, `time`, `zone`, `event`, `and`/`or`/`not`).
-3. Use a template only when 1 and 2 cannot express it. Templates bypass load-time validation and fail silently at runtime.
+3. Use a template when native triggers and conditions cannot express the intent.
+   Test it with actual entity states and inspect errors in traces/logs; templates
+   do not make runtime failures silent by definition.
 4. Check for a built-in helper before a template sensor: `min_max` for aggregation, `group` for any-on/all-on, `threshold` for crossing with hysteresis, `derivative` for rate of change, `utility_meter` for consumption. Prefer flow-created Template Helpers (UI editable) over `template:` YAML except for trigger-based templates or custom `attributes:`.
-5. Pick the correct run mode (section 3). Default `single` is often wrong.
+5. Pick the run mode for the intended overlap behavior (section 3). Use `single`
+   when dropping overlapping starts is intentional; choose another mode when it is not.
 6. Use `entity_id`, never `device_id` (breaks on re-add). Exceptions: Zigbee2MQTT autodiscovered device triggers are acceptable; ZHA buttons use `device_ieee` in an `event` trigger because ZHA has no event entities; prefer `event.received` on `event.*` entities where the integration exposes one.
 
 Common substitutions:
@@ -49,11 +58,14 @@ Common substitutions:
 
 The classic bug: motion light with `delay:` in `single` mode. The automation runs for the whole delay, drops re-triggers, then turns the light off while someone is still in the room. Fix is `mode: restart` (timer resets on motion) or `wait_for_trigger` on motion-clear with a timeout.
 
-Scripts have modes too. A `single`-mode script called twice silently ignores the second call.
+Scripts have modes too. A running `single`-mode script declines a second call
+and normally logs a warning; `max_exceeded: silent` suppresses that warning.
 
 ## 4. Reliability patterns
 
-- Debounce with `for:` on triggers. `for: "00:05:00"` means the state must hold, which suppresses sensor flicker and the restart re-evaluation storm (state triggers re-fire when entities reload after reboot).
+- Debounce with `for:` on triggers. `for: "00:05:00"` means the state must hold, which suppresses brief sensor flicker. Recovery from `unknown` or `unavailable`
+  can resemble a meaningful state change; guard transitions explicitly. A `for:`
+  timer itself resets across automation reloads and HA restarts.
 - Harden against `unavailable`/`unknown`. Guard both `trigger.from_state` and `trigger.to_state`, not just `to_state`, otherwise `unavailable -> on` after a restart looks like a real event. The deliberate exception: watchdogs that should fire on `unavailable` (bridge offline, device offline) must not use these guards.
 - `numeric_state` triggers re-arm on `unavailable` blips, so an unchanged value can fire with no real crossing. Add an explicit condition rejecting `unavailable`/`unknown` in `from_state`.
 - Prefer `wait_for_trigger` (event driven) over `wait_template` (polling) and over bare `delay:` for presence timeouts. Always set `timeout:` plus `continue_on_timeout: true` on long waits so one slow device cannot block the routine forever.
@@ -97,61 +109,20 @@ When adding a use case, check the community blueprint forum first for motion lig
 - Recorder growth: this repo uses external Postgres (`recorder.db_url` via `!secret`), which avoids SQLite bloat. Keep `purge_keep_days` and `commit_interval` intentional, exclude noisy domains fromRecorder when adding cameras or power sensors, and note that 30-day trace retention costs database space.
 - Backup before risky work: full backup before upgrades, blueprint conversions, and entity renames. A single-object rollback beats a full restore, which discards every unrelated change since the archive and restarts HA. Never delete a backup or start a Core/OS upgrade without explicit user confirmation.
 
-## 8. Audit of current setup (2026-09-13, refreshed 2026-09-14)
+## 8. Reviewing the current setup
 
-Offline validation: `just ha-validate` passes (45 resources clean), canonical `scripts/checks/home-assistant.sh` clean, HA unit tests pass (22 tests). Live diff/verify not run in this pass (needs `HASS_TOKEN`); re-run `just ha-diff` and `just ha-verify` before changing behavior.
+Use `just ha-inventory`, `just ha-diff`, the owning automation files and traces
+for fresh evidence. A saved inventory or prior passing resource/test count does
+not establish current coverage. `just ha-capture` records a snapshot; it does
+not adopt UI edits or advance the verified baseline. Use Workflow B in the
+[configuration runbook](home-assistant-configuration.md#workflow-b-ui-experiment-adoption-reconcile-ui-changes)
+to adopt intended live changes.
 
-Inventory drift: `inventory.yaml` claims 15 automations but `home-assistant/automations/` contains 22 files. Refresh with `just ha-inventory` / `just ha-capture` (needs live token) and commit the result so the baseline matches reality.
-
-### Strengths to preserve
-
-- Sun-driven lighting throughout (no hardcoded dusk/dawn times except intentional schedules). `stairs_light_sunset_to_sunrise` and `living_room_sign_by_presence` are exemplary minimal automations.
-- Snapshot-restore away pattern via `scene.create`/`scene.turn_on`, now split into two scoped automations (`bedroom_away_lights` for Rupan-only bedroom, `shared_spaces_empty_lights_off` for last-person-leaves shared spaces). The split resolved the two-person snapshot race. Both run `mode: queued` so away, empty, and enforcement legs cannot drop each other.
-- `wait_for_trigger` with timeout in `a1_print_stalled_detection` and `weekly_backup_verify` instead of polling. Correct primitive in both.
-- `weather.get_forecasts` with `response_variable` in `morning_weather_briefing`. Correct modern pattern, not the deprecated forecast attribute.
-- Battery scan excludes non-numeric states (`is_number` filter) and uses `default(..., true)` fallbacks in printer messages. Good unavailable hygiene in messages.
-- Zigbee permit-join auto-close (5 minutes plus notify) and offline watchdog with `for:` debouncing. Correct security and flapping posture.
-- Modern action keys (`triggers`/`actions`/`action:`) and `color_temp_kelvin`. No `device_id`, no `service:` legacy keys, no `color_temp` mireds.
-- Shared scripts: `script.bedroom_lights_on` (with `dim` field) and `script.bedroom_lights_off` own the bedroom entity lists once; evening, bedtime, and away automations call them instead of repeating targets.
-- House tunables as helpers: `input_boolean.vacation_mode` gates bedroom evening lighting, `input_boolean.guest_mode` gates shared-spaces shutoff, `input_datetime.bedroom_wake_time` drives the wake-up trigger, and two `input_number` thresholds drive the battery alerts. Helpers are observe-only in the reconciler, so they are created live (collection API or UI) and adopted into `home-assistant/helpers/`.
-- Restart-hardened printer triggers: `a1_print_started` allows only real predecessor states, `a1_print_finished` and `a1_chamber_light_auto_off` require `from: running`, the `failed` leg of `a1_print_error` and the stall/milestone automations reject `unknown`/`unavailable` `from_state`. Chamber auto-off and stall detection run `mode: restart` with the restart gap documented in their descriptions.
-
-### Findings (ordered by priority; P0 and P1 fixed 2026-09-14 unless noted)
-
-Fixed, `a1_print_started` phantom notify: the guard condition allowed `unknown` and `unavailable` as `from_state` values. Now allows only (`idle`, `finish`, `failed`).
-
-Fixed, unguarded `to: finish`/`to: failed` transitions: `a1_print_finished` and `a1_chamber_light_auto_off` now require `from: running`; the `failed` leg of `a1_print_error` rejects non-real `from_state`.
-
-Fixed, wrong modes on delay/wait automations: `a1_chamber_light_auto_off` and `a1_print_stalled_detection` now run `mode: restart` with the restart gap documented in their descriptions.
-
-Fixed, notification spam on `phone_bedtime_low_battery_reminder`: the `below: 30` trigger now carries `for: "00:05:00"`.
-
-Fixed, two-person race in the away routine: resolved by the split into `bedroom_away_lights` and `shared_spaces_empty_lights_off`, each snapshotting on its own leave leg, both on `mode: queued`.
-
-Fixed, `weekly_backup_verify` polling wait: now `wait_for_trigger` on the backup sensor with a 1 hour timeout; dead `backup_before` variable removed.
-
-Fixed, `a1_print_progress_milestones` re-arm on blips: added a `from_state` unavailable guard. Trigger IDs (`p25`/`p50`/`p75`) remain message-unused; either use `trigger.id` in the message or drop them.
-
-Fixed, `ha_core_update_available` restart blip: added a `from_state` guard. Tradeoff accepted: a release published while HA is down is missed once (the update entity persists in the UI).
-
-P2, restart amnesia on long waits: `a1_print_idle_reminder` (1 hour `for:`) and the stall detector (15 minute wait) still reset silently on restart. The chamber light gap is closed by `a1_chamber_light_reconcile` (HA-start trigger, 60 second settle, off when not running). Acceptable for reminders, not for safety offs.
-
-P2, DRY violation: fixed via `script.bedroom_lights_on` / `script.bedroom_lights_off`; the evening, bedtime, and bedroom-away automations now call them.
-
-P2, missing tunability: fixed via helpers (`input_boolean.vacation_mode`, `input_boolean.guest_mode`, `input_datetime.bedroom_wake_time`, two battery `input_number` thresholds). Still literal: wake-up fade values, `morning_weather_briefing` 08:05 (coupled to wake time, intentionally separate for now).
-
-P2, entity hygiene: done 2026-09-14. The 4 Zigbee switches now carry functional IDs (`switch.bedroom_window_plug`, `switch.bedroom_mushroom_plug`, `switch.living_room_good_vibes_sign`, `switch.stairs_light`) across 13 Git files plus the Flux `gitops/home-assistant` mirror. Live renames via the entity registry, surfaces applied via the reconciler, HomeKit filter picked up through the Flux pod rollout. Disabled linkquality/power sensors keep their IEEE names (unreferenced, integration-disabled).
-
-P2, stairs light uses sunset at 0 degrees; if the stairwell still feels dark too early or late in the year, switch to a sun elevation trigger around minus 4 degrees.
-
-P2, `ha_core_update_available` fires on any sensor change with only a `to_state` guard. Add a `from_state` guard or an explicit old-vs-new version comparison so a restart blip cannot notify.
-
-### Suggested next automations (highest value first)
-
-1. Climate guard: blocked, no window/door contact sensors exist. Only `climate.living_room_ac_living_room_ac_thermostat` is present. Revisit when contact sensors arrive (notify plus set HVAC off after 3 minutes, re-armed on both edges).
-2. Critical-alerts script with repeat-until-acknowledged for water/smoke/freezer when those sensors arrive; route existing failure legs (backup failed, print error) through it.
-3. Next-alarm tie-in for the wake-up fade: `sensor.sm_s948u1_next_alarm` exists but is integration-disabled and untested. Enable it, confirm the companion app reports alarms, then drive fade start off the earlier of next alarm and the wake-time helper.
-4. `morning_weather_briefing` coupling: still fixed at 08:05 while wake time is tunable. Either derive it (wake plus 5 minutes needs a second helper or time-pattern gate) or leave intentional.
+The September audit's fixed-issue list, counts and proposed automations are
+historical; consult Git history for that investigation. Current review should
+check trigger availability, restart behavior, overlapping runs, unavailable
+states and actual entity ownership rather than treating old findings as an
+active backlog.
 
 ## 9. Repo conventions (must follow)
 
