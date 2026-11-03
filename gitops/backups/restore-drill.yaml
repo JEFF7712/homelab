@@ -148,6 +148,9 @@ spec:
                     exit 1
                   fi
                   restic restore latest --target /work/restore
+                  # restic keeps the source's modes; the verify containers run as
+                  # other users and must read the dumps.
+                  chmod -R a+rX /work/restore
                   ls -l /work/restore/dumps
               volumeMounts:
                 - name: work

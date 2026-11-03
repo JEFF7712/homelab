@@ -1,0 +1,19 @@
+# Inventory-only upstream image declarations for gitops/cloudflare
+# consumers. Renovate tracks these tagged references; the workloads pin the
+# mirrored digest. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# referenced by digest in the owning manifest.
+#
+# This file is NOT listed in gitops/cloudflare/kustomization.yaml: it is
+# an inventory source only and must never be applied to the cluster.
+#
+# Update flow: change the digest below, import it, then update the consumer
+# manifest digest, so a pod never pulls an image the mirror lacks.
+apiVersion: v1
+kind: List
+metadata:
+  name: cloudflare-registry-sources
+items:
+  # cloudflared (tunnel.yaml)
+  - image: docker.io/cloudflare/cloudflared:2026.10.2@sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2  # yamllint disable-line rule:line-length

@@ -30,6 +30,8 @@
       enable = true;
       allowedUDPPorts = [ 51820 ];
       extraInputRules = ''
+        # Easy Smart switches broadcast native management replies to a fixed port.
+        ip saddr { 10.0.10.2, 10.0.10.3 } udp sport 29808 udp dport 29809 accept
         ip saddr 10.0.10.0/24 tcp dport { 22, 3000 } accept
         ip saddr 10.0.10.0/24 tcp dport 53 accept
         ip saddr 10.0.10.0/24 udp dport 53 accept
