@@ -479,8 +479,11 @@ class WorkerApiTests(WorkerCase):
         HttpChannel(url, self.token).start("s", "w")
         stalled = [self.stalled(port, self.token) for _ in range(2)]
         time.sleep(0.1)
-        with self.assertRaises(Exception):
-            HttpChannel(url, self.token, timeout=2).renew()
+        with self.assertRaises(OrchestratorError) as raised:
+            HttpChannel(url, self.token, timeout=2, retry_seconds=0).renew()
+        self.assertEqual(raised.exception.code, "HTTP_503")
+        # A worker with its normal retry budget waits the stall out instead.
+        HttpChannel(url, self.token, timeout=2, retry_seconds=10).renew()
         started = time.time()
         for connection in stalled:
             connection.settimeout(5)  # type: ignore[attr-defined]

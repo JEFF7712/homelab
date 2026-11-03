@@ -27,7 +27,8 @@
     "registry/**",
     "schemas/**",
     "artifacts/**",
-    "secrets/**"
+    "secrets/**",
+    ".gitlab-ci.yml"
   ],
   "printConfig": false,
   "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
@@ -35,18 +36,18 @@
   "commitMessageAction": "Bump",
   "commitMessageExtra": "from {{{currentVersion}}} to {{{newVersion}}}",
   "flux": {
-    "fileMatch": [
-      "^gitops/.+\\.ya?ml$"
+    "managerFilePatterns": [
+      "/^gitops/.+\\.ya?ml$/"
     ]
   },
   "kubernetes": {
-    "fileMatch": [
-      "^gitops/.+\\.ya?ml$"
+    "managerFilePatterns": [
+      "/^gitops/.+\\.ya?ml$/"
     ]
   },
   "terraform": {
-    "fileMatch": [
-      "^tofu/.+\\.tf$"
+    "managerFilePatterns": [
+      "/^tofu/.+\\.tf$/"
     ]
   },
   "nix": {
@@ -122,6 +123,13 @@
         "gitlabci"
       ],
       "automerge": false
+    },
+    {
+      "description": "Mirror references move only through the registry import flow: Renovate bumps the upstream declarations (registry-sources.yaml, producer-base-images), the lock import copies them, then consumers take the mirror digest. Mirror tags never repoint, so looking them up finds nothing newer (docs/runbooks/local-registry.md)",
+      "matchPackageNames": [
+        "registry.rupan.dev/**"
+      ],
+      "enabled": false
     },
     {
       "description": "Review every Helm chart bump: post-renderers pin the app images, so the chart and its mirrored image digests move together by hand (docs/runbooks/local-registry.md)",
