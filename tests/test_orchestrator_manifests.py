@@ -164,14 +164,26 @@ class ManifestTests(unittest.TestCase):
             ["api.anthropic.com", "api.openai.com", "auth.openai.com", "chatgpt.com"],
         )
         self.assertEqual(
-            rule["toPorts"], [{"ports": [{"port": "443", "protocol": "TCP"}]}]
+            rule["toPorts"][0]["ports"], [{"port": "443", "protocol": "TCP"}]
+        )
+        self.assertEqual(
+            rule["toPorts"][0]["serverNames"],
+            ["api.anthropic.com", "api.openai.com", "auth.openai.com", "chatgpt.com"],
         )
         self.assertFalse(
-            any(
-                key in json.dumps(fqdn)
-                for key in ("toCIDR", "toEntities", 'matchPattern": "*.')
-            )
+            any(key in json.dumps(fqdn) for key in ("toCIDR", "toEntities"))
         )
+        # DNS only for provider and cluster-internal names: no "*" that would
+        # let a query carry data to an outside nameserver.
+        [dns] = [r for r in fqdn["spec"]["egress"] if "toEndpoints" in r]
+        patterns = dns["toPorts"][0]["rules"]["dns"]
+        self.assertNotIn({"matchPattern": "*"}, patterns)
+        self.assertEqual(
+            {p.get("matchPattern") for p in patterns} - {None},
+            {"*.cluster.local", "*.svc"},
+        )
+        # The plain NetworkPolicy grants workers no DNS of its own.
+        self.assertNotIn("53", json.dumps(worker["egress"]))
         config = json.loads(by_kind(docs, "ConfigMap")[0]["data"]["config.json"])
         self.assertEqual(config["listen"]["client"], "127.0.0.1:8091")
         self.assertEqual(
@@ -288,8 +300,12 @@ class ManifestTests(unittest.TestCase):
                     for volume in pod["volumes"]
                     for item in volume.get("secret", {}).get("items", [])
                 ]
+                # The job file, plus only the backend's own credential key.
                 self.assertEqual(
-                    mounted, ["claude-oauth-token"] if name == "claude" else []
+                    mounted,
+                    ["job.json", "claude-oauth-token"]
+                    if name == "claude"
+                    else ["job.json"],
                 )
                 job_file = json.loads(secret["stringData"]["job.json"])
                 self.assertEqual(
@@ -471,16 +487,23 @@ class ManifestTests(unittest.TestCase):
             "codex", json.dumps(deployment["spec"]["template"]["spec"]["volumes"])
         )
 
-    def test_admission_policy_is_the_committed_file_with_this_deployment_filled_in(
-        self,
-    ) -> None:
-        docs = render(PARAMS)
-        [policy] = by_kind(docs, "ValidatingAdmissionPolicy")
-        [binding] = by_kind(docs, "ValidatingAdmissionPolicyBinding")
-        text = json.dumps(policy)
-        self.assertNotIn("@WORKER_", text)
-        self.assertIn(PARAMS.worker_image, text)
+    def test_admission_policy_is_applied_exactly_as_committed(self) -> None:
+        committed = [
+            doc
+            for doc in yaml.safe_load_all(
+                (ROOT / "config/orchestrator/worker-admission.yaml").read_text()
+            )
+            if doc
+        ]
+        for params in (PARAMS, INTAKE):
+            docs = render(params)
+            rendered = by_kind(docs, "ValidatingAdmissionPolicy") + by_kind(
+                docs, "ValidatingAdmissionPolicyBinding"
+            )
+            self.assertEqual(rendered, committed)
+        [policy, binding] = committed
         self.assertEqual(policy["spec"]["failurePolicy"], "Fail")
+        self.assertEqual(binding["spec"]["validationActions"], ["Deny"])
         self.assertEqual(
             policy["spec"]["matchConditions"][0]["expression"].split(),
             [
@@ -489,49 +512,60 @@ class ManifestTests(unittest.TestCase):
                 '"system:serviceaccount:persistent-agent:orchestrator-controller"',
             ],
         )
-        self.assertEqual(binding["spec"]["validationActions"], ["Deny"])
-        self.assertEqual(binding["spec"]["policyName"], policy["metadata"]["name"])
-        committed = list(
-            yaml.safe_load_all(
-                (ROOT / "config/orchestrator/worker-admission.yaml").read_text()
-            )
-        )
-        # Every rule comes from the committed file; only placeholders differ.
-        self.assertEqual(
-            len(policy["spec"]["validations"]),
-            len(committed[0]["spec"]["validations"]),
-        )
-        rules = " ".join(v["expression"] for v in policy["spec"]["validations"])
-        for required in (
-            "hostNetwork",
-            "hostPath",
-            "privileged",
-            "allowPrivilegeEscalation",
-            "runAsNonRoot",
-            "limits",
-            "activeDeadlineSeconds",
-            "envFrom",
-            "orchestrator-worker",
+
+    def test_parameters_the_static_policy_fixes_are_required(self) -> None:
+        for bad in (
+            # A crafted Secret name once became CEL in the rendered policy.
+            replace(
+                PARAMS, worker_secret_name='x" || true || v.secret.secretName == "x'
+            ),
+            replace(PARAMS, worker_secret_name="orchestrator-secrets"),
+            replace(
+                PARAMS, worker_image=f"registry.rupan.dev/apps/orchestrator@{DIGEST}"
+            ),
         ):
-            self.assertIn(required, rules)
-        # The claude backend may mount its token key from the worker Secret.
-        claude = replace(
-            PARAMS,
-            backend={
-                "kind": "claude",
-                "claude": "claude",
-                "model": "m",
-                "config_dir": "/c",
-                "token_file": "/run/worker/claude-oauth-token",
-            },
+            with self.assertRaises(ValueError):
+                render(bad)
+
+    def test_rendered_worker_jobs_fit_the_admission_policy(self) -> None:
+        """The facts the static policy checks, against the real Job builder;
+        gate 4 proves the CEL itself against a live API server."""
+        policy = (ROOT / "config/orchestrator/worker-admission.yaml").read_text()
+        name_rule = re.search(r'name\.matches\("([^"]+)"\)', policy).group(1)
+        image_rule = re.search(r'c\.image\.matches\(\s*"([^"]+)"\)', policy).group(1)
+        image_rule = image_rule.replace("\\\\", "\\")
+        for kind in ("pi", "claude"):
+            backend = (
+                PARAMS.backend
+                if kind == "pi"
+                else {
+                    "kind": "claude",
+                    "claude": "claude",
+                    "model": "m",
+                    "config_dir": "/c",
+                    "token_file": "/run/worker/claude-oauth-token",
+                }
+            )
+            _, job = self.worker_job(replace(PARAMS, backend=backend))
+            self.assertRegex(job["metadata"]["name"], name_rule)
+            pod = job["spec"]["template"]["spec"]
+            for container in pod["containers"]:
+                self.assertRegex(container["image"], image_rule)
+            for volume in pod["volumes"]:
+                if "secret" not in volume:
+                    continue
+                keys = [item["key"] for item in volume["secret"]["items"]]
+                if volume["secret"]["secretName"] == job["metadata"]["name"]:
+                    self.assertEqual(keys, ["job.json"])
+                else:
+                    self.assertEqual(
+                        volume["secret"]["secretName"], "orchestrator-worker-secrets"
+                    )
+                    self.assertLessEqual(set(keys), {"claude-oauth-token"})
+        [config_map] = by_kind(render(PARAMS), "ConfigMap")
+        self.assertEqual(
+            json.loads(config_map["data"]["config.json"])["work_root"], "/work"
         )
-        [claude_policy] = by_kind(render(claude), "ValidatingAdmissionPolicy")
-        [secret_rule] = [
-            v["expression"]
-            for v in claude_policy["spec"]["validations"]
-            if "orchestrator-worker-secrets" in v["expression"]
-        ]
-        self.assertIn('i.key in ["claude-oauth-token"]', secret_rule)
 
     def test_no_rendered_role_can_change_admission_or_rbac(self) -> None:
         for docs in (render(PARAMS), render(INTAKE)):
