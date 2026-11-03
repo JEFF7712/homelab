@@ -48,8 +48,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: RENOVATE_AGENT_MODE
               value: merge-safe
+            # No paid API (operator, 2026-11-03): reviews use the heuristic and
+            # repairs stay workflow-only until the controller absorbs this agent.
             - name: RENOVATE_AGENT_REPAIR_MODE
-              value: ai-code
+              value: workflow-only
             - name: RENOVATE_AGENT_STATE_CONFIGMAP
               value: renovate-agent-state
             - name: RENOVATE_AGENT_STATE_RETENTION_DAYS
@@ -62,10 +64,6 @@ spec:
               value: https://renovate-approve.rupan.dev/approve
             - name: RENOVATE_AGENT_APPROVERS
               value: rupan,jeff7712
-            - name: OPENAI_REVIEW_MODEL
-              value: gpt-5.4-mini
-            - name: OPENAI_CODING_MODEL
-              value: gpt-5.5
             - name: NTFY_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -81,12 +79,6 @@ spec:
                 secretKeyRef:
                   name: renovate-secrets
                   key: forgejo-token
-            - name: OPENAI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: renovate-secrets
-                  key: openai-api-key
-                  optional: true
             volumeMounts:
             - name: config
               mountPath: /config
