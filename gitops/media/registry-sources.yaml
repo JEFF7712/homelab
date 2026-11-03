@@ -33,7 +33,7 @@ items:
   # Bazarr (arr.yaml)
   - image: lscr.io/linuxserver/bazarr:v1.6.0-ls361@sha256:3a820372f19fcb2981ea19fe4b5382934d67414afaba974bce831ddda0a64a02  # yamllint disable-line rule:line-length
   # FlareSolverr (arr.yaml)
-  - image: ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47  # yamllint disable-line rule:line-length
+  - image: ghcr.io/flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767  # yamllint disable-line rule:line-length
   # Calibre-Web Automated (books.yaml)
   - image: docker.io/crocodilestick/calibre-web-automated:v4.0.6@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d  # yamllint disable-line rule:line-length
   # Navidrome (music.yaml)
