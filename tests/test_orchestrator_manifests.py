@@ -45,7 +45,7 @@ INTAKE = replace(
         woodpecker_port=8000,
         woodpecker_repo_id=1,
     ),
-    backup_nfs_path="/tank/cluster/backups-db-dumps-pvc-dcd285d5",
+    backup=True,
 )
 
 
@@ -250,14 +250,10 @@ class ManifestTests(unittest.TestCase):
                 "token_file": "/run/worker/claude-oauth-token",
             },
         }
-        codex_mount = ({"name": "codex-auth", "mountPath": "/var/lib/codex-auth"},)
         for name, backend in backends.items():
             with self.subTest(name):
-                params = replace(
-                    PARAMS,
-                    backend=backend,
-                    extra_worker_mounts=codex_mount if name == "codex" else (),
-                )
+                # The Codex login store's mount is rendered, not supplied.
+                params = replace(PARAMS, backend=backend)
                 secret, job = self.worker_job(params)
                 document = json.dumps(job)
                 self.assertNotIn("forge", document)
@@ -387,11 +383,7 @@ class ManifestTests(unittest.TestCase):
         )
         self.assertNotIn("intake", json.dumps(config["jobs"]))
 
-    def test_backup_runs_beside_the_store_and_hands_snapshots_to_the_shipper(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError):
-            render(replace(INTAKE, backup_nfs_path="/tank/cluster/immich-library"))
+    def test_backup_runs_beside_the_store_on_a_volume_of_its_own(self) -> None:
         self.assertEqual(by_kind(render(PARAMS), "CronJob"), [])
         docs = render(INTAKE)
         [cron] = by_kind(docs, "CronJob")
@@ -400,7 +392,7 @@ class ManifestTests(unittest.TestCase):
         self.assertFalse(pod["automountServiceAccountToken"])
         self.assertEqual(pod["securityContext"]["supplementalGroups"], [1000])
         [container] = pod["containers"]
-        self.assertIn("backup-rotate", container["args"] + container.get("command", []))
+        self.assertIn("backup-rotate", container["args"])
         claims = {
             volume["persistentVolumeClaim"]["claimName"]
             for volume in pod["volumes"]
@@ -409,15 +401,48 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(claims, {"orchestrator-data", "orchestrator-dumps"})
         dumps = next(
             doc
-            for doc in by_kind(docs, "PersistentVolume")
+            for doc in by_kind(docs, "PersistentVolumeClaim")
             if doc["metadata"]["name"] == "orchestrator-dumps"
         )
+        # Its own provisioned directory, never the shared db-dumps export.
+        self.assertEqual(dumps["spec"]["storageClassName"], "nfs-cluster")
+        self.assertNotIn("volumeName", dumps["spec"])
+        self.assertFalse(
+            any("nfs" in doc["spec"] for doc in by_kind(docs, "PersistentVolume"))
+        )
+
+    def test_codex_store_is_rendered_and_has_one_writer(self) -> None:
+        codex = {
+            "kind": "codex",
+            "codex": "codex",
+            "model": "gpt-5.6-sol",
+            "codex_home": "/var/lib/codex-auth",
+        }
+        with self.assertRaises(ValueError):
+            render(replace(PARAMS, backend=codex, max_running=2))
+        docs = render(replace(PARAMS, backend=codex))
+        [config_map] = by_kind(docs, "ConfigMap")
+        jobs = json.loads(config_map["data"]["config.json"])["jobs"]
+        volumes = {volume["name"]: volume for volume in jobs["extra_volumes"]}
+        self.assertIn(
+            {"name": "codex-auth", "mountPath": "/var/lib/codex-auth"},
+            jobs["extra_mounts"],
+        )
         self.assertEqual(
-            dumps["spec"]["nfs"],
-            {
-                "server": "10.0.30.20",
-                "path": "/tank/cluster/backups-db-dumps-pvc-dcd285d5",
-            },
+            volumes["codex-auth"]["persistentVolumeClaim"]["claimName"],
+            "orchestrator-codex-auth",
+        )
+        store = next(
+            doc
+            for doc in by_kind(docs, "PersistentVolume")
+            if doc["metadata"]["name"] == "orchestrator-codex-auth"
+        )
+        self.assertEqual(
+            store["spec"]["local"]["path"], "/persist/persistent-agent-codex-auth"
+        )
+        deployment = by_kind(docs, "Deployment")[0]
+        self.assertNotIn(
+            "codex", json.dumps(deployment["spec"]["template"]["spec"]["volumes"])
         )
 
 

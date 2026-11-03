@@ -31,12 +31,13 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Protocol
 
 from scripts.orchestrator.core import OrchestratorError, Store, TaskSpec
 from scripts.orchestrator.worker import redact
+from scripts.orchestrator.worker_api import bounded_handler
 
 log = logging.getLogger("orchestrator.intake")
 
@@ -47,6 +48,9 @@ ESCALATE_AFTER = 2
 SECTION_LIMIT = 2048
 EVIDENCE_LIMIT = 6 * 1024
 BODY_LIMIT = 256 * 1024
+# Largest Woodpecker response read; a step log beyond it is reported as
+# unavailable rather than decoded in full.
+RESPONSE_LIMIT = 2 * 1024 * 1024
 LOG_LINES = 60
 # Alerts that exist to prove the pipeline works, not to report a problem.
 IGNORED_ALERTS = frozenset({"Watchdog", "InfoInhibitor"})
@@ -321,7 +325,10 @@ class Woodpecker:
             headers={"Authorization": f"Bearer {self.token}"},
         )
         with urllib.request.urlopen(request, timeout=15) as response:
-            return json.loads(response.read() or b"null")
+            raw = response.read(RESPONSE_LIMIT + 1)
+        if len(raw) > RESPONSE_LIMIT:
+            raise ValueError(f"Woodpecker {path} exceeded {RESPONSE_LIMIT} bytes")
+        return json.loads(raw or b"null")
 
     def pipelines(self) -> list[Mapping[str, Any]]:
         return list(self.get("/pipelines?perPage=50&page=1") or [])
@@ -420,9 +427,14 @@ class Intake:
         existing = self.store.open_intake(signal.fingerprint)
         if existing is not None:
             return "duplicate", existing.id
+        title = redact(cap(signal.title, 200))
+        if self.store.intake_full(
+            signal.fingerprint, title, signal.severity, now, self.open_limit
+        ):
+            return "limited", None
         spec = TaskSpec(
             project=self.project,
-            title=cap(signal.title, 200),
+            title=title,
             goal=bundle(signal, self.evidence.collect(signal)),
             acceptance_criteria=ACCEPTANCE,
             priority=1 if signal.severity == "critical" else 0,
@@ -521,10 +533,7 @@ def serve_intake(
         if token
     }
 
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, format: str, *args: object) -> None:
-            log.debug(format, *args)
-
+    class Handler(bounded_handler(max_in_flight=8, max_per_peer=2)):
         def reply(self, status: int, payload: Any) -> None:
             body = json.dumps(payload).encode()
             self.send_response(status)

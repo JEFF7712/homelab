@@ -33,8 +33,6 @@ WORKER = "orchestrator-worker"
 WORKER_API_PORT = 8090
 CLIENT_API_PORT = 8091
 INTAKE_PORT = 8092
-NFS_SERVER = "10.0.30.20"
-BACKUP_NFS_PREFIX = "/tank/cluster/backups-db-dumps-"
 # Read-only access for intake evidence. Secrets and ConfigMaps are absent on
 # purpose and a test keeps them out; this list mirrors intake.KINDS.
 EVIDENCE_RULES = (
@@ -138,24 +136,24 @@ class DeployParams:
     worker_secret_name: str = "orchestrator-worker-secrets"
     extra_worker_mounts: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     intake: IntakeParams | None = None
-    # The db-dumps NFS directory that dumps-to-r2 ships off site, and the
-    # group the shipper reads as.
-    backup_nfs_path: str | None = None
+    # Nightly store snapshots on their own NFS volume, which dumps-to-r2
+    # mounts read-only and ships off site; the group the shipper reads as.
+    backup: bool = False
     backup_group: int = 1000
 
     def validate(self) -> None:
         if self.node not in CONTROLLER_NODES:
             raise ValueError(f"node {self.node!r} is not an allowed controller node")
-        validate_backend(self.backend, self.extra_worker_mounts)
+        validate_backend(self.backend, [*self.extra_worker_mounts, *codex_mounts(self)])
+        if self.backend.get("kind") == "codex" and self.max_running != 1:
+            # The Codex login refreshes its token on use; one Job at a time
+            # keeps a single writer of the shared store.
+            raise ValueError("a Codex backend needs max_running 1")
         for image in (self.controller_image, self.worker_image):
             if not PINNED.match(image):
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
         if not self.host_path.startswith("/persist/"):
             raise ValueError("host_path must live under /persist")
-        if self.backup_nfs_path is not None and not self.backup_nfs_path.startswith(
-            BACKUP_NFS_PREFIX
-        ):
-            raise ValueError(f"backup_nfs_path must live under {BACKUP_NFS_PREFIX}")
 
 
 def validate_backend(
@@ -249,6 +247,64 @@ def worker_secret_keys(backend: Mapping[str, Any]) -> tuple[str, ...]:
     return WORKER_SECRET_KEYS[kind]
 
 
+CODEX_VOLUME = "codex-auth"
+
+
+def codex_mounts(params: DeployParams) -> list[dict[str, Any]]:
+    if params.backend.get("kind") != "codex":
+        return []
+    return [{"name": CODEX_VOLUME, "mountPath": CODEX_HOME}]
+
+
+def codex_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """The Codex login store: a node-local volume beside, not inside, the
+    controller's, mounted only into Codex worker Jobs."""
+    if params.backend.get("kind") != "codex":
+        return []
+    name = "orchestrator-codex-auth"
+    return [
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolume",
+            "metadata": {"name": name, "labels": dict(LABELS), "annotations": NO_PRUNE},
+            "spec": {
+                "capacity": {"storage": "64Mi"},
+                "accessModes": ["ReadWriteOnce"],
+                "persistentVolumeReclaimPolicy": "Retain",
+                "storageClassName": "local-nvme",
+                "local": {"path": f"{params.host_path}-codex-auth"},
+                "nodeAffinity": {
+                    "required": {
+                        "nodeSelectorTerms": [
+                            {
+                                "matchExpressions": [
+                                    {
+                                        "key": "kubernetes.io/hostname",
+                                        "operator": "In",
+                                        "values": [params.node],
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "claimRef": {"namespace": NAMESPACE, "name": name},
+            },
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": meta(name, annotations=NO_PRUNE),
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "storageClassName": "local-nvme",
+                "volumeName": name,
+                "resources": {"requests": {"storage": "64Mi"}},
+            },
+        },
+    ]
+
+
 def worker_volumes(params: DeployParams) -> tuple[list[Any], list[Any]]:
     keys = worker_secret_keys(params.backend)
     volumes: list[Any] = []
@@ -268,7 +324,14 @@ def worker_volumes(params: DeployParams) -> tuple[list[Any], list[Any]]:
         mounts.append(
             {"name": "worker-secrets", "mountPath": "/run/worker", "readOnly": True}
         )
-    return volumes, [*mounts, *params.extra_worker_mounts]
+    if params.backend.get("kind") == "codex":
+        volumes.append(
+            {
+                "name": CODEX_VOLUME,
+                "persistentVolumeClaim": {"claimName": "orchestrator-codex-auth"},
+            }
+        )
+    return volumes, [*mounts, *codex_mounts(params), *params.extra_worker_mounts]
 
 
 def controller_config(params: DeployParams) -> dict[str, Any]:
@@ -380,41 +443,25 @@ def intake_documents(params: DeployParams) -> list[dict[str, Any]]:
 
 
 def backup_documents(params: DeployParams) -> list[dict[str, Any]]:
-    """A nightly snapshot of the store into the db-dumps share.
+    """A nightly snapshot of the store onto a volume of its own.
 
-    dumps-to-r2 ships that share off site at 03:00, and the restore drill
-    restores and checks the newest snapshot. The job runs on the controller's
-    node beside the local volume and needs no network.
+    The volume holds only these snapshots, so the job cannot read or alter
+    other datasets' dumps. dumps-to-r2 mounts it read-only and ships it off
+    site at 03:00, and the restore drill restores and checks the newest
+    snapshot. The job runs on the controller's node beside the local volume
+    and needs no network.
     """
-    if params.backup_nfs_path is None:
+    if not params.backup:
         return []
     name = "orchestrator-backup"
     return [
-        {
-            "apiVersion": "v1",
-            "kind": "PersistentVolume",
-            "metadata": {
-                "name": "orchestrator-dumps",
-                "labels": dict(LABELS),
-                "annotations": NO_PRUNE,
-            },
-            "spec": {
-                "capacity": {"storage": "1Gi"},
-                "accessModes": ["ReadWriteMany"],
-                "persistentVolumeReclaimPolicy": "Retain",
-                "storageClassName": "",
-                "nfs": {"server": NFS_SERVER, "path": params.backup_nfs_path},
-                "claimRef": {"namespace": NAMESPACE, "name": "orchestrator-dumps"},
-            },
-        },
         {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
             "metadata": meta("orchestrator-dumps", annotations=NO_PRUNE),
             "spec": {
                 "accessModes": ["ReadWriteMany"],
-                "storageClassName": "",
-                "volumeName": "orchestrator-dumps",
+                "storageClassName": "nfs-cluster",
                 "resources": {"requests": {"storage": "1Gi"}},
             },
         },
@@ -858,4 +905,9 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
             },
         },
     ]
-    return documents + intake_documents(params) + backup_documents(params)
+    return (
+        documents
+        + codex_documents(params)
+        + intake_documents(params)
+        + backup_documents(params)
+    )

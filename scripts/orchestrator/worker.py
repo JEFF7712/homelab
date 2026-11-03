@@ -219,6 +219,18 @@ SECRET_PATTERNS = (
     re.compile(
         r"(?i)(refresh_token|access_token|api_key)[\"']?\s*[:=]\s*[\"']?[A-Za-z0-9._-]{12,}"
     ),
+    # Credentials embedded in URLs (postgres://user:pass@host).
+    re.compile(r"(?<=://)[^\s:/@]+:[^\s@/]+(?=@)"),
+    re.compile(r"(?i)\bbasic\s+[A-Za-z0-9+/]{8,}={0,2}"),
+    re.compile(
+        r"(?i)\b(password|passwd|pwd|secret|client_secret|token)[\"']?\s*[:=]\s*[\"']?[^\s\"',;&]{6,}"
+    ),
+    # Telegram bot tokens.
+    re.compile(r"\b\d{8,10}:[A-Za-z0-9_-]{35}\b"),
+    # Long hex tokens; git SHAs (exactly 40) and sha256: digests stay readable.
+    re.compile(
+        r"(?<![0-9a-fA-F:])(?![0-9a-f]{40}(?![0-9a-fA-F]))[0-9a-fA-F]{32,}(?![0-9a-fA-F])"
+    ),
 )
 TEXT_LIMIT = 8 * 1024
 

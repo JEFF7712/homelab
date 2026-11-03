@@ -368,6 +368,21 @@ The first tasks come from operations, not from a supervisor
   CPU and 5.4 GiB (55% memory in use), homelab-03 about 3.8 CPU and 3.5 GiB
   (75% in use); homelab-05 was over 100% CPU and memory. homelab-02 is the
   only node with room for one 4 GiB worker Job and the controller.
+- **Gate 3 (2026-11-03), open.** Codex (codex-cli 0.162.1, read-only)
+  reviewed the design, manifests, intake and credential boundaries. Sound:
+  worker API attempt scoping, Pod Security, default-deny networking, digest
+  pinning, the Claude launcher, publisher containment, backup integrity.
+  Fixed after the review: redaction of titles and of URL credentials, Basic
+  auth, password pairs, Telegram and long hex tokens; intake capacity checked
+  before evidence is read, with one aggregated overflow notice per hour;
+  bounded intake connections and Woodpecker reads; a dedicated backup volume
+  instead of the shared dump export; a rendered Codex login store with one
+  writer; an owner-only live store. Open, each needing a design change:
+  Job creation can mount any namespace Secret (admission policy on
+  controller-created Jobs); the evidence ClusterRole is cluster-wide
+  (namespace enrollment); evidence becomes worker instructions beside
+  readable subscription credentials (trusted goal, provider-only egress,
+  patch secret scanning).
 
 Remaining before a deployment request:
 

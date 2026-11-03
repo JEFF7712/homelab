@@ -731,6 +731,23 @@ class StorageTests(StoreCase):
         assert again is not None
         self.assertEqual(again[1].number, 2)
 
+    def test_live_store_and_its_wal_are_owner_only(self) -> None:
+        path = Path(self.tmp.name) / "private.sqlite"
+        previous = core.os.umask(0o022)
+        try:
+            store = Store(path, POLICY, controller=True)
+            store.create_task("rupan", "k1", spec(), 1.0)
+        finally:
+            core.os.umask(previous)
+        try:
+            for item in (path, path.with_name(path.name + "-wal")):
+                self.assertEqual(stat.S_IMODE(item.stat().st_mode), 0o600, item)
+        finally:
+            store.close()
+        path.chmod(0o644)
+        Store(path, POLICY).close()
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
     def test_cli_reports_check_and_backup_as_json(self) -> None:
         self.store.create_task("rupan", "k1", spec(), 1.0)
         destination = Path(self.tmp.name) / "cli-backup.sqlite"

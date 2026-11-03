@@ -172,24 +172,18 @@ def text(body: dict[str, Any], key: str) -> str:
     return value
 
 
-def serve(
-    api: WorkerApi,
-    host: str,
-    port: int,
+def bounded_handler(
     read_timeout: float = READ_TIMEOUT,
     max_in_flight: int = MAX_IN_FLIGHT,
     request_deadline: float = REQUEST_DEADLINE,
     max_per_peer: int = MAX_PER_PEER,
-) -> ThreadingHTTPServer:
-    """Serve the worker API; the caller runs serve_forever() and shutdown().
+) -> type[BaseHTTPRequestHandler]:
+    """A request handler base whose connections cannot starve the server.
 
-    A client that trickles bytes must not starve other workers' renewals:
-    each connection carries one request (HTTP/1.0), every read times out, a
+    Each connection carries one request (HTTP/1.0), every read times out, a
     watchdog closes any connection still open after `request_deadline`, one
     peer address holds at most `max_per_peer` connections, and the whole
-    server at most `max_in_flight`; excess connections get 503 at once. The
-    token is checked before any body is read. Each worker is its own pod, so
-    one compromised pod cannot take the slots other workers need.
+    server at most `max_in_flight`; excess connections get 503 at once.
     """
     slots = threading.BoundedSemaphore(max_in_flight)
     peers: dict[str, int] = {}
@@ -211,7 +205,7 @@ def serve(
                 del peers[peer]
             slots.release()
 
-    class Handler(BaseHTTPRequestHandler):
+    class Bounded(BaseHTTPRequestHandler):
         timeout = read_timeout
         protocol_version = "HTTP/1.0"
 
@@ -248,6 +242,31 @@ def serve(
                 watchdog.cancel()
                 release(peer)
 
+    return Bounded
+
+
+def serve(
+    api: WorkerApi,
+    host: str,
+    port: int,
+    read_timeout: float = READ_TIMEOUT,
+    max_in_flight: int = MAX_IN_FLIGHT,
+    request_deadline: float = REQUEST_DEADLINE,
+    max_per_peer: int = MAX_PER_PEER,
+) -> ThreadingHTTPServer:
+    """Serve the worker API; the caller runs serve_forever() and shutdown().
+
+    A client that trickles bytes must not starve other workers' renewals:
+    each connection carries one request (HTTP/1.0), every read times out, a
+    watchdog closes any connection still open after `request_deadline`, one
+    peer address holds at most `max_per_peer` connections, and the whole
+    server at most `max_in_flight` (see bounded_handler). The token is
+    checked before any body is read. Each worker is its own pod, so
+    one compromised pod cannot take the slots other workers need.
+    """
+    base = bounded_handler(read_timeout, max_in_flight, request_deadline, max_per_peer)
+
+    class Handler(base):
         def reply(
             self,
             status: int,

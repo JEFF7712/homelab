@@ -139,6 +139,30 @@ class BundleTests(unittest.TestCase):
         self.assertIn("KubePodCrashLooping", text)
         self.assertLess(len(text), EVIDENCE_LIMIT + 200)
 
+    def test_common_credential_shapes_are_redacted_and_digests_kept(self) -> None:
+        sha = "a" * 40
+        digest = "sha256:" + "b" * 64
+        leaks = [
+            "postgres://immich:hunter2-secret@immich-postgres:5432/immich",
+            "Authorization: Basic dXNlcjpodW50ZXIyLXNlY3JldA==",
+            "password=hunter2-secret",
+            "bot 1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawQ",
+            "session " + "c0ffee" * 8,
+        ]
+        text = bundle(
+            from_alertmanager(alerts(ALERT))[0],
+            [("Logs", "\n".join([*leaks, f"commit {sha}", f"image {digest}"]))],
+        )
+        for secret in (
+            "hunter2-secret",
+            "dXNlcjpodW50ZXIyLXNlY3JldA",
+            "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawQ",
+            "c0ffee" * 8,
+        ):
+            self.assertNotIn(secret, text)
+        self.assertIn(sha, text)
+        self.assertIn(digest, text)
+
     def test_failed_collector_leaves_a_note(self) -> None:
         signal = from_alertmanager(alerts(ALERT))[0]
         sections = SourceEvidence({"alertmanager": Failing()}).collect(signal)
@@ -164,6 +188,24 @@ class IntakeTests(StoreCase):
         [notice] = self.escalations()
         self.assertEqual(notice.payload["reason"], "open_limit")
         self.assertEqual(len(self.store.list_tasks(limit=10)), 3)
+
+    def test_invented_fingerprints_cannot_flood_or_force_evidence_reads(self) -> None:
+        for number in range(20):
+            self.fire(f"invented-{number}")
+        self.assertEqual(len(self.store.list_tasks(limit=50)), 3)
+        self.assertEqual(len(self.evidence.seen), 3)
+        [notice] = self.escalations()
+        self.assertEqual(notice.payload["turned_away"], 17)
+
+    def test_titles_are_redacted_before_they_are_stored(self) -> None:
+        alert = {
+            **ALERT,
+            "annotations": {"summary": "login failed api_key=abcdefghijklmnopqrstuvwx"},
+        }
+        _, task_id = self.intake.receive(from_alertmanager(alerts(alert))[0])
+        title = self.store.get_task(task_id or "").title
+        self.assertNotIn("abcdefghijklmnopqrstuvwx", title)
+        self.assertIn("KubePodCrashLooping", title)
 
     def test_resolution_cancels_only_unstarted_tasks(self) -> None:
         _, started = self.fire("started")
