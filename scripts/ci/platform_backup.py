@@ -117,8 +117,18 @@ def verify_restored_backup(restore_path: Path) -> None:
                 raise ValueError(f"Database error for {db_file}: {err}") from err
     for git_dir in restore_path.rglob("*.git"):
         if git_dir.is_dir():
+            # A root restore keeps the repository's owner, and git refuses
+            # another user's repository as dubious ownership.
             res = subprocess.run(
-                ["git", "-C", str(git_dir), "fsck", "--full"],
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={git_dir}",
+                    "-C",
+                    str(git_dir),
+                    "fsck",
+                    "--full",
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -219,6 +229,17 @@ def drill_metrics(state: dict[str, dict[str, Any]]) -> str:
         passed = str(entry.get("result", "")).startswith("pass")
         lines.append(
             f'homelab_restore_drill_last_result{{dataset="{dataset}"}} {int(passed)}'
+        )
+    # The reason travels as a label so agents without host access can read a
+    # failure from Prometheus.
+    lines += [
+        "# HELP homelab_restore_drill_result_info Latest restore drill result text.",
+        "# TYPE homelab_restore_drill_result_info gauge",
+    ]
+    for dataset, entry in sorted(state.items()):
+        reason = re.sub(r'["\\\n]', " ", str(entry.get("result", "")))[:200]
+        lines.append(
+            f'homelab_restore_drill_result_info{{dataset="{dataset}",result="{reason}"}} 1'
         )
     return "\n".join(lines) + "\n"
 

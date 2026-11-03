@@ -388,6 +388,35 @@ class PlatformRestoreDrillTests(unittest.TestCase):
                     metrics,
                 )
 
+    def test_fsck_trusts_a_repository_restored_under_another_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Path(directory) / "repositories/jeff7712/homelab.git"
+            repository.mkdir(parents=True)
+            with patch(
+                "scripts.ci.platform_backup.subprocess.run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as run:
+                verify_restored_backup(Path(directory))
+            command = run.call_args.args[0]
+            self.assertEqual(command[1:3], ["-c", f"safe.directory={repository}"])
+            self.assertEqual(command[-2:], ["fsck", "--full"])
+
+    def test_failure_reason_is_published_as_a_safe_label(self) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        error, _, metrics = self.drill(
+            {"nas-01": recent, "homelab-04": recent}, ("homelab-04",)
+        )
+        self.assertIsNotNone(error)
+        line = next(
+            line
+            for line in metrics.splitlines()
+            if line.startswith(
+                'homelab_restore_drill_result_info{dataset="platform-homelab-04"'
+            )
+        )
+        self.assertIn('result="fail: Database error', line)
+        self.assertEqual(line.count('"'), 4, line)
+
     def test_only_nas_01_runs_drills(self) -> None:
         with self.assertRaises(ValueError):
             run_drill("homelab-04")
