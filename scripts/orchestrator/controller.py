@@ -122,7 +122,13 @@ class ForgeCommentSink:
     """Mirrors questions, approvals and outcomes onto the task's issue."""
 
     name = "forge"
-    topics = ("question.open", "question.expired", "approval.open", "task.status")
+    topics = (
+        "question.open",
+        "question.expired",
+        "approval.open",
+        "answer.proposed",
+        "task.status",
+    )
 
     def __init__(self, forge: Forge) -> None:
         self.forge = forge
@@ -238,8 +244,8 @@ class Controller:
                 task.title,
                 f"{task.goal}\n\nAcceptance criteria:\n{criteria}\n\nRequested by "
                 f"{task.principal}. Managed by the orchestrator; reply with "
-                "`/answer <question> <revision> <text>`, `/approve <id>`, "
-                "`/decline <id>` or `/cancel`.",
+                "`/answer <question> <revision> <text>`, `/confirm <proposal>`, "
+                "`/approve <id>`, `/decline <id>` or `/cancel`.",
             )
             self.store.set_issue_ref(task.id, str(number))
 
@@ -444,6 +450,10 @@ class Controller:
                     command.text,
                     f"{task.principal} via forge",
                     now,
+                )
+            elif command.verb == "confirm":
+                self.store.confirm_proposal(
+                    command.target, task.id, f"{task.principal} via forge", now
                 )
             elif command.verb in {"approve", "decline"}:
                 approval = self.store.approval(command.target)

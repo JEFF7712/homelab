@@ -46,6 +46,9 @@ flowchart LR
 
 - The controller owns task truth (`docs/protocols/agent-tasks.md`). Letta,
   workers and Telegram only request changes.
+- Worker text never enters Letta's conversation or the client API; it goes
+  to the human on the forge issue and ntfy. An answer from Letta reaches a
+  worker only after the principal's `/confirm` on the issue.
 - A worker reaches the controller only through the worker API, with a token
   bound to its one live attempt. The token cannot answer questions, approve,
   complete, create tasks or read other attempts, and it stops working when the
@@ -270,12 +273,15 @@ Each gate needs recorded evidence before deployment is requested.
 7. **Packaging.** Build Letta from the upstream flake at an audited tag.
    Repeat the supervisor audit for any version newer than 0.34.20, because the
    preflight depends on its credential format.
-8. **Supervisor tool authority.** Worker text reaches the supervisor quoted,
-   labelled untrusted and escaped, which stops wrapper breakout but not
-   semantic prompt injection. Before deployment, decide the enforcement
-   outside the model: worker-originated events go to a turn without mutating
-   tools, or `create_task`, `cancel_task` and `answer_question` calls that
-   follow such an event need the principal's confirmation.
+8. **Supervisor tool authority** (done offline). No worker text reaches the
+   supervisor: the client API returns identifiers and controller states only,
+   and worker questions are read by the human on the issue. A supervisor's
+   `answer_question` is a proposal the principal confirms with `/confirm` on
+   the issue. Tests feed a worker question written as instructions to cancel,
+   answer and approve, and check that neither Letta nor any client response
+   sees it and that the obedient-supervisor path changes nothing. Automatic
+   answers for narrow, low-risk question types would be explicit policies
+   added later, not agent discretion.
 
 ## Vertical slice status
 

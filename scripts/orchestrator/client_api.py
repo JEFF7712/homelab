@@ -7,11 +7,18 @@ and acts only on its principal's tasks in the configured project, and it
 cannot decide approvals: those come from the human principal through the
 forge, so a model cannot approve on a person's behalf.
 
+Worker-originated text never leaves this API: no question prompt or choice,
+failure reason, final text or session id appears in a task view or an
+event, only identifiers, counts and controller-defined states. A client
+reading a worker's question is sent to the task's issue, where the human
+reads it. `answer_question` only proposes an answer; it reaches the worker
+when the principal confirms it on the issue (`/confirm <proposal>`).
+
     POST /v1/create_task      {idempotency_key, title, goal, acceptance_criteria, priority?}
     POST /v1/get_task         {task_id}
     POST /v1/list_tasks       {status?, limit?}
     POST /v1/cancel_task      {task_id, reason}
-    POST /v1/answer_question  {question_id, revision, answer}
+    POST /v1/answer_question  {question_id, revision, answer}  -> proposal
     POST /v1/events           {limit?}   undelivered notifications for this client
     POST /v1/ack              {keys}     mark them delivered to this client
 """
@@ -32,6 +39,26 @@ from scripts.orchestrator.core import OrchestratorError, Store, Task, TaskSpec
 BODY_LIMIT = 64 * 1024
 RESERVED_NAMES = frozenset({"forge", "ntfy"})
 EVENT_TOPICS = ("task.status", "question.open", "question.expired", "approval.open")
+# The only payload fields a client sees per topic: identifiers and states the
+# controller defines, never text a worker wrote.
+EVENT_FIELDS = {
+    "task.status": ("from", "to"),
+    "question.open": ("question_id", "revision", "blocking"),
+    "question.expired": ("question_id",),
+    "approval.open": ("approval_id", "expires"),
+}
+
+
+ERROR_TEXT = {
+    "NOT_FOUND": "no such task, question or proposal for this client",
+    "STALE": "the question or proposal is no longer open at that revision",
+    "INVALID_ANSWER": "the answer is not one of the question's choices; see the issue",
+    "INVALID_SPEC": "the request is malformed",
+    "IDEMPOTENCY_CONFLICT": "that idempotency key was used for a different request",
+    "INVALID_TRANSITION": "the task cannot change that way now",
+    "ALREADY_ANSWERED": "the question is already answered",
+    "FORBIDDEN": "not allowed for this client",
+}
 
 
 @dataclass(frozen=True)
@@ -84,17 +111,12 @@ class ClientApi:
             **task.public(),
             "attempt": None
             if attempt is None
-            else {
-                "number": attempt.number,
-                "finished": attempt.finished,
-                "exit_reason": attempt.exit_reason,
-            },
+            else {"number": attempt.number, "finished": attempt.finished},
             "open_questions": [
                 {
                     "question_id": q.id,
-                    "prompt": q.prompt,
-                    "choices": list(q.choices),
                     "revision": q.revision,
+                    "choice_count": len(q.choices),
                 }
                 for q in self.store.open_questions(task.id)
             ],
@@ -143,14 +165,18 @@ class ClientApi:
         if operation == "answer_question":
             question = self.store.question(str(body.get("question_id")))
             self._owned(client, question.task_id)
-            answered = self.store.answer(
+            proposal = self.store.propose_answer(
                 question.id,
                 int(body.get("revision") or 0),
                 str(body.get("answer") or ""),
-                f"{client.principal} via {client.name}",
+                client.name,
                 now,
             )
-            return {"question_id": answered.id, "status": answered.status}
+            return {
+                "question_id": question.id,
+                "proposal_id": proposal,
+                "status": "awaiting_confirmation",
+            }
         if operation == "events":
             messages = self.store.pending_for_sink(
                 client.name, EVENT_TOPICS, min(int(body.get("limit") or 20), 100)
@@ -171,7 +197,11 @@ class ClientApi:
                         "topic": message.topic,
                         "task_id": message.task_id,
                         "title": task.title,
-                        "payload": message.payload,
+                        "payload": {
+                            key: message.payload[key]
+                            for key in EVENT_FIELDS.get(message.topic, ())
+                            if key in message.payload
+                        },
                     }
                 )
             return owned
@@ -227,9 +257,14 @@ def serve_clients(
                 with api.store.lock:
                     result = api.handle(client, self.path[4:], body)
             except OrchestratorError as error:
+                # Only the code and a fixed sentence: store messages can quote
+                # stored values, and stored values include worker text.
                 self.reply(
                     404 if error.code == "NOT_FOUND" else 409,
-                    {"code": error.code, "error": str(error)},
+                    {
+                        "code": error.code,
+                        "error": ERROR_TEXT.get(error.code, error.code),
+                    },
                 )
                 return
             except (ValueError, TypeError, TimeoutError):
