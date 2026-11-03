@@ -61,13 +61,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "render-manifests":
         import yaml
 
-        from scripts.orchestrator.manifests import DeployParams, render
+        from scripts.orchestrator.manifests import DeployParams, IntakeParams, render
 
         raw = json.loads(args.params.read_text())
         raw["required_contexts"] = tuple(raw.get("required_contexts") or ())
         raw["api_endpoints"] = tuple(
             tuple(item) for item in raw.get("api_endpoints") or ()
         )
+        if raw.get("intake"):
+            raw["intake"] = IntakeParams(**raw["intake"])
         print(yaml.safe_dump_all(render(DeployParams(**raw)), sort_keys=False), end="")
         return 0
     if args.command == "serve":
