@@ -155,6 +155,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-agents": {
+      "locked": {
+        "lastModified": 1793540411,
+        "narHash": "sha256-fiPJ88izTVucjeo2EQ3jk4aWmLg03I1D4vxnX2QjEgE=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "0bb2eedc20e4739f29e8045034f2828ad7054f8f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-lib": {
       "locked": {
         "lastModified": 1772328832,
@@ -194,6 +210,7 @@
         "niks3": "niks3",
         "nix-topology": "nix-topology",
         "nixpkgs": "nixpkgs_2",
+        "nixpkgs-agents": "nixpkgs-agents",
         "sops-nix": "sops-nix",
         "tofunix": "tofunix"
       }

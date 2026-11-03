@@ -92,7 +92,8 @@ in
           IPProtocol = "udp";
           DestinationPort = 29808;
           Table = 29808;
-          Priority = 29808;
+          # NetBird's main-table lookup has priority 105.
+          Priority = 100;
         }) switchManagementAddresses;
         linkConfig.RequiredForOnline = "routable";
       };
