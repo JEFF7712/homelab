@@ -132,7 +132,8 @@ before activation because it changes host exposure.
 
 Native session traffic also needs a direct layer 2 path. Both switches answer
 ARP with their inventory MAC addresses on the appliance's infrastructure link.
-Two destination-port policy rules select table `29808` only for UDP management
+Two destination-port policy rules at priority `100`, ahead of NetBird's
+main-table lookup at `105`, select table `29808` only for UDP management
 requests to these switch addresses. That table has on-link `/32` routes through
 `enp1s0`, with source `10.0.30.10`. HTTP and other traffic retain the VLAN 60
 routes in the main table. These routes and rules belong to the same appliance
