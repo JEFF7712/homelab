@@ -1,7 +1,8 @@
 # Approvals dashboard
 
-`https://approvals.rupan.dev` handles exceptional high-risk CI operations.
-Routine fleet, CI-host, OPNsense, Cloudflare and workspace deployments are
+`https://approvals.rupan.dev` is the one place the operator approves
+anything: PR heads the [merge policy](merge-policy.md) escalates, and
+exceptional high-risk CI operations. Forgejo reviews grant nothing. Routine fleet, CI-host, OPNsense, Cloudflare and workspace deployments are
 automatic. A deployment that would activate a change to the controls bounding
 agents (CI policy, approvals, merge policy, Woodpecker, protection, secret
 recipients) or to storage layout, an operator-only catalog operation, and a
@@ -44,7 +45,21 @@ as the operator and `ship` follows the pipeline.
   homelab-04 deploys the files they join the policy baseline and need none. An
   unreachable approvals service counts as no grant. Saved-plan risks and
   operator-only operations still use deployment requests.
-- **Expiry:** pending requests expire after six hours.
+- **Merges:** the merge policy files `POST /api/merges` with its Forgejo
+  token; the service resolves the login through Forgejo and accepts only
+  `homelab-policy`. A merge request names one PR head, its findings and the
+  head's versions of the changed files deployments check. Approving triggers
+  nothing; the policy reads `GET /api/merges/<pr>` and passes that head. A
+  newer head supersedes a pending request; main moving does not. See
+  [merge policy](merge-policy.md#operator-approval).
+- **One approval for merge and deploy:** a grant request may carry `files`,
+  the deployed commit's identity per protected path. They must reproduce the
+  grant digest exactly, so they describe what the CI policy saw. When merges
+  approved in the last seven days cover every one of those versions, the grant
+  is approved at filing, recorded as decided by those merges, with no passkey
+  and no notification.
+- **Expiry:** pending deployment and grant requests expire after six hours,
+  merge requests after seven days.
 
 The page on `ci.internal:8020` redirects to the public origin: passkeys are
 bound to `approvals.rupan.dev`, so approval only works there. Agents use

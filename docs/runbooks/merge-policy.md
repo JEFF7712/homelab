@@ -5,7 +5,8 @@ The merge policy posts a `policy/merge` commit status on every open PR to
 redefine their own authority: a head passes on its own unless it changes a
 control that bounds agents, grants an operation to agents, destroys stored
 data or opens host-level access. Those need the operator's approval of that
-exact change. Mistakes the agent can repair go back to it; constrained
+exact change on the [approvals dashboard](approvals.md), the one place the
+operator approves anything. Forgejo reviews grant nothing. Mistakes the agent can repair go back to it; constrained
 exposure and unconventional implementations are allowed and recorded.
 
 ## What it decides
@@ -59,13 +60,41 @@ protection change (the Forgejo migration).
 | --- | --- | --- |
 | `success` | none | routine change or an operator-approved exact change; merge when validation passes |
 | `failure` | `rejected` | the agent: `just ship` prints the findings, the agent fixes and pushes |
-| `failure` | `escalated` | authority change: the operator approves the exact change, regardless of author |
+| `failure` | `escalated` | authority change: the operator approves the exact head on the approvals dashboard, regardless of author |
 | `success` | `authorized` | nonblocking notices recorded; no operator review required |
 
 `just ship` returns repair findings to the agent, which fixes, commits and
 retries. After three rejected heads on one PR the bounded recovery is spent:
-ship comments `@rupan` on the PR and stops. Authority findings notify the
-operator at once through the policy comment. The `CODEOWNERS` file creates no
+ship comments `@rupan` on the PR and stops.
+
+## Operator approval
+
+When a head escalates, the service files a merge request with the approvals
+service (`POST /api/merges` on `127.0.0.1:8020`, authenticated with its own
+`homelab-policy` Forgejo token, which the dashboard checks against Forgejo). The
+request names the PR, the head, the findings and the head's versions of the
+changed files a deployment checks. ntfy pushes the link; the status's details
+link and the policy comment point at it; `just ship` prints it and waits.
+
+- One request per head. A newer head supersedes a pending request for an older
+  one; pending requests expire after seven days.
+- The policy asks `GET /api/merges/<pr>` on every judgement and passes a head
+  the operator approved, or a byte-identical update of an approved head (the
+  same patch-id from its merge base, which updating the branch from main
+  produces). Any new change, including a conflict resolution, files a new
+  request.
+- Approving merges nothing by itself: the policy re-judges within its interval
+  and posts `success`, and ship merges.
+- The approval also covers deploying those file versions. When the CI policy
+  later holds the deployment for a grant, ship sends the deployed commit's file
+  identities; the dashboard checks they reproduce the grant digest and approves
+  the grant without a passkey when approved merges from the last seven days
+  approved exactly those versions. Anything else (other versions, extra files,
+  several unreleased protected changes) still asks for a passkey.
+- If the approvals service is unreachable, judgements count as evaluation
+  errors: nothing is posted for two attempts, then the head fails with the
+  error. A passing status never flips because the dashboard is down. Restart
+  `approvals` on homelab-04 to recover; nothing merges around it. The `CODEOWNERS` file creates no
 review requests; validation and `policy/merge` remain required status checks.
 After three evaluation errors on one head the service still reports failure
 with diagnostic evidence, rather than leaving the PR silently pending.
@@ -97,7 +126,7 @@ Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). St
 
 - Logs: `journalctl -u merge-policy` on homelab-04, one line per decision.
 - Read-only check from a workstation with any read token:
-  `python -m scripts.verifier.service --token-file <file> --state <dir> --once --dry-run`
+  `python -m scripts.verifier.service --token-file <file> --state <dir> --approvals http://ci.internal:8020 --once --dry-run`
   prints the decision for every open PR without posting.
 - The service holds the policy token only through `LoadCredential`; it runs
   as the unprivileged `merge-policy` user with a strict sandbox.
