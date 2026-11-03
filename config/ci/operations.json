@@ -2684,5 +2684,66 @@
     "mutation": true,
     "prerequisite": "deploy-switch-runtime-dry-run",
     "agent": true
+  },
+  "opnsense-fib-check": {
+    "commands": [
+      "python -m scripts.ci.opnsense_frr_heal check"
+    ],
+    "environment": {
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_plan_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_plan_api_secret"
+      }
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "opnsense-frr-heal": {
+    "commands": [
+      "python -m scripts.ci.opnsense_frr_heal heal"
+    ],
+    "environment": {
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_deploy_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_deploy_api_secret"
+      }
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "agent": true,
+    "prerequisite": ""
   }
 }
