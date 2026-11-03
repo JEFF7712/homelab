@@ -1,4 +1,10 @@
 { pkgs, fleetInventory, ... }:
+let
+  switchManagementAddresses = [
+    "10.0.10.2/32"
+    "10.0.10.3/32"
+  ];
+in
 {
   imports = [
     ./adguard-netbird/adguard.nix
@@ -73,7 +79,21 @@
             Destination = "172.31.10.6/32";
             Gateway = fleetInventory.hosts.homelab-04.address;
           }
-        ];
+        ]
+        ++ map (destination: {
+          Destination = destination;
+          Scope = "link";
+          Table = 29808;
+          PreferredSource = fleetInventory.hosts.adguard-netbird-01.address;
+        }) switchManagementAddresses;
+        # ESCP session traffic needs the direct L2 path; keep HTTP via VLAN 60.
+        routingPolicyRules = map (destination: {
+          To = destination;
+          IPProtocol = "udp";
+          DestinationPort = 29808;
+          Table = 29808;
+          Priority = 29808;
+        }) switchManagementAddresses;
         linkConfig.RequiredForOnline = "routable";
       };
       "60-netbird-policy" = {
@@ -81,17 +101,11 @@
         networkConfig.Address = "10.0.60.2/24";
         # Use the existing NetBird management permission for these two switches.
         # The infrastructure default gateway intentionally blocks VLAN 10.
-        routes =
-          map
-            (destination: {
-              Destination = destination;
-              Gateway = fleetInventory.networks.netbird.gateway;
-              PreferredSource = "10.0.60.2";
-            })
-            [
-              "10.0.10.2/32"
-              "10.0.10.3/32"
-            ];
+        routes = map (destination: {
+          Destination = destination;
+          Gateway = fleetInventory.networks.netbird.gateway;
+          PreferredSource = "10.0.60.2";
+        }) switchManagementAddresses;
       };
     };
   };
