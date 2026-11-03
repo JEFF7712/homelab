@@ -89,6 +89,21 @@ def _limit_memory() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (APPLY_MEMORY, APPLY_MEMORY))
 
 
+# Every patch's added lines go through gitleaks before publication. A
+# missing scanner or a scan error rejects the patch: the publisher fails
+# closed. This is a tripwire, not a guarantee; encoded data can pass it,
+# which is why credentials also stay out of reach of worker tools.
+SECRET_SCANNER = ("gitleaks", "stdin", "--no-banner", "--redact", "--exit-code", "1")
+
+
+def added_lines(patch: bytes) -> bytes:
+    return b"\n".join(
+        line[1:]
+        for line in patch.splitlines()
+        if line.startswith(b"+") and not line.startswith(b"+++")
+    )
+
+
 class PatchRejected(ValueError):
     """The patch is not acceptable; the attempt failed."""
 
@@ -114,6 +129,7 @@ class Publisher:
         author: tuple[str, str] = ("orchestrator", "orchestrator@localhost"),
         patch_limit: int = PATCH_LIMIT,
         timeout: float = 300,
+        scanner: Sequence[str] = SECRET_SCANNER,
     ) -> None:
         self.repository_url = repository_url
         self.base_branch = base_branch
@@ -125,6 +141,7 @@ class Publisher:
         self.author = author
         self.patch_limit = patch_limit
         self.timeout = timeout
+        self.scanner = tuple(scanner)
         work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         if not (self.mirror / "HEAD").exists():
             self._git("init", "--bare", "--quiet", str(self.mirror), cwd=work_dir)
@@ -321,8 +338,27 @@ class Publisher:
                     raise PatchRejected(f"{path} is Git metadata")
                 if protected_path(path, self.protected):
                     raise PatchRejected(f"{path} is protected")
+            self._scan(patch)
             tree = self._git("write-tree", env=index).stdout.decode().strip()
             return tree, [path for _, path in changes]
+
+    def _scan(self, patch: bytes) -> None:
+        try:
+            result = subprocess.run(
+                self.scanner,
+                input=added_lines(patch),
+                capture_output=True,
+                timeout=120,
+                env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "/tmp"},
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise PatchRejected(
+                f"the secret scan could not run: {type(error).__name__}"
+            )
+        if result.returncode == 1:
+            raise PatchRejected("the patch adds what looks like a secret")
+        if result.returncode != 0:
+            raise PatchRejected(f"the secret scan failed with exit {result.returncode}")
 
     def publish(
         self, base_sha: str, branch: str, patch: bytes, message: str, when: float

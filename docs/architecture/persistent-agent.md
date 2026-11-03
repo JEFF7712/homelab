@@ -347,12 +347,33 @@ The first tasks come from operations, not from a supervisor
   that fails twice escalates once. Escalations are the only ntfy messages
   intake tasks send; their routine status stays on the forge issue.
 - **Evidence.** Workers stay off the private network. The controller attaches
-  the alert, the affected object's status (never its spec), events, recent
+  the alert, the affected pods' status (never their spec), events, recent
   logs and failing step logs, capped per section and in total and passed
   through the same `redact()` as worker text. The `orchestrator-evidence`
-  ClusterRole reads object status, events and pod logs and names no Secrets
-  or ConfigMaps; the controller's namespaced Role can create and delete
-  per-attempt Secrets but never read them.
+  ClusterRole grants pods (`get`, `list`), `pods/log` and events, and only
+  RoleBindings use it, one per namespace enrolled in
+  `config/orchestrator/evidence-namespaces.json`. The collector refuses any
+  other namespace whatever an alert names, and finds a workload's pods by
+  owner reference. A test requires every namespace the repository declares,
+  and every one an alert rule or the sentinel names, to be either allowed or
+  explicitly excluded (pod-agent, external-secrets, kube-system and the
+  orchestrator's own namespace are excluded). The controller's namespaced
+  Role can create and delete per-attempt Secrets but never read them.
+- **Untrusted evidence.** Each intake task's goal is a fixed objective per
+  source (`OBJECTIVES` in intake.py) followed by the evidence inside markers
+  carrying a per-task random nonce; forged markers inside evidence are
+  neutralized and titles are built from the source and signal name only.
+- **Worker boundary.** `config/orchestrator/worker-admission.yaml`, an
+  enforcement path, admits a Job from the controller's ServiceAccount only
+  when it is exactly a worker: the pinned image, the worker ServiceAccount
+  without a token, the worker label, a deadline, CPU and memory limits, no
+  host namespaces, no privilege, non-root, no environment from Secrets or
+  ConfigMaps, and only its own job Secret, the backend's keys of the worker
+  Secret and the Codex store. No rendered role may change admission policies
+  or RBAC. Worker public egress is TCP 443 to `PROVIDER_HOSTS` only, by FQDN
+  in a CiliumNetworkPolicy. The publisher runs gitleaks over every patch's
+  added lines and rejects on a finding or on any scan failure; published
+  patches still go through CI and `policy/merge`.
 - **Cutover.** The controller is added as a second Alertmanager receiver
   while ntfy keeps receiving everything. Warnings then move behind the
   controller first. Critical alerts go to both until autonomy metrics justify
@@ -377,12 +398,12 @@ The first tasks come from operations, not from a supervisor
   before evidence is read, with one aggregated overflow notice per hour;
   bounded intake connections and Woodpecker reads; a dedicated backup volume
   instead of the shared dump export; a rendered Codex login store with one
-  writer; an owner-only live store. Open, each needing a design change:
-  Job creation can mount any namespace Secret (admission policy on
-  controller-created Jobs); the evidence ClusterRole is cluster-wide
-  (namespace enrollment); evidence becomes worker instructions beside
-  readable subscription credentials (trusted goal, provider-only egress,
-  patch secret scanning).
+  writer; an owner-only live store. The three high findings were addressed
+  by the operator-approved designs (2026-11-03) described under alert
+  intake: the worker Job admission policy, namespace enrollment for
+  evidence, and trusted goals with provider-only egress and patch scanning.
+  A second review pass is required before the gate closes, and the
+  admission policy's CEL is proven only by gate 4's live negative tests.
 
 Remaining before a deployment request:
 
