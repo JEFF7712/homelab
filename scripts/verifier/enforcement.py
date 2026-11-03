@@ -39,6 +39,9 @@ ENFORCEMENT_PATHS = (
     "flake/modules/woodpecker.nix",
     # Secret recipients.
     ".sops.yaml",
+    # The orchestrator controller's credential boundary: the admission policy
+    # that keeps its Job permission from mounting the namespace's Secrets.
+    "config/orchestrator/worker-admission.yaml",
     # Spending caps.
     "config/spend.json",
 )
