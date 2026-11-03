@@ -30,9 +30,16 @@ the routes present but not installed, because it compares
 `/api/quagga/diagnostics/search_bgproute4`. Agent VMs run it with their
 read-only key (`~/.config/sops/age/agent-rupan.key`).
 
-Fix: restart FRR in the OPNsense UI (Services, FRR). The agent key is
-read-only and no CI operation restarts FRR without a configuration change.
-Then confirm the `/32`s appear in the kernel routes via `10.0.30.11`-`13`
-and rerun `opnsense-plan` to prove the data plane.
+Fix: `just ship --resume <main> --deploy opnsense-frr-heal`. The operation
+(`scripts/ci/opnsense_frr_heal.py`) acts only on this exact condition:
+every peer established and every expected route in FRR, with some missing
+from the kernel. It confirms the dropout again after a minute, restarts FRR
+only when every peer session is older than six hours (sessions reset on any
+FRR restart, so this bounds it to one restart per six hours with no stored
+state), and passes only when every expected `/32` is installed within three
+minutes. A hold or a failed heal exits nonzero and needs a human: restart
+FRR in the OPNsense UI (Services, FRR) and rerun `opnsense-plan`.
+`opnsense-fib-check` runs the same detection read-only and fails with the
+command to run.
 
 An absent peer, wrong ASN, missing route, or non-running service is an apply failure. Restore connectivity using the OPNsense console recovery runbook before attempting another configuration change.

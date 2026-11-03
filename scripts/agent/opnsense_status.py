@@ -215,6 +215,12 @@ def probe(root: Path, url: str) -> dict[str, Any]:
             payloads.append(json.loads(body))
         finally:
             connection.close()
+    peers, routes = expectations(root)
+    return diagnostic_health(payloads[0], payloads[1], payloads[2], peers, routes)
+
+
+def expectations(root: Path) -> tuple[dict[str, int], set[str]]:
+    """Enabled BGP peers with their ASNs, and the VIP routes they must carry."""
     neighbors = json.loads(
         (root / "opnsense_reconciler/bgp-neighbors.json").read_text()
     )
@@ -229,7 +235,7 @@ def probe(root: Path, url: str) -> dict[str, Any]:
             (root / "opnsense_reconciler/bgp-expected-routes.json").read_text()
         )
     }
-    return diagnostic_health(payloads[0], payloads[1], payloads[2], peers, routes)
+    return peers, routes
 
 
 def main() -> int:
