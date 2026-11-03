@@ -197,11 +197,16 @@ class HostSecretsTest(unittest.TestCase):
             ("roku-bridge-mqtt.env", "roku-bridge.service"),
             ("roku-cloud-bridge-mqtt.env", "roku-cloud-bridge.service"),
             ("ledfx-roku-bridge-mqtt.env", "ledfx-roku-bridge.service"),
-            ("ledfx-zigbee-bridge-mqtt.env", "ledfx-zigbee-bridge.service"),
             ("zigbee2mqtt-secret.yaml", "zigbee2mqtt-secrets.service"),
         ):
             with self.subTest(template=template):
                 self.assertEqual(config["templates"][template]["restartUnits"], [unit])
+
+    def test_retired_shared_light_writer_has_no_unit_or_credential(self) -> None:
+        config = self.evaluated["adguard-netbird-01"]
+        self.assertNotIn("ledfx-zigbee-bridge", config["units"])
+        self.assertNotIn("ledfx-zigbee-bridge-mqtt.env", config["templates"])
+        self.assertIn("ledfx-roku-bridge", config["units"])
 
     def test_bridges_read_owned_secrets_directly(self) -> None:
         config = self.evaluated["adguard-netbird-01"]

@@ -174,7 +174,7 @@ MAC-derived topic fragments, already visible as retained discovery topics,
 so they live in the plain store config in `ledfx-roku-bridge.nix`. The relay
 reuses the `roku-bridge` broker credential, so no new mosquitto user or
 secret was needed. The firewall allows UDP 9000 from homelab-05 and nas-01
-(`10.0.30.15` and `.20`), and UDP 9001 only from homelab-05; see
+(`10.0.30.15` and `.20`); see
 `flake/modules/adguard-netbird-appliance.nix`.
 The 3 bedroom light entities are excluded from the HA recorder because music
 mode streams per-frame optimistic state over MQTT.
@@ -186,18 +186,27 @@ Live LedFx objects. The bedroom trio lives on the **nas-01** instance
 - virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1)
 - scene `bedroom-music-mode` (energy)
 
-The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) holds only
-the `shared-osc` device, the `music-mode-bulbs` virtual, and the `music-mode`
-scene. `shared-osc` (type `osc`, `10.0.30.10:9001`, 4 pixels, All_To_One,
-`/shared`, 10Hz) feeds `ledfx-zigbee-bridge` on the Zigbee gateway, which
-averages each pixel over 2.5s and fades the matching Zigbee bulb (pixel order:
-kitchen ceiling 1, kitchen ceiling 2, floor lamp, tulip lamp; see
-`flake/modules/adguard-netbird/ledfx-zigbee-bridge.nix`). It is ambient by
-design: Zigbee carries about one command per bulb per second, so beat-level
-reactiveness belongs on a WLED strip added to the same virtual. The Apollo
-strip is deliberately not in the music virtual.
-Bedroom objects were removed from it so the two instances cannot address each
-other's bulbs.
+The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) is
+reserved for future LED strips. Shared bulbs are owned by Home Assistant's
+`shared_music_mode` automation and `shared_music_album_color` script: one
+album-art colour per track, gated by `input_boolean.shared_music_mode`.
+
+The obsolete `ledfx-zigbee-bridge` has been removed from the gateway, along
+with its UDP 9001 firewall allowance. Its LedFx `music-mode-bulbs` virtual was
+also deactivated with `PUT /api/virtuals/music-mode-bulbs` and
+`{"active": false}`, which saves the inactive state across restarts. The old
+virtual and scene are retained as inactive configuration; do not reactivate
+or reconnect them to shared bulbs. An active old virtual used to publish
+Zigbee `state: ON` commands independently of the HA toggle, causing lights
+to turn back on and share a colour even with Music Mode off.
+
+To verify retirement, check that the gateway has no running
+`ledfx-zigbee-bridge.service`, the LedFx virtual is inactive and
+`shared-osc` is not streaming, then turn off a shared bulb in HA and confirm
+it stays off. The bedroom's separate OSC relay on UDP 9000 remains active.
+For rollback, revert the gateway source change and deploy it through the
+fleet workflow. Reactivate the old virtual only when deliberately restoring
+the legacy music-lighting behaviour; doing so restores the competing writer.
 
 Coordination note for the strip cloud bridge: keep music frames off the
 `roku/light/7C67AB2A0505/set` topic or throttle there. If that topic ever

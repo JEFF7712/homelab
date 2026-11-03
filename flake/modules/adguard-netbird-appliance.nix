@@ -14,7 +14,6 @@ in
     ./adguard-netbird/roku-bridge.nix
     ./adguard-netbird/roku-cloud-bridge.nix
     ./adguard-netbird/ledfx-roku-bridge.nix
-    ./adguard-netbird/ledfx-zigbee-bridge.nix
   ];
 
   boot = {
@@ -27,8 +26,7 @@ in
   # Box firewall. Port owners live in the service modules:
   # adguard.nix (53, 3000, 9100 via node exporter below), netbird.nix (51820),
   # mosquitto.nix (1883), ledfx-roku-bridge.nix (9000/udp from homelab-05 and
-  # nas-01, the two LedFx instances that stream music frames),
-  # ledfx-zigbee-bridge.nix (9001/udp from homelab-05, the shared instance);
+  # nas-01, the two LedFx instances that stream music frames);
   # 22 is base SSH access.
   networking = {
     useDHCP = false;
@@ -46,7 +44,6 @@ in
         ip saddr 10.0.30.0/24 udp dport 53 accept
         ip saddr { 10.0.20.120, 10.0.30.11, 10.0.30.12, 10.0.30.13, 10.0.30.14, 10.0.30.15 } tcp dport 1883 accept
         ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept
-        ip saddr 10.0.30.15 udp dport 9001 accept
         ip saddr 10.0.30.0/24 tcp dport 9100 accept
         iifname "wt0" tcp dport { 22, 53, 3000 } accept
         iifname "wt0" udp dport 53 accept
