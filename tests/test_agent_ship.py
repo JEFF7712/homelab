@@ -261,8 +261,31 @@ class ShipOperatorTest(unittest.TestCase):
         body = http.call_args_list[0].args[3]
         self.assertEqual(body["digest"], self.GRANT)
         self.assertEqual(body["paths"], ["scripts/ci/policy.py", ".sops.yaml"])
+        self.assertNotIn("files", body, "identities that miss the digest are not sent")
         self.assertEqual(shipper.woodpecker.deploy.call_count, 2)
-        shipper.woodpecker.pipeline.assert_called_once_with(88)
+        shipper.woodpecker.pipeline.assert_called_with(88)
+
+    def test_grant_requests_carry_file_versions_that_reproduce_the_digest(
+        self,
+    ) -> None:
+        from scripts.ci.deployment_risk import authority_digest
+
+        files = {"scripts/ci/policy.py": "100644 " + "1" * 40, ".sops.yaml": "absent"}
+        digest = authority_digest(list(files), files)
+        shipper = self.approval_shipper()
+        shipper.woodpecker.deploy.side_effect = [
+            ShipError(self.REJECTION.replace(self.GRANT, digest)),
+            {"number": 88},
+        ]
+        responses = [(201, {"id": "g", "state": "approved", "url": "u"})]
+        responses.append((200, {"state": "approved", "pipeline": None}))
+        with (
+            patch.object(shipper, "tree_identities", return_value=files),
+            patch.object(ship, "http", side_effect=responses) as http,
+            self.assertRaisesRegex(ShipError, "following deployment"),
+        ):
+            shipper.run_operation(10, "deploy-ci-host")
+        self.assertEqual(http.call_args_list[0].args[3]["files"], files)
 
     def test_a_granted_digest_rejected_again_fails_instead_of_looping(self) -> None:
         shipper = self.approval_shipper()
@@ -848,8 +871,9 @@ class PolicyVerdictTest(unittest.TestCase):
         self,
         state: str,
         comments: list[dict],
-        reviews: list | None = None,
+        requests: list | None = None,
         states: list[str] | None = None,
+        said: list | None = None,
     ) -> tuple[str, list]:
         from scripts.agent import ship
 
@@ -867,19 +891,21 @@ class PolicyVerdictTest(unittest.TestCase):
                     }
                 if path.endswith("/comments"):
                     return comments
-                if path.endswith("/reviews"):
-                    return reviews or []
                 return {}
 
         class Stub:
             forgejo = Forge()
-            operator_approved = ship.Shipper.operator_approved
+
+            def merge_request(self, number: int, sha: str):
+                calls.append(("APPROVALS", f"/api/merges/{number}", sha))
+                current = requests.pop(0) if requests else None
+                return None if current is None else {"url": "https://a/r/1", **current}
 
             def remaining(self) -> None:
                 pass
 
             def say(self, message: str) -> None:
-                pass
+                (said if said is not None else []).append(message)
 
         try:
             ship.Shipper.wait_policy(Stub(), self.PULL)  # type: ignore[arg-type]
@@ -904,7 +930,8 @@ class PolicyVerdictTest(unittest.TestCase):
             "failure", [self.comment(self.HEAD, "escalated")]
         )
         self.assertIn("escalated to rupan", outcome)
-        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
+        self.assertIn("approvals dashboard has no request", outcome)
+        self.assertFalse(any("/reviews" in str(call) for call in calls))
 
     def test_exhausted_repairs_notify_the_operator(self) -> None:
         comments = [self.comment(c * 40, "rejected") for c in "cd"] + [
@@ -915,19 +942,33 @@ class PolicyVerdictTest(unittest.TestCase):
         notes = [body for method, path, body in calls if method == "POST"]
         self.assertTrue(any("@rupan" in (body or {}).get("body", "") for body in notes))
 
-    def test_approved_head_waits_for_the_policy_instead_of_escalating(self) -> None:
-        approval = [
-            {"state": "APPROVED", "user": {"login": "rupan"}, "commit_id": self.HEAD}
-        ]
+    def test_escalated_head_waits_on_the_dashboard_until_approved(self) -> None:
+        said: list = []
         with patch.object(ship.time, "sleep"):
             outcome, calls = self.run_policy(
                 "success",
                 [self.comment(self.HEAD, "escalated")],
-                reviews=approval,
-                states=["failure", "failure", "success"],
+                requests=[
+                    {"state": "pending"},
+                    {"state": "pending"},
+                    {"state": "approved"},
+                ],
+                states=["failure", "failure", "failure", "success"],
+                said=said,
             )
         self.assertEqual(outcome, "passed")
-        self.assertFalse(any("requested_reviewers" in path for _, path, _ in calls))
+        links = [m for m in said if "needs operator approval at https://a/r/1" in m]
+        self.assertEqual(len(links), 1, said)
+        self.assertFalse(any("/reviews" in str(call) for call in calls))
+
+    def test_a_declined_merge_stops_the_ship(self) -> None:
+        with patch.object(ship.time, "sleep"):
+            outcome, _ = self.run_policy(
+                "failure",
+                [self.comment(self.HEAD, "escalated")],
+                requests=[{"state": "declined"}],
+            )
+        self.assertIn("merge approval declined on the approvals dashboard", outcome)
 
     def test_policy_requirement_follows_branch_protection(self) -> None:
         from scripts.agent.ship import POLICY_CONTEXT, policy_required
