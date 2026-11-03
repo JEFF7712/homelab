@@ -37,10 +37,9 @@ flowchart LR
     B --> CX[Codex CLI + ask_supervisor MCP]
     B --> CC[Claude Code + ask_supervisor MCP]
   end
-  R -- worker API, bearer token --> C
-  W -- branch push, PR --> F[Forgejo]
+  R -- worker API: source archive, patch, bearer token --> C
+  C -- publisher: push attempt branch; PR, CI status --> F[Forgejo]
   F --> WP[Woodpecker]
-  C -- read PR and CI status --> F
   C -- held operations only --> A[approvals dashboard]
   C -- push notices --> N[ntfy]
 ```
@@ -51,6 +50,11 @@ flowchart LR
   bound to its one live attempt. The token cannot answer questions, approve,
   complete, create tasks or read other attempts, and it stops working when the
   attempt ends. The worker never sees the SQLite file.
+- Workers hold no forge credential and cannot reach the forge. They receive
+  the base commit as an archive and return a patch; the publisher in the
+  controller pod validates it and is the only Git writer. Verification and
+  completion are bound to the commit it pushed. Nothing merges
+  automatically.
 - Completion has three stages: worker-reported (`settle`), verified
   (`record_verification`, from the controller's own Forgejo and Woodpecker
   reads), and finalized (`complete`, from the stored verification only). The
@@ -190,7 +194,7 @@ single writer.
 | Telegram bot token | New bot for the supervisor only; not pod-agent's bot | Letta channel runtime | SOPS secret, rendered by an init container into `channels/telegram/accounts.json` on the control-plane PVC (0600); DM policy `allowlist` with one user ID | Operator via BotFather | `/revoke` in BotFather, update SOPS, restart the pod |
 | Codex worker login | Dedicated ChatGPT login session for the Codex CLI; not a copy of the laptop's or pod-agent's `auth.json` | Codex worker Jobs | `CODEX_HOME` on a dedicated worker-auth PVC (0700), mounted only into Codex Jobs | Operator runs `codex login --device-auth` in a one-off pod against that PVC | Re-run the device login and revoke the old session. One Codex Job at a time keeps a single refresh writer |
 | Claude worker token | `claude setup-token` one-year OAuth token for the operator's subscription | Claude Code Jobs | SOPS secret mounted as a file (`token_file`). The backend reads it into `CLAUDE_CODE_OAUTH_TOKEN` at launch | Operator runs `claude setup-token` locally | Mint a new token, update SOPS, redeploy, revoke the old one. Calendar reminder before expiry |
-| Forgejo worker token | New user `agent-worker`: write collaborator on the disposable test repository only; scopes `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`; no repository or organization creation; no admin | Worker Jobs | SOPS secret, mounted per Job | Operator in the Forgejo UI | Generate the new token, update SOPS, revoke the old one. Branch protection blocks pushes to default branches. The same write access lets a worker post commit statuses and push to other attempt branches; the verifier ignores statuses not posted by the CI login, and gate 4 removes the repository-wide token from workers before deployment |
+| Forgejo publisher token | New user `agent-publisher`: write collaborator on the disposable test repository only; scopes `read:repository`, `write:repository`; no issue scopes, no repository or organization creation, no admin | The publisher in the controller pod only; never a worker | SOPS secret key `forge-publisher-token` in the controller Secret | Operator in the Forgejo UI | Generate the new token, update SOPS, revoke the old one. Branch protection blocks pushes to default branches; the publisher writes only `agent/<task>/<n>` branches with an expected-absent lease. The verifier ignores commit statuses not posted by the CI login |
 | Forgejo controller token | New user `agent-controller`: read collaborator on the same repositories; scopes `read:user`, `read:repository`, `read:issue`, `write:issue` (comments) | Controller | SOPS secret | Operator | As above |
 | ntfy publish credential | Existing ntfy service; publish-only to one topic | Controller | SOPS secret | Operator | Replace in ntfy, update SOPS |
 | Worker API token | Random, one per attempt, SHA-256 stored | One worker Job | Kubernetes Secret created by the controller after its Job and owned by it, so Job deletion and TTL remove it | Controller at claim | Dies with the attempt |
@@ -244,12 +248,9 @@ Each gate needs recorded evidence before deployment is requested.
    cannot read the controller database, the Letta store or other credentials,
    cannot use the worker API beyond its attempt, cannot reach the Kubernetes
    API or NAS, and cannot trigger privileged operations without a grant.
-   No worker holds a repository-wide forge credential: either each attempt
-   pushes with a short-lived credential scoped to its own branch, or the
-   worker hands the controller a bundle and the controller pushes. A
-   validating task's branch can otherwise be rewritten by another task's
-   worker between verification and completion, and the token can be
-   exfiltrated over the worker's HTTPS egress.
+   Workers hold no forge credential (done offline: the trusted publisher,
+   with tests over rendered manifests and a hostile scripted worker); the
+   rehearsal repeats those checks against real pods.
 5. **Credential provisioning** by the operator, per the plan above.
 6. **Live subscription checks** at provisioning. OAuth success alone is not
    enough:
@@ -291,8 +292,9 @@ and a scripted Pi worker in a real process):
 - the request arrives through the Letta bridge, the controller opens the issue
   and dispatches the worker, the worker asks and suspends, the controller
   restarts, the question survives and is answered through Letta after the
-  restart, the worker commits and pushes, the controller opens the pull
-  request, reads CI, verifies, finalizes, and Letta hears the result;
+  restart, the worker submits a patch, the publisher pushes it, the
+  controller opens the pull request, reads CI on the published commit,
+  verifies, finalizes, and Letta hears the result;
 - a crash just before and just after issue creation, and just before and just
   after pull request creation, converges to exactly one issue and one pull
   request;
@@ -315,7 +317,7 @@ Remaining before a deployment request:
 | Priority | Work |
 | --- | --- |
 | P0 | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs). Supervisor inference stays off until an audited Letta release has them |
-| P2 | Controller and worker images through the registry lane; Letta from its upstream flake with the bridge beside it |
+| P2 | Controller and worker images through the registry lane (the controller image carries git for the publisher); Letta from its upstream flake with the bridge beside it |
 | P2 | Fresh resource measurements on homelab-02 and homelab-03, then the node choice |
 | P2 | Credential-free rehearsal on the chosen node with the rendered manifests and a scripted loopback model |
 | Gate | Security review of the rendered manifests and credential boundaries, the negative tests, credential provisioning, live subscription checks |

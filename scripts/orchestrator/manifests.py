@@ -9,9 +9,11 @@ publishes them). Everything else is fixed here and covered by tests:
   so the SQLite store can never move without a manual restore;
 - workers run on the same node with no service-account token, no host
   paths and the restricted Pod Security profile;
+- workers hold no forge credential: only the publisher in the controller
+  pod writes to Git, with a token mounted into the controller alone;
 - default-deny NetworkPolicies; the controller reaches DNS, the forge, ntfy
-  and the Kubernetes API; workers reach DNS, the worker API, the forge and
-  public HTTPS for model providers, and nothing private.
+  and the Kubernetes API; workers reach DNS, the worker API and public HTTPS
+  for model providers, and nothing private (not the forge).
 
 The rendered files are applied only after the deployment gates pass; this
 module does not bind them into Flux.
@@ -137,15 +139,38 @@ WORKER_SECRET_KEYS = {
 
 
 def worker_secret_keys(backend: Mapping[str, Any]) -> tuple[str, ...]:
-    """Worker Secret keys a backend may mount; the forge token is always one."""
+    """Worker Secret keys a backend may mount: its provider credential only."""
     kind = str(backend.get("kind"))
     if kind not in WORKER_SECRET_KEYS:
         raise ValueError(f"unknown backend kind {kind!r}")
-    return ("forge-worker-token", *WORKER_SECRET_KEYS[kind])
+    return WORKER_SECRET_KEYS[kind]
+
+
+def worker_volumes(params: DeployParams) -> tuple[list[Any], list[Any]]:
+    keys = worker_secret_keys(params.backend)
+    volumes: list[Any] = []
+    mounts: list[Any] = []
+    if keys:
+        volumes.append(
+            {
+                "name": "worker-secrets",
+                "secret": {
+                    "secretName": params.worker_secret_name,
+                    "defaultMode": 0o400,
+                    # Only the keys this backend needs, never the whole Secret.
+                    "items": [{"key": key, "path": key} for key in keys],
+                },
+            }
+        )
+        mounts.append(
+            {"name": "worker-secrets", "mountPath": "/run/worker", "readOnly": True}
+        )
+    return volumes, [*mounts, *params.extra_worker_mounts]
 
 
 def controller_config(params: DeployParams) -> dict[str, Any]:
     secrets = "/run/orchestrator"
+    volumes, mounts = worker_volumes(params)
     return {
         "db": f"{DATA_PATH}/orchestrator.sqlite",
         "policy_version": "persistent-agent-v1",
@@ -153,8 +178,12 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
         "project": params.project,
         "max_running": params.max_running,
         "worker_api_url": f"http://{CONTROLLER}.{NAMESPACE}.svc:{WORKER_API_PORT}",
-        "repository_url": params.repository_url,
         "base_branch": params.base_branch,
+        "publisher": {
+            "repository_url": params.repository_url,
+            "token_file": f"{secrets}/forge-publisher-token",
+            "work_dir": f"{DATA_PATH}/publisher",
+        },
         "issue_url_prefix": params.issue_url_prefix,
         "forge": {
             "url": params.forge_url,
@@ -185,35 +214,14 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "worker": f"0.0.0.0:{WORKER_API_PORT}",
             "client": f"127.0.0.1:{CLIENT_API_PORT}",
         },
-        "worker_git_token_file": "/run/worker/forge-worker-token",
         "jobs": {
             "kind": "kubernetes",
             "namespace": NAMESPACE,
             "image": params.worker_image,
             "service_account": WORKER,
             "node_selector": {"kubernetes.io/hostname": params.node},
-            "extra_volumes": [
-                {
-                    "name": "worker-secrets",
-                    "secret": {
-                        "secretName": params.worker_secret_name,
-                        "defaultMode": 0o400,
-                        # Only the keys this backend needs, never the whole Secret.
-                        "items": [
-                            {"key": key, "path": key}
-                            for key in worker_secret_keys(params.backend)
-                        ],
-                    },
-                }
-            ],
-            "extra_mounts": [
-                {
-                    "name": "worker-secrets",
-                    "mountPath": "/run/worker",
-                    "readOnly": True,
-                },
-                *params.extra_worker_mounts,
-            ],
+            "extra_volumes": volumes,
+            "extra_mounts": mounts,
         },
     }
 
@@ -490,7 +498,6 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                 "ingress": [],
                 "egress": [
                     dns,
-                    forge,
                     {
                         "to": [{"podSelector": {"matchLabels": selector}}],
                         "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],

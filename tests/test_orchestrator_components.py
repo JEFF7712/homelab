@@ -20,7 +20,15 @@ from scripts.orchestrator.jobs import (
 )
 from scripts.orchestrator.ntfy import render
 from scripts.orchestrator.verifier import VerifierConfig, verify
-from tests.orchestrator_fakes import CI_CONTEXT, FakeForgejo, bare_repository
+from tests.orchestrator_fakes import (
+    CI_CONTEXT,
+    CI_LOGIN,
+    FakeForgejo,
+    FakePublisher,
+    advance,
+    bare_repository,
+    worker_patch,
+)
 
 SHA = "a" * 40
 
@@ -54,9 +62,9 @@ class FakeForge:
         self.creators = creators
         return CommitStatus(self.state, self.contexts)
 
-    def approvals(self, number: int, sha: str) -> set[str]:
+    def approvals(self, number: int, sha: str) -> dict[str, int]:
         self.approval_sha = sha
-        return self.approvers
+        return {login: 1 for login in self.approvers}
 
 
 def task(criteria: tuple[str, ...]) -> Task:
@@ -95,6 +103,7 @@ class VerifierTests(unittest.TestCase):
             pull(),
             FakeForge("success", {CI_CONTEXT: "success"}, set()),  # type: ignore[arg-type]
             VerifierConfig((CI_CONTEXT,), {}),
+            SHA,
         )
         self.assertEqual(verdict.state, "pending")
 
@@ -109,6 +118,7 @@ class VerifierTests(unittest.TestCase):
                 pull(),
                 FakeForge(state, contexts, set()),
                 self.config,
+                SHA,
             )  # type: ignore[arg-type]
             self.assertEqual(verdict.state, expected, state)
 
@@ -116,19 +126,28 @@ class VerifierTests(unittest.TestCase):
         criteria = (f"ci:{CI_CONTEXT}", "README documents the flag")
         forge = FakeForge("success", {CI_CONTEXT: "success"}, {"someone-else"})
         self.assertEqual(
-            verify(task(criteria), pull(), forge, self.config).state, "pending"
+            verify(task(criteria), pull(), forge, self.config, SHA).state, "pending"
         )  # type: ignore[arg-type]
         forge.approvers = {"rupan-forge"}
-        verdict = verify(task(criteria), pull(), forge, self.config)  # type: ignore[arg-type]
+        verdict = verify(task(criteria), pull(), forge, self.config, SHA)  # type: ignore[arg-type]
         self.assertEqual(verdict.state, "passed")
         self.assertEqual(forge.approval_sha, SHA)
         assert verdict.evidence is not None
         self.assertEqual(verdict.evidence.criteria_met, criteria)
 
+    def test_only_the_published_commit_can_pass(self) -> None:
+        forge = FakeForge("success", {CI_CONTEXT: "success"}, {"rupan-forge"})
+        verdict = verify(
+            task((f"ci:{CI_CONTEXT}",)), pull(), forge, self.config, "f" * 40
+        )  # type: ignore[arg-type]
+        self.assertEqual(verdict.state, "failed")
+        self.assertIn("is not the published commit", verdict.detail)
+
     def test_closed_unmerged_pull_request_fails(self) -> None:
         forge = FakeForge("success", {CI_CONTEXT: "success"}, set())
         self.assertEqual(
-            verify(task(("c",)), pull("closed"), forge, self.config).state, "failed"
+            verify(task(("c",)), pull("closed"), forge, self.config, SHA).state,
+            "failed",
         )  # type: ignore[arg-type]
 
 
@@ -165,11 +184,7 @@ SPEC = JobSpec(
     api_url="http://controller:8090",
     token="secret-token",
     brief="do it",
-    repository_url="https://forge/x.git",
-    base_branch="main",
-    branch="agent/task_1/1",
     backend={"kind": "pi"},
-    commit_message="m",
 )
 
 
@@ -310,11 +325,11 @@ class DeliveryTests(unittest.TestCase):
                     owner="c",
                     project="sandbox",
                     api_url="http://x",
-                    repository_url="x",
                     base_branch="main",
                     backend={"kind": "pi"},
                     verifier=VerifierConfig((), {}),
                 ),
+                FakePublisher(),
             )
             task, _ = store.create_task(
                 "rupan", "k", TaskSpec("sandbox", "t", "g", ("c",)), time.time()
@@ -341,7 +356,10 @@ class DaemonTests(unittest.TestCase):
                 "project": "sandbox",
                 "max_running": 1,
                 "worker_api_url": "http://127.0.0.1:1",
-                "repository_url": str(root / "origin.git"),
+                "publisher": {
+                    "repository_url": str(root / "origin.git"),
+                    "work_dir": str(root / "publisher"),
+                },
                 "forge": {
                     "url": forge.url,
                     "owner": "owner",
@@ -428,11 +446,11 @@ class FailureHandlingTests(unittest.TestCase):
                 owner="c",
                 project="sandbox",
                 api_url="http://x",
-                repository_url="x",
                 base_branch="main",
                 backend={"kind": "pi"},
                 verifier=VerifierConfig((), {}),
             ),
+            FakePublisher(),
         )
 
     def test_unknown_job_state_does_not_finish_the_attempt(self) -> None:
@@ -479,12 +497,12 @@ class RestartTests(unittest.TestCase):
                         owner="c",
                         project="sandbox",
                         api_url="http://x",
-                        repository_url="x",
                         base_branch="main",
                         backend={"kind": "pi"},
                         verifier=VerifierConfig((), {}),
                         lease_seconds=120,
                     ),
+                    FakePublisher(),
                     clock=lambda: clock[0],
                 )
 
@@ -531,12 +549,12 @@ class FenceAndStartupTests(unittest.TestCase):
                 owner="c",
                 project="sandbox",
                 api_url="http://x",
-                repository_url="x",
                 base_branch="main",
                 backend={"kind": "pi"},
                 verifier=VerifierConfig((), {}),
                 startup_seconds=600,
             ),
+            FakePublisher(),
             clock=lambda: 1000.0,
         )
 
@@ -559,6 +577,135 @@ class FenceAndStartupTests(unittest.TestCase):
         self.jobs.gone = True
         self.controller.tick()
         self.assertEqual(self.store.pending_messages("worker.cancel"), [])
+
+
+class PublishedCommitTests(unittest.TestCase):
+    """Verification authorizes exactly the commit the publisher pushed."""
+
+    def setUp(self) -> None:
+        from scripts.orchestrator.forge import ForgejoForge
+        from scripts.orchestrator.publisher import Publisher
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        self.bare = bare_repository(self.root)
+        self.fake = FakeForgejo(self.bare)
+        self.addCleanup(self.fake.close)
+        self.store = Store(self.root / "db.sqlite", "v", controller=True)
+        self.addCleanup(self.store.close)
+        self.publisher = Publisher(str(self.bare), "main", self.root / "publisher")
+        self.forge_class = ForgejoForge
+
+    def controller(self, forge: Any = None, publisher: Any = None) -> Controller:
+        return Controller(
+            self.store,
+            NullJobs(),  # type: ignore[arg-type]
+            forge or self.forge_class(self.fake.url, "owner", "sandbox", "t"),
+            [],
+            ControllerConfig(
+                owner="c",
+                project="sandbox",
+                api_url="http://x",
+                base_branch="main",
+                backend={"kind": "pi"},
+                verifier=VerifierConfig((CI_CONTEXT,), {}, frozenset({CI_LOGIN})),
+            ),
+            publisher or self.publisher,
+        )
+
+    def settle(self, controller: Controller) -> str:
+        """Create a task, dispatch it, and play its worker to settlement."""
+        from scripts.orchestrator.worker import LocalChannel
+
+        task, _ = self.store.create_task(
+            "rupan", "k", TaskSpec("sandbox", "t", "g", (f"ci:{CI_CONTEXT}",)), 1.0
+        )
+        controller.tick()
+        (attempt,) = self.store.live_attempts()
+        artifact = self.store.artifact(attempt.id)
+        assert artifact is not None
+        channel = LocalChannel(self.store, attempt.id)
+        channel.start("s", "w")
+        channel.submit(
+            worker_patch(
+                controller.publisher.archive(artifact.base_sha),  # type: ignore[attr-defined]
+                self.root / "work",
+                {"feature.txt": "done\n"},
+            )
+        )
+        channel.settle({"final_text": "done"})
+        return task.id
+
+    def test_the_published_commit_completes(self) -> None:
+        controller = self.controller()
+        task_id = self.settle(controller)
+        controller.tick()
+        self.assertEqual(self.store.get_task(task_id).status, "completed")
+        attempt = self.store.last_attempt(task_id)
+        assert attempt is not None
+        artifact = self.store.artifact(attempt.id)
+        assert artifact is not None
+        completed = [
+            e for e in self.store.events(task_id) if e["type"] == "task.completed"
+        ][0]["payload"]
+        self.assertEqual(completed["head_sha"], artifact.published_head)
+        self.assertEqual(
+            completed["record"]["ci"],
+            [[CI_CONTEXT, "success", CI_LOGIN, 1]],
+        )
+        self.assertEqual(self.fake.merges, [])
+
+    def test_a_push_after_publishing_voids_the_attempt_even_with_green_ci(
+        self,
+    ) -> None:
+        from scripts.orchestrator.publisher import Publisher
+
+        root, fake = self.root, self.fake
+
+        class Intruded(Publisher):
+            def publish(self, *args: Any, **kwargs: Any) -> Any:
+                publication = super().publish(*args, **kwargs)
+                head = advance(
+                    root / "origin.git", publication.branch, root / "intruder"
+                )
+                fake.post_status(head, CI_LOGIN, "success")
+                return publication
+
+        intruded = Intruded(str(self.bare), "main", self.root / "publisher2")
+        controller = self.controller(publisher=intruded)
+        task_id = self.settle(controller)
+        for _ in range(3):
+            controller.tick()
+        self.assertNotEqual(self.store.get_task(task_id).status, "completed")
+        attempt = self.store.last_attempt(task_id)
+        assert attempt is not None
+        self.assertEqual(attempt.number, 2)
+
+    def test_a_push_between_verification_and_finalization_does_not_complete(
+        self,
+    ) -> None:
+        root, fake = self.root, self.fake
+        reads = [0]
+
+        class Racing(self.forge_class):  # type: ignore[name-defined]
+            def ensure_pull_request(self, *args: Any, **kwargs: Any) -> Any:
+                reads[0] += 1
+                if reads[0] == 2:
+                    head = advance(root / "origin.git", args[1], root / "racer")
+                    fake.post_status(head, CI_LOGIN, "success")
+                return super().ensure_pull_request(*args, **kwargs)
+
+        controller = self.controller(
+            forge=Racing(self.fake.url, "owner", "sandbox", "t")
+        )
+        task_id = self.settle(controller)
+        for _ in range(3):
+            controller.tick()
+        self.assertNotEqual(self.store.get_task(task_id).status, "completed")
+        history = [to for _, to, _, _ in self.store.history(task_id)]
+        self.assertIn("in_review", history)
+        self.assertNotIn("completed", history)
 
 
 class MarkerTests(unittest.TestCase):
@@ -664,7 +811,9 @@ class CommitStatusTests(unittest.TestCase):
                 fake.post_status(SHA, "woodpecker", "failure")
             fake.post_status(SHA, "woodpecker", "success")
             status = forge.status(SHA, frozenset({"woodpecker"}))
-            self.assertEqual(status, CommitStatus("success", {CI_CONTEXT: "success"}))
+            self.assertEqual(status.state, "success")
+            self.assertEqual(status.contexts, {CI_CONTEXT: "success"})
+            self.assertEqual(status.sources, {CI_CONTEXT: ("woodpecker", PAGE + 1)})
 
 
 class ReviewTests(unittest.TestCase):
@@ -687,9 +836,9 @@ class ReviewTests(unittest.TestCase):
             fake.reviews[7] = [review(1, "rupan-forge", "APPROVED")] + [
                 review(n, "someone", "COMMENT") for n in range(2, PAGE + 1)
             ]
-            self.assertEqual(forge.approvals(7, SHA), {"rupan-forge"})
+            self.assertEqual(forge.approvals(7, SHA), {"rupan-forge": 1})
             fake.reviews[7].append(review(PAGE + 1, "rupan-forge", "REQUEST_CHANGES"))
-            self.assertEqual(forge.approvals(7, SHA), set())
+            self.assertEqual(forge.approvals(7, SHA), {})
 
 
 if __name__ == "__main__":

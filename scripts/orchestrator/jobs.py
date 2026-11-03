@@ -32,14 +32,7 @@ class JobSpec:
     api_url: str
     token: str
     brief: str
-    repository_url: str
-    base_branch: str
-    branch: str
     backend: Mapping[str, Any]
-    commit_message: str
-    git_author: str = "agent-worker"
-    git_email: str = "agent-worker@localhost"
-    git_token_file: str | None = None
     lease_seconds: float = 120.0
     deadline_seconds: float = 3600.0
     poll_seconds: float = 0.5

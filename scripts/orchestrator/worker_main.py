@@ -1,18 +1,22 @@
 """Worker pod entrypoint: `python -m scripts.orchestrator.worker_main JOB_FILE`.
 
-Clones the repository at the base branch onto the attempt branch, runs the
-configured backend through the worker API, and before settling commits and
-pushes the attempt branch. The controller, not the worker, opens the pull
-request and reads CI. Exit status is informational; the attempt's outcome
-is whatever the worker API recorded.
+The worker holds no forge credential and never talks to the forge. It
+fetches its attempt's base commit from the worker API as a tar archive,
+records it as a local base commit, runs the configured backend, and returns
+its changes as a binary patch through the worker API. The controller's
+trusted publisher validates the patch and pushes; the controller opens the
+pull request and reads CI. Exit status is informational; the attempt's
+outcome is whatever the worker API recorded.
 """
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
 import sys
+import tarfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -55,50 +59,51 @@ def backend_from(spec: Mapping[str, Any]) -> Backend:
 
 
 class Git:
-    def __init__(self, workspace: Path, job: Mapping[str, Any]) -> None:
+    """Local-only git: no remote, no credential, no hooks."""
+
+    def __init__(self, workspace: Path) -> None:
         self.workspace = workspace
-        env = {
+        self.env = {
             key: os.environ[key]
             for key in ("PATH", "HOME", "LANG")
             if key in os.environ
         }
-        env.update(
+        self.env.update(
             {
                 "GIT_TERMINAL_PROMPT": "0",
-                "GIT_AUTHOR_NAME": str(job["git_author"]),
-                "GIT_AUTHOR_EMAIL": str(job["git_email"]),
-                "GIT_COMMITTER_NAME": str(job["git_author"]),
-                "GIT_COMMITTER_EMAIL": str(job["git_email"]),
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": os.devnull,
+                "GIT_AUTHOR_NAME": "worker",
+                "GIT_AUTHOR_EMAIL": "worker@localhost",
+                "GIT_COMMITTER_NAME": "worker",
+                "GIT_COMMITTER_EMAIL": "worker@localhost",
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "core.hooksPath",
+                "GIT_CONFIG_VALUE_0": os.devnull,
             }
         )
-        token_file = job.get("git_token_file")
-        if token_file:
-            # Through the environment, never argv: http.extraHeader for this run only.
-            token = Path(token_file).read_text().strip()
-            env.update(
-                {
-                    "GIT_CONFIG_COUNT": "1",
-                    "GIT_CONFIG_KEY_0": "http.extraHeader",
-                    "GIT_CONFIG_VALUE_0": f"Authorization: token {token}",
-                }
-            )
-        self.env = env
-        self.token = env.get("GIT_CONFIG_VALUE_0", "").removeprefix(
-            "Authorization: token "
-        )
 
-    def run(self, *args: str, cwd: Path | None = None) -> str:
+    def run(self, *args: str, text: bool = True) -> Any:
         result = subprocess.run(
             ["git", *args],
-            cwd=cwd or self.workspace,
+            cwd=self.workspace,
             env=self.env,
             capture_output=True,
-            text=True,
+            text=text,
             timeout=600,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"git {args[0]} failed: {result.stderr.strip()[-400:]}")
-        return result.stdout.strip()
+            stderr = result.stderr if text else result.stderr.decode(errors="replace")
+            raise RuntimeError(f"git {args[0]} failed: {stderr.strip()[-400:]}")
+        return result.stdout.strip() if text else result.stdout
+
+
+def unpack(archive: bytes, workspace: Path) -> None:
+    """Extract the base archive with the `data` filter: no links out, no
+    devices, no absolute or parent paths."""
+    workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(workspace, filter="data")
 
 
 def main(argv: list[str]) -> int:
@@ -111,33 +116,35 @@ def main(argv: list[str]) -> int:
     )
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     workspace = root / "workspace"
-    git = Git(workspace, job)
-    git.run(
-        "clone",
-        "--branch",
-        str(job["base_branch"]),
-        "--single-branch",
-        str(job["repository_url"]),
-        str(workspace),
-        cwd=root,
+    channel = HttpChannel(
+        str(job["api_url"]),
+        str(job["token"]),
+        retry_seconds=float(job.get("retry_seconds", 600)),
     )
-    branch = str(job["branch"])
-    git.run("checkout", "-b", branch)
+    unpack(channel.source(), workspace)
+    git = Git(workspace)
+    git.run("init", "--quiet")
+    git.run("add", "-A")
+    git.run("commit", "--quiet", "--allow-empty", "-m", "base")
 
-    def finalize() -> dict[str, str]:
+    def finalize() -> bytes:
         git.run("add", "-A")
-        if not git.run("status", "--porcelain"):
-            raise RuntimeError("the run produced no changes to commit")
-        git.run("commit", "-m", str(job["commit_message"]))
-        git.run("push", "origin", f"HEAD:refs/heads/{branch}")
-        return {"branch": branch, "head_sha": git.run("rev-parse", "HEAD")}
+        patch = git.run(
+            "diff",
+            "--cached",
+            "--no-ext-diff",
+            "--no-color",
+            "--binary",
+            "--full-index",
+            "HEAD",
+            text=False,
+        )
+        if not patch:
+            raise RuntimeError("the run produced no changes")
+        return patch
 
     runner = AttemptRunner(
-        HttpChannel(
-            str(job["api_url"]),
-            str(job["token"]),
-            retry_seconds=float(job.get("retry_seconds", 600)),
-        ),
+        channel,
         backend_from(job["backend"]),
         RunnerConfig(
             root / "attempt",
@@ -146,7 +153,7 @@ def main(argv: list[str]) -> int:
             poll_seconds=float(job.get("poll_seconds", 0.5)),
         ),
         finalize=finalize,
-        secrets=tuple(value for value in (git.token, str(job["token"])) if value),
+        secrets=(str(job["token"]),),
     )
     outcome = runner.run(str(job["brief"]), workspace)
     print(json.dumps({"status": outcome.status, "detail": outcome.detail}))

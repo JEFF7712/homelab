@@ -18,7 +18,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 LABEL = "orchestrator"
@@ -48,6 +48,8 @@ class Comment:
 class CommitStatus:
     state: str
     contexts: dict[str, str]
+    # context -> (creator login, status id) of the status that counted
+    sources: dict[str, tuple[str, int]] = field(default_factory=dict)
 
 
 class ForgeError(RuntimeError):
@@ -69,7 +71,7 @@ class Forge(Protocol):
 
     def status(self, sha: str, creators: frozenset[str]) -> CommitStatus: ...
 
-    def approvals(self, number: int, sha: str) -> set[str]: ...
+    def approvals(self, number: int, sha: str) -> dict[str, int]: ...
 
     def comments(self, issue: int, after_id: int) -> list[Comment]: ...
 
@@ -221,7 +223,7 @@ class ForgejoForge:
         account could both forge success and hide the real result. Statuses
         from other accounts are ignored instead.
         """
-        latest: dict[str, tuple[int, str]] = {}
+        latest: dict[str, tuple[int, str, str]] = {}
         page = 1
         while True:
             items = self.request(
@@ -233,11 +235,15 @@ class ForgejoForge:
                     continue
                 context, number = str(item["context"]), int(item["id"])
                 if context not in latest or number > latest[context][0]:
-                    latest[context] = (number, str(item["status"]))
+                    latest[context] = (number, str(item["status"]), creator)
             if not items or len(items) < PAGE:
                 break
             page += 1
-        contexts = {context: state for context, (_, state) in latest.items()}
+        contexts = {context: state for context, (_, state, _) in latest.items()}
+        sources = {
+            context: (creator, number)
+            for context, (number, _, creator) in latest.items()
+        }
         states = set(contexts.values())
         if states & {"failure", "error"}:
             state = "failure"
@@ -245,10 +251,11 @@ class ForgejoForge:
             state = "success"
         else:
             state = "pending"
-        return CommitStatus(state, contexts)
+        return CommitStatus(state, contexts, sources)
 
-    def approvals(self, number: int, sha: str) -> set[str]:
-        """Logins whose latest review approves exactly this head commit."""
+    def approvals(self, number: int, sha: str) -> dict[str, int]:
+        """Login -> review id for each reviewer whose latest review approves
+        exactly this head commit."""
         latest: dict[str, dict[str, Any]] = {}
         page = 1
         while True:
@@ -266,7 +273,7 @@ class ForgejoForge:
                 break
             page += 1
         return {
-            login
+            login: int(review["id"])
             for login, review in latest.items()
             if review.get("state") == "APPROVED" and review.get("commit_id") == sha
         }

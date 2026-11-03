@@ -184,9 +184,10 @@ names; nothing else from the controller is inherited.
 ### Worker API
 
 The runner never holds the store. It talks to the controller through a
-`WorkerChannel` with eight operations: `start`, `renew`, `ask`, `inbox`,
-`acknowledge`, `session`, `settle`, `finish`. In a worker pod that channel is
-`HttpChannel`, a client of `scripts/orchestrator/worker_api.py`:
+`WorkerChannel` with nine operations: `start`, `renew`, `ask`, `inbox`,
+`acknowledge`, `session`, `submit`, `settle`, `finish`. In a worker pod that
+channel is `HttpChannel`, a client of `scripts/orchestrator/worker_api.py`,
+which also serves `source`:
 
 - At claim the controller mints a random token (`issue_token`), stores only
   its SHA-256 on the attempt, and gives the token to that attempt's Job.
@@ -200,8 +201,13 @@ The runner never holds the store. It talks to the controller through a
   other attempts. `acknowledge` accepts only this attempt's answer keys; a
   worker can never acknowledge its own `worker.cancel`. `renew` fails once
   the task is cancelled. `settle` keeps only `backend`, `provider`, `model`
-  and `final_text`. `Content-Length` must be a non-negative integer of at most
-  64 KiB.
+  and `final_text`, never a branch or commit, and a bound attempt cannot
+  settle before it has submitted its patch. `Content-Length` must be a
+  non-negative integer of at most 64 KiB (4 MiB for `submit`).
+- `source` returns the attempt's bound base commit as a tar archive, with no
+  Git metadata. `submit` takes the attempt's binary patch (raw bytes) once; a
+  different second patch is `CONFLICT`. These replace the forge: a worker
+  holds no forge credential, has no Git remote and no forge egress.
 - The token is checked before any body is read. Each connection carries one
   request (HTTP/1.0), every socket read times out after 10 seconds, and a
   watchdog closes any connection still open after 15 seconds, however slowly
@@ -333,16 +339,21 @@ tick (`python -m scripts.orchestrator serve --config FILE`,
    `startup_seconds` (default 600, covering scheduling and image pulls),
    mint the worker token,
    start the Job with a job file holding the brief, the token and the
-   attempt branch `agent/<task>/<attempt number>`. A failed start is only
+   attempt branch `agent/<task>/<attempt number>`, and bind the attempt to
+   that branch and to the base branch's current commit, read by the
+   publisher before the claim (`artifacts`, schema v3). A failed start is only
    logged: the Job may exist anyway, so reconciliation finishes the attempt
    once the Job is observed missing. A Job whose Secret cannot be created is
    deleted at once.
-6. Verify `validating` tasks: ensure the pull request for the attempt branch,
-   read CI and reviews (`scripts/orchestrator/verifier.py`), then
-   `record_verification` and `complete`. Failed CI or a missing branch sends
-   the task back to `ready` until attempt 3, then `failed`. A task left in
-   `in_review` by a crash is finalized only after a fresh read shows the same
-   head still passing; otherwise it goes back to `validating`.
+6. Publish and verify `validating` tasks (see "Publishing" below): publish
+   the attempt's patch, ensure the pull request for the attempt branch, read
+   CI and reviews for the published commit
+   (`scripts/orchestrator/verifier.py`), `record_verification`, then re-read
+   and re-verify before `complete`. Failed CI, a missing or rejected patch, or
+   a pull request head that is not the published commit sends the task back
+   to `ready` until attempt 3, then `failed`. A task left in `in_review` by a
+   crash is finalized only after a fresh read shows the published commit
+   still passing; otherwise it goes back to `validating`.
 7. Apply issue commands from the task principal's forge login only:
    `/answer <question> <revision> <text>`, `/approve <id>`, `/decline <id>`,
    `/cancel`. Each comment is processed once (`forge_cursors`, schema v2);
@@ -378,8 +389,57 @@ final line of an issue or comment authored by the controller's own login
 (`GET /api/v1/user`), and controller comments break `<!--` in the text they
 quote, so worker text reflected through the controller cannot carry one.
 Another account therefore cannot pre-post a marker to hijack an issue or
-suppress a notice. Workers push only their attempt branch; the controller
-opens pull requests and reads CI.
+suppress a notice. Only the publisher writes Git; the controller opens pull
+requests and reads CI. Nothing merges: workers produce reviewable pull
+requests, and the controller has no merge call.
+
+### Publishing
+
+`scripts/orchestrator/publisher.py` is the only component with a forge write
+credential. It runs in the controller pod, which workers reach only through
+the worker API, and its token reaches git through the environment for one
+command at a time, never argv or a file. For a settled attempt it:
+
+1. refuses an empty patch, one over 4 MiB, one with a `delta` binary hunk
+   or a `literal` hunk over 8 MiB, one that does not apply to the bound base
+   commit, one whose resulting files exceed 8 MiB each or grow the tree by
+   over 32 MiB, one that touches a protected path, and one that adds a
+   symlink or submodule. Protected paths are matched case-insensitively
+   against every path suffix, so they apply at any depth: any `.git`
+   component, `.gitattributes`, `.gitmodules`, `CODEOWNERS`, CI and forge
+   configuration (`.woodpecker*`, `.forgejo/`, `.gitea/`, `.github/`,
+   `.gitlab-ci.yml`, `.pre-commit-config.yaml`), and agent configuration
+   (`.claude/`, `.codex/`, `.cursor/`, `.opencode/`, `.mcp.json`, `.envrc`,
+   `AGENTS.md`, `CLAUDE.md`), plus any per-repository patterns. There is no
+   override; such changes need a human pull request;
+2. applies the patch to a temporary index of the base commit with
+   `git apply --cached` under a 512 MiB address-space limit, so nothing is
+   checked out, filtered or executed, hooks are disabled, and a hunk that
+   inflates cannot exhaust the controller;
+3. commits the tree with a fixed identity and the submission time, so the
+   same patch on the same base is always the same commit;
+4. pushes it to `agent/<task>/<attempt>` (the only branches it accepts) with
+   `--force-with-lease=<branch>:`, so the branch must not exist. A rejected
+   push succeeds only if the branch already holds exactly that commit (a
+   crash between push and record); a different commit there is a conflict
+   and voids the attempt; no branch at all means the push failed for
+   another reason and is retried.
+
+The base archive served by `source` is built once per commit (at most
+128 MiB of blobs), one build at a time, and served from disk afterwards.
+
+The publisher records the pushed commit (`record_publication`). From then on
+verification is bound to it: the verifier fails a pull request whose head is
+any other commit, `record_verification` and `complete` refuse evidence about
+any other commit, and the stored evidence lists the exact statuses
+(context, state, creator, status id) and reviews (login, review id) it
+relied on. Finalization re-reads the pull request and re-runs the checks
+immediately before `complete`.
+
+Merging stays manual. Forgejo 15.0.10's merge endpoint accepts
+`head_commit_id` and compares it with the head it fetched into the merge
+clone, which it then merges, so an autonomous merge could be bound to the
+verified commit; that capability is not enabled.
 
 ## Client API
 

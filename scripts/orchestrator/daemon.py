@@ -39,6 +39,7 @@ from scripts.orchestrator.jobs import (
     LocalProcessJobManager,
 )
 from scripts.orchestrator.ntfy import NtfySink
+from scripts.orchestrator.publisher import Publisher
 from scripts.orchestrator.verifier import VerifierConfig
 from scripts.orchestrator.worker_api import WorkerApi, serve
 
@@ -121,6 +122,14 @@ def build(config: Mapping[str, Any]) -> Daemon:
                     str(ntfy["url"]), str(ntfy["topic"]), secret(ntfy.get("token_file"))
                 )
             )
+        base_branch = str(config.get("base_branch", "main"))
+        publishing = config["publisher"]
+        publisher = Publisher(
+            str(publishing["repository_url"]),
+            base_branch,
+            Path(publishing["work_dir"]),
+            Path(publishing["token_file"]) if publishing.get("token_file") else None,
+        )
         verifier = config["verifier"]
         ci_logins = frozenset(str(login) for login in verifier.get("ci_logins") or ())
         if not ci_logins:
@@ -134,8 +143,7 @@ def build(config: Mapping[str, Any]) -> Daemon:
                 owner=str(config.get("owner", "controller")),
                 project=str(config["project"]),
                 api_url=str(config["worker_api_url"]),
-                repository_url=str(config["repository_url"]),
-                base_branch=str(config.get("base_branch", "main")),
+                base_branch=base_branch,
                 backend=dict(config["backend"]),
                 verifier=VerifierConfig(
                     tuple(verifier.get("required_contexts") or ()),
@@ -146,9 +154,9 @@ def build(config: Mapping[str, Any]) -> Daemon:
                 issue_url_prefix=config.get("issue_url_prefix"),
                 lease_seconds=float(config.get("lease_seconds", 120)),
                 deadline_seconds=float(config.get("deadline_seconds", 3600)),
-                git_token_file=config.get("worker_git_token_file"),
                 work_root=config.get("work_root"),
             ),
+            publisher,
         )
         clients = {
             client_digest(secret(item["token_file"]) or ""): Client(
@@ -161,7 +169,11 @@ def build(config: Mapping[str, Any]) -> Daemon:
         client_host, client_port = address(str(listen.get("client", "127.0.0.1:8091")))
         servers = [
             serve(
-                WorkerApi(store, lease_seconds=float(config.get("lease_seconds", 120))),
+                WorkerApi(
+                    store,
+                    lease_seconds=float(config.get("lease_seconds", 120)),
+                    source=publisher.archive,
+                ),
                 worker_host,
                 worker_port,
             ),
