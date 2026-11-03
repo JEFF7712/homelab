@@ -14,6 +14,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Worker runtimes for the orchestrator images only (pi, codex,
+    # claude-code); pinned apart from the fleet so they can move without
+    # rebuilding hosts.
+    nixpkgs-agents.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     disko = {
       url = "github:nix-community/disko";
@@ -42,6 +46,7 @@
     {
       self,
       nixpkgs,
+      nixpkgs-agents,
       flake-utils,
       disko,
       impermanence,
@@ -183,9 +188,26 @@
         ];
       in
       {
-        packages.projectctl = import ./packages/projectctl.nix { inherit pkgs; };
-        packages.topology = topology;
-        packages.opnsense-config = opnsense.package;
+        packages = {
+          projectctl = import ./packages/projectctl.nix { inherit pkgs; };
+          topology = topology;
+          opnsense-config = opnsense.package;
+        }
+        // pkgs.lib.optionalAttrs (system == "x86_64-linux") (
+          let
+            images = import ./packages/orchestrator-images.nix {
+              inherit pkgs;
+              agentPkgs = import nixpkgs-agents {
+                inherit system;
+                config.allowUnfreePredicate = pkg: pkgs.lib.getName pkg == "claude-code";
+              };
+            };
+          in
+          {
+            orchestrator-controller-image = images.controller;
+            orchestrator-worker-image = images.worker;
+          }
+        );
         checks.opnsense-types = import ../tofu/opnsense/tests.nix { inherit pkgs tofunix; };
         checks.fleet-inventory = import ../inventory/tests.nix {
           inherit pkgs tofunix;
