@@ -2690,6 +2690,13 @@
       "python -m scripts.ci.opnsense_frr_heal check"
     ],
     "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
       "OPNSENSE_URL": "https://OPNsense.internal",
       "OPNSENSE_CA_FILE": {
         "from_secret": "opnsense_ca_file"
@@ -2705,7 +2712,8 @@
       }
     },
     "file_secrets": [
-      "OPNSENSE_CA_FILE"
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
     ],
     "group": "opnsense-control-plane",
     "needs": [],
@@ -2720,6 +2728,13 @@
       "python -m scripts.ci.opnsense_frr_heal heal"
     ],
     "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
       "OPNSENSE_URL": "https://OPNsense.internal",
       "OPNSENSE_CA_FILE": {
         "from_secret": "opnsense_ca_file"
@@ -2735,7 +2750,8 @@
       }
     },
     "file_secrets": [
-      "OPNSENSE_CA_FILE"
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
     ],
     "group": "opnsense-control-plane",
     "needs": [],
