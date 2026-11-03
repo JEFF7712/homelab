@@ -433,9 +433,25 @@ The first tasks come from operations, not from a supervisor
   namespaces, though the collector keeps only status; the namespace coverage
   test scans `gitops/` and literal alert and sentinel names, not rendered
   Nix or Helm resources; `PROVIDER_HOSTS` is the union across backends, to be
-  narrowed per backend from rehearsal traffic. A third pass is required
-  before the gate closes, and the admission policy's CEL and the Cilium
-  rules are proven only by gate 4's live negative tests.
+  narrowed per backend from rehearsal traffic.
+- **Gate 3 pass 3 (2026-11-03), open.** The same reviewer found the
+  admission, environment, SNI, scan-ordering and title fixes sound, and
+  three issues, fixed in response:
+  - gitleaks skips a stream it sniffs as an archive, so tar magic at
+    offset 257 hid every secret after it: workers may now submit UTF-8 text
+    only (NUL bytes or invalid UTF-8 reject the patch), scanned behind a
+    fixed plain-text preamble that occupies every offset sniffing reads;
+  - `*.svc` admitted names CoreDNS forwards upstream: wildcards are gone;
+  - Cilium's `*` stops at dots, so workers could not resolve the controller:
+    DNS admits exact names only (the provider hosts and the controller's
+    fully qualified name, which is now the worker API URL), and worker pods
+    use `ndots:1` so names are not search-expanded into refused queries.
+
+  Gate 4 must then prove live: admission denials, Secret isolation,
+  controller DNS success, refusal of other names, wrong or missing SNI
+  rejected on shared provider IPs, private-network isolation and
+  cross-attempt API denial. A fourth, offline pass is required before gate
+  3 closes.
 
 Remaining before a deployment request:
 

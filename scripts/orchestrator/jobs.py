@@ -252,6 +252,10 @@ def render_job(
                     "serviceAccountName": config.service_account,
                     "automountServiceAccountToken": False,
                     "enableServiceLinks": False,
+                    # Names with a dot are queried as written, never expanded
+                    # through the search domains, which the worker's DNS
+                    # policy refuses.
+                    "dnsConfig": {"options": [{"name": "ndots", "value": "1"}]},
                     "nodeSelector": dict(config.node_selector),
                     "securityContext": {"fsGroup": 10001},
                     "containers": [container],
