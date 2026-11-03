@@ -21,6 +21,37 @@ items:
   - image: ghcr.io/jessepesse/jellyfin-ai-recommender-frontend:latest@sha256:02eebd905f59e5d136188fb648e80f21614a668f1ac6b92a3b16d7401ec50d30  # yamllint disable-line rule:line-length
   # Questarr (*arr-style game manager: IGDB discovery, Prowlarr indexers,
   # qBittorrent downloads)
-  - image: ghcr.io/doezer/questarr:v1.5.0@sha256:8b6a6df437aa3983a4ccffe164f3f33f664646c48cde05d263434e9768598621  # yamllint disable-line rule:line-length
+  - image: ghcr.io/doezer/questarr:v1.6.0@sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972  # yamllint disable-line rule:line-length
   # Gameyfin (web library for /tank/media/games with per-user downloads)
-  - image: ghcr.io/gameyfin/gameyfin:2.5.2@sha256:c9262445a16bfeedf1e85e6deef028564c94e34727f2fab8619fba149d8bae93  # yamllint disable-line rule:line-length
+  - image: ghcr.io/gameyfin/gameyfin:2.6.0@sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138  # yamllint disable-line rule:line-length
+  # Sonarr (arr.yaml)
+  - image: lscr.io/linuxserver/sonarr:4.0.19.2979-ls322@sha256:c19aa4ecdf03d73e1d5c901da33744cb7eb4d921f89bafed1ca264601d7fa224  # yamllint disable-line rule:line-length
+  # Radarr (arr.yaml)
+  - image: lscr.io/linuxserver/radarr:6.3.0.10514-ls314@sha256:119aaa4a4f7349bcd2a136c5373a0d7925b5479915c7dfe0c0ad352db2a6d438  # yamllint disable-line rule:line-length
+  # Prowlarr (arr.yaml)
+  - image: lscr.io/linuxserver/prowlarr:2.5.2.5491-ls157@sha256:ab91301778251f82a31bbfc87f0497376d59e84439d9a1ceff6a61d594d1e3d7  # yamllint disable-line rule:line-length
+  # Bazarr (arr.yaml)
+  - image: lscr.io/linuxserver/bazarr:v1.6.0-ls361@sha256:3a820372f19fcb2981ea19fe4b5382934d67414afaba974bce831ddda0a64a02  # yamllint disable-line rule:line-length
+  # FlareSolverr (arr.yaml)
+  - image: ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47  # yamllint disable-line rule:line-length
+  # Calibre-Web Automated (books.yaml)
+  - image: docker.io/crocodilestick/calibre-web-automated:v4.0.6@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d  # yamllint disable-line rule:line-length
+  # Navidrome (music.yaml)
+  - image: docker.io/deluan/navidrome:0.63.2@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40
+  # beets (music.yaml)
+  - image: lscr.io/linuxserver/beets:2.13.1-ls348@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c  # yamllint disable-line rule:line-length
+  # File Browser (frontend.yaml)
+  - image: docker.io/filebrowser/filebrowser:v2.63.23@sha256:a469ea076d4a1b4b1d86a41d130f2f536cd9da996a2b1fb39c0d7635f9d89b9a  # yamllint disable-line rule:line-length
+  # Seerr (frontend.yaml)
+  - image: docker.io/seerr/seerr:v3.4.1@sha256:f4768de5f616248d723e05891f3345a1402123775d03bf0890dbfedc0831bda1
+  # Jellyfin (jellyfin.yaml)
+  - image: lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls46@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f  # yamllint disable-line rule:line-length
+  # qBittorrent (download.yaml)
+  - image: lscr.io/linuxserver/qbittorrent:5.2.3_v2.0.14-ls473@sha256:304b19cf94bf4fda534e0b086cab9c5f1a9e139a8180c05c0ad7d2ba1526fa99  # yamllint disable-line rule:line-length
+  # Gluetun VPN sidecar (download.yaml, slskd.yaml); the pinned build has no
+  # versioned upstream tag, so Renovate follows latest
+  - image: docker.io/qmcgaw/gluetun:latest@sha256:8e92dcb57ed64b0e4469c933f00ef1e09ee00867fee150e783a95fa6b53effa4
+  # slskd (slskd.yaml)
+  - image: docker.io/slskd/slskd:0.26.0@sha256:ecd4026d4f8fb504e2cc55323efa2c1f5b56d20d3686b018249cc36b48ea17a6
+  # alpine helper (slskd.yaml)
+  - image: docker.io/library/alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b

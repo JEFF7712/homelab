@@ -57,10 +57,10 @@ protection change (the Forgejo migration).
 
 | Status | Comment outcome | Who acts |
 | --- | --- | --- |
-| `success` | none | nobody; the PR merges when validation passes |
+| `success` | none | routine change or an operator-approved exact change; merge when validation passes |
 | `failure` | `rejected` | the agent: `just ship` prints the findings, the agent fixes and pushes |
-| `failure` | `escalated` | legacy mode or external PR: exact-head operator review |
-| `success` | `authorized` | enrolled same-repository author: authority findings recorded, no review |
+| `failure` | `escalated` | authority change: the operator approves the exact change, regardless of author |
+| `success` | `authorized` | nonblocking notices recorded; no operator review required |
 
 `just ship` returns repair findings to the agent, which fixes, commits and
 retries. After three rejected heads on one PR the bounded recovery is spent:

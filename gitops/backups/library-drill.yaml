@@ -1,0 +1,196 @@
+---
+# Weekly proof that the Immich library repository restores: read a sample of
+# its packs, require a snapshot from the last two days, and stream a random
+# sample of files from the latest snapshot. Evidence goes to restore-drill-evidence in this
+# namespace, beside the claim it proves (see restore-drill.yaml).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restore-drill
+  namespace: immich
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restore-drill-recorder
+  namespace: immich
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-drill-evidence]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restore-drill-recorder
+  namespace: immich
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restore-drill-recorder
+subjects:
+  - kind: ServiceAccount
+    name: restore-drill
+    namespace: immich
+---
+# cluster-sentinel reads the evidence and alerts on a missing, failed or stale
+# drill.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restore-drill-evidence-reader
+  namespace: immich
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-drill-evidence]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restore-drill-evidence-reader
+  namespace: immich
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restore-drill-evidence-reader
+subjects:
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: library-restore-drill
+  namespace: immich
+spec:
+  # Sunday after the 01:00 library backup.
+  schedule: "0 6 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 14400
+      template:
+        spec:
+          serviceAccountName: restore-drill
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: check
+              image: registry.rupan.dev/upstream/docker.io/restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  memory: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+              env:
+                - name: RESTIC_REPOSITORY
+                  value: /repo/immich-library
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-backup-secrets
+                      key: restic-password
+                - name: HOME
+                  value: /tmp
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  mkdir -p /work/results && chmod 1777 /work/results
+                  fail() { echo "fail: $*" > /work/results/immich-library; echo "fail: $*"; exit 0; }
+                  # Wait for a running backup's lock rather than read a repository
+                  # mid-write.
+                  restic --retry-lock 1h check --read-data-subset=2% || fail "restic check"
+                  cutoff="$(date -u -d "@$(( $(date +%s) - 2 * 86400 ))" +%Y-%m-%dT%H:%M:%S)"
+                  recent="$(restic --retry-lock 1h snapshots --json | grep -o '"time":"[^"]*"' \
+                    | cut -d'"' -f4 | cut -c1-19 | sort | tail -n 1)"
+                  if [ -z "${recent}" ] || [ ! "${recent}" \> "${cutoff}" ]; then
+                    fail "latest snapshot ${recent:-none} is older than two days"
+                  fi
+                  # The library is far larger than scratch space: stream a random sample
+                  # of files through restic dump, which decrypts and verifies every blob.
+                  restic --retry-lock 1h ls --json latest \
+                    | grep '"type":"file"' | sed -n 's/.*"path":"\(\/library\/[^"\\]*\)".*/\1/p' \
+                    > /tmp/files
+                  files="$(wc -l < /tmp/files)"
+                  [ "${files}" -gt 0 ] || fail "latest snapshot lists no library files"
+                  awk 'BEGIN { srand() } { print rand() "\t" $0 }' /tmp/files \
+                    | sort -n | cut -f 2- | head -n 50 > /tmp/sample
+                  checked=0
+                  while IFS= read -r path; do
+                    restic --retry-lock 1h dump latest "${path}" > /dev/null || fail "restic dump ${path}"
+                    checked=$((checked + 1))
+                  done < /tmp/sample
+                  echo "pass: snapshot ${recent} ${files} files, ${checked} sampled files verified" \
+                    > /work/results/immich-library
+                  cat /work/results/immich-library
+              volumeMounts:
+                - name: repo
+                  mountPath: /repo
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+          containers:
+            - name: record
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+              command:
+                - /bin/sh
+                - /scripts/record.sh
+                - /work/results
+                - immich-library
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: repo
+              persistentVolumeClaim:
+                claimName: immich-local-repo
+            - name: work
+              emptyDir:
+                sizeLimit: 1Gi
+            - name: tmp
+              emptyDir: {}
+            - name: scripts
+              configMap:
+                name: restore-drill-script

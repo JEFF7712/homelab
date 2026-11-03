@@ -178,6 +178,20 @@ class DeploymentRiskTest(unittest.TestCase):
             ):
                 require_plan_approval(Path("/repo"), "cloudflare-apply", False)
 
+    def test_access_authorization_changes_use_the_existing_operator_gate(self) -> None:
+        with (
+            patch(
+                "subprocess.check_output",
+                return_value=json.dumps(
+                    self.plan("cloudflare_zero_trust_access_policy", ["update"])
+                ),
+            ) as show,
+            patch("subprocess.run"),
+            self.assertRaisesRegex(ValueError, APPROVAL_REQUIRED),
+        ):
+            require_plan_approval(Path("/repo"), "cloudflare-access-apply", False)
+        self.assertIn("-chdir=/repo/tofu/cloudflare-access", show.call_args.args[0])
+
     def test_scope_follows_what_the_operation_activates(self) -> None:
         catalog = json.loads(
             (

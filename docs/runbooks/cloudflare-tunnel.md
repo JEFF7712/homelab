@@ -91,10 +91,10 @@ Cloudflare Access public bypass configured.
 48. `git.rupan.dev -> http://forgejo.cloudflare:3000`
 49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
 50. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
-51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access app and DNS are dashboard-managed by hand. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
+51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access is declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
 52. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; owner-only Access login for the dashboard; path-scoped public Bypass for `/t.js` and `/api/send`. See [analytics](analytics.md))
 53. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
-54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, dashboard-managed; never Bypass. See [games](games.md))
+54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, declared in `tofu/cloudflare-access/`; never Bypass. See [games](games.md))
 55. `http_status:404`
 
 
@@ -242,7 +242,7 @@ all, so the hostname is the only way in.
 
 The Sovereign concept site is not a public launch: it exists for owner review
 and early customer discovery. It stays behind a dedicated Cloudflare Access
-application, dashboard managed like DNS (see "Known gaps"):
+application declared in `tofu/cloudflare-access/` (see [Access](cloudflare-access.md)):
 
 1. Access application `sovereign`, hostname `sovereign.rupan.dev`, with an
    **Allow** policy on the owner email only. No Bypass policy: Bypass on this
@@ -283,8 +283,8 @@ remove:
 
 ## Access policy organization
 
-Access applications are managed through the Cloudflare dashboard/API, separately
-from the tunnel stack. The inventory below was read back on 2026-10-28.
+Access applications are declared in `tofu/cloudflare-access/`, separately
+from the tunnel stack; see [Access management](cloudflare-access.md). The inventory below was read back on 2026-10-28.
 
 All 12 bypass applications reference the single reusable `Bypass` policy
 (`7015eaad-fad5-462b-905c-43d74bd648aa`): Include Everyone, no Require or
@@ -327,7 +327,7 @@ login applications even though their public hostnames bypass the Access gate.
   application attachment. A shared policy edit affects all 12 applications.
 - Read back the application and policy, compare destination and session settings,
   then check an anonymous request. Update this inventory with every Access change.
-  This table records live configuration; it is not an automatic reconciler.
+  This table is a readable inventory; the OpenTofu configuration owns desired state.
 
 The existing destination groups include some historical aliases and mixed uses.
 Keep them explicit in this inventory until each alias is reviewed against DNS,
@@ -342,7 +342,8 @@ retiring this endpoint also requires updating the notification action producer.
 
 ## Known gaps
 
-DNS records and Access policies are still dashboard managed, deliberately.
+DNS records remain dashboard managed. Access applications and policies have a
+separate declarative stack; see [Access management](cloudflare-access.md).
 
 - DNS spans at least five zones including apexes (`rupan.dev`,
   `distrojeff.com`, `apollinestore.com`, `darkbitapparel.com`,
@@ -350,11 +351,6 @@ DNS records and Access policies are still dashboard managed, deliberately.
   where the `cname` convenience attribute was removed, so each target is built
   as `<tunnel-id>.cfargotunnel.com`. Worth doing, but zone by zone, and not
   before the tunnel config is boring.
-- Access should stay out of this stack for now. In provider v5 the
-  application-scoped policies moved inline onto
-  `cloudflare_zero_trust_access_application`, and applying an application whose
-  `policies` list is empty detaches every policy from it, after which Cloudflare
-  garbage-collects the orphans. There is already a wildcard `*` Access app
-  gating this account's hostnames, so the first bad apply is a lockout rather
-  than a downtime. If it is ever adopted, import first, never auto-apply, and
-  give the `*` app its own state.
+- Access remains outside the tunnel/WAF state and credentials. Its dedicated
+  stack imports existing resources and checks policy attachments before apply;
+  an empty policy list is rejected instead of detaching policies at the edge.

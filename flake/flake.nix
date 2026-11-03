@@ -2,8 +2,14 @@
   description = "NixOS homelab development and validation tools";
 
   nixConfig = {
-    extra-substituters = [ "http://10.0.30.20:8080/homelab" ];
-    extra-trusted-public-keys = [ "homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=" ];
+    extra-substituters = [
+      "http://10.0.30.20:8090"
+      "http://10.0.30.20:8080/homelab"
+    ];
+    extra-trusted-public-keys = [
+      "homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec="
+      "homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk="
+    ];
   };
 
   inputs = {
@@ -14,6 +20,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     impermanence.url = "github:nix-community/impermanence";
+    niks3 = {
+      url = "github:Mic92/niks3/v1.16.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -35,6 +45,7 @@
       flake-utils,
       disko,
       impermanence,
+      niks3,
       sops-nix,
       nix-topology,
       tofunix,
@@ -56,6 +67,7 @@
                 { nixpkgs.overlays = [ kernelModulesOverlay ]; }
                 disko.nixosModules.disko
                 impermanence.nixosModules.impermanence
+                niks3.nixosModules.niks3
                 sops-nix.nixosModules.sops
                 (./hosts + "/${hostName}")
               ]
@@ -110,6 +122,7 @@
           pythonPackages.jinja2
           pythonPackages.cryptography
           pythonPackages.webauthn
+          pythonPackages.websockets
         ]);
         matrixLibraryPath = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux (
           pkgs.lib.makeLibraryPath [
@@ -123,6 +136,8 @@
           curl
           dnsutils
           getent
+          k9s
+          niks3.packages.${system}.niks3
           (pkgs.writeShellScriptBin "nix-fast-build" ''exec ${pkgs.nix-fast-build}/bin/nix-fast-build "$@"'')
           nixos-rebuild-ng
           oras
@@ -323,7 +338,8 @@
           pkgs.runCommand "agent-workspace-host-reservations" { } ''
             ${
               if
-                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=16384Mi" host.services.k3s.extraFlags
+                # system 2048 + agent workspaces 14336 + typical CI 8192
+                builtins.elem "--kubelet-arg=system-reserved=cpu=3,memory=24576Mi" host.services.k3s.extraFlags
               then
                 "true"
               else
@@ -368,6 +384,16 @@
               nixpkgs
               impermanence
               sops-nix
+              system
+              ;
+          }
+        );
+        checks.niks3-cache-service = vmCheck (
+          import ./tests/niks3-cache.nix {
+            inherit
+              nixpkgs
+              impermanence
+              niks3
               system
               ;
           }

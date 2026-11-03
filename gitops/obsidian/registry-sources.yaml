@@ -1,0 +1,19 @@
+# Inventory-only upstream image declarations for gitops/obsidian
+# consumers. Renovate tracks these tagged references; the workloads pin the
+# mirrored digest. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# referenced by digest in the owning manifest.
+#
+# This file is NOT listed in gitops/obsidian/kustomization.yaml: it is
+# an inventory source only and must never be applied to the cluster.
+#
+# Update flow: change the digest below, import it, then update the consumer
+# manifest digest, so a pod never pulls an image the mirror lacks.
+apiVersion: v1
+kind: List
+metadata:
+  name: obsidian-registry-sources
+items:
+  # CouchDB (couchdb.yaml)
+  - image: docker.io/library/couchdb:3.5.2@sha256:199ff89f9a930df6032a216570ae0169fcc36c449bb02b40fafeb6efecdb606f

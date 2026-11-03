@@ -81,6 +81,13 @@
         mac = "d4:13:68:01:94:b3";
         network = "clients";
       };
+      sams_pc = {
+        description = "Sam's gaming PC (Sunshine streaming host)";
+        hostname = "wabungus";
+        address = "10.0.20.135";
+        mac = "74:56:3c:71:b0:04";
+        network = "clients";
+      };
     };
     aliases = {
       spotify_matrix_senders = {
@@ -704,6 +711,30 @@
           };
           destination = {
             net = config.homelab.networks.load-balancers.cidr;
+            port = "";
+          };
+        };
+      };
+      infrastructure-allow-netbird-mesh = {
+        description = "Allow infrastructure replies to NetBird mesh peers; return path for tunnel-initiated flows needs no SYN since OPNsense never sees the handshake";
+        enabled = true;
+        sequence = 307;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "any";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "100.64.0.0/10";
             port = "";
           };
         };

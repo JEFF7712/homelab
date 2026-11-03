@@ -15,4 +15,24 @@ the [read-only agent access runbook](opnsense-agent-access.md).
    unreachable from the LAN until the routing service was restarted.
 5. Retain redacted proof output with the pipeline artifact.
 
+## VIPs time out while BGP is up
+
+FRR can keep the VIP `/32`s in its BGP RIB without installing them in the
+kernel FIB. OPNsense then sends VIP traffic to the empty `load_balancers`
+VLAN (its connected `10.0.40.0/24`), so every VIP except the statically
+routed Jellyfin `10.0.40.16` times out from the LAN and from CI. It happened
+in September 2026 and again on 2026-11-02, after an FRR restart.
+
+Signs: `opnsense-plan`'s data-plane probe reports `TimeoutError` for the
+VIPs while the Cilium peers are established. `just status network` reports
+the routes present but not installed, because it compares
+`/api/diagnostics/interface/get_routes` with
+`/api/quagga/diagnostics/search_bgproute4`. Agent VMs run it with their
+read-only key (`~/.config/sops/age/agent-rupan.key`).
+
+Fix: restart FRR in the OPNsense UI (Services, FRR). The agent key is
+read-only and no CI operation restarts FRR without a configuration change.
+Then confirm the `/32`s appear in the kernel routes via `10.0.30.11`-`13`
+and rerun `opnsense-plan` to prove the data plane.
+
 An absent peer, wrong ASN, missing route, or non-running service is an apply failure. Restore connectivity using the OPNsense console recovery runbook before attempting another configuration change.

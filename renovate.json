@@ -27,7 +27,8 @@
     "registry/**",
     "schemas/**",
     "artifacts/**",
-    "secrets/**"
+    "secrets/**",
+    ".gitlab-ci.yml"
   ],
   "printConfig": false,
   "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
@@ -35,18 +36,18 @@
   "commitMessageAction": "Bump",
   "commitMessageExtra": "from {{{currentVersion}}} to {{{newVersion}}}",
   "flux": {
-    "fileMatch": [
-      "^gitops/.+\\.ya?ml$"
+    "managerFilePatterns": [
+      "/^gitops/.+\\.ya?ml$/"
     ]
   },
   "kubernetes": {
-    "fileMatch": [
-      "^gitops/.+\\.ya?ml$"
+    "managerFilePatterns": [
+      "/^gitops/.+\\.ya?ml$/"
     ]
   },
   "terraform": {
-    "fileMatch": [
-      "^tofu/.+\\.tf$"
+    "managerFilePatterns": [
+      "/^tofu/.+\\.tf$/"
     ]
   },
   "nix": {
@@ -84,15 +85,6 @@
         ],
         "executionMode": "branch"
       }
-    },
-    {
-      "description": "Group Flux and Kubernetes manifest updates",
-      "matchManagers": [
-        "flux",
-        "kubernetes"
-      ],
-      "groupName": "GitOps Kubernetes updates",
-      "groupSlug": "gitops-k8s-updates"
     },
     {
       "description": "Group Nix Flake inputs updates",
@@ -133,6 +125,65 @@
       "automerge": false
     },
     {
+      "description": "Mirror references move only through the registry import flow: Renovate bumps the upstream declarations (registry-sources.yaml, producer-base-images), the lock import copies them, then consumers take the mirror digest. Mirror tags never repoint, so looking them up finds nothing newer (docs/runbooks/local-registry.md)",
+      "matchPackageNames": [
+        "registry.rupan.dev/**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "LinuxServer tags end in a build counter (-ls322) that docker versioning treats as an exact-match suffix, so it never finds an update; version x.y.z(.build)-lsN numerically instead",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/{prowlarr,radarr,sonarr}"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-ls(?<revision>\\d+)$"
+    },
+    {
+      "description": "Three-part LinuxServer tags: the -lsN counter is the build; jellyfin's ubuNNNN base stays fixed and qbittorrent's _vX.Y.Z libtorrent part moves with the release",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/{bazarr,beets,jellyfin,qbittorrent}"
+      ],
+      "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?<compatibility>ubu\\d+)?(?:_v\\d+(?:\\.\\d+)*)?-ls(?<build>\\d+)$"
+    },
+    {
+      "description": "PostgreSQL majors need a dump and restore or pg_upgrade of the data directory, never an image bump",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "/(^|/)postgres$/"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Review every Helm chart bump: post-renderers pin the app images, so the chart and its mirrored image digests move together by hand (docs/runbooks/local-registry.md)",
+      "matchManagers": [
+        "flux"
+      ],
+      "matchDatasources": [
+        "helm"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Chart image declarations move with their chart's upgrade, never on their own",
+      "matchFileNames": [
+        "gitops/cert-manager/registry-sources.yaml",
+        "gitops/observability/registry-sources.yaml",
+        "gitops/platform/registry-sources.yaml"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Lock maintenance is for the Nix flakes only; uv and provider locks move with their dependency updates",
       "matchUpdateTypes": [
         "lockFileMaintenance"
@@ -140,6 +191,43 @@
       "matchManagers": [
         "pep621",
         "terraform"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Node majors for producer base images need a new node-toolchain supply and catalog pins first (docs/runbooks/node-supply.md); a base-image bump alone fails the registry gate",
+      "matchFileNames": [
+        "gitops/producer-base-images/**"
+      ],
+      "matchPackageNames": [
+        "/(^|/)node$/"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Python release images, bus-display and led-matrix pin python 3.12 by digest outside this file, so a newer minor here would only mirror an image nothing builds from; move them together (3.12 is supported until 2028-10)",
+      "matchFileNames": [
+        "gitops/producer-base-images/**"
+      ],
+      "matchPackageNames": [
+        "/(^|/)python$/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Flux system upgrades regenerate gotk-components.yaml and mirror its controller images (docs/runbooks/local-registry.md); the Renovate image has no flux binary, so it could only bump the version comment",
+      "matchManagers": [
+        "flux"
+      ],
+      "matchFileNames": [
+        "gitops/clusters/*/flux-system/gotk-components.yaml"
       ],
       "enabled": false
     },

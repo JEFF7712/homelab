@@ -26,6 +26,7 @@ Read narrowly — pick the doc that matches the concern, don't read all of them.
 - [Shared fleet inventory](runbooks/fleet-inventory.md): primary host addresses and networks shared by NixOS, Tofunix, and topology consumers.
 - `docs/runbooks/opnsense-bgp-proof.md` — OPNsense BGP reachability proof.
 - `docs/runbooks/postgres-disaster-recovery.md` — Postgres backup and restore.
+- `docs/runbooks/cloudflare-access.md`: declarative Access applications and policies, import-only bootstrap, source-bound applies and nightly drift detection.
 - `docs/runbooks/analytics.md`: Umami web analytics at `tally.rupan.dev`, its CNPG database, backups, and how to track a site.
 - `docs/runbooks/pod-security.md`: enforced Pod Security level per namespace, the privileged exceptions, and how to change a level.
 - `docs/runbooks/agent-workspaces.md` — multiuser agent workspace operations.

@@ -54,6 +54,7 @@ These observations identify recovery inputs; they do not certify a complete set.
 | Platform backup destination | `flake/modules/platform-backup.nix`, `scripts/ci/platform_backup.py`; `platform-backup.env` in `secrets/shared/platform-backup.sops.yaml` | Live NAS and homelab-04 environments were mode 0600 and pointed at R2; timers enabled. Last observed exits: NAS 2026-10-14 12:05:15 CDT, runner 12:00:39 CDT, both success | Job success is not a restore receipt; independent password/access custody and complete offline repository export remain preflight requirements |
 | Zot | `flake/modules/zot-registry.nix`, `flake/modules/nas-data.nix`; `/tank/registry`, `/persist/zot`, `/var/lib/acme` | Registry backup declares encrypted Restic on `/mnt/backup-2tb/registry-restic`, excludes its own password, prunes daily/weekly/monthly generations, checks a subset | Verify actual snapshot freshness, recover the password independently, export accepted/rollback/bootstrap images and restore-test them; same-host disk does not cover B or C |
 | Attic | `flake/modules/nas-data.nix`; `/persist/attic/server.db`, `/persist/attic/env`, `/srv/attic` (`zroot/attic` on the system SSD mirror; `tank/attic` is the pre-2026-10-19 copy) | Local snapshots are declared; the inspected platform backup does not export these paths | Export a consistent cache or complete required Nix closures plus signatures and trust metadata. A top-level NAR without its references is insufficient |
+| niks3 cache | `flake/modules/niks3-cache.nix`; `/persist/niks3` (signing key, API token, S3 key), `/var/lib/postgresql` (persisted), `/srv/nix-cache` (`zroot/nix-cache`: its own Garage metadata and data) | Not exported by platform backup; staged alongside Attic and not yet serving clients | Contents are rebuildable. Keep `/persist/niks3/signing-key` once clients trust it, or plan a key rotation |
 | npm and other build supply | `flake/modules/npm-cache-proxy.nix`, `config/ci/applications.json`, `services/*/` | npm endpoint is an nginx pull-through cache, explicitly disposable; application lanes retain named supply in Forgejo packages | Verify every selected lock entry/toolchain against restored package files. A cache miss must fail offline; do not count this endpoint as a retained Verdaccio registry |
 | Host and container bootstrap | `flake/`, `registry/images.lock.json`, fleet source bundles | Laptop/ISO publication receipt exists under `nixos/2026-10-13/publication-1600/`; ISO extraction and signature/hash checks recorded | ISO boot and laptop full-closure restore are unproven; neither receipt establishes replacement NAS/server OS closures, recovery utilities or all bootstrap images |
 | k3s and Cilium | `flake/modules/k3s-server.nix`; `/persist/etcd-snapshots`, server token and registry credentials | Source schedules daily 03:00 etcd snapshots with retention 14; Cilium images use local digest pins | No independent etcd/token export was found in the inspected platform backup. Cilium chart 1.20.1 still uses `https://helm.cilium.io`; retain chart bytes/digest and Helm installer dependencies before scenario C |
@@ -401,3 +402,20 @@ The next prerequisite is a reviewed, retained pilot-only service/cluster/CI
 restore overlay and dependency closure. The second copy remains deferred.
 Forgejo, Zot, Woodpecker, Kubernetes, Darkbit release/promotion/rollback and
 full-platform RTO remain untested in the recovered environment.
+
+## Weekly platform restore drill
+
+`platform-restore-drill.service` on nas-01 (Sunday 05:00, after the 03:00
+prune and `restic check`) proves that both hosts' `sovereign-platform`
+snapshots restore. For nas-01 and homelab-04 it requires a snapshot from the
+last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
+`homelab.git`) into scratch space under `/persist/platform-backup`, runs
+`PRAGMA integrity_check` and `git fsck --full`, and deletes the scratch copy.
+
+Results persist in `/var/lib/platform-backup/drill.json` (a failure keeps the
+last pass time) and reach Prometheus through node exporter's textfile
+directory as `homelab_restore_drill_last_success_timestamp_seconds` and
+`homelab_restore_drill_last_result`. `RestoreDrillFailed`,
+`RestoreDrillStale` (no pass in eight days) and `RestoreDrillMissing` page
+through ntfy. Run it now with
+`HOMELAB_AUTHORIZED=1 ssh nas-01 systemctl start platform-restore-drill`.

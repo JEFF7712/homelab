@@ -230,10 +230,13 @@ class HostSecretsTest(unittest.TestCase):
         )
         voice_host = self.evaluated["homelab-05"]
         self.assertEqual(
-            voice_host["secrets"]["mosquitto-roku-bridge-password"]["restartUnits"],
+            sorted(
+                voice_host["secrets"]["mosquitto-roku-bridge-password"]["restartUnits"]
+            ),
             [
                 "apollo-ble-bridge-kitchen.service",
                 "apollo-ble-bridge-living-room.service",
+                "controller-pairer.service",
             ],
         )
         for host in ("homelab-04", "nas-01"):
