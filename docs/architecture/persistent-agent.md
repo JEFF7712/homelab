@@ -276,19 +276,46 @@ Each gate needs recorded evidence before deployment is requested.
    tools, or `create_task`, `cancel_task` and `answer_question` calls that
    follow such an event need the principal's confirmation.
 
-## Next milestone: one vertical slice
+## Vertical slice status
 
-One Letta supervisor creates a task, launches one isolated worker, answers
-its question, receives a verified result, and reports completion in the same
-conversation. No added concurrency or capabilities until this works reliably.
-Built so far: the store, the worker runner and API, and three backends.
+One supervisor creates a task, one isolated worker asks a question and gets
+the answer, the controller verifies the result, and the supervisor reports
+completion in the same conversation. No added concurrency or capabilities
+until this works reliably.
 
-| Priority | Work | Acceptance |
-| --- | --- | --- |
-| P0 | Letta OAuth identity validation upstream (pi-ai verification, Letta name) | Signature, issuer, audience, expiry, nonce and `sub` binding tested, including negative cases |
-| P1 | Controller daemon: scheduler (claim, token, Job), reaper, Job manager acknowledging `worker.cancel` after deleting the Job, worker API server, outbox delivery | Restarts, leases, cancellations and fencing behave correctly |
-| P1 | Letta bridge: external tools `create_task`, `get_task`, `list_tasks`, `cancel_task`, `answer_question`, `request_approval`, re-registered on every reconnect | The supervisor manages tasks without bypassing controller authorization |
-| P1 | Forgejo and Woodpecker adapters: issue per task, attempt-scoped branch, PR, status reads feeding `record_verification` | Issues, PRs, CI results and comments reconcile idempotently |
-| P1 | ntfy notifier | Durable, deduplicated delivery with retries |
-| P2 | Packaging (Letta from the upstream flake, controller and worker images) and resource checks | Reproducible images, chosen node, isolated credentials |
-| P2 | Credential-free rehearsal with a scripted loopback model | The full path works, plus worker crash, controller restart, stale attempt, duplicate events, cancelled task, and an answer after expiry. The question round trip runs through Letta and Telegram routing, not only the worker adapters |
+Built and tested offline (`tests/test_orchestrator_slice.py`, with scripted
+inference and disposable parts: a fake Forgejo backed by a real bare git
+repository, a fake Letta App Server speaking the real protocol, a fake ntfy,
+and a scripted Pi worker in a real process):
+
+- the request arrives through the Letta bridge, the controller opens the issue
+  and dispatches the worker, the worker asks and suspends, the controller
+  restarts, the question survives and is answered through Letta after the
+  restart, the worker commits and pushes, the controller opens the pull
+  request, reads CI, verifies, finalizes, and Letta hears the result;
+- a crash just before and just after issue creation, and just before and just
+  after pull request creation, converges to exactly one issue and one pull
+  request;
+- failed CI sends the task back for a new attempt instead of completing it;
+- clients cannot see or act on another principal's tasks; forge commands
+  count only from the principal's login.
+
+The Kubernetes manifests are rendered, not committed:
+`python -m scripts.orchestrator render-manifests --params FILE` takes the
+node and the digest-pinned images as required inputs
+(`scripts/orchestrator/manifests.py`), accepts only homelab-02 or
+homelab-03, refuses unpinned images and inline credentials in the backend
+configuration, mounts into each worker Job only the Secret keys its backend
+needs, and renders a single `Recreate` controller pinned to that node with a
+local PV, `restricted` Pod Security, worker Jobs without service-account
+tokens, and default-deny NetworkPolicies. Nothing is bound into Flux.
+
+Remaining before a deployment request:
+
+| Priority | Work |
+| --- | --- |
+| P0 | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs). Supervisor inference stays off until an audited Letta release has them |
+| P2 | Controller and worker images through the registry lane; Letta from its upstream flake with the bridge beside it |
+| P2 | Fresh resource measurements on homelab-02 and homelab-03, then the node choice |
+| P2 | Credential-free rehearsal on the chosen node with the rendered manifests and a scripted loopback model |
+| Gate | Security review of the rendered manifests and credential boundaries, the negative tests, credential provisioning, live subscription checks |
