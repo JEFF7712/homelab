@@ -39,7 +39,7 @@ cert-manager for internal TLS.
 
 NixOS via flakes and the fleet deployer, firewall via OpenTofu plus a small
 reconciler, and Kubernetes via Flux. Protected CI owns provider changes and
-approved fleet operations; Flux reconciles Kubernetes state from Forgejo. The
+fleet operations within the task scope; Flux reconciles Kubernetes state from Forgejo. The
 repo is the source of truth; live state is verified, never hand-edited. See
 [AGENT_MAP.md](AGENT_MAP.md) for owning source, minimum checks, and runbooks
 before making or applying changes.

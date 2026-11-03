@@ -10,7 +10,7 @@ The shared CLI is `python -m scripts.agent`; `just` provides stable recipes. Sta
 - `just agent-smoke ID CLIENT [--timeout SECONDS]`: explicitly exercise the installed client with one verification command that exits 7. Record actual hook receipts and failure evidence. Codex/OpenCode/Cursor use configured providers; Claude uses a loopback API fixture to exercise its real hook engine without provider inference. Default total client budget is 120 seconds. This is an opt-in integration probe, excluded from startup and routine offline tests.
 - `just doctor [--json]`: local tools (including `tea` for Forgejo work), paths, nested flake, adapter JSON/TOML syntax, and credential references. It never reads credential values. Adapter presence and valid syntax do not prove that a client loaded the hooks.
 - `just check-changed [BASE] [--json] [--select-only]`: includes staged, unstaged, renamed, deleted, untracked, and merge-base changes, explains routing, and executes selected checks unless `--select-only` is used. Text output lists the selected checks with reasons, then per-check exit codes with evidence paths. `--json` reports the same selection and results as structured data (`--select-only` reports the selection without executing it).
-- `just check`: full offline validation. Run `just provision-check-deps` once when pinned provider or schema caches are absent.
+- `just check`: full offline validation, run by CI. Use `just check-changed` and focused tests locally within the shared workspace memory budget. Run `just provision-check-deps` when pinned provider dependencies are absent; CRD schemas are committed under `schemas/kubernetes/`.
 - `just fmt` and `just fmt-check`: apply or verify repository formatting. Validation and formatting run through these `just` recipes; `python -m scripts.agent` exposes only the context, doctor, task, check-selection, and status commands listed by its `--help`.
 - `just task-new ID [--json]`: read creation JSON from stdin and refuse overwrite. `just task-new ID --template` prints a blank creation document to fill in and feed back.
 - `just task-resume ID [--json]`: report HEAD and fingerprint drift, stale verification, and the next action.
@@ -55,7 +55,7 @@ To isolate concurrent tasks:
 
 ## Publishing changes
 
-Forgejo is the primary Git host. Publishing a branch or opening/merging a PR changes shared repository state, so do it only when the task explicitly authorizes that step. Agents use the dedicated machine user `homelab-agent`, never a personal account. Before publishing, run the checks below from the pinned dev shell. They are read-only and separate Forgejo API access from Git SSH access:
+Forgejo is the primary Git host. A change request carries the standing delivery authorization in [`AGENTS.md`](../AGENTS.md), including publishing and merging through `just ship`. Changes to agent-bounding controls, persistent-data destruction, and host-level exposure retain the exact-change operator approval boundary described there. Agents use the dedicated machine user `homelab-agent`, never a personal account. Before publishing, run the checks below from the pinned dev shell. They are read-only and separate Forgejo API access from Git SSH access:
 
 ```sh
 nix develop ./flake -c tea --version
@@ -79,14 +79,11 @@ Troubleshoot by the failing step:
 
 Run `just doctor --live` before a task that will ship: it checks the Forgejo token and push identity, the Woodpecker token, Kubernetes, the SOPS key, SSH to every fleet host, and the age of the observed image snapshot. Diagnose a live app with `just diag <kustomization-or-namespace>` (Flux state, workloads, unhealthy pods with log tails, warning events, running digests versus the lock, matching runbooks). `just worktree-gc` lists `.worktrees/` checkouts that are clean, merged into main, and idle for `--min-idle-hours` (default 24); `--apply` removes them. The session-start hook runs it with `--apply` in the background, so merged worktrees do not accumulate; set `AGENT_HOUSEKEEPING=0` to skip both collectors.
 
-The default delivery path is `just ship` ([ship runbook](runbooks/ship.md)): from a committed feature branch it runs `check-changed`, pushes as `homelab-agent`, opens or reuses the PR, blocks until `ci/woodpecker/validation-v2` is green (printing the failing step log otherwise), merges, waits for main validation, runs the deployment operations routed from the changed paths, ships any promotion patch an operation emits, and waits for the affected Flux Kustomizations. Use the manual steps below only when `ship` cannot run.
-
-After authorization and passing preflight, commit and push the reviewed branch, then open its PR:
-
-```sh
-git push git-agent:JEFF7712/homelab.git HEAD
-just forgejo-pr "imperative title"   # opens the PR against main
-```
+The delivery path is [`just ship`](runbooks/ship.md). That runbook owns push,
+PR, validation, merge queue, operation routing, approval holds, promotion and
+Flux verification. Supply task-specific acceptance commands with `--verify`.
+For recovery when `ship` cannot run, use the owning subsystem runbook and
+preserve the same machine identity and required status checks.
 
 Use Forgejo's internal address from agent sessions: `http://git.internal:3000` for the web UI and `ssh://forgejo@git.internal:2222/<owner>/<repo>.git` for Git over SSH. The public `git.rupan.dev` hostname is protected by Cloudflare Access and can redirect an unauthenticated browser to the Access sign-in page. When that happens, switch to the internal address; the Forgejo web UI may still require its own login.
 
@@ -94,11 +91,9 @@ The `tea` CLI uses the login saved in `~/.config/tea/config.yml`. Check `tea log
 
 For direct API access, send requests to `http://git.internal:3000/api/v1/...` with `Authorization: token <saved-token>`. Read the token programmatically from the `tea` login config and never print it or send it to the public host. Create a PR with `POST /api/v1/repos/<owner>/<repo>/pulls`, using `title`, `head`, `base`, and `body` fields.
 
-Wait for `ci/woodpecker/validation-v2` to turn green. The task request authorizes merging after required validation. Prefer fast-forward so the Forgejo to GitLab mirror stays clean:
-
-```sh
-just forgejo-merge <index>
-```
+Both `ci/woodpecker/validation-v2` and `policy/merge` must pass before merge.
+Resolve failures through the [merge policy runbook](runbooks/merge-policy.md);
+never bypass protection.
 
 ## Applying and deploying changes
 
@@ -108,7 +103,7 @@ Before an authorized apply, confirm the target identity, inspect the plan or ren
 
 ## Check mapping
 
-CI policy and catalog changes (`scripts/ci/`, `config/ci/`, `.woodpecker/`, CI test modules) run Ruff lint plus the CI unit tests. Other single test modules run Ruff lint plus that module. Other Python under `scripts/` and `services/` runs the Python gate. Host-specific Nix changes evaluate the affected host (`bash scripts/checks/nix.sh <host>`, plus `nixfmt`). Shared Nix modules evaluate all hosts. `flake/flake.nix`, `flake/flake.lock`, `justfile`, `.gitlab-ci.yml`, `scripts/checks/`, and `flake/tests/` select the full gate, as do unknown code paths. Python changes under `opnsense_reconciler/` run the Python gate (`bash scripts/checks/python.sh`: Ruff format and lint, Pyright, then the full unit suite). GitOps changes lint YAML, render every Kustomize boundary, and schema-validate against the pinned set under `schemas/kubernetes/`. OpenTofu changes run `tofu fmt -check` and `validate` with the backend disabled; outside CI the check provisions missing providers itself from a plugin cache shared across worktrees. Documentation-only changes (`*.md`, `docs/`) use `python -m scripts.checks.docs` to check trailing whitespace across owned Markdown, local links and Markdown anchors in maintained entrypoint/runbook/network/decision docs, documented `just` recipe names, and the maintained workflow recipe/CLI option contracts. Link checks exclude external URLs and code examples; historical plans, task exports, and research are outside the maintained-link scope. Whitespace scanning which skips vendored `node_modules` trees and `3d-prints/` CAD sources; `git diff --check` whitespace runs as part of the full gate. Agent workflow changes (`scripts/agent/`, `hooks/`, `.opencode/`, `tests/test_agent_*`, and the exact client configuration files listed under Client hooks, plus `.codex/config.toml` and `.mcp.json`) run the workflow gate (`bash scripts/checks/agent-workflows.sh`: Ruff formatting and lint, Pyright for `scripts/agent`, agent unit tests, and `shellcheck`). The full gate performs Python lint and type checks through its Python entrypoint, avoiding duplicate workflow lint. Home Assistant and registry changes run their respective gates. `3d-prints/` is git-ignored local-only content: `check-changed` excludes it and selects no checks for it, and `tests/test_wyse5070_mount.py` skips when the directory is absent. Agent workspace changes (`scripts/agent_workspaces/`, `tests/test_agent_workspace*`, `config/agent-workspaces/`) run manifest validation and the workspace unit tests; `flake/modules/agent-workspace*.nix` runs validation plus all-host evaluation.
+CI policy and catalog changes (`scripts/ci/`, `config/ci/`, `.woodpecker/`, CI test modules) run Ruff lint plus the CI unit tests. Other single test modules run Ruff lint plus that module. Other Python under `scripts/` and `services/` runs the Python gate. Host-specific Nix changes evaluate the affected host (`bash scripts/checks/nix.sh <host>`, plus `nixfmt`). Shared Nix modules evaluate all hosts. `flake/flake.nix`, `flake/flake.lock`, `justfile`, `.gitlab-ci.yml`, `scripts/checks/`, and `flake/tests/` select the full gate, as do unknown code paths. Python changes under `opnsense_reconciler/` run the Python gate (`bash scripts/checks/python.sh`: Ruff format and lint, Pyright, then the full unit suite). GitOps changes lint YAML, render every Kustomize boundary, and schema-validate against the pinned set under `schemas/kubernetes/`. OpenTofu changes run `tofu fmt -check` and `validate` with the backend disabled; outside CI the check provisions missing providers itself from a plugin cache shared across worktrees. Documentation-only changes (`*.md`, `docs/`) use `python -m scripts.checks.docs` to check trailing whitespace across owned Markdown, local links and Markdown anchors in maintained entrypoint/runbook/network/decision docs, documented `just` recipe names, and the maintained workflow recipe/CLI option contracts. Link checks exclude external URLs and code examples; historical plans, task exports, and research are outside the maintained-link scope. Whitespace scanning skips vendored `node_modules` trees and `3d-prints/` CAD sources; `git diff --check` whitespace runs as part of the full gate. Agent workflow changes (`scripts/agent/`, `hooks/`, `.opencode/`, `tests/test_agent_*`, and the exact client configuration files listed under Client hooks, plus `.codex/config.toml` and `.mcp.json`) run the workflow gate (`bash scripts/checks/agent-workflows.sh`: Ruff formatting and lint, Pyright for `scripts/agent`, agent unit tests, and `shellcheck`). The full gate performs Python lint and type checks through its Python entrypoint, avoiding duplicate workflow lint. Home Assistant and registry changes run their respective gates. `3d-prints/` is git-ignored local-only content: `check-changed` excludes it and selects no checks for it, and `tests/test_wyse5070_mount.py` skips when the directory is absent. Agent workspace changes (`scripts/agent_workspaces/`, `tests/test_agent_workspace*`, `config/agent-workspaces/`) run manifest validation and the workspace unit tests; `flake/modules/agent-workspace*.nix` runs validation plus all-host evaluation.
 
 The GitOps gate fails when a custom-resource schema is missing. Required CRD schemas are pinned under `schemas/kubernetes/`, so local and CI validation use the same offline inputs. `just refresh-crd-schemas` snapshots all served cluster schemas into ignored `.agent-cache/schemas/` for review when the pinned set needs updating. `just provision-check-deps` installs the locked OpenTofu provider before the offline gate. GitOps validation skips encrypted SOPS manifests, whose kind is ciphertext until Flux decrypts them, and the vendored CRD definitions themselves. Live probes are reported separately from repository validation.
 
@@ -195,8 +190,8 @@ authorization contract in `AGENTS.md` rather than adding policy:
   `nixos-rebuild` or `switch-to-configuration`, `deploy-fleet`, `ha-apply`,
   `ha-revert`, registry writes, and workspace provisioning. Dry runs pass.
   `just ship --deploy` is not gated here: catalog operations use the task’s
-  standing delivery authorization. Legacy deployed-policy holds can still
-  require the one-time passkey migration step.
+  standing delivery authorization. Protected control changes, operator-only operations and risky saved plans
+  retain the approval holds described in the [approvals runbook](runbooks/approvals.md).
 
 An authorization-required command passes once it carries
 `HOMELAB_AUTHORIZED=1`, for example `HOMELAB_AUTHORIZED=1 kubectl -n immich

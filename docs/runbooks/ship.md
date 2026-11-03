@@ -27,10 +27,11 @@ just ship --verify 'curl --fail https://service.example/health'
    the tail of each failing Woodpecker step and exits nonzero. A validation
    run that was killed rather than failed (an agent or server restart, runner
    pressure) is restarted once per head; a second kill fails the ship.
-6. Merges through the merge queue (see below). When the PR has a pending review
-   request (CODEOWNERS requests one for code-owned paths, and branch
-   protection blocks the merge until it is approved), it stops and prints the
-   PR link; rerun `just ship` on the branch after the owner approves.
+6. Waits for `policy/merge` and merges through the merge queue (see below).
+   Repair findings return to the agent; authority findings require operator
+   approval of that exact head. `CODEOWNERS` creates no mandatory review
+   requests. If someone explicitly requests a review, branch protection also
+   requires resolving it before merge. See [merge policy](merge-policy.md).
 7. When operations are planned, waits for the main push pipeline covering the
    merge commit to finish with successful source validation. Unrelated failed
    operations do not invalidate that validation. If main advances to a commit that contains the
@@ -92,12 +93,13 @@ Cloudflare and application releases. CI-host-only paths select that host instead
 of also deploying the entire fleet. `--deploy` selects an explicit operation
 list and includes prerequisites; `--deploy none` merges without operations.
 
-The task request authorizes catalog operations, including policy and credential
-changes. Agent and operator identities use the same validated delivery path.
-Saved OpenTofu plans must be recognized and complete; authorization, data and
-connectivity risks are reported for the agent to assess against the task scope
-and recovery evidence, without a human approval hold. Production credentials
-stay in CI and validation remains credential-free.
+The task request authorizes routine catalog operations. Changes to controls
+that bound agents, persistent-data destruction, and host-level exposure require
+operator approval of the exact change under [merge policy](merge-policy.md).
+Deployment also holds protected authorization or storage source changes,
+operator-only operations, and risky saved OpenTofu plans through the
+[approvals dashboard](approvals.md). `ship` prints the approval link and follows
+the result. Production credentials stay in CI; validation remains credential-free.
 
 An operation can finish against an older main revision when every intervening
 change is known to affect a different catalog resource group. Both the deployed
@@ -136,10 +138,9 @@ approved switch, follow [CI recovery](ci-pipelines.md#recovery).
 
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
 token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. Operations run in
-CI with CI-held credentials. It never prints a token. The approvals service is
-retained for outstanding legacy requests: before the new policy is deployed,
-`ship` can still file the old policy's passkey request and follow its result.
-After migration, catalog operations require no operator token or passkey.
+CI with CI-held credentials. It never prints a token. The approvals service
+handles current protected deployment holds; it is not a retired migration
+mechanism. Routine agent operations need no operator token or passkey.
 
 ## Acceptance
 

@@ -1,55 +1,96 @@
-# Documentation Index
+# Documentation index
 
-Read narrowly — pick the doc that matches the concern, don't read all of them. Plans under `docs/superpowers/plans/` are dated implementation records, not active state. Runbooks in `docs/runbooks/` are the authoritative procedure for live operations. `AGENT_MAP.md` is the cross-reference from source-of-truth concerns (hosts, modules, reconcilers) to their owning files and minimum validation.
+Start with [README](../README.md) for the system overview and [Agent Map](../AGENT_MAP.md)
+for owning source, checks and runbooks. [AGENTS.md](../AGENTS.md) owns the operating
+and authorization contract; runbooks describe procedures within that contract.
+Source declarations establish desired state; only fresh runtime observations
+establish what is deployed or healthy.
 
-### Workflow and agent tooling
-- `docs/agent-workflow.md` — operator guide for `python -m scripts.agent` and `just` recipes. Start here when onboarding a new agent task.
-- `docs/agent-workflow-spec.md` — formal spec backing `docs/agent-workflow.md`.
-- `docs/superpowers/specs/2026-09-05-agent-workflow-design.md` — design rationale for the agent workflow.
-- `docs/superpowers/plans/2026-09-05-agent-workflow.md` — implementation plan that landed the agent workflow.
-- `docs/decisions/0001-agent-workflow-state.md` — ADR for the agent state-on-disk layout.
+## Workflow reference
 
-### Runbooks (live operations)
-- `docs/runbooks/home-assistant-configuration.md` — full workflow for managing HA resources (Workflow A: source-first, Workflow B: UI adoption). Required reading before touching `home-assistant/`.
-- `docs/runbooks/jarvis-voice.md`: Jarvis voice signal chain, canonical entity IDs, HA wiring checklist, image pins, and latency notes. Read before touching `gitops/voice/` or `home-assistant/www/jarvis/`.
-- `docs/runbooks/roku-bridge-architecture.md` — Roku bulb bridge data flow, PIDs, debug commands, deploy path, and the modern-vs-legacy color schema gotcha. Read before debugging bedroom bulb behavior.
-- `docs/runbooks/cloudflare-tunnel.md` — Cloudflare Tunnel operations.
-- `docs/runbooks/ci-pipelines.md` — GitLab runner lanes, validation jobs, and path-based routing.
-- `docs/runbooks/node-supply.md` — retained npm caches for node releases: fixing `ENOTCACHED` release failures with `node-supply-publish`.
-- `docs/runbooks/ship.md` — `just ship` delivery path: PR, required CI, merge, routed deployment operations, promotion, and Flux verification.
-- `docs/runbooks/merge-policy.md` — per-commit `policy/merge` status: what it approves on its own, repair and escalation, activation.
-- `docs/runbooks/approvals.md` — approvals dashboard: passkey approval of held CI operations, setup, and recovery.
-- `docs/runbooks/local-development.md` — pinned dev environment, registry commands, and the offline validation gate.
-- `docs/runbooks/local-registry.md` — local container registry operations.
-- `docs/runbooks/opnsense-recovery.md` — OPNsense disaster recovery.
-- [OPNsense configuration](runbooks/opnsense-configuration.md): typed inventory, Tofunix rendering, provider options, and validation.
-- [Shared fleet inventory](runbooks/fleet-inventory.md): primary host addresses and networks shared by NixOS, Tofunix, and topology consumers.
-- `docs/runbooks/opnsense-bgp-proof.md` — OPNsense BGP reachability proof.
-- `docs/runbooks/postgres-disaster-recovery.md` — Postgres backup and restore.
-- `docs/runbooks/analytics.md`: Umami web analytics at `tally.rupan.dev`, its CNPG database, backups, and how to track a site.
-- `docs/runbooks/pod-security.md`: enforced Pod Security level per namespace, the privileged exceptions, and how to change a level.
-- `docs/runbooks/agent-workspaces.md` — multiuser agent workspace operations.
-- `docs/runbooks/games.md` — Questarr game downloads and Gameyfin library: first-run setup and APP_KEY handling.
-- `docs/runbooks/nas-game-share.md` — SMB game share on nas-01: access model and the one-time Samba password setup.
-- `docs/runbooks/arr-credentials.md` — media download-chain credential sync (qBittorrent password, *arr/Seerr API keys) and rotation.
-- `docs/runbooks/netbird.md` — NetBird dashboard/config API for agents: `NETBIRD_API_KEY` storage in SOPS, read-only usage, and rotation. Required reading before calling the NetBird Management API or changing peers, routes, or policies.
-- `docs/runbooks/home-assistant-automation-best-practices.md` — HA automation conventions.
-- `docs/runbooks/kiosk-display.md` — shared kiosk module: single-view Jarvis face vs rotating dashboards, and the HA dashboard token seeding.
+- [Agent workflow](agent-workflow.md): commands, task continuity, clients and verification evidence.
+- [Task state decision](decisions/0001-agent-workflow-state.md): rationale for local task records.
+- [Topology](../flake/topology/README.md): generate declared infrastructure diagrams.
 
-### Gotchas (code-level pitfalls)
-- `docs/gotchas/nix-heredoc-indentation.md` — Nix `''` heredoc indentation stripping trap. Symptom is a runtime `IndentationError` on a service you just edited. `nixfmt` does not catch it.
+## Runbooks
 
-### Networking
-- [Network outage monitor](runbooks/network-monitor.md): local connectivity checks and ntfy outage/recovery alerts.
-- `docs/network/opnsense-nat.md` — OPNsense NAT rules.
-- `docs/network/switch-port-map.md` — physical switch port layout.
+These are maintained procedures. Read the one matching the task and inspect its
+owning source before applying changes. Dated observations inside a runbook are
+evidence from that time, not permanent health or capacity guarantees.
 
-### Plans, designs, and research (dated, for historical context)
-- `docs/superpowers/plans/` — dated implementation plans per workstream.
-- `docs/superpowers/specs/` — dated design specs per workstream.
-- `docs/architecture/persistent-agent.md`: persistent agent target architecture, credential inventory, supervisor inference preflight and deployment gates (not deployed).
-- `docs/protocols/agent-tasks.md`: controller store, task states, worker backend contract and outbox topics.
-- `docs/research/` — dated research notes (k3s, Flux, OPNsense control plane, OPNsense 26.7 API).
+### Workflow and delivery
 
-### Per-task notes (transient)
-- `docs/agent-tasks/*.md` — task-scoped notes exported via `just task-export`. Each one is a snapshot tied to a specific task; check `git log` on the file for context. Persistent task records and runtime evidence live under `.agent-state/`.
+- [Shipping changes](runbooks/ship.md)
+- [Merge policy](runbooks/merge-policy.md)
+- [Approvals dashboard](runbooks/approvals.md)
+- [Local development](runbooks/local-development.md)
+- [Remote interactive coding sessions](runbooks/remote-agent-sessions.md)
+- [Agent workspace operations](runbooks/agent-workspaces.md)
+- [projectctl](runbooks/projectctl.md)
+- [Registry node credential rotation](runbooks/projectctl-registry-rotation.md)
+
+### CI, releases and recovery
+
+- [CI pipelines](runbooks/ci-pipelines.md)
+- [Application CI](runbooks/application-ci.md)
+- [Forgejo automation runtime](runbooks/forgejo-automation-runtime.md)
+- [Local container registry operations](runbooks/local-registry.md)
+- [Node supply](runbooks/node-supply.md)
+- [Matrix releases](runbooks/matrix-release.md)
+- [NixOS host deployment](runbooks/nixos-host-deployment.md)
+- [NixOS artifact publication](runbooks/nixos-publication.md)
+- [GitHub release synchronization](runbooks/release-mirror.md)
+- [Repository health monitor](runbooks/repo-monitor.md)
+- [Forgejo deployment and disaster recovery](runbooks/forgejo-disaster-recovery.md)
+- [Independent platform recovery](runbooks/sovereign-platform-recovery.md)
+
+### Network and platform
+
+- [Shared fleet inventory](runbooks/fleet-inventory.md)
+- [OPNsense configuration](runbooks/opnsense-configuration.md)
+- [Read-only OPNsense access for agents](runbooks/opnsense-agent-access.md)
+- [OPNsense BGP Proof](runbooks/opnsense-bgp-proof.md)
+- [OPNsense Recovery](runbooks/opnsense-recovery.md)
+- [NetBird management API for agents](runbooks/netbird.md)
+- [Cloudflare Tunnel `homelab`](runbooks/cloudflare-tunnel.md)
+- [Network outage monitor](runbooks/network-monitor.md)
+- [homelab-04 Ethernet transmit hang](runbooks/homelab04-network.md)
+- [homelab-05 Ethernet transmit hang](runbooks/homelab05-network.md)
+- [Pod Security](runbooks/pod-security.md)
+- [Secret handling](runbooks/secrets.md)
+- [PostgreSQL Disaster Recovery](runbooks/postgres-disaster-recovery.md)
+- [Akshath Omarchy VM](runbooks/omarchy-vm.md)
+
+### Applications and devices
+
+- [Home Assistant Configuration and UI Adoption Runbook](runbooks/home-assistant-configuration.md)
+- [Home Assistant Automation Best Practices](runbooks/home-assistant-automation-best-practices.md)
+- [Jarvis voice runbook](runbooks/jarvis-voice.md)
+- [Kiosk display](runbooks/kiosk-display.md)
+- [Roku Bulb Bridge Architecture](runbooks/roku-bridge-architecture.md)
+- [Web analytics (Umami)](runbooks/analytics.md)
+- [Media download-chain credentials](runbooks/arr-credentials.md)
+- [Lidarr queue hygiene](runbooks/arr-queue-hygiene.md)
+- [Bookshelf state backup and recovery](runbooks/bookshelf-recovery.md)
+- [Game downloads and library](runbooks/games.md)
+- [NAS game share](runbooks/nas-game-share.md)
+- [pod-agent on the homelab](runbooks/pod-agent.md)
+
+## Network references and code pitfalls
+
+- [Switch port map](network/switch-port-map.md): physical connections.
+- [Outbound NAT](network/opnsense-nat.md): mode prerequisite and reconciled rules.
+- [Nix heredoc indentation](gotchas/nix-heredoc-indentation.md): runtime Python indentation failures.
+- [Govee LAN control](gotchas/govee-lan-control.md): device protocol observations.
+
+## Architecture and historical records
+
+- [Persistent agent architecture](architecture/persistent-agent.md) and [task protocol](protocols/agent-tasks.md): controller implementation and deployment gates; not deployed.
+- [Agent workflow specification](agent-workflow-spec.md): historical implementation spec; current behavior belongs to the workflow guide.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/`: dated designs and implementation plans.
+- `docs/research/`: dated investigations and acceptance evidence, including [pod-agent release history](research/2026-10-07-pod-agent-release-history.md).
+- `docs/agent-tasks/`: point-in-time task exports; check file history before using a handoff. Local task state and raw runtime evidence remain in ignored `.agent-state/`.
+
+Historical records can contain superseded paths, commands, approvals and proposed
+work. They do not override current source, the operating contract or runbooks.
+Retrieve removed obsolete guidance from Git history when investigating an old incident.

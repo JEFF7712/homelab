@@ -3,12 +3,17 @@
 The qBittorrent WebUI password and the Sonarr/Radarr/Lidarr/Seerr API keys
 live in app databases on PVCs, not in Git. `arr-credential-sync`
 (`gitops/media/arr-secret-sync.yaml`, every 15 min) enforces them from the
-`media-app` Secret, which ExternalSecrets fills from GitLab project
-variables (see `gitops/media/secrets.yaml`).
+`media-app` Secret, which ExternalSecrets fills from SOPS-backed
+`homelab-values` (see `gitops/media/secrets.yaml` and [secret handling](secrets.md)).
+
+Edit properties in `gitops/secrets/homelab-values.sops.yaml` with SOPS and ship
+the encrypted change. Wait for Flux and the ExternalSecret refresh (up to one
+hour) before checking sync or restarting consumers. The sync CronJob runs every
+15 minutes after the target Secret has refreshed. Never print credential values.
 
 ## What is synced
 
-| GitLab variable | Pushed to |
+| SOPS property | Pushed to |
 |---|---|
 | `QBITTORRENT_USERNAME` / `QBITTORRENT_PASSWORD` | Radarr, Sonarr, Lidarr qBittorrent download clients |
 | `SONARR_API_KEY`, `RADARR_API_KEY` | Seerr server settings |
@@ -27,26 +32,28 @@ qBittorrent restart behind the VPN tunnel, so it stays a manual step):
 
 1. qBittorrent WebUI (torrent.rupan.dev) -> Tools -> Options -> Web UI ->
    change password, Apply.
-2. Update the `QBITTORRENT_PASSWORD` GitLab project variable (same value).
-3. Within 15 minutes the sync job pushes it to Radarr/Sonarr/Lidarr.
+2. Update the `QBITTORRENT_PASSWORD` SOPS property (same value).
+3. After ESO refresh, the next sync job pushes it to Radarr/Sonarr/Lidarr.
    Verify: `kubectl -n media logs -l job-name --tail=20` shows
    `OK: all credentials in sync`, or check the *arr UIs' download clients.
 
-## Rotate an *arr API key
+## Rotate a Sonarr, Radarr or Lidarr API key
 
 API keys live in each app's `config.xml` on its config PVC and need an app
 restart, so this is also manual:
 
 1. Stop the app (`kubectl scale -n media deploy/<app> --replicas=0`).
 2. Edit `/config/config.xml` on the PVC (or via a debug pod), set `<ApiKey>`.
-3. Scale back up, update the matching GitLab variable
-   (`SONARR_API_KEY`, `RADARR_API_KEY`, `LIDARR_API_KEY`, `SEERR_API_KEY`).
+3. Scale back up, update the matching SOPS property
+   (`SONARR_API_KEY`, `RADARR_API_KEY`, `LIDARR_API_KEY`).
+   Seerr uses its own application settings; do not apply the *arr `config.xml`
+   procedure to it. Update `SEERR_API_KEY` in SOPS after rotating it in Seerr.
 4. The sync job restores Seerr's stored server keys automatically.
 
 ## Rotate the Jellyfin key for Seerr
 
 1. Jellyfin dashboard -> Administration -> API Keys -> New (name `seerr`).
-2. Update the `JELLYFIN_SEERR_API_KEY` GitLab variable.
+2. Update the `JELLYFIN_SEERR_API_KEY` SOPS property.
 3. The sync job applies it to Seerr; the next Jellyfin scan in Seerr's logs
    should complete without `401`s.
 
@@ -62,14 +69,15 @@ break every assignment and silently exit all extended services at boot
 Secrets never live in that ConfigMap: the `lidarr-boot.sh` wrapper
 (Deployment command) renders `/config/extended.conf` at container start
 from the `DEEZER_ARL` and `LIDARR_API_KEY` env vars (media-app Secret),
-installs the extended toolchain via `setup.bash`, then starts the Audio
+uses the toolchain baked into `services/lidarr-extended/Dockerfile`
+(with a guarded `setup.bash` fallback), then starts the Audio
 and ARLChecker daemons before execing `/init`. A missing var fails
 container start loudly.
 
 Rotate the Deezer ARL:
 
 1. Get a fresh ARL (Deezer login cookie) and update the
-   `LIDARR_DEEZER_ARL` GitLab project variable.
+   `LIDARR_DEEZER_ARL` SOPS property.
 2. Wait for ExternalSecrets to sync `media-app` (hourly at most), then
    `kubectl -n media rollout restart deploy/lidarr`.
 3. Verify: `custom-services.d/python/ARLStatus.txt` in the pod reports a
@@ -80,7 +88,8 @@ Rotate the Deezer ARL:
 
 Tidal downloads run through `tidaler` (a maintained tidal-dl-ng fork),
 not the dead tidal-dl 2022 client the upstream scripts expect.
-`lidarr-boot.sh` installs pinned `tidaler==0.1.8` at every boot and
+The image bakes in `tidaler==0.1.8`; `lidarr-boot.sh` checks for it,
+installs it only as a fallback if absent, and
 shadows `tidal-dl` with `/usr/local/bin/tidal-dl`, which translates the
 legacy flags (`-q/-o/-l`) and quality tiers. The upstream Audio script
 is untouched. Trust note: tidaler is a small community fork that holds
@@ -130,11 +139,12 @@ pinned to upstream commit `0700090e`.
 
 `SLSKD_API_KEY` is also the slskd primary API key (plain string =
 Administrator role, required for search/download/delete). Adding it for
-the first time needs a `download` pod restart so slskd picks up the env:
+the first time needs a `slskd` Deployment restart so it picks up the env:
 
-1. Create the `SLSKD_API_KEY` GitLab variable (48+ chars), wait for the
-   ExternalSecret sync, then delete the `download` pod (restarts
-   qBittorrent too, briefly).
+1. Create the `SLSKD_API_KEY` SOPS property (48+ chars), wait for the
+   ExternalSecret sync, then run
+   `HOMELAB_AUTHORIZED=1 kubectl -n media rollout restart deploy/slskd`.
+   slskd and qBittorrent have separate Deployments.
 2. Verify: trigger a manual run
    (`kubectl -n media create job --from=cronjob/soularr soularr-manual`)
    and check its logs for `Soularr finished` plus slskd

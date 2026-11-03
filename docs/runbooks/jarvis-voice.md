@@ -135,14 +135,14 @@ automation referencing them.
    through the stable TTS gateway,
    and the `Jarvis Jev Router` custom
    conversation agent as the brain. There is no local LLM since Phase 0
-   (`gitops/voice/ollama.yaml` deleted, Qwen removed to free the T1000).
+   (Ollama removed to free the T1000).
    General conversation delegates to the Google Generative AI fallback
    (wired 2026-09-29, verified live). Set it as the preferred
    pipeline and select it on the
    satellite device.
    The Jarvis conversation prompt file carries the room semantics
    (`home-assistant/conversation/jarvis_prompt.md`, kept in Git for the
-   future cloud agent):
+   configured cloud fallback):
    downstairs means Living Room plus Kitchen, light commands with no room
    default to all downstairs lights, light color changes default to
    the shared Zigbee bulbs, and music/artist/playlist requests explicitly call
@@ -161,11 +161,10 @@ automation referencing them.
    - `Prefer handling commands locally`: ON. Built-in intents answer basic
      light, scene, and state commands without reaching the conversation
      agent. The conversation agent is the fallback for ambiguous,
-     multi-step, music, and general questions (currently unavailable
-     without a cloud fallback).
-   - `Max history messages`: 4. Applies to the future cloud agent;
+     multi-step, music, and general questions through the configured Google Generative AI fallback.
+   - `Max history messages`: 4. Applies to the cloud fallback;
      follow-ups inside one continued conversation still work.
-   - `llm_hass_api`: `assist` only once a cloud agent lands (omitting
+   - `llm_hass_api`: `assist` for the cloud fallback (omitting
      SmartHQ saves ~1.2k tokens of unused tool schemas).
    The `light.downstairs_lights` group in
    `home-assistant/core/configuration.yaml` is the deterministic backup for
@@ -581,63 +580,51 @@ higher-level check for HA losing the satellite.
 
 ## Pinned images
 
-Voice images are pinned by digest in their manifests (repo convention, with the
-source tag kept in a trailing comment). The current pins and their upstream
-sources for refresh:
+Voice image digests and source identities belong in the owning manifests under
+`gitops/voice/` and `registry/images.lock.json`; use those files for current
+pins rather than a second version table here. Native STT publication and retained
+supply have additional acceptance gates described above.
 
-| Deployment | Image | Pin | Refresh |
-| --- | --- | --- | --- |
-| satellite | `ghcr.io/ohf-voice/linux-voice-assistant` | `1.1.1` | tags list on GHCR; `latest` floats past releases, so pin the newest stable tag, not `latest` |
-| piper | `docker.io/rhasspy/wyoming-piper` | `2.5.2` | Docker Hub tags, newest non-`omnivoice` `2.x` |
-| chatterbox bridge base | `registry.rupan.dev/upstream/ghcr.io/astral-sh/uv` | same digest as von/local-decision | GHCR tags, newest stable; `chatterbox-tts==0.1.7` and Turbo weights `749d1c1a` pinned in `gitops/voice/chatterbox.yaml` |
-| pot-provider | `docker.io/brainicism/bgutil-ytdlp-pot-provider` | `1.2.1` | Docker Hub tags, newest stable |
-
-Ollama (`docker.io/ollama/ollama`, was `0.34.1` with `qwen2.5:3b`) was
-removed in Phase 0 (`gitops/voice/ollama.yaml` deleted) to free the T1000
-GPU. Do not re-add a local LLM row without revisiting the cloud-LLM
-decision.
-
-Refresh with `just check-changed` and `just check` before handoff. Bumping the
-satellite past `1.1.1` re-derives entity behavior; re-verify the canonical IDs
-above after any satellite bump.
-
-## Model contract (retired in Phase 0)
-
-There is no locally served LLM. `gitops/voice/ollama.yaml` (Deployment,
-Service, and the `ollama-qwen2-5-3b-ready` pull plus warmup Job for
-`qwen2.5:3b`, 1.9 GB) was deleted to free the 4 GB T1000. The HA Ollama
-config entry (`home-assistant/integrations/ollama_01M2PAGP.yaml`) was
-removed from Git and must also be deleted in the HA UI, and the
-   `jarvis_prompt_warmup` KV-cache warmup automation was deleted with it.
-   General conversation now delegates to the Google Generative AI fallback
-   wired on the `Jarvis Jev Router` entry.
+After an update, run `just check-changed` and `just fmt-check`; CI runs the full
+gate. Re-verify canonical entity IDs after satellite changes. Conversational
+Ollama and its warmup job were retired; the Jev router uses the configured cloud
+fallback for general conversation. The local decision model is a separate shadow
+service, not a replacement conversational backend.
 
 ## Model storage
 
-All remaining model caches live on `homelab-04` local NVMe at
-`/persist/voice-models/{whisper,piper,local-decision,chatterbox}`
-via `hostPath` (chatterbox holds `models/`, the pip/CUDA `runtime/`,
-and the operator-supplied `voices/jarvis.wav` reference clip). This is
-deliberate: every consumer is already pinned to `homelab-04`, local disk
-removes the NAS as a voice dependency and loads multi-GB models off NVMe
-instead of 1 GbE NFS. The caches are fully re-derivable (re-pull on empty
-dir), so they are not backed up. The orphaned `/persist/voice-models/ollama`
-directory on `homelab-04` and the orphaned NFS directories from the
-retired PVCs can be reclaimed by hand.
+Voice host paths are declared beside their consumers:
+
+| Consumer | Host | State under `/persist/voice-models/` |
+| --- | --- | --- |
+| Native STT (`gitops/voice/stt-nemotron.yaml`) | `homelab-04` | `nemotron`, `whisper` |
+| Piper (`gitops/voice/piper.yaml`) | `homelab-04` | `piper` |
+| Shadow decision service (`gitops/voice/local-decision.yaml`) | `homelab-04` | `local-decision/models`, `local-decision/runtime` |
+| VON (`gitops/voice/von.yaml`) | `homelab-04` | `von/models`, `von/runtime` |
+| Chatterbox (`gitops/voice/chatterbox.yaml`) | `homelab-05` | `chatterbox/models`, `runtime`, `voices`, `supply-20261013` |
+
+Chatterbox's model snapshot, reference voice and hashed wheel supply must exist
+before startup; the init container installs from retained wheels without network
+resolution. Native STT likewise requires its model directory. Treat these as
+recovery inputs, not disposable caches that an empty directory can reconstruct.
+See [retained voice supply](../../services/voice-supply/README.md) for retained
+packages and the dated independent recovery drill. Confirm current recovery
+copies before deleting or moving host state. Local NVMe avoids a NAS dependency
+for inference, but does not provide an independent backup.
 
 ## Latency notes
 
 - There is no local LLM since Phase 0, so no VRAM residency to maintain
   and no cold KV-cache evaluation. Per-turn latency is STT plus Jev API
   plus TTS. Keep Assist exposures pruned anyway: a lean tool schema keeps
-  the future cloud prompt cheap.
+  the cloud fallback prompt cheap.
 - Groq (`whisper-large-v3-turbo`) is the only STT fallback. It needs
   internet egress and the `groq-stt` Secret; a turn that falls back adds a
   cloud round trip and loses speaker ID. Local CPU Whisper (`base.en`) was
   removed for memory; CPU `turbo` had been rejected for ~6s turns.
 - Piper is sub-second at steady state but re-downloads its voice on every pod
   restart unless its model cache persists. Voices persist on the
-  `piper-voices` PVC (`gitops/voice/storage.yaml`); do not revert that volume
+  `/persist/voice-models/piper` hostPath (`gitops/voice/piper.yaml`); do not revert that volume
   to `emptyDir`.
 - Model pulls (Piper) hit the network only on first-ever
   start; after that they load off local NVMe.
