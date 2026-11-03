@@ -121,6 +121,10 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "Sun *-*-* 05:00:00";
+        # Also after boot and after a deploy changes the timer, so evidence
+        # exists before RestoreDrillMissing fires and a rebuilt NAS proves
+        # its backups straight away.
+        OnActiveSec = "15min";
         Persistent = true;
         RandomizedDelaySec = "15m";
       };

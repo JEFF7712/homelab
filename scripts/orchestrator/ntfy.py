@@ -21,7 +21,11 @@ TOPICS = (
     "answer.proposed",
     "security.incident",
     "task.status",
+    "intake.escalation",
 )
+# Tasks opened by alert intake notify only through intake.escalation; their
+# routine status changes stay on the forge issue.
+QUIET_PRINCIPALS = frozenset({"intake"})
 NOTIFY_STATUSES = frozenset(
     {"needs_input", "in_review", "completed", "failed", "cancelled"}
 )
@@ -82,6 +86,24 @@ def render(message: Message, issue_url: str | None) -> Notice | None:
             "high",
             "lock",
         )
+    if message.topic == "intake.escalation":
+        if payload.get("reason") == "open_limit":
+            body = (
+                f"{payload.get('open_limit')} intake tasks are already open, so this "
+                f"signal was not taken: {payload.get('title')}"
+            )
+        else:
+            body = (
+                f"{payload.get('title')}\nThe controller could not resolve it "
+                f"({payload.get('failures')} failed attempts, reason "
+                f"{payload.get('reason')})."
+            )
+        return Notice(
+            f"Escalated: {payload.get('title')}",
+            f"{body}{where}",
+            "urgent" if payload.get("severity") == "critical" else "high",
+            "rotating_light",
+        )
     if message.topic == "task.status" and payload.get("to") in NOTIFY_STATUSES:
         return Notice(
             f"{message.task_id} {payload.get('to')}",
@@ -108,6 +130,12 @@ class NtfySink:
     def deliver(
         self, message: Message, task: Task | None, issue_url: str | None
     ) -> None:
+        if (
+            message.topic == "task.status"
+            and task is not None
+            and task.principal in QUIET_PRINCIPALS
+        ):
+            return
         notice = render(message, issue_url)
         if notice is None:
             return
