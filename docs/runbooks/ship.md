@@ -30,9 +30,9 @@ just ship --verify 'curl --fail https://service.example/health'
 6. Waits for `policy/merge` and merges through the merge queue (see below).
    Repair findings return to the agent; authority findings require operator
    passkey approval of that exact head on the [approvals dashboard](approvals.md).
-   `CODEOWNERS` creates no mandatory review
-   requests. If someone explicitly requests a review, branch protection also
-   requires resolving it before merge. See [merge policy](merge-policy.md).
+   Forgejo reviews neither grant nor block anything: branch protection
+   requires only the validation and `policy/merge` statuses, not approvals,
+   rejected reviews or open review requests. See [merge policy](merge-policy.md).
 7. When operations are planned, waits for the main push pipeline covering the
    merge commit to finish with successful source validation. Unrelated failed
    operations do not invalidate that validation. If main advances to a commit that contains the
