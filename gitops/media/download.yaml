@@ -56,6 +56,13 @@ spec:
               else
                 echo "WebUI\\HostHeaderValidation=false" >> "$CONF"
               fi
+              # Avoid libtorrent mmap retaining gigabytes of active file pages.
+              # Replace the managed key only inside its Qt INI section.
+              sed -i '/^Session\\DiskIOType=/d' "$CONF"
+              if ! grep -q '^\[BitTorrent\]$' "$CONF"; then
+                printf '\n[BitTorrent]\n' >> "$CONF"
+              fi
+              sed -i '/^\[BitTorrent\]$/a Session\\DiskIOType=SimplePreadPwrite' "$CONF"
           volumeMounts:
             - name: qbit-config
               mountPath: /config-qbit
