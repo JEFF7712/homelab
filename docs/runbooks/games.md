@@ -25,9 +25,13 @@ login). `games.rupan.dev` has its own Access app `games`, declared in `tofu/clou
 Allow policy on named emails with one-time PIN login, so invited users get an
 emailed code and then log in to Gameyfin. Never give it a Bypass policy.
 
-To invite someone: add their email to the `games` Allow policy in the Zero
-Trust dashboard, then create their Gameyfin account under Administration >
-Users. Large game downloads through Cloudflare Tunnel are subject to
+To invite someone: inspect the `games` application in
+`tofu/cloudflare-access/applications.tf.json`. It currently attaches the reusable
+`friends` policy in `policies.tf.json`, so adding an email there affects every
+application using that policy. Edit the owning declaration with the intended
+scope and ship through [Access management](cloudflare-access.md), including its
+authorization-change approval gate. Then create the Gameyfin account under
+Administration > Users. Do not make an untracked dashboard policy edit. Large game downloads through Cloudflare Tunnel are subject to
 Cloudflare's terms on serving large files.
 
 ## First-run setup

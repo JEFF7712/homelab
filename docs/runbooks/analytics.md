@@ -20,7 +20,7 @@ Cookieless page analytics for the public sites, served at
   (`uri` feeds `DATABASE_URL`). ESO generates `umami-app-secret` once
   (`refreshPolicy: CreatedOnce`); deleting it rotates `APP_SECRET` and signs
   every dashboard session out.
-- **Backups:** `backups/umami-db-dump` (02:45 UTC) dumps to the shared
+- **Backups:** `backups/umami-db-dump` (`45 2 * * *`, controller timezone) dumps to the shared
   `db-dumps` volume, picked up by `dumps-to-r2`. Its password is copied from
   `umami-cluster-app` through the `analytics-db` ClusterSecretStore, which only
   the `backups` namespace may use and which can read only that Secret.

@@ -15,7 +15,8 @@ or more views the module enables `kiosk-rotate.service`
 (`flake/modules/kiosk-rotate.py`), which drives the already-running browser over
 its local DevTools port (`127.0.0.1:9222`): navigate, inject the optional `css`
 to strip the site's own chrome, hold for `duration` seconds, advance, repeat.
-With zero views the single `url` is shown and no driver runs. The tmpfs root
+With zero views the single `url` is shown. With one view that view's URL is shown.
+Neither case runs the rotation driver; only two or more views enable it. The tmpfs root
 wipes the Chromium profile every boot, so rotation always starts clean.
 
 Cage draws a pointer at boot even with no pointer device attached, and a page's
@@ -29,15 +30,16 @@ restarts. Debug it with `journalctl -u kiosk-rotate -f` on the host; it logs
 ## Home Assistant dashboard auth
 
 A plain HA dashboard authenticates like any browser session: the frontend reads
-the `hassTokens` entry from localStorage for the HA origin. The kiosk cannot use
-the Jarvis `trusted_networks` bypass: HA is configured with
-`use_x_forwarded_for` and `trusted_proxies` covering the LAN (see
-`home-assistant/coverage.yaml`), and HA refuses a `trusted_networks` login when
-the client address is inside `trusted_proxies` ("Can't allow access from a proxy
-server"). Do not remove the LAN entries from `trusted_proxies` to work around
-this; Cloudflare Tunnel ingress and the observability probes rely on them.
+`hassTokens` from localStorage for the exact HA origin. The rotating dashboard
+uses its own long-lived token; the Jarvis face's separate token seeder is not a
+replacement for dashboard session initialization.
 
-Instead the kiosk seeds its own session from a long-lived access token:
+`home-assistant/core/configuration.yaml` owns Git-managed HA configuration.
+`home-assistant/coverage.yaml` describes reconciler capabilities, not active HTTP
+proxy settings. If a live login fails with a proxy or trusted-network error,
+inspect the loaded HA configuration and request origin before changing it.
+
+The rotation driver seeds its session from a long-lived access token:
 
 - `homelab.kiosk.haDashboardTokenFile` + `homelab.kiosk.haDashboardUrl`
   (set on `homelab-04` to the `kiosk-ha-token` sops-nix secret,
