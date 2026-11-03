@@ -1,5 +1,6 @@
 import json
 import pathlib
+import re
 import subprocess
 import tempfile
 import unittest
@@ -92,6 +93,11 @@ class ManifestTests(unittest.TestCase):
                         ROOT
                         / "schemas/kubernetes-core/v1.35.7-standalone-strict/{{.ResourceKind}}{{.KindSuffix}}.json"
                     ),
+                    "-schema-location",
+                    str(
+                        ROOT
+                        / "schemas/kubernetes/{{.ResourceKind}}{{.KindSuffix}}.json"
+                    ),
                     str(path),
                 ],
                 capture_output=True,
@@ -144,14 +150,40 @@ class ManifestTests(unittest.TestCase):
         )
         worker = policies["orchestrator-worker"]["spec"]
         self.assertEqual(worker["ingress"], [])
-        public = [
-            rule
-            for rule in worker["egress"]
-            if rule["to"][0].get("ipBlock", {}).get("cidr") == "0.0.0.0/0"
-        ]
+        # No CIDR egress at all: public reach is the FQDN policy's alone.
+        self.assertNotIn("ipBlock", json.dumps(worker["egress"]))
+        [fqdn] = by_kind(docs, "CiliumNetworkPolicy")
+        self.assertEqual(
+            fqdn["spec"]["endpointSelector"],
+            {"matchLabels": {"app.kubernetes.io/name": "orchestrator-worker"}},
+        )
+        public = [rule for rule in fqdn["spec"]["egress"] if "toFQDNs" in rule]
         (rule,) = public
-        self.assertIn("10.0.0.0/8", rule["to"][0]["ipBlock"]["except"])
-        self.assertEqual(rule["ports"], [{"protocol": "TCP", "port": 443}])
+        self.assertEqual(
+            sorted(item["matchName"] for item in rule["toFQDNs"]),
+            ["api.anthropic.com", "api.openai.com", "auth.openai.com", "chatgpt.com"],
+        )
+        self.assertEqual(
+            rule["toPorts"][0]["ports"], [{"port": "443", "protocol": "TCP"}]
+        )
+        self.assertEqual(
+            rule["toPorts"][0]["serverNames"],
+            ["api.anthropic.com", "api.openai.com", "auth.openai.com", "chatgpt.com"],
+        )
+        self.assertFalse(
+            any(key in json.dumps(fqdn) for key in ("toCIDR", "toEntities"))
+        )
+        # DNS only for provider and cluster-internal names: no "*" that would
+        # let a query carry data to an outside nameserver.
+        [dns] = [r for r in fqdn["spec"]["egress"] if "toEndpoints" in r]
+        patterns = dns["toPorts"][0]["rules"]["dns"]
+        self.assertNotIn({"matchPattern": "*"}, patterns)
+        self.assertEqual(
+            {p.get("matchPattern") for p in patterns} - {None},
+            {"*.cluster.local", "*.svc"},
+        )
+        # The plain NetworkPolicy grants workers no DNS of its own.
+        self.assertNotIn("53", json.dumps(worker["egress"]))
         config = json.loads(by_kind(docs, "ConfigMap")[0]["data"]["config.json"])
         self.assertEqual(config["listen"]["client"], "127.0.0.1:8091")
         self.assertEqual(
@@ -268,8 +300,12 @@ class ManifestTests(unittest.TestCase):
                     for volume in pod["volumes"]
                     for item in volume.get("secret", {}).get("items", [])
                 ]
+                # The job file, plus only the backend's own credential key.
                 self.assertEqual(
-                    mounted, ["claude-oauth-token"] if name == "claude" else []
+                    mounted,
+                    ["job.json", "claude-oauth-token"]
+                    if name == "claude"
+                    else ["job.json"],
                 )
                 job_file = json.loads(secret["stringData"]["job.json"])
                 self.assertEqual(
@@ -314,17 +350,23 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(by_kind(render(PARAMS), "ClusterRole"), [])
         docs = render(INTAKE)
         [role] = by_kind(docs, "ClusterRole")
-        [binding] = by_kind(docs, "ClusterRoleBinding")
-        self.assertEqual(
-            binding["subjects"],
-            [
-                {
-                    "kind": "ServiceAccount",
-                    "name": "orchestrator-controller",
-                    "namespace": "persistent-agent",
-                }
-            ],
-        )
+        evidence = [
+            doc
+            for doc in by_kind(docs, "RoleBinding")
+            if doc["roleRef"]["name"] == "orchestrator-evidence"
+        ]
+        self.assertTrue(evidence)
+        for binding in evidence:
+            self.assertEqual(
+                binding["subjects"],
+                [
+                    {
+                        "kind": "ServiceAccount",
+                        "name": "orchestrator-controller",
+                        "namespace": "persistent-agent",
+                    }
+                ],
+            )
         for rule in role["rules"]:
             self.assertFalse({"secrets", "configmaps", "*"} & set(rule["resources"]))
             self.assertLessEqual(set(rule["verbs"]), {"get", "list"})
@@ -444,6 +486,179 @@ class ManifestTests(unittest.TestCase):
         self.assertNotIn(
             "codex", json.dumps(deployment["spec"]["template"]["spec"]["volumes"])
         )
+
+    def test_admission_policy_is_applied_exactly_as_committed(self) -> None:
+        committed = [
+            doc
+            for doc in yaml.safe_load_all(
+                (ROOT / "config/orchestrator/worker-admission.yaml").read_text()
+            )
+            if doc
+        ]
+        for params in (PARAMS, INTAKE):
+            docs = render(params)
+            rendered = by_kind(docs, "ValidatingAdmissionPolicy") + by_kind(
+                docs, "ValidatingAdmissionPolicyBinding"
+            )
+            self.assertEqual(rendered, committed)
+        [policy, binding] = committed
+        self.assertEqual(policy["spec"]["failurePolicy"], "Fail")
+        self.assertEqual(binding["spec"]["validationActions"], ["Deny"])
+        self.assertEqual(
+            policy["spec"]["matchConditions"][0]["expression"].split(),
+            [
+                "request.userInfo.username",
+                "==",
+                '"system:serviceaccount:persistent-agent:orchestrator-controller"',
+            ],
+        )
+
+    def test_parameters_the_static_policy_fixes_are_required(self) -> None:
+        for bad in (
+            # A crafted Secret name once became CEL in the rendered policy.
+            replace(
+                PARAMS, worker_secret_name='x" || true || v.secret.secretName == "x'
+            ),
+            replace(PARAMS, worker_secret_name="orchestrator-secrets"),
+            replace(
+                PARAMS, worker_image=f"registry.rupan.dev/apps/orchestrator@{DIGEST}"
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                render(bad)
+
+    def test_rendered_worker_jobs_fit_the_admission_policy(self) -> None:
+        """The facts the static policy checks, against the real Job builder;
+        gate 4 proves the CEL itself against a live API server."""
+        policy = (ROOT / "config/orchestrator/worker-admission.yaml").read_text()
+        name_rule = re.search(r'name\.matches\("([^"]+)"\)', policy).group(1)
+        image_rule = re.search(r'c\.image\.matches\(\s*"([^"]+)"\)', policy).group(1)
+        image_rule = image_rule.replace("\\\\", "\\")
+        for kind in ("pi", "claude"):
+            backend = (
+                PARAMS.backend
+                if kind == "pi"
+                else {
+                    "kind": "claude",
+                    "claude": "claude",
+                    "model": "m",
+                    "config_dir": "/c",
+                    "token_file": "/run/worker/claude-oauth-token",
+                }
+            )
+            _, job = self.worker_job(replace(PARAMS, backend=backend))
+            self.assertRegex(job["metadata"]["name"], name_rule)
+            pod = job["spec"]["template"]["spec"]
+            for container in pod["containers"]:
+                self.assertRegex(container["image"], image_rule)
+            for volume in pod["volumes"]:
+                if "secret" not in volume:
+                    continue
+                keys = [item["key"] for item in volume["secret"]["items"]]
+                if volume["secret"]["secretName"] == job["metadata"]["name"]:
+                    self.assertEqual(keys, ["job.json"])
+                else:
+                    self.assertEqual(
+                        volume["secret"]["secretName"], "orchestrator-worker-secrets"
+                    )
+                    self.assertLessEqual(set(keys), {"claude-oauth-token"})
+        [config_map] = by_kind(render(PARAMS), "ConfigMap")
+        self.assertEqual(
+            json.loads(config_map["data"]["config.json"])["work_root"], "/work"
+        )
+
+    def test_no_rendered_role_can_change_admission_or_rbac(self) -> None:
+        for docs in (render(PARAMS), render(INTAKE)):
+            for doc in by_kind(docs, "Role") + by_kind(docs, "ClusterRole"):
+                for rule in doc["rules"]:
+                    self.assertFalse(
+                        {
+                            "admissionregistration.k8s.io",
+                            "rbac.authorization.k8s.io",
+                            "*",
+                        }
+                        & set(rule["apiGroups"]),
+                        doc["metadata"],
+                    )
+
+    def test_evidence_is_bound_only_in_enrolled_namespaces(self) -> None:
+        docs = render(INTAKE)
+        self.assertEqual(by_kind(docs, "ClusterRoleBinding"), [])
+        [role] = by_kind(docs, "ClusterRole")
+        self.assertEqual(
+            {
+                (r, v)
+                for rule in role["rules"]
+                for r in rule["resources"]
+                for v in rule["verbs"]
+            },
+            {
+                ("pods", "get"),
+                ("pods", "list"),
+                ("pods/log", "get"),
+                ("events", "list"),
+            },
+        )
+        enrolled = json.loads(
+            (ROOT / "config/orchestrator/evidence-namespaces.json").read_text()
+        )
+        bound = {
+            doc["metadata"]["namespace"]
+            for doc in by_kind(docs, "RoleBinding")
+            if doc["roleRef"]["name"] == "orchestrator-evidence"
+        }
+        self.assertEqual(bound, set(enrolled["allowed"]))
+        for excluded in (
+            "pod-agent",
+            "external-secrets",
+            "kube-system",
+            "persistent-agent",
+        ):
+            self.assertIn(excluded, enrolled["excluded"])
+            self.assertNotIn(excluded, bound)
+        [config_map] = by_kind(docs, "ConfigMap")
+        config = json.loads(config_map["data"]["config.json"])
+        self.assertEqual(
+            set(config["intake"]["evidence_namespaces"]), set(enrolled["allowed"])
+        )
+
+    def test_every_namespace_alerts_can_name_is_allowed_or_excluded(self) -> None:
+        enrolled = json.loads(
+            (ROOT / "config/orchestrator/evidence-namespaces.json").read_text()
+        )
+        classified = set(enrolled["allowed"]) | set(enrolled["excluded"])
+        self.assertFalse(set(enrolled["allowed"]) & set(enrolled["excluded"]))
+        named: dict[str, str] = {}
+        # Alert rules label alerts with the namespace of whatever fired, so
+        # every namespace the repository runs things in can be named.
+        for path in sorted((ROOT / "gitops").rglob("*.yaml")):
+            for document in yaml.safe_load_all(path.read_text()):
+                if not isinstance(document, dict):
+                    continue
+                metadata = document.get("metadata") or {}
+                if document.get("kind") == "Namespace" and metadata.get("name"):
+                    named.setdefault(metadata["name"], str(path))
+                namespace = metadata.get("namespace")
+                # SOPS-encrypted manifests carry ciphertext, not names.
+                if isinstance(namespace, str) and not namespace.startswith("ENC["):
+                    named.setdefault(namespace, str(path))
+        # Namespaces named literally in alert expressions and the sentinel.
+        literal = re.compile(
+            r'namespace\s*=~?\s*"([a-z][a-z0-9-]*)"|-n "?([a-z][a-z0-9-]*)"?\s'
+        )
+        sources = [
+            *sorted((ROOT / "gitops/observability").rglob("*.yaml")),
+            ROOT / "gitops/automation/cluster-sentinel-script.yaml",
+        ]
+        for path in sources:
+            for match in literal.finditer(path.read_text()):
+                name = match.group(1) or match.group(2)
+                if name and not name.startswith("$"):
+                    named.setdefault(name, str(path))
+        unclassified = {
+            name: where for name, where in named.items() if name not in classified
+        }
+        self.assertEqual(unclassified, {})
 
 
 if __name__ == "__main__":

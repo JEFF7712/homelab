@@ -4,7 +4,7 @@ CI resolves providers only from the Nix filesystem mirror built from
 nix/ci-providers.json, so a lock that moves to a new provider version must
 move the mirror with it. Renovate runs this as a post-upgrade task on
 provider bumps; humans run `just tofu-providers-sync`. Hashes come from the
-OpenTofu registry's published SHA-256 for each platform archive. Standard
+provider registry's published SHA-256 for each platform archive. Standard
 library only, so it runs inside the Renovate container.
 """
 
@@ -55,10 +55,12 @@ def sync(
         if version == entry["version"]:
             updated.append(entry)
             continue
-        _, namespace, name = entry["address"].split("/")
+        registry, namespace, name = entry["address"].split("/")
+        if registry not in {"registry.opentofu.org", "registry.terraform.io"}:
+            raise ValueError(f"Unsupported provider registry: {registry}")
         system, arch = entry["platform"].split("_", 1)
         release = get(
-            f"{REGISTRY}/{namespace}/{name}/{version}/download/{system}/{arch}"
+            f"https://{registry}/v1/providers/{namespace}/{name}/{version}/download/{system}/{arch}"
         )
         updated.append(
             dict(

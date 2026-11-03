@@ -241,7 +241,9 @@ def intake_from(
         return None, None
     collectors: dict[str, Any] = {}
     if settings.get("kubernetes_evidence"):
-        collectors["alertmanager"] = KubernetesEvidence(KubernetesReader())
+        collectors["alertmanager"] = KubernetesEvidence(
+            KubernetesReader(), settings.get("evidence_namespaces") or ()
+        )
     woodpecker = None
     if settings.get("woodpecker"):
         pipelines = settings["woodpecker"]

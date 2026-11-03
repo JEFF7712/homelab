@@ -15,7 +15,11 @@ from pathlib import Path
 from typing import Any
 
 REQUIRED_STATES = {"opnsense", "cloudflare"}
-STATES = REQUIRED_STATES | {"cloudflare-access"}
+STATES = REQUIRED_STATES | {
+    "cloudflare-access",
+    "switches-upstairs",
+    "switches-downstairs",
+}
 
 
 class Store:
@@ -102,6 +106,12 @@ class Store:
             if not row or row[:2] != (lock_id, identity):
                 return 409, row[2] if row else b""
             state = json.loads(body)
+            if name.startswith("switches-") and (
+                not state.get("encrypted_data")
+                or not state.get("encryption_version")
+                or "resources" in state
+            ):
+                return 400, b""
             if not isinstance(state.get("serial"), int) or not state.get("lineage"):
                 return 400, b""
             previous = db.execute(

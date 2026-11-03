@@ -3,11 +3,12 @@
 `https://approvals.rupan.dev` is the one place the operator approves
 anything: PR heads the [merge policy](merge-policy.md) escalates, and
 exceptional high-risk CI operations. Forgejo reviews grant nothing. Routine fleet, CI-host, OPNsense, Cloudflare and workspace deployments are
-automatic. A deployment that would activate a change to the controls bounding
-agents (CI policy, approvals, merge policy, Woodpecker, protection, secret
-recipients) or to storage layout, an operator-only catalog operation, and a
-saved OpenTofu plan with authorization changes, persistent-data deletion,
-management-connectivity loss or bulk destruction wait here for a passkey.
+automatic. A deployment that would activate a change to enforcement code
+(`scripts/verifier/enforcement.py`: CI policy, approvals, merge policy,
+Woodpecker, protection, secret recipients, spending caps) or to storage
+layout, an operator-only catalog operation, and a saved OpenTofu plan with
+persistent-data deletion, management-connectivity loss or bulk destruction
+wait here for a passkey.
 An agent running `just ship --deploy <ops>` without an operator token files a
 request, prints its link, and waits. ntfy pushes the same link. Approving
 asks for the operator's passkey; the dashboard then triggers the deployment

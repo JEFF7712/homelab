@@ -12,8 +12,13 @@ publishes them). Everything else is fixed here and covered by tests:
 - workers hold no forge credential: only the publisher in the controller
   pod writes to Git, with a token mounted into the controller alone;
 - default-deny NetworkPolicies; the controller reaches DNS, the forge, ntfy
-  and the Kubernetes API; workers reach DNS, the worker API and public HTTPS
-  for model providers, and nothing private (not the forge).
+  and the Kubernetes API; workers reach DNS, the worker API and, by FQDN,
+  only the model providers' API hosts (PROVIDER_HOSTS);
+- an admission policy (config/orchestrator/worker-admission.yaml) admits
+  only worker-shaped Jobs from the controller, so its Job permission cannot
+  mount the namespace's other Secrets;
+- intake evidence is read only in the namespaces enrolled in
+  config/orchestrator/evidence-namespaces.json.
 
 The rendered files are applied only after the deployment gates pass; this
 module does not bind them into Flux.
@@ -25,6 +30,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 NAMESPACE = "persistent-agent"
@@ -35,20 +41,31 @@ CLIENT_API_PORT = 8091
 INTAKE_PORT = 8092
 # Read-only access for intake evidence. Secrets and ConfigMaps are absent on
 # purpose and a test keeps them out; this list mirrors intake.KINDS.
+# Read-only access for intake evidence: pods, their logs and events, and
+# nothing else (no Secrets, ConfigMaps, specs of other kinds or nodes). It is
+# granted by RoleBinding only in the enrolled namespaces.
 EVIDENCE_RULES = (
-    {
-        "apiGroups": [""],
-        "resources": ["pods", "pods/log", "persistentvolumeclaims", "nodes"],
-        "verbs": ["get"],
-    },
+    {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
+    {"apiGroups": [""], "resources": ["pods/log"], "verbs": ["get"]},
     {"apiGroups": [""], "resources": ["events"], "verbs": ["list"]},
-    {
-        "apiGroups": ["apps"],
-        "resources": ["deployments", "statefulsets", "daemonsets"],
-        "verbs": ["get"],
-    },
-    {"apiGroups": ["batch"], "resources": ["jobs", "cronjobs"], "verbs": ["get"]},
 )
+EVIDENCE_NAMESPACES_FILE = (
+    Path(__file__).resolve().parents[2] / "config/orchestrator/evidence-namespaces.json"
+)
+
+
+def evidence_namespaces() -> tuple[str, ...]:
+    """The enrolled namespaces, from the one committed list."""
+    document = json.loads(EVIDENCE_NAMESPACES_FILE.read_text())
+    allowed = tuple(sorted(document["allowed"]))
+    overlap = set(allowed) & set(document["excluded"])
+    if overlap:
+        raise ValueError(f"namespaces both allowed and excluded: {sorted(overlap)}")
+    if NAMESPACE in allowed:
+        raise ValueError("the orchestrator never reads its own namespace as evidence")
+    return allowed
+
+
 DATA_PATH = "/var/lib/orchestrator"
 # The architecture decision: the controller runs on homelab-02 or homelab-03,
 # whichever fresh resource measurements favour; never homelab-05.
@@ -87,12 +104,21 @@ BACKEND_REQUIRED = {
     "claude": {"claude", "model", "config_dir", "token_file"},
 }
 PINNED = re.compile(r"^[a-z0-9.\-/:]+@sha256:[0-9a-f]{64}$")
-PRIVATE = (
-    "10.0.0.0/8",
-    "172.16.0.0/12",
-    "192.168.0.0/16",
-    "100.64.0.0/10",
-    "169.254.0.0/16",
+# Fixed by config/orchestrator/worker-admission.yaml.
+WORKER_IMAGE = re.compile(
+    r"^registry\.rupan\.dev/apps/orchestrator-worker@sha256:[0-9a-f]{64}$"
+)
+WORKER_SECRET = "orchestrator-worker-secrets"
+# Workers run in the emptyDir at /work; /job is the read-only job file.
+WORKER_ROOT = "/work"
+# The only hosts workers reach outside the cluster: the Anthropic and OpenAI
+# APIs and OpenAI's sign-in and ChatGPT endpoints the Codex login refreshes
+# and runs through. Enforced by FQDN in the worker's CiliumNetworkPolicy.
+PROVIDER_HOSTS = (
+    "api.anthropic.com",
+    "api.openai.com",
+    "auth.openai.com",
+    "chatgpt.com",
 )
 NO_PRUNE = {"kustomize.toolkit.fluxcd.io/prune": "disabled"}
 LABELS = {"app.kubernetes.io/part-of": "persistent-agent"}
@@ -133,7 +159,7 @@ class DeployParams:
     max_running: int = 1
     storage: str = "5Gi"
     secret_name: str = "orchestrator-secrets"
-    worker_secret_name: str = "orchestrator-worker-secrets"
+    worker_secret_name: str = "orchestrator-worker-secrets"  # = WORKER_SECRET
     extra_worker_mounts: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     intake: IntakeParams | None = None
     # Nightly store snapshots on their own NFS volume, which dumps-to-r2
@@ -154,6 +180,12 @@ class DeployParams:
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
         if not self.host_path.startswith("/persist/"):
             raise ValueError("host_path must live under /persist")
+        # The admission policy is static and names these; a deployment that
+        # differed would have every worker Job refused.
+        if not WORKER_IMAGE.match(self.worker_image):
+            raise ValueError("worker_image must be apps/orchestrator-worker by digest")
+        if self.worker_secret_name != WORKER_SECRET:
+            raise ValueError(f"worker_secret_name must be {WORKER_SECRET}")
 
 
 def validate_backend(
@@ -245,6 +277,28 @@ def worker_secret_keys(backend: Mapping[str, Any]) -> tuple[str, ...]:
     if kind not in WORKER_SECRET_KEYS:
         raise ValueError(f"unknown backend kind {kind!r}")
     return WORKER_SECRET_KEYS[kind]
+
+
+# The committed admission policy for controller-created Jobs; an enforcement
+# path, so a change to it needs the operator's approval of that change.
+ADMISSION_POLICY = (
+    Path(__file__).resolve().parents[2] / "config/orchestrator/worker-admission.yaml"
+)
+
+
+def admission_documents(params: DeployParams) -> list[dict[str, Any]]:
+    """The worker Job admission policy and binding, exactly as committed.
+
+    Nothing is substituted, so no deployment parameter can change a rule;
+    validate() instead requires the parameters the policy fixes.
+    """
+    import yaml
+
+    return [
+        document
+        for document in yaml.safe_load_all(ADMISSION_POLICY.read_text())
+        if document
+    ]
 
 
 CODEX_VOLUME = "codex-auth"
@@ -390,6 +444,7 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "extra_volumes": volumes,
             "extra_mounts": mounts,
         },
+        "work_root": WORKER_ROOT,
     }
 
 
@@ -405,6 +460,7 @@ def intake_config(params: DeployParams, secrets: str) -> dict[str, Any]:
             },
             "open_limit": params.intake.open_limit,
             "kubernetes_evidence": True,
+            "evidence_namespaces": list(evidence_namespaces()),
             "woodpecker": {
                 "url": params.intake.woodpecker_url,
                 "repo_id": params.intake.woodpecker_repo_id,
@@ -415,7 +471,11 @@ def intake_config(params: DeployParams, secrets: str) -> dict[str, Any]:
 
 
 def intake_documents(params: DeployParams) -> list[dict[str, Any]]:
-    """The evidence ClusterRole and its binding to the controller."""
+    """The evidence ClusterRole and one RoleBinding per enrolled namespace.
+
+    A ClusterRole referenced from RoleBindings grants nothing cluster-wide:
+    the controller can read pods, logs and events only where it is bound.
+    """
     if params.intake is None:
         return []
     name = "orchestrator-evidence"
@@ -426,19 +486,30 @@ def intake_documents(params: DeployParams) -> list[dict[str, Any]]:
             "metadata": {"name": name, "labels": dict(LABELS)},
             "rules": [dict(rule) for rule in EVIDENCE_RULES],
         },
-        {
-            "apiVersion": "rbac.authorization.k8s.io/v1",
-            "kind": "ClusterRoleBinding",
-            "metadata": {"name": name, "labels": dict(LABELS)},
-            "roleRef": {
-                "apiGroup": "rbac.authorization.k8s.io",
-                "kind": "ClusterRole",
-                "name": name,
-            },
-            "subjects": [
-                {"kind": "ServiceAccount", "name": CONTROLLER, "namespace": NAMESPACE}
-            ],
-        },
+        *(
+            {
+                "apiVersion": "rbac.authorization.k8s.io/v1",
+                "kind": "RoleBinding",
+                "metadata": {
+                    "name": name,
+                    "namespace": namespace,
+                    "labels": dict(LABELS),
+                },
+                "roleRef": {
+                    "apiGroup": "rbac.authorization.k8s.io",
+                    "kind": "ClusterRole",
+                    "name": name,
+                },
+                "subjects": [
+                    {
+                        "kind": "ServiceAccount",
+                        "name": CONTROLLER,
+                        "namespace": NAMESPACE,
+                    }
+                ],
+            }
+            for namespace in evidence_namespaces()
+        ),
     ]
 
 
@@ -546,6 +617,67 @@ def backup_documents(params: DeployParams) -> list[dict[str, Any]]:
             },
         },
     ]
+
+
+def worker_egress(params: DeployParams) -> dict[str, Any]:
+    """Provider-only public egress for worker pods.
+
+    The worker NetworkPolicy allows DNS and the worker API only; this Cilium
+    policy adds TCP 443 to the provider hostnames and nothing else, so a
+    worker cannot upload to an arbitrary host. FQDN matching needs Cilium to
+    see the worker's DNS answers, hence the DNS rule with an L7 pattern.
+    """
+    return {
+        "apiVersion": "cilium.io/v2",
+        "kind": "CiliumNetworkPolicy",
+        "metadata": meta("orchestrator-worker-egress"),
+        "spec": {
+            "endpointSelector": {"matchLabels": {"app.kubernetes.io/name": WORKER}},
+            "egress": [
+                {
+                    "toEndpoints": [
+                        {
+                            "matchLabels": {
+                                "k8s:io.kubernetes.pod.namespace": "kube-system",
+                                "k8s:k8s-app": "kube-dns",
+                            }
+                        }
+                    ],
+                    "toPorts": [
+                        {
+                            "ports": [
+                                {"port": "53", "protocol": "UDP"},
+                                {"port": "53", "protocol": "TCP"},
+                            ],
+                            # Only names a worker needs: the providers and
+                            # cluster-internal names (CoreDNS answers those
+                            # itself and forwards nothing), so a query cannot
+                            # carry data to an outside nameserver.
+                            "rules": {
+                                "dns": [
+                                    *({"matchName": host} for host in PROVIDER_HOSTS),
+                                    {"matchPattern": "*.cluster.local"},
+                                    {"matchPattern": "*.svc"},
+                                ]
+                            },
+                        }
+                    ],
+                },
+                {
+                    "toFQDNs": [{"matchName": host} for host in PROVIDER_HOSTS],
+                    # Provider IPs are shared (Cloudflare fronts OpenAI), so
+                    # the TLS server name is pinned too: another site on an
+                    # allowed address is refused.
+                    "toPorts": [
+                        {
+                            "ports": [{"port": "443", "protocol": "TCP"}],
+                            "serverNames": list(PROVIDER_HOSTS),
+                        }
+                    ],
+                },
+            ],
+        },
+    }
 
 
 def intake_ingress() -> dict[str, Any]:
@@ -884,22 +1016,12 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                 "podSelector": {"matchLabels": worker_selector},
                 "policyTypes": ["Ingress", "Egress"],
                 "ingress": [],
+                # No DNS here: an L4 allow would bypass the L7 DNS filter in
+                # the worker's CiliumNetworkPolicy, which grants DNS instead.
                 "egress": [
-                    dns,
                     {
                         "to": [{"podSelector": {"matchLabels": selector}}],
                         "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
-                    },
-                    {
-                        "to": [
-                            {
-                                "ipBlock": {
-                                    "cidr": "0.0.0.0/0",
-                                    "except": list(PRIVATE),
-                                }
-                            }
-                        ],
-                        "ports": [{"protocol": "TCP", "port": 443}],
                     },
                 ],
             },
@@ -907,6 +1029,8 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
     ]
     return (
         documents
+        + [worker_egress(params)]
+        + admission_documents(params)
         + codex_documents(params)
         + intake_documents(params)
         + backup_documents(params)

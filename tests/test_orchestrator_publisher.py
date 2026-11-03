@@ -166,6 +166,48 @@ class PublishTests(PublisherCase):
             )
 
 
+class SecretScanTests(PublisherCase):
+    def test_a_patch_adding_a_secret_is_rejected_before_anything_is_pushed(
+        self,
+    ) -> None:
+        leaked = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
+        patch = self.patch(write("config/settings.yaml", f'token: "{leaked}"\n'))
+        with self.assertRaisesRegex(PatchRejected, "looks like a secret"):
+            self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+        self.assertNotIn(BRANCH, git("branch", "--list", cwd=self.bare))
+
+    def test_known_scan_bypasses_are_caught(self) -> None:
+        leaked = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
+        for name, path, content in (
+            # A line starting "++" became a "+++" patch line, once skipped.
+            ("diff-header lookalike", "a.txt", f'++token = "{leaked}"\n'),
+            # Inline allow comments must not suppress a finding.
+            ("allow comment", "b.py", f'TOKEN = "{leaked}"  # gitleaks:allow\n'),
+            # Binary hunks are compressed in the patch; the blob is scanned.
+            ("binary file", "c.bin", "\x00\x01" + f'token = "{leaked}"' + "\x00\n"),
+        ):
+            with self.subTest(name):
+                patch = self.patch(write(path, content))
+                with self.assertRaisesRegex(PatchRejected, "looks like a secret"):
+                    self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+
+    def test_a_clean_patch_still_publishes(self) -> None:
+        patch = self.patch(write("src/clean.txt", "nothing secret here\n"))
+        self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+        self.assertIn(BRANCH, git("branch", "--list", cwd=self.bare))
+
+    def test_the_scan_fails_closed_without_a_scanner(self) -> None:
+        missing = Publisher(
+            str(self.bare),
+            "main",
+            self.root / "unscanned",
+            scanner=("/nonexistent/gitleaks", "stdin"),
+        )
+        patch = self.patch(write("src/feature.txt", "hello\n"))
+        with self.assertRaisesRegex(PatchRejected, "secret scan could not run"):
+            missing.publish(missing.base_head(), BRANCH, patch, "t", 1)
+
+
 class ExpansionTests(PublisherCase):
     """A small patch must not publish, or inflate in memory, a large tree."""
 

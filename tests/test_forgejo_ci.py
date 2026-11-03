@@ -1407,6 +1407,49 @@ class GrantPolicyTest(unittest.TestCase):
 
 
 class StateTest(unittest.TestCase):
+    def test_switch_states_require_encryption_and_use_independent_locks(self) -> None:
+        envelope = json.dumps(
+            {
+                "serial": 1,
+                "lineage": "switch",
+                "encrypted_data": "ciphertext",
+                "encryption_version": "v0",
+            }
+        ).encode()
+        for name in ("switches-upstairs", "switches-downstairs"):
+            self.assertEqual(
+                self.store.request("GET", name, False, "plan", "plan", b"", "")[0], 404
+            )
+            self.assertEqual(
+                self.store.request(
+                    "LOCK", name, True, "deploy", "deploy", self.lock, ""
+                )[0],
+                200,
+            )
+            self.assertEqual(
+                self.store.request(
+                    "POST", name, False, "plan", "plan", envelope, "lock-1"
+                )[0],
+                403,
+            )
+            self.assertEqual(
+                self.store.request(
+                    "POST", name, False, "deploy", "deploy", self.original, "lock-1"
+                )[0],
+                400,
+            )
+            self.assertEqual(
+                self.store.request(
+                    "POST", name, False, "deploy", "deploy", envelope, "lock-1"
+                )[0],
+                200,
+            )
+            self.assertEqual(
+                self.store.request("GET", name, False, "plan", "plan", b"", "")[1],
+                envelope,
+            )
+        self.assertEqual(self.request("GET"), (200, self.original))
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

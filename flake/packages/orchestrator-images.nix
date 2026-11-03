@@ -51,7 +51,8 @@ let
     };
 in
 {
-  controller = image "orchestrator" [ ];
+  # The publisher scans every patch with gitleaks before it pushes.
+  controller = image "orchestrator" [ agentPkgs.gitleaks ];
   worker = image "orchestrator-worker" (
     with agentPkgs;
     [

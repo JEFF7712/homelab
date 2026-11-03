@@ -347,12 +347,33 @@ The first tasks come from operations, not from a supervisor
   that fails twice escalates once. Escalations are the only ntfy messages
   intake tasks send; their routine status stays on the forge issue.
 - **Evidence.** Workers stay off the private network. The controller attaches
-  the alert, the affected object's status (never its spec), events, recent
+  the alert, the affected pods' status (never their spec), events, recent
   logs and failing step logs, capped per section and in total and passed
   through the same `redact()` as worker text. The `orchestrator-evidence`
-  ClusterRole reads object status, events and pod logs and names no Secrets
-  or ConfigMaps; the controller's namespaced Role can create and delete
-  per-attempt Secrets but never read them.
+  ClusterRole grants pods (`get`, `list`), `pods/log` and events, and only
+  RoleBindings use it, one per namespace enrolled in
+  `config/orchestrator/evidence-namespaces.json`. The collector refuses any
+  other namespace whatever an alert names, and finds a workload's pods by
+  owner reference. A test requires every namespace the repository declares,
+  and every one an alert rule or the sentinel names, to be either allowed or
+  explicitly excluded (pod-agent, external-secrets, kube-system and the
+  orchestrator's own namespace are excluded). The controller's namespaced
+  Role can create and delete per-attempt Secrets but never read them.
+- **Untrusted evidence.** Each intake task's goal is a fixed objective per
+  source (`OBJECTIVES` in intake.py) followed by the evidence inside markers
+  carrying a per-task random nonce; forged markers inside evidence are
+  neutralized and titles are built from the source and signal name only.
+- **Worker boundary.** `config/orchestrator/worker-admission.yaml`, an
+  enforcement path, admits a Job from the controller's ServiceAccount only
+  when it is exactly a worker: the pinned image, the worker ServiceAccount
+  without a token, the worker label, a deadline, CPU and memory limits, no
+  host namespaces, no privilege, non-root, no environment from Secrets or
+  ConfigMaps, and only its own job Secret, the backend's keys of the worker
+  Secret and the Codex store. No rendered role may change admission policies
+  or RBAC. Worker public egress is TCP 443 to `PROVIDER_HOSTS` only, by FQDN
+  in a CiliumNetworkPolicy. The publisher runs gitleaks over every patch's
+  added lines and rejects on a finding or on any scan failure; published
+  patches still go through CI and `policy/merge`.
 - **Cutover.** The controller is added as a second Alertmanager receiver
   while ntfy keeps receiving everything. Warnings then move behind the
   controller first. Critical alerts go to both until autonomy metrics justify
@@ -377,19 +398,51 @@ The first tasks come from operations, not from a supervisor
   before evidence is read, with one aggregated overflow notice per hour;
   bounded intake connections and Woodpecker reads; a dedicated backup volume
   instead of the shared dump export; a rendered Codex login store with one
-  writer; an owner-only live store. Open, each needing a design change:
-  Job creation can mount any namespace Secret (admission policy on
-  controller-created Jobs); the evidence ClusterRole is cluster-wide
-  (namespace enrollment); evidence becomes worker instructions beside
-  readable subscription credentials (trusted goal, provider-only egress,
-  patch secret scanning).
+  writer; an owner-only live store. The three high findings were addressed
+  by the operator-approved designs (2026-11-03) described under alert
+  intake: the worker Job admission policy, namespace enrollment for
+  evidence, and trusted goals with provider-only egress and patch scanning.
+  Reviewer: OpenAI `gpt-6.1-sol` through codex-cli, a different model family
+  from the implementing agent (Anthropic Claude).
+- **Gate 3 pass 2 (2026-11-03), open.** The same reviewer tried to break the
+  fixes and found four high and two medium issues, fixed in response:
+  - the policy trusted a Secret named like the Job, so a Job named after a
+    credential Secret could mount it: Jobs must be named `orc-att-<id>` and
+    may mount their own Secret only as `job.json`;
+  - the rendered policy substituted unescaped parameters, so a crafted Secret
+    name became CEL: the policy is now static and applied verbatim, and the
+    renderer requires the image repository and Secret name it fixes;
+  - DNS allowed every name, so queries could carry data to an outside
+    nameserver, and `toFQDNs` allows IPs that providers share with other
+    sites: DNS is limited to the provider names and cluster-internal names,
+    the plain NetworkPolicy no longer grants workers DNS at L4, and TLS
+    server names are pinned to the provider hosts;
+  - the patch scan dropped lines starting `++`, honoured `gitleaks:allow` and
+    never saw binary hunks: the publisher now scans every changed file's
+    resulting content from the temporary index with built-in rules only and
+    `--ignore-gitleaks-allow` (the hostile-worker test's loot, a binary file
+    holding its token, is now refused);
+  - signal names reached the title outside the evidence fence: titles are a
+    fixed label per source and an opaque hash;
+  - rendered workers wrote under the read-only `/job`: they run under `/work`.
+
+  Accepted residual risk, by design: a worker can use its own provider
+  credential and send data inside provider requests; fencing and secret
+  scanning cannot stop prompt injection or deliberate encoding; the
+  evidence role can read full Pod objects (specs included) in enrolled
+  namespaces, though the collector keeps only status; the namespace coverage
+  test scans `gitops/` and literal alert and sentinel names, not rendered
+  Nix or Helm resources; `PROVIDER_HOSTS` is the union across backends, to be
+  narrowed per backend from rehearsal traffic. A third pass is required
+  before the gate closes, and the admission policy's CEL and the Cilium
+  rules are proven only by gate 4's live negative tests.
 
 Remaining before a deployment request:
 
 | Priority | Work |
 | --- | --- |
-| P1 | Controller and worker images through the registry lane (the controller image carries git for the publisher) |
+| P1 | Publish the Nix-built controller and worker images (`packages.orchestrator-*-image`) through a scoped `orchestrator-publish` operation and `publisher-orchestrator` identity |
 | P1 | Credential-free rehearsal on homelab-02 with the rendered manifests, intake and a scripted loopback model |
-| Gate | Security review of the rendered manifests, intake and credential boundaries; the negative tests against real pods; worker credential provisioning |
-| Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key in `config/spend.json` (after the gate model in #734), Telegram |
+| Gate | Gate 3 third review pass; gate 4 negative tests against real pods, including denied Jobs under the admission policy and refused DNS and TLS names; worker credential provisioning |
+| Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key (capped in `config/spend.json` at 10 USD a month), Telegram |
 | Parallel | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs); not blocking |

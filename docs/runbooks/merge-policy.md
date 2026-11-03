@@ -1,12 +1,13 @@
 # Merge policy
 
 The merge policy posts a `policy/merge` commit status on every open PR to
-`main`. Agents have broad authority to change infrastructure, but not to
-redefine their own authority: a head passes on its own unless it changes a
-control that bounds agents, grants an operation to agents, destroys stored
-data or opens host-level access. Those need the operator's approval of that
-exact change on the [approvals dashboard](approvals.md), the one place the
-operator approves anything. Forgejo reviews grant nothing. Mistakes the agent can repair go back to it; constrained
+`main`. The operator gates spending and enforcement code
+(`scripts/verifier/enforcement.py`); agents decide everything else. A head
+passes on its own unless it changes enforcement code, unmarks a catalog
+mutation, destroys stored data or opens host-level access. Those need the
+operator's approval of that exact change on the
+[approvals dashboard](approvals.md), the one place the operator approves
+anything. Forgejo reviews grant nothing. Mistakes the agent can repair go back to it; constrained
 exposure and unconventional implementations are allowed and recorded.
 
 ## What it decides
@@ -33,20 +34,25 @@ applies.
   [ship merge queue](ship.md#merge-queue)). The service re-judges every open
   PR whenever main moves. This outcome posts no comment: `just ship` updates
   the branch and revalidates.
-- Controls that bound agents need the operator: `scripts/verifier/`, the
-  merge-policy module, `scripts/ci/{policy,state,operation,deployment_risk}.py`,
-  the approvals service, `flake/modules/woodpecker.nix`, branch protection,
-  the Woodpecker repository settings, the agent guard and pre-tool hook,
-  `.sops.yaml` and `CODEOWNERS` (`POLICY_PATHS` in `scripts/verifier/service.py`).
-  In `config/ci/operations.json`, granting an existing operation to agents or
-  unmarking a mutation needs the operator; new agent operations and other
-  edits are recorded.
+- Enforcement code needs the operator: `ENFORCEMENT_PATHS` in
+  `scripts/verifier/enforcement.py`, which covers the merge policy and that
+  list, `scripts/ci/{policy,state,operation,deployment_risk}.py`, the
+  Tofu state service, the approvals service, branch protection, the Woodpecker
+  module and repository settings, `.sops.yaml` and the spending caps in
+  `config/spend.json`. The list is closed on purpose: without it an agent
+  could remove the spending gate in one merge. The agent guard, pre-tool
+  hook, `CODEOWNERS`, `AGENTS.md` and service code are the agents' own.
+- In `config/ci/operations.json`, unmarking a mutation needs the operator,
+  because an unmarked operation skips the deployment gate. New agent
+  operations and granting existing ones to agents are recorded notices.
 - Website findings: hardening regressions are repairs; network exposure of a
   hardened site (wider ingress, a non-ClusterIP Service), helper kinds
   (CiliumNetworkPolicy, HPA, monitors) and removing a stateless site are
   recorded notices; host-level access (host network, host ports, privileged
-  or host-path pods), deleting a claim or a stateful site, and kinds that
-  grant identity, secrets or routing need the operator. StatefulSets, Jobs and
+  or host-path pods) reaches the node, and so the enforcement code on the CI
+  host, and needs the operator, as do deleting a claim or a stateful site
+  (until restore drills publish evidence) and kinds that grant identity,
+  secrets or routing. StatefulSets, Jobs and
   CronJobs get the same pod checks as Deployments.
 
 Historical replay results describe the policy at the time of the replay.

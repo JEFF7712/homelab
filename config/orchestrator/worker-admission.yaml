@@ -1,0 +1,129 @@
+# Admission policy for the Jobs the orchestrator controller creates.
+#
+# The controller may create Jobs in its namespace, and a Job can mount any
+# Secret there, so RBAC alone would let a compromised controller read every
+# credential in the namespace. This policy is the boundary: a Job from the
+# controller's ServiceAccount must be exactly a worker. It is an enforcement
+# path (scripts/verifier/enforcement.py), and no rendered role may change
+# admission policies or their bindings.
+#
+# The file is static: scripts/orchestrator/manifests.py applies it verbatim,
+# with nothing substituted, so no deployment parameter can alter a rule. The
+# names it fixes are constants the renderer and the Job builder share.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: orchestrator-worker-jobs
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["batch"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["jobs"]
+  matchConditions:
+    - name: from-the-controller
+      expression: >-
+        request.userInfo.username ==
+        "system:serviceaccount:persistent-agent:orchestrator-controller"
+  variables:
+    - name: pod
+      expression: object.spec.template.spec
+    - name: containers
+      expression: >-
+        variables.pod.containers +
+        (has(variables.pod.initContainers) ? variables.pod.initContainers : [])
+    - name: volumes
+      expression: "has(variables.pod.volumes) ? variables.pod.volumes : []"
+  validations:
+    # Attempt Jobs and their job-file Secrets share a reserved name that no
+    # credential Secret uses (those are named orchestrator-*).
+    - expression: object.metadata.name.matches("^orc-att-[a-z0-9]{1,40}$")
+      message: worker Jobs are named orc-att-<attempt>
+    # Only images from the worker repository, by digest; only the scoped
+    # publisher can push there.
+    - expression: >-
+        variables.containers.all(c, c.image.matches(
+          "^registry\\.rupan\\.dev/apps/orchestrator-worker@sha256:[0-9a-f]{64}$"))
+      message: worker Jobs run only the digest-pinned worker image
+    - expression: >-
+        has(variables.pod.serviceAccountName) &&
+        variables.pod.serviceAccountName == "orchestrator-worker" &&
+        has(variables.pod.automountServiceAccountToken) &&
+        !variables.pod.automountServiceAccountToken
+      message: worker Jobs use the worker ServiceAccount without a token
+    - expression: >-
+        has(object.spec.template.metadata.labels) &&
+        object.spec.template.metadata.labels["app.kubernetes.io/name"] ==
+        "orchestrator-worker"
+      message: worker pods carry the worker label the network policies select
+    - expression: >-
+        has(object.spec.activeDeadlineSeconds) &&
+        object.spec.activeDeadlineSeconds > 0
+      message: worker Jobs need activeDeadlineSeconds
+    - expression: >-
+        !(has(variables.pod.hostNetwork) && variables.pod.hostNetwork) &&
+        !(has(variables.pod.hostPID) && variables.pod.hostPID) &&
+        !(has(variables.pod.hostIPC) && variables.pod.hostIPC)
+      message: worker pods use no host namespaces
+    - expression: >-
+        variables.containers.all(c,
+          has(c.securityContext) &&
+          !(has(c.securityContext.privileged) && c.securityContext.privileged) &&
+          has(c.securityContext.allowPrivilegeEscalation) &&
+          !c.securityContext.allowPrivilegeEscalation &&
+          ((has(c.securityContext.runAsNonRoot) && c.securityContext.runAsNonRoot) ||
+           (has(variables.pod.securityContext) &&
+            has(variables.pod.securityContext.runAsNonRoot) &&
+            variables.pod.securityContext.runAsNonRoot)))
+      message: worker containers are unprivileged and non-root
+    - expression: >-
+        variables.containers.all(c,
+          has(c.resources) && has(c.resources.limits) &&
+          "cpu" in c.resources.limits && "memory" in c.resources.limits)
+      message: worker containers need CPU and memory limits
+    - expression: >-
+        variables.containers.all(c,
+          !has(c.envFrom) &&
+          (!has(c.env) || c.env.all(e, !has(e.valueFrom))))
+      message: worker containers take no environment from Secrets or ConfigMaps
+    - expression: >-
+        !has(variables.pod.imagePullSecrets) ||
+        size(variables.pod.imagePullSecrets) == 0
+      message: worker Jobs reference no image pull Secrets
+    - expression: >-
+        variables.volumes.all(v,
+          !has(v.hostPath) && !has(v.configMap) && !has(v.projected) &&
+          !has(v.csi) && !has(v.ephemeral) && !has(v.downwardAPI) &&
+          !has(v.nfs) && !has(v.image))
+      message: worker volumes are only Secrets, emptyDirs and the Codex store
+    # The Job's own job-file Secret, projecting job.json only; or the worker
+    # credential Secret, projecting only keys a worker backend may hold.
+    - expression: >-
+        variables.volumes.all(v, !has(v.secret) ||
+          (v.secret.secretName == object.metadata.name &&
+           has(v.secret.items) &&
+           v.secret.items.all(i, i.key == "job.json")) ||
+          (v.secret.secretName == "orchestrator-worker-secrets" &&
+           has(v.secret.items) &&
+           v.secret.items.all(i, i.key in ["claude-oauth-token"])))
+      message: >-
+        worker Jobs mount only their own job file and worker backend keys
+    # The Codex login store; the claim exists only in Codex deployments.
+    - expression: >-
+        variables.volumes.all(v, !has(v.persistentVolumeClaim) ||
+          v.persistentVolumeClaim.claimName == "orchestrator-codex-auth")
+      message: worker Jobs mount no claim but the Codex login store
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: orchestrator-worker-jobs
+spec:
+  policyName: orchestrator-worker-jobs
+  validationActions: ["Deny"]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: persistent-agent

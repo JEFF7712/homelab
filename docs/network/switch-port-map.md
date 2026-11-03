@@ -30,7 +30,9 @@ Mini and two CLI ar9070 nodes share VLAN 30 and that one gigabit uplink.
 
 ### 802.1Q VLAN membership (upstairs)
 
-Enter on the switch's 802.1Q VLAN page. For each listed VLAN, set all other
+Desired settings are owned by `tofu/switches/inventory.json`; use the
+[OpenTofu workflow](../runbooks/switches.md) for changes. For manual recovery,
+enter on the switch's 802.1Q VLAN page. For each listed VLAN, set all other
 ports to Not Member, removing their old memberships.
 
 | VLAN | Tagged ports | Untagged ports |

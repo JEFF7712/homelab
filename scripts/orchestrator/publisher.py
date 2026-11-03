@@ -89,6 +89,24 @@ def _limit_memory() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (APPLY_MEMORY, APPLY_MEMORY))
 
 
+# Every changed file's resulting content goes through gitleaks before
+# publication, read from the temporary index after the patch applies, so
+# binary hunks, renames and lines that look like diff headers are all
+# covered. Inline `gitleaks:allow` comments are ignored, and a missing
+# scanner or a scan error rejects the patch: the publisher fails closed.
+# This is a tripwire, not a guarantee; encoded data can pass it, which is why
+# credentials also stay out of reach of worker tools.
+SECRET_SCANNER = (
+    "gitleaks",
+    "stdin",
+    "--no-banner",
+    "--redact",
+    "--ignore-gitleaks-allow",
+    "--exit-code",
+    "1",
+)
+
+
 class PatchRejected(ValueError):
     """The patch is not acceptable; the attempt failed."""
 
@@ -114,6 +132,7 @@ class Publisher:
         author: tuple[str, str] = ("orchestrator", "orchestrator@localhost"),
         patch_limit: int = PATCH_LIMIT,
         timeout: float = 300,
+        scanner: Sequence[str] = SECRET_SCANNER,
     ) -> None:
         self.repository_url = repository_url
         self.base_branch = base_branch
@@ -125,6 +144,7 @@ class Publisher:
         self.author = author
         self.patch_limit = patch_limit
         self.timeout = timeout
+        self.scanner = tuple(scanner)
         work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         if not (self.mirror / "HEAD").exists():
             self._git("init", "--bare", "--quiet", str(self.mirror), cwd=work_dir)
@@ -321,8 +341,50 @@ class Publisher:
                     raise PatchRejected(f"{path} is Git metadata")
                 if protected_path(path, self.protected):
                     raise PatchRejected(f"{path} is protected")
+            self._scan(index, base_sha)
             tree = self._git("write-tree", env=index).stdout.decode().strip()
             return tree, [path for _, path in changes]
+
+    def _scan(self, index: dict[str, str], base_sha: str) -> None:
+        raw = self._git(
+            "diff-index",
+            "--cached",
+            "--raw",
+            "--no-abbrev",
+            "--no-renames",
+            "-z",
+            base_sha,
+            env=index,
+        ).stdout.decode()
+        fields = raw.split("\0")
+        content = []
+        for meta, path in zip(fields[0::2], fields[1::2]):
+            if not meta:
+                continue
+            _, _, _, new_sha, status = meta.split()[:5]
+            if status == "D" or set(new_sha) == {"0"}:
+                continue
+            blob = self._git("cat-file", "blob", new_sha, env=index).stdout
+            content.append(f"### {path}\n".encode() + blob)
+        try:
+            result = subprocess.run(
+                self.scanner,
+                input=b"\n".join(content),
+                capture_output=True,
+                timeout=120,
+                # Built-in rules only: no .gitleaks.toml in the working
+                # directory or a patch can weaken them.
+                cwd="/",
+                env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "/tmp"},
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise PatchRejected(
+                f"the secret scan could not run: {type(error).__name__}"
+            ) from error
+        if result.returncode == 1:
+            raise PatchRejected("the patch adds what looks like a secret")
+        if result.returncode != 0:
+            raise PatchRejected(f"the secret scan failed with exit {result.returncode}")
 
     def publish(
         self, base_sha: str, branch: str, patch: bytes, message: str, when: float
