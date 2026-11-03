@@ -36,9 +36,9 @@ When a user asks an agent to make a Home Assistant change (e.g. "Create an autom
 4. **Plan Application**:
    Run `just ha-plan --select automation/bedtime_lights`. Inspect generated immutable actions and bindings.
 5. **Commit and Deploy**:
-   Publish a Forgejo PR, pass Woodpecker validation, and merge through main protection. Run the protected `deploy-home-assistant-dry-run` target from the successful current-main pipeline, then `deploy-home-assistant` from that same parent. The deployment verifies changes against the target cluster and advances the shared cluster baseline (`home-assistant-baseline-<instance>`).
+   Use `just ship` to publish, validate, merge through protection, and run the routed `deploy-home-assistant-dry-run` and dependent `deploy-home-assistant` operations from the same validated parent. The deployment verifies changes against the target cluster and advances the shared cluster baseline (`home-assistant-baseline-<instance>`).
    For changes limited to `dashboard/bedroom-lights` when an unrelated resource blocks the global diff, use the protected `deploy-home-assistant-matrix-dashboard-dry-run` target followed by `deploy-home-assistant-matrix-dashboard` from the same successful current-main pipeline. These targets plan, apply, and verify only that dashboard.
-   *Authorized Local Apply*: If authorized for manual execution, run `just ha-apply --select automation/bedtime_lights` after ensuring UI edits are paused. The tool acquires an atomic lock, performs read-before-write validation, verifies readback, and advances the shared and local baseline.
+   *Local apply and recovery within the requested scope*: Run `HOMELAB_AUTHORIZED=1 just ha-apply --select automation/bedtime_lights` after ensuring UI edits are paused. The tool acquires an atomic lock, performs read-before-write validation, verifies readback, and advances the shared and local baseline.
 6. **Report Completion**:
    Confirm to the user that the automation is live, active, and editable in the Home Assistant UI.
 
@@ -159,7 +159,7 @@ and HomeKit, Matter, and Govee device behavior.
 - **Persistent Configuration Volume (`home-assistant-config`)**: Contains `/config` (`.storage/`, `secrets.yaml`, custom components). Lives on `nas-01` under `tank/cluster` with daily sanoid snapshots (30 kept). The hourly `platform-backup` service on `nas-01` (`homelab.platformBackup.homeAssistantConfigPath`) copies it from an atomic ZFS snapshot into the encrypted off-site restic repository under `applications/home-assistant`, excluding regenerable `backups/`, `deps/`, `tts/`, `.cache/`, and logs. Restore by extracting that path from the newest `sovereign-platform` snapshot into the PVC directory with HA scaled to zero.
 - **Native HA backups**: The `backup` integration must have the `backup.local` agent selected (Settings, System, Backups) for `System: Weekly Backup & Verify` to succeed; it writes to `/config/backups` on the same NAS volume. This is a convenience restore point, not the off-site copy.
 - **PostgreSQL Recorder Database**: Dumped daily via Kubernetes CronJob `gitops/backups/home-assistant-db-dump.yaml` to Cloudflare R2.
-- **External Secrets**: Managed in GitLab CI / SOPS.
+- **External Secrets**: SOPS-encrypted `gitops/secrets/homelab-values.sops.yaml`, decrypted by Flux and read through the `homelab-secrets` ClusterSecretStore; see [secret handling](secrets.md).
 
 ### Restoration Procedure (New Instance / Disaster Recovery)
 
@@ -167,5 +167,5 @@ and HomeKit, Matter, and Govee device behavior.
 2. Restore the PostgreSQL database from the latest R2 dump.
 3. Ensure ExternalSecret creates `home-assistant-secrets`.
 4. Restore `/config/.storage/auth` if migrating credentials, or complete onboarding to create an administrative user.
-5. Deploy desired configuration from `home-assistant/` using `just ha-apply --all`.
+5. Deploy desired configuration from `home-assistant/` using `HOMELAB_AUTHORIZED=1 just ha-apply` after reviewing the full `just ha-plan` output. `apply` has no `--all` option; omit `--select` for the full scope.
 6. Verify operational status with `just ha-verify`.

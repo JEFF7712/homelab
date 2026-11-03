@@ -88,23 +88,21 @@ secrets. PRs never receive production workflows, regardless of target branch or 
 
 ### Event deduplication and status preservation
 
-Forgejo triggers both branch push and pull request webhooks for PR commits. To
-prevent duplicate execution and runner queue saturation:
-- When a PR event arrives for a commit that has already been validated (or is
-  actively validating) by an authorized pipeline on `main` within 24 hours (or
-  actively pending/running within 2 hours), the policy extension emits
-  `pr-validation-reused.yaml` instead of generating a second `validation-v2`.
-- Emitting `pr-validation-reused` executes a lightweight step that reports
-  `ci/woodpecker/pr-validation-reused` without overwriting the required
-  `ci/woodpecker/validation-v2` status on Forgejo with `pending`. The PR merge
-  check remains green immediately upon push pipeline completion.
-- Deduplication invalidates and runs fresh `validation-v2` if:
-  - The PR originates from a fork (`from_fork: true`).
-  - The PR base branch is not `main`.
-  - The PR head commit does not match the pipeline commit (e.g. force-push).
-  - The PR is closed.
-  - The previous validation failed, expired (>24h), or was created under an
-    earlier policy service version.
+For same-repository PRs, Forgejo sends both branch push and pull request events.
+The branch push owns `ci/woodpecker/validation-v2`; the PR pipeline records the
+lightweight `pr-validation-reused` workflow without overwriting that required
+status. Fork PRs validate in the PR pipeline. This rule does not mean a green
+reuse workflow proves source validation: the required validation context must
+still succeed for the PR head. If branch deferral cannot be established,
+the policy can reuse an eligible same-commit non-fork push, PR or manual
+validation: success within 24 hours, or pending/running within two hours,
+created under the current policy process. Invalid PR metadata or unavailable
+reuse evidence falls back to source validation.
+
+Cron reuse is a separate mechanism: a successful main validation for the same
+commit can be reused within 24 hours, and a schedule defers gated work while
+main validation is running. See the scheduling section below and
+`scripts/ci/policy.py`.
 
 ### Safe change-based scoping
 
@@ -394,10 +392,9 @@ still pending or running, the new run emits only a failing
 `schedule-overlap` workflow: the schedule outlives its interval and needs
 attention, and the repository monitor alerts on it.
 
-A pull request from a branch of this repository never validates in its own
-pipeline: Forgejo also sends the branch push, which reports the same
-required status on the same commit, so the PR pipeline only records
-`pr-validation-reused`. Fork PRs validate in the PR pipeline.
+Same-repository PRs normally defer to branch push validation as described
+above. When the metadata or reuse checks cannot establish that path, the PR
+pipeline validates rather than silently accepting missing proof.
 
 Woodpecker cancels a superseded pending or running pipeline for the same
 branch on push and pull request events. Cron is excluded because Woodpecker
@@ -478,11 +475,11 @@ push and maintenance workflows receive their required secrets.
 Agents open Forgejo PRs with the `tea` CLI (in the dev shell) as the dedicated
 machine user, never as a personal account and never with a token committed to
 the repo. Publishing a branch, opening a PR, and merging it change shared
-repository state; each step requires explicit authorization from the task or
-operator. A merge can trigger Flux deployment. Branch protection
+repository state and use the standing delivery authorization in `AGENTS.md`.
+A merge can trigger Flux deployment. Branch protection
 (`config/ci/forgejo-protection.json`)
-applies to the machine user too: no direct pushes to main, merge requires a
-green `ci/woodpecker/validation-v2` status, so agents cannot land red code.
+applies to the machine user too: no direct pushes to main, merge requires
+green `ci/woodpecker/validation-v2` and `policy/merge` statuses.
 
 One-time setup, by a human in the Forgejo UI:
 
@@ -508,17 +505,10 @@ One-time setup, by a human in the Forgejo UI:
    Agent branches must use this identity; `origin` may authenticate as another
    Forgejo account.
 
-Agents deliver changes with `just ship` ([ship runbook](ship.md)). The
-manual flow per change, after explicit authorization and successful preflight
-(see [the agent workflow guide](../agent-workflow.md#publishing-changes)):
-
-```sh
-git push git-agent:JEFF7712/homelab.git HEAD
-just forgejo-pr "imperative title"   # opens the PR against main
-# wait for validation-v2 green in the Forgejo UI, then:
-just forgejo-merge <index>           # merges; prefer fast-forward so the
-                                     # Forgejo to GitLab mirror stays clean
-```
+Agents deliver changes with [`just ship`](ship.md), which owns the push,
+PR, required checks, merge queue and deployment sequence. Use the
+[workflow guide](../agent-workflow.md#publishing-changes) for access diagnostics.
+Do not replace either required status with a manual merge.
 
 Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
