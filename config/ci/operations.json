@@ -2514,5 +2514,84 @@
     },
     "legacy_job": "cloudflare_access_drift",
     "mutation": false
+  },
+  "switches-plan": {
+    "commands": [
+      "python -m scripts.switches.ci plan"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [],
+    "outputs": [
+      "artifacts/switches/upstairs-plan.json",
+      "artifacts/switches/downstairs-plan.json"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "switches-apply": {
+    "commands": [
+      "python -m scripts.switches.ci apply"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [
+      "switches-plan"
+    ],
+    "outputs": [
+      "artifacts/switches/upstairs-apply.json",
+      "artifacts/switches/downstairs-apply.json"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "switches-plan",
+    "agent": true
   }
 }

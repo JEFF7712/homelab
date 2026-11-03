@@ -20,6 +20,7 @@ evidence from that time, not permanent health or capacity guarantees.
 
 ### Workflow and delivery
 
+- [Switch configuration](runbooks/switches.md)
 - [Shipping changes](runbooks/ship.md)
 - [Merge policy](runbooks/merge-policy.md)
 - [Approvals dashboard](runbooks/approvals.md)

@@ -18,6 +18,11 @@ RUNTIME_PATHS = (
     "scripts/ci/deployment_risk.py",
 )
 OPERATION_PATHS = {
+    "switches-apply": (
+        "scripts/switches/model.py",
+        "scripts/switches/runner.py",
+        "tofu/switches/main.tf",
+    ),
     "opnsense-apply": (
         "opnsense_reconciler/agent_acl",
         "opnsense_reconciler/unbound-acls.json",
@@ -25,6 +30,10 @@ OPERATION_PATHS = {
 }
 # Authorization and storage sources that a host deployment activates.
 HOST_PATHS = (
+    "flake/modules/switch-tofu.nix",
+    "scripts/switches/model.py",
+    "scripts/switches/runner.py",
+    "tofu/switches/main.tf",
     "scripts/ci/policy.py",
     "scripts/ci/state.py",
     "scripts/approvals/",

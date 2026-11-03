@@ -4,6 +4,7 @@
     ./hardware-configuration.nix
     ../../modules/common-base.nix
     ../../modules/adguard-netbird-appliance.nix
+    ../../modules/switch-tofu.nix
   ];
 
   networking.hostName = "adguard-netbird-01";
