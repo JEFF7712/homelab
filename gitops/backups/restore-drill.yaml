@@ -136,7 +136,8 @@ spec:
                 - -c
                 - |
                   set -eu
-                  mkdir -p /work/results && chmod 1777 /work /work/results
+                  # The emptyDir root is world-writable but not ours to chmod.
+                  mkdir -p /work/results && chmod 1777 /work/results
                   restic check --read-data-subset=5%
                   cutoff="$(date -u -d "@$(( $(date +%s) - 2 * 86400 ))" +%Y-%m-%dT%H:%M:%S)"
                   recent="$(restic snapshots --json | grep -o '"time":"[^"]*"' \
