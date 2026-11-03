@@ -34,7 +34,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [wyoming-gateway, linux-voice-assistant]
+        values: [wyoming-gateway, linux-voice-assistant, jarvis-display]
   ingress:
     - fromEntities:
         - host
@@ -44,6 +44,8 @@ spec:
             - port: "10300"
               protocol: TCP
             - port: "10201"
+              protocol: TCP
+            - port: "10202"
               protocol: TCP
             - port: "6053"
               protocol: TCP
@@ -55,6 +57,8 @@ spec:
             - port: "10300"
               protocol: TCP
             - port: "10201"
+              protocol: TCP
+            - port: "10202"
               protocol: TCP
             - port: "6053"
               protocol: TCP
@@ -69,7 +73,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [wyoming-whisper, wyoming-piper, wyoming-chatterbox]
+        values: [wyoming-whisper]
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -93,7 +97,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [wyoming-whisper, wyoming-piper, wyoming-chatterbox]
+                values: [wyoming-whisper]
       ports:
         - {protocol: TCP, port: 10300}
         - {protocol: TCP, port: 10200}
@@ -109,7 +113,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [wyoming-gateway, jarvis-exporter, local-decision, wyoming-whisper, wyoming-chatterbox]
+        values: [wyoming-gateway, jarvis-exporter, local-decision, wyoming-whisper]
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -157,7 +161,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [wyoming-whisper, wyoming-chatterbox, local-decision, von-decision]
+        values: [local-decision, von-decision]
   policyTypes: [Egress]
   egress:
     - ports:
