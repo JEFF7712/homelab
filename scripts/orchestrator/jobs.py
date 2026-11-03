@@ -258,7 +258,13 @@ def render_job(
                     "volumes": [
                         {
                             "name": "job",
-                            "secret": {"secretName": name, "defaultMode": 0o400},
+                            # Only job.json: the admission policy admits
+                            # this Secret only when it projects that key.
+                            "secret": {
+                                "secretName": name,
+                                "defaultMode": 0o400,
+                                "items": [{"key": "job.json", "path": "job.json"}],
+                            },
                         },
                         {"name": "work", "emptyDir": {"sizeLimit": "10Gi"}},
                         *config.extra_volumes,

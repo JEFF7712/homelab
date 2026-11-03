@@ -21,7 +21,6 @@ from scripts.orchestrator.publisher import (
     PatchRejected,
     PublishConflict,
     Publisher,
-    added_lines,
 )
 from tests.orchestrator_fakes import bare_repository, git
 
@@ -177,9 +176,25 @@ class SecretScanTests(PublisherCase):
             self.publisher.publish(self.base, BRANCH, patch, "t", 1)
         self.assertNotIn(BRANCH, git("branch", "--list", cwd=self.bare))
 
-    def test_removing_a_secret_is_not_a_finding(self) -> None:
+    def test_known_scan_bypasses_are_caught(self) -> None:
         leaked = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
-        self.assertNotIn(leaked.encode(), added_lines(f"-{leaked}\n+clean\n".encode()))
+        for name, path, content in (
+            # A line starting "++" became a "+++" patch line, once skipped.
+            ("diff-header lookalike", "a.txt", f'++token = "{leaked}"\n'),
+            # Inline allow comments must not suppress a finding.
+            ("allow comment", "b.py", f'TOKEN = "{leaked}"  # gitleaks:allow\n'),
+            # Binary hunks are compressed in the patch; the blob is scanned.
+            ("binary file", "c.bin", "\x00\x01" + f'token = "{leaked}"' + "\x00\n"),
+        ):
+            with self.subTest(name):
+                patch = self.patch(write(path, content))
+                with self.assertRaisesRegex(PatchRejected, "looks like a secret"):
+                    self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+
+    def test_a_clean_patch_still_publishes(self) -> None:
+        patch = self.patch(write("src/clean.txt", "nothing secret here\n"))
+        self.publisher.publish(self.base, BRANCH, patch, "t", 1)
+        self.assertIn(BRANCH, git("branch", "--list", cwd=self.bare))
 
     def test_the_scan_fails_closed_without_a_scanner(self) -> None:
         missing = Publisher(
