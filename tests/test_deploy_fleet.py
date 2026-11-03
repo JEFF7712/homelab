@@ -49,6 +49,33 @@ class DeployFleetTest(unittest.TestCase):
 
         return FleetDeployer(**dict(kwargs, runner=with_systems))
 
+    def test_switch_survives_the_ci_job_that_drives_it(self) -> None:
+        # Regression (2026-11-03): a switch of homelab-04 restarted Docker,
+        # killed the deploying CI job and, inside its SSH session, stopped
+        # mid-way with k3s down.
+        commands: list[str] = []
+
+        def runner(argv, **options):
+            commands.append(argv[-1])
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        deployer = FleetDeployer(targets=["homelab-04"], runner=runner)
+        host = FLEET_HOSTS["homelab-04"]
+        deployer.activate_system(host, self.NEW)
+        deployer.activate_system(host, self.NEW, dry_run=True)
+        switch, dry_run = commands
+        self.assertIn(
+            "sudo -n systemd-run --unit=homelab-fleet-switch --collect", switch
+        )
+        self.assertIn(
+            "--wait " + self.NEW + "/bin/switch-to-configuration switch", switch
+        )
+        self.assertTrue(
+            switch.startswith("sudo -n nix-env -p /nix/var/nix/profiles/system")
+        )
+        self.assertNotIn("systemd-run", dry_run)
+        self.assertIn(self.NEW + "/bin/switch-to-configuration dry-activate", dry_run)
+
     def test_k3s_hosts_deploy_the_registry_variant(self) -> None:
         for name in (
             "homelab-01",
