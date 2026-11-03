@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -121,6 +123,150 @@ def verify_restored_backup(restore_path: Path) -> None:
             )
             if res.returncode != 0:
                 raise ValueError(f"git fsck failed for {git_dir}: {res.stderr}")
+
+
+DRILL_HOSTS = ("nas-01", "homelab-04")
+DRILL_MAX_AGE = datetime.timedelta(days=2)
+# Every SQLite database plus the homelab repository: a bounded sample that
+# exercises the state each host backs up without restoring bulk object data.
+DRILL_INCLUDES = ("*.sqlite", "*.db", "*/homelab.git")
+DRILL_STATE = Path("/var/lib/platform-backup/drill.json")
+# nas-01 node exporter textfile directory (flake/modules/zot-registry.nix).
+DRILL_METRICS = Path("/var/lib/zot-monitoring/platform-restore-drill.prom")
+
+
+def latest_snapshot(host: str) -> dict[str, object] | None:
+    output = subprocess.run(
+        [
+            "restic",
+            "--retry-lock",
+            "1h",
+            "snapshots",
+            "--json",
+            "--tag",
+            "sovereign-platform",
+            "--host",
+            host,
+            "--latest",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    snapshots = json.loads(output or "[]")
+    return max(snapshots, key=lambda s: str(s["time"])) if snapshots else None
+
+
+def snapshot_age(
+    snapshot: dict[str, object], now: datetime.datetime
+) -> datetime.timedelta:
+    # Restic writes nanoseconds, which fromisoformat does not accept.
+    stamp = re.sub(r"\.\d+", "", str(snapshot["time"])).replace("Z", "+00:00")
+    return now - datetime.datetime.fromisoformat(stamp)
+
+
+def drill_host(host: str, scratch: Path, now: datetime.datetime) -> str:
+    """Restore the host's latest platform snapshot sample; return the pass detail."""
+    snapshot = latest_snapshot(host)
+    if snapshot is None:
+        raise ValueError("no snapshot")
+    age = snapshot_age(snapshot, now)
+    if age > DRILL_MAX_AGE:
+        raise ValueError(f"latest snapshot is {age.days} days old")
+    target = scratch / host
+    subprocess.run(
+        [
+            "restic",
+            "--retry-lock",
+            "1h",
+            "restore",
+            str(snapshot["id"]),
+            "--target",
+            str(target),
+            *(arg for pattern in DRILL_INCLUDES for arg in ("--include", pattern)),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    databases = [
+        path for pattern in ("*.sqlite", "*.db") for path in target.rglob(pattern)
+    ]
+    if not databases:
+        raise ValueError("no databases restored")
+    if host == "nas-01" and not any(target.rglob("homelab.git")):
+        raise ValueError("homelab.git not restored")
+    verify_restored_backup(target)
+    return f"pass: {snapshot['short_id']} {len(databases)} databases"
+
+
+def drill_metrics(state: dict[str, dict[str, object]]) -> str:
+    lines = [
+        "# HELP homelab_restore_drill_last_success_timestamp_seconds Last passing restore drill.",
+        "# TYPE homelab_restore_drill_last_success_timestamp_seconds gauge",
+    ]
+    for dataset, entry in sorted(state.items()):
+        lines.append(
+            f'homelab_restore_drill_last_success_timestamp_seconds{{dataset="{dataset}"}} '
+            f"{int(entry.get('passed', 0))}"
+        )
+    lines += [
+        "# HELP homelab_restore_drill_last_result Latest restore drill result (1 pass, 0 fail).",
+        "# TYPE homelab_restore_drill_last_result gauge",
+    ]
+    for dataset, entry in sorted(state.items()):
+        passed = str(entry.get("result", "")).startswith("pass")
+        lines.append(
+            f'homelab_restore_drill_last_result{{dataset="{dataset}"}} {int(passed)}'
+        )
+    return "\n".join(lines) + "\n"
+
+
+def run_drill(
+    host: str,
+    scratch_root: Path = Path("/persist/platform-backup"),
+    state_file: Path = DRILL_STATE,
+    metrics_file: Path = DRILL_METRICS,
+    now: datetime.datetime | None = None,
+) -> None:
+    """Weekly proof that each host's platform backup restores.
+
+    Results persist in state_file so a failure keeps the last pass time; the
+    node exporter publishes them for the RestoreDrill alerts.
+    """
+    if host != "nas-01":
+        raise ValueError(f"Platform restore drills run on nas-01, got {host}")
+    now = now or datetime.datetime.now(datetime.UTC)
+    try:
+        state = json.loads(state_file.read_text())
+    except (OSError, ValueError):
+        state = {}
+    failed = []
+    scratch_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for drilled in DRILL_HOSTS:
+        dataset = f"platform-{drilled}"
+        entry = state.setdefault(dataset, {})
+        with tempfile.TemporaryDirectory(
+            prefix="platform-drill-", dir=scratch_root
+        ) as scratch:
+            try:
+                entry["result"] = drill_host(drilled, Path(scratch), now)
+                entry["passed"] = int(now.timestamp())
+            except (ValueError, subprocess.CalledProcessError) as error:
+                entry["result"] = f"fail: {error}"
+                failed.append(dataset)
+        entry["checked"] = int(now.timestamp())
+        print(f"{dataset}: {entry['result']}")
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(json.dumps(state, indent=2, sort_keys=True))
+    metrics_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary = metrics_file.with_suffix(".tmp")
+    temporary.write_text(drill_metrics(state))
+    # The service runs with UMask 0077; node exporter reads as its own user.
+    temporary.chmod(0o644)
+    temporary.replace(metrics_file)
+    if failed:
+        raise SystemExit(f"restore drill failed: {', '.join(failed)}")
 
 
 def run_maintenance(host: str, partition_state_file: Path | None = None) -> None:
@@ -299,7 +445,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--mode",
-        choices=["backup", "maintenance", "verify-restore"],
+        choices=["backup", "maintenance", "verify-restore", "drill"],
         default="backup",
     )
     parser.add_argument(
@@ -318,6 +464,8 @@ def main() -> None:
         )
     elif args.mode == "maintenance":
         run_maintenance(args.host)
+    elif args.mode == "drill":
+        run_drill(args.host)
     elif args.mode == "verify-restore":
         if not args.restore_path:
             parser.error("--restore-path is required when --mode is verify-restore")

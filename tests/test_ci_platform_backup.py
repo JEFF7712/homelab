@@ -1,3 +1,5 @@
+import datetime
+import json
 import sqlite3
 import subprocess
 import tempfile
@@ -9,6 +11,7 @@ from unittest.mock import patch
 from scripts.ci.platform_backup import (
     rotate_check_partition,
     run_backup,
+    run_drill,
     run_maintenance,
     snapshot_home_assistant_config,
     snapshot_sqlite_tree,
@@ -289,3 +292,102 @@ class PlatformBackupVerifyRestoreTests(unittest.TestCase):
             corrupt_db.write_bytes(b"NOT A SQLITE DATABASE FILE HEADER")
             with self.assertRaises(ValueError):
                 verify_restored_backup(root)
+
+
+class PlatformRestoreDrillTests(unittest.TestCase):
+    """The weekly drill restores a sample per host and publishes evidence."""
+
+    NOW = datetime.datetime(2026, 11, 8, 17, 0, tzinfo=datetime.UTC)
+
+    def fake_restic(self, snapshots: dict[str, list[dict]], broken: set[str]):
+        real = subprocess.run
+
+        def run(command, **kwargs):
+            if command[0] != "restic":
+                return real(command, **kwargs)
+            if "snapshots" in command:
+                host = command[command.index("--host") + 1]
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=json.dumps(snapshots.get(host, []))
+                )
+            target = Path(command[command.index("--target") + 1])
+            host = target.name
+            database = target / "persist/tofu-state/state.sqlite"
+            database.parent.mkdir(parents=True)
+            if host in broken:
+                database.write_bytes(b"NOT A SQLITE DATABASE FILE HEADER")
+            else:
+                with closing(sqlite3.connect(database)) as connection:
+                    connection.execute("CREATE TABLE t(x)")
+            if host == "nas-01":
+                repository = target / "tank/forgejo/repositories/jeff7712/homelab.git"
+                real(["git", "init", "-q", "--bare", str(repository)], check=True)
+            return subprocess.CompletedProcess(command, 0)
+
+        return run
+
+    def snapshot(self, time: str) -> list[dict]:
+        return [{"id": "a" * 64, "short_id": "aaaaaaaa", "time": time}]
+
+    def drill(self, snapshots, broken=(), state=None):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_file = root / "state/drill.json"
+            if state is not None:
+                state_file.parent.mkdir()
+                state_file.write_text(json.dumps(state))
+            metrics = root / "metrics/drill.prom"
+            error = None
+            with patch(
+                "scripts.ci.platform_backup.subprocess.run",
+                side_effect=self.fake_restic(snapshots, set(broken)),
+            ):
+                try:
+                    run_drill("nas-01", root / "scratch", state_file, metrics, self.NOW)
+                except SystemExit as exit_error:
+                    error = exit_error
+            self.assertEqual(list((root / "scratch").iterdir()), [], "scratch kept")
+            self.assertEqual(metrics.stat().st_mode & 0o777, 0o644)
+            return error, json.loads(state_file.read_text()), metrics.read_text()
+
+    def test_fresh_restorable_snapshots_pass_on_both_hosts(self) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03.123456789-06:00")
+        error, state, metrics = self.drill({"nas-01": recent, "homelab-04": recent})
+        self.assertIsNone(error)
+        stamp = int(self.NOW.timestamp())
+        for host in ("nas-01", "homelab-04"):
+            self.assertEqual(state[f"platform-{host}"]["passed"], stamp)
+            self.assertIn(
+                f'homelab_restore_drill_last_result{{dataset="platform-{host}"}} 1',
+                metrics,
+            )
+
+    def test_stale_missing_or_corrupt_backups_fail_and_keep_the_last_pass(
+        self,
+    ) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        stale = self.snapshot("2026-11-04T09:05:03Z")
+        previous = {"platform-homelab-04": {"passed": 1, "result": "pass: old"}}
+        for snapshots, broken, reason in (
+            ({"nas-01": recent, "homelab-04": stale}, (), "days old"),
+            ({"nas-01": recent}, (), "no snapshot"),
+            ({"nas-01": recent, "homelab-04": recent}, ("homelab-04",), "Database"),
+        ):
+            with self.subTest(reason=reason):
+                error, state, metrics = self.drill(snapshots, broken, previous)
+                self.assertIn("platform-homelab-04", str(error))
+                entry = state["platform-homelab-04"]
+                self.assertEqual(entry["passed"], 1)
+                self.assertIn(reason, entry["result"])
+                self.assertIn(
+                    'homelab_restore_drill_last_result{dataset="platform-homelab-04"} 0',
+                    metrics,
+                )
+                self.assertIn(
+                    'last_success_timestamp_seconds{dataset="platform-homelab-04"} 1',
+                    metrics,
+                )
+
+    def test_only_nas_01_runs_drills(self) -> None:
+        with self.assertRaises(ValueError):
+            run_drill("homelab-04")

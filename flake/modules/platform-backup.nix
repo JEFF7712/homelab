@@ -93,5 +93,37 @@ in
         RandomizedDelaySec = "15m";
       };
     };
+
+    # Weekly proof that both hosts' platform snapshots restore: a bounded
+    # sample (databases and the homelab repository) is restored into scratch
+    # space and verified. node exporter publishes the result for the
+    # RestoreDrill alerts.
+    systemd.services.platform-restore-drill = lib.mkIf (config.networking.hostName == "nas-01") {
+      description = "Restore and verify a sample of the platform backups";
+      after = [ "platform-backup-maintenance.service" ];
+      unitConfig.RequiresMountsFor = "/persist";
+      path = [
+        pkgs.git
+        pkgs.restic
+      ];
+      environment.PYTHONPATH = toString source;
+      environment.XDG_CACHE_HOME = "/var/cache/platform-backup";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode drill";
+        EnvironmentFile = config.sops.secrets."platform-backup.env".path;
+        StateDirectory = "platform-backup";
+        CacheDirectory = "platform-backup";
+        UMask = "0077";
+      };
+    };
+    systemd.timers.platform-restore-drill = lib.mkIf (config.networking.hostName == "nas-01") {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "Sun *-*-* 05:00:00";
+        Persistent = true;
+        RandomizedDelaySec = "15m";
+      };
+    };
   };
 }
