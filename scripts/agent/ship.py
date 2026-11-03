@@ -29,7 +29,7 @@ from typing import Any
 
 import yaml
 
-from scripts.ci.deployment_risk import APPROVAL_REQUIRED
+from scripts.ci.deployment_risk import APPROVAL_REQUIRED, authority_digest
 from scripts.verifier.freshness import OUTDATED, overlap
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -740,7 +740,8 @@ class Shipper:
         """
         number, sha = pull["number"], pull["head"]["sha"]
         last = ""
-        settle = time.monotonic() + POLICY_SETTLE_SECONDS
+        waiting = ""
+        settle = None
         while True:
             self.remaining()
             status = self.forgejo.call("GET", f"/commits/{sha}/status")
@@ -756,16 +757,32 @@ class Shipper:
             ):
                 return False
             if state in {"failure", "error"}:
-                # The policy polls on an interval, so an operator approval of
-                # this head can be newer than the failure it overrides. Give
-                # the policy time to re-judge instead of escalating again.
-                if not self.operator_approved(number, sha):
+                # An escalated head waits for the operator on the approvals
+                # dashboard. The policy polls on an interval, so an approval
+                # can be newer than the failure it overrides: give the policy
+                # time to re-judge instead of reporting the escalation.
+                request = self.merge_request(number, sha)
+                if request is None:
                     break
-                if time.monotonic() > settle:
+                if request["state"] in {"pending", "approving"}:
+                    if waiting != request["url"]:
+                        self.say(
+                            f"PR #{number} {sha[:12]}: needs operator approval at "
+                            f"{request['url']}"
+                        )
+                        waiting = request["url"]
+                elif request["state"] == "approved":
+                    settle = settle or time.monotonic() + POLICY_SETTLE_SECONDS
+                    if time.monotonic() > settle:
+                        raise ShipError(
+                            f"{POLICY_OPERATOR} approved {sha[:12]} on PR #{number} but "
+                            f"{POLICY_CONTEXT} still fails; check journalctl -u "
+                            "merge-policy on homelab-04"
+                        )
+                else:
                     raise ShipError(
-                        f"{POLICY_OPERATOR} approved {sha[:12]} on PR #{number} but "
-                        f"{POLICY_CONTEXT} still fails; check journalctl -u merge-policy "
-                        "on homelab-04"
+                        f"PR #{number} {sha[:12]}: merge approval {request['state']} "
+                        f"on the approvals dashboard: {request['url']}"
                     )
             time.sleep(POLL_SECONDS)
         comments = self.forgejo.call("GET", f"/issues/{number}/comments") or []
@@ -781,8 +798,9 @@ class Shipper:
         rejected = sum(outcome == "rejected" for outcome in verdicts.values())
         if verdicts.get(sha) == "escalated":
             raise ShipError(
-                f"PR #{number} escalated to {POLICY_OPERATOR}: {pull['html_url']}\n"
-                f"{findings}"
+                f"PR #{number} escalated to {POLICY_OPERATOR}, but the approvals "
+                f"dashboard has no request for {sha[:12]}; check journalctl -u "
+                f"merge-policy on homelab-04\n{findings}"
             )
         if rejected >= POLICY_REPAIRS:
             self.forgejo.call(
@@ -803,14 +821,21 @@ class Shipper:
             f"Fix these, commit, and rerun just ship:\n{findings}"
         )
 
-    def operator_approved(self, number: int, sha: str) -> bool:
-        reviews = self.forgejo.call("GET", f"/pulls/{number}/reviews") or []
-        return any(
-            review.get("state") == "APPROVED"
-            and (review.get("user") or {}).get("login") == POLICY_OPERATOR
-            and review.get("commit_id") == sha
-            and not review.get("dismissed")
-            for review in reviews
+    def merge_request(self, number: int, sha: str) -> dict[str, Any] | None:
+        """The approvals dashboard's merge request for this head, if any.
+
+        The merge policy files it when it escalates; None means the head was
+        not escalated, or the dashboard cannot be asked.
+        """
+        try:
+            code, found = http("GET", f"{APPROVALS}/api/merges/{number}", {})
+        except ShipError:
+            return None
+        if code >= 400 or not isinstance(found, dict):
+            return None
+        return next(
+            (r for r in found.get("requests") or [] if r.get("commit_sha") == sha),
+            None,
         )
 
     def outdated(self, head: str) -> list[str]:
@@ -1097,7 +1122,10 @@ class Shipper:
         )
         if code >= 400:
             raise ShipError(f"Approvals refused {operation}: HTTP {code} {filed}")
-        self.say(f"{operation}: waiting for approval at {filed['url']}")
+        if filed.get("state") == "approved":
+            self.say(f"{operation}: approved by {filed.get('decided_by')}")
+        else:
+            self.say(f"{operation}: waiting for approval at {filed['url']}")
         while True:
             self.remaining()
             code, request = http("GET", f"{APPROVALS}/api/requests/{filed['id']}", {})
@@ -1162,10 +1190,37 @@ class Shipper:
                 self.say(
                     f"{operation}: protected changes need approval: {', '.join(paths)}"
                 )
-                self.request_approval(
-                    parent, operation, {"digest": digest, "paths": paths}
-                )
+                grant_request: dict[str, Any] = {"digest": digest, "paths": paths}
+                files = self.tree_identities(parent, paths)
+                # Sent only when they reproduce the policy's digest; the
+                # service refuses any others.
+                if files and authority_digest(list(files), files) == digest:
+                    grant_request["files"] = files
+                self.request_approval(parent, operation, grant_request)
                 granted.add(digest)
+
+    def tree_identities(self, parent: int, paths: list[str]) -> dict[str, str]:
+        """The deployed commit's identity of each protected path.
+
+        The approvals service checks them against the grant digest and
+        approves the grant itself when approved merges already cover these
+        exact versions. Any failure sends none, which only means the operator
+        is asked again.
+        """
+        try:
+            commit = str(self.woodpecker.pipeline(parent)["commit"])
+            tree = self.git("ls-tree", "-r", "-z", commit, "--", *paths)
+        except (ShipError, subprocess.CalledProcessError, KeyError, TypeError):
+            return {}
+        files = dict.fromkeys(paths, "absent")
+        for entry in tree.split("\0"):
+            if "\t" not in entry:
+                continue
+            metadata, name = entry.split("\t", 1)
+            mode, _, blob = metadata.split()
+            if name in files:
+                files[name] = f"{mode} {blob}"
+        return files
 
     def run_operation(self, parent: int, operation: str) -> dict[str, Any]:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())

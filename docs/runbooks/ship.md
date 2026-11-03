@@ -93,12 +93,15 @@ of also deploying the entire fleet. `--deploy` selects an explicit operation
 list and includes prerequisites; `--deploy none` merges without operations.
 
 The task request authorizes routine catalog operations. Changes to the controls
-that bound agents still require the operator's approval of the exact change:
-`policy/merge` holds authority-changing PRs, and the deployed CI policy checks
-agent mutations against its immutable authorization/storage source baseline.
-An exact-content passkey grant can authorize a deployment without expiring when
-unrelated main commits land. Operator-only catalog operations also remain held.
-See [merge policy](merge-policy.md) and [approvals](approvals.md).
+that bound agents still require the operator's approval of the exact change,
+always given with a passkey on the approvals dashboard: `policy/merge` holds
+authority-changing PRs and files a merge request there, which `ship` prints and
+waits on. The deployed CI policy checks agent mutations against its immutable
+authorization/storage source baseline; an exact-content grant authorizes a
+deployment without expiring when unrelated main commits land, and a grant for
+file versions an approved merge already covered is approved without asking
+again. Operator-only catalog operations also remain held. See
+[merge policy](merge-policy.md) and [approvals](approvals.md).
 
 Saved OpenTofu plans must be recognized and complete. Authorization changes,
 persistent-data destruction, management-connectivity loss and bulk destruction

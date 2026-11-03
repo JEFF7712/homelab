@@ -402,3 +402,21 @@ The next prerequisite is a reviewed, retained pilot-only service/cluster/CI
 restore overlay and dependency closure. The second copy remains deferred.
 Forgejo, Zot, Woodpecker, Kubernetes, Darkbit release/promotion/rollback and
 full-platform RTO remain untested in the recovered environment.
+
+## Weekly platform restore drill
+
+`platform-restore-drill.service` on nas-01 (Sunday 05:00, after the 03:00
+prune and `restic check`, and 15 minutes after boot or a deploy that
+changes its timer) proves that both hosts' `sovereign-platform`
+snapshots restore. For nas-01 and homelab-04 it requires a snapshot from the
+last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
+`homelab.git`) into scratch space under `/persist/platform-backup`, runs
+`PRAGMA integrity_check` and `git fsck --full`, and deletes the scratch copy.
+
+Results persist in `/var/lib/platform-backup/drill.json` (a failure keeps the
+last pass time) and reach Prometheus through node exporter's textfile
+directory as `homelab_restore_drill_last_success_timestamp_seconds` and
+`homelab_restore_drill_last_result`. `RestoreDrillFailed`,
+`RestoreDrillStale` (no pass in eight days) and `RestoreDrillMissing` page
+through ntfy. Run it now with
+`HOMELAB_AUTHORIZED=1 ssh nas-01 systemctl start platform-restore-drill`.
