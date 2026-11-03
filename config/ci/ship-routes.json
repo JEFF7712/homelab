@@ -163,6 +163,33 @@
         "cloudflare-access-apply"
       ],
       "auto": true
+    },
+    {
+      "name": "switch-runtime",
+      "paths": [
+        "tofu/switches/main.tf",
+        "tofu/switches/backend.tf",
+        "tofu/switches/.terraform.lock.hcl",
+        "scripts/switches/model.py",
+        "scripts/switches/runner.py"
+      ],
+      "operations": [
+        "deploy-switch-runtime-dry-run",
+        "deploy-switch-runtime"
+      ],
+      "auto": true
+    },
+    {
+      "name": "switches",
+      "paths": [
+        "tofu/switches/",
+        "scripts/switches/"
+      ],
+      "operations": [
+        "switches-plan",
+        "switches-apply"
+      ],
+      "auto": true
     }
   ]
 }
