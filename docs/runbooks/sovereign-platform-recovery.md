@@ -415,8 +415,11 @@ last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
 
 Results persist in `/var/lib/platform-backup/drill.json` (a failure keeps the
 last pass time) and reach Prometheus through node exporter's textfile
-directory as `homelab_restore_drill_last_success_timestamp_seconds` and
-`homelab_restore_drill_last_result`. `RestoreDrillFailed`,
+directory as `homelab_restore_drill_last_success_timestamp_seconds`,
+`homelab_restore_drill_last_result` and `homelab_restore_drill_result_info`,
+whose `result` label carries the failure reason, so agents without host
+access read it from Prometheus. A failed drill retries every two hours, and a
+deploy that changes the drill's code reruns it 15 minutes later. `RestoreDrillFailed`,
 `RestoreDrillStale` (no pass in eight days) and `RestoreDrillMissing` page
 through ntfy. Run it now with
 `HOMELAB_AUTHORIZED=1 ssh nas-01 systemctl start platform-restore-drill`.
