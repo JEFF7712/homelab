@@ -70,5 +70,41 @@
     "filename": "terraform-provider-opnsense_0.26.0_darwin_arm64.zip",
     "url": "https://github.com/browningluke/terraform-provider-opnsense/releases/download/v0.26.0/terraform-provider-opnsense_0.26.0_darwin_arm64.zip",
     "hash": "sha256-XjeQdsM8Q0hcVb0bIGYtPYvue5w9iNuSL3DI7Y0vbvY="
+  },
+  {
+    "system": "x86_64-linux",
+    "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
+    "version": "0.32.4",
+    "platform": "linux_amd64",
+    "filename": "terraform-provider-tplinkeasysmart_0.32.4_linux_amd64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.4/terraform-provider-tplinkeasysmart_0.32.4_linux_amd64.zip",
+    "hash": "sha256-qqfkJf+KYP6TPE9eeQzkU/51aqfXcm6Hi+Nu4lwmRW0="
+  },
+  {
+    "system": "aarch64-linux",
+    "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
+    "version": "0.32.4",
+    "platform": "linux_arm64",
+    "filename": "terraform-provider-tplinkeasysmart_0.32.4_linux_arm64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.4/terraform-provider-tplinkeasysmart_0.32.4_linux_arm64.zip",
+    "hash": "sha256-4KIC7ux3P6L5yK8v5XelstmxyBROqP49gGP8HlgKoAo="
+  },
+  {
+    "system": "x86_64-darwin",
+    "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
+    "version": "0.32.4",
+    "platform": "darwin_amd64",
+    "filename": "terraform-provider-tplinkeasysmart_0.32.4_darwin_amd64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.4/terraform-provider-tplinkeasysmart_0.32.4_darwin_amd64.zip",
+    "hash": "sha256-rs+swvbaDXGqaM1ezml4pN/Z7EAOTHdu+k2JOTvZQTY="
+  },
+  {
+    "system": "aarch64-darwin",
+    "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
+    "version": "0.32.4",
+    "platform": "darwin_arm64",
+    "filename": "terraform-provider-tplinkeasysmart_0.32.4_darwin_arm64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.4/terraform-provider-tplinkeasysmart_0.32.4_darwin_arm64.zip",
+    "hash": "sha256-W4H2QSHyJdbicwqTMI7AKmUp/o9MQ25vrYVqDl+em/8="
   }
 ]

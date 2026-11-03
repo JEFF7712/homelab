@@ -15,6 +15,7 @@ let
     cp ${../../scripts/verifier/websites.py} $out/scripts/verifier/websites.py
     cp ${../../scripts/verifier/service.py} $out/scripts/verifier/service.py
     cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
+    cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
     touch $out/scripts/__init__.py $out/scripts/verifier/__init__.py $out/scripts/ci/__init__.py
   '';
