@@ -480,14 +480,22 @@ def goal(signal: Signal, evidence: str, nonce: str) -> str:
     )
 
 
+TITLES = {
+    "alertmanager": "Alertmanager alert",
+    "sentinel": "cluster-sentinel check",
+    "woodpecker": "Failed main pipeline",
+}
+
+
 def title_for(signal: Signal) -> str:
-    """A title from the source and a short, single-line, redacted signal name."""
-    name = signal.labels.get("alertname") or signal.labels.get("check") or ""
-    if signal.source == "woodpecker":
-        name = signal.labels.get("steps", "")
-    name = " ".join(name.split())[:80]
-    prefix = {"alertmanager": "Alert", "sentinel": "Sentinel", "woodpecker": "CI"}
-    return redact(f"{prefix[signal.source]}: {name or signal.source}")
+    """A fixed title per source and the signal's opaque fingerprint.
+
+    The title reaches the worker's brief ahead of the trusted objective, so
+    nothing a sender chooses (alert or check names, step names) goes in it;
+    those stay inside the fenced evidence.
+    """
+    opaque = hashlib.sha256(signal.fingerprint.encode()).hexdigest()[:12]
+    return f"{TITLES[signal.source]} {opaque}"
 
 
 ACCEPTANCE = (

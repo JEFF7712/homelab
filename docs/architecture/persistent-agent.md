@@ -402,15 +402,47 @@ The first tasks come from operations, not from a supervisor
   by the operator-approved designs (2026-11-03) described under alert
   intake: the worker Job admission policy, namespace enrollment for
   evidence, and trusted goals with provider-only egress and patch scanning.
-  A second review pass is required before the gate closes, and the
-  admission policy's CEL is proven only by gate 4's live negative tests.
+  Reviewer: OpenAI `gpt-6.1-sol` through codex-cli, a different model family
+  from the implementing agent (Anthropic Claude).
+- **Gate 3 pass 2 (2026-11-03), open.** The same reviewer tried to break the
+  fixes and found four high and two medium issues, fixed in response:
+  - the policy trusted a Secret named like the Job, so a Job named after a
+    credential Secret could mount it: Jobs must be named `orc-att-<id>` and
+    may mount their own Secret only as `job.json`;
+  - the rendered policy substituted unescaped parameters, so a crafted Secret
+    name became CEL: the policy is now static and applied verbatim, and the
+    renderer requires the image repository and Secret name it fixes;
+  - DNS allowed every name, so queries could carry data to an outside
+    nameserver, and `toFQDNs` allows IPs that providers share with other
+    sites: DNS is limited to the provider names and cluster-internal names,
+    the plain NetworkPolicy no longer grants workers DNS at L4, and TLS
+    server names are pinned to the provider hosts;
+  - the patch scan dropped lines starting `++`, honoured `gitleaks:allow` and
+    never saw binary hunks: the publisher now scans every changed file's
+    resulting content from the temporary index with built-in rules only and
+    `--ignore-gitleaks-allow` (the hostile-worker test's loot, a binary file
+    holding its token, is now refused);
+  - signal names reached the title outside the evidence fence: titles are a
+    fixed label per source and an opaque hash;
+  - rendered workers wrote under the read-only `/job`: they run under `/work`.
+
+  Accepted residual risk, by design: a worker can use its own provider
+  credential and send data inside provider requests; fencing and secret
+  scanning cannot stop prompt injection or deliberate encoding; the
+  evidence role can read full Pod objects (specs included) in enrolled
+  namespaces, though the collector keeps only status; the namespace coverage
+  test scans `gitops/` and literal alert and sentinel names, not rendered
+  Nix or Helm resources; `PROVIDER_HOSTS` is the union across backends, to be
+  narrowed per backend from rehearsal traffic. A third pass is required
+  before the gate closes, and the admission policy's CEL and the Cilium
+  rules are proven only by gate 4's live negative tests.
 
 Remaining before a deployment request:
 
 | Priority | Work |
 | --- | --- |
-| P1 | Controller and worker images through the registry lane (the controller image carries git for the publisher) |
+| P1 | Publish the Nix-built controller and worker images (`packages.orchestrator-*-image`) through a scoped `orchestrator-publish` operation and `publisher-orchestrator` identity |
 | P1 | Credential-free rehearsal on homelab-02 with the rendered manifests, intake and a scripted loopback model |
-| Gate | Security review of the rendered manifests, intake and credential boundaries; the negative tests against real pods; worker credential provisioning |
-| Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key in `config/spend.json` (after the gate model in #734), Telegram |
+| Gate | Gate 3 third review pass; gate 4 negative tests against real pods, including denied Jobs under the admission policy and refused DNS and TLS names; worker credential provisioning |
+| Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key (capped in `config/spend.json` at 10 USD a month), Telegram |
 | Parallel | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs); not blocking |

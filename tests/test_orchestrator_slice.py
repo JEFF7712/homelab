@@ -13,6 +13,7 @@ just before and just after each forge write and check reconciliation.
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import sys
 import tempfile
 import threading
@@ -654,18 +655,33 @@ class HostileWorkerTests(SliceCase):
             },
         )["task"]["id"]
 
-        def published() -> Any:
+        def rejected() -> Any:
             rig.tick()
             attempt = rig.store.last_attempt(task_id)
             artifact = rig.store.artifact(attempt.id) if attempt else None
-            return artifact if artifact and artifact.published_head else None
+            return artifact if artifact and artifact.rejected else None
 
-        artifact = until(published, timeout=60)
-        loot = git("show", f"{artifact.published_head}:loot.txt", cwd=self.bare)
+        # The loot holds the attempt's own worker token, so the publisher's
+        # secret scan refuses it: nothing the worker gathered is published.
+        artifact = until(rejected, timeout=60)
+        self.assertIn("looks like a secret", artifact.rejected)
+        self.assertIsNone(artifact.published_head)
+        # /proc environ holds NUL bytes, so git encodes loot.txt as a binary
+        # hunk (which a line-based scan never saw): apply it to read it.
+        scratch = self.root / "loot-check"
+        git("clone", "-q", str(self.bare), str(scratch))
+        git("checkout", "-q", artifact.base_sha, cwd=scratch)
+        subprocess.run(
+            ["git", "apply", "--binary", "-"],
+            cwd=scratch,
+            input=rig.store.artifact_patch(artifact.attempt_id),
+            check=True,
+        )
+        loot = (scratch / "loot.txt").read_bytes().decode(errors="replace")
         # It did reach its own job file (only the attempt's own token is there)
         # and found no git remote to push to.
         self.assertIn('"attempt_id"', loot)
-        self.assertIn("remotes:\n", loot + "\n")
+        self.assertIn("remotes:", loot)
         self.assertIn("push exit", loot)
         self.assertNotIn("push exit 0", loot)
         for credential in (PUBLISHER_TOKEN, "forge-token", CLIENT_TOKEN):
@@ -674,10 +690,7 @@ class HostileWorkerTests(SliceCase):
         branches = git(
             "for-each-ref", "--format=%(refname)", "refs/heads", cwd=self.bare
         )
-        self.assertEqual(
-            sorted(branches.split()),
-            sorted(["refs/heads/main", f"refs/heads/{artifact.branch}"]),
-        )
+        self.assertEqual(branches.split(), ["refs/heads/main"])
 
 
 class WorkerInjectionTests(SliceCase):

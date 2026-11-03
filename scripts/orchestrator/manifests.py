@@ -104,6 +104,13 @@ BACKEND_REQUIRED = {
     "claude": {"claude", "model", "config_dir", "token_file"},
 }
 PINNED = re.compile(r"^[a-z0-9.\-/:]+@sha256:[0-9a-f]{64}$")
+# Fixed by config/orchestrator/worker-admission.yaml.
+WORKER_IMAGE = re.compile(
+    r"^registry\.rupan\.dev/apps/orchestrator-worker@sha256:[0-9a-f]{64}$"
+)
+WORKER_SECRET = "orchestrator-worker-secrets"
+# Workers run in the emptyDir at /work; /job is the read-only job file.
+WORKER_ROOT = "/work"
 # The only hosts workers reach outside the cluster: the Anthropic and OpenAI
 # APIs and OpenAI's sign-in and ChatGPT endpoints the Codex login refreshes
 # and runs through. Enforced by FQDN in the worker's CiliumNetworkPolicy.
@@ -152,7 +159,7 @@ class DeployParams:
     max_running: int = 1
     storage: str = "5Gi"
     secret_name: str = "orchestrator-secrets"
-    worker_secret_name: str = "orchestrator-worker-secrets"
+    worker_secret_name: str = "orchestrator-worker-secrets"  # = WORKER_SECRET
     extra_worker_mounts: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     intake: IntakeParams | None = None
     # Nightly store snapshots on their own NFS volume, which dumps-to-r2
@@ -173,6 +180,12 @@ class DeployParams:
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
         if not self.host_path.startswith("/persist/"):
             raise ValueError("host_path must live under /persist")
+        # The admission policy is static and names these; a deployment that
+        # differed would have every worker Job refused.
+        if not WORKER_IMAGE.match(self.worker_image):
+            raise ValueError("worker_image must be apps/orchestrator-worker by digest")
+        if self.worker_secret_name != WORKER_SECRET:
+            raise ValueError(f"worker_secret_name must be {WORKER_SECRET}")
 
 
 def validate_backend(
@@ -274,27 +287,18 @@ ADMISSION_POLICY = (
 
 
 def admission_documents(params: DeployParams) -> list[dict[str, Any]]:
-    """The worker Job admission policy and binding, for this deployment.
+    """The worker Job admission policy and binding, exactly as committed.
 
-    Only the pinned worker image, the worker Secret's name and the keys this
-    backend may mount are substituted; every rule is the committed file's.
+    Nothing is substituted, so no deployment parameter can change a rule;
+    validate() instead requires the parameters the policy fixes.
     """
     import yaml
 
-    keys = (
-        "["
-        + ", ".join(json.dumps(key) for key in worker_secret_keys(params.backend))
-        + "]"
-    )
-    text = (
-        ADMISSION_POLICY.read_text()
-        .replace("@WORKER_IMAGE@", params.worker_image)
-        .replace("@WORKER_SECRET@", params.worker_secret_name)
-        .replace("@WORKER_KEYS@", keys)
-    )
-    if "@" + "WORKER_" in text:
-        raise ValueError("admission policy has an unsubstituted placeholder")
-    return [document for document in yaml.safe_load_all(text) if document]
+    return [
+        document
+        for document in yaml.safe_load_all(ADMISSION_POLICY.read_text())
+        if document
+    ]
 
 
 CODEX_VOLUME = "codex-auth"
@@ -440,6 +444,7 @@ def controller_config(params: DeployParams) -> dict[str, Any]:
             "extra_volumes": volumes,
             "extra_mounts": mounts,
         },
+        "work_root": WORKER_ROOT,
     }
 
 
@@ -644,13 +649,31 @@ def worker_egress(params: DeployParams) -> dict[str, Any]:
                                 {"port": "53", "protocol": "UDP"},
                                 {"port": "53", "protocol": "TCP"},
                             ],
-                            "rules": {"dns": [{"matchPattern": "*"}]},
+                            # Only names a worker needs: the providers and
+                            # cluster-internal names (CoreDNS answers those
+                            # itself and forwards nothing), so a query cannot
+                            # carry data to an outside nameserver.
+                            "rules": {
+                                "dns": [
+                                    *({"matchName": host} for host in PROVIDER_HOSTS),
+                                    {"matchPattern": "*.cluster.local"},
+                                    {"matchPattern": "*.svc"},
+                                ]
+                            },
                         }
                     ],
                 },
                 {
                     "toFQDNs": [{"matchName": host} for host in PROVIDER_HOSTS],
-                    "toPorts": [{"ports": [{"port": "443", "protocol": "TCP"}]}],
+                    # Provider IPs are shared (Cloudflare fronts OpenAI), so
+                    # the TLS server name is pinned too: another site on an
+                    # allowed address is refused.
+                    "toPorts": [
+                        {
+                            "ports": [{"port": "443", "protocol": "TCP"}],
+                            "serverNames": list(PROVIDER_HOSTS),
+                        }
+                    ],
                 },
             ],
         },
@@ -993,8 +1016,9 @@ def render(params: DeployParams) -> list[dict[str, Any]]:
                 "podSelector": {"matchLabels": worker_selector},
                 "policyTypes": ["Ingress", "Egress"],
                 "ingress": [],
+                # No DNS here: an L4 allow would bypass the L7 DNS filter in
+                # the worker's CiliumNetworkPolicy, which grants DNS instead.
                 "egress": [
-                    dns,
                     {
                         "to": [{"podSelector": {"matchLabels": selector}}],
                         "ports": [{"protocol": "TCP", "port": WORKER_API_PORT}],
