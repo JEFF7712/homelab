@@ -406,7 +406,8 @@ full-platform RTO remain untested in the recovered environment.
 ## Weekly platform restore drill
 
 `platform-restore-drill.service` on nas-01 (Sunday 05:00, after the 03:00
-prune and `restic check`) proves that both hosts' `sovereign-platform`
+prune and `restic check`, and 15 minutes after boot or a deploy that
+changes its timer) proves that both hosts' `sovereign-platform`
 snapshots restore. For nas-01 and homelab-04 it requires a snapshot from the
 last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
 `homelab.git`) into scratch space under `/persist/platform-backup`, runs
