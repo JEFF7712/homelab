@@ -43,7 +43,7 @@ items:
   # File Browser (frontend.yaml)
   - image: docker.io/filebrowser/filebrowser:v2.63.23@sha256:a469ea076d4a1b4b1d86a41d130f2f536cd9da996a2b1fb39c0d7635f9d89b9a  # yamllint disable-line rule:line-length
   # Seerr (frontend.yaml)
-  - image: docker.io/seerr/seerr:v3.4.1@sha256:f4768de5f616248d723e05891f3345a1402123775d03bf0890dbfedc0831bda1
+  - image: docker.io/seerr/seerr:v3.5.1@sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be
   # Jellyfin (jellyfin.yaml)
   - image: lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls46@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f  # yamllint disable-line rule:line-length
   # qBittorrent (download.yaml)
