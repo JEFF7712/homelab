@@ -11,6 +11,7 @@ import tempfile
 from builtins import ExceptionGroup
 from contextlib import closing
 from pathlib import Path
+from typing import Any
 
 
 def snapshot_database(source: Path, target: Path) -> None:
@@ -135,7 +136,7 @@ DRILL_STATE = Path("/var/lib/platform-backup/drill.json")
 DRILL_METRICS = Path("/var/lib/zot-monitoring/platform-restore-drill.prom")
 
 
-def latest_snapshot(host: str) -> dict[str, object] | None:
+def latest_snapshot(host: str) -> dict[str, Any] | None:
     output = subprocess.run(
         [
             "restic",
@@ -154,12 +155,12 @@ def latest_snapshot(host: str) -> dict[str, object] | None:
         capture_output=True,
         text=True,
     ).stdout
-    snapshots = json.loads(output or "[]")
+    snapshots: list[dict[str, Any]] = json.loads(output or "[]")
     return max(snapshots, key=lambda s: str(s["time"])) if snapshots else None
 
 
 def snapshot_age(
-    snapshot: dict[str, object], now: datetime.datetime
+    snapshot: dict[str, Any], now: datetime.datetime
 ) -> datetime.timedelta:
     # Restic writes nanoseconds, which fromisoformat does not accept.
     stamp = re.sub(r"\.\d+", "", str(snapshot["time"])).replace("Z", "+00:00")
@@ -200,7 +201,7 @@ def drill_host(host: str, scratch: Path, now: datetime.datetime) -> str:
     return f"pass: {snapshot['short_id']} {len(databases)} databases"
 
 
-def drill_metrics(state: dict[str, dict[str, object]]) -> str:
+def drill_metrics(state: dict[str, dict[str, Any]]) -> str:
     lines = [
         "# HELP homelab_restore_drill_last_success_timestamp_seconds Last passing restore drill.",
         "# TYPE homelab_restore_drill_last_success_timestamp_seconds gauge",
