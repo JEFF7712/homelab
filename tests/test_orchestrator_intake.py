@@ -1,3 +1,4 @@
+import base64
 import json
 import tempfile
 import threading
@@ -142,24 +143,30 @@ class BundleTests(unittest.TestCase):
     def test_common_credential_shapes_are_redacted_and_digests_kept(self) -> None:
         sha = "a" * 40
         digest = "sha256:" + "b" * 64
+        # Generate synthetic shapes instead of committing complete token examples.
+        password = "synthetic-" + "p" * 24
+        basic_token = base64.b64encode(f"fixture-user:{password}".encode()).decode()
+        telegram_token = f"{1_234_567_890}:{'t' * 35}"
+        hex_token = "c0ffee" * 8
         leaks = [
-            "postgres://immich:hunter2-secret@immich-postgres:5432/immich",
-            "Authorization: Basic dXNlcjpodW50ZXIyLXNlY3JldA==",
-            "password=hunter2-secret",
-            "bot 1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawQ",
-            "session " + "c0ffee" * 8,
+            f"postgres://fixture-user:{password}@db.example.invalid/app",
+            f"Authorization: Basic {basic_token}",
+            f"password={password}",
+            f"bot {telegram_token}",
+            f"session {hex_token}",
         ]
         text = bundle(
             from_alertmanager(alerts(ALERT))[0],
             [("Logs", "\n".join([*leaks, f"commit {sha}", f"image {digest}"]))],
         )
-        for secret in (
-            "hunter2-secret",
-            "dXNlcjpodW50ZXIyLXNlY3JldA",
-            "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawQ",
-            "c0ffee" * 8,
+        for kind, value in (
+            ("password", password),
+            ("basic auth", basic_token),
+            ("telegram", telegram_token),
+            ("session", hex_token),
         ):
-            self.assertNotIn(secret, text)
+            with self.subTest(kind=kind):
+                self.assertFalse(value in text, f"unredacted {kind} fixture")
         self.assertIn(sha, text)
         self.assertIn(digest, text)
 

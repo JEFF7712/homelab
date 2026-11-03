@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sys
@@ -441,7 +442,7 @@ class WorkerApiTests(WorkerCase):
     def test_identifiers_never_carry_worker_text(self) -> None:
         channel = HttpChannel(self.url, self.token)
         channel.start("s", "w")
-        secret = "sk-ant-oat01-identifiersmuggling0123456789"
+        secret = "sk-proj-" + "x" * 24
         question_id = channel.ask(secret, "q?", ())
         channel.session(secret)
         self.assertNotIn(secret, question_id)
@@ -565,11 +566,12 @@ class WorkerApiTests(WorkerCase):
             connection.close()
 
     def test_settle_payload_is_filtered_and_redacted(self) -> None:
+        secret = "sk-proj-" + "x" * 24
         channel = HttpChannel(self.url, self.token)
         channel.start("s", "w")
         channel.settle(
             {
-                "final_text": "token sk-ant-oat01-abcdefghijklmnopqrstuv done",
+                "final_text": f"token {secret} done",
                 "status": "completed",
             }
         )
@@ -577,26 +579,47 @@ class WorkerApiTests(WorkerCase):
             e for e in self.store.events(self.task.id) if e["type"] == "worker.settled"
         ][0]["payload"]
         self.assertNotIn("status", settled)
-        self.assertNotIn("abcdefghijklmnop", settled["final_text"])
+        self.assertFalse(secret in settled["final_text"])
         self.assertEqual(self.status(), "validating")
 
 
 class RedactionTests(unittest.TestCase):
     def test_known_values_and_credential_shapes_are_removed(self) -> None:
-        text = (
-            "my-own-secret-value sk-proj-ABCDEFGHIJKLMNOPQRST ghp_ABCDEFGHIJKLMNOPQRSTUV "
-            "Authorization: Bearer abcdefghijklmnopqrstuvwxyz "
-            "eyJhbGciOiJI.eyJzdWIiOiIx.c2lnbmF0dXJl refresh_token=abcdefghijklmnop"
+        # Keep complete credential-shaped values out of source and failure output.
+        known_secret = "my-own-secret-value"
+        api_token = "sk-proj-" + "a" * 24
+        github_token = "ghp_" + "b" * 24
+        bearer_token = "c" * 32
+        jwt = ".".join(
+            base64.urlsafe_b64encode(json.dumps(part).encode()).decode().rstrip("=")
+            for part in (
+                {"alg": "none"},
+                {"sub": "redaction-test"},
+                "synthetic-signature",
+            )
         )
-        clean = redact(text, ["my-own-secret-value"])
-        for fragment in (
-            "my-own-secret",
-            "ABCDEFGHIJKLMNOPQRST",
-            "abcdefghijklmnopqrstuvwxyz",
-            "c2lnbmF0dXJl",
-            "refresh_token=abc",
+        refresh_token = "d" * 24
+        text = " ".join(
+            [
+                known_secret,
+                api_token,
+                github_token,
+                f"Authorization: Bearer {bearer_token}",
+                jwt,
+                f"refresh_token={refresh_token}",
+            ]
+        )
+        clean = redact(text, [known_secret])
+        for kind, value in (
+            ("known secret", known_secret),
+            ("API", api_token),
+            ("GitHub", github_token),
+            ("bearer", bearer_token),
+            ("JWT", jwt),
+            ("refresh", refresh_token),
         ):
-            self.assertNotIn(fragment, clean)
+            with self.subTest(kind=kind):
+                self.assertFalse(value in clean, f"unredacted {kind} fixture")
 
     def test_long_output_is_truncated(self) -> None:
         self.assertLess(len(redact("x" * 50_000)), 9_000)
