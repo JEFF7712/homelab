@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import tempfile
 import unittest
 import urllib.error
 from email.message import Message
@@ -179,6 +180,103 @@ class DataPlaneVerificationTests(unittest.TestCase):
                 main(["--targets", str(path)], probe=stub)
 
         self.assertEqual(raised.exception.code, 1)
+
+    def test_main_writes_the_report_for_the_alert(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "opnsense_reconciler/lb-data-plane-targets.json"
+        )
+
+        def stub(url: str, timeout: float) -> tuple[bool, int | None]:
+            del timeout
+            return (False, None) if "10.0.40.13" in url else (True, 200)
+
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "nested/dataplane.json"
+            with (
+                patch("sys.stdout", new_callable=StringIO),
+                patch("sys.stderr", new_callable=StringIO),
+            ):
+                with self.assertRaises(SystemExit):
+                    main(
+                        ["--targets", str(path), "--report", str(report_path)],
+                        probe=stub,
+                    )
+            report = json.loads(report_path.read_text())
+        self.assertFalse(report["ready"])
+        self.assertEqual(
+            report["unreachable"], ["http://10.0.40.13:8123/manifest.json"]
+        )
+
+
+class DataPlaneAlertTests(unittest.TestCase):
+    report = {
+        "checked": 2,
+        "ready": False,
+        "unreachable": ["http://10.0.40.10/", "http://10.0.40.13:8123/manifest.json"],
+    }
+
+    def test_summary_names_the_vips_and_the_fix(self) -> None:
+        from scripts.ci.notify import summarise_dataplane
+
+        title, message = summarise_dataplane(self.report)
+        self.assertEqual(title, "VIP data plane down: 2 unreachable")
+        self.assertIn("2 of 2 LoadBalancer VIPs", message)
+        self.assertIn("http://10.0.40.13:8123/manifest.json", message)
+        self.assertIn("restart FRR", message)
+        self.assertIn("opnsense-bgp-proof.md", message)
+
+    def test_notify_posts_the_dataplane_summary(self) -> None:
+        from scripts.ci import notify
+
+        sent: list[object] = []
+
+        class Response:
+            status = 200
+
+            def __enter__(self) -> "Response":
+                return self
+
+            def __exit__(self, *args: object) -> None:
+                return None
+
+        def fake_urlopen(request: object, timeout: float) -> Response:
+            del timeout
+            sent.append(request)
+            return Response()
+
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "dataplane.json"
+            report_path.write_text(json.dumps(self.report))
+            environment = {"NTFY_TOPIC": "homelab-alerts", "NTFY_TOKEN": "t0ken"}
+            with (
+                patch.dict("os.environ", environment, clear=True),
+                patch.object(notify, "urlopen", fake_urlopen),
+                patch("sys.stderr", new_callable=StringIO),
+            ):
+                self.assertEqual(notify.main(["vip-dataplane", str(report_path)]), 0)
+
+        self.assertEqual(len(sent), 1)
+        request = sent[0]
+        self.assertEqual(
+            request.full_url,
+            "https://ntfy.rupan.dev/homelab-alerts",  # type: ignore[attr-defined]
+        )
+        self.assertEqual(
+            request.get_header("Title"),  # type: ignore[attr-defined]
+            "VIP data plane down: 2 unreachable",
+        )
+        self.assertEqual(
+            request.get_header("Authorization"),  # type: ignore[attr-defined]
+            "Bearer t0ken",
+        )
+
+    def test_notify_rejects_an_unknown_label(self) -> None:
+        from scripts.ci import notify
+
+        with patch("sys.stderr", new_callable=StringIO):
+            with self.assertRaises(SystemExit):
+                notify.main(["no-such-report", "unused.json"])
 
     def test_data_plane_targets_stay_inside_lb_pool(self) -> None:
         path = (

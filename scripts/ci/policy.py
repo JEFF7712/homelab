@@ -228,6 +228,10 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         "registry-retention-reconcile",
         "registry-resolve",
         "registry-auth-consistency",
+        # FRR can hold the VIP routes without installing them, which went
+        # unnoticed for six hours on 2026-11-02; this probes them through
+        # OPNsense and posts to ntfy when they stop answering.
+        "vip-dataplane-watch",
         # Post-merge housekeeping lives here rather than on every main push,
         # so a merge's pipeline (the parent deployments need) ends quickly.
         "sync-to-github",

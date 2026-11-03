@@ -23,8 +23,13 @@ VLAN (its connected `10.0.40.0/24`), so every VIP except the statically
 routed Jellyfin `10.0.40.16` times out from the LAN and from CI. It happened
 in September 2026 and again on 2026-11-02, after an FRR restart.
 
-Signs: `opnsense-plan`'s data-plane probe reports `TimeoutError` for the
-VIPs while the Cilium peers are established. `just status network` reports
+Signs: an ntfy alert "VIP data plane down" from the maintenance schedule's
+`vip-dataplane-watch` (every 30 minutes), and `opnsense-plan`'s data-plane
+probe reporting `TimeoutError` for the VIPs while the Cilium peers are
+established. The 2026-11-02 evening dropout lasted six hours before that watch
+existed, because only the nightly proof and main pushes probed the VIPs. Do not
+probe the VIPs from an agent VM: it has no route to `10.0.40.0/24`, so a
+timeout there proves nothing. `just status network` reports
 the routes present but not installed, because it compares
 `/api/diagnostics/interface/get_routes` with
 `/api/quagga/diagnostics/search_bgproute4`. Agent VMs run it with their
