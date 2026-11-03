@@ -25,6 +25,16 @@ from typing import Any, Literal, Protocol
 JobState = Literal["running", "succeeded", "failed", "missing"]
 
 
+SERVICE_ACCOUNT_DIR = Path("/var/run/secrets/kubernetes.io/serviceaccount")
+
+
+def in_cluster(
+    environ: Mapping[str, str] = os.environ, account: Path = SERVICE_ACCOUNT_DIR
+) -> bool:
+    """Whether this process runs in a Kubernetes pod."""
+    return "KUBERNETES_SERVICE_HOST" in environ or account.exists()
+
+
 class CleanupFailed(RuntimeError):
     """A worker Job could not be cleaned up and may still run; report it."""
 
@@ -55,7 +65,14 @@ class JobManager(Protocol):
 
 
 class LocalProcessJobManager:
-    """Runs workers as local processes; for rehearsals and tests."""
+    """Runs workers as local processes; for offline tests and rehearsals only.
+
+    A local worker runs as the controller's user, so it could read the
+    controller's store and credentials: this manager provides no isolation.
+    It refuses to exist inside a Kubernetes pod, and the daemon offers it
+    only behind the `serve --allow-local-jobs` flag, which the rendered
+    manifests never pass.
+    """
 
     def __init__(
         self,
@@ -63,6 +80,8 @@ class LocalProcessJobManager:
         env: Mapping[str, str] | None = None,
         python: str = sys.executable,
     ) -> None:
+        if in_cluster():
+            raise RuntimeError("local worker processes are refused inside Kubernetes")
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.env = dict(env or {})

@@ -126,3 +126,35 @@ working on one instance.
    ```
 3. Once the clusters exist again (Flux recreates them empty from
    `postgres-cluster.yaml`), restore the newest dump as in Scenario B.
+
+## Restore drills
+
+Backups are proven weekly, not assumed. Two CronJobs restore the latest
+snapshots into scratch space and never touch live data:
+
+- `backups/restore-drill` (Sunday 05:30): `restic check --read-data-subset=5%`
+  on the R2 dump repository, requires a snapshot from the last two days,
+  restores it, and loads each dump into a throwaway postgres that must come up
+  with tables and rows. Immich's dump loads in Immich's postgres image for its
+  vector extensions.
+- `immich/library-restore-drill` (Sunday 06:00): samples 2% of the local
+  library repository's packs, requires a recent snapshot and restores a slice
+  of it.
+
+Each writes per-dataset `<dataset>.result`, `.checked` and `.passed` (epoch
+seconds) to the `restore-drill-evidence` ConfigMap in its namespace and fails
+the Job when any dataset fails. `cluster-sentinel` alerts through ntfy when a
+dataset has no pass within eight days or its latest result failed.
+`tests/test_restore_drills.py` fails when a dump or restic backup has no drill
+or the sentinel's list drifts from the drills.
+
+Run a drill now (after changing a backup or before destroying data):
+
+```sh
+HOMELAB_AUTHORIZED=1 kubectl -n backups create job --from=cronjob/restore-drill restore-drill-manual-$(date +%s)
+kubectl -n backups get configmap restore-drill-evidence -o yaml
+```
+
+Persistent-data destruction is held for the operator until the deployment
+gate can read this evidence; a recent pass for the affected dataset is the
+precondition agents must show.

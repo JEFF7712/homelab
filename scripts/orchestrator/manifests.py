@@ -36,9 +36,39 @@ DATA_PATH = "/var/lib/orchestrator"
 # The architecture decision: the controller runs on homelab-02 or homelab-03,
 # whichever fresh resource measurements favour; never homelab-05.
 CONTROLLER_NODES = frozenset({"homelab-02", "homelab-03"})
-CREDENTIAL_KEY = re.compile(
-    r"(?i)(token|secret|password|api_key|apikey|credential)(?!_file|_dir)"
+# The worker backend configuration is a closed schema. Every key is known,
+# every value has a shape that cannot carry an inline credential, and the
+# settings that name a credential may only point at an approved secret source.
+EXECUTABLE = re.compile(r"^(/[A-Za-z0-9._+/-]+|[A-Za-z0-9._+-]+)$")
+NAME = re.compile(r"^[A-Za-z0-9._:/+-]{1,100}$")
+PATH = re.compile(r"^/[A-Za-z0-9._/-]{1,200}$")
+TOKEN_SHAPE = re.compile(
+    r"(?i)(sk-|ghp_|gho_|ghs_|github_pat_|glpat-|xox[abprs]-|eyJ[A-Za-z0-9_-]{8,})"
 )
+CLAUDE_TOKEN = "/run/worker/claude-oauth-token"
+CODEX_HOME = "/var/lib/codex-auth"
+APPROVED_CREDENTIALS = {"token_file": {CLAUDE_TOKEN}, "codex_home": {CODEX_HOME}}
+BACKEND_SCHEMA: dict[str, dict[str, Any]] = {
+    "pi": {"pi": EXECUTABLE, "provider": NAME, "model": NAME, "experimental": bool},
+    "codex": {
+        "codex": EXECUTABLE,
+        "model": NAME,
+        "codex_home": "credential",
+        "sandbox": ("external", "host"),
+    },
+    "claude": {
+        "claude": EXECUTABLE,
+        "model": NAME,
+        "config_dir": PATH,
+        "token_file": "credential",
+        "sandbox": ("external", "host"),
+    },
+}
+BACKEND_REQUIRED = {
+    "pi": {"pi", "provider", "model"},
+    "codex": {"codex", "model", "codex_home"},
+    "claude": {"claude", "model", "config_dir", "token_file"},
+}
 PINNED = re.compile(r"^[a-z0-9.\-/:]+@sha256:[0-9a-f]{64}$")
 PRIVATE = (
     "10.0.0.0/8",
@@ -81,12 +111,7 @@ class DeployParams:
     def validate(self) -> None:
         if self.node not in CONTROLLER_NODES:
             raise ValueError(f"node {self.node!r} is not an allowed controller node")
-        for key in _keys(self.backend):
-            if CREDENTIAL_KEY.search(key):
-                raise ValueError(
-                    f"backend config key {key!r} looks like an inline credential; "
-                    "mount it from a Secret and pass a file path"
-                )
+        validate_backend(self.backend, self.extra_worker_mounts)
         for image in (self.controller_image, self.worker_image):
             if not PINNED.match(image):
                 raise ValueError(f"image {image!r} must be pinned by sha256 digest")
@@ -94,12 +119,51 @@ class DeployParams:
             raise ValueError("host_path must live under /persist")
 
 
-def _keys(value: Any) -> list[str]:
-    if isinstance(value, Mapping):
-        return [str(k) for k in value] + [k for v in value.values() for k in _keys(v)]
-    if isinstance(value, list | tuple):
-        return [k for item in value for k in _keys(item)]
-    return []
+def validate_backend(
+    backend: Mapping[str, Any], mounts: Sequence[Mapping[str, Any]] = ()
+) -> None:
+    """Check the worker backend configuration against the closed schema.
+
+    Unknown keys (including `env`) are refused, so no setting can smuggle a
+    credential under an innocuous name; values must match their shape; and
+    `token_file` and `codex_home` must be the approved secret locations,
+    which the manifests mount from a Secret or a dedicated volume.
+    """
+    kind = backend.get("kind")
+    if kind not in BACKEND_SCHEMA:
+        raise ValueError(f"unknown backend kind {kind!r}")
+    schema = BACKEND_SCHEMA[kind]
+    unknown = set(backend) - set(schema) - {"kind"}
+    if unknown:
+        raise ValueError(f"backend keys {sorted(unknown)} are not allowed for {kind}")
+    missing = BACKEND_REQUIRED[kind] - set(backend)
+    if missing:
+        raise ValueError(f"backend keys {sorted(missing)} are required for {kind}")
+    mounted = {str(m.get("mountPath")) for m in mounts}
+    for key, value in backend.items():
+        if key == "kind":
+            continue
+        rule = schema[key]
+        if rule == "credential":
+            if value not in APPROVED_CREDENTIALS[key]:
+                raise ValueError(
+                    f"{key} must be an approved secret source: "
+                    f"{sorted(APPROVED_CREDENTIALS[key])}"
+                )
+            if key == "codex_home" and value not in mounted:
+                raise ValueError(f"{key} {value} is not mounted into workers")
+        elif rule is bool:
+            if not isinstance(value, bool):
+                raise ValueError(f"{key} must be a boolean")
+        elif isinstance(rule, tuple):
+            if value not in rule:
+                raise ValueError(f"{key} must be one of {list(rule)}")
+        elif (
+            not isinstance(value, str)
+            or not rule.match(value)
+            or TOKEN_SHAPE.search(value)
+        ):
+            raise ValueError(f"{key} has an invalid value")
 
 
 def meta(
