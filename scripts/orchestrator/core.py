@@ -506,6 +506,23 @@ class ControllerLock:
             self.fd = None
 
 
+def private(path: Path) -> None:
+    """Make the store owner-only before SQLite opens it.
+
+    SQLite creates the database under the process umask and gives its WAL
+    and shared-memory files the database's mode, so creating it 0600 here
+    keeps all three private. An existing store this process owns with group
+    or other bits is tightened; another user's copy (a restored snapshot
+    under test) is left as it is.
+    """
+    try:
+        os.close(os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600))
+    except FileExistsError:
+        info = path.stat()
+        if info.st_uid == os.getuid() and info.st_mode & 0o077:
+            path.chmod(info.st_mode & 0o700)
+
+
 def backup(source: sqlite3.Connection, destination: Path) -> None:
     """Write a consistent, integrity-checked copy that only the owner can read."""
     if destination.exists():
@@ -551,6 +568,7 @@ class Store:
         if controller:
             self.controller_lock = ControllerLock(path).__enter__()
         self.lock = threading.RLock()
+        private(path)
         self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys=ON")
@@ -768,8 +786,7 @@ class Store:
         Returns ("created", task), ("duplicate", the open task) or
         ("limited", None). The duplicate check and the open-task limit are
         evaluated in the same transaction as the insert, so concurrent
-        deliveries of one alert cannot open two tasks or exceed the limit. A
-        limited signal queues one escalation per fingerprint per hour.
+        deliveries of one alert cannot open two tasks or exceed the limit.
         """
         spec.validate()
         with self.transaction() as db:
@@ -777,19 +794,8 @@ class Store:
             if existing is not None:
                 return "duplicate", existing
             if self._open_intake_count(db) >= open_limit:
-                self._enqueue(
-                    db,
-                    f"intake.limit:{fingerprint}:{int(now // 3600)}",
-                    "intake.escalation",
-                    None,
-                    {
-                        "reason": "open_limit",
-                        "fingerprint": fingerprint,
-                        "title": spec.title,
-                        "severity": severity,
-                        "open_limit": open_limit,
-                    },
-                    now,
+                self._limit_escalation(
+                    db, fingerprint, spec.title, severity, now, open_limit
                 )
                 return "limited", None
             task, _ = self._insert_task(
@@ -801,6 +807,59 @@ class Store:
                 (task.id, fingerprint, source, severity, now),
             )
             return "created", task
+
+    def intake_full(
+        self, fingerprint: str, title: str, severity: str, now: float, open_limit: int
+    ) -> bool:
+        """Whether intake is at its open-task limit, escalating if so.
+
+        Checked before any evidence is collected, so signals beyond the limit
+        cost no Kubernetes or Woodpecker reads.
+        """
+        with self.transaction() as db:
+            if self._open_intake_count(db) < open_limit:
+                return False
+            self._limit_escalation(db, fingerprint, title, severity, now, open_limit)
+            return True
+
+    def _limit_escalation(
+        self,
+        db: sqlite3.Connection,
+        fingerprint: str,
+        title: str,
+        severity: str,
+        now: float,
+        open_limit: int,
+    ) -> None:
+        # One notice per hour for all overflow, however many fingerprints a
+        # sender invents; the count of signals turned away rides along.
+        key = f"intake.limit:{int(now // 3600)}"
+        row = db.execute("SELECT payload FROM outbox WHERE key = ?", (key,)).fetchone()
+        if row is None:
+            self._enqueue(
+                db,
+                key,
+                "intake.escalation",
+                None,
+                {
+                    "reason": "open_limit",
+                    "fingerprint": fingerprint,
+                    "title": title,
+                    "severity": severity,
+                    "open_limit": open_limit,
+                    "turned_away": 1,
+                },
+                now,
+            )
+            return
+        payload = json.loads(row["payload"])
+        payload["turned_away"] = int(payload.get("turned_away", 1)) + 1
+        if severity == "critical":
+            payload["severity"] = "critical"
+        db.execute(
+            "UPDATE outbox SET payload = ? WHERE key = ? AND delivered IS NULL",
+            (canonical(payload), key),
+        )
 
     def resolve_intake(
         self, fingerprint: str, actor: str, now: float
