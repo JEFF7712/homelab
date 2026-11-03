@@ -83,7 +83,7 @@
           ]
         }
       },
-      "description": null
+      "description": "Downstairs-TL-SG105E"
     },
     "upstairs": {
       "host": "10.0.10.2",
@@ -220,7 +220,7 @@
           ]
         }
       },
-      "description": null
+      "description": "Upstairs-TL-SG108E"
     }
   }
 }
