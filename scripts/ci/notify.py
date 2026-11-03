@@ -1,7 +1,9 @@
-"""Post a registry drift report to ntfy.
+"""Post a failing CI report to ntfy.
 
-The verify report is the artifact of record; this only summarises it, using the
-same ntfy transport as `scripts.deploy_fleet` so failures reach one channel.
+Labels: `registry-drift` (a registry verify report) and `vip-dataplane` (an
+`opnsense_reconciler.dataplane --report` result). The report is the artifact of
+record; this only summarises it, using the same ntfy transport as
+`scripts.deploy_fleet` so failures reach one channel.
 """
 
 from __future__ import annotations
@@ -91,9 +93,27 @@ def summarise(report: dict) -> tuple[str, str]:
     return title, message
 
 
+def summarise_dataplane(report: dict) -> tuple[str, str]:
+    """A load-balancer VIP probe that crossed OPNsense and got no answer."""
+    unreachable = [str(url) for url in report.get("unreachable", [])]
+    checked = report.get("checked", len(unreachable))
+    lines = [f"{len(unreachable)} of {checked} LoadBalancer VIPs did not answer:", ""]
+    lines.extend(unreachable[:MAX_LISTED])
+    lines += [
+        "",
+        "If the Cilium BGP peers are established, FRR on OPNsense is holding the "
+        "routes without installing them: restart FRR (Services, FRR), then rerun "
+        "opnsense-plan. docs/runbooks/opnsense-bgp-proof.md",
+    ]
+    return f"VIP data plane down: {len(unreachable)} unreachable", "\n".join(lines)
+
+
+SUMMARISERS = {"registry-drift": summarise, "vip-dataplane": summarise_dataplane}
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m scripts.ci.notify")
-    parser.add_argument("label")
+    parser.add_argument("label", choices=sorted(SUMMARISERS))
     parser.add_argument("report", type=pathlib.Path)
     args = parser.parse_args(argv)
 
@@ -102,7 +122,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("NTFY_TOPIC is unset, skipping notification", file=sys.stderr)
         return 0
 
-    title, message = summarise(json.loads(args.report.read_text(encoding="utf-8")))
+    report = json.loads(args.report.read_text(encoding="utf-8"))
+    title, message = SUMMARISERS[args.label](report)
     base = os.getenv("NTFY_URL", "https://ntfy.rupan.dev").rstrip("/")
     headers = {"Title": title, "Priority": "high", "Tags": "skull,warning"}
     token = os.getenv("NTFY_TOKEN")

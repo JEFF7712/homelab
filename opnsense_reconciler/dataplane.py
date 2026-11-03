@@ -96,20 +96,27 @@ def main(
     )
     parser.add_argument("--targets", required=True, type=Path)
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="also write the result as JSON, for scripts.ci.notify vip-dataplane",
+    )
     arguments = parser.parse_args(argv)
     targets = json.loads(arguments.targets.read_text())
     results = probe_targets(targets, arguments.timeout, probe)
     proof = verify_lb_data_plane(targets, results)
-    print(
-        json.dumps(
-            {
-                "checked": len(results),
-                "unreachable": sorted(proof.unreachable),
-                "ready": proof.ready,
-            },
-            sort_keys=True,
-        )
+    summary = json.dumps(
+        {
+            "checked": len(results),
+            "unreachable": sorted(proof.unreachable),
+            "ready": proof.ready,
+        },
+        sort_keys=True,
     )
+    print(summary)
+    if arguments.report is not None:
+        arguments.report.parent.mkdir(parents=True, exist_ok=True)
+        arguments.report.write_text(summary + "\n")
     if not proof.ready:
         print(
             "VIP data plane failed; if BGP is up, compare OPNsense's kernel routes "

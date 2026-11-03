@@ -458,6 +458,16 @@ class PolicyTest(unittest.TestCase):
             "\n".join(self.catalog["registry-promote-first-party"]["commands"]),
         )
         self.assertIn("cache-publish", SCHEDULES["maintenance"])
+        # The VIP probe must cross OPNsense often and alert on its own: a
+        # nightly-only proof missed a six-hour FRR route dropout.
+        self.assertIn("vip-dataplane-watch", SCHEDULES["maintenance"])
+        watch = self.catalog["vip-dataplane-watch"]
+        self.assertEqual(watch["needs"], [])
+        self.assertFalse(watch["mutation"])
+        self.assertEqual(
+            watch["environment"]["NTFY_TOKEN"], {"from_secret": "ntfy_token"}
+        )
+        self.assertIn("scripts.ci.notify vip-dataplane", watch["commands"][0])
         self.request["pipeline"].update(event="cron", cron="unknown")
         self.assertEqual(
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1

@@ -1171,6 +1171,37 @@
     "mutation": false,
     "prerequisite": ""
   },
+  "vip-dataplane-watch": {
+    "commands": [
+      "python -m scripts.ci.run vip-dataplane -- bash -euo pipefail -c 'rc=0; python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json --report artifacts/opnsense/dataplane.json || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify vip-dataplane artifacts/opnsense/dataplane.json || true; fi; exit $rc'"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "NTFY_TOPIC": "homelab-alerts",
+      "NTFY_TOKEN": {
+        "from_secret": "ntfy_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "ci-diagnostics",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
   "opnsense-apply": {
     "commands": [
       "export SSL_CERT_FILE=\"/tmp/opnsense-combined-ca.crt\"",

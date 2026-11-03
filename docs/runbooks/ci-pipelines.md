@@ -367,7 +367,11 @@ schedule runs by `SCHEDULES` in `scripts/ci/policy.py`. Reconcile the live
 server with `just woodpecker-settings plan` and `just woodpecker-settings apply`.
 `maintenance` runs twice an hour and carries the short work: webhook
 watchdog, registry lock import, drift, retention, resolve, auth consistency,
-GitHub sync, and cache publication. `promote` runs every 15 minutes with
+the VIP data-plane watch, GitHub sync, and cache publication. The VIP watch
+(`vip-dataplane-watch`) probes the LoadBalancer VIPs through OPNsense and posts
+to the ntfy `homelab-alerts` topic when one stops answering; it reads the
+Woodpecker secret `ntfy_token` (cron events; the ntfy publish token, the same
+value as `NTFY_TOKEN` in `gitops/secrets/homelab-values.sops.yaml`). `promote` runs every 15 minutes with
 first-party and nix-agent promotion only; it is the application release
 path. Promotion opens a PR and, when the diff only moves first-party digests
 (`CI_AUTO_MERGE_PROMOTION=first-party`), merges it after required validation.
