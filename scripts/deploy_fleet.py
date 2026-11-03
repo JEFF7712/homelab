@@ -638,9 +638,28 @@ class FleetDeployer:
                     ]
                 )
             )
-        commands.append(
-            shlex.join(["sudo", "-n", path + "/bin/switch-to-configuration", action])
-        )
+        switch = [path + "/bin/switch-to-configuration", action]
+        if not dry_run:
+            # Run the switch as its own transient unit, as nixos-rebuild does.
+            # A switch that restarts Docker kills the CI job driving it (the
+            # CI host deploys itself); in the SSH session the switch would die
+            # with it and leave units such as k3s stopped. The fixed unit name
+            # also refuses a second concurrent switch. No --pipe: the switch
+            # writes to the journal, because with its output tied to the SSH
+            # session it panicked on the broken pipe (exit 101) when the job
+            # died, stranding homelab-04 again on 2026-11-03. Read the output
+            # with `journalctl -u homelab-fleet-switch`.
+            switch = [
+                "systemd-run",
+                "--unit=homelab-fleet-switch",
+                "--collect",
+                "--no-ask-password",
+                "--quiet",
+                "--service-type=exec",
+                "--wait",
+                *switch,
+            ]
+        commands.append(shlex.join(["sudo", "-n", *switch]))
         run_command(
             self.ssh_command(host.ip, " && ".join(commands)),
             runner=self.runner,

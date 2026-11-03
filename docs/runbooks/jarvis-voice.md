@@ -209,8 +209,8 @@ automation referencing them.
    and add a `choose` branch on `{{ jarvis_color }}` in the intent script.
    These requests resolve in the local intent engine, never reaching the
    conversation agent.
-4. Expose 15 to 25 conceptual controls to the future cloud conversation
-   agent, not every raw
+4. Expose 15 to 25 conceptual controls to the configured cloud conversation
+   fallback, not every raw
    entity. Prefer groups (`light.downstairs_lights`), named lamps actually
    mentioned by voice, climate controls, scenes, music, and the shopping
    list. Diagnostic and status sensors stay available to deterministic local
@@ -476,7 +476,7 @@ activations until the chat session expires (verified against the running
 HA 2026.9.1 `assist_satellite` code: each run passes the previous
 conversation id, so separate "Hey Jarvis" invocations share context).
 There is no per-wake reset setting. The `Max history messages: 4` cap applies
-to the future cloud agent once configured, and the
+to the configured cloud fallback, and the
 canonical prompt's pronoun-safety rules force a clarification question when
 "it" / "them" has no unambiguous antecedent. Note the `Prompt:` line in HA
 debug logs shows the pre-trim history, not what the model received.
@@ -487,38 +487,21 @@ Conversation state and decision-model residency are separate.
 
 ## Self-talk loop defenses
 
-Two layers against the 11:12-11:31 feedback loop (soundbar TTS re-entering
-the QuadCast, Whisper hallucinating fragments like `Stu.` / `Control.` /
-`Govee, Govee, ...`, every turn continuing the conversation and speaking
-again). Layer 1 is live as of 2026-09-18; layer 2 is implemented, unit-tested,
-and shipped via `configMapGenerator` from `gitops/voice/voice-id/`, pending
-a push for Flux to roll it to the whisper pod:
+Current replies are display-only (`JARVIS_TEXT_ONLY=1`), so the old synthesized
+reply/speaker/microphone feedback loop is not an active speech-output path.
+Music, wake chimes and environmental audio can still reach the microphone.
 
-1. Muting the satellite during TTS was tried via
-   `home-assistant/automations/jarvis_satellite_tts_mic_mute.yaml` (mute on
-   `responding`, unmute 300 ms after `idle`) and FAILED on 2026-09-18: LVA's
-   mute switch is a user shut-up control, not a capture gate. Engaging it
-   runs `tts_player.stop()` (killing the in-flight reply ~100-250 ms in) and
-   plays mute/unmute chimes through the same single mpv instance, so every
-   reply was truncated and chimed over. It also mistimes: HA reports `idle`
-   at pipeline end while the mp3 keeps playing. The file stays in Git
-   disabled (`initial_state: false`) as a record; do not re-enable without
-   a satellite build whose mute path skips stop and chimes. Barge-in during
-   TTS remains unavailable by design (single mpv, no duplex path).
-2. Transcript sanity guard (`is_garbage_transcript` in
-   `gitops/voice/voice-id/proxy.py`, unit-tested in
-   `tests/test_transcript_guard.py`, and copied byte-for-byte into the
-   `jarvis-nemotron` image as `nemotron-bridge/proxy.py`, so a guard change
-   needs an image rebuild): drops empty transcripts, a single
-   token repeated 3+ times, and a tight denylist of observed hallucinations.
-   Dropped transcripts are forwarded as empty text, which HA abandons
-   silently. Never denylist bare `Hey Jarvis.` (keeps the lone-wake-word
-   acknowledgement) or `Stop.` (the loop escape hatch).
+The transcript sanity guard (`is_garbage_transcript` in
+`gitops/voice/voice-id/proxy.py`, covered by `tests/test_transcript_guard.py`)
+rejects empty text, repeated-token noise and the narrow observed hallucination
+list. It is copied into the native STT image, so guard changes require a rebuild
+through the native release workflow. Preserve meaningful lone wake-word and
+`Stop.` inputs rather than broadening the denylist indiscriminately.
 
-Deliberately not done: semantic similarity against the last TTS text needs
-a TTS-text feed into the proxy that does not exist yet; the mute gate
-already covers the window where semantic echo occurs. Revisit if echo
-turns survive both layers.
+The disabled `jarvis_satellite_tts_mic_mute` automation records a failed old
+experiment: LVA's mute control stopped playback and added chimes, truncating
+replies. Do not treat that disabled file as a working capture gate. Historical
+synthesis behavior belongs in the [retired speech notes](../research/2026-11-03-retired-voice-synthesis.md).
 
 ## Retired speech output
 
@@ -839,10 +822,3 @@ still cycles states.
   is missing, reseat USB (card `Adapter` in `/proc/asound/cards`) and confirm
   the soundbar input is set to optical. `satellite-alsa-restore.service`
   unmutes the QuadCast `Mic` ALSA control when that card is present.
-- PipeWire WebRTC echo cancellation evaluated 2026-09-18 and parked: the
-  `libpipewire-module-echo-cancel` source exposed the mic with 0.0 dB measured
-  reduction on both tonal and wideband playback (correct links, correct
-  reference, 10 s stationary signal). Suspected USB-mic vs HDMI clock drift
-  defeating the canceller. Do not retry without a new measurement showing
-  cancellation. The deterministic mitigations are mic mute during TTS and a
-  transcript sanity guard in the voice-id proxy (both pending as of 2026-09-18).
