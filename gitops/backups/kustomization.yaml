@@ -10,3 +10,15 @@ resources:
   - dumps-to-r2.yaml
   - library-volumes.yaml
   - library-local.yaml
+  - restore-drill.yaml
+  - library-drill.yaml
+configMapGenerator:
+  - name: restore-drill-script
+    namespace: backups
+    files:
+      - restore-drill/verify-dump.sh
+      - restore-drill/record.sh
+  - name: restore-drill-script
+    namespace: immich
+    files:
+      - restore-drill/record.sh

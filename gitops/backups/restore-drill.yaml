@@ -1,0 +1,263 @@
+---
+# Weekly proof that the off-site database backups restore. The R2 repository
+# is checked, the latest snapshot is restored into scratch space, and each
+# dump is loaded into a throwaway postgres that must come up with tables and
+# rows. The record step writes per-dataset evidence to the
+# restore-drill-evidence ConfigMap; cluster-sentinel alerts when evidence is
+# missing, failed or older than eight days, and persistent-data destruction
+# requires a recent pass. Nothing here touches the live databases.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restore-drill
+  namespace: backups
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restore-drill-recorder
+  namespace: backups
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-drill-evidence]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restore-drill-recorder
+  namespace: backups
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restore-drill-recorder
+subjects:
+  - kind: ServiceAccount
+    name: restore-drill
+    namespace: backups
+---
+# cluster-sentinel reads the evidence and alerts on a missing, failed or stale
+# drill.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restore-drill-evidence-reader
+  namespace: backups
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-drill-evidence]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restore-drill-evidence-reader
+  namespace: backups
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restore-drill-evidence-reader
+subjects:
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: restore-drill
+  namespace: backups
+spec:
+  # Sunday after the 03:00 off-site upload.
+  schedule: "30 5 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200
+      template:
+        spec:
+          serviceAccountName: restore-drill
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            # Check the repository, require a snapshot from the last two
+            # days, and restore it into scratch space.
+            - name: fetch
+              image: registry.rupan.dev/upstream/docker.io/restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+              env:
+                - name: RESTIC_REPOSITORY
+                  value: s3:https://5d99d63dea23dde67ccb07e5dfb31107.r2.cloudflarestorage.com/homelab-longhorn-backup/restic-dumps  # yamllint disable-line rule:line-length
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-secrets
+                      key: restic-password
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-secrets
+                      key: r2-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-secrets
+                      key: r2-secret-access-key
+                - name: AWS_DEFAULT_REGION
+                  value: us-east-1
+                - name: HOME
+                  value: /tmp
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  mkdir -p /work/results && chmod 1777 /work /work/results
+                  restic check --read-data-subset=5%
+                  cutoff="$(date -u -d "@$(( $(date +%s) - 2 * 86400 ))" +%Y-%m-%dT%H:%M:%S)"
+                  recent="$(restic snapshots --json | grep -o '"time":"[^"]*"' \
+                    | cut -d'"' -f4 | cut -c1-19 | sort | tail -n 1)"
+                  echo "latest snapshot ${recent:-none}"
+                  if [ -z "${recent}" ] || [ ! "${recent}" \> "${cutoff}" ]; then
+                    echo "latest snapshot is older than two days"
+                    exit 1
+                  fi
+                  restic restore latest --target /work/restore
+                  ls -l /work/restore/dumps
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+            - name: verify-postgres
+              image: registry.rupan.dev/upstream/docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  memory: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 70
+                runAsGroup: 70
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  for dataset in home-assistant-db umami-db; do
+                    prefix="${dataset%-db}"
+                    dump="$(ls /work/restore/dumps/${prefix}-*.dump.gz 2>/dev/null | sort | tail -n 1)"
+                    sh /scripts/verify-dump.sh "${dataset}" "${dump:-/missing}" /work/results
+                  done
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+            # Immich's dump needs its own image for the vector extensions.
+            - name: verify-immich
+              image: registry.rupan.dev/upstream/ghcr.io/immich-app/postgres@sha256:1a078b237c1d9b420b0ee59147386b4aa60d3a07a8e6a402fc84a57e41b043a4  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 512Mi
+                limits:
+                  memory: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  dump="$(ls /work/restore/dumps/immich-*.dump.gz 2>/dev/null | sort | tail -n 1)"
+                  sh /scripts/verify-dump.sh immich-db "${dump:-/missing}" /work/results
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          containers:
+            - name: record
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+              command:
+                - /bin/sh
+                - /scripts/record.sh
+                - /work/results
+                - immich-db
+                - home-assistant-db
+                - umami-db
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: work
+              emptyDir:
+                sizeLimit: 40Gi
+            - name: tmp
+              emptyDir: {}
+            - name: scripts
+              configMap:
+                name: restore-drill-script
