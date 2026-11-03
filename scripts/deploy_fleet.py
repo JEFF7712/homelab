@@ -644,13 +644,16 @@ class FleetDeployer:
             # A switch that restarts Docker kills the CI job driving it (the
             # CI host deploys itself); in the SSH session the switch would die
             # with it and leave units such as k3s stopped. The fixed unit name
-            # also refuses a second concurrent switch.
+            # also refuses a second concurrent switch. No --pipe: the switch
+            # writes to the journal, because with its output tied to the SSH
+            # session it panicked on the broken pipe (exit 101) when the job
+            # died, stranding homelab-04 again on 2026-11-03. Read the output
+            # with `journalctl -u homelab-fleet-switch`.
             switch = [
                 "systemd-run",
                 "--unit=homelab-fleet-switch",
                 "--collect",
                 "--no-ask-password",
-                "--pipe",
                 "--quiet",
                 "--service-type=exec",
                 "--wait",

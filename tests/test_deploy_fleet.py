@@ -70,6 +70,9 @@ class DeployFleetTest(unittest.TestCase):
         self.assertIn(
             "--wait " + self.NEW + "/bin/switch-to-configuration switch", switch
         )
+        # Output tied to the SSH session made the switch panic on the broken
+        # pipe when the CI job driving it died; it goes to the journal.
+        self.assertNotIn("--pipe", switch)
         self.assertTrue(
             switch.startswith("sudo -n nix-env -p /nix/var/nix/profiles/system")
         )
