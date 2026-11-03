@@ -2527,6 +2527,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/cert-manager/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/quay.io/jetstack/cert-manager-acmesolver",
+      "destination_tags": [
+        "retention-deployed-c8c1225bb2fe8ab3",
+        "v1.21.3"
+      ],
+      "digest": "sha256:c8c1225bb2fe8ab37a330b77f0d8c2ee6a41210fcb54fc07ca606ab9a022b8b7",
+      "id": "upstream-jetstack-cert-manager-acmesolver-f20aa8aa1468",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c8c1225bb2fe8ab37a330b77f0d8c2ee6a41210fcb54fc07ca606ab9a022b8b7",
+        "reference": "quay.io/jetstack/cert-manager-acmesolver:v1.21.3@sha256:c8c1225bb2fe8ab37a330b77f0d8c2ee6a41210fcb54fc07ca606ab9a022b8b7",
+        "registry": "quay.io",
+        "repository": "jetstack/cert-manager-acmesolver",
+        "tag": "v1.21.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:cert-manager/cert-manager-cainjector-65bd78d6b6-dflsn/cert-manager-cainjector"
       ],
       "destination_repository": "upstream/quay.io/jetstack/cert-manager-cainjector",
@@ -2560,6 +2601,88 @@
         "registry": "quay.io",
         "repository": "jetstack/cert-manager-cainjector",
         "tag": "v1.21.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/cert-manager/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/quay.io/jetstack/cert-manager-cainjector",
+      "destination_tags": [
+        "retention-deployed-083d0e906f8eb44e",
+        "v1.21.3"
+      ],
+      "digest": "sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f",
+      "id": "upstream-jetstack-cert-manager-cainjector-eded1f0039c9",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f",
+        "reference": "quay.io/jetstack/cert-manager-cainjector:v1.21.3@sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f",
+        "registry": "quay.io",
+        "repository": "jetstack/cert-manager-cainjector",
+        "tag": "v1.21.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/cert-manager/registry-sources.yaml:18"
+      ],
+      "destination_repository": "upstream/quay.io/jetstack/cert-manager-controller",
+      "destination_tags": [
+        "retention-deployed-9f4f96a33c7774ce",
+        "v1.21.3"
+      ],
+      "digest": "sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
+      "id": "upstream-jetstack-cert-manager-controller-10cb45274673",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
+        "reference": "quay.io/jetstack/cert-manager-controller:v1.21.3@sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc",
+        "registry": "quay.io",
+        "repository": "jetstack/cert-manager-controller",
+        "tag": "v1.21.3"
       }
     },
     {
@@ -2642,6 +2765,88 @@
         "registry": "quay.io",
         "repository": "jetstack/cert-manager-startupapicheck",
         "tag": "v1.21.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/cert-manager/registry-sources.yaml:22"
+      ],
+      "destination_repository": "upstream/quay.io/jetstack/cert-manager-startupapicheck",
+      "destination_tags": [
+        "retention-deployed-1c519d4afca1413d",
+        "v1.21.3"
+      ],
+      "digest": "sha256:1c519d4afca1413d1e4ccd78bdc756184418ab55a34569a3b3de39d32f9974e1",
+      "id": "upstream-jetstack-cert-manager-startupapicheck-894fe4399242",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:1c519d4afca1413d1e4ccd78bdc756184418ab55a34569a3b3de39d32f9974e1",
+        "reference": "quay.io/jetstack/cert-manager-startupapicheck:v1.21.3@sha256:1c519d4afca1413d1e4ccd78bdc756184418ab55a34569a3b3de39d32f9974e1",
+        "registry": "quay.io",
+        "repository": "jetstack/cert-manager-startupapicheck",
+        "tag": "v1.21.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/cert-manager/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/quay.io/jetstack/cert-manager-webhook",
+      "destination_tags": [
+        "retention-deployed-055ac8e9de6a0ba6",
+        "v1.21.3"
+      ],
+      "digest": "sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458",
+      "id": "upstream-jetstack-cert-manager-webhook-c9f82d0baa99",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458",
+        "reference": "quay.io/jetstack/cert-manager-webhook:v1.21.3@sha256:055ac8e9de6a0ba6763794838fe38944acc650f68ebe1b01dd8be079e580f458",
+        "registry": "quay.io",
+        "repository": "jetstack/cert-manager-webhook",
+        "tag": "v1.21.3"
       }
     },
     {
@@ -3840,7 +4045,6 @@
       ],
       "destination_repository": "upstream/docker.io/oven/bun",
       "destination_tags": [
-        "1.4-debian",
         "retention-deployed-93d5032fe06d1634"
       ],
       "digest": "sha256:93d5032fe06d163427822dc1598f420363759bb18155c9cc90eb1be05a64a19e",
@@ -3879,6 +4083,7 @@
       ],
       "destination_repository": "upstream/docker.io/oven/bun",
       "destination_tags": [
+        "1.4-debian",
         "retention-deployed-4f6e31d1a54d6a3d"
       ],
       "digest": "sha256:4f6e31d1a54d6a3dd312daef655fc998101b5043d52e12592ac293ef04b9bc73",

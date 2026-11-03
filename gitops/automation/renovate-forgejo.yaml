@@ -25,7 +25,11 @@ spec:
       useFull: true
     securityContext:
       runAsNonRoot: true
-      runAsUser: 1000
+      # The image's own user (ubuntu). Under uid 1000, which has no passwd
+      # entry, nix flake lock maintenance aborted with "cannot determine
+      # user's home directory" even with HOME set: the containerbase tool
+      # wrappers source BASH_ENV before running nix.
+      runAsUser: 12021
       runAsGroup: 1000
       fsGroup: 1000
       seccompProfile:
