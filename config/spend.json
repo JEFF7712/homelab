@@ -1,0 +1,12 @@
+{
+  "currency": "USD",
+  "monthly_cap": 0,
+  "consumers": {
+    "renovate-agent": {
+      "manifest": "gitops/automation/renovate-agent.yaml",
+      "provider": "openai",
+      "monthly_cap": 0,
+      "note": "Predates the spend gate; the controller absorbs it and enforces the cap."
+    }
+  }
+}

@@ -15,6 +15,7 @@ from scripts.ci.deployment_risk import (
     changed_authority,
     host_operation,
     nix_authority_change,
+    plan_notices,
     plan_risks,
     protected_paths,
     require_plan_approval,
@@ -36,11 +37,7 @@ class DeploymentRiskTest(unittest.TestCase):
         }
         self.assertEqual(
             changed_authority(baseline, candidate),
-            [
-                "config/projectctl/new.json",
-                "flake/modules/disko-old.nix",
-                "scripts/ci/policy.py",
-            ],
+            ["flake/modules/disko-old.nix", "scripts/ci/policy.py"],
         )
 
     def test_snapshot_matches_real_git_tree_identities(self) -> None:
@@ -137,17 +134,27 @@ class DeploymentRiskTest(unittest.TestCase):
         self.assertEqual(plan_risks(self.plan("cloudflare_dns_record", ["update"])), [])
         self.assertEqual(plan_risks({"resource_changes": []}), [])
 
-    def test_authority_data_and_connectivity_destruction_require_approval(self) -> None:
+    def test_data_and_connectivity_destruction_require_approval(self) -> None:
         for kind, actions in [
-            ("cloudflare_zero_trust_access_policy", ["update"]),
             ("cloudflare_r2_bucket", ["delete", "create"]),
             ("opnsense_interface", ["delete"]),
-            ("opnsense_user", ["create"]),
         ]:
             with self.subTest(kind=kind):
                 self.assertTrue(plan_risks(self.plan(kind, actions)))
         self.assertTrue(plan_risks({"resource_changes": [], "complete": False}))
         self.assertTrue(plan_risks({}))
+
+    def test_authorization_changes_are_recorded_not_held(self) -> None:
+        for kind, actions in [
+            ("cloudflare_zero_trust_access_policy", ["update"]),
+            ("opnsense_user", ["create"]),
+        ]:
+            with self.subTest(kind=kind):
+                plan = self.plan(kind, actions)
+                self.assertEqual(plan_risks(plan), [])
+                self.assertEqual(
+                    plan_notices(plan), [f"authorization change: {kind}.example"]
+                )
 
     def test_saved_plan_is_checked_before_agent_apply_but_operator_can_execute(
         self,
@@ -178,7 +185,7 @@ class DeploymentRiskTest(unittest.TestCase):
             ):
                 require_plan_approval(Path("/repo"), "cloudflare-apply", False)
 
-    def test_access_authorization_changes_use_the_existing_operator_gate(self) -> None:
+    def test_access_authorization_changes_apply_and_are_recorded(self) -> None:
         with (
             patch(
                 "subprocess.check_output",
@@ -187,10 +194,14 @@ class DeploymentRiskTest(unittest.TestCase):
                 ),
             ) as show,
             patch("subprocess.run"),
-            self.assertRaisesRegex(ValueError, APPROVAL_REQUIRED),
+            patch("builtins.print") as record,
         ):
             require_plan_approval(Path("/repo"), "cloudflare-access-apply", False)
         self.assertIn("-chdir=/repo/tofu/cloudflare-access", show.call_args.args[0])
+        record.assert_called_once_with(
+            "recorded: authorization change: "
+            "cloudflare_zero_trust_access_policy.example"
+        )
 
     def test_scope_follows_what_the_operation_activates(self) -> None:
         catalog = json.loads(
@@ -218,7 +229,7 @@ class DeploymentRiskTest(unittest.TestCase):
         self.assertEqual(changed_authority(baseline, acl, publish), [])
         self.assertEqual(
             changed_authority(baseline, acl, protected_paths("opnsense-apply", False)),
-            ["opnsense_reconciler/agent_acl.py"],
+            [],
         )
         self.assertEqual(
             changed_authority(

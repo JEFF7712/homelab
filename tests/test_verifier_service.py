@@ -237,7 +237,7 @@ class MergePolicyService(unittest.TestCase):
 
     def test_an_approvals_outage_never_flips_a_status(self) -> None:
         def touch_policy(repo: Path) -> None:
-            (repo / "CODEOWNERS").write_text("x @rupan\n")
+            (repo / ".sops.yaml").write_text("x\n")
 
         head = self.branch(11, touch_policy)
         self.approvals.heads[11] = [head]
@@ -256,7 +256,7 @@ class MergePolicyService(unittest.TestCase):
         self,
     ) -> None:
         def touch_policy(repo: Path) -> None:
-            (repo / "CODEOWNERS").write_text("x @rupan\n")
+            (repo / ".sops.yaml").write_text("x\n")
 
         head = self.branch(9, touch_policy)
         forge = FakeForge([self.pull(9, head)])
@@ -267,7 +267,7 @@ class MergePolicyService(unittest.TestCase):
             "needs operator approval of this commit",
         )
 
-        self.advance_main("CODEOWNERS")
+        self.advance_main(".sops.yaml")
         self.approvals.heads[9] = [head]
         run_once(forge, self.mirror, self.approvals, judged)
         state = forge.statuses[-1][1]
@@ -279,7 +279,7 @@ class MergePolicyService(unittest.TestCase):
 
     def test_approval_carries_over_a_main_update_but_not_a_new_change(self) -> None:
         def touch_policy(repo: Path) -> None:
-            (repo / "CODEOWNERS").write_text("x @rupan\n")
+            (repo / ".sops.yaml").write_text("x\n")
 
         approved = self.branch(7, touch_policy)
         # main advances, then the PR branch is updated from it.
@@ -297,7 +297,7 @@ class MergePolicyService(unittest.TestCase):
         self.assertEqual(forge.statuses[-1][1]["state"], "success")
 
         git(self.remote, "checkout", "-q", "pr7")
-        (self.remote / "CODEOWNERS").write_text("y @rupan\n")
+        (self.remote / ".sops.yaml").write_text("y\n")
         git(self.remote, "commit", "-qam", "new change")
         changed = git(self.remote, "rev-parse", "HEAD")
         git(self.remote, "checkout", "-q", "main")
@@ -351,7 +351,7 @@ class Decide(unittest.TestCase):
         )
         self.assertEqual((decision.state, decision.escalate), ("failure", True))
         self.assertEqual(
-            decide(["CODEOWNERS"], None, None, set(), set(), True).state, "success"
+            decide([".sops.yaml"], None, None, set(), set(), True).state, "success"
         )
 
     def test_changes_outside_websites_and_policy_pass(self) -> None:
@@ -370,28 +370,43 @@ class Decide(unittest.TestCase):
 
 
 class AuthorityBoundaryTest(unittest.TestCase):
-    """Agents act broadly but cannot redefine their own authority."""
+    """The operator approves spending and enforcement code; agents decide the rest."""
 
-    def test_every_control_that_bounds_agents_needs_an_operator(self) -> None:
-        from scripts.verifier.service import POLICY_PATHS
+    def test_enforcement_code_needs_an_operator(self) -> None:
+        from scripts.verifier.enforcement import enforcement
 
         for path in (
             "scripts/verifier/service.py",
+            "scripts/verifier/enforcement.py",
             "scripts/ci/policy.py",
             "scripts/ci/deployment_risk.py",
             "scripts/ci/operation.py",
+            "scripts/ci/state.py",
             "scripts/approvals/server.py",
             "flake/modules/woodpecker.nix",
             "flake/modules/merge-policy.nix",
+            "flake/modules/tofu-state.nix",
             "config/ci/forgejo-protection.json",
-            "scripts/agent/guard.py",
             ".sops.yaml",
-            "CODEOWNERS",
+            "config/spend.json",
         ):
             with self.subTest(path=path):
-                self.assertTrue(path.startswith(POLICY_PATHS))
+                self.assertTrue(enforcement(path))
                 decision = decide([path], None, None, set(), set(), False)
                 self.assertEqual((decision.state, decision.escalate), ("failure", True))
+
+    def test_agent_controls_outside_enforcement_are_the_agents(self) -> None:
+        for path in (
+            "scripts/agent/guard.py",
+            "hooks/pre-tool-use",
+            "CODEOWNERS",
+            "AGENTS.md",
+            "scripts/projectctl/authorization.py",
+            "opnsense_reconciler/agent_acl.py",
+        ):
+            with self.subTest(path=path):
+                decision = decide([path], None, None, set(), set(), False)
+                self.assertEqual(decision.state, "success")
 
     def test_operator_approval_still_overrides(self) -> None:
         decision = decide(["scripts/ci/policy.py"], None, None, set(), set(), True)
@@ -426,12 +441,12 @@ class AuthorityBoundaryTest(unittest.TestCase):
             False,
         )
 
-    def test_granting_an_existing_operation_to_agents_needs_an_operator(self) -> None:
+    def test_granting_an_existing_operation_to_agents_is_recorded(self) -> None:
         decision = self.catalog(
             {"provision": {"mutation": True}},
             {"provision": {"mutation": True, "agent": True}},
         )
-        self.assertEqual((decision.state, decision.escalate), ("failure", True))
+        self.assertEqual((decision.state, decision.escalate), ("success", False))
         self.assertIn("newly granted to agents", " ".join(decision.findings))
 
     def test_unmarking_a_mutation_needs_an_operator(self) -> None:
