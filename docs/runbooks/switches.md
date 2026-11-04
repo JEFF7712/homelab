@@ -33,7 +33,9 @@ A failing run sends a bounded summary to the existing `homelab-alerts` ntfy topi
 The notification distinguishes drift from inability to inspect a switch. A failed
 notification cannot make the drift operation pass. Do not automatically apply a
 drift report: inspect the plan and owning source through the normal workflow.
-Nightly enrollment is an exact-approval change to `SCHEDULES` in the CI policy.
+The `nightly` CI schedule runs this check alongside the existing Access and
+OPNsense checks. Enrollment is an exact-approval change to `SCHEDULES` in the
+CI policy; changing the schedule never grants apply permission.
 
 Port roles and cable endpoints live beside port settings in `inventory.nix`.
 They generate the [port map](../network/switch-port-map.md) and topology through
