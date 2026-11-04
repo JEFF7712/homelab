@@ -110,6 +110,7 @@
             ;
         };
         opnsense = import ../tofu/opnsense { inherit pkgs tofunix; };
+        tofuConfig = import ../tofu { inherit pkgs tofunix; };
         vmCheck =
           check:
           check.extend {
@@ -192,6 +193,7 @@
           projectctl = import ./packages/projectctl.nix { inherit pkgs; };
           topology = topology;
           opnsense-config = opnsense.package;
+          tofu-config = tofuConfig.package;
         }
         // pkgs.lib.optionalAttrs (system == "x86_64-linux") (
           let
@@ -208,6 +210,14 @@
             orchestrator-worker-image = images.worker;
           }
         );
+        checks.tofu-types = import ../tofu/tests.nix { inherit pkgs tofunix; };
+        checks.tofu-config =
+          pkgs.runCommand "tofu-config-check" { nativeBuildInputs = [ pkgs.python3 ]; }
+            ''
+              export PYTHONPATH=${../.}
+              python -m scripts.tofu_config --rendered ${tofuConfig.package} --root ${../.} --check
+              touch "$out"
+            '';
         checks.opnsense-types = import ../tofu/opnsense/tests.nix { inherit pkgs tofunix; };
         checks.fleet-inventory = import ../inventory/tests.nix {
           inherit pkgs tofunix;

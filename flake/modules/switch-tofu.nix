@@ -6,7 +6,8 @@ let
     cp ${../../scripts/switches/model.py} $out/scripts/switches/model.py
     cp ${../../scripts/switches/runner.py} $out/scripts/switches/runner.py
     touch $out/scripts/__init__.py $out/scripts/switches/__init__.py
-    cp ${../../tofu/switches/main.tf} $out/tofu/switches/main.tf
+    cp ${../../tofu/switches/main.tf.json} $out/tofu/switches/main.tf.json
+    cp ${../../tofu/switches/providers.tf} $out/tofu/switches/providers.tf
     cp ${../../tofu/switches/backend.tf} $out/tofu/switches/backend.tf
     cp ${../../tofu/switches/.terraform.lock.hcl} $out/tofu/switches/.terraform.lock.hcl
   '';

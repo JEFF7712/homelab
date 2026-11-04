@@ -1,6 +1,6 @@
 # Switch configuration with OpenTofu
 
-`tofu/switches/inventory.json` owns the existing ports, VLAN membership and
+`tofu/switches/inventory.nix` owns the existing ports, VLAN membership and
 PVIDs and descriptions on the upstairs TL-SG108E v6 and downstairs TL-SG105E v5. The firmware
 and MAC checks bind each stack to the verified device. The port map remains
 in [switch-port-map.md](../network/switch-port-map.md).
@@ -11,6 +11,16 @@ The `davidlukac/tplinkeasysmart` provider version is pinned in
 `flake/modules/adguard-netbird-appliance.nix`. Running this provider directly
 from a routed agent workspace cannot read the settings reliably.
 
+The typed inventory shares routed VLAN IDs with `inventory/networks.nix`.
+VLAN 1 and WAN transit VLAN 99 remain switch-only declarations. Membership
+and PVID assertions run during Nix evaluation; the independent Python runtime
+validator still checks adopted identities and firmware before any operation.
+`resources.nix` uses Tofunix to generate `main.tf.json`; `inventory.json` is also
+generated. Never edit either JSON output directly. See
+[Tofunix rendering](tofunix.md) for rendering, provider schemas and migration checks.
+The worker consumes generated JSON with the existing provider settings,
+backend and lock file. Its source/blueprint digest checks are unchanged.
+
 ## Plan and apply
 
 Initial activation changes CI authority and the state backend. Use
@@ -18,7 +28,7 @@ Initial activation changes CI authority and the state backend. Use
 the CI host, management host and NAS are activated, after exact operator
 approval. Keep their normal preflight, health and rollback checks enabled.
 
-Edit the inventory, validate with `nix develop ./flake -c python -m unittest
+Edit the Nix inventory, run `just tofu-render`, then validate with `nix develop ./flake -c python -m unittest
 tests.test_switches tests.test_ci_offline_inputs -v`, then `just ship`.
 Inventory edits select `switches-plan` and `switches-apply`. Worker or blueprint
 changes also select the scoped management-host and NAS deployment first. CI uses

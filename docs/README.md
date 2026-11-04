@@ -48,6 +48,7 @@ evidence from that time, not permanent health or capacity guarantees.
 ### Network and platform
 
 - [Shared fleet inventory](runbooks/fleet-inventory.md)
+- [Tofunix rendering](runbooks/tofunix.md): typed switch and Cloudflare configuration, generated outputs, and parity checks.
 - [OPNsense configuration](runbooks/opnsense-configuration.md)
 - [Read-only OPNsense access for agents](runbooks/opnsense-agent-access.md)
 - [OPNsense BGP Proof](runbooks/opnsense-bgp-proof.md)

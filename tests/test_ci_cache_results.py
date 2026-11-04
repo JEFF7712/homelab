@@ -77,8 +77,10 @@ class CacheResultsTest(unittest.TestCase):
                 "assert '--skip-cached' not in args\n"
                 "selection = args[args.index('--select') + 1]\n"
                 "targets = re.findall(r'target(\\d+) = flake\\.([^;]+);', selection)\n"
-                "assert len(targets) == 24\n"
+                "assert len(targets) == 26\n"
                 "assert any(t == 'checks.x86_64-linux.zot-registry-service' for _, t in targets)\n"
+                "assert any(t == 'checks.x86_64-linux.tofu-types' for _, t in targets)\n"
+                "assert any(t == 'checks.x86_64-linux.tofu-config' for _, t in targets)\n"
                 "assert targets[0][1] == 'nixosConfigurations.nas-01.config.system.build.toplevel'\n"
                 "assert targets[-1][1] == 'devShells.x86_64-linux.ops'\n"
                 "assert sum('.config.system.build.toplevel' in t for _, t in targets) == 7\n"
@@ -100,7 +102,7 @@ class CacheResultsTest(unittest.TestCase):
                 f"#!{sys.executable}\n"
                 "import sys\n"
                 "assert sys.argv[1:4] == ['--query', '--requisites', '--include-outputs']\n"
-                "assert len(sys.argv[4:]) == 24\n"
+                "assert len(sys.argv[4:]) == 26\n"
                 "print('/nix/store/build-input')\n"
             )
             attic = directory / "attic"
@@ -138,7 +140,7 @@ class CacheResultsTest(unittest.TestCase):
                     else:
                         self.assertEqual(
                             set(receipt.read_text().splitlines()),
-                            {f"/nix/store/system{i}" for i in range(24)}
+                            {f"/nix/store/system{i}" for i in range(26)}
                             | {"/nix/store/source", "/nix/store/build-input"},
                         )
 

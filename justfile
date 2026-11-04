@@ -76,6 +76,8 @@ cache-populate:
       ./flake#checks.x86_64-linux.niks3-cache-service \
       ./flake#checks.x86_64-linux.opnsense-types \
       ./flake#checks.x86_64-linux.opnsense-config \
+      ./flake#checks.x86_64-linux.tofu-types \
+      ./flake#checks.x86_64-linux.tofu-config \
       ./flake#checks.x86_64-linux.fleet-inventory \
       ./flake#checks.x86_64-linux.kiosk-tty1 \
       ./flake#checks.x86_64-linux.kernel-modules-aggregation \
@@ -95,6 +97,15 @@ deployment-report *args:
 topology:
     mkdir -p artifacts
     nix build --no-write-lock-file './flake#topology' --out-link artifacts/topology
+
+tofu-render:
+    python -m scripts.tofu_config
+
+tofu-check:
+    python -m scripts.tofu_config --check
+
+tofu-provider-options:
+    python -m scripts.tofu_config --provider-options
 
 opnsense-render:
     python -m scripts.opnsense_config

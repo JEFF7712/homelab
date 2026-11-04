@@ -8,9 +8,12 @@ here. The hostname inventory is in [cloudflare-tunnel](cloudflare-tunnel.md#acce
 
 ## Source and state
 
+- `inventory.nix`: authoritative applications, policy declarations and existing import IDs.
+  `resources.nix` projects these through the typed Cloudflare provider options.
+  Run `just tofu-render` after editing; `just tofu-check` rejects stale outputs.
 - `applications.tf.json`: the 21 applications, including wildcard owner login,
   Tally's dashboard and two public tracker paths, Grafana/Immich OIDC and WARP
-  enrollment. These files are native OpenTofu JSON configuration, edited directly.
+  enrollment. These are generated OpenTofu JSON files; never edit them directly.
 - `policies.tf.json`: four reusable policies and the two existing
   application-specific owner policies. Application attachments reference the
   policy resources, so policy definitions have one owner.

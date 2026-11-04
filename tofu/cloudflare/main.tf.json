@@ -1,0 +1,114 @@
+{
+  "check": {
+    "catch_all_is_last": {
+      "assert": [
+        {
+          "condition": "${local.ingress[length(local.ingress) - 1].service == \"http_status:404\" && local.ingress[length(local.ingress) - 1].hostname == null}",
+          "error_message": "the final ingress rule must be the hostname-less catch-all, otherwise unmatched hosts stop returning 404"
+        }
+      ]
+    },
+    "only_the_catch_all_lacks_a_hostname": {
+      "assert": [
+        {
+          "condition": "${length([for rule in local.ingress : rule.hostname if rule.hostname == null]) == 1}",
+          "error_message": "a rule other than the trailing catch-all has no hostname, so Cloudflare would match it as a catch-all and shadow every later rule"
+        }
+      ]
+    }
+  },
+  "data": {
+    "cloudflare_zone": {
+      "rupan": {
+        "filter": {
+          "account": {
+            "id": "${var.cloudflare_account_id}"
+          },
+          "name": "rupan.dev"
+        }
+      }
+    }
+  },
+  "locals": {
+    "config_map": "${yamldecode(file(local.config_map_path))}",
+    "config_map_path": "${abspath(\"${path.module}/../../gitops/cloudflare/ingress-config.yaml\")}",
+    "ingress": "${[for rule in local.tunnel.ingress : { hostname = try(rule.hostname, null), service = rule.service, path = try(rule.path, null) }]}",
+    "personal_app_hostnames": [
+      "photos.rupan.dev",
+      "obsidian.rupan.dev",
+      "ha.rupan.dev",
+      "ma.rupan.dev",
+      "ledfx.rupan.dev",
+      "grafana.rupan.dev",
+      "jellyfin.rupan.dev",
+      "navidrome.rupan.dev",
+      "music.rupan.dev",
+      "seerr.rupan.dev",
+      "recommender.rupan.dev",
+      "lidarr.rupan.dev",
+      "radarr.rupan.dev",
+      "sonarr.rupan.dev",
+      "prowlarr.rupan.dev",
+      "bazarr.rupan.dev",
+      "slskd.rupan.dev",
+      "torrent.rupan.dev",
+      "qbittorrent.rupan.dev",
+      "books.rupan.dev",
+      "media.rupan.dev",
+      "bookshelf.rupan.dev",
+      "pod.rupan.dev",
+      "arcade.rupan.dev",
+      "approvals.rupan.dev"
+    ],
+    "personal_apps_waf_rule": {
+      "action": "block",
+      "description": "Personal homelab apps: block visitors outside the US",
+      "enabled": true,
+      "expression": "(http.host in {\"approvals.rupan.dev\" \"arcade.rupan.dev\" \"bazarr.rupan.dev\" \"books.rupan.dev\" \"bookshelf.rupan.dev\" \"grafana.rupan.dev\" \"ha.rupan.dev\" \"jellyfin.rupan.dev\" \"ledfx.rupan.dev\" \"lidarr.rupan.dev\" \"ma.rupan.dev\" \"media.rupan.dev\" \"music.rupan.dev\" \"navidrome.rupan.dev\" \"obsidian.rupan.dev\" \"photos.rupan.dev\" \"pod.rupan.dev\" \"prowlarr.rupan.dev\" \"qbittorrent.rupan.dev\" \"radarr.rupan.dev\" \"recommender.rupan.dev\" \"seerr.rupan.dev\" \"slskd.rupan.dev\" \"sonarr.rupan.dev\" \"torrent.rupan.dev\"}) and (ip.src.country ne \"US\") and not (http.host eq \"ha.rupan.dev\" and starts_with(http.request.uri.path, \"/api/webhook/\"))",
+      "ref": "personal_apps_us_only"
+    },
+    "tunnel": "${yamldecode(local.config_map.data[\"config.yaml\"])}"
+  },
+  "output": {
+    "config_version": {
+      "description": "Version the edge reports; increments on every applied change.",
+      "value": "${cloudflare_zero_trust_tunnel_cloudflared_config.homelab.version}"
+    },
+    "tunnel_id": {
+      "description": "Tunnel this stack owns the configuration for.",
+      "value": "${local.tunnel.tunnel}"
+    }
+  },
+  "resource": {
+    "cloudflare_ruleset": {
+      "personal_apps": {
+        "description": "Country restrictions for personal applications",
+        "kind": "zone",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
+        "name": "Homelab custom WAF rules",
+        "phase": "http_request_firewall_custom",
+        "rules": [
+          {
+            "action": "block",
+            "description": "Personal homelab apps: block visitors outside the US",
+            "enabled": true,
+            "expression": "(http.host in {\"approvals.rupan.dev\" \"arcade.rupan.dev\" \"bazarr.rupan.dev\" \"books.rupan.dev\" \"bookshelf.rupan.dev\" \"grafana.rupan.dev\" \"ha.rupan.dev\" \"jellyfin.rupan.dev\" \"ledfx.rupan.dev\" \"lidarr.rupan.dev\" \"ma.rupan.dev\" \"media.rupan.dev\" \"music.rupan.dev\" \"navidrome.rupan.dev\" \"obsidian.rupan.dev\" \"photos.rupan.dev\" \"pod.rupan.dev\" \"prowlarr.rupan.dev\" \"qbittorrent.rupan.dev\" \"radarr.rupan.dev\" \"recommender.rupan.dev\" \"seerr.rupan.dev\" \"slskd.rupan.dev\" \"sonarr.rupan.dev\" \"torrent.rupan.dev\"}) and (ip.src.country ne \"US\") and not (http.host eq \"ha.rupan.dev\" and starts_with(http.request.uri.path, \"/api/webhook/\"))",
+            "ref": "personal_apps_us_only"
+          }
+        ],
+        "zone_id": "${data.cloudflare_zone.rupan.id}"
+      }
+    },
+    "cloudflare_zero_trust_tunnel_cloudflared_config": {
+      "homelab": {
+        "account_id": "${var.cloudflare_account_id}",
+        "config": {
+          "ingress": "${local.ingress}"
+        },
+        "tunnel_id": "${local.tunnel.tunnel}"
+      }
+    }
+  }
+}
