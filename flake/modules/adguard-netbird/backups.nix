@@ -236,7 +236,8 @@ in
     enable = true;
     devices = [
       {
-        device = "/dev/disk/by-uuid/00d3f54f-28f8-454c-929a-8c8191ab3624";
+        device = "/dev/disk/by-id/ata-HGST_HTS721010A9E630_JR1004BNJSUYAM";
+        options = "-d sat -d removable -a -o on -S on -s (S/../.././02|L/../../7/04)";
       }
     ];
   };
