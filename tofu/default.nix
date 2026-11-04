@@ -7,9 +7,14 @@ let
     inherit lib;
     inherit (fleet) networks;
   };
+  opnsense = import ./opnsense { inherit pkgs tofunix; };
+  portMap = import ./switches/documentation.nix {
+    inherit lib;
+    inventory = switches;
+  };
   access = import ./cloudflare-access/inventory.nix;
   outputs = {
-    "switches/inventory.json" = switches;
+    "switches/inventory.json" = switches.runtime;
     "switches/main.tf.json" = render {
       provider = "switches";
       modules = [ ./switches/resources.nix ];
@@ -38,7 +43,12 @@ in
 {
   inherit outputs;
   package = pkgs.runCommand "tofu-config" { } (
-    lib.concatStringsSep "\n" (
+    ''
+      mkdir -p "$out/opnsense" "$out/switches"
+      cp -r ${opnsense.package}/. "$out/opnsense/"
+      cp ${pkgs.writeText "switch-port-map.md" portMap} "$out/switches/port-map.md"
+    ''
+    + lib.concatStringsSep "\n" (
       lib.mapAttrsToList (path: value: ''
         mkdir -p "$out/$(dirname '${path}')"
         cp ${pkgs.writeText (builtins.baseNameOf path) (builtins.toJSON value)} "$out/${path}"

@@ -107,11 +107,9 @@ tofu-check:
 tofu-provider-options:
     python -m scripts.tofu_config --provider-options
 
-opnsense-render:
-    python -m scripts.opnsense_config
+opnsense-render: tofu-render
 
-opnsense-check:
-    python -m scripts.opnsense_config --check
+opnsense-check: tofu-check
 
 opnsense-provider-options:
     python -m scripts.opnsense_config --provider-options

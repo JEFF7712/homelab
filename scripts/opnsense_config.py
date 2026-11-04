@@ -75,6 +75,7 @@ def synchronize(rendered: Path, root: Path, *, check: bool) -> list[str]:
             pending.append((target, content))
     if not check:
         for target, content in pending:
+            target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content)
     return [str(target.relative_to(root)) for target, _ in pending]
 

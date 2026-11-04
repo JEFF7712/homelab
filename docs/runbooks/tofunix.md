@@ -1,14 +1,18 @@
 # Tofunix configuration rendering
 
-Nix owns the switch and Cloudflare resource declarations. OpenTofu still owns
+Nix owns OPNsense, switch and Cloudflare resource declarations. OpenTofu still owns
 state, imports, plans and provider execution. Rendering never contacts production
-APIs or needs credentials. OPNsense keeps its existing `just opnsense-render`
-workflow, described in [OPNsense configuration](opnsense-configuration.md).
+APIs or needs credentials. `just tofu-render` and `just tofu-check` cover all
+stacks, shared fleet/DNS outputs, and the generated switch port map. The existing
+`just opnsense-render` and `just opnsense-check` names invoke these same unified
+commands. See [OPNsense configuration](opnsense-configuration.md) for owning sources.
 
 ## Sources and outputs
 
 | Source | Generated output |
 | --- | --- |
+| Shared inventory and `tofu/opnsense/` | OPNsense JSON, reconciler inputs and shared fleet/DNS/service outputs |
+| Switch port roles/endpoints and `tofu/switches/port-map.md.in` | `docs/network/switch-port-map.md` |
 | `tofu/switches/inventory.nix`, typed by `default.nix` | `tofu/switches/inventory.json` |
 | `tofu/switches/resources.nix`, `imports.nix` | `tofu/switches/main.tf.json` |
 | `tofu/cloudflare/resources.nix`, `personal-apps.nix`, `checks.nix` | `tofu/cloudflare/main.tf.json` |
@@ -16,8 +20,10 @@ workflow, described in [OPNsense configuration](opnsense-configuration.md).
 
 Run `just tofu-render` after changing Nix source, and commit generated outputs
 with it. Run `just tofu-check` to reject stale outputs. JSON comparisons ignore
-formatting and key order. Rendering validates the complete output set and switch
-runtime inventory before writing anything. CI repeats this check and builds
+formatting and key order. Rendering validates the complete output set, OPNsense inventory and switch
+runtime inventory before writing anything. A validation failure in either stack prevents
+writes to both. Port roles and cable endpoints are typed Nix metadata; they are
+excluded from `inventory.json`, which remains the worker data contract. CI repeats this check and builds
 `checks.tofu-types` and `checks.tofu-config`. Use the pinned `nix develop ./flake`
 environment for these commands and the focused tests.
 

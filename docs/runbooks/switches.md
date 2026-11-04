@@ -21,6 +21,27 @@ generated. Never edit either JSON output directly. See
 The worker consumes generated JSON with the existing provider settings,
 backend and lock file. Its source/blueprint digest checks are unchanged.
 
+## Read-only drift checks
+
+`switches-drift` runs the installed worker's plan operation on both switches,
+using the existing read-only backend identity and placeholder switch credentials.
+It never calls apply. It records `artifacts/switches/drift.json`, fails when either
+switch has changes, outstanding imports, an incomplete review or a check error,
+and continues to inspect the other switch after a failure.
+
+A failing run sends a bounded summary to the existing `homelab-alerts` ntfy topic.
+The notification distinguishes drift from inability to inspect a switch. A failed
+notification cannot make the drift operation pass. Do not automatically apply a
+drift report: inspect the plan and owning source through the normal workflow.
+Nightly enrollment is an exact-approval change to `SCHEDULES` in the CI policy.
+
+Port roles and cable endpoints live beside port settings in `inventory.nix`.
+They generate the [port map](../network/switch-port-map.md) and topology through
+`just tofu-render` and `just topology`. Runtime JSON excludes these metadata
+fields. Switch-to-switch cable references must be reciprocal, and no two ports
+may claim the same remote endpoint. Unverified OPNsense WAN/LAN assignments remain
+visible in the port map but are omitted as physical diagram edges.
+
 ## Plan and apply
 
 Initial activation changes CI authority and the state backend. Use

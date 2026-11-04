@@ -16,7 +16,7 @@ CoreDNS ordering is independent of the other resolver views. Enabled AdGuard
 and CoreDNS records must also appear in Unbound. Disabled records are omitted
 from CoreDNS. The two
 Unbound-only homelab VIP records remain outside the AdGuard rewrite view.
-`just opnsense-render` generates `inventory/adguard-rewrites.json` and
+`just tofu-render` generates `inventory/adguard-rewrites.json` and
 `opnsense_reconciler/unbound-host-overrides.json`, plus the exact CoreDNS
 manifest at `gitops/platform/coredns-custom.yaml`; never edit these outputs.
 The narrow renderer in `inventory/coredns.nix` preserves cache, fallthrough and
@@ -30,7 +30,7 @@ address; service ports remain in their owning modules.
 
 `inventory/service-manifests.nix` maps Forgejo to `nas-01` and Woodpecker
 and Approvals to `homelab-04`. It generates their existing Service/Endpoints
-manifest pairs under `gitops/cloudflare/` with `just opnsense-render`. Only
+manifest pairs under `gitops/cloudflare/` with `just tofu-render`. Only
 host addresses are derived; the renderer preserves service names, namespace,
 HTTP port names and existing ports (3000, 8000 and 8020). Listener configuration
 remains in the owning NixOS modules. CI checks these manifests for exact
@@ -59,7 +59,7 @@ ahead of the agent profiles to avoid kubelet/API-server version skew.
 1. Edit the host declaration in `inventory/hosts.nix`. Network changes belong
    in `inventory/networks.nix`. Hardware interface names and service-specific
    configuration stay in the owning NixOS profiles and modules.
-2. Run `just opnsense-render` and review any generated firewall changes.
+2. Run `just tofu-render` and review any generated firewall changes.
 3. Run `just check-changed` and `just fmt-check`. Shared inventory changes
    select the full validation gate. The flake's `fleet-inventory` check verifies
    host wiring, address membership, uniqueness, bootstrap membership, alias

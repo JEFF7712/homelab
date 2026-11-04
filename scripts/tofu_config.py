@@ -1,4 +1,4 @@
-"""Render typed switch/Cloudflare declarations and reject stale generated files."""
+"""Render and check all typed infrastructure declarations and documentation."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from scripts import opnsense_config
 from scripts.switches.model import validate_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,26 +22,53 @@ OUTPUTS = (
     "cloudflare-access/imports.tf.json",
 )
 
+TEXT_OUTPUTS = {"switches/port-map.md": "docs/network/switch-port-map.md"}
+
 
 def synchronize(rendered: Path, root: Path, *, check: bool) -> list[str]:
     # Validate everything before writing anything, including the independent
     # runtime switch identity and membership contract.
     values = {name: json.loads((rendered / name).read_text()) for name in OUTPUTS}
     validate_inventory(values["switches/inventory.json"])
+    texts = {name: (rendered / name).read_text() for name in TEXT_OUTPUTS}
     changed = []
     for name, value in values.items():
         target = root / "tofu" / name
         if target.exists() and json.loads(target.read_text()) == value:
             continue
         changed.append("tofu/" + name)
+    for source, target in TEXT_OUTPUTS.items():
+        path = root / target
+        if not path.exists() or path.read_text() != texts[source]:
+            changed.append(target)
     if not check:
         for name in changed:
+            if name in TEXT_OUTPUTS.values():
+                continue
             target = root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(
                 json.dumps(values[name.removeprefix("tofu/")], indent=2, sort_keys=True)
                 + "\n"
             )
+        for source, target in TEXT_OUTPUTS.items():
+            if target in changed:
+                path = root / target
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(texts[source])
+    return changed
+
+
+def synchronize_all(rendered: Path, root: Path, *, check: bool) -> list[str]:
+    # Plan both output sets before changing either. A failed inventory or a
+    # missing output must not leave the other stack partially rendered.
+    opnsense = rendered / "opnsense"
+    opnsense_config.validate(json.loads((opnsense / "inventory.json").read_text()))
+    changed = opnsense_config.synchronize(opnsense, root, check=True)
+    changed += synchronize(rendered, root, check=True)
+    if not check:
+        opnsense_config.synchronize(opnsense, root, check=False)
+        synchronize(rendered, root, check=False)
     return changed
 
 
@@ -158,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
                     text=True,
                 ).strip()
             )
-        changed = synchronize(rendered, args.root, check=args.check)
+        changed = synchronize_all(rendered, args.root, check=args.check)
         command = "just tofu-render"
     if args.check and changed:
         parser.exit(

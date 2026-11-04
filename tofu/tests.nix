@@ -34,6 +34,46 @@ let
       schema.description == ''Example: {"cf-access-client-secret": "<example>"}''
       && schema.nested.description == "Ordinary provider documentation"
       && schema.attributes.secret.type == "string";
+    missingCableSwitch = rejects (inventory {
+      switches.upstairs.ports."4".endpoint.node = lib.mkForce "switch-missing";
+    });
+    nonreciprocalCable = rejects (inventory {
+      switches.downstairs.ports."2".endpoint.interface = lib.mkForce "port5";
+    });
+    duplicateCableTarget = rejects (inventory {
+      switches.upstairs.ports."1".endpoint = lib.mkForce {
+        node = "nas-01";
+        interface = "switch-uplink";
+        uncertain = false;
+      };
+    });
+    metadataDoesNotChangeRuntime =
+      let
+        before = inventory { };
+        after = inventory { switches.upstairs.ports."8".role = lib.mkForce "Updated management label"; };
+        doc = import ./switches/documentation.nix {
+          inherit lib;
+          inventory = after;
+        };
+      in
+      before.runtime == after.runtime
+      && lib.hasInfix "Updated management label" doc
+      && !(after.runtime.switches.upstairs.ports."8" ? role);
+    declaredTopology =
+      let
+        nodes = import ./switches/topology.nix {
+          inherit lib;
+          inventory = inventory { };
+        };
+      in
+      nodes.switch-upstairs.interfaces.port4.physicalConnections == [
+        {
+          node = "switch-downstairs";
+          interface = "port2";
+        }
+      ]
+      && nodes.switch-upstairs.interfaces.port2.physicalConnections == [ ]
+      && nodes ? nas-01;
     validInventory = !rejects (inventory { });
     wrongPVIDType = rejects (inventory {
       switches.upstairs.ports."8".pvid = lib.mkForce "10";
