@@ -32,6 +32,8 @@ nix-eval-jobs --force-recurse --flake "$flake#" --select "$selection" \
   --workers "${CI_EVAL_WORKERS:-2}" --max-memory-size "${CI_EVAL_MAX_MEMORY_MB:-2048}" |
   python -m scripts.checks.flake_jobs || {
   rc=$?
-  nix log "$flake#checks.x86_64-linux.repository-contract" 2>/dev/null | tail -n 80
+  # The encoded JUnit attachment follows the traceback and can fill the tail.
+  nix log "$flake#checks.x86_64-linux.repository-contract" 2>/dev/null |
+    sed '/^CI_JUNIT_BEGIN$/,$d' | tail -n 80
   exit "$rc"
 }
