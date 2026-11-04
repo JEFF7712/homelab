@@ -1,7 +1,8 @@
 """Post a failing CI report to ntfy.
 
 Labels: `registry-drift` (a registry verify report) and `vip-dataplane` (an
-`opnsense_reconciler.dataplane --report` result). The report is the artifact of
+`opnsense_reconciler.dataplane --report` result), and `switch-drift` (the
+read-only managed-switch check). The report is the artifact of
 record; this only summarises it, using the same ntfy transport as
 `scripts.deploy_fleet` so failures reach one channel.
 """
@@ -108,7 +109,35 @@ def summarise_dataplane(report: dict) -> tuple[str, str]:
     return f"VIP data plane down: {len(unreachable)} unreachable", "\n".join(lines)
 
 
-SUMMARISERS = {"registry-drift": summarise, "vip-dataplane": summarise_dataplane}
+def summarise_switches(report: dict) -> tuple[str, str]:
+    switches = report.get("switches", {})
+    lines = []
+    for name in ("downstairs", "upstairs"):
+        result = switches.get(
+            name, {"status": "error", "errors": ["Missing switch result"]}
+        )
+        status = result.get("status", "error")
+        if status == "drift":
+            review = result.get("review", {})
+            lines.append(
+                f"{name}: drift ({len(review.get('changes', []))} setting change(s), {review.get('imports', 0)} outstanding import(s))"
+            )
+        elif status != "unchanged":
+            lines.append(f"{name}: check failed: {reason_for(result)}")
+    if not lines:
+        return "Switch drift: no changes", "Both switches match the declared inventory."
+    lines += [
+        "",
+        "Read-only check; no switch settings were applied. Inspect the protected CI report and docs/runbooks/switches.md.",
+    ]
+    return "Switch drift or check failure", "\n".join(lines)[:MAX_MESSAGE]
+
+
+SUMMARISERS = {
+    "registry-drift": summarise,
+    "vip-dataplane": summarise_dataplane,
+    "switch-drift": summarise_switches,
+}
 
 
 def main(argv: Sequence[str] | None = None) -> int:

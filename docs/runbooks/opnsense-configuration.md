@@ -14,7 +14,7 @@ pinned in `flake/flake.lock`.
    reference DHCP device keys through `devices` or static fleet keys through
    `hosts`, so addresses follow their authoritative declarations. See the
    [shared fleet inventory](fleet-inventory.md) for NixOS consumers and routing.
-2. Run `just opnsense-render`. It generates `tofu/opnsense/main.tf.json` and
+2. Run `just tofu-render`. It generates `tofu/opnsense/main.tf.json` and
    `opnsense_reconciler/assignments.json`, plus the deployer's
    `inventory/fleet.json`, `inventory/adguard-rewrites.json`, and
    `opnsense_reconciler/unbound-host-overrides.json`, and the CoreDNS manifest
@@ -22,7 +22,7 @@ pinned in `flake/flake.lock`.
    and Approvals Service/Endpoints pairs under `gitops/cloudflare/` from
    `inventory/service-manifests.nix`. Static DNS records belong
    in `inventory/dns.nix`. Commit changed outputs with the source.
-3. Run `just opnsense-check`, `just check-changed`, and `just fmt-check`.
+3. Run `just tofu-check`, `just check-changed`, and `just fmt-check`.
 4. Deliver through `just ship`. Inspect the protected refresh-only and desired
    plans before accepting a network change. Follow
    [recovery](opnsense-recovery.md) for changes that affect connectivity.

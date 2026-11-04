@@ -11,30 +11,55 @@
       firmware = "1.0.0 Build 20250710 Rel.71066";
       ports = {
         "1" = {
+          role = "ISP/modem handoff";
+          endpoint = {
+            node = "isp-handoff";
+            interface = "ethernet";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = 99;
         };
         "2" = {
+          role = "Upstairs wall trunk";
+          endpoint = {
+            node = "switch-upstairs";
+            interface = "port4";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = 1;
         };
         "3" = {
+          role = "Downstairs NETGEAR access point";
+          endpoint = {
+            node = "downstairs-ap";
+            interface = "uplink";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = networks.clients.tag;
         };
         "4" = {
+          role = "Living room NETGEAR cluster switch drop";
+          endpoint = {
+            node = "living-room-cluster";
+            interface = "uplink";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = networks.infrastructure.tag;
         };
         "5" = {
+          role = "Trusted-client spare";
           enabled = true;
           speed = "auto";
           flow_control = false;
@@ -81,48 +106,91 @@
       firmware = "1.0.0 Build 20250710 Rel.71093";
       ports = {
         "1" = {
+          role = "Unmanaged cluster access switch";
+          endpoint = {
+            node = "cluster-access";
+            interface = "uplink";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = networks.infrastructure.tag;
         };
         "2" = {
+          role = "OPNsense WAN NIC (port order unverified)";
+          endpoint = {
+            node = "opnsense";
+            interface = "wan-unverified";
+            uncertain = true;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = 99;
         };
         "3" = {
+          role = "OPNsense LAN NIC (port order unverified)";
+          endpoint = {
+            node = "opnsense";
+            interface = "lan-unverified";
+            uncertain = true;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = 1;
         };
         "4" = {
+          role = "Downstairs wall trunk";
+          endpoint = {
+            node = "switch-downstairs";
+            interface = "port2";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = 1;
         };
         "5" = {
+          role = "AdGuard and NetBird appliance";
+          endpoint = {
+            node = "adguard-netbird-01";
+            interface = "switch-uplink";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = networks.infrastructure.tag;
         };
         "6" = {
+          role = "NAS (nas-01)";
+          endpoint = {
+            node = "nas-01";
+            interface = "switch-uplink";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = networks.infrastructure.tag;
         };
         "7" = {
+          role = "Upstairs TP-Link RE505X access point";
+          endpoint = {
+            node = "upstairs-ap";
+            interface = "uplink";
+            uncertain = false;
+          };
           enabled = true;
           speed = "auto";
           flow_control = false;
           pvid = networks.clients.tag;
         };
         "8" = {
+          role = "Management access";
           enabled = true;
           speed = "auto";
           flow_control = false;

@@ -2792,5 +2792,46 @@
     "mutation": true,
     "agent": true,
     "prerequisite": ""
+  },
+  "switches-drift": {
+    "commands": [
+      "bash -e -c 'rc=0; python -m scripts.switches.ci drift || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify switch-drift artifacts/switches/drift.json || true; fi; exit \"$rc\"'"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "ssh_deploy_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "NTFY_TOPIC": "homelab-alerts",
+      "NTFY_TOKEN": {
+        "from_secret": "ntfy_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [],
+    "outputs": [
+      "artifacts/switches/drift.json"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
   }
 }

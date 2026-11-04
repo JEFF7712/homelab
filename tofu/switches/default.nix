@@ -7,6 +7,22 @@ let
   inherit (lib) mkOption types;
   port = types.submodule {
     options = {
+      role = mkOption { type = types.nonEmptyStr; };
+      endpoint = mkOption {
+        default = null;
+        type = types.nullOr (
+          types.submodule {
+            options = {
+              node = mkOption { type = types.strMatching "[a-z0-9-]+"; };
+              interface = mkOption { type = types.strMatching "[a-zA-Z0-9_-]+"; };
+              uncertain = mkOption {
+                type = types.bool;
+                default = false;
+              };
+            };
+          }
+        );
+      };
       enabled = mkOption { type = types.bool; };
       speed = mkOption {
         type = types.enum [
@@ -84,8 +100,58 @@ let
         builtins.elem (lib.toInt key) (group.tagged_ports ++ group.untagged_ports)
       ) cfg.ports
     );
+  endpoints = lib.concatLists (
+    lib.mapAttrsToList (
+      name: cfg:
+      lib.mapAttrsToList (key: port: {
+        node = "switch-${name}";
+        interface = "port${key}";
+        inherit (port) endpoint;
+      }) cfg.ports
+    ) inventory.switches
+  );
+  connections = builtins.filter (port: port.endpoint != null) endpoints;
+  validEndpoint =
+    port:
+    let
+      target = port.endpoint;
+      candidates = builtins.filter (
+        other: other.node == target.node && other.interface == target.interface
+      ) endpoints;
+    in
+    !(port.node == target.node && port.interface == target.interface)
+    && (
+      if lib.hasPrefix "switch-" target.node then
+        builtins.length candidates == 1
+        && (builtins.head candidates).endpoint != null
+        && (builtins.head candidates).endpoint.node == port.node
+        && (builtins.head candidates).endpoint.interface == port.interface
+      else
+        true
+    );
+  targets = map (port: "${port.endpoint.node}/${port.endpoint.interface}") connections;
+  runtime = inventory // {
+    switches = lib.mapAttrs (
+      _: cfg:
+      cfg
+      // {
+        ports = lib.mapAttrs (
+          _: port:
+          builtins.removeAttrs port [
+            "role"
+            "endpoint"
+          ]
+        ) cfg.ports;
+      }
+    ) inventory.switches;
+  };
+
 in
 assert lib.assertMsg (builtins.all validSwitch (
   builtins.attrValues inventory.switches
 )) "Invalid switch VLAN membership or PVID";
-inventory
+assert lib.assertMsg (
+  builtins.all validEndpoint connections
+  && builtins.length targets == builtins.length (lib.unique targets)
+) "Invalid, duplicate or nonreciprocal switch cable endpoint";
+inventory // { inherit runtime; }
