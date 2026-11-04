@@ -29,11 +29,14 @@ It never calls apply. It records `artifacts/switches/drift.json`, fails when eit
 switch has changes, outstanding imports, an incomplete review or a check error,
 and continues to inspect the other switch after a failure.
 
-A failing run sends a bounded summary to the existing `homelab-alerts` ntfy topic.
+`switches-drift-nightly` adds notifications to the same read-only check. A
+failing scheduled run sends a bounded summary to the existing `homelab-alerts` ntfy topic.
 The notification distinguishes drift from inability to inspect a switch. A failed
 notification cannot make the drift operation pass. Do not automatically apply a
 drift report: inspect the plan and owning source through the normal workflow.
-Nightly enrollment is an exact-approval change to `SCHEDULES` in the CI policy.
+The existing ntfy token is cron-only. Manual `switches-drift` runs require no
+notification credential and report failures in CI. Nightly enrollment is an
+exact-approval change to `SCHEDULES` in the CI policy.
 
 Port roles and cable endpoints live beside port settings in `inventory.nix`.
 They generate the [port map](../network/switch-port-map.md) and topology through

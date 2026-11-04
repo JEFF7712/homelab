@@ -109,9 +109,23 @@ class SwitchDriftTest(unittest.TestCase):
                     {"unchanged" if valid else "error"},
                 )
 
+    def test_manual_check_needs_no_cron_only_notification_secret(self) -> None:
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        manual = catalog["switches-drift"]
+        nightly = catalog["switches-drift-nightly"]
+        self.assertNotIn("NTFY_TOKEN", manual["environment"])
+        self.assertNotIn("NTFY_TOPIC", manual["environment"])
+        self.assertEqual(
+            nightly["environment"]["NTFY_TOKEN"], {"from_secret": "ntfy_token"}
+        )
+        for operation in (manual, nightly):
+            self.assertFalse(operation["mutation"])
+            self.assertEqual(operation["environment"]["TF_HTTP_USERNAME"], "plan")
+            self.assertEqual(operation["needs"], [])
+
     def test_notification_success_or_failure_cannot_hide_drift_exit(self) -> None:
         spec = json.loads((ROOT / "config/ci/operations.json").read_text())[
-            "switches-drift"
+            "switches-drift-nightly"
         ]
         self.assertFalse(spec["mutation"])
         for drift_status, notify_status in ((0, 0), (1, 0), (1, 5)):
