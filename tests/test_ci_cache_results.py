@@ -140,7 +140,7 @@ class CacheResultsTest(unittest.TestCase):
                     else:
                         self.assertEqual(
                             set(receipt.read_text().splitlines()),
-                            {f"/nix/store/system{i}" for i in range(24)}
+                            {f"/nix/store/system{i}" for i in range(26)}
                             | {"/nix/store/source", "/nix/store/build-input"},
                         )
 
