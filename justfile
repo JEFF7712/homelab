@@ -76,6 +76,8 @@ cache-populate:
       ./flake#checks.x86_64-linux.niks3-cache-service \
       ./flake#checks.x86_64-linux.opnsense-types \
       ./flake#checks.x86_64-linux.opnsense-config \
+      ./flake#checks.x86_64-linux.tofu-types \
+      ./flake#checks.x86_64-linux.tofu-config \
       ./flake#checks.x86_64-linux.fleet-inventory \
       ./flake#checks.x86_64-linux.kiosk-tty1 \
       ./flake#checks.x86_64-linux.kernel-modules-aggregation \
