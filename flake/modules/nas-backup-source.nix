@@ -49,7 +49,7 @@
         ${pkgs.coreutils}/bin/chmod 0640 "$TEMP_FILE"
         ${pkgs.coreutils}/bin/chown forgejo:forgejo "$TEMP_FILE"
         ${pkgs.coreutils}/bin/mv -f "$TEMP_FILE" "$DUMP_FILE"
-        ${pkgs.coreutils}/bin/ln -sf "$DUMP_FILE" "$BACKUP_DIR/forgejo-latest.sqlite"
+        ${pkgs.coreutils}/bin/ln -sf "forgejo-$STAMP.sqlite" "$BACKUP_DIR/forgejo-latest.sqlite"
         ${pkgs.findutils}/bin/find "$BACKUP_DIR" -name 'forgejo-*.sqlite' -mtime +14 -delete
       '';
     };

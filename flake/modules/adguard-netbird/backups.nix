@@ -258,10 +258,15 @@ in
       pkgs.restic
       pkgs.openssh
     ];
+    environment = {
+      XDG_CACHE_HOME = "/var/cache/immich-external-backup";
+      HOME = "/var/cache/immich-external-backup";
+    };
     serviceConfig = {
       Type = "oneshot";
       TimeoutStartSec = "4h";
       ExecStart = backupScript;
+      CacheDirectory = "immich-external-backup";
       LoadCredential = [
         "password:${config.sops.secrets.backup-restic-password.path}"
         "ssh_key:${config.sops.secrets.backup-reader-ssh-key.path}"
@@ -288,10 +293,15 @@ in
       pkgs.gawk
       pkgs.restic
     ];
+    environment = {
+      XDG_CACHE_HOME = "/var/cache/immich-external-backup";
+      HOME = "/var/cache/immich-external-backup";
+    };
     serviceConfig = {
       Type = "oneshot";
       TimeoutStartSec = "2h";
       ExecStart = pruneScript;
+      CacheDirectory = "immich-external-backup";
       LoadCredential = [
         "password:${config.sops.secrets.backup-restic-password.path}"
       ];
@@ -316,10 +326,15 @@ in
       pkgs.coreutils
       pkgs.restic
     ];
+    environment = {
+      XDG_CACHE_HOME = "/var/cache/immich-external-backup";
+      HOME = "/var/cache/immich-external-backup";
+    };
     serviceConfig = {
       Type = "oneshot";
       TimeoutStartSec = "2h";
       ExecStart = checkScript;
+      CacheDirectory = "immich-external-backup";
       LoadCredential = [
         "password:${config.sops.secrets.backup-restic-password.path}"
       ];
