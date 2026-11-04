@@ -14,6 +14,7 @@ in
     ./adguard-netbird/roku-bridge.nix
     ./adguard-netbird/roku-cloud-bridge.nix
     ./adguard-netbird/ledfx-roku-bridge.nix
+    ./adguard-netbird/backups.nix
   ];
 
   boot = {
@@ -112,6 +113,7 @@ in
     "d /var/lib/private 0700 root root -"
     "d /persist/etc/ssh 0700 root root -"
     "d /persist/secrets 0700 root root -"
+    "d /var/lib/node-exporter-textfile 0755 root root -"
   ];
 
   environment.persistence."/persist" = {
@@ -139,9 +141,11 @@ in
     enabledCollectors = [
       "filesystem"
       "systemd"
+      "textfile"
     ];
     extraFlags = [
-      "--collector.systemd.unit-include=(adguardhome|netbird|roku-bridge|ledfx-roku-bridge|mosquitto)\\.(service|timer)"
+      "--collector.systemd.unit-include=(adguardhome|netbird|roku-bridge|ledfx-roku-bridge|mosquitto|immich-external-backup.*)\\.(service|timer)"
+      "--collector.textfile.directory=/var/lib/node-exporter-textfile"
     ];
   };
 }
