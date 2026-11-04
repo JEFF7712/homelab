@@ -59,9 +59,14 @@ spec:
               # Avoid libtorrent mmap retaining gigabytes of active file pages.
               # Replace the managed key only inside its Qt INI section.
               sed -i '/^Session\\DiskIOType=/d' "$CONF"
+              # Never auto-stop private tracker torrents on a global knife-edge timer.
+              sed -i '/^Session\\GlobalMaxRatio=/d' "$CONF"
+              sed -i '/^Session\\GlobalMaxSeedingMinutes=/d' "$CONF"
               if ! grep -q '^\[BitTorrent\]$' "$CONF"; then
                 printf '\n[BitTorrent]\n' >> "$CONF"
               fi
+              sed -i '/^\[BitTorrent\]$/a Session\\GlobalMaxSeedingMinutes=-1' "$CONF"
+              sed -i '/^\[BitTorrent\]$/a Session\\GlobalMaxRatio=-1' "$CONF"
               sed -i '/^\[BitTorrent\]$/a Session\\DiskIOType=SimplePreadPwrite' "$CONF"
           volumeMounts:
             - name: qbit-config
