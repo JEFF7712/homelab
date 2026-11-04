@@ -96,6 +96,15 @@ topology:
     mkdir -p artifacts
     nix build --no-write-lock-file './flake#topology' --out-link artifacts/topology
 
+tofu-render:
+    python -m scripts.tofu_config
+
+tofu-check:
+    python -m scripts.tofu_config --check
+
+tofu-provider-options:
+    python -m scripts.tofu_config --provider-options
+
 opnsense-render:
     python -m scripts.opnsense_config
 

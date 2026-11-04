@@ -32,7 +32,7 @@ from scripts.switches.model import (
 )
 
 STATE_BASE = "https://s3.internal:3902/state/switches-"
-BLUEPRINT_FILES = ("main.tf", "backend.tf", ".terraform.lock.hcl")
+BLUEPRINT_FILES = ("main.tf.json", "providers.tf", "backend.tf", ".terraform.lock.hcl")
 
 
 def blueprint_digest(root: Path) -> str:

@@ -10,7 +10,7 @@ next apply.
 - Name: `homelab`
 - ID: `0f08d8c5-6f2c-409e-ba80-dc0601e0227e`
 - Config source: Cloudflare remote configuration (`config_src=cloudflare`; checked
-  2026-09-23), but the desired state is git: `tofu/cloudflare/main.tf` decodes
+  2026-09-23), but the desired state is git: `tofu/cloudflare/main.tf.json` decodes
   `gitops/cloudflare/ingress-config.yaml` and pushes it. The dashboard is a
   read-back of that, not an input.
 - Connectors: 2 replicas from `gitops/cloudflare/tunnel.yaml` (`cloudflared 2026.8.3`)
@@ -108,10 +108,16 @@ Removed 2026-09-22 (dead origins; no such Services in-cluster, verified via `kub
 - `api.rupan.dev -> http://rupan-api:9000`
 - `homelab.rupan.dev -> http://homelab-api:9200`
 
+The tunnel/WAF resource configuration is authored in
+`tofu/cloudflare/resources.nix` and rendered by `just tofu-render` through
+Tofunix. Country-restricted hostnames live in `personal-apps.nix`. The generated
+`main.tf.json` continues to decode the ConfigMap at OpenTofu runtime; ingress
+order, path matches and the trailing catch-all retain their existing owner.
+
 ## Adding a hostname
 
 The rule list lives in exactly one place, `gitops/cloudflare/ingress-config.yaml`.
-`tofu/cloudflare/main.tf` decodes it with `yamldecode` and pushes it, so there is
+`tofu/cloudflare/main.tf.json` decodes it with `yamldecode` and pushes it, so there is
 no second copy to keep in parity. The ConfigMap the connector pods mount is the
 same file; Reloader restarting the pods on a change is harmless and does not
 affect remote ingress.
@@ -147,7 +153,7 @@ If the stack is ever re-imported, `cloudflare-import` imports
 `-detailed-exitcode`. Anything other than exit 0 means the imported state and
 git disagree; reconcile by hand rather than applying, because this one resource
 is the entire public edge of the cluster. A permanent `originRequest` diff means
-the provider fills defaults the mirror does not set; fix that in `main.tf`'s
+the provider fills defaults the mirror does not set; fix that in `resources.nix`'s
 `ingress` local, not in the dashboard.
 
 Woodpecker secrets: `cloudflare_account_id`, `cloudflare_plan_api_token` (plan)
@@ -158,7 +164,7 @@ declaration additionally requires zone permissions described below.
 
 ## US-only personal apps
 
-`tofu/cloudflare/waf.tf` declares a custom WAF rule in the `rupan.dev` zone's
+`tofu/cloudflare/resources.nix` declares a custom WAF rule in the `rupan.dev` zone's
 `http_request_firewall_custom` entry point. Its explicit 26-host set covers
 personal media, sync, Home Assistant, dashboards and controls. It blocks when
 `ip.src.country ne "US"`, including unknown geography. It does not grant a WAF

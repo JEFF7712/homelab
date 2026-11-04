@@ -167,7 +167,8 @@
     {
       "name": "switch-runtime",
       "paths": [
-        "tofu/switches/main.tf",
+        "tofu/switches/main.tf.json",
+        "tofu/switches/providers.tf",
         "tofu/switches/backend.tf",
         "tofu/switches/.terraform.lock.hcl",
         "scripts/switches/model.py",
