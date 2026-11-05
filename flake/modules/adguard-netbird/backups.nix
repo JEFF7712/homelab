@@ -45,10 +45,16 @@ let
           fail "Another external backup operation (backup, prune, or check) is currently running"
         fi
 
-        if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-prune.service; then
+        is_unit_running() {
+          local state
+          state=$(${pkgs.systemd}/bin/systemctl show -p ActiveState --value "$1" 2>/dev/null || true)
+          [ "$state" = "active" ] || [ "$state" = "activating" ]
+        }
+
+        if is_unit_running immich-external-backup-prune.service; then
           fail "Pruning service is currently active; aborting backup"
         fi
-        if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-check.service; then
+        if is_unit_running immich-external-backup-check.service; then
           fail "Integrity check service is currently active; aborting backup"
         fi
 
@@ -88,6 +94,7 @@ let
 
         ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.20:/tank "$MOUNT_DIR" \
           -o ro,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
+          -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
           -o StrictHostKeyChecking=accept-new
 
@@ -171,6 +178,7 @@ let
 
         RC=0
         ${pkgs.restic}/bin/restic backup \
+          --group-by host,tags \
           --tag immich \
           --tag databases \
           --tag forgejo \
@@ -200,11 +208,17 @@ let
       exit 1
     fi
 
-    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup.service; then
+    is_unit_running() {
+      local state
+      state=$(${pkgs.systemd}/bin/systemctl show -p ActiveState --value "$1" 2>/dev/null || true)
+      [ "$state" = "active" ] || [ "$state" = "activating" ]
+    }
+
+    if is_unit_running immich-external-backup.service; then
       echo "Refusing to prune: immich-external-backup.service is currently running" >&2
       exit 1
     fi
-    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-check.service; then
+    if is_unit_running immich-external-backup-check.service; then
       echo "Refusing to prune: immich-external-backup-check.service is currently running" >&2
       exit 1
     fi
@@ -251,6 +265,7 @@ let
 
     ${pkgs.restic}/bin/restic unlock || true
     ${pkgs.restic}/bin/restic forget \
+      --group-by host,tags \
       --keep-last 3 \
       --keep-daily 14 \
       --keep-weekly 8 \
@@ -268,11 +283,17 @@ let
       exit 1
     fi
 
-    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup.service; then
+    is_unit_running() {
+      local state
+      state=$(${pkgs.systemd}/bin/systemctl show -p ActiveState --value "$1" 2>/dev/null || true)
+      [ "$state" = "active" ] || [ "$state" = "activating" ]
+    }
+
+    if is_unit_running immich-external-backup.service; then
       echo "Refusing to check: immich-external-backup.service is currently running" >&2
       exit 1
     fi
-    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-prune.service; then
+    if is_unit_running immich-external-backup-prune.service; then
       echo "Refusing to check: immich-external-backup-prune.service is currently running" >&2
       exit 1
     fi
