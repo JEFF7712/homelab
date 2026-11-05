@@ -1,0 +1,10 @@
+# Inventory-only source references; not applied by Kustomize.
+# Import/verify these locked manifests before changing the running operator or databases.
+apiVersion: v1
+kind: List
+metadata:
+  name: cnpg-registry-sources
+items:
+  - image: ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e  # yamllint disable-line rule:line-length
+  - image: ghcr.io/tensorchord/cloudnative-vectorchord:16@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236  # yamllint disable-line rule:line-length
+  - image: ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07  # yamllint disable-line rule:line-length
