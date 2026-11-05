@@ -219,7 +219,7 @@ spec:
             description: "Drive {{ $labels.device }} on {{ $labels.host }} reported failing SMART status."
 
         - alert: SmartDeviceTemperatureHigh
-          expr: smartctl_device_temperature > 60
+          expr: smartctl_device_temperature{temperature_type="current"} > 60
           for: 10m
           labels:
             severity: warning
@@ -228,7 +228,7 @@ spec:
             description: "Drive {{ $labels.device }} temperature is {{ $value }}C on {{ $labels.host }}."
 
         - alert: SmartDeviceTemperatureCritical
-          expr: smartctl_device_temperature > 70
+          expr: smartctl_device_temperature{temperature_type="current"} > 70
           for: 5m
           labels:
             severity: critical
