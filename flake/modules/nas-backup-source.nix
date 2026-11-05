@@ -39,30 +39,50 @@
       User = "forgejo";
       Group = "forgejo";
       ExecStart = pkgs.writeShellScript "forgejo-db-dump" ''
-        set -euo pipefail
-        BACKUP_DIR="/tank/forgejo/backups"
-        ${pkgs.coreutils}/bin/install -d -m 0750 -o forgejo -g forgejo "$BACKUP_DIR"
-        STAMP=$(${pkgs.coreutils}/bin/date +%Y%m%d)
-        DUMP_FILE="$BACKUP_DIR/forgejo-$STAMP.sqlite"
-        TEMP_FILE="$BACKUP_DIR/forgejo-$STAMP.tmp.sqlite"
-        ${pkgs.sqlite}/bin/sqlite3 /persist/forgejo/data/forgejo.db ".backup $TEMP_FILE"
-        ${pkgs.coreutils}/bin/chmod 0640 "$TEMP_FILE"
-        ${pkgs.coreutils}/bin/chown forgejo:forgejo "$TEMP_FILE"
-        ${pkgs.coreutils}/bin/mv -f "$TEMP_FILE" "$DUMP_FILE"
-        ${pkgs.coreutils}/bin/ln -sf "forgejo-$STAMP.sqlite" "$BACKUP_DIR/forgejo-latest.sqlite"
-        ${pkgs.findutils}/bin/find "$BACKUP_DIR" -name 'forgejo-*.sqlite' -mtime +14 -delete
+                set -euo pipefail
+                BACKUP_DIR="/tank/forgejo/backups"
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o forgejo -g forgejo "$BACKUP_DIR"
+                STAMP=$(${pkgs.coreutils}/bin/date +%Y%m%d)
+                DUMP_FILE="$BACKUP_DIR/forgejo-$STAMP.sqlite"
+                TEMP_FILE="$BACKUP_DIR/forgejo-$STAMP.tmp.sqlite"
+                ${pkgs.sqlite}/bin/sqlite3 /persist/forgejo/data/forgejo.db ".backup $TEMP_FILE"
+                ${pkgs.coreutils}/bin/chmod 0640 "$TEMP_FILE"
+                ${pkgs.coreutils}/bin/chown forgejo:forgejo "$TEMP_FILE"
+                ${pkgs.coreutils}/bin/mv -f "$TEMP_FILE" "$DUMP_FILE"
+                ${pkgs.coreutils}/bin/ln -sf "forgejo-$STAMP.sqlite" "$BACKUP_DIR/forgejo-latest.sqlite"
+                ${pkgs.findutils}/bin/find "$BACKUP_DIR" -name 'forgejo-*.sqlite' -mtime +14 -delete
 
-        # Stage non-database state (attachments, avatars, jwt, ssh keys, config)
-        STATE_DIR="$BACKUP_DIR/state"
-        ${pkgs.coreutils}/bin/install -d -m 0750 -o forgejo -g forgejo "$STATE_DIR"
-        for item in attachments avatars jwt ssh; do
-          if [ -d "/persist/forgejo/data/$item" ]; then
-            ${pkgs.coreutils}/bin/cp -a "/persist/forgejo/data/$item" "$STATE_DIR/"
-          fi
-        done
-        if [ -d "/persist/forgejo/conf" ]; then
-          ${pkgs.coreutils}/bin/cp -a "/persist/forgejo/conf" "$STATE_DIR/"
-        fi
+                # Stage non-database state (attachments, avatars, jwt, ssh keys, config)
+                STATE_DIR="$BACKUP_DIR/state"
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o forgejo -g forgejo "$STATE_DIR"
+                for item in attachments avatars jwt ssh; do
+                  if [ -d "/persist/forgejo/data/$item" ]; then
+                    ${pkgs.coreutils}/bin/cp -a "/persist/forgejo/data/$item" "$STATE_DIR/"
+                  fi
+                done
+                if [ -d "/persist/forgejo/conf" ]; then
+                  ${pkgs.coreutils}/bin/cp -a "/persist/forgejo/conf" "$STATE_DIR/"
+                fi
+
+                # Write cycle manifest atomically for backup freshness verification
+                CYCLE=$(${pkgs.coreutils}/bin/date +%Y%m%d)
+                TIMESTAMP=$(${pkgs.coreutils}/bin/date +%s)
+                DUMP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$DUMP_FILE")
+                MANIFEST_TMP="$BACKUP_DIR/backup-manifest.json.tmp"
+                MANIFEST="$BACKUP_DIR/backup-manifest.json"
+                ${pkgs.coreutils}/bin/cat <<EOF > "$MANIFEST_TMP"
+        {
+          "job": "forgejo-backup-dump",
+          "cycle": "$CYCLE",
+          "timestamp": $TIMESTAMP,
+          "status": "success",
+          "database_file": "forgejo-$STAMP.sqlite",
+          "database_bytes": $DUMP_SIZE
+        }
+        EOF
+                ${pkgs.coreutils}/bin/chmod 0640 "$MANIFEST_TMP"
+                ${pkgs.coreutils}/bin/chown forgejo:forgejo "$MANIFEST_TMP"
+                ${pkgs.coreutils}/bin/mv -f "$MANIFEST_TMP" "$MANIFEST"
       '';
     };
   };
@@ -81,48 +101,84 @@
     after = [
       "tofu-state.service"
       "tank.mount"
+      "tank-cluster.mount"
     ];
     unitConfig.RequiresMountsFor = [
       "/tank"
       "/persist"
+      "/tank/cluster"
+    ];
+    path = [
+      pkgs.coreutils
+      pkgs.sqlite
+      pkgs.zfs
     ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "platform-state-backup-dump" ''
-        set -euo pipefail
-        BACKUP_DIR="/tank/backups/platform-state"
-        ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$BACKUP_DIR"
+                set -euo pipefail
+                BACKUP_DIR="/tank/backups/platform-state"
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$BACKUP_DIR"
 
-        # 1. OpenTofu state safe SQLite backup
-        TOFU_DIR="$BACKUP_DIR/tofu-state"
-        ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$TOFU_DIR"
-        if [ -f /persist/tofu-state/state.sqlite ]; then
-          ${pkgs.sqlite}/bin/sqlite3 /persist/tofu-state/state.sqlite ".backup $TOFU_DIR/state.sqlite.tmp"
-          ${pkgs.coreutils}/bin/mv -f "$TOFU_DIR/state.sqlite.tmp" "$TOFU_DIR/state.sqlite"
-        fi
+                # 1. OpenTofu state safe SQLite backup
+                TOFU_DIR="$BACKUP_DIR/tofu-state"
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$TOFU_DIR"
+                if [ -f /persist/tofu-state/state.sqlite ]; then
+                  ${pkgs.sqlite}/bin/sqlite3 /persist/tofu-state/state.sqlite ".backup $TOFU_DIR/state.sqlite.tmp"
+                  ${pkgs.coreutils}/bin/mv -f "$TOFU_DIR/state.sqlite.tmp" "$TOFU_DIR/state.sqlite"
+                fi
 
-        # 2. Garage metadata
-        GARAGE_DIR="$BACKUP_DIR/garage"
-        ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$GARAGE_DIR"
-        if [ -d /persist/garage ]; then
-          ${pkgs.coreutils}/bin/cp -a /persist/garage/* "$GARAGE_DIR/" 2>/dev/null || true
-        fi
+                # 2. Garage metadata
+                GARAGE_DIR="$BACKUP_DIR/garage"
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$GARAGE_DIR"
+                if [ -d /persist/garage ]; then
+                  ${pkgs.coreutils}/bin/cp -a /persist/garage/* "$GARAGE_DIR/" 2>/dev/null || true
+                fi
 
-        # 3. ZFS encryption keys and SSH host key
-        KEYS_DIR="$BACKUP_DIR/keys"
-        ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$KEYS_DIR"
-        if [ -d /persist/keys ]; then
-          ${pkgs.coreutils}/bin/cp -a /persist/keys/* "$KEYS_DIR/" 2>/dev/null || true
-        fi
-        if [ -f /persist/secrets/registry-auth.json ]; then
-          ${pkgs.coreutils}/bin/cp -a /persist/secrets/registry-auth.json "$KEYS_DIR/"
-        fi
-        if [ -f /persist/etc/ssh/ssh_host_ed25519_key ]; then
-          ${pkgs.coreutils}/bin/cp -a /persist/etc/ssh/ssh_host_ed25519_key "$KEYS_DIR/nas-01-ssh_host_ed25519_key"
-        fi
+                # 3. ZFS encryption keys and SSH host key
+                KEYS_DIR="$BACKUP_DIR/keys"
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g backup-reader "$KEYS_DIR"
+                if [ -d /persist/keys ]; then
+                  ${pkgs.coreutils}/bin/cp -a /persist/keys/* "$KEYS_DIR/" 2>/dev/null || true
+                fi
+                if [ -f /persist/secrets/registry-auth.json ]; then
+                  ${pkgs.coreutils}/bin/cp -a /persist/secrets/registry-auth.json "$KEYS_DIR/"
+                fi
+                if [ -f /persist/etc/ssh/ssh_host_ed25519_key ]; then
+                  ${pkgs.coreutils}/bin/cp -a /persist/etc/ssh/ssh_host_ed25519_key "$KEYS_DIR/nas-01-ssh_host_ed25519_key"
+                fi
 
-        ${pkgs.coreutils}/bin/chown -R root:backup-reader "$BACKUP_DIR"
-        ${pkgs.coreutils}/bin/chmod -R g+rX "$BACKUP_DIR"
+                # 4. Transactionally consistent frozen ZFS snapshot of /tank/cluster
+                if ${pkgs.zfs}/bin/zfs list -t snapshot tank/cluster@backup-nightly >/dev/null 2>&1; then
+                  ${pkgs.zfs}/bin/zfs destroy tank/cluster@backup-nightly
+                fi
+                ${pkgs.zfs}/bin/zfs snapshot tank/cluster@backup-nightly
+
+                # 5. Write cycle manifest atomically for backup freshness verification
+                CYCLE=$(${pkgs.coreutils}/bin/date +%Y%m%d)
+                TIMESTAMP=$(${pkgs.coreutils}/bin/date +%s)
+                TOFU_SIZE=0
+                if [ -f "$TOFU_DIR/state.sqlite" ]; then
+                  TOFU_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$TOFU_DIR/state.sqlite")
+                fi
+                MANIFEST_TMP="$BACKUP_DIR/backup-manifest.json.tmp"
+                MANIFEST="$BACKUP_DIR/backup-manifest.json"
+                ${pkgs.coreutils}/bin/cat <<EOF > "$MANIFEST_TMP"
+        {
+          "job": "platform-state-backup-dump",
+          "cycle": "$CYCLE",
+          "timestamp": $TIMESTAMP,
+          "status": "success",
+          "zfs_snapshot": "tank/cluster@backup-nightly",
+          "tofu_state_bytes": $TOFU_SIZE
+        }
+        EOF
+                ${pkgs.coreutils}/bin/chmod 0640 "$MANIFEST_TMP"
+                ${pkgs.coreutils}/bin/chown root:backup-reader "$MANIFEST_TMP"
+                ${pkgs.coreutils}/bin/mv -f "$MANIFEST_TMP" "$MANIFEST"
+
+                ${pkgs.coreutils}/bin/chown -R root:backup-reader "$BACKUP_DIR"
+                ${pkgs.coreutils}/bin/chmod -R g+rX "$BACKUP_DIR"
       '';
     };
   };
