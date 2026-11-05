@@ -14,6 +14,9 @@
         "domain": "approvals.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "approvals",
         "options_preflight_bypass": false,
         "policies": [
@@ -23,10 +26,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_arcade_controller": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -41,6 +41,9 @@
         "domain": "arcade.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Arcade controller",
         "options_preflight_bypass": false,
         "policies": [
@@ -50,10 +53,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_flux_webhook": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -68,6 +68,9 @@
         "domain": "flux-wh-33b0c8004348.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Flux webhook",
         "options_preflight_bypass": false,
         "policies": [
@@ -77,10 +80,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_home_assistant": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -95,6 +95,9 @@
         "domain": "ha.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Home Assistant",
         "options_preflight_bypass": false,
         "policies": [
@@ -104,10 +107,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_music_assistant_and_ledfx": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -117,16 +117,15 @@
           {
             "type": "public",
             "uri": "ma.rupan.dev"
-          },
-          {
-            "type": "public",
-            "uri": "ledfx.rupan.dev"
           }
         ],
         "domain": "ma.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
-        "name": "Bypass - Music Assistant and LedFx",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
+        "name": "Bypass - Music Assistant",
         "options_preflight_bypass": false,
         "policies": [
           {
@@ -135,10 +134,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_music_sync_and_tools": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -169,6 +165,9 @@
         "domain": "music.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": false,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Music, sync and tools",
         "options_preflight_bypass": false,
         "policies": [
@@ -178,10 +177,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_notes_and_project_sites": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -212,6 +208,9 @@
         "domain": "rupanism.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": false,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Notes and project sites",
         "options_preflight_bypass": false,
         "policies": [
@@ -221,10 +220,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_photos_files_and_dashboards": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -255,6 +251,9 @@
         "domain": "books.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": false,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Photos, files and dashboards",
         "options_preflight_bypass": false,
         "policies": [
@@ -264,10 +263,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_requests_and_music_tools": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -298,6 +294,9 @@
         "domain": "apptly.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Requests and music tools",
         "options_preflight_bypass": false,
         "policies": [
@@ -307,10 +306,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_tally_tracker_endpoints": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -329,6 +325,9 @@
         "domain": "tally.rupan.dev/t.js",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Tally tracker endpoints",
         "options_preflight_bypass": false,
         "policies": [
@@ -338,10 +337,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_uwagent": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -356,6 +352,9 @@
         "domain": "uwagent.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - UWagent",
         "options_preflight_bypass": false,
         "policies": [
@@ -365,10 +364,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_websites_and_automation": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -411,6 +407,9 @@
         "domain": "demo.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Websites and automation",
         "options_preflight_bypass": false,
         "policies": [
@@ -420,10 +419,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "bypass_woodpecker_ci": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -438,6 +434,9 @@
         "domain": "ci.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Bypass - Woodpecker CI",
         "options_preflight_bypass": false,
         "policies": [
@@ -447,10 +446,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "default": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -465,6 +461,9 @@
         "domain": "*.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": false,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "*",
         "options_preflight_bypass": false,
         "policies": [
@@ -474,10 +473,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "forgejo": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -492,6 +488,9 @@
         "domain": "git.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "forgejo",
         "options_preflight_bypass": false,
         "policies": [
@@ -501,10 +500,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "games": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -522,6 +518,9 @@
         "domain": "games.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": false,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "games",
         "options_preflight_bypass": false,
         "policies": [
@@ -531,10 +530,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "grafana_oidc": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -545,6 +541,9 @@
         "app_launcher_visible": true,
         "auto_redirect_to_identity": false,
         "domain": "rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/a3ecc26035113025380ef4894c0fd69740739507d6b73e75c849c7ad29ab16a8",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Grafana OIDC",
         "policies": [
           {
@@ -570,10 +569,7 @@
           ]
         },
         "session_duration": "24h",
-        "type": "saas",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "saas"
       },
       "immich_oidc": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -584,6 +580,9 @@
         "app_launcher_visible": true,
         "auto_redirect_to_identity": false,
         "domain": "rupan.cloudflareaccess.com/cdn-cgi/access/sso/oidc/788ef25d0a3b1074d0dbe1e635cbbe8f237901415f822d2f9ac9184e470fb6c0",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Immich OIDC",
         "policies": [
           {
@@ -610,10 +609,7 @@
           ]
         },
         "session_duration": "24h",
-        "type": "saas",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "saas"
       },
       "sovereign": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -628,6 +624,9 @@
         "domain": "sovereign.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "sovereign",
         "options_preflight_bypass": false,
         "policies": [
@@ -637,10 +636,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "tally_owner_dashboard": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
@@ -655,6 +651,9 @@
         "domain": "tally.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Tally - owner dashboard",
         "options_preflight_bypass": false,
         "policies": [
@@ -664,15 +663,15 @@
           }
         ],
         "session_duration": "24h",
-        "type": "self_hosted",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "self_hosted"
       },
       "warp_login_app": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
         "auto_redirect_to_identity": false,
         "domain": "rupan.cloudflareaccess.com/warp",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
         "name": "Warp Login App",
         "policies": [
           {
@@ -681,10 +680,7 @@
           }
         ],
         "session_duration": "24h",
-        "type": "warp",
-        "lifecycle": {
-          "prevent_destroy": true
-        }
+        "type": "warp"
       }
     }
   }

@@ -105,15 +105,11 @@
           type = "public";
           uri = "ma.rupan.dev";
         }
-        {
-          type = "public";
-          uri = "ledfx.rupan.dev";
-        }
       ];
       domain = "ma.rupan.dev";
       enable_binding_cookie = false;
       http_only_cookie_attribute = true;
-      name = "Bypass - Music Assistant and LedFx";
+      name = "Bypass - Music Assistant";
       options_preflight_bypass = false;
       policies = [
         {

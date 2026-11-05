@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import fnmatch
 import io
 import json
 import tempfile
@@ -16,6 +17,7 @@ from scripts.cloudflare.access import (
     POLICY,
     TRACKER_PATHS,
     inventory_errors,
+    owner_only,
     list_access,
     validate_plan,
 )
@@ -267,6 +269,41 @@ class AccessInventoryTest(unittest.TestCase):
             self.assertRaises(ValueError),
         ):
             list_access("apps")
+
+
+class DeclaredLightingAccessTest(unittest.TestCase):
+    def test_ledfx_inherits_owner_login_without_a_public_override(self) -> None:
+        applications = json.loads(
+            (ROOT / "tofu/cloudflare-access/applications.tf.json").read_text()
+        )["resource"][APPLICATION]
+        matching = [
+            application
+            for application in applications.values()
+            if any(
+                fnmatch.fnmatchcase(
+                    "ledfx.rupan.dev", destination["uri"].split("/", 1)[0]
+                )
+                for destination in application.get("destinations", [])
+                if destination.get("type") == "public"
+            )
+        ]
+        self.assertEqual(
+            len(matching), 1, "LedFx must have no application overriding owner wildcard"
+        )
+        self.assertEqual(matching[0]["domain"], "*.rupan.dev")
+        self.assertEqual(
+            matching[0]["policies"],
+            [
+                {
+                    "id": "${cloudflare_zero_trust_access_policy.main_rupan.id}",
+                    "precedence": 1,
+                }
+            ],
+        )
+        policies = json.loads(
+            (ROOT / "tofu/cloudflare-access/policies.tf.json").read_text()
+        )["resource"][POLICY]
+        self.assertTrue(owner_only([policies["main_rupan"]]))
 
 
 if __name__ == "__main__":
