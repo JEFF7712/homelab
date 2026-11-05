@@ -71,7 +71,7 @@ replacement to make the plan quiet.
 
 ## Normal changes and drift
 
-Edit the owning JSON configuration, run `just check-changed` and `just fmt-check`,
+Edit the owning Nix inventory, run `just check-changed` and `just fmt-check`,
 then deliver with `just ship`. The Access route runs `cloudflare-access-plan` and
 `cloudflare-access-apply`; apply consumes its source-bound saved plan. Source
 validation stays offline. Credentialed plans also run on current-main pushes.

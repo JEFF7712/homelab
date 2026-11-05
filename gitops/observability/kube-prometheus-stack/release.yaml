@@ -175,6 +175,7 @@ spec:
         configSecret: alertmanager-kube-prometheus-stack-alertmanager
         secrets:
           - alertmanager-ntfy-token
+          - alertmanager-resend-smtp
         resources:
           requests:
             cpu: 100m
@@ -205,7 +206,7 @@ spec:
               receiver: "null"
             - matchers:
                 - severity = "critical"
-              receiver: ntfy-critical
+              receiver: critical
               group_wait: 10s
               group_interval: 2m
               repeat_interval: 1h
@@ -262,6 +263,15 @@ spec:
             equal:
               - node
         receivers:
+          - name: critical
+            email_configs:
+              - to: rupanpandyan@gmail.com
+                from: Homelab Alerts <alerts@rupan.dev>
+                smarthost: smtp.resend.com:587
+                auth_username: resend
+                auth_password_file: /etc/alertmanager/secrets/alertmanager-resend-smtp/password
+                send_resolved: true
+                require_tls: true
           - name: ntfy-critical
             webhook_configs:
               # yamllint disable-line rule:line-length

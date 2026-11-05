@@ -141,6 +141,37 @@ spec:
             summary: "Appliance service {{ $labels.name }} failed or inactive"
             description: "Service {{ $labels.name }} on adguard-netbird-01 is not active."
 
+        - alert: ExternalBackupFailed
+          expr: immich_backup_last_status{job="adguard-netbird-01-node"} == 0
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "External backup on adguard-netbird-01 failed"
+            description: "The most recent run of the external backup service on adguard-netbird-01 failed."
+
+        - alert: ExternalBackupStale
+          expr: time() - immich_backup_last_success_timestamp_seconds{job="adguard-netbird-01-node"} > 129600
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "External backup on adguard-netbird-01 is stale"
+            description: >-
+              The dedicated external backup on adguard-netbird-01 has not succeeded
+              in over 36 hours. Check systemctl status immich-external-backup.service on adguard-netbird-01.
+
+        - alert: ExternalBackupMissing
+          expr: absent(immich_backup_last_success_timestamp_seconds{job="adguard-netbird-01-node"})
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "External backup success metric on adguard-netbird-01 is missing"
+            description: >-
+              The immich_backup_last_success_timestamp_seconds metric is missing from
+              adguard-netbird-01:9100. Check node exporter textfile collector.
+
         - alert: ZfsPoolDegraded
           expr: node_zfs_zpool_state{job="nas-01-node",state!="online"} > 0
           for: 5m
@@ -188,7 +219,7 @@ spec:
             description: "Drive {{ $labels.device }} on {{ $labels.host }} reported failing SMART status."
 
         - alert: SmartDeviceTemperatureHigh
-          expr: smartctl_device_temperature > 60
+          expr: smartctl_device_temperature{temperature_type="current"} > 60
           for: 10m
           labels:
             severity: warning
@@ -197,7 +228,7 @@ spec:
             description: "Drive {{ $labels.device }} temperature is {{ $value }}C on {{ $labels.host }}."
 
         - alert: SmartDeviceTemperatureCritical
-          expr: smartctl_device_temperature > 70
+          expr: smartctl_device_temperature{temperature_type="current"} > 70
           for: 5m
           labels:
             severity: critical
@@ -229,7 +260,12 @@ spec:
       rules:
         - alert: CronJobLastRunFailed
           expr: |
-            (kube_cronjob_status_last_schedule_time > kube_cronjob_status_last_successful_time)
+            (
+              (kube_cronjob_status_last_schedule_time > kube_cronjob_status_last_successful_time)
+              or
+              (kube_cronjob_status_last_schedule_time
+                unless on (namespace, cronjob) kube_cronjob_status_last_successful_time)
+            )
             and on (namespace, cronjob) (time() - kube_cronjob_status_last_schedule_time > 1800)
             unless on (namespace, cronjob) (kube_cronjob_status_active > 0)
             unless on (namespace, cronjob) (kube_cronjob_spec_suspend == 1)
