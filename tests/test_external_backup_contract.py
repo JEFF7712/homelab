@@ -33,7 +33,19 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("--keep-monthly 3", content)
         # Consistent host and tags
         self.assertIn("--host adguard-netbird-01", content)
-        self.assertIn("--group-by host,tags", content)
+        self.assertIn("--group-by host", content)
+        # Source validations for expanded datasets
+        self.assertIn("etcd-snapshot-latest", content)
+        self.assertIn("woodpecker-*.sqlite", content)
+        self.assertIn("tofu-state/state.sqlite", content)
+        self.assertIn("AdGuardHome.yaml", content)
+        self.assertIn("media-bookshelf-config-pvc-*", content)
+        self.assertIn("media-sonarr-config-pvc-*", content)
+        self.assertIn("media-radarr-config-pvc-*", content)
+        self.assertIn("media-prowlarr-config-pvc-*", content)
+        self.assertIn("media-calibre-config-pvc-*", content)
+        self.assertIn("media-navidrome-data-pvc-*", content)
+        self.assertIn("obsidian-couchdb-data-pvc-*", content)
         # SMART monitoring
         self.assertIn("services.smartd", content)
 
@@ -63,6 +75,27 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("AllowTcpForwarding no", content)
         self.assertIn("systemd.services.forgejo-backup-dump", content)
         self.assertIn('OnCalendar = "02:50:00"', content)
+        self.assertIn("systemd.services.platform-state-backup-dump", content)
+        self.assertIn('OnCalendar = "02:55:00"', content)
+        self.assertIn("/tank/backups/platform-state", content)
+
+    def test_k3s_backup_source_contract(self) -> None:
+        content = (REPO_ROOT / "flake/modules/k3s-backup-source.nix").read_text()
+        self.assertIn("users.users.backup-reader", content)
+        self.assertIn("ForceCommand internal-sftp -R", content)
+        self.assertIn("systemd.services.k3s-backup-prep", content)
+        self.assertIn('OnCalendar = "03:15:00"', content)
+        host_content = (REPO_ROOT / "flake/hosts/homelab-01/default.nix").read_text()
+        self.assertIn("k3s-backup-source.nix", host_content)
+
+    def test_woodpecker_backup_source_contract(self) -> None:
+        content = (REPO_ROOT / "flake/modules/woodpecker-backup-source.nix").read_text()
+        self.assertIn("users.users.backup-reader", content)
+        self.assertIn("ForceCommand internal-sftp -R", content)
+        self.assertIn("systemd.services.woodpecker-backup-dump", content)
+        self.assertIn('OnCalendar = "02:40:00"', content)
+        host_content = (REPO_ROOT / "flake/hosts/homelab-04/default.nix").read_text()
+        self.assertIn("woodpecker-backup-source.nix", host_content)
 
     def test_nas_sanoid_includes_forgejo(self) -> None:
         content = (REPO_ROOT / "flake/modules/nas-data.nix").read_text()

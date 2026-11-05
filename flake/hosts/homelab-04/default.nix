@@ -25,6 +25,7 @@ in
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
+    ../../modules/woodpecker-backup-source.nix
     ../../modules/approvals.nix
     ../../modules/merge-policy.nix
     ../../profiles/projectctl-pilot.nix

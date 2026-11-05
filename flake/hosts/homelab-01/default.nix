@@ -5,6 +5,7 @@
     ./hardware-configuration.nix
     ../../modules/common-base.nix
     ../../modules/k3s-server.nix
+    ../../modules/k3s-backup-source.nix
   ];
 
   networking.hostName = "homelab-01";
