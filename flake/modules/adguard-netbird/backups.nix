@@ -74,6 +74,10 @@ let
 
         echo "==> [2/5] Mounting remote source nas-01 via read-only SSHFS..."
         MOUNT_DIR="/run/backup-source"
+        if ${pkgs.util-linux}/bin/mountpoint -q "$MOUNT_DIR" 2>/dev/null || [ -e "$MOUNT_DIR" ]; then
+          ${pkgs.fuse}/bin/fusermount -u "$MOUNT_DIR" 2>/dev/null || ${pkgs.util-linux}/bin/umount -l "$MOUNT_DIR" 2>/dev/null || true
+          ${pkgs.coreutils}/bin/rmdir "$MOUNT_DIR" 2>/dev/null || true
+        fi
         ${pkgs.coreutils}/bin/mkdir -p "$MOUNT_DIR"
 
         cleanup() {
