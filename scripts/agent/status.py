@@ -31,7 +31,61 @@ def configured_targets(root: Path) -> dict[str, Any]:
     }
 
 
-def _run(runner: Runner, argv: list[str], timeout: float) -> dict[str, Any]:
+def cluster_observation(name: str, output: str) -> dict[str, Any]:
+    """Judge resource health independently of a successful API request."""
+    try:
+        payload = json.loads(output)
+        items = payload["items"]
+        if not isinstance(items, list) or any(not isinstance(i, dict) for i in items):
+            raise ValueError("expected a Kubernetes resource list")
+        if name != "workloads" and not items:
+            raise ValueError("no resources returned")
+        issues = []
+        for item in items:
+            metadata = item["metadata"]
+            status = item.get("status", {})
+            conditions = status.get("conditions", [])
+            identity = "/".join(
+                str(part)
+                for part in (metadata.get("namespace"), metadata["name"])
+                if part
+            )
+            ready = next((c for c in conditions if c.get("type") == "Ready"), {})
+            if name == "nodes":
+                healthy = ready.get("status") == "True" and not item.get(
+                    "spec", {}
+                ).get("unschedulable", False)
+                reason = "not Ready or cordoned"
+            elif name == "flux":
+                healthy = (
+                    ready.get("status") == "True"
+                    and status.get("observedGeneration") == metadata.get("generation")
+                    and not item.get("spec", {}).get("suspend", False)
+                )
+                reason = ready.get("message", "not Ready, stale, or suspended")
+            else:
+                # Keep completed Jobs quiet, but inspect readiness for Running pods.
+                healthy = status.get("phase") == "Succeeded" or (
+                    status.get("phase") == "Running" and ready.get("status") == "True"
+                )
+                reason = f"phase={status.get('phase', 'Unknown')}, Ready={ready.get('status', 'Unknown')}"
+            if not healthy:
+                issues.append(f"{identity}: {reason}")
+        return {
+            "status": "failed" if issues else "pass",
+            "detail": "\n".join(issues)
+            if issues
+            else f"{len(items)} resources healthy",
+            "resource_count": len(items),
+            "unhealthy_count": len(issues),
+        }
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        return {"status": "failed", "detail": f"invalid {name} observation: {error}"}
+
+
+def _run(
+    runner: Runner, argv: list[str], timeout: float, *, observation: str | None = None
+) -> dict[str, Any]:
     try:
         result = runner(
             argv,
@@ -44,12 +98,15 @@ def _run(runner: Runner, argv: list[str], timeout: float) -> dict[str, Any]:
         return {"status": "failed", "command": argv, "detail": "timeout"}
     except OSError as error:
         return {"status": "unavailable", "command": argv, "detail": str(error)}
-    return {
+    probe = {
         "status": "pass" if result.returncode == 0 else "failed",
         "command": argv,
         "exit_code": result.returncode,
         "detail": (result.stdout + result.stderr)[-8192:],
     }
+    if result.returncode == 0 and observation is not None:
+        probe.update(cluster_observation(observation, result.stdout))
+    return probe
 
 
 def status_payload(
@@ -69,7 +126,7 @@ def status_payload(
             for name, argv in (
                 (
                     "nodes",
-                    ["kubectl", "--request-timeout=8s", "get", "nodes", "-o", "wide"],
+                    ["kubectl", "--request-timeout=8s", "get", "nodes", "-o", "json"],
                 ),
                 (
                     "flux",
@@ -79,6 +136,8 @@ def status_payload(
                         "get",
                         "kustomizations,helmreleases",
                         "-A",
+                        "-o",
+                        "json",
                     ],
                 ),
                 (
@@ -89,7 +148,8 @@ def status_payload(
                         "get",
                         "pods",
                         "-A",
-                        "--field-selector=status.phase!=Running,status.phase!=Succeeded",
+                        "-o",
+                        "json",
                     ],
                 ),
             ):
@@ -97,7 +157,7 @@ def status_payload(
                 if remaining <= 0:
                     probes.append({"status": "failed", "detail": "total timeout"})
                     break
-                probe = _run(runner, argv, min(8.0, remaining))
+                probe = _run(runner, argv, min(8.0, remaining), observation=name)
                 probe["name"] = name
                 probes.append(probe)
     else:
