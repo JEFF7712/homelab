@@ -22,6 +22,7 @@
     ../../modules/tofu-state.nix
     ../../modules/platform-backup.nix
     ../../modules/nas-syncthing.nix
+    ../../modules/nas-backup-source.nix
   ];
 
   networking.hostName = "nas-01";

@@ -127,6 +127,7 @@
       "tank/backups".useTemplate = [ "operational" ];
       "tank/backups/syncthing".useTemplate = [ "operational" ];
       "tank/cluster".useTemplate = [ "operational" ];
+      "tank/forgejo".useTemplate = [ "operational" ];
       "tank/media".useTemplate = [ "weekly" ];
       "tank/attic".useTemplate = [ "weekly" ];
       "tank/registry".useTemplate = [ "operational" ];
