@@ -90,7 +90,7 @@ ls -la /tmp/restore-db
 ```
 The resulting `.dump.gz` file can then be restored using `pg_restore` per [postgres-disaster-recovery.md](postgres-disaster-recovery.md).
 
-#### C. Restoring Forgejo repositories and database
+#### C. Restoring Forgejo repositories, database, and state
 ```sh
 ssh adguard-netbird-01 '
 export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
@@ -98,6 +98,72 @@ export RESTIC_PASSWORD_FILE="/run/secrets/backup-restic-password"
 mkdir -p /tmp/restore-forgejo
 sudo -E restic restore latest --target /tmp/restore-forgejo --include "*forgejo*"
 ls -la /tmp/restore-forgejo
+'
+```
+The restored files include:
+- Repositories under `.../forgejo/repositories`
+- Consistent SQLite database dumps under `.../forgejo/backups/forgejo-*.sqlite`
+- Attachments, avatars, JWT secrets, and SSH keys under `.../forgejo/backups/state`
+
+#### D. Restoring k3s etcd snapshot & server token
+```sh
+ssh adguard-netbird-01 '
+export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
+export RESTIC_PASSWORD_FILE="/run/secrets/backup-restic-password"
+mkdir -p /tmp/restore-k3s
+sudo -E restic restore latest --target /tmp/restore-k3s --include "*k3s*"
+ls -la /tmp/restore-k3s
+'
+```
+To recover k3s on `homelab-01`:
+1. Stop k3s: `systemctl stop k3s`
+2. Restore snapshot: `k3s server --cluster-reset --cluster-reset-restore-path=/path/to/etcd-snapshot-latest`
+3. Restore token to `/var/lib/rancher/k3s/server/token`
+4. Start k3s: `systemctl start k3s`
+
+#### E. Restoring Woodpecker CI
+```sh
+ssh adguard-netbird-01 '
+export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
+export RESTIC_PASSWORD_FILE="/run/secrets/backup-restic-password"
+mkdir -p /tmp/restore-woodpecker
+sudo -E restic restore latest --target /tmp/restore-woodpecker --include "*woodpecker*"
+ls -la /tmp/restore-woodpecker
+'
+```
+Restore the SQLite database into `/persist/woodpecker/server-data/woodpecker.sqlite` and signature keys with `woodpecker-server` stopped.
+
+#### F. Restoring OpenTofu State & Garage S3
+```sh
+ssh adguard-netbird-01 '
+export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
+export RESTIC_PASSWORD_FILE="/run/secrets/backup-restic-password"
+mkdir -p /tmp/restore-platform
+sudo -E restic restore latest --target /tmp/restore-platform --include "*platform-state*" --include "*/s3*"
+ls -la /tmp/restore-platform
+'
+```
+Contains `state.sqlite` for OpenTofu and Garage object data.
+
+#### G. Restoring Application State (Sonarr, Radarr, Prowlarr, Calibre, Navidrome, CouchDB, Bookshelf)
+```sh
+ssh adguard-netbird-01 '
+export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
+export RESTIC_PASSWORD_FILE="/run/secrets/backup-restic-password"
+mkdir -p /tmp/restore-apps
+sudo -E restic restore latest --target /tmp/restore-apps --include "*media-*" --include "*obsidian-*"
+ls -la /tmp/restore-apps
+'
+```
+
+#### H. Restoring Local Appliance State (AdGuard Home, NetBird, Mosquitto, Zigbee2MQTT)
+```sh
+ssh adguard-netbird-01 '
+export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
+export RESTIC_PASSWORD_FILE="/run/secrets/backup-restic-password"
+mkdir -p /tmp/restore-local
+sudo -E restic restore latest --target /tmp/restore-local --include "/var/lib/*"
+ls -la /tmp/restore-local
 '
 ```
 
