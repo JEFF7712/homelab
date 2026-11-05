@@ -255,7 +255,7 @@ data:
                 batch_ids = ids[i:i + chunk_size]
                 status, _ = api(
                     "DELETE", base, api_key,
-                    "/api/v1/queue/bulk?removeFromClient=false&blocklist=false",
+                    "/api/v1/queue/bulk?removeFromClient=true&blocklist=false",
                     {"ids": batch_ids},
                 )
                 if status not in (200, 202):

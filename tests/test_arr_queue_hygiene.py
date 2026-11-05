@@ -170,7 +170,7 @@ class TestRun(unittest.TestCase):
         method, path, body = deletes[0]
         self.assertIn("/api/v1/queue/bulk", path)
         self.assertIn("blocklist=false", path)
-        self.assertIn("removeFromClient=false", path)
+        self.assertIn("removeFromClient=true", path)
         self.assertEqual(body, {"ids": [7]})
 
     def test_chunked_delete_over_100_items(self):
