@@ -245,6 +245,7 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
     "nightly": (
         "registry-gc-fixture",
         "cloudflare-access-drift",
+        "switches-drift-nightly",
         "opnsense-plan",
         "opnsense-dataplane",
         "opnsense-inventory",
