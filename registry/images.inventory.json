@@ -823,6 +823,7 @@
     },
     {
       "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:10",
         "observed:cnpg-system/cloudnative-pg-7786f6446-5llfh/manager",
         "observed:home-assistant/home-assistant-cluster-1/bootstrap-controller",
         "observed:home-assistant/home-assistant-cluster-2/bootstrap-controller",
@@ -844,6 +845,7 @@
     },
     {
       "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:8",
         "observed:home-assistant/home-assistant-cluster-1/postgres",
         "observed:home-assistant/home-assistant-cluster-2/postgres"
       ],
@@ -1050,6 +1052,7 @@
     },
     {
       "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:9",
         "observed:immich/immich-cluster-1/postgres",
         "observed:immich/immich-cluster-2/postgres"
       ],
