@@ -231,7 +231,8 @@ let
         echo "Validated Forgejo cycle $CURRENT_CYCLE dump: $FJ_DB_FILE ($(($FJ_DB_BYTES / 1024 / 1024)) MB)"
 
         # 3. Platform state manifest verification
-        PS_MANIFEST="$NAS_MOUNT/backups/platform-state/backup-manifest.json"
+        PLATFORM_STATE_DIR="$NAS_MOUNT/backups/platform-state"
+        PS_MANIFEST="$PLATFORM_STATE_DIR/backup-manifest.json"
         if [ ! -s "$PS_MANIFEST" ]; then
           fail "Platform state backup manifest missing or empty at $PS_MANIFEST"
         fi
