@@ -53,6 +53,33 @@ class TestSelection(unittest.TestCase):
         got = MOD["select_stale"]([record()], now, 3)
         self.assertEqual(len(got), 1)
 
+    def test_import_blocked_is_selected(self):
+        now = datetime.datetime(2026, 10, 2, tzinfo=UTC)
+        rec = record(rid=10, state="importBlocked")
+        got = MOD["select_stale"]([rec], now, 3)
+        self.assertEqual(len(got), 1)
+
+    def test_downloading_with_completed_error_messages_is_selected(self):
+        now = datetime.datetime(2026, 10, 2, tzinfo=UTC)
+        rec = record(rid=11, state="downloading")
+        rec["statusMessages"] = [
+            {
+                "title": "Autumn!-Monster (2021)",
+                "messages": ["Unable to import automatically, found multiple artists"],
+            }
+        ]
+        got = MOD["select_stale"]([rec], now, 3)
+        self.assertEqual(len(got), 1)
+
+    def test_arr_extended_ticks_timestamp_used(self):
+        # 2026-10-02 12:03:50 UTC in .NET ticks
+        ticks = 639265394307853204
+        rec = record(rid=12, completed="2026-11-05T00:00:00Z")  # fresh Lidarr scan time
+        rec["downloadId"] = f"Arr-Extended_Test-Release (2023)_{ticks}"
+        now = datetime.datetime(2026, 10, 6, tzinfo=UTC)
+        got = MOD["select_stale"]([rec], now, 3)
+        self.assertEqual(len(got), 1)
+
     def test_fresh_import_failed_is_kept_for_manual_review(self):
         now = datetime.datetime(2026, 10, 2, tzinfo=UTC)
         rec = record(completed="2026-10-01T12:00:00Z")
@@ -145,6 +172,33 @@ class TestRun(unittest.TestCase):
         self.assertIn("blocklist=false", path)
         self.assertIn("removeFromClient=false", path)
         self.assertEqual(body, {"ids": [7]})
+
+    def test_chunked_delete_over_100_items(self):
+        records = [record(rid=i) for i in range(1, 251)]
+        payload = {"records": records, "totalRecords": 250}
+        rc, calls = self.run_hygiene(payload)
+        self.assertEqual(rc, 0)
+        deletes = [c for c in calls if c[0] == "DELETE"]
+        self.assertEqual(len(deletes), 3)
+        self.assertEqual(len(deletes[0][2]["ids"]), 100)
+        self.assertEqual(len(deletes[1][2]["ids"]), 100)
+        self.assertEqual(len(deletes[2][2]["ids"]), 50)
+
+    def test_fetch_queue_requests_unknown_artists(self):
+        calls = []
+
+        def fake_api(method, base, api_key, path, body=None):
+            calls.append(path)
+            return 200, {"records": [], "totalRecords": 0}
+
+        mod_api = MOD["api"]
+        MOD["api"] = fake_api
+        try:
+            MOD["fetch_queue"]("http://lidarr.media", "testkey")
+        finally:
+            MOD["api"] = mod_api
+        self.assertEqual(len(calls), 1)
+        self.assertIn("includeUnknownArtistItems=true", calls[0])
 
     def test_api_failure_exits_nonzero(self):
         mod_api = MOD["api"]

@@ -91,16 +91,54 @@ data:
 
 
     def is_import_failed(record: dict) -> bool:
-        state = record.get("trackedDownloadState") or ""
-        return state.lower() == "importfailed"
+        state = (record.get("trackedDownloadState") or "").lower()
+        if state in ("importfailed", "importblocked"):
+            return True
+        status = (record.get("status") or "").lower()
+        sizeleft = record.get("sizeleft", 0)
+        msgs = record.get("statusMessages") or []
+        has_error_msgs = any(m.get("messages") for m in msgs) if msgs else False
+        return (
+            status == "completed"
+            and sizeleft == 0
+            and (bool(record.get("errorMessage")) or has_error_msgs)
+        )
+
+
+    def record_time(
+        record: dict,
+        import_root: str = "/lidarr-config/extended/import",
+    ) -> Optional[datetime.datetime]:
+        output = record.get("outputPath")
+        if isinstance(output, str) and output.startswith(IMPORT_PREFIX):
+            name = os.path.basename(output)
+            path = os.path.join(import_root, name)
+            if os.path.exists(path):
+                try:
+                    mtime = os.path.getmtime(path)
+                    return datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc)
+                except OSError:
+                    pass
+        dl_id = record.get("downloadId") or ""
+        if dl_id.startswith("Arr-Extended_"):
+            parts = dl_id.rsplit("_", 1)
+            if len(parts) == 2 and parts[1].isdigit():
+                try:
+                    ticks = int(parts[1])
+                    base = datetime.datetime(1, 1, 1, tzinfo=datetime.timezone.utc)
+                    return base + datetime.timedelta(microseconds=ticks // 10)
+                except (ValueError, OverflowError):
+                    pass
+        return parse_time(record.get("estimatedCompletionTime"))
 
 
     def is_stale(
         record: dict,
         now: datetime.datetime,
         retention_days: int,
+        import_root: str = "/lidarr-config/extended/import",
     ) -> bool:
-        completed = parse_time(record.get("estimatedCompletionTime"))
+        completed = record_time(record, import_root=import_root)
         if completed is None:
             return False
         return (now - completed) >= datetime.timedelta(days=retention_days)
@@ -110,10 +148,11 @@ data:
         records: list,
         now: datetime.datetime,
         retention_days: int,
+        import_root: str = "/lidarr-config/extended/import",
     ) -> list:
         return [
             r for r in records
-            if is_import_failed(r) and is_stale(r, now, retention_days)
+            if is_import_failed(r) and is_stale(r, now, retention_days, import_root=import_root)
         ]
 
 
@@ -123,7 +162,7 @@ data:
         while True:
             status, payload = api(
                 "GET", base, api_key,
-                f"/api/v1/queue?page={page}&pageSize={PAGE_SIZE}",
+                f"/api/v1/queue?includeUnknownArtistItems=true&page={page}&pageSize={PAGE_SIZE}",
             )
             if status != 200 or not isinstance(payload, dict):
                 raise ApiError(f"GET queue page {page} -> HTTP{status}")
@@ -196,17 +235,6 @@ data:
                 print("OK: nothing to purge")
                 return 0
             ids = [r["id"] for r in stale]
-            status, _ = api(
-                "DELETE", base, api_key,
-                "/api/v1/queue/bulk?removeFromClient=false&blocklist=false",
-                {"ids": ids},
-            )
-            if status not in (200, 202):
-                problems.append(f"DELETE queue/bulk -> HTTP{status}")
-                print("FAIL:")
-                for p in problems:
-                    print(f"  - {p}")
-                return 1
             stamp = now.strftime("%Y-%m-%d")
             moved, file_notes = 0, []
             for record in stale:
@@ -222,6 +250,21 @@ data:
                     moved += 1
                 else:
                     file_notes.append(f"{record.get('title')}: {note}")
+            chunk_size = 100
+            for i in range(0, len(ids), chunk_size):
+                batch_ids = ids[i:i + chunk_size]
+                status, _ = api(
+                    "DELETE", base, api_key,
+                    "/api/v1/queue/bulk?removeFromClient=false&blocklist=false",
+                    {"ids": batch_ids},
+                )
+                if status not in (200, 202):
+                    problems.append(f"DELETE queue/bulk chunk {i // chunk_size} -> HTTP{status}")
+            if problems:
+                print("FAIL:")
+                for p in problems:
+                    print(f"  - {p}")
+                return 1
             titles = [str(r.get("title", "?")) for r in stale]
             print(f"purged {len(ids)} queue items, quarantined {moved} dirs")
             for note in file_notes:
