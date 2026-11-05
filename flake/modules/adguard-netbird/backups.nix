@@ -15,6 +15,9 @@ let
         record_metric() {
           local status="$1"
           local timestamp="$2"
+          if [ -z "$timestamp" ] && [ -f "$PROM_FILE" ]; then
+            timestamp=$(${pkgs.gnugrep}/bin/grep "^immich_backup_last_success_timestamp_seconds " "$PROM_FILE" | ${pkgs.gawk}/bin/awk '{print $2}' || true)
+          fi
           ${pkgs.coreutils}/bin/mkdir -p "$TEXTFILE_DIR"
           cat << EOF > "$TMP_PROM"
     # HELP immich_backup_last_status Exit status of immich backup (1=success, 0=failure)
@@ -182,6 +185,7 @@ let
 
         RC=0
         ${pkgs.restic}/bin/restic backup \
+          --host adguard-netbird-01 \
           --group-by host,tags \
           --tag immich \
           --tag databases \

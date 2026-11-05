@@ -31,8 +31,30 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("--keep-daily 14", content)
         self.assertIn("--keep-weekly 8", content)
         self.assertIn("--keep-monthly 3", content)
+        # Consistent host and tags
+        self.assertIn("--host adguard-netbird-01", content)
+        self.assertIn("--group-by host,tags", content)
         # SMART monitoring
         self.assertIn("services.smartd", content)
+
+    def test_backup_prometheus_alerts_declared(self) -> None:
+        content = (
+            REPO_ROOT / "gitops/observability/kube-prometheus-stack/cluster-rules.yaml"
+        ).read_text()
+        self.assertIn("- alert: ExternalBackupFailed", content)
+        self.assertIn("- alert: ExternalBackupStale", content)
+        self.assertIn("- alert: ExternalBackupMissing", content)
+        self.assertIn(
+            'immich_backup_last_status{job="adguard-netbird-01-node"} == 0', content
+        )
+        self.assertIn(
+            'immich_backup_last_success_timestamp_seconds{job="adguard-netbird-01-node"} > 129600',
+            content,
+        )
+        self.assertIn(
+            'absent(immich_backup_last_success_timestamp_seconds{job="adguard-netbird-01-node"})',
+            content,
+        )
 
     def test_nas_backup_source_contract(self) -> None:
         content = (REPO_ROOT / "flake/modules/nas-backup-source.nix").read_text()
