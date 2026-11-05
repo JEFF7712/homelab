@@ -229,7 +229,12 @@ spec:
       rules:
         - alert: CronJobLastRunFailed
           expr: |
-            (kube_cronjob_status_last_schedule_time > kube_cronjob_status_last_successful_time)
+            (
+              (kube_cronjob_status_last_schedule_time > kube_cronjob_status_last_successful_time)
+              or
+              (kube_cronjob_status_last_schedule_time
+                unless on (namespace, cronjob) kube_cronjob_status_last_successful_time)
+            )
             and on (namespace, cronjob) (time() - kube_cronjob_status_last_schedule_time > 1800)
             unless on (namespace, cronjob) (kube_cronjob_status_active > 0)
             unless on (namespace, cronjob) (kube_cronjob_spec_suspend == 1)

@@ -305,13 +305,17 @@ were preserved; this cleanup did not change who can reach a hostname.
 | `Bypass - Woodpecker CI` | `ci.rupan.dev` |
 | `Bypass - UWagent` | `uwagent.rupan.dev` |
 | `Bypass - Arcade controller` | `arcade.rupan.dev` |
-| `Bypass - Music Assistant and LedFx` | `ma.rupan.dev`, `ledfx.rupan.dev` |
+| `Bypass - Music Assistant` | `ma.rupan.dev` |
 | `Bypass - Flux webhook` | `flux-wh-33b0c8004348.rupan.dev` |
 | `Bypass - Websites and automation` | `demo.rupan.dev`, `ntfy.rupan.dev`, `renovate-approve.rupan.dev`, `nix-agent.rupan.dev`, `photo.rupan.dev`, `majorfinder.rupan.dev`, `www.rupan.dev`, `rupan.dev` |
 | `Bypass - Home Assistant` | `ha.rupan.dev` |
 | `Bypass - Notes and project sites` | `rupanism.rupan.dev`, `ism.rupan.dev`, `notes.rupan.dev`, `pulse.rupan.dev`, `spatia.rupan.dev` |
 | `Bypass - Photos, files and dashboards` | `books.rupan.dev`, `grafana.rupan.dev`, `photos.rupan.dev`, `media.rupan.dev`, `jellyfin.rupan.dev` |
 | `Bypass - Music, sync and tools` | `music.rupan.dev`, `nix.rupan.dev`, `soluble.rupan.dev`, `obsidian.rupan.dev`, `n8n.rupan.dev` |
+
+LedFx (`ledfx.rupan.dev`) inherits the wildcard owner-only `Main - Rupan`
+Allow policy. It has no origin user authentication, so never add it to a public
+bypass. Its local Home Assistant integrations use the internal service address.
 
 The separate `Tally - owner dashboard` application uses the owner-only
 `Main - Rupan` policy. The two tracker paths above bypass that hostname's login.
