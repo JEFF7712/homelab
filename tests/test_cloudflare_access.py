@@ -17,8 +17,8 @@ from scripts.cloudflare.access import (
     POLICY,
     TRACKER_PATHS,
     inventory_errors,
-    owner_only,
     list_access,
+    owner_only,
     validate_plan,
 )
 
