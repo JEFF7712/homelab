@@ -22,8 +22,9 @@ This runbook documents the dedicated 1 TB external HDD backup architecture hoste
 1. **Pull Architecture:** `adguard-netbird-01` initiates the connection. `nas-01` has no SSH keys or write credentials to `adguard-netbird-01`, so a compromise on `nas-01` cannot delete or tamper with backups.
 2. **Server-Side Forced Read-Only SFTP:** `nas-01` restricts the `backup-reader` user via OpenSSH `ForceCommand internal-sftp -R` with all port and agent forwarding disabled.
 3. **Fail-Closed Safeguards:** The backup service requires `/mnt/backups` to be an active mountpoint with a verified canary (`.backup-target-canary`) and at least 15 GiB free space before running. Missing mounts or sources immediately abort to prevent writing to the 2GB root tmpfs.
-4. **Freshness Verification:** The runner verifies that today's Immich and Home Assistant database dumps exist and meet minimum size thresholds before invoking Restic.
-5. **Separate Pruning:** Pruning runs in an independent service (`immich-external-backup-prune.service`) that strictly refuses to execute if the last backup failed. Automatic pruning remains disabled until recovery has been demonstrated.
+4. **Freshness Verification:** The runner verifies that today's Immich and Home Assistant database dumps exist and meet minimum size thresholds, and that Forgejo's SQLite database dump file exists and is non-empty before invoking Restic.
+5. **Separate Pruning & Mutual Exclusion:** Pruning runs in an independent service (`immich-external-backup-prune.service`, Sundays at 06:00) that strictly refuses to execute if a backup or check is active, if the mutual exclusion lock is held, or if the last successful backup is older than 36 hours. Automatic pruning enforces `--keep-last 3` as an invariant safeguard alongside the 14-daily, 8-weekly, and 3-monthly policy.
+6. **Weekly Integrity Check:** A data verification check (`immich-external-backup-check.service`, Sundays at 08:00) validates pack integrity across repository subsets.
 
 ---
 
@@ -35,9 +36,12 @@ This runbook documents the dedicated 1 TB external HDD backup architecture hoste
 - **Repository Path:** `/mnt/backups/restic-repo`
 - **Schedule:** Nightly at `03:30:00` (after Immich at 02:00, Home Assistant at 02:30, and Forgejo at 02:50).
 - **Retention Policy:**
-  - 14 daily snapshots
-  - 8 weekly snapshots
-  - 3 monthly snapshots
+  - 3 latest snapshots (`--keep-last 3`)
+  - 14 daily snapshots (`--keep-daily 14`)
+  - 8 weekly snapshots (`--keep-weekly 8`)
+  - 3 monthly snapshots (`--keep-monthly 3`)
+- **Pruning Schedule:** Sundays at `06:00:00` (requires successful backup < 36h).
+- **Integrity Check Schedule:** Sundays at `08:00:00` (`--read-data-subset=1/10`).
 
 ---
 

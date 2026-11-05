@@ -40,6 +40,18 @@ let
           exit 1
         }
 
+        exec 200>"/run/lock/immich-external-ops.lock"
+        if ! ${pkgs.util-linux}/bin/flock -n 200; then
+          fail "Another external backup operation (backup, prune, or check) is currently running"
+        fi
+
+        if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-prune.service; then
+          fail "Pruning service is currently active; aborting backup"
+        fi
+        if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-check.service; then
+          fail "Integrity check service is currently active; aborting backup"
+        fi
+
         echo "==> [1/5] Verifying backup destination /mnt/backups..."
         if ! ${pkgs.util-linux}/bin/mountpoint -q /mnt/backups; then
           fail "/mnt/backups is not a mounted filesystem"
@@ -120,14 +132,17 @@ let
           fail "Forgejo repositories directory not found at $MOUNT_DIR/forgejo/repositories"
         fi
 
-        FORGEJO_DUMP="$MOUNT_DIR/forgejo/backups/forgejo-latest.sqlite"
-        if [ ! -f "$FORGEJO_DUMP" ]; then
-          FORGEJO_DUMP=$(${pkgs.findutils}/bin/find "$MOUNT_DIR/forgejo/backups" -name "forgejo-*.sqlite" 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
+        FORGEJO_BACKUPS_DIR="$MOUNT_DIR/forgejo/backups"
+        if [ ! -d "$FORGEJO_BACKUPS_DIR" ]; then
+          fail "Forgejo backups directory not found at $FORGEJO_BACKUPS_DIR"
         fi
-        if [ -z "$FORGEJO_DUMP" ] || [ ! -f "$FORGEJO_DUMP" ]; then
-          fail "Forgejo SQLite database dump not found in $MOUNT_DIR/forgejo/backups"
+
+        ACTUAL_FORGEJO_DUMP=$(${pkgs.findutils}/bin/find "$FORGEJO_BACKUPS_DIR" -maxdepth 1 -type f -name "forgejo-*.sqlite" ! -name "*-latest.sqlite" 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
+        if [ -z "$ACTUAL_FORGEJO_DUMP" ] || [ ! -s "$ACTUAL_FORGEJO_DUMP" ]; then
+          fail "No non-empty Forgejo SQLite database dump file found in $FORGEJO_BACKUPS_DIR"
         fi
-        echo "Found Forgejo DB dump: $FORGEJO_DUMP"
+        FORGEJO_DUMP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$ACTUAL_FORGEJO_DUMP")
+        echo "Found Forgejo DB dump: $ACTUAL_FORGEJO_DUMP ($(($FORGEJO_DUMP_SIZE / 1024 / 1024)) MB)"
 
         echo "==> [4/5] Executing Restic backup to /mnt/backups/restic-repo..."
         export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
@@ -151,7 +166,7 @@ let
           "$DUMPS_DIR"
           "$HA_CONFIG_DIR"
           "$MOUNT_DIR/forgejo/repositories"
-          "$FORGEJO_DUMP"
+          "$FORGEJO_BACKUPS_DIR"
         )
 
         RC=0
@@ -179,15 +194,44 @@ let
   pruneScript = pkgs.writeShellScript "run-immich-external-prune" ''
     set -euo pipefail
 
+    exec 200>"/run/lock/immich-external-ops.lock"
+    if ! ${pkgs.util-linux}/bin/flock -n 200; then
+      echo "Another external backup operation (backup, prune, or check) is currently running. Exiting." >&2
+      exit 1
+    fi
+
+    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup.service; then
+      echo "Refusing to prune: immich-external-backup.service is currently running" >&2
+      exit 1
+    fi
+    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-check.service; then
+      echo "Refusing to prune: immich-external-backup-check.service is currently running" >&2
+      exit 1
+    fi
+
     PROM_FILE="/var/lib/node-exporter-textfile/immich_backup.prom"
-    if [ -f "$PROM_FILE" ]; then
-      LAST_STATUS=$(${pkgs.gnugrep}/bin/grep "^immich_backup_last_status " "$PROM_FILE" | ${pkgs.gawk}/bin/awk '{print $2}')
-      if [ "$LAST_STATUS" != "1" ]; then
-        echo "Refusing to prune: last backup attempt was not successful (status: $LAST_STATUS)" >&2
-        exit 1
-      fi
-    else
+    if [ ! -f "$PROM_FILE" ]; then
       echo "Refusing to prune: no prior backup status found at $PROM_FILE" >&2
+      exit 1
+    fi
+
+    LAST_STATUS=$(${pkgs.gnugrep}/bin/grep "^immich_backup_last_status " "$PROM_FILE" | ${pkgs.gawk}/bin/awk '{print $2}')
+    if [ "$LAST_STATUS" != "1" ]; then
+      echo "Refusing to prune: last backup attempt was not successful (status: $LAST_STATUS)" >&2
+      exit 1
+    fi
+
+    LAST_SUCCESS=$(${pkgs.gnugrep}/bin/grep "^immich_backup_last_success_timestamp_seconds " "$PROM_FILE" | ${pkgs.gawk}/bin/awk '{print $2}')
+    if [ -z "$LAST_SUCCESS" ] || [ "$LAST_SUCCESS" -le 0 ]; then
+      echo "Refusing to prune: no valid last successful backup timestamp found" >&2
+      exit 1
+    fi
+
+    NOW=$(date +%s)
+    AGE=$(( NOW - LAST_SUCCESS ))
+    MAX_AGE=$(( 36 * 3600 ))
+    if [ "$AGE" -gt "$MAX_AGE" ]; then
+      echo "Refusing to prune: last successful backup is too old ($(( AGE / 3600 )) hours old; max allowed is 36 hours)" >&2
       exit 1
     fi
 
@@ -207,6 +251,7 @@ let
 
     ${pkgs.restic}/bin/restic unlock || true
     ${pkgs.restic}/bin/restic forget \
+      --keep-last 3 \
       --keep-daily 14 \
       --keep-weekly 8 \
       --keep-monthly 3 \
@@ -216,6 +261,22 @@ let
 
   checkScript = pkgs.writeShellScript "run-immich-external-check" ''
     set -euo pipefail
+
+    exec 200>"/run/lock/immich-external-ops.lock"
+    if ! ${pkgs.util-linux}/bin/flock -n 200; then
+      echo "Another external backup operation (backup, prune, or check) is currently running. Exiting." >&2
+      exit 1
+    fi
+
+    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup.service; then
+      echo "Refusing to check: immich-external-backup.service is currently running" >&2
+      exit 1
+    fi
+    if ${pkgs.systemd}/bin/systemctl is-active --quiet immich-external-backup-prune.service; then
+      echo "Refusing to check: immich-external-backup-prune.service is currently running" >&2
+      exit 1
+    fi
+
     export RESTIC_REPOSITORY="/mnt/backups/restic-repo"
     PASSWORD_FILE="''${CREDENTIALS_DIRECTORY}/password"
     if [ ! -f "$PASSWORD_FILE" ]; then
@@ -264,6 +325,7 @@ in
       pkgs.fuse
       pkgs.restic
       pkgs.openssh
+      pkgs.systemd
     ];
     environment = {
       XDG_CACHE_HOME = "/var/cache/immich-external-backup";
@@ -296,6 +358,8 @@ in
     unitConfig.RequiresMountsFor = [ "/mnt/backups" ];
     path = [
       pkgs.coreutils
+      pkgs.util-linux
+      pkgs.systemd
       pkgs.gnugrep
       pkgs.gawk
       pkgs.restic
@@ -315,14 +379,13 @@ in
     };
   };
 
-  # Automatic pruning disabled until initial recovery drill has been demonstrated
   systemd.timers.immich-external-backup-prune = {
     description = "Timer for external backup pruning";
-    enable = false;
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun *-*-* 04:30:00";
+      OnCalendar = "Sun *-*-* 06:00:00";
       Persistent = true;
+      RandomizedDelaySec = "10m";
     };
   };
 
@@ -331,6 +394,8 @@ in
     unitConfig.RequiresMountsFor = [ "/mnt/backups" ];
     path = [
       pkgs.coreutils
+      pkgs.util-linux
+      pkgs.systemd
       pkgs.restic
     ];
     environment = {
@@ -352,7 +417,7 @@ in
     description = "Timer for weekly integrity check of external backup repository";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun *-*-* 05:00:00";
+      OnCalendar = "Sun *-*-* 08:00:00";
       Persistent = true;
       RandomizedDelaySec = "15m";
     };

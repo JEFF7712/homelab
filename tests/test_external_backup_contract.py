@@ -18,15 +18,19 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn(".backup-target-canary", content)
         self.assertIn("mountpoint -q /mnt/backups", content)
         self.assertIn("immich_backup_last_status", content)
+        self.assertIn("immich-external-ops.lock", content)
         # Database freshness checks
         self.assertIn("immich-*.dump.gz", content)
         self.assertIn("home-assistant-*.dump.gz", content)
-        self.assertIn("forgejo-latest.sqlite", content)
+        self.assertIn("forgejo-*.sqlite", content)
         # Timers and safety
         self.assertIn('OnCalendar = "03:30:00"', content)
-        # Pruning timer is explicitly disabled until recovery drill passes
         self.assertIn("systemd.timers.immich-external-backup-prune = {", content)
-        self.assertIn("enable = false;", content)
+        self.assertNotIn("enable = false;", content)
+        self.assertIn("--keep-last 3", content)
+        self.assertIn("--keep-daily 14", content)
+        self.assertIn("--keep-weekly 8", content)
+        self.assertIn("--keep-monthly 3", content)
         # SMART monitoring
         self.assertIn("services.smartd", content)
 
