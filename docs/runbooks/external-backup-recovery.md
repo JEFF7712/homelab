@@ -19,12 +19,19 @@ This runbook documents the dedicated 1 TB external HDD backup architecture hoste
 ```
 
 ### Key Principles & Guards
-1. **Pull Architecture:** `adguard-netbird-01` initiates the connection. `nas-01` has no SSH keys or write credentials to `adguard-netbird-01`, so a compromise on `nas-01` cannot delete or tamper with backups.
-2. **Server-Side Forced Read-Only SFTP:** `nas-01` restricts the `backup-reader` user via OpenSSH `ForceCommand internal-sftp -R` with all port and agent forwarding disabled.
+1. **Pull Architecture:** `adguard-netbird-01` initiates the connection. `nas-01`, `homelab-01`, and `homelab-04` have no SSH keys or write credentials to `adguard-netbird-01`, so a compromise on any source node cannot delete or tamper with backups.
+2. **Server-Side Forced Read-Only SFTP:** Source hosts restrict the `backup-reader` user via OpenSSH `ForceCommand internal-sftp -R` with all port and agent forwarding disabled.
 3. **Fail-Closed Safeguards:** The backup service requires `/mnt/backups` to be an active mountpoint with a verified canary (`.backup-target-canary`) and at least 15 GiB free space before running. Missing mounts or sources immediately abort to prevent writing to the 2GB root tmpfs.
-4. **Freshness Verification:** The runner verifies that today's Immich and Home Assistant database dumps exist and meet minimum size thresholds, and that Forgejo's SQLite database dump file exists and is non-empty before invoking Restic.
-5. **Separate Pruning & Mutual Exclusion:** Pruning runs in an independent service (`immich-external-backup-prune.service`, Sundays at 06:00) that strictly refuses to execute if a backup or check is active, if the mutual exclusion lock is held, or if the last successful backup is older than 36 hours. Automatic pruning enforces `--keep-last 3` as an invariant safeguard alongside the 14-daily, 8-weekly, and 3-monthly policy.
-6. **Weekly Integrity Check:** A data verification check (`immich-external-backup-check.service`, Sundays at 08:00) validates pack integrity across repository subsets.
+4. **Repository Isolation & Least Privilege:** `/mnt/backups` and `/mnt/backups/restic-repo` are strictly restricted to mode `0700 root:root` enforced via tmpfiles rules and service startup. Ordinary daemon accounts (AdGuard, NetBird, Mosquitto, Zigbee2MQTT) cannot traverse or inspect the backup repository.
+5. **Database Consistency & Point-in-Time ZFS Snapshots:**
+   - **Application PVCs (CouchDB, SQLite, Immich):** Backed up directly from a dedicated frozen point-in-time ZFS snapshot (`tank/cluster@backup-nightly` mounted onto `/run/backup-source/nas/cluster`). This eliminates file skew, torn pages, and WAL log mismatches during live operations.
+   - **CouchDB:** Crash-consistent at the filesystem snapshot level due to its append-only B-tree structure.
+   - **Arr Applications (Sonarr, Radarr, Prowlarr, Bookshelf):** Backed up via the frozen ZFS snapshot and supplemented by internal native application scheduled backups (`Backups/scheduled/*.zip`).
+   - **Woodpecker & Forgejo:** Created using online SQLite `.backup` APIs before files are pulled.
+6. **Cycle Verification Protocol (No Yesterday's Dumps):** Every source preparation job produces an atomic `backup-manifest.json` recording `status: "success"`, the current `cycle: "YYYYMMDD"`, dump file name, and file size. The backup runner strictly verifies that today's manifest matches the current cycle and was generated within the last 6 hours, failing closed if any source dump failed or is stale.
+7. **Timing Coordination:** The runner actively coordinates with `k3s-backup-prep` on `homelab-01`, polling for up to 5 minutes to confirm completion of the current cycle's etcd snapshot before Restic execution begins.
+8. **Separate Pruning & Mutual Exclusion:** Pruning runs in an independent service (`immich-external-backup-prune.service`, Sundays at 06:00) that strictly refuses to execute if a backup or check is active, if the mutual exclusion lock is held, or if the last successful backup is older than 36 hours. Automatic pruning enforces `--keep-last 3` alongside the 14-daily, 8-weekly, and 3-monthly policy.
+9. **Weekly Integrity Check:** A data verification check (`immich-external-backup-check.service`, Sundays at 08:00) validates pack integrity across repository subsets.
 
 ---
 
@@ -177,3 +184,37 @@ ls -la /tmp/restore-local
    - `immich_backup_last_status` (1 = success, 0 = failure)
    - `immich_backup_last_run_timestamp_seconds`
    - `immich_backup_last_success_timestamp_seconds`
+
+---
+
+## Sensitive Key Protection & Zero-Dependency Recovery
+
+The backup contains high-value recovery materials (host SSH private keys, ZFS pool encryption keys, k3s cluster tokens, and Woodpecker signing keys). These are protected with strict defense-in-depth:
+
+### 1. In-Transit and At-Rest Permissions
+- The repository disk at `/mnt/backups` and the Restic repository `/mnt/backups/restic-repo` are mode `0700 root:root`.
+- Non-root processes on `adguard-netbird-01` cannot enter or read `/mnt/backups`.
+- Source staging directories (`/tank/backups/platform-state`, `/persist/backup-source/k3s`, `/persist/woodpecker/backups`) are mode `0750` with group `backup-reader` and `internal-sftp -R` enforcement.
+
+### 2. Post-Restoration Permission Enforcement
+When restoring secrets (SSH keys, ZFS keys, tokens), enforce restrictive permissions before starting services:
+```sh
+# Host keys and ZFS keys
+chmod 0600 /persist/etc/ssh/ssh_host_*_key
+chmod 0600 /persist/keys/*
+chmod 0600 /var/lib/rancher/k3s/server/token
+chown -R root:root /persist/keys /persist/etc/ssh
+```
+
+### 3. Independent Recovery (Zero-Homelab Dependency)
+To prevent a circular dependency where credentials needed to restore are trapped inside the encrypted repository:
+- The Restic repository password is encrypted in Git under [`secrets/hosts/adguard-netbird-01.sops.yaml`](file:///home/rupan/homelab/secrets/hosts/adguard-netbird-01.sops.yaml) using the operator's SOPS Age master key.
+- The operator can decrypt this key on an air-gapped machine using their Age recovery key (`SOPS_AGE_KEY` or `~/.config/sops/age/keys.txt`):
+  ```sh
+  sops -d --extract '["backup-restic-password"]' secrets/hosts/adguard-netbird-01.sops.yaml
+  ```
+- Alternatively, use the automated offline recovery kit generator:
+  ```sh
+  ./scripts/backups/export-offline-recovery-kit.sh /path/to/offline-usb
+  ```
+  This exports a standalone recovery bundle containing `emergency-restore.sh`, the decrypted repository password, and step-by-step restoration instructions ready for bare-metal rebuilds.

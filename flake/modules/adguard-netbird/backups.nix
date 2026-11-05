@@ -66,6 +66,12 @@ let
           fail "/mnt/backups is not a mounted filesystem"
         fi
 
+        # Restrict permissions so no unprivileged user or daemon can access the backup disk
+        ${pkgs.coreutils}/bin/chmod 0700 /mnt/backups
+        if [ -d /mnt/backups/restic-repo ]; then
+          ${pkgs.coreutils}/bin/chmod 0700 /mnt/backups/restic-repo
+        fi
+
         if [ ! -f /mnt/backups/.backup-target-canary ]; then
           fail "Canary file /mnt/backups/.backup-target-canary is missing"
         fi
@@ -78,25 +84,30 @@ let
         echo "==> [2/5] Mounting remote sources via read-only SSHFS..."
         BASE_MOUNT_DIR="/run/backup-source"
         NAS_MOUNT="$BASE_MOUNT_DIR/nas"
+        NAS_CLUSTER_MOUNT="$NAS_MOUNT/cluster"
         K3S_MOUNT="$BASE_MOUNT_DIR/k3s"
         WOODPECKER_MOUNT="$BASE_MOUNT_DIR/woodpecker"
 
-        for mnt in "$NAS_MOUNT" "$K3S_MOUNT" "$WOODPECKER_MOUNT"; do
-          if ${pkgs.util-linux}/bin/mountpoint -q "$mnt" 2>/dev/null || [ -e "$mnt" ]; then
+        for mnt in "$NAS_CLUSTER_MOUNT" "$NAS_MOUNT" "$K3S_MOUNT" "$WOODPECKER_MOUNT"; do
+          if ${pkgs.util-linux}/bin/mountpoint -q "$mnt" 2>/dev/null; then
             ${pkgs.fuse}/bin/fusermount -u "$mnt" 2>/dev/null || ${pkgs.util-linux}/bin/umount -l "$mnt" 2>/dev/null || true
+          fi
+          if [ -d "$mnt" ]; then
             ${pkgs.coreutils}/bin/rmdir "$mnt" 2>/dev/null || true
           fi
-          ${pkgs.coreutils}/bin/mkdir -p "$mnt"
         done
+        ${pkgs.coreutils}/bin/mkdir -p "$NAS_MOUNT" "$K3S_MOUNT" "$WOODPECKER_MOUNT"
 
         cleanup() {
           local exit_code=$?
           echo "Cleaning up remote mounts..."
-          for mnt in "$NAS_MOUNT" "$K3S_MOUNT" "$WOODPECKER_MOUNT"; do
+          for mnt in "$NAS_CLUSTER_MOUNT" "$NAS_MOUNT" "$K3S_MOUNT" "$WOODPECKER_MOUNT"; do
             if ${pkgs.util-linux}/bin/mountpoint -q "$mnt" 2>/dev/null; then
               ${pkgs.fuse}/bin/fusermount -u "$mnt" 2>/dev/null || ${pkgs.util-linux}/bin/umount -l "$mnt" 2>/dev/null || true
             fi
-            ${pkgs.coreutils}/bin/rmdir "$mnt" 2>/dev/null || true
+            if [ -d "$mnt" ]; then
+              ${pkgs.coreutils}/bin/rmdir "$mnt" 2>/dev/null || true
+            fi
           done
           ${pkgs.coreutils}/bin/rmdir "$BASE_MOUNT_DIR" 2>/dev/null || true
           return $exit_code
@@ -110,40 +121,180 @@ let
 
         # Mount 1: nas-01 (/tank)
         ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.20:/tank "$NAS_MOUNT" \
-          -o ro,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
+          -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
           -o StrictHostKeyChecking=accept-new
 
-        # Mount 2: homelab-01 (/persist/backup-source/k3s)
+        # Mount 2: nas-01 frozen ZFS snapshot (/tank/cluster/.zfs/snapshot/backup-nightly onto $NAS_CLUSTER_MOUNT)
+        # This guarantees 100% transactional point-in-time consistency for all application PVCs (CouchDB, SQLite, Immich)
+        ${pkgs.coreutils}/bin/mkdir -p "$NAS_CLUSTER_MOUNT"
+        ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.20:/tank/cluster/.zfs/snapshot/backup-nightly "$NAS_CLUSTER_MOUNT" \
+          -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
+          -o cache=yes,kernel_cache,auto_cache \
+          -o IdentityFile="$SSH_KEY" \
+          -o StrictHostKeyChecking=accept-new
+
+        # Mount 3: homelab-01 (/persist/backup-source/k3s)
         ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.11:/persist/backup-source/k3s "$K3S_MOUNT" \
-          -o ro,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
+          -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
           -o StrictHostKeyChecking=accept-new
 
-        # Mount 3: homelab-04 (/persist/woodpecker/backups)
+        # Mount 4: homelab-04 (/persist/woodpecker/backups)
         ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.14:/persist/woodpecker/backups "$WOODPECKER_MOUNT" \
-          -o ro,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
+          -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
           -o StrictHostKeyChecking=accept-new
 
-        echo "==> [3/5] Validating source paths and content freshness..."
-        IMMICH_LIB_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "immich-immich-library-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        echo "==> [3/5] Validating source paths and content freshness for current cycle..."
+        CURRENT_CYCLE=$(${pkgs.coreutils}/bin/date +%Y%m%d)
+        NOW_EPOCH=$(${pkgs.coreutils}/bin/date +%s)
+        MAX_MANIFEST_AGE=21600 # 6 hours max age
+
+        # Coordination: Ensure k3s preparation has completed for current cycle (poll up to 300s)
+        K3S_MANIFEST="$K3S_MOUNT/backup-manifest.json"
+        WAIT_SECONDS=0
+        while [ "$WAIT_SECONDS" -lt 300 ]; do
+          if [ -s "$K3S_MANIFEST" ]; then
+            K3S_CYCLE=$(${pkgs.jq}/bin/jq -r '.cycle // empty' "$K3S_MANIFEST" 2>/dev/null || true)
+            K3S_STATUS=$(${pkgs.jq}/bin/jq -r '.status // empty' "$K3S_MANIFEST" 2>/dev/null || true)
+            if [ "$K3S_CYCLE" = "$CURRENT_CYCLE" ] && [ "$K3S_STATUS" = "success" ]; then
+              echo "k3s-backup-prep cycle $CURRENT_CYCLE confirmed ready."
+              break
+            fi
+          fi
+          echo "Waiting for k3s-backup-prep cycle $CURRENT_CYCLE to complete... ($WAIT_SECONDS/300s)"
+          ${pkgs.coreutils}/bin/sleep 15
+          WAIT_SECONDS=$((WAIT_SECONDS + 15))
+        done
+        if [ "$WAIT_SECONDS" -ge 300 ]; then
+          fail "Timed out waiting for k3s-backup-prep to complete successfully for cycle $CURRENT_CYCLE"
+        fi
+
+        # 1. Woodpecker manifest verification
+        WP_MANIFEST="$WOODPECKER_MOUNT/backup-manifest.json"
+        if [ ! -s "$WP_MANIFEST" ]; then
+          fail "Woodpecker backup manifest missing or empty at $WP_MANIFEST"
+        fi
+        WP_STATUS=$(${pkgs.jq}/bin/jq -r '.status // empty' "$WP_MANIFEST")
+        WP_CYCLE=$(${pkgs.jq}/bin/jq -r '.cycle // empty' "$WP_MANIFEST")
+        WP_TS=$(${pkgs.jq}/bin/jq -r '.timestamp // 0' "$WP_MANIFEST")
+        WP_DB_FILE=$(${pkgs.jq}/bin/jq -r '.database_file // empty' "$WP_MANIFEST")
+        WP_DB_BYTES=$(${pkgs.jq}/bin/jq -r '.database_bytes // 0' "$WP_MANIFEST")
+
+        if [ "$WP_STATUS" != "success" ]; then
+          fail "Woodpecker dump manifest reported failure status: $WP_STATUS"
+        fi
+        if [ "$WP_CYCLE" != "$CURRENT_CYCLE" ]; then
+          fail "Woodpecker dump is stale: manifest cycle $WP_CYCLE does not match current cycle $CURRENT_CYCLE"
+        fi
+        if [ "$((NOW_EPOCH - WP_TS))" -gt "$MAX_MANIFEST_AGE" ]; then
+          fail "Woodpecker dump manifest timestamp too old ($((NOW_EPOCH - WP_TS))s > $MAX_MANIFEST_AGE s)"
+        fi
+        if [ ! -s "$WOODPECKER_MOUNT/$WP_DB_FILE" ]; then
+          fail "Woodpecker database file $WP_DB_FILE missing or empty"
+        fi
+        if [ "$WP_DB_BYTES" -lt 104857600 ]; then
+          fail "Woodpecker database suspiciously small ($WP_DB_BYTES bytes < 100MB)"
+        fi
+        echo "Validated Woodpecker cycle $CURRENT_CYCLE dump: $WP_DB_FILE ($(($WP_DB_BYTES / 1024 / 1024)) MB)"
+
+        # 2. Forgejo manifest verification
+        FJ_MANIFEST="$NAS_MOUNT/forgejo/backups/backup-manifest.json"
+        if [ ! -s "$FJ_MANIFEST" ]; then
+          fail "Forgejo backup manifest missing or empty at $FJ_MANIFEST"
+        fi
+        FJ_STATUS=$(${pkgs.jq}/bin/jq -r '.status // empty' "$FJ_MANIFEST")
+        FJ_CYCLE=$(${pkgs.jq}/bin/jq -r '.cycle // empty' "$FJ_MANIFEST")
+        FJ_TS=$(${pkgs.jq}/bin/jq -r '.timestamp // 0' "$FJ_MANIFEST")
+        FJ_DB_FILE=$(${pkgs.jq}/bin/jq -r '.database_file // empty' "$FJ_MANIFEST")
+        FJ_DB_BYTES=$(${pkgs.jq}/bin/jq -r '.database_bytes // 0' "$FJ_MANIFEST")
+
+        if [ "$FJ_STATUS" != "success" ]; then
+          fail "Forgejo dump manifest reported failure status: $FJ_STATUS"
+        fi
+        if [ "$FJ_CYCLE" != "$CURRENT_CYCLE" ]; then
+          fail "Forgejo dump is stale: manifest cycle $FJ_CYCLE does not match current cycle $CURRENT_CYCLE"
+        fi
+        if [ "$((NOW_EPOCH - FJ_TS))" -gt "$MAX_MANIFEST_AGE" ]; then
+          fail "Forgejo dump manifest timestamp too old ($((NOW_EPOCH - FJ_TS))s > $MAX_MANIFEST_AGE s)"
+        fi
+        if [ ! -s "$NAS_MOUNT/forgejo/backups/$FJ_DB_FILE" ]; then
+          fail "Forgejo database file $FJ_DB_FILE missing or empty"
+        fi
+        if [ "$FJ_DB_BYTES" -lt 10485760 ]; then
+          fail "Forgejo database suspiciously small ($FJ_DB_BYTES bytes < 10MB)"
+        fi
+        echo "Validated Forgejo cycle $CURRENT_CYCLE dump: $FJ_DB_FILE ($(($FJ_DB_BYTES / 1024 / 1024)) MB)"
+
+        # 3. Platform state manifest verification
+        PS_MANIFEST="$NAS_MOUNT/backups/platform-state/backup-manifest.json"
+        if [ ! -s "$PS_MANIFEST" ]; then
+          fail "Platform state backup manifest missing or empty at $PS_MANIFEST"
+        fi
+        PS_STATUS=$(${pkgs.jq}/bin/jq -r '.status // empty' "$PS_MANIFEST")
+        PS_CYCLE=$(${pkgs.jq}/bin/jq -r '.cycle // empty' "$PS_MANIFEST")
+        PS_TS=$(${pkgs.jq}/bin/jq -r '.timestamp // 0' "$PS_MANIFEST")
+        PS_TOFU_BYTES=$(${pkgs.jq}/bin/jq -r '.tofu_state_bytes // 0' "$PS_MANIFEST")
+
+        if [ "$PS_STATUS" != "success" ]; then
+          fail "Platform state manifest reported failure status: $PS_STATUS"
+        fi
+        if [ "$PS_CYCLE" != "$CURRENT_CYCLE" ]; then
+          fail "Platform state dump is stale: manifest cycle $PS_CYCLE does not match current cycle $CURRENT_CYCLE"
+        fi
+        if [ "$((NOW_EPOCH - PS_TS))" -gt "$MAX_MANIFEST_AGE" ]; then
+          fail "Platform state manifest timestamp too old ($((NOW_EPOCH - PS_TS))s > $MAX_MANIFEST_AGE s)"
+        fi
+        if [ ! -s "$NAS_MOUNT/backups/platform-state/tofu-state/state.sqlite" ]; then
+          fail "OpenTofu state sqlite file missing or empty"
+        fi
+        if [ "$PS_TOFU_BYTES" -lt 10485760 ]; then
+          fail "OpenTofu state suspiciously small ($PS_TOFU_BYTES bytes < 10MB)"
+        fi
+        echo "Validated Platform state cycle $CURRENT_CYCLE dump: tofu-state/state.sqlite ($(($PS_TOFU_BYTES / 1024 / 1024)) MB)"
+
+        # 4. k3s manifest verification
+        K3S_STATUS=$(${pkgs.jq}/bin/jq -r '.status // empty' "$K3S_MANIFEST")
+        K3S_CYCLE=$(${pkgs.jq}/bin/jq -r '.cycle // empty' "$K3S_MANIFEST")
+        K3S_TS=$(${pkgs.jq}/bin/jq -r '.timestamp // 0' "$K3S_MANIFEST")
+        K3S_SNAP_FILE=$(${pkgs.jq}/bin/jq -r '.snapshot_file // empty' "$K3S_MANIFEST")
+        K3S_SNAP_BYTES=$(${pkgs.jq}/bin/jq -r '.snapshot_bytes // 0' "$K3S_MANIFEST")
+
+        if [ "$K3S_STATUS" != "success" ]; then
+          fail "k3s backup prep reported failure status: $K3S_STATUS"
+        fi
+        if [ "$K3S_CYCLE" != "$CURRENT_CYCLE" ]; then
+          fail "k3s backup prep is stale: manifest cycle $K3S_CYCLE does not match current cycle $CURRENT_CYCLE"
+        fi
+        if [ "$((NOW_EPOCH - K3S_TS))" -gt "$MAX_MANIFEST_AGE" ]; then
+          fail "k3s backup prep manifest timestamp too old ($((NOW_EPOCH - K3S_TS))s > $MAX_MANIFEST_AGE s)"
+        fi
+        if [ ! -s "$K3S_MOUNT/etcd-snapshot-latest" ]; then
+          fail "k3s etcd snapshot missing or empty at $K3S_MOUNT/etcd-snapshot-latest"
+        fi
+        if [ "$K3S_SNAP_BYTES" -lt 10485760 ]; then
+          fail "k3s etcd snapshot suspiciously small ($K3S_SNAP_BYTES bytes < 10MB)"
+        fi
+        echo "Validated k3s cycle $CURRENT_CYCLE snapshot: $K3S_SNAP_FILE ($(($K3S_SNAP_BYTES / 1024 / 1024)) MB)"
+
+        # 5. Immich & Home Assistant database dumps (from frozen snapshot)
+        IMMICH_LIB_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "immich-immich-library-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
         if [ -z "$IMMICH_LIB_DIR" ] || [ ! -d "$IMMICH_LIB_DIR/library" ] || [ ! -d "$IMMICH_LIB_DIR/upload" ]; then
-          fail "Immich library or upload directory not found in $NAS_MOUNT/cluster"
+          fail "Immich library or upload directory not found in $NAS_CLUSTER_MOUNT"
         fi
 
-        DUMPS_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "backups-db-dumps-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        DUMPS_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "backups-db-dumps-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
         if [ -z "$DUMPS_DIR" ] || [ ! -d "$DUMPS_DIR" ]; then
-          fail "DB dumps directory not found in $NAS_MOUNT/cluster"
+          fail "DB dumps directory not found in $NAS_CLUSTER_MOUNT"
         fi
 
-        # Database freshness and size checks
-        LATEST_IMMICH_DUMP=$(${pkgs.findutils}/bin/find "$DUMPS_DIR" -name "immich-*.dump.gz" -mtime -2 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
+        LATEST_IMMICH_DUMP=$(${pkgs.findutils}/bin/find "$DUMPS_DIR" -name "immich-*.dump.gz" -mmin -1080 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
         if [ -z "$LATEST_IMMICH_DUMP" ]; then
-          fail "No Immich DB dump less than 48 hours old found in $DUMPS_DIR"
+          fail "No Immich DB dump from the current backup cycle (< 18 hours old) found in $DUMPS_DIR"
         fi
         IMMICH_DUMP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$LATEST_IMMICH_DUMP")
         if [ "$IMMICH_DUMP_SIZE" -lt 10485760 ]; then
@@ -151,9 +302,9 @@ let
         fi
         echo "Found fresh Immich DB dump: $LATEST_IMMICH_DUMP ($(($IMMICH_DUMP_SIZE / 1024 / 1024)) MB)"
 
-        LATEST_HA_DUMP=$(${pkgs.findutils}/bin/find "$DUMPS_DIR" -name "home-assistant-*.dump.gz" -mtime -2 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
+        LATEST_HA_DUMP=$(${pkgs.findutils}/bin/find "$DUMPS_DIR" -name "home-assistant-*.dump.gz" -mmin -1080 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
         if [ -z "$LATEST_HA_DUMP" ]; then
-          fail "No Home Assistant DB dump less than 48 hours old found in $DUMPS_DIR"
+          fail "No Home Assistant DB dump from the current backup cycle (< 18 hours old) found in $DUMPS_DIR"
         fi
         HA_DUMP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$LATEST_HA_DUMP")
         if [ "$HA_DUMP_SIZE" -lt 1048576 ]; then
@@ -161,12 +312,12 @@ let
         fi
         echo "Found fresh Home Assistant DB dump: $LATEST_HA_DUMP ($(($HA_DUMP_SIZE / 1024 / 1024)) MB)"
 
-        HA_CONFIG_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "home-assistant-home-assistant-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        HA_CONFIG_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "home-assistant-home-assistant-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
         if [ -z "$HA_CONFIG_DIR" ] || [ ! -f "$HA_CONFIG_DIR/configuration.yaml" ]; then
           fail "Home Assistant configuration directory or configuration.yaml not found"
         fi
 
-        HA_MATTER_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "home-assistant-home-assistant-matter-server-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        HA_MATTER_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "home-assistant-home-assistant-matter-server-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
 
         if [ ! -d "$NAS_MOUNT/forgejo/repositories" ]; then
           fail "Forgejo repositories directory not found at $NAS_MOUNT/forgejo/repositories"
@@ -177,54 +328,22 @@ let
           fail "Forgejo backups directory not found at $FORGEJO_BACKUPS_DIR"
         fi
 
-        ACTUAL_FORGEJO_DUMP=$(${pkgs.findutils}/bin/find "$FORGEJO_BACKUPS_DIR" -maxdepth 1 -type f -name "forgejo-*.sqlite" ! -name "*-latest.sqlite" 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
-        if [ -z "$ACTUAL_FORGEJO_DUMP" ] || [ ! -s "$ACTUAL_FORGEJO_DUMP" ]; then
-          fail "No non-empty Forgejo SQLite database dump file found in $FORGEJO_BACKUPS_DIR"
-        fi
-        FORGEJO_DUMP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$ACTUAL_FORGEJO_DUMP")
-        echo "Found Forgejo DB dump: $ACTUAL_FORGEJO_DUMP ($(($FORGEJO_DUMP_SIZE / 1024 / 1024)) MB)"
-
-        # Platform state (OpenTofu state, Garage metadata, storage keys)
-        PLATFORM_STATE_DIR="$NAS_MOUNT/backups/platform-state"
-        if [ ! -s "$PLATFORM_STATE_DIR/tofu-state/state.sqlite" ]; then
-          fail "OpenTofu state dump not found or empty at $PLATFORM_STATE_DIR/tofu-state/state.sqlite"
-        fi
-        echo "Found OpenTofu state dump"
-
-        # k3s etcd snapshot & server token
-        if [ ! -s "$K3S_MOUNT/etcd-snapshot-latest" ]; then
-          fail "k3s etcd snapshot not found or empty at $K3S_MOUNT/etcd-snapshot-latest"
-        fi
-        ETCD_SNAP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$K3S_MOUNT/etcd-snapshot-latest")
-        if [ "$ETCD_SNAP_SIZE" -lt 10485760 ]; then
-          fail "k3s etcd snapshot suspiciously small ($ETCD_SNAP_SIZE bytes < 10MB)"
-        fi
-        echo "Found k3s etcd snapshot: $K3S_MOUNT/etcd-snapshot-latest ($(($ETCD_SNAP_SIZE / 1024 / 1024)) MB)"
-
-        # Woodpecker CI SQLite dump
-        ACTUAL_WP_DUMP=$(${pkgs.findutils}/bin/find "$WOODPECKER_MOUNT" -maxdepth 1 -type f -name "woodpecker-*.sqlite" ! -name "*-latest.sqlite" 2>/dev/null | ${pkgs.coreutils}/bin/sort -r | ${pkgs.coreutils}/bin/head -n 1)
-        if [ -z "$ACTUAL_WP_DUMP" ] || [ ! -s "$ACTUAL_WP_DUMP" ]; then
-          fail "No non-empty Woodpecker SQLite database dump file found in $WOODPECKER_MOUNT"
-        fi
-        WP_DUMP_SIZE=$(${pkgs.coreutils}/bin/stat -c %s "$ACTUAL_WP_DUMP")
-        echo "Found Woodpecker DB dump: $ACTUAL_WP_DUMP ($(($WP_DUMP_SIZE / 1024 / 1024)) MB)"
-
-        # Application PVCs
-        BOOKSHELF_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-bookshelf-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        SONARR_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-sonarr-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        RADARR_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-radarr-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        PROWLARR_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-prowlarr-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        CALIBRE_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-calibre-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        NAVIDROME_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-navidrome-data-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        COUCHDB_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "obsidian-couchdb-data-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
-        SLSKD_DIR=$(${pkgs.findutils}/bin/find "$NAS_MOUNT/cluster" -maxdepth 1 -name "media-slskd-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        # 6. Application PVCs (from frozen point-in-time ZFS snapshot)
+        BOOKSHELF_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-bookshelf-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        SONARR_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-sonarr-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        RADARR_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-radarr-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        PROWLARR_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-prowlarr-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        CALIBRE_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-calibre-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        NAVIDROME_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-navidrome-data-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        COUCHDB_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "obsidian-couchdb-data-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
+        SLSKD_DIR=$(${pkgs.findutils}/bin/find "$NAS_CLUSTER_MOUNT" -maxdepth 1 -name "media-slskd-config-pvc-*" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 1)
 
         for app_dir in "$BOOKSHELF_DIR" "$SONARR_DIR" "$RADARR_DIR" "$PROWLARR_DIR" "$CALIBRE_DIR" "$NAVIDROME_DIR" "$COUCHDB_DIR"; do
           if [ -z "$app_dir" ] || [ ! -d "$app_dir" ]; then
-            fail "Required application PVC directory missing from $NAS_MOUNT/cluster"
+            fail "Required application PVC directory missing from $NAS_CLUSTER_MOUNT"
           fi
         done
-        echo "Found all required application PVCs"
+        echo "Found all required application PVCs in frozen ZFS snapshot"
 
         # Local Infrastructure state paths
         LOCAL_PATHS=(
@@ -467,6 +586,7 @@ in
       pkgs.findutils
       pkgs.gawk
       pkgs.gnugrep
+      pkgs.jq
       pkgs.sshfs
       pkgs.fuse
       pkgs.restic
@@ -568,4 +688,10 @@ in
       RandomizedDelaySec = "15m";
     };
   };
+
+  systemd.tmpfiles.rules = [
+    "d /mnt/backups 0700 root root -"
+    "d /mnt/backups/restic-repo 0700 root root -"
+    "d /run/backup-source 0700 root root -"
+  ];
 }

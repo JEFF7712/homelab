@@ -19,10 +19,20 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("mountpoint -q /mnt/backups", content)
         self.assertIn("immich_backup_last_status", content)
         self.assertIn("immich-external-ops.lock", content)
-        # Database freshness checks
+        # Database freshness and cycle manifest checks
+        self.assertIn("CURRENT_CYCLE=", content)
+        self.assertIn("backup-manifest.json", content)
+        self.assertIn("MAX_MANIFEST_AGE=", content)
         self.assertIn("immich-*.dump.gz", content)
         self.assertIn("home-assistant-*.dump.gz", content)
-        self.assertIn("forgejo-*.sqlite", content)
+        # ZFS frozen snapshot mount for consistent PVC backups
+        self.assertIn("tank/cluster/.zfs/snapshot/backup-nightly", content)
+        self.assertIn("NAS_CLUSTER_MOUNT=", content)
+        # Timing coordination with k3s
+        self.assertIn("k3s-backup-prep cycle", content)
+        # Permissions isolation
+        self.assertIn("chmod 0700 /mnt/backups", content)
+        self.assertIn('"d /mnt/backups 0700 root root -"', content)
         # Timers and safety
         self.assertIn('OnCalendar = "03:30:00"', content)
         self.assertIn("systemd.timers.immich-external-backup-prune = {", content)
@@ -36,7 +46,7 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("--group-by host", content)
         # Source validations for expanded datasets
         self.assertIn("etcd-snapshot-latest", content)
-        self.assertIn("woodpecker-*.sqlite", content)
+        self.assertIn("WP_DB_FILE", content)
         self.assertIn("tofu-state/state.sqlite", content)
         self.assertIn("AdGuardHome.yaml", content)
         self.assertIn("media-bookshelf-config-pvc-*", content)
@@ -74,9 +84,11 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("ForceCommand internal-sftp -R", content)
         self.assertIn("AllowTcpForwarding no", content)
         self.assertIn("systemd.services.forgejo-backup-dump", content)
+        self.assertIn("backup-manifest.json", content)
         self.assertIn('OnCalendar = "02:50:00"', content)
         self.assertIn("systemd.services.platform-state-backup-dump", content)
         self.assertIn('OnCalendar = "02:55:00"', content)
+        self.assertIn("tank/cluster@backup-nightly", content)
         self.assertIn("/tank/backups/platform-state", content)
 
     def test_k3s_backup_source_contract(self) -> None:
@@ -84,6 +96,7 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("users.users.backup-reader", content)
         self.assertIn("ForceCommand internal-sftp -R", content)
         self.assertIn("systemd.services.k3s-backup-prep", content)
+        self.assertIn("backup-manifest.json", content)
         self.assertIn('OnCalendar = "03:15:00"', content)
         host_content = (REPO_ROOT / "flake/hosts/homelab-01/default.nix").read_text()
         self.assertIn("k3s-backup-source.nix", host_content)
@@ -93,6 +106,7 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("users.users.backup-reader", content)
         self.assertIn("ForceCommand internal-sftp -R", content)
         self.assertIn("systemd.services.woodpecker-backup-dump", content)
+        self.assertIn("backup-manifest.json", content)
         self.assertIn('OnCalendar = "02:40:00"', content)
         host_content = (REPO_ROOT / "flake/hosts/homelab-04/default.nix").read_text()
         self.assertIn("woodpecker-backup-source.nix", host_content)
@@ -101,12 +115,22 @@ class ExternalBackupContractTests(unittest.TestCase):
         content = (REPO_ROOT / "flake/modules/nas-data.nix").read_text()
         self.assertIn('"tank/forgejo".useTemplate = [ "operational" ];', content)
 
+    def test_offline_recovery_kit_script_exists(self) -> None:
+        script = REPO_ROOT / "scripts/backups/export-offline-recovery-kit.sh"
+        self.assertTrue(script.is_file())
+        content = script.read_text()
+        self.assertIn("backup-restic-password", content)
+        self.assertIn("emergency-restore.sh", content)
+        self.assertIn("chmod 0600", content)
+
     def test_runbook_exists(self) -> None:
         runbook = REPO_ROOT / "docs/runbooks/external-backup-recovery.md"
         self.assertTrue(runbook.is_file())
         text = runbook.read_text()
         self.assertIn("00d3f54f-28f8-454c-929a-8c8191ab3624", text)
         self.assertIn("restic restore", text)
+        self.assertIn("Cycle Verification Protocol", text)
+        self.assertIn("export-offline-recovery-kit.sh", text)
 
 
 if __name__ == "__main__":
