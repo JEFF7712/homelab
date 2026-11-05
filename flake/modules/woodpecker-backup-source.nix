@@ -39,14 +39,7 @@
                         TEMP_FILE="$BACKUP_DIR/woodpecker-$STAMP.tmp.sqlite"
 
                         if [ -f /persist/woodpecker/server-data/woodpecker.sqlite ]; then
-                          ${pkgs.python313}/bin/python -c '
-                import sqlite3, sys
-                src = sqlite3.connect("file:/persist/woodpecker/server-data/woodpecker.sqlite?mode=ro", uri=True)
-                dst = sqlite3.connect(sys.argv[1])
-                src.backup(dst)
-                dst.close()
-                src.close()
-                ' "$TEMP_FILE"
+                          ${pkgs.python313}/bin/python -c 'import sqlite3, sys; src = sqlite3.connect("file:/persist/woodpecker/server-data/woodpecker.sqlite?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[1]); src.backup(dst); dst.close(); src.close()' "$TEMP_FILE"
                           ${pkgs.coreutils}/bin/chmod 0640 "$TEMP_FILE"
                           ${pkgs.coreutils}/bin/chown root:backup-reader "$TEMP_FILE"
                           ${pkgs.coreutils}/bin/mv -f "$TEMP_FILE" "$DUMP_FILE"
