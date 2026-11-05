@@ -154,6 +154,7 @@ let
           "$FORGEJO_DUMP"
         )
 
+        RC=0
         ${pkgs.restic}/bin/restic backup \
           --tag immich \
           --tag databases \
@@ -162,11 +163,17 @@ let
           --exclude '.storage' \
           --exclude 'thumbs' \
           --exclude 'encoded-video' \
-          "''${SOURCES[@]}"
+          --exclude 'tmp_objdir-*' \
+          --exclude '*/custom_components/spook_*' \
+          "''${SOURCES[@]}" || RC=$?
 
-        NOW=$(date +%s)
-        record_metric 1 "$NOW"
-        echo "==> [5/5] Backup completed successfully at $(date -d @$NOW)!"
+        if [ "$RC" -eq 0 ] || [ "$RC" -eq 3 ]; then
+          NOW=$(date +%s)
+          record_metric 1 "$NOW"
+          echo "==> [5/5] Backup completed successfully (status: $RC) at $(date -d @$NOW)!"
+        else
+          fail "Restic backup failed with exit code $RC"
+        fi
   '';
 
   pruneScript = pkgs.writeShellScript "run-immich-external-prune" ''
