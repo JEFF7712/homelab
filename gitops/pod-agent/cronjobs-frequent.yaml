@@ -16,6 +16,7 @@ spec:
       activeDeadlineSeconds: 600
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
           nodeSelector:
             kubernetes.io/hostname: homelab-01
@@ -54,7 +55,7 @@ spec:
               workingDir: /data
               envFrom:
                 - secretRef:
-                    name: pod-agent-env
+                    name: pod-agent-veto-sweep-env
                 - configMapRef:
                     name: pod-agent-config
               resources:
@@ -104,6 +105,7 @@ spec:
       activeDeadlineSeconds: 600
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
           nodeSelector:
             kubernetes.io/hostname: homelab-01
@@ -143,7 +145,7 @@ spec:
               workingDir: /data
               envFrom:
                 - secretRef:
-                    name: pod-agent-env
+                    name: pod-agent-oauth-refresh-env
                 - configMapRef:
                     name: pod-agent-config
               resources:
@@ -193,6 +195,7 @@ spec:
       activeDeadlineSeconds: 900
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
           nodeSelector:
             kubernetes.io/hostname: homelab-01
@@ -231,7 +234,7 @@ spec:
               workingDir: /data
               envFrom:
                 - secretRef:
-                    name: pod-agent-env
+                    name: pod-agent-email-watch-env
                 - configMapRef:
                     name: pod-agent-config
               resources:
@@ -281,6 +284,7 @@ spec:
       activeDeadlineSeconds: 600
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: OnFailure
           nodeSelector:
             kubernetes.io/hostname: homelab-01
@@ -301,7 +305,7 @@ spec:
               workingDir: /data
               envFrom:
                 - secretRef:
-                    name: pod-agent-env
+                    name: pod-agent-watchdog-env
                 - configMapRef:
                     name: pod-agent-config
               resources:
@@ -352,6 +356,7 @@ spec:
       activeDeadlineSeconds: 1200
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: Never
           nodeSelector:
             kubernetes.io/hostname: homelab-01
@@ -391,7 +396,7 @@ spec:
               workingDir: /data
               envFrom:
                 - secretRef:
-                    name: pod-agent-env
+                    name: pod-agent-planner-recovery-env
                 - configMapRef:
                     name: pod-agent-config
               resources:

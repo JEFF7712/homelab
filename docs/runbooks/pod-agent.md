@@ -17,8 +17,8 @@ token rotation races.
   `gitops/immich/postgres-volume.yaml`.
 - `gitops/pod-agent/configmap.yaml` — non-secret env: paths into `/data`,
   CLI-auth homes, provider rotation.
-- `gitops/pod-agent/externalsecret.yaml` — `pod-agent-env` (properties from SOPS-backed
-  `homelab-values`) + `pod-agent-age` (age identity key file for backup verify).
+- `gitops/pod-agent/externalsecret.yaml` — separate workload environment Secrets (properties from the
+  `homelab-pod-agent` store) + `pod-agent-age` (age identity key file for backup verify).
 - `gitops/pod-agent/dashboard.yaml` — owner desk, ClusterIP service.
 - `gitops/pod-agent/network-policy.yaml` — dashboard ingress from the
   `cloudflare` namespace only, so the public hostname is the sole path in.
@@ -51,7 +51,7 @@ See [Application CI](application-ci.md) and [registry operations](local-registry
    `gitops/secrets/homelab-values.sops.yaml` with `sops set --value-stdin`.
    Pass values through protected stdin, never command arguments or logs.
 4. Validate and merge the encrypted change. Wait for Flux and both
-   `pod-agent-env` and `pod-agent-age` ExternalSecrets to refresh. Existing
+   `pod-agent-backup-env` and `pod-agent-age` ExternalSecrets to refresh. Existing
    running containers keep their environment; start a fresh backup Job after
    the two Secret values agree.
 5. Verify that the new snapshot decrypts with the new identity, passes SQLite
@@ -67,8 +67,9 @@ old identity or change the encryption of existing snapshots.
 ### 1. Encrypted secret values
 
 Add each value below to `gitops/secrets/homelab-values.sops.yaml` using SOPS.
-The `homelab-secrets` ClusterSecretStore reads the decrypted Kubernetes Secret
-(same store as `backups`). Values come
+The bootstrap store projects this domain's properties into
+`homelab-pod-agent-values`; its dedicated provider can read only that source.
+Values come
 from the laptop `.env`; `POD_AGENT_BACKUP_IDENTITY_FILE` is the *content* of
 the age key file (laptop: `~/.config/pod-agent/backup-age.key`), and
 `POD_AGENT_DASHBOARD_TOKEN` is new (generate with `openssl rand -hex 32`).
@@ -231,3 +232,28 @@ a different release.
   to the pod, so the port-forward keeps working).
 - `pod-agent-canary` and `pod-agent-design` timers stay disabled, matching
   the laptop.
+
+## Workload credentials and isolation
+
+Each Deployment or CronJob has its own environment Secret. The observation and
+business-cycle jobs alone receive the bank API token; only email-watch and the
+business cycle receive IMAP credentials. The backup job receives its encryption
+recipients; the dashboard alone receives its HTTP token. The privacy purge uses
+no environment Secret. Telegram and the unused second-shop Printify credentials
+are not copied into this namespace's environment projection.
+
+The application eagerly constructs Etsy and Printify clients in `build_context`,
+including OAuth refresh, learning and pricing commands, so those commands still
+receive both client credential pairs. The Discord approvals bot and dashboard
+execute accepted proposals and therefore retain the storefront and buyer-email
+execution credentials; neither needs the bank, IMAP or backup keys. Notification
+callers retain Discord routing and fallback webhooks because `notify_owner`
+selects a destination by the kind of alert. All Pods disable Kubernetes API token
+mounting. These contracts are checked against rendered manifests.
+
+Default-deny ingress/egress allows dashboard requests only from cloudflared,
+cluster DNS, and public HTTP(S)/IMAPS for vendor APIs, provider CLI sessions and
+inbox polling. Private LAN, link-local and overlay ranges are excluded. The
+Antigravity keyring continues to use its existing Unix socket on the shared
+volume; it requires no network exception. CLI auth and application state still
+share the single-writer PVC: these workloads remain one application trust domain.

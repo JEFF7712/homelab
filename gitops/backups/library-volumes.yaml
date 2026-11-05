@@ -23,7 +23,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: homelab-secrets
+    name: homelab-immich
   target:
     name: immich-backup-secrets
     creationPolicy: Owner
@@ -32,5 +32,5 @@ spec:
   data:
     - secretKey: restic-password
       remoteRef:
-        key: homelab-values
+        key: homelab-immich-values
         property: RESTIC_PASSWORD
