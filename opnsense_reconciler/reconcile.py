@@ -1240,6 +1240,11 @@ def _live_static_routes(response: object) -> dict[str, dict[str, object]]:
     return live_by_network
 
 
+def apply_firewall(client: Client) -> None:
+    client.post("/api/firewall/alias/reconfigure", {})
+    client.post("/api/firewall/filter/apply", {})
+
+
 def main(
     argv: list[str] | None = None,
     environ: Mapping[str, str] | None = None,
@@ -1267,6 +1272,7 @@ def main(
     reconcile_static: Callable[
         [Client, list[dict[str, object]]], None
     ] = reconcile_static_routes,
+    apply_firewall: Callable[[Client], None] = apply_firewall,
     prove_bgp: Callable[[Reader, dict[str, int], set[str]], BgpProof] = verify_bgp,
 ) -> None:
     parser = argparse.ArgumentParser(
@@ -1364,6 +1370,7 @@ def main(
     reconcile_acls(client, desired_unbound_acls)
     reconcile_host_overrides(client, desired_host_overrides)
     reconcile_static(client, desired_static_routes)
+    apply_firewall(client)
     proof = prove_bgp(client, expected_peers, set(expected_routes))
     if not proof.ready:
         raise RuntimeError(
