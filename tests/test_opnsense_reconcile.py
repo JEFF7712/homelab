@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from opnsense_reconciler.inventory import Credentials
 from opnsense_reconciler.reconcile import (
+    apply_firewall,
     main,
     reconcile_bgp_neighbors,
     reconcile_interfaces,
@@ -285,9 +286,11 @@ class ReconcileInterfaceTests(unittest.TestCase):
                 reconcile_static=reconcile_static,
                 reconcile_relays=reconcile_relays,
                 ensure_relay_plugin=ensure_relay_plugin,
+                apply_firewall=lambda c: seen.setdefault("firewall_applied", True),
                 prove_bgp=prove_bgp,
             )
 
+        self.assertTrue(seen["firewall_applied"])
         self.assertEqual(seen["credentials"], Credentials("api-key", "api-secret"))
         self.assertEqual(seen["assignment_api_available"], True)
         self.assertEqual(seen["desired"], [{"parent": "igb0", "tag": 30}])
@@ -1214,6 +1217,23 @@ class OutboundNatReconciliationTests(unittest.TestCase):
                 )
                 self.assertEqual(rule["destination_net"], "any")
                 self.assertEqual(rule["target"], "wanip")
+
+    def test_apply_firewall_posts_reconfigure_and_apply(self) -> None:
+        calls: list[tuple[str, str, object]] = []
+
+        class Client:
+            def post(self, path: str, payload: object) -> object:
+                calls.append(("POST", path, payload))
+                return {"result": "saved"}
+
+        apply_firewall(Client())
+        self.assertEqual(
+            calls,
+            [
+                ("POST", "/api/firewall/alias/reconfigure", {}),
+                ("POST", "/api/firewall/filter/apply", {}),
+            ],
+        )
 
 
 class UnboundAclReconciliationTests(unittest.TestCase):

@@ -1045,7 +1045,7 @@
             port = "";
           };
           destination = {
-            net = "iot_living_room_wled";
+            net = "${config.homelab.devices.living_room_wled.address}/32";
             port = "wled_ports";
           };
         };

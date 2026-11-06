@@ -1029,7 +1029,7 @@
         "filter": {
           "action": "pass",
           "destination": {
-            "net": "iot_living_room_wled",
+            "net": "10.0.20.181/32",
             "port": "wled_ports"
           },
           "direction": "in",
