@@ -8,8 +8,8 @@ description: >-
   restored, then Adaptive Lighting control and circadian state resume.
   The Govee dining bulbs have their own Adaptive Lighting entry (2700K
   floor), so each call is split per switch.
-  The LedFx music scene is deactivated on exit so the zigbee bridge stops
-  driving the bulbs; LedFx itself stays up for future LED strips.
+  The LedFx music scene is activated on entry and deactivated on exit to drive
+  the living room LED strip with real-time audio reactivity.
 mode: queued
 max: 5
 triggers:
@@ -58,6 +58,10 @@ actions:
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
               manual_control: true
+          - action: rest_command.ledfx_activate_scene
+            data:
+              scene_id: "music-mode"
+            continue_on_error: true
           - action: script.shared_music_album_color
       - conditions:
           - condition: trigger

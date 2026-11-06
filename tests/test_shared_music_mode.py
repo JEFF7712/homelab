@@ -57,14 +57,13 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertEqual(data.get("id"), "shared_music_mode")
         self.assertEqual(data.get("alias"), "Lighting: Shared Music Mode")
 
-        # One colour write per track: no loops or delays, and nothing
-        # may (re)activate the LedFx scene that the zigbee bridge relays
-        # straight to the bulbs, bypassing this automation's gate. Exit
-        # must deactivate it so a stuck scene cannot re-green the bulbs.
+        # One colour write per track: no loops or delays.
+        # Shared music mode activates the LedFx scene for the living room
+        # LED strip on entry and deactivates it on exit.
         self.assertNotIn("repeat:", raw_text)
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
-        self.assertNotIn("ledfx_activate_scene", raw_text)
+        self.assertIn("rest_command.ledfx_activate_scene", raw_text)
         self.assertIn("rest_command.ledfx_deactivate_scene", raw_text)
         # The scene may already be gone (deleted), so its cleanup must
         # never block the snapshot restore that follows it.
