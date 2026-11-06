@@ -1047,7 +1047,7 @@
             "opt3"
           ]
         },
-        "sequence": 3195
+        "sequence": 320
       },
       "infrastructure-allow-load-balancers": {
         "description": "Allow infrastructure to Kubernetes service VIPs",
@@ -1359,7 +1359,7 @@
             "opt3"
           ]
         },
-        "sequence": 320
+        "sequence": 325
       },
       "load-balancers-allow-any": {
         "description": "Allow Kubernetes service VIP traffic",

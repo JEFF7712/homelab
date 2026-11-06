@@ -1029,7 +1029,7 @@
       infrastructure-allow-living-room-wled = {
         description = "Allow infrastructure and LedFx to living room WLED strip";
         enabled = true;
-        sequence = 3195;
+        sequence = 320;
         interface = {
           interface = [ "opt3" ];
         };
@@ -1053,7 +1053,7 @@
       infrastructure-block-private = {
         description = "Block infrastructure from initiating to other private VLANs";
         enabled = true;
-        sequence = 320;
+        sequence = 325;
         interface = {
           interface = [ "opt3" ];
         };
