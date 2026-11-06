@@ -81,6 +81,13 @@
         mac = "d4:13:68:01:94:b3";
         network = "clients";
       };
+      living_room_wled = {
+        description = "Living room WLED controller (Gledopto GL-C-015WL)";
+        hostname = "wled-living-room";
+        address = "10.0.20.181";
+        mac = "4c:c3:82:e6:88:c8";
+        network = "clients";
+      };
       sams_pc = {
         description = "Sam's gaming PC (Sunshine streaming host)";
         hostname = "wabungus";
@@ -231,6 +238,22 @@
         type = "port";
         content = [ "445" ];
         description = "SMB2/3 network file sharing port";
+        enabled = true;
+      };
+      iot_living_room_wled = {
+        type = "host";
+        description = "Living room WLED controller";
+        enabled = true;
+        devices = [ "living_room_wled" ];
+      };
+      wled_ports = {
+        type = "port";
+        content = [
+          "80"
+          "4048"
+          "21324"
+        ];
+        description = "WLED HTTP, DDP, and realtime sync ports";
         enabled = true;
       };
     };
@@ -1000,6 +1023,30 @@
           destination = {
             net = "${config.homelab.devices.spotify_matrix.address}/32";
             port = "9999";
+          };
+        };
+      };
+      infrastructure-allow-living-room-wled = {
+        description = "Allow infrastructure and LedFx to living room WLED strip";
+        enabled = true;
+        sequence = 3195;
+        interface = {
+          interface = [ "opt3" ];
+        };
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP/UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.infrastructure.cidr;
+            port = "";
+          };
+          destination = {
+            net = "iot_living_room_wled";
+            port = "wled_ports";
           };
         };
       };
