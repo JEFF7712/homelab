@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-05T06:05:41+00:00",
+  "generated_at": "2026-11-06T06:22:21+00:00",
   "images": [
     {
       "authenticity": {
@@ -659,10 +659,10 @@
       ],
       "destination_repository": "apps/photography",
       "destination_tags": [
-        "0.0.1000009",
-        "retention-deployed-f79abbf072e9860c"
+        "0.0.1000013",
+        "retention-deployed-7e6ae773a23343d9"
       ],
-      "digest": "sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66",
+      "digest": "sha256:7e6ae773a23343d913ac8f8102e01177c31fdf2e2826a3d65d48186448ac30c6",
       "id": "first-party-jeff7712-photography-7f744af23df3",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -682,11 +682,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66",
-        "reference": "registry.rupan.dev/apps/photography:0.0.1000009@sha256:f79abbf072e9860ccabcaedbe74bc2b0aac1ca9da147189bdc72ebe91a1d6b66",
+        "digest": "sha256:7e6ae773a23343d913ac8f8102e01177c31fdf2e2826a3d65d48186448ac30c6",
+        "reference": "registry.rupan.dev/apps/photography:0.0.1000013@sha256:7e6ae773a23343d913ac8f8102e01177c31fdf2e2826a3d65d48186448ac30c6",
         "registry": "registry.rupan.dev",
         "repository": "apps/photography",
-        "tag": "0.0.1000009"
+        "tag": "0.0.1000013"
       }
     },
     {
@@ -1645,6 +1645,91 @@
         "registry": "docker.io",
         "repository": "cloudflare/cloudflared",
         "tag": "2026.10.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:10",
+        "observed:cnpg-system/cloudnative-pg-7786f6446-ncxgh/manager",
+        "observed:home-assistant/home-assistant-cluster-1/bootstrap-controller",
+        "observed:home-assistant/home-assistant-cluster-2/bootstrap-controller",
+        "observed:immich/immich-cluster-1/bootstrap-controller",
+        "observed:immich/immich-cluster-2/bootstrap-controller"
+      ],
+      "destination_repository": "upstream/ghcr.io/cloudnative-pg/cloudnative-pg",
+      "destination_tags": [
+        "1.30.1",
+        "retention-deployed-923c267ec29636db"
+      ],
+      "digest": "sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+      "id": "upstream-cloudnative-pg-cloudnative-pg-7aa2b3a45ba9",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+        "reference": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+        "registry": "ghcr.io",
+        "repository": "cloudnative-pg/cloudnative-pg",
+        "tag": "1.30.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:8",
+        "observed:home-assistant/home-assistant-cluster-1/postgres",
+        "observed:home-assistant/home-assistant-cluster-2/postgres"
+      ],
+      "destination_repository": "upstream/ghcr.io/cloudnative-pg/postgresql",
+      "destination_tags": [
+        "17",
+        "retention-deployed-70664ebcfa110036"
+      ],
+      "digest": "sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
+      "id": "upstream-cloudnative-pg-postgresql-77d4b7ccdf1d",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
+        "reference": "ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
+        "registry": "ghcr.io",
+        "repository": "cloudnative-pg/postgresql",
+        "tag": "17"
       }
     },
     {
@@ -6175,6 +6260,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:9",
+        "observed:immich/immich-cluster-1/postgres",
+        "observed:immich/immich-cluster-2/postgres"
+      ],
+      "destination_repository": "upstream/ghcr.io/tensorchord/cloudnative-vectorchord",
+      "destination_tags": [
+        "16",
+        "retention-deployed-f5a17fa05faf25e8"
+      ],
+      "digest": "sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
+      "id": "upstream-tensorchord-cloudnative-vectorchord-bae8f2d4d879",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
+        "reference": "ghcr.io/tensorchord/cloudnative-vectorchord:16@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
+        "registry": "ghcr.io",
+        "repository": "tensorchord/cloudnative-vectorchord",
+        "tag": "16"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/analytics/registry-sources.yaml:13"
       ],
       "destination_repository": "upstream/ghcr.io/umami-software/umami",
@@ -7388,132 +7514,6 @@
         "registry": "docker.io",
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/platform/cnpg/registry-sources.yaml:10",
-        "observed:cnpg-system/cloudnative-pg-7786f6446-ncxgh/manager",
-        "observed:home-assistant/home-assistant-cluster-1/bootstrap-controller",
-        "observed:home-assistant/home-assistant-cluster-2/bootstrap-controller",
-        "observed:immich/immich-cluster-1/bootstrap-controller",
-        "observed:immich/immich-cluster-2/bootstrap-controller"
-      ],
-      "destination_repository": "upstream/ghcr.io/cloudnative-pg/cloudnative-pg",
-      "destination_tags": [
-        "1.30.1",
-        "retention-deployed-923c267ec29636db"
-      ],
-      "digest": "sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
-      "id": "upstream-cloudnative-pg-cloudnative-pg-7aa2b3a45ba9",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "linux/arm64",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
-        "reference": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
-        "registry": "ghcr.io",
-        "repository": "cloudnative-pg/cloudnative-pg",
-        "tag": "1.30.1"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/platform/cnpg/registry-sources.yaml:8",
-        "observed:home-assistant/home-assistant-cluster-1/postgres",
-        "observed:home-assistant/home-assistant-cluster-2/postgres"
-      ],
-      "destination_repository": "upstream/ghcr.io/cloudnative-pg/postgresql",
-      "destination_tags": [
-        "17",
-        "retention-deployed-70664ebcfa110036"
-      ],
-      "digest": "sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
-      "id": "upstream-cloudnative-pg-postgresql-77d4b7ccdf1d",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "linux/arm64",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
-        "reference": "ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e",
-        "registry": "ghcr.io",
-        "repository": "cloudnative-pg/postgresql",
-        "tag": "17"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/platform/cnpg/registry-sources.yaml:9",
-        "observed:immich/immich-cluster-1/postgres",
-        "observed:immich/immich-cluster-2/postgres"
-      ],
-      "destination_repository": "upstream/ghcr.io/tensorchord/cloudnative-vectorchord",
-      "destination_tags": [
-        "16",
-        "retention-deployed-f5a17fa05faf25e8"
-      ],
-      "digest": "sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
-      "id": "upstream-tensorchord-cloudnative-vectorchord-bae8f2d4d879",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "linux/arm64",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
-        "reference": "ghcr.io/tensorchord/cloudnative-vectorchord:16@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236",
-        "registry": "ghcr.io",
-        "repository": "tensorchord/cloudnative-vectorchord",
-        "tag": "16"
       }
     }
   ],
