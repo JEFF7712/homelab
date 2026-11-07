@@ -46,6 +46,17 @@ rest_command:
     method: post
     content_type: "application/json"
     payload: '{"type": "{{ effect_type }}", "config": {{ effect_config | default("{}") }}}'
+shell_command:
+  set_music_assistant_spotify_connect: >-
+    python3 -c 'import urllib.request, json, sys;
+    entries = json.load(open("/config/.storage/core.config_entries"))["data"]["entries"];
+    t = [e["data"]["token"] for e in entries if e.get("domain") == "music_assistant"][0];
+    body = json.dumps({"command": "config/providers/save", "args": {"provider_domain":
+    "spotify_connect", "instance_id": "spotify_connect", "values": {"enabled":
+    sys.argv[1].lower() in ("true", "on", "1")}}, "message_id": "ha_spotify_connect"}).encode();
+    req = urllib.request.Request("http://10.0.30.15:8095/api", data=body,
+    headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"});
+    urllib.request.urlopen(req)' "{{ enabled }}"
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml

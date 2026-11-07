@@ -165,6 +165,25 @@ views:
             media_browser:
               - entity_id: media_player.homelab_05_satellite_media_player_2
                 name: Soundbar
+          - type: custom:mushroom-template-card
+            primary: Spotify Connect
+            secondary: >-
+              {% if is_state('input_boolean.spotify_connect', 'on') %}
+                Available in Spotify app
+              {% else %}
+                Disabled (prevents hijacking)
+              {% endif %}
+            icon: mdi:spotify
+            icon_color: >-
+              {% if is_state('input_boolean.spotify_connect', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: toggle
+              target:
+                entity_id: input_boolean.spotify_connect
           - heading: Gaming
             type: heading
           - type: custom:mushroom-template-card
