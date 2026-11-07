@@ -9,7 +9,7 @@ from modes.base import ModeRenderer, RenderContext
 # The 64x64 panel's four-bit color depth mutes album art, so the fitted disc
 # art gets a fixed saturation/contrast lift before rotation. Pure primaries
 # are unaffected (they clamp), while muted photographic art reads as vivid.
-VINYL_SATURATION = 1.35
+VINYL_SATURATION = 1.25
 VINYL_CONTRAST = 1.12
 
 
