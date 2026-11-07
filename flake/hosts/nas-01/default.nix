@@ -131,41 +131,6 @@
     partOf = [ "pipewire.service" ];
   };
 
-  # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
-  # here (port 46100); this receiver plays it straight into the Bluetooth sink,
-  # so music plays directly without delay. Deliberately RTP
-  # and not RAOP/AirPlay: PipeWire 1.6.8's RAOP sender aborts the whole
-  # daemon on this shairport-sync's handshake (rtsp-client.c:397), while RTP
-  # has no handshake to crash on. source.ip 0.0.0.0 accepts any sender; the
-  # firewall restricts the port to the home ranges. net.ttl is not set here
-  # (receiver side); the sender must use a TTL above 1 because the laptop
-  # reaches nas-01 through a router hop.
-  services.pipewire.extraConfig.pipewire."30-laptop-rtp" = {
-    "context.modules" = [
-      {
-        name = "libpipewire-module-rtp-source";
-        args = {
-          "source.ip" = "0.0.0.0";
-          "source.port" = 46100;
-          "sess.latency.msec" = 100;
-          # The receiver locks onto the first sender's SSRC and drops every
-          # later one, and the laptop picks a new random SSRC each time its
-          # sender restarts, so a restart left this tap silent until nas-01
-          # pipewire restarted. There is one sender and the firewall limits
-          # the port to home ranges.
-          "sess.ignore-ssrc" = true;
-          "audio.rate" = 48000;
-          "audio.channels" = 2;
-          "stream.props" = {
-            "node.name" = "bedroom-rtp-in";
-            "node.description" = "Laptop RTP in";
-            "target.object" = "bluez_output.E4_58_BC_10_CA_C9.1";
-          };
-        };
-      }
-    ];
-  };
-
   # Wyoming satellite for bedroom audio playback (Jarvis + media)
   users.users.wyoming = {
     isSystemUser = true;
@@ -206,11 +171,9 @@
   };
 
   # Open firewall ports for Wyoming protocol and mDNS discovery.
-  # UDP 46100 is the unicast RTP feed from the laptop (see the 30-laptop-rtp module above).
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 10700 accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
-    ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 46100 accept
   '';
 
   # AirPlay (shairport-sync) for Music Assistant and phone streaming to Bose speaker

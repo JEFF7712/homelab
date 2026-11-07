@@ -99,9 +99,7 @@ source the computed level stays under `0.2`, so the effect renders pure black
 expected cycling palette. The shared instance keeps the default because its USB
 tap reports a higher level.
 
-Shairport Sync and the laptop RTP feed (`bedroom-rtp-in`, unicast
-UDP 46100; RTP, not RAOP, because PipeWire 1.6.8's RAOP sender aborts on this
-shairport-sync's handshake) stream directly to the Bose Bluetooth sink without
+Shairport Sync streams directly to the Bose Bluetooth sink without
 any artificial audio delay. LedFx listens to the Bluetooth sink's monitor,
 and `bedroom-audio-fft.service` streams real-time frequency analysis to the
 LED matrix display. Other Pulse clients, including the Wyoming satellite, keep
