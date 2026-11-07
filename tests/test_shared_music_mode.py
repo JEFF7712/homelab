@@ -128,6 +128,7 @@ class TestSharedMusicMode(unittest.TestCase):
             "light.kitchen_dining_table_ceiling_light_1",
             "light.kitchen_dining_table_ceiling_light_2",
             "light.apollo_led_strip_apollo_led_strip",
+            "light.kitchen_mushroom_lamp",
         ):
             self.assertIn(bulb, raw_text)
 
