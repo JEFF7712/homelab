@@ -113,6 +113,10 @@
   icon: mdi:spotify
   labels: []
   name: Spotify Connect
+- entity_id: input_boolean.spotify_connect_bedroom
+  icon: mdi:spotify
+  labels: []
+  name: Bedroom Spotify Connect
 - entity_id: input_boolean.vacation_mode
   icon: mdi:palmtree
   labels: []

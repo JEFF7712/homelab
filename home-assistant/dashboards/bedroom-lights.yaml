@@ -279,6 +279,50 @@ views:
             icon: mdi:music
             features:
               - type: toggle
+          - type: custom:mushroom-template-card
+            primary: Reconnect Speaker
+            secondary: >-
+              {% if is_state('binary_sensor.bedroom_speaker_bluetooth', 'on') %}
+                Connected
+              {% else %}
+                Disconnected (Tap to reconnect)
+              {% endif %}
+            icon: >-
+              {% if is_state('binary_sensor.bedroom_speaker_bluetooth', 'on') %}
+                mdi:bluetooth-connect
+              {% else %}
+                mdi:bluetooth-off
+              {% endif %}
+            icon_color: >-
+              {% if is_state('binary_sensor.bedroom_speaker_bluetooth', 'on') %}
+                blue
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: perform-action
+              perform_action: script.turn_on
+              target:
+                entity_id: script.connect_bedroom_speaker
+          - type: custom:mushroom-template-card
+            primary: Spotify Connect
+            secondary: >-
+              {% if is_state('input_boolean.spotify_connect_bedroom', 'on') %}
+                Available in Spotify app
+              {% else %}
+                Disabled
+              {% endif %}
+            icon: mdi:spotify
+            icon_color: >-
+              {% if is_state('input_boolean.spotify_connect_bedroom', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: toggle
+              target:
+                entity_id: input_boolean.spotify_connect_bedroom
       - cards:
           - type: heading
             heading: Matrix Display

@@ -1,14 +1,17 @@
 id: spotify_connect_sync
 alias: "Music Assistant: Spotify Connect Sync"
-description: "Toggle Music Assistant Spotify Connect provider when input_boolean.spotify_connect changes."
+description: "Sync Music Assistant Spotify Connect provider players with input booleans."
 mode: restart
 triggers:
   - trigger: state
-    entity_id: input_boolean.spotify_connect
+    entity_id:
+      - input_boolean.spotify_connect
+      - input_boolean.spotify_connect_bedroom
   - trigger: homeassistant
     event: start
 conditions: []
 actions:
   - action: shell_command.set_music_assistant_spotify_connect
     data:
-      enabled: "{{ states('input_boolean.spotify_connect') == 'on' }}"
+      living_room: "{{ states('input_boolean.spotify_connect') == 'on' }}"
+      bedroom: "{{ states('input_boolean.spotify_connect_bedroom') == 'on' }}"
