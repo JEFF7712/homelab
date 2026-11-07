@@ -96,14 +96,6 @@
     systemWide = true;
     alsa.enable = true;
     pulse.enable = true;
-    extraConfig.pipewire-pulse."20-bedroom-music-pre-delay" = {
-      "pulse.cmd" = [
-        {
-          cmd = "load-module";
-          args = "module-null-sink sink_name=bedroom_music_pre_delay sink_properties=device.description=Bedroom_Music_Pre_Delay";
-        }
-      ];
-    };
     wireplumber = {
       enable = true;
       extraConfig = {
@@ -140,14 +132,8 @@
   };
 
   # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
-  # here (port 46100); this receiver plays it straight into
-  # bedroom_music_pre_delay, so LedFx and the Bose chain hear it exactly like
-  # Shairport audio. It must be the only path into that sink: a second copy
-  # (a loopback from this node) doubled the level and clipped the tap. The
-  # target is pinned, but node.dont-fallback must stay off: the receiver loads
-  # before pipewire-pulse creates the tap, and with no fallback WirePlumber
-  # reports "defined target not found" and the receiver drops its stream for
-  # good instead of retrying until the tap exists. Deliberately RTP
+  # here (port 46100); this receiver plays it straight into the Bluetooth sink,
+  # so music plays directly without delay. Deliberately RTP
   # and not RAOP/AirPlay: PipeWire 1.6.8's RAOP sender aborts the whole
   # daemon on this shairport-sync's handshake (rtsp-client.c:397), while RTP
   # has no handshake to crash on. source.ip 0.0.0.0 accepts any sender; the
@@ -173,7 +159,7 @@
           "stream.props" = {
             "node.name" = "bedroom-rtp-in";
             "node.description" = "Laptop RTP in";
-            "target.object" = "bedroom_music_pre_delay";
+            "target.object" = "bluez_output.E4_58_BC_10_CA_C9.1";
           };
         };
       }
@@ -220,8 +206,7 @@
   };
 
   # Open firewall ports for Wyoming protocol and mDNS discovery.
-  # UDP 46100 is the unicast RTP feed from the laptop into
-  # bedroom_music_pre_delay (see the 30-laptop-rtp module above).
+  # UDP 46100 is the unicast RTP feed from the laptop (see the 30-laptop-rtp module above).
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 10700 accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
@@ -274,51 +259,10 @@
     environment = {
       PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
       PULSE_SERVER = "unix:/run/pulse/native";
-      PULSE_SINK = "bedroom_music_pre_delay";
     };
     # Settings live in a generated file, so a settings-only change does not
     # otherwise restart the unit and the new config is ignored until reboot.
     restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
-  };
-
-  systemd.services.bedroom-audio-delay = {
-    description = "Delay bedroom music playback to match LedFx lights";
-    after = [
-      "pipewire.service"
-      "pipewire-pulse.service"
-      "bluetooth.target"
-    ];
-    requires = [
-      "pipewire.service"
-      "pipewire-pulse.service"
-    ];
-    partOf = [ "pipewire-pulse.service" ];
-    wantedBy = [
-      "multi-user.target"
-      "pipewire-pulse.service"
-    ];
-    restartTriggers = [ config.environment.etc.pipewire.source ];
-    environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
-    # dont-fallback: while the Bose is paired elsewhere (e.g. the laptop) its
-    # sink does not exist here, and WirePlumber would otherwise fall back to
-    # the default sink, bedroom_music_pre_delay itself. That closes a 450 ms
-    # feedback loop that clips the tap and drives the lights with no music.
-    # With the flag, the loopback exits instead and the unit retries.
-    script = ''
-      exec ${pkgs.pipewire}/bin/pw-loopback \
-        --name=bedroom-music-delay \
-        --capture=bedroom_music_pre_delay \
-        --capture-props='{"stream.capture.sink":true}' \
-        --playback=bluez_output.E4_58_BC_10_CA_C9.1 \
-        --playback-props='{"node.dont-fallback":true}' \
-        --delay=0.45
-    '';
-    serviceConfig = {
-      User = "pipewire";
-      Group = "pipewire";
-      Restart = "always";
-      RestartSec = "5s";
-    };
   };
 
   systemd.services.bedroom-audio-fft = {
@@ -340,7 +284,7 @@
     environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
     script = ''
       exec ${pkgs.pipewire}/bin/pw-record \
-        --target=bedroom_music_pre_delay \
+        --target=bluez_output.E4_58_BC_10_CA_C9.1 \
         -P '{"stream.capture.sink":true}' \
         --raw --rate=22050 --channels=1 --format=s16 - \
         | ${
