@@ -1,9 +1,9 @@
 id: shared_music_mode
 alias: "Lighting: Shared Music Mode"
 description: >-
-  While Music Mode is on, all six shared bulbs take one colour per track:
-  the dominant colour of the soundbar's album art at a fixed brightness,
-  applied by script.shared_music_album_color. Pausing keeps the last colour.
+  While Music Mode is on, all shared lightbulbs and the ceiling LED strip
+  turn off completely, leaving only the living room WLED strip reacting to
+  music via LedFx (and existing signs on).
   The pre-music state is snapshotted first; when turned off, the snapshot is
   restored, then Adaptive Lighting control and circadian state resume.
   The Govee dining bulbs have their own Adaptive Lighting entry (2700K
@@ -21,10 +21,6 @@ triggers:
     entity_id: input_boolean.shared_music_mode
     to: "off"
     id: "mode_off"
-  - trigger: state
-    entity_id: media_player.homelab_05_satellite_media_player_2
-    attribute: entity_picture
-    id: "track"
 conditions: []
 actions:
   - choose:
@@ -42,6 +38,7 @@ actions:
                 - light.living_room_tulip_lamp
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
+                - light.apollo_led_strip_apollo_led_strip
           - action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
@@ -58,22 +55,20 @@ actions:
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
               manual_control: true
+          - action: light.turn_off
+            target:
+              entity_id:
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
+                - light.kitchen_dining_table_ceiling_light_1
+                - light.kitchen_dining_table_ceiling_light_2
+                - light.apollo_led_strip_apollo_led_strip
           - action: rest_command.ledfx_activate_scene
             data:
               scene_id: "music-mode"
             continue_on_error: true
-          - action: script.shared_music_album_color
-      - conditions:
-          - condition: trigger
-            id: "track"
-          - condition: state
-            entity_id: input_boolean.shared_music_mode
-            state: "on"
-          - condition: state
-            entity_id: media_player.homelab_05_satellite_media_player_2
-            state: "playing"
-        sequence:
-          - action: script.shared_music_album_color
       - conditions:
           - condition: trigger
             id: "mode_off"
