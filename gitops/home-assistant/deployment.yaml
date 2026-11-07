@@ -15,7 +15,7 @@ spec:
       labels:
         app: home-assistant
       annotations:
-        checksum/config: 4e75dc7745ea02b8497a494c2434d09aafad84fc433233a2d12ef8dcfd562aff
+        checksum/config: 6608eb97f0095ef89166965a7fc8a918eb896be0845c9ae5d00c26e422f730d2
         checksum/dependencies: 8eac350ea6f0dc5b311c3b363345bb99229e5efa193aa69111e630103301751e
         reloader.stakater.com/auto: 'true'
     spec:

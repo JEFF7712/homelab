@@ -50,8 +50,10 @@ spec:
             - input_boolean.bedroom_matrix_power
             - --mode-entity
             - input_select.bedroom_matrix_mode
-            - --brightness-entity
-            - input_number.bedroom_matrix_brightness
+            - --contrast-entity
+            - input_number.bedroom_matrix_vinyl_contrast
+            - --saturation-entity
+            - input_number.bedroom_matrix_vinyl_saturation
             - --weather-entity
             - weather.forecast_home
             - --music-mode-entity

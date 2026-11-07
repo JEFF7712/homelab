@@ -18,6 +18,8 @@ class HAState:
     weather_condition: str = "sunny"
     weather_unit: str = "°F"
     music_mode: bool = False
+    vinyl_contrast: float | None = None
+    vinyl_saturation: float | None = None
 
 
 @dataclass(frozen=True)

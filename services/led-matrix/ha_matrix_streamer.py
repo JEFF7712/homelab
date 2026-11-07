@@ -71,8 +71,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--brightness-entity",
+        default=os.getenv("BRIGHTNESS_ENTITY") or None,
+    )
+    parser.add_argument(
+        "--contrast-entity",
         default=os.getenv(
-            "BRIGHTNESS_ENTITY", "input_number.bedroom_matrix_brightness"
+            "CONTRAST_ENTITY", "input_number.bedroom_matrix_vinyl_contrast"
+        ),
+    )
+    parser.add_argument(
+        "--saturation-entity",
+        default=os.getenv(
+            "SATURATION_ENTITY", "input_number.bedroom_matrix_vinyl_saturation"
         ),
     )
     parser.add_argument(
@@ -170,6 +180,8 @@ def main() -> None:
             brightness_entity=args.brightness_entity,
             weather_entity=args.weather_entity,
             music_mode_entity=args.music_mode_entity,
+            contrast_entity=args.contrast_entity,
+            saturation_entity=args.saturation_entity,
             stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
