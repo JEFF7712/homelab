@@ -171,7 +171,7 @@ views:
               {% if is_state('input_boolean.spotify_connect', 'on') %}
                 Available in Spotify app
               {% else %}
-                Disabled (prevents hijacking)
+                Disabled
               {% endif %}
             icon: mdi:spotify
             icon_color: >-
