@@ -15,6 +15,7 @@
     ../../modules/zot-registry.nix
     ../../modules/npm-cache-proxy.nix
     ../../modules/ledfx-bedroom.nix
+    ../../modules/bedroom-bluetooth.nix
     ../../modules/forgejo.nix
     ../../modules/git-dr-mirror.nix
     ../../modules/nas-s3.nix
@@ -33,6 +34,9 @@
   # playback and streams to the relay. Deliberately separate from the
   # shared-spaces LedFx instance: no shared device, virtual, or scene.
   homelab.ledfxBedroom.enable = true;
+
+  # HTTP bridge to connect and monitor the bedroom Bose SoundLink Flex 2 Bluetooth speaker.
+  homelab.bedroomBluetooth.enable = true;
 
   homelab.forgejo = {
     enable = true;
