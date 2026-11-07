@@ -325,6 +325,10 @@ data:
         name: Bedroom Matrix Display
         icon: mdi:led-strip-variant
         initial: true
+      bedroom_matrix_cycle:
+        name: Bedroom Matrix Auto-Cycle
+        icon: mdi:sync
+        initial: true
 
     input_select:
       bedroom_matrix_mode:

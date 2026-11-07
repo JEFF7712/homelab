@@ -153,13 +153,15 @@ class LifeRenderer(ModeRenderer):
         c = c % (self.size - 4)
         self.grid[r : r + 3, c : c + 3] ^= glider
 
-    def update(self, dt: float) -> None:
-        if self.palette_interval > 0 and len(self.palettes) > 1:
+    def update(self, dt: float, should_cycle: bool = True) -> None:
+        if should_cycle and self.palette_interval > 0 and len(self.palettes) > 1:
             self.palette_timer += dt
             if self.palette_timer >= self.palette_interval:
                 steps = int(self.palette_timer // self.palette_interval)
                 self.palette_timer %= self.palette_interval
                 self.palette_idx = (self.palette_idx + steps) % len(self.palettes)
+        elif not should_cycle:
+            self.palette_timer = 0.0
 
         self.step_timer += dt
         if self.step_timer < self.step_interval:
@@ -201,7 +203,12 @@ class LifeRenderer(ModeRenderer):
             self.stagnant_history.clear()
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
-        self.update(ctx.dt)
+        should_cycle = (
+            ctx.ha_state.cycle
+            if ctx is not None and hasattr(ctx, "ha_state") and ctx.ha_state is not None
+            else True
+        )
+        self.update(ctx.dt, should_cycle=should_cycle)
 
         img_array = np.zeros((self.size, self.size, 3), dtype=np.uint8)
         palette = self.current_palette

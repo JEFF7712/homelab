@@ -82,11 +82,18 @@ class RetroArcadeRenderer(ModeRenderer):
 
     def render(self, ctx: RenderContext | None = None, size: int = 64) -> Image.Image:
         dt = ctx.dt if ctx is not None else 1.0 / 30.0
-        self.game_timer += dt
-
-        # Switch games when cycle interval expires
-        if self.game_timer >= self.cycle_interval:
-            self._next_game()
+        should_cycle = (
+            ctx.ha_state.cycle
+            if ctx is not None and hasattr(ctx, "ha_state") and ctx.ha_state is not None
+            else True
+        )
+        if should_cycle:
+            self.game_timer += dt
+            # Switch games when cycle interval expires
+            if self.game_timer >= self.cycle_interval:
+                self._next_game()
+        else:
+            self.game_timer = 0.0
 
         # Update active game simulation
         self.current_game.update(dt)

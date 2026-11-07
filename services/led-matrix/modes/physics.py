@@ -19,6 +19,8 @@ class PhysicsRenderer(ModeRenderer):
         self.previous = self.wave.copy()
         self.last_scene = -1
         self.rng = rng
+        self.scene_timer = 0.0
+        self.current_scene = 0
 
     def _reset_particles(self, scene: int, size: int) -> None:
         if scene == 0:
@@ -34,7 +36,22 @@ class PhysicsRenderer(ModeRenderer):
             self.vel = self.rng.normal(0, 9, self.vel.shape)
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
-        scene = int(ctx.tick / self.PERIOD) % 3
+        dt = min(max(ctx.dt, 0.0), 0.05)
+        should_cycle = (
+            ctx.ha_state.cycle
+            if ctx is not None and hasattr(ctx, "ha_state") and ctx.ha_state is not None
+            else True
+        )
+        if should_cycle:
+            self.scene_timer += ctx.dt
+            if self.scene_timer >= self.PERIOD:
+                steps = int(self.scene_timer // self.PERIOD)
+                self.scene_timer %= self.PERIOD
+                self.current_scene = (self.current_scene + steps) % 3
+        else:
+            self.scene_timer = 0.0
+
+        scene = self.current_scene
         if scene != self.last_scene:
             self.last_scene = scene
             if scene == 2:
@@ -42,7 +59,6 @@ class PhysicsRenderer(ModeRenderer):
                 self.previous.fill(0)
             else:
                 self._reset_particles(scene, size)
-        dt = min(max(ctx.dt, 0.0), 0.05)
         if scene == 2:
             return self._waves(size)
         return self._particles(scene, dt, size)

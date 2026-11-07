@@ -94,6 +94,10 @@ def main() -> None:
         default=os.getenv("MUSIC_MODE_ENTITY", "input_boolean.bedroom_music_mode"),
     )
     parser.add_argument(
+        "--cycle-entity",
+        default=os.getenv("CYCLE_ENTITY", "input_boolean.bedroom_matrix_cycle"),
+    )
+    parser.add_argument(
         "--ledfx-port",
         type=int,
         default=int(os.getenv("LEDFX_PORT", "4048")),
@@ -180,6 +184,7 @@ def main() -> None:
             brightness_entity=args.brightness_entity,
             weather_entity=args.weather_entity,
             music_mode_entity=args.music_mode_entity,
+            cycle_entity=args.cycle_entity,
             contrast_entity=args.contrast_entity,
             saturation_entity=args.saturation_entity,
             stale_after=args.stale_after,

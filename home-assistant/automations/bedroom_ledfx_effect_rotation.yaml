@@ -25,6 +25,9 @@ actions:
       - conditions:
           - condition: trigger
             id: "cycle_timer"
+          - condition: state
+            entity_id: input_boolean.bedroom_matrix_cycle
+            state: "on"
           - condition: or
             conditions:
               - condition: state

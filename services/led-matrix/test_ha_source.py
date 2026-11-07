@@ -809,6 +809,100 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertAlmostEqual(source.hub_state().vinyl_contrast, 0.1)
         self.assertAlmostEqual(source.hub_state().vinyl_saturation, 3.0)
 
+    def test_cycle_control_and_mode_renderers(self) -> None:
+        from dataclasses import replace
+
+        from modes import (
+            LifeRenderer,
+            PhysicsRenderer,
+            RetroArcadeRenderer,
+            VisualizerRenderer,
+        )
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        source = HomeAssistantSource(
+            base_url="http://127.0.0.1:8123",
+            token="test-token",
+            entity="media_player.spotify_rupan",
+            cycle_entity="input_boolean.bedroom_matrix_cycle",
+        )
+        self.assertTrue(source.hub_state().cycle)
+
+        # Disable cycle via event
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "a": {
+                        "input_boolean.bedroom_matrix_cycle": {"s": "off"},
+                    }
+                },
+            }
+        )
+        self.assertFalse(source.hub_state().cycle)
+
+        # Re-enable cycle via event delta
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        "input_boolean.bedroom_matrix_cycle": {"+": {"s": "on"}},
+                    }
+                },
+            }
+        )
+        self.assertTrue(source.hub_state().cycle)
+
+        ctx_no_cycle = RenderContext(
+            tick=0.0,
+            dt=70.0,
+            ha_state=HAState(connected=True, cycle=False),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        ctx_cycle = RenderContext(
+            tick=0.0,
+            dt=70.0,
+            ha_state=HAState(connected=True, cycle=True),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # 1. RetroArcadeRenderer
+        arcade = RetroArcadeRenderer(cycle_interval=60.0, randomize=False)
+        initial_arcade_idx = arcade.current_idx
+        arcade.render(ctx_no_cycle)
+        self.assertEqual(arcade.current_idx, initial_arcade_idx)
+        arcade.render(ctx_cycle)
+        self.assertNotEqual(arcade.current_idx, initial_arcade_idx)
+
+        # 2. PhysicsRenderer
+        physics = PhysicsRenderer()
+        self.assertEqual(physics.current_scene, 0)
+        physics.render(replace(ctx_no_cycle, dt=25.0))
+        self.assertEqual(physics.current_scene, 0)
+        physics.render(replace(ctx_cycle, dt=25.0))
+        self.assertEqual(physics.current_scene, 1)
+
+        # 3. LifeRenderer
+        life = LifeRenderer(palette_interval=60.0)
+        self.assertEqual(life.palette_idx, 0)
+        life.render(ctx_no_cycle)
+        self.assertEqual(life.palette_idx, 0)
+        life.render(ctx_cycle)
+        self.assertEqual(life.palette_idx, 1)
+
+        # 4. VisualizerRenderer
+        visualizer = VisualizerRenderer(cycle_interval=60.0)
+        self.assertEqual(visualizer.current_idx, 0)
+        visualizer.render(ctx_no_cycle)
+        self.assertEqual(visualizer.current_idx, 0)
+        visualizer.render(ctx_cycle)
+        self.assertEqual(visualizer.current_idx, 1)
+
     def test_mode_renderers_render_valid_frames(self) -> None:
         from modes import (
             BlankRenderer,

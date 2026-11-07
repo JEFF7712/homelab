@@ -34,6 +34,7 @@ class HomeAssistantSource:
         brightness_entity: str | None = None,
         weather_entity: str | None = None,
         music_mode_entity: str | None = None,
+        cycle_entity: str | None = None,
         contrast_entity: str | None = None,
         saturation_entity: str | None = None,
         stale_after: float = 120,
@@ -85,6 +86,7 @@ class HomeAssistantSource:
         self.brightness_entity = brightness_entity
         self.weather_entity = weather_entity
         self.music_mode_entity = music_mode_entity
+        self.cycle_entity = cycle_entity
         self.contrast_entity = contrast_entity
         self.saturation_entity = saturation_entity
         self.stale_after = stale_after
@@ -223,6 +225,7 @@ class HomeAssistantSource:
             weather_condition = self._hub_state.weather_condition
             weather_unit = self._hub_state.weather_unit
             music_mode = self._hub_state.music_mode
+            cycle = self._hub_state.cycle
             vinyl_contrast = self._hub_state.vinyl_contrast
             vinyl_saturation = self._hub_state.vinyl_saturation
 
@@ -236,6 +239,8 @@ class HomeAssistantSource:
                 )
             elif entity_id == self.music_mode_entity:
                 music_mode = state_val == "on"
+            elif entity_id == self.cycle_entity:
+                cycle = (state_val != "off") if state_val is not None else True
             elif entity_id == self.contrast_entity:
                 if state_val is not None:
                     try:
@@ -280,6 +285,7 @@ class HomeAssistantSource:
                 weather_condition=weather_condition,
                 weather_unit=weather_unit,
                 music_mode=music_mode,
+                cycle=cycle,
                 vinyl_contrast=vinyl_contrast,
                 vinyl_saturation=vinyl_saturation,
             )
@@ -303,6 +309,7 @@ class HomeAssistantSource:
                     self.brightness_entity,
                     self.weather_entity,
                     self.music_mode_entity,
+                    self.cycle_entity,
                     self.contrast_entity,
                     self.saturation_entity,
                 ]
@@ -396,6 +403,7 @@ class HomeAssistantSource:
                 self.brightness_entity,
                 self.weather_entity,
                 self.music_mode_entity,
+                self.cycle_entity,
                 self.contrast_entity,
                 self.saturation_entity,
             ]
