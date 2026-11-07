@@ -57,7 +57,7 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertEqual(data.get("id"), "shared_music_mode")
         self.assertEqual(data.get("alias"), "Lighting: Shared Music Mode")
 
-        # One colour write per track: no loops or delays.
+        # No loops or delays.
         # Shared music mode activates the LedFx scene for the living room
         # LED strip on entry and deactivates it on exit.
         self.assertNotIn("repeat:", raw_text)
@@ -69,20 +69,17 @@ class TestSharedMusicMode(unittest.TestCase):
         # never block the snapshot restore that follows it.
         self.assertIn("continue_on_error: true", raw_text)
 
-        track = next(t for t in data["triggers"] if t.get("id") == "track")
-        self.assertEqual(track["attribute"], "entity_picture")
-        self.assertEqual(raw_text.count("action: script.shared_music_album_color"), 2)
-
         # Must lock and restore Adaptive Lighting properly
         self.assertIn("adaptive_lighting.set_manual_control", raw_text)
         self.assertIn("adaptive_lighting.apply", raw_text)
         self.assertIn("turn_on_lights: false", raw_text)
 
         # Must snapshot pre-music state on entry and restore it on exit, so
-        # bulbs never keep LedFx's last frame (black when the tap is silent).
+        # bulbs and ceiling strip return to prior state.
         self.assertIn("scene.create", raw_text)
         self.assertIn("pre_music_mode_shared", raw_text)
         self.assertIn("scene.turn_on", raw_text)
+        self.assertIn("light.turn_off", raw_text)
 
     def test_music_snapshot_is_watchman_exempt(self) -> None:
         watchman_file = (
@@ -117,13 +114,22 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertIn("turn on [the] shared spaces music mode", raw_text)
         self.assertNotRegex(raw_text.lower(), r"govee|zigbee")
 
-    def test_automation_is_enabled_and_leaves_the_apollo_strip_alone(self) -> None:
+    def test_automation_is_enabled_and_turns_off_bulbs_and_ceiling_strip(self) -> None:
         auto_file = (
             REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
         )
         raw_text = auto_file.read_text(encoding="utf-8")
         self.assertNotIn("initial_state", yaml.safe_load(raw_text))
-        self.assertNotIn("light.apollo_led_strip_apollo_led_strip", raw_text)
+        for bulb in (
+            "light.kitchen_ceiling_light_1",
+            "light.kitchen_ceiling_light_2",
+            "light.living_room_floor_lamp",
+            "light.living_room_tulip_lamp",
+            "light.kitchen_dining_table_ceiling_light_1",
+            "light.kitchen_dining_table_ceiling_light_2",
+            "light.apollo_led_strip_apollo_led_strip",
+        ):
+            self.assertIn(bulb, raw_text)
 
     def test_dashboards_contain_music_mode(self) -> None:
         shared_spaces = (
