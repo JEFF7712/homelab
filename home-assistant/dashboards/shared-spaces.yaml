@@ -341,6 +341,17 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: light.living_room_led_strip
+            name: Living Room LED Strip
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
           - entity: light.kitchen_dining_table_ceiling_light_1
             name: Dining Table Light 1
             fill_container: true
