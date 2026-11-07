@@ -135,7 +135,7 @@ in
     port = lib.mkOption {
       type = lib.types.port;
       default = 8888;
-      description = "Host port for the LedFx REST API. Only the k3s nodes may reach it.";
+      description = "Host port for the LedFx REST API and web UI. Reachable from LAN, cluster, and NetBird.";
     };
 
     oscTarget = lib.mkOption {
@@ -203,7 +203,7 @@ in
     environment.persistence."/persist".directories = [ (toString cfg.stateDir) ];
 
     networking.firewall.extraInputRules = lib.mkAfter ''
-      ip saddr { 10.0.30.11, 10.0.30.12, 10.0.30.13, 10.0.30.14, 10.0.30.15 } tcp dport ${toString cfg.port} accept
+      ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport ${toString cfg.port} accept
     '';
 
     systemd.services.ledfx-bedroom = {

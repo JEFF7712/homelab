@@ -52,6 +52,8 @@ data:
         service: http://music-assistant.music-assistant:8095
       - hostname: ledfx.rupan.dev
         service: http://ledfx.music-assistant:8888
+      - hostname: ledfx-bedroom.rupan.dev
+        service: http://ledfx-bedroom.music-assistant:8888
       - hostname: rupan.dev
         service: http://rupan-dev-svc.rupan-dev:80
       - hostname: www.rupan.dev

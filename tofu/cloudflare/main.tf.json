@@ -39,6 +39,7 @@
       "ha.rupan.dev",
       "ma.rupan.dev",
       "ledfx.rupan.dev",
+      "ledfx-bedroom.rupan.dev",
       "grafana.rupan.dev",
       "jellyfin.rupan.dev",
       "navidrome.rupan.dev",
@@ -64,7 +65,7 @@
       "action": "block",
       "description": "Personal homelab apps: block visitors outside the US",
       "enabled": true,
-      "expression": "(http.host in {\"approvals.rupan.dev\" \"arcade.rupan.dev\" \"bazarr.rupan.dev\" \"books.rupan.dev\" \"bookshelf.rupan.dev\" \"grafana.rupan.dev\" \"ha.rupan.dev\" \"jellyfin.rupan.dev\" \"ledfx.rupan.dev\" \"lidarr.rupan.dev\" \"ma.rupan.dev\" \"media.rupan.dev\" \"music.rupan.dev\" \"navidrome.rupan.dev\" \"obsidian.rupan.dev\" \"photos.rupan.dev\" \"pod.rupan.dev\" \"prowlarr.rupan.dev\" \"qbittorrent.rupan.dev\" \"radarr.rupan.dev\" \"recommender.rupan.dev\" \"seerr.rupan.dev\" \"slskd.rupan.dev\" \"sonarr.rupan.dev\" \"torrent.rupan.dev\"}) and (ip.src.country ne \"US\") and not (http.host eq \"ha.rupan.dev\" and starts_with(http.request.uri.path, \"/api/webhook/\"))",
+      "expression": "(http.host in {\"approvals.rupan.dev\" \"arcade.rupan.dev\" \"bazarr.rupan.dev\" \"books.rupan.dev\" \"bookshelf.rupan.dev\" \"grafana.rupan.dev\" \"ha.rupan.dev\" \"jellyfin.rupan.dev\" \"ledfx-bedroom.rupan.dev\" \"ledfx.rupan.dev\" \"lidarr.rupan.dev\" \"ma.rupan.dev\" \"media.rupan.dev\" \"music.rupan.dev\" \"navidrome.rupan.dev\" \"obsidian.rupan.dev\" \"photos.rupan.dev\" \"pod.rupan.dev\" \"prowlarr.rupan.dev\" \"qbittorrent.rupan.dev\" \"radarr.rupan.dev\" \"recommender.rupan.dev\" \"seerr.rupan.dev\" \"slskd.rupan.dev\" \"sonarr.rupan.dev\" \"torrent.rupan.dev\"}) and (ip.src.country ne \"US\") and not (http.host eq \"ha.rupan.dev\" and starts_with(http.request.uri.path, \"/api/webhook/\"))",
       "ref": "personal_apps_us_only"
     },
     "tunnel": "${yamldecode(local.config_map.data[\"config.yaml\"])}"
@@ -94,7 +95,7 @@
             "action": "block",
             "description": "Personal homelab apps: block visitors outside the US",
             "enabled": true,
-            "expression": "(http.host in {\"approvals.rupan.dev\" \"arcade.rupan.dev\" \"bazarr.rupan.dev\" \"books.rupan.dev\" \"bookshelf.rupan.dev\" \"grafana.rupan.dev\" \"ha.rupan.dev\" \"jellyfin.rupan.dev\" \"ledfx.rupan.dev\" \"lidarr.rupan.dev\" \"ma.rupan.dev\" \"media.rupan.dev\" \"music.rupan.dev\" \"navidrome.rupan.dev\" \"obsidian.rupan.dev\" \"photos.rupan.dev\" \"pod.rupan.dev\" \"prowlarr.rupan.dev\" \"qbittorrent.rupan.dev\" \"radarr.rupan.dev\" \"recommender.rupan.dev\" \"seerr.rupan.dev\" \"slskd.rupan.dev\" \"sonarr.rupan.dev\" \"torrent.rupan.dev\"}) and (ip.src.country ne \"US\") and not (http.host eq \"ha.rupan.dev\" and starts_with(http.request.uri.path, \"/api/webhook/\"))",
+            "expression": "(http.host in {\"approvals.rupan.dev\" \"arcade.rupan.dev\" \"bazarr.rupan.dev\" \"books.rupan.dev\" \"bookshelf.rupan.dev\" \"grafana.rupan.dev\" \"ha.rupan.dev\" \"jellyfin.rupan.dev\" \"ledfx-bedroom.rupan.dev\" \"ledfx.rupan.dev\" \"lidarr.rupan.dev\" \"ma.rupan.dev\" \"media.rupan.dev\" \"music.rupan.dev\" \"navidrome.rupan.dev\" \"obsidian.rupan.dev\" \"photos.rupan.dev\" \"pod.rupan.dev\" \"prowlarr.rupan.dev\" \"qbittorrent.rupan.dev\" \"radarr.rupan.dev\" \"recommender.rupan.dev\" \"seerr.rupan.dev\" \"slskd.rupan.dev\" \"sonarr.rupan.dev\" \"torrent.rupan.dev\"}) and (ip.src.country ne \"US\") and not (http.host eq \"ha.rupan.dev\" and starts_with(http.request.uri.path, \"/api/webhook/\"))",
             "ref": "personal_apps_us_only"
           }
         ],
