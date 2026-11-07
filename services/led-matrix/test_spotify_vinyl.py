@@ -92,6 +92,22 @@ class SpotifyVinylTests(unittest.TestCase):
         pixels = frame.load()
         self.assertEqual(pixels[32, 32], (0, 0, 0))
 
+    def test_live_ha_state_contrast_and_saturation(self) -> None:
+        art = muted_art()
+        renderer = SpotifyVinylRenderer()
+        renderer.angle = 13.0
+        ctx_default = playing_context(art)
+        ctx_boosted = RenderContext(
+            tick=0.0,
+            dt=0.05,
+            ha_state=HAState(vinyl_contrast=1.5, vinyl_saturation=1.8),
+            spotify_state=PlaybackState(available=True, playing=True),
+            spotify_art=art,
+        )
+        sat_default = disc_mean_saturation(renderer.render(ctx_default))
+        sat_boosted = disc_mean_saturation(renderer.render(ctx_boosted))
+        self.assertGreater(sat_boosted, sat_default)
+
 
 if __name__ == "__main__":
     unittest.main()

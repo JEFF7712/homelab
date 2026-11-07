@@ -34,6 +34,8 @@ class HomeAssistantSource:
         brightness_entity: str | None = None,
         weather_entity: str | None = None,
         music_mode_entity: str | None = None,
+        contrast_entity: str | None = None,
+        saturation_entity: str | None = None,
         stale_after: float = 120,
         on_update: Callable[[PlaybackState], None] | None = None,
         on_hub_update: Callable[[HAState], None] | None = None,
@@ -83,6 +85,8 @@ class HomeAssistantSource:
         self.brightness_entity = brightness_entity
         self.weather_entity = weather_entity
         self.music_mode_entity = music_mode_entity
+        self.contrast_entity = contrast_entity
+        self.saturation_entity = saturation_entity
         self.stale_after = stale_after
         self.on_update = on_update
         self.on_hub_update = on_hub_update
@@ -219,6 +223,8 @@ class HomeAssistantSource:
             weather_condition = self._hub_state.weather_condition
             weather_unit = self._hub_state.weather_unit
             music_mode = self._hub_state.music_mode
+            vinyl_contrast = self._hub_state.vinyl_contrast
+            vinyl_saturation = self._hub_state.vinyl_saturation
 
             if entity_id == self.power_entity:
                 power = (state_val != "off") if state_val is not None else True
@@ -230,6 +236,20 @@ class HomeAssistantSource:
                 )
             elif entity_id == self.music_mode_entity:
                 music_mode = state_val == "on"
+            elif entity_id == self.contrast_entity:
+                if state_val is not None:
+                    try:
+                        c = float(state_val)
+                        vinyl_contrast = max(0.1, min(3.0, c))
+                    except (ValueError, TypeError):
+                        pass
+            elif entity_id == self.saturation_entity:
+                if state_val is not None:
+                    try:
+                        s = float(state_val)
+                        vinyl_saturation = max(0.1, min(3.0, s))
+                    except (ValueError, TypeError):
+                        pass
             elif entity_id == self.brightness_entity:
                 if state_val is not None:
                     try:
@@ -260,6 +280,8 @@ class HomeAssistantSource:
                 weather_condition=weather_condition,
                 weather_unit=weather_unit,
                 music_mode=music_mode,
+                vinyl_contrast=vinyl_contrast,
+                vinyl_saturation=vinyl_saturation,
             )
             changed = new_hub_state != self._hub_state
             self._hub_state = new_hub_state
@@ -281,6 +303,8 @@ class HomeAssistantSource:
                     self.brightness_entity,
                     self.weather_entity,
                     self.music_mode_entity,
+                    self.contrast_entity,
+                    self.saturation_entity,
                 ]
                 if e
             }
@@ -372,6 +396,8 @@ class HomeAssistantSource:
                 self.brightness_entity,
                 self.weather_entity,
                 self.music_mode_entity,
+                self.contrast_entity,
+                self.saturation_entity,
             ]
             if e
         ]

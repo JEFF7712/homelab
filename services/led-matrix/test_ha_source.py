@@ -766,6 +766,49 @@ class HubModeAndRendererTests(unittest.TestCase):
         )
         self.assertAlmostEqual(source.hub_state().brightness, 0.05)
 
+    def test_hub_state_contrast_and_saturation(self) -> None:
+        source = HomeAssistantSource(
+            base_url="http://127.0.0.1:8123",
+            token="test-token",
+            entity=ENTITY,
+            contrast_entity="input_number.bedroom_matrix_vinyl_contrast",
+            saturation_entity="input_number.bedroom_matrix_vinyl_saturation",
+        )
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "a": {
+                        "input_number.bedroom_matrix_vinyl_contrast": {"s": "1.35"},
+                        "input_number.bedroom_matrix_vinyl_saturation": {"s": "1.45"},
+                    }
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().vinyl_contrast, 1.35)
+        self.assertAlmostEqual(source.hub_state().vinyl_saturation, 1.45)
+
+        # Delta updates and clamping
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        "input_number.bedroom_matrix_vinyl_contrast": {
+                            "+": {"s": "0.05"}
+                        },
+                        "input_number.bedroom_matrix_vinyl_saturation": {
+                            "+": {"s": "5.0"}
+                        },
+                    }
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().vinyl_contrast, 0.1)
+        self.assertAlmostEqual(source.hub_state().vinyl_saturation, 3.0)
+
     def test_mode_renderers_render_valid_frames(self) -> None:
         from modes import (
             BlankRenderer,

@@ -38,11 +38,31 @@ class SpotifyVinylRenderer(ModeRenderer):
         if ctx.spotify_state.available and ctx.spotify_state.playing:
             self.angle = (self.angle + ctx.dt * ctx.rotation_speed) % 360.0
 
+        saturation = (
+            ctx.ha_state.vinyl_saturation
+            if ctx.ha_state
+            and getattr(ctx.ha_state, "vinyl_saturation", None) is not None
+            else self.saturation
+        )
+        contrast = (
+            ctx.ha_state.vinyl_contrast
+            if ctx.ha_state
+            and getattr(ctx.ha_state, "vinyl_contrast", None) is not None
+            else self.contrast
+        )
+
         art = ctx.spotify_art if ctx.spotify_state.available else None
-        return self._render_record(art, self.angle, size)
+        return self._render_record(
+            art, self.angle, size, saturation=saturation, contrast=contrast
+        )
 
     def _render_record(
-        self, art: Image.Image | None, angle: float, size: int = 64
+        self,
+        art: Image.Image | None,
+        angle: float,
+        size: int = 64,
+        saturation: float | None = None,
+        contrast: float | None = None,
     ) -> Image.Image:
         frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))
         if art is None:
@@ -57,7 +77,9 @@ class SpotifyVinylRenderer(ModeRenderer):
         art_square = ImageOps.fit(
             art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
         )
-        art_square = compensate_disc_color(art_square, self.saturation, self.contrast)
+        sat = self.saturation if saturation is None else saturation
+        con = self.contrast if contrast is None else contrast
+        art_square = compensate_disc_color(art_square, sat, con)
         rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
 
         # Circular mask

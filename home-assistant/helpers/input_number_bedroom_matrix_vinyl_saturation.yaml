@@ -1,0 +1,3 @@
+name: Bedroom Matrix Vinyl Saturation
+icon: mdi:palette
+entity_id: input_number.bedroom_matrix_vinyl_saturation
