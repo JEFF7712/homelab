@@ -172,6 +172,12 @@ class TestBedroomBluetoothBridge(unittest.TestCase):
             )
         )
 
+    def test_reusable_tcp_server(self) -> None:
+        self.assertIsNotNone(bb, "Module must load")
+        assert bb is not None
+        self.assertTrue(hasattr(bb, "ReusableTCPServer"))
+        self.assertTrue(bb.ReusableTCPServer.allow_reuse_address)
+
 
 if __name__ == "__main__":
     unittest.main()

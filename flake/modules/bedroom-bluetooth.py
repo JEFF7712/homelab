@@ -145,6 +145,10 @@ class BluetoothHandler(http.server.BaseHTTPRequestHandler):
         )
 
 
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bedroom Bluetooth HTTP Bridge")
     parser.add_argument(
@@ -162,7 +166,7 @@ def main() -> None:
         mac = args.mac
 
     server_address = (args.host, args.port)
-    with socketserver.TCPServer(server_address, CustomHandler) as httpd:
+    with ReusableTCPServer(server_address, CustomHandler) as httpd:
         logger.info(
             "Serving Bedroom Bluetooth Bridge on %s:%d for MAC %s",
             args.host,
