@@ -421,15 +421,23 @@ class VisualizerRenderer(ModeRenderer):
                     return
             raise ValueError(f"Unknown visualizer effect: {index_or_name}")
 
-    def update(self, dt: float, beat: float, bands: list[float] | None = None) -> None:
+    def update(
+        self,
+        dt: float,
+        beat: float,
+        bands: list[float] | None = None,
+        should_cycle: bool = True,
+    ) -> None:
         # Cycle effects on timer
-        if self.cycle_interval > 0 and len(self.effects) > 1:
+        if should_cycle and self.cycle_interval > 0 and len(self.effects) > 1:
             self.timer += dt
             if self.timer >= self.cycle_interval:
                 steps = int(self.timer // self.cycle_interval)
                 self.timer %= self.cycle_interval
                 self.current_idx = (self.current_idx + steps) % len(self.effects)
                 self.current_effect.reset()
+        elif not should_cycle:
+            self.timer = 0.0
 
         self.current_effect.update(dt, beat, bands=bands)
 
@@ -452,7 +460,12 @@ class VisualizerRenderer(ModeRenderer):
             beat = max(0.0, raw_sin) ** 3.5
             bands = None
 
-        self.update(ctx.dt, beat, bands=bands)
+        should_cycle = (
+            ctx.ha_state.cycle
+            if ctx is not None and hasattr(ctx, "ha_state") and ctx.ha_state is not None
+            else True
+        )
+        self.update(ctx.dt, beat, bands=bands, should_cycle=should_cycle)
 
         frame = Image.new("RGB", (size, size), (2, 2, 6))
         draw = ImageDraw.Draw(frame)
