@@ -109,6 +109,10 @@
   icon: mdi:music
   labels: []
   name: Shared Music Mode
+- entity_id: input_boolean.spotify_connect
+  icon: mdi:spotify
+  labels: []
+  name: Spotify Connect
 - entity_id: input_boolean.vacation_mode
   icon: mdi:palmtree
   labels: []

@@ -21,6 +21,14 @@ class TestSpotifyConnectToggle(unittest.TestCase):
         self.assertEqual(data.get("entity_id"), "input_boolean.spotify_connect")
         self.assertEqual(data.get("name"), "Spotify Connect")
 
+    def test_entity_registry_registration(self) -> None:
+        entities_file = REPO_ROOT / "home-assistant" / "registries" / "entities.yaml"
+        data = yaml.safe_load(entities_file.read_text(encoding="utf-8"))
+        registered = [
+            entry.get("entity_id") for entry in data if isinstance(entry, dict)
+        ]
+        self.assertIn("input_boolean.spotify_connect", registered)
+
     def test_sync_automation(self) -> None:
         auto_file = (
             REPO_ROOT / "home-assistant" / "automations" / "spotify_connect_sync.yaml"
