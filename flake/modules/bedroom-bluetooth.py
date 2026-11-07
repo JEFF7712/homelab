@@ -72,10 +72,15 @@ def get_speaker_status(mac: str) -> dict[str, Any]:
 
 
 def connect_speaker(mac: str) -> dict[str, Any]:
+    # Ensure Classic Bluetooth (BR/EDR) audio bearer is preferred over Low Energy (BLE)
+    run_bluetoothctl("bearer", mac, "bredr", timeout=4.0)
     code, stdout = run_bluetoothctl("connect", mac, timeout=12.0)
-    if "br-connection-key-missing" in stdout or "not available" in stdout.lower():
+    # Only remove and attempt fresh pairing when BlueZ explicitly reports that the link key
+    # is missing (e.g. after the speaker was factory-reset). Never remove on "not available"
+    # or connection timeouts, which occur naturally when the speaker is asleep or off.
+    if "br-connection-key-missing" in stdout:
         logger.warning(
-            "Connection failed with stale/missing key (%s); removing device and scanning to pair",
+            "Connection failed with missing key (%s); removing device and scanning to pair",
             stdout.strip(),
         )
         run_bluetoothctl("remove", mac)
@@ -83,6 +88,7 @@ def connect_speaker(mac: str) -> dict[str, Any]:
         pair_code, pair_out = run_bluetoothctl("pair", mac, timeout=10.0)
         if pair_code == 0 or "successful" in pair_out.lower():
             run_bluetoothctl("trust", mac)
+            run_bluetoothctl("bearer", mac, "bredr", timeout=4.0)
             code, stdout = run_bluetoothctl("connect", mac, timeout=10.0)
     status = get_speaker_status(mac)
     return {
