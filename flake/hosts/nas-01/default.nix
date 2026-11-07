@@ -248,10 +248,13 @@
         # available" and AirPlay sessions connect but never start. The PulseAudio
         # backend negotiates through pipewire-pulse, which does reach the speaker.
         output_backend = "pulseaudio";
-        # Left unset this resolves to a null mDNS backend, which advertises only
-        # _raop._tcp. iOS discovers the speaker through _airplay._tcp, so the
-        # phone sees a cached device and then hangs on "connecting".
+        # Left unset this resolves to a null mDNS backend, voluntary RAOP only.
+        # iOS discovers the speaker through _airplay._tcp, so the phone sees a
+        # cached device and then hangs on "connecting".
         mdns_backend = "avahi";
+      };
+      sessioncontrol = {
+        allow_session_interruption = "yes";
       };
       metadata = {
         enabled = "yes";
