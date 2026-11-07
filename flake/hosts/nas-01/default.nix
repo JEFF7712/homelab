@@ -80,6 +80,12 @@
         Enable = "Source,Sink,Media,Socket";
         Experimental = true;
         AutoEnable = true;
+        FastConnectable = true;
+      };
+      Policy = {
+        AutoEnable = true;
+        ReconnectAttempts = 7;
+        ReconnectIntervals = "1, 2, 4, 8, 16, 32, 64";
       };
     };
   };
@@ -109,10 +115,16 @@
                 update-props = {
                   "priority.driver" = 3000;
                   "priority.session" = 3000;
+                  "session.suspend-timeout-seconds" = 0;
                 };
               };
             }
           ];
+        };
+        "11-bluetooth-policy" = {
+          "monitor.bluez.properties" = {
+            "bluez5.auto-connect" = [ "a2dp_sink" ];
+          };
         };
       };
     };

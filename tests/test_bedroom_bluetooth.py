@@ -72,6 +72,7 @@ class TestBedroomBluetoothBridge(unittest.TestCase):
             bb,
             "run_bluetoothctl",
             side_effect=[
+                (0, "Changing bredr succeeded\n"),
                 (0, "Connection successful\n"),
                 (0, SAMPLE_CONNECTED),
             ],
@@ -86,6 +87,7 @@ class TestBedroomBluetoothBridge(unittest.TestCase):
             bb,
             "run_bluetoothctl",
             side_effect=[
+                (0, "Changing bredr succeeded\n"),
                 (1, "Failed to connect: org.bluez.Error.Failed\n"),
                 (0, SAMPLE_DISCONNECTED),
             ],
@@ -94,12 +96,32 @@ class TestBedroomBluetoothBridge(unittest.TestCase):
             self.assertEqual(res["status"], "failed")
             self.assertFalse(res["connected"])
 
+    def test_connect_speaker_does_not_remove_on_not_available(self) -> None:
+        assert bb is not None
+        with patch.object(
+            bb,
+            "run_bluetoothctl",
+            side_effect=[
+                (0, "Changing bredr succeeded\n"),
+                (1, "Device E4:58:BC:10:CA:C9 not available\n"),
+                (0, SAMPLE_DISCONNECTED),
+            ],
+        ) as mock_run:
+            res = bb.connect_speaker("E4:58:BC:10:CA:C9")
+            self.assertEqual(res["status"], "failed")
+            self.assertFalse(res["connected"])
+            # Ensure "remove" was NEVER called when device was simply not available (asleep/off)
+            for call_args in mock_run.call_args_list:
+                args = call_args[0]
+                self.assertNotIn("remove", args)
+
     def test_connect_speaker_recovers_from_missing_key(self) -> None:
         assert bb is not None
         with patch.object(
             bb,
             "run_bluetoothctl",
             side_effect=[
+                (0, "Changing bredr succeeded\n"),
                 (
                     1,
                     "Failed to connect: org.bluez.Error.Failed br-connection-key-missing\n",
@@ -108,6 +130,7 @@ class TestBedroomBluetoothBridge(unittest.TestCase):
                 (0, "Discovery started\n"),
                 (0, "Pairing successful\n"),
                 (0, "Changing E4:58:BC:10:CA:C9 trust succeeded\n"),
+                (0, "Changing bredr succeeded\n"),
                 (0, "Connection successful\n"),
                 (0, SAMPLE_CONNECTED),
             ],
@@ -115,7 +138,7 @@ class TestBedroomBluetoothBridge(unittest.TestCase):
             res = bb.connect_speaker("E4:58:BC:10:CA:C9")
             self.assertEqual(res["status"], "connected")
             self.assertTrue(res["connected"])
-            self.assertGreaterEqual(mock_run.call_count, 6)
+            self.assertGreaterEqual(mock_run.call_count, 7)
 
     def test_disconnect_speaker(self) -> None:
         assert bb is not None
