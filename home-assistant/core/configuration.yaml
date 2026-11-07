@@ -258,12 +258,6 @@ intent_script:
 # The Govee dining bulbs have their own entry (2700K floor), so each switch
 # drives both entries and reads on only when both are on.
 template:
-  - button:
-      - name: "Connect Bedroom Speaker"
-        unique_id: connect_bedroom_speaker
-        icon: mdi:bluetooth-connect
-        press:
-          - action: rest_command.bose_speaker_connect
   - switch:
       - name: Shared Spaces Sleep Mode
         unique_id: shared_spaces_sleep_mode
