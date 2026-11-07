@@ -2374,10 +2374,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "ci-10271-056167eb2b09",
-        "retention-candidate-1a18b32fc2901046"
+        "ci-10384-0bbf08679af0",
+        "retention-candidate-991de46bdc7f1280"
       ],
-      "digest": "sha256:1a18b32fc290104613aeedd8a74d3b71a154f4ea3a7b7fd4a5be408a7e4625b0",
+      "digest": "sha256:991de46bdc7f12806c463062b156675665aa1d0aad48bc15862fdd9387a7b90c",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2387,9 +2387,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ci-10271-056167eb2b09",
-        "digest": "sha256:1a18b32fc290104613aeedd8a74d3b71a154f4ea3a7b7fd4a5be408a7e4625b0",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-10271-056167eb2b09@sha256:1a18b32fc290104613aeedd8a74d3b71a154f4ea3a7b7fd4a5be408a7e4625b0"
+        "tag": "ci-10384-0bbf08679af0",
+        "digest": "sha256:991de46bdc7f12806c463062b156675665aa1d0aad48bc15862fdd9387a7b90c",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-10384-0bbf08679af0@sha256:991de46bdc7f12806c463062b156675665aa1d0aad48bc15862fdd9387a7b90c"
       }
     },
     {
