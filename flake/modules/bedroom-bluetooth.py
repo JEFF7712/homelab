@@ -73,6 +73,17 @@ def get_speaker_status(mac: str) -> dict[str, Any]:
 
 def connect_speaker(mac: str) -> dict[str, Any]:
     code, stdout = run_bluetoothctl("connect", mac, timeout=12.0)
+    if "br-connection-key-missing" in stdout or "not available" in stdout.lower():
+        logger.warning(
+            "Connection failed with stale/missing key (%s); removing device and scanning to pair",
+            stdout.strip(),
+        )
+        run_bluetoothctl("remove", mac)
+        run_bluetoothctl("--timeout", "6", "scan", "on", timeout=8.0)
+        pair_code, pair_out = run_bluetoothctl("pair", mac, timeout=10.0)
+        if pair_code == 0 or "successful" in pair_out.lower():
+            run_bluetoothctl("trust", mac)
+            code, stdout = run_bluetoothctl("connect", mac, timeout=10.0)
     status = get_speaker_status(mac)
     return {
         "status": "connected" if status.get("connected") else "failed",

@@ -5,6 +5,7 @@
   "ha.rupan.dev"
   "ma.rupan.dev"
   "ledfx.rupan.dev"
+  "ledfx-bedroom.rupan.dev"
   "grafana.rupan.dev"
   "jellyfin.rupan.dev"
   "navidrome.rupan.dev"

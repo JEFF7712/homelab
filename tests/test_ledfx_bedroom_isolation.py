@@ -157,13 +157,12 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         module = MODULE.read_text()
         self.assertIn("install -d -m 0700 -o 1000 -g 1000", module)
 
-    def test_rest_api_is_limited_to_cluster_nodes(self) -> None:
+    def test_rest_api_firewall_allows_home_and_vpn_subnets(self) -> None:
         module = MODULE.read_text()
         rule = re.search(r"tcp dport \$\{toString cfg\.port\} accept", module)
         self.assertIsNotNone(rule)
-        self.assertIn("10.0.30.11", module)
-        self.assertIn("10.0.30.15", module)
-        self.assertNotIn("10.0.30.0/24 tcp dport 8888", module)
+        self.assertIn("10.0.0.0/16", module)
+        self.assertIn("100.64.0.0/10", module)
 
     def test_relay_accepts_frames_from_the_nas(self) -> None:
         appliance = APPLIANCE.read_text()
