@@ -35,6 +35,9 @@
   entity_id: binary_sensor.sm_s948u1_headphones
   labels: []
 - disabled_by: integration
+  entity_id: binary_sensor.sm_s948u1_high_accuracy_mode
+  labels: []
+- disabled_by: integration
   entity_id: binary_sensor.sm_s948u1_hotspot_state
   labels: []
 - disabled_by: integration
@@ -82,96 +85,95 @@
 - disabled_by: integration
   entity_id: binary_sensor.zigbee2mqtt_bridge_restart_required
   labels: []
-- name: Bedroom Bedtime Charging Done
+- entity_id: input_boolean.bedroom_bedtime_charging_done
   icon: mdi:cellphone-charging
-  entity_id: input_boolean.bedroom_bedtime_charging_done
   labels: []
-- name: Bedroom Lights Auto On
+  name: Bedroom Bedtime Charging Done
+- entity_id: input_boolean.bedroom_lights_auto_on
   icon: mdi:lightbulb-auto
-  entity_id: input_boolean.bedroom_lights_auto_on
   labels: []
-- name: Bedroom Music Mode
+  name: Bedroom Lights Auto On
+- entity_id: input_boolean.bedroom_music_mode
   icon: mdi:music
-  entity_id: input_boolean.bedroom_music_mode
   labels: []
-- name: Guest Mode
+  name: Bedroom Music Mode
+- entity_id: input_boolean.guest_mode
   icon: mdi:account-multiple
-  entity_id: input_boolean.guest_mode
   labels: []
-- name: Phone Bedtime Reminder Sent
+  name: Guest Mode
+- entity_id: input_boolean.phone_bedtime_reminder_sent
   icon: mdi:bell-check
-  entity_id: input_boolean.phone_bedtime_reminder_sent
   labels: []
-- name: Shared Music Mode
+  name: Phone Bedtime Reminder Sent
+- entity_id: input_boolean.shared_music_mode
   icon: mdi:music
-  entity_id: input_boolean.shared_music_mode
   labels: []
-- name: Spotify Connect
-  icon: mdi:spotify
-  entity_id: input_boolean.spotify_connect
-  labels: []
-- name: Vacation Mode
+  name: Shared Music Mode
+- entity_id: input_boolean.vacation_mode
   icon: mdi:palmtree
-  entity_id: input_boolean.vacation_mode
   labels: []
-- name: Bedroom Wake Time
+  name: Vacation Mode
+- entity_id: input_datetime.bedroom_wake_time
   icon: mdi:alarm
-  entity_id: input_datetime.bedroom_wake_time
   labels: []
-- name: Device Low Battery Threshold
+  name: Bedroom Wake Time
+- entity_id: input_number.device_low_battery_threshold
   icon: mdi:battery-alert
-  entity_id: input_number.device_low_battery_threshold
   labels: []
-- name: Phone Bedtime Battery Threshold
+  name: Device Low Battery Threshold
+- entity_id: input_number.phone_bedtime_battery_threshold
   icon: mdi:cellphone-charging
-  entity_id: input_number.phone_bedtime_battery_threshold
   labels: []
-- name: Living Room LED Strip
-  area_id: living_room
+  name: Phone Bedtime Battery Threshold
+- area_id: living_room
   entity_id: light.apollo_led_strip_apollo_led_strip
   labels:
     - shared_space
-- name: Kitchen Ceiling Light 1
-  area_id: kitchen
+  name: Living Room LED Strip
+- area_id: kitchen
   entity_id: light.kitchen_ceiling_light_1
   labels:
     - shared_space
-- name: Kitchen Ceiling Light 2
-  area_id: kitchen
+  name: Kitchen Ceiling Light 1
+- area_id: kitchen
   entity_id: light.kitchen_ceiling_light_2
   labels:
     - shared_space
-- name: Dining Table Ceiling Light 1
-  area_id: kitchen
+  name: Kitchen Ceiling Light 2
+- area_id: kitchen
   entity_id: light.kitchen_dining_table_ceiling_light_1
   labels:
     - shared_space
-- name: Dining Table Ceiling Light 2
-  area_id: kitchen
+  name: Dining Table Ceiling Light 1
+- area_id: kitchen
   entity_id: light.kitchen_dining_table_ceiling_light_2
   labels:
     - shared_space
-- name: 8-Light LED Strip
-  area_id: kitchen
+  name: Dining Table Ceiling Light 2
+- area_id: kitchen
   entity_id: light.kitchen_kitchen_led_strip
   labels:
     - shared_space
+  name: 8-Light LED Strip
 - area_id: kitchen
   entity_id: light.kitchen_mushroom_lamp
   labels: []
-- name: Living Room Floor Lamp
-  area_id: living_room
+- area_id: living_room
   entity_id: light.living_room_floor_lamp
   labels:
     - shared_space
-- name: Living Room Tulip Lamp
-  area_id: living_room
+  name: Living Room Floor Lamp
+- entity_id: light.living_room_led_strip
+  labels: []
+  name: Living Room LED Strip
+- area_id: living_room
   entity_id: light.living_room_tulip_lamp
   labels:
     - shared_space
-- name: Soundbar
-  entity_id: media_player.homelab_05_satellite_media_player_2
+  name: Living Room Tulip Lamp
+- entity_id: media_player.homelab_05_satellite_media_player_2
   labels: []
+  name: Soundbar
 - disabled_by: integration
   entity_id: select.0xb4e8428fcc940000_effect
   labels: []
@@ -356,6 +358,9 @@
   entity_id: sensor.jayanth_phone_floors_descended
   labels: []
 - disabled_by: integration
+  entity_id: sensor.jayanth_phone_focus_name
+  labels: []
+- disabled_by: integration
   entity_id: sensor.jayanth_phone_geocoded_location
   labels: []
 - disabled_by: integration
@@ -438,6 +443,9 @@
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_active_calories_burned
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.sm_s948u1_active_notification_count
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_app_importance
@@ -578,13 +586,25 @@
   entity_id: sensor.sm_s948u1_height
   labels: []
 - disabled_by: integration
+  entity_id: sensor.sm_s948u1_high_accuracy_update_interval
+  labels: []
+- disabled_by: integration
   entity_id: sensor.sm_s948u1_internal_storage
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_ipv6_addresses
   labels: []
 - disabled_by: integration
+  entity_id: sensor.sm_s948u1_last_notification
+  labels: []
+- disabled_by: integration
   entity_id: sensor.sm_s948u1_last_reboot
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.sm_s948u1_last_removed_notification
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.sm_s948u1_last_update_trigger
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_last_used_app
@@ -680,6 +700,9 @@
   entity_id: sensor.sm_s948u1_systolic_blood_pressure
   labels: []
 - disabled_by: integration
+  entity_id: sensor.sm_s948u1_tonal_palette
+  labels: []
+- disabled_by: integration
   entity_id: sensor.sm_s948u1_total_calories_burned
   labels: []
 - disabled_by: integration
@@ -696,6 +719,9 @@
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_volume_level_alarm
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.sm_s948u1_volume_level_assistant
   labels: []
 - disabled_by: integration
   entity_id: sensor.sm_s948u1_volume_level_call
@@ -779,6 +805,24 @@
   entity_id: sensor.weather
   labels: []
 - disabled_by: integration
+  entity_id: sensor.wled_gledopto_free_memory
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.wled_gledopto_uptime
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.wled_gledopto_wi_fi_bssid
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.wled_gledopto_wi_fi_channel
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.wled_gledopto_wi_fi_rssi
+  labels: []
+- disabled_by: integration
+  entity_id: sensor.wled_gledopto_wi_fi_signal
+  labels: []
+- disabled_by: integration
   entity_id: sensor.zigbee2mqtt_bridge_coordinator_version
   labels: []
 - disabled_by: integration
@@ -805,10 +849,10 @@
 - disabled_by: integration
   entity_id: switch.card_mod_pre_release
   labels: []
-- name: Exit Sign
-  entity_id: switch.exit_sign
+- entity_id: switch.exit_sign
   labels:
     - shared_space
+  name: Exit Sign
 - disabled_by: integration
   entity_id: switch.frosted_glass_theme_pre_release
   labels: []
@@ -824,10 +868,10 @@
 - disabled_by: integration
   entity_id: switch.ios_themes_dark_mode_and_light_mode_pre_release
   labels: []
-- name: Kitchen Mushroom Lamp
-  entity_id: switch.kitchen_mushroom_lamp
+- entity_id: switch.kitchen_mushroom_lamp
   labels:
     - shared_space
+  name: Kitchen Mushroom Lamp
 - entity_id: switch.living_room_good_vibes_sign
   labels:
     - shared_space

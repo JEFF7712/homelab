@@ -1,59 +1,61 @@
-- id: 0245b394e1c06383e00ea74937d4a329
-  area_id: living_room
+- area_id: living_room
+  id: 0245b394e1c06383e00ea74937d4a329
   name_by_user: Living Room Tulip Lamp
-- id: 03cc6ef2aa99f21e506432218e6dcd31
-  area_id: kitchen
+- area_id: kitchen
+  id: 03cc6ef2aa99f21e506432218e6dcd31
   name_by_user: Fuck Off Sign
-- id: 08545633dd6cf91a152ceb0fb920aecc
-  area_id: living_room
-- id: 1923373a39b170aac04046b3754b3e6f
-  area_id: kitchen
+- area_id: living_room
+  id: 08545633dd6cf91a152ceb0fb920aecc
+- area_id: kitchen
+  id: 1923373a39b170aac04046b3754b3e6f
   name_by_user: Kitchen Ceiling Light 2
-- id: 3f7e34015a3ad4c9017dafb46d877923
-  area_id: kitchen
+- area_id: kitchen
+  id: 3f7e34015a3ad4c9017dafb46d877923
   name_by_user: Exit Sign
-- id: 4db59ab7a80811ad3c1fc395e0a28bbf
-  area_id: bedroom
+- area_id: bedroom
+  id: 4db59ab7a80811ad3c1fc395e0a28bbf
   name_by_user: Bedroom Mushroom Lamp
-- id: 6b2e3e97d070d8355272178c9b7bc1ea
-  area_id: living_room
+- area_id: living_room
+  id: 6b2e3e97d070d8355272178c9b7bc1ea
   name_by_user: Good Vibes Sign
-- id: 7e312943737102071dcfa3e9c891699d
-  area_id: living_room
-- id: 83f375363ac2b3bf83ac21c5aff7689a
-  area_id: kitchen
-- id: 8795d1e844dce2c2049491c4d48d0514
-  area_id: bedroom
+- area_id: living_room
+  id: 7e312943737102071dcfa3e9c891699d
+- area_id: kitchen
+  id: 83f375363ac2b3bf83ac21c5aff7689a
+- area_id: bedroom
+  id: 8795d1e844dce2c2049491c4d48d0514
   name_by_user: Bose Speaker
-- id: a1ba1d50c624f629824c4e9b36cb0035
-  area_id: kitchen
-  name_by_user: Kitchen Mushroom Lamp
-- id: a39797a7668d032b14f4ee437f58a2c3
-  area_id: kitchen
-  name_by_user: Kitchen Ceiling Light 1
-- id: ac08aff7901c44686ad52ec33ebb9d1f
-  area_id: living_room
-  name_by_user: Living Room Floor Lamp
-- id: b966252d167f43dcb2b94a6e35194ee3
-  area_id: bedroom
-  name_by_user: Bedroom Window Light
-- id: bdcb71dd19e662d59efa0bac03c9d368
-  area_id: living_room
-- id: cecfd0c383c76c96602dd80303616c98
-  area_id: living_room
-  name_by_user: Apollo Light Strip
-- id: e0a2aee78ec665c88edce0d2cd9e4d46
-  area_id: bedroom
-  name_by_user: Desk Lamp
-- id: ed7094816e1dd39c94353413de571194
-  area_id: bedroom
-  name_by_user: Floor Lamp
-- id: fd51f50aa8ed7e5bb256fffaae8c0237
-  area_id: bedroom
-  name_by_user: Light Strip
-- id: 9bea576dabb697ba6e18167f2953ffc9
-  area_id: kitchen
+- area_id: living_room
+  id: 88445f501cdea731a56e83e281338b05
+- area_id: kitchen
+  id: 9bea576dabb697ba6e18167f2953ffc9
   name_by_user: Dining Table Ceiling Light 1
-- id: d6b68f251301e3fd9fefb41254e1b548
-  area_id: kitchen
+- area_id: kitchen
+  id: a1ba1d50c624f629824c4e9b36cb0035
+  name_by_user: Kitchen Mushroom Lamp
+- area_id: kitchen
+  id: a39797a7668d032b14f4ee437f58a2c3
+  name_by_user: Kitchen Ceiling Light 1
+- area_id: living_room
+  id: ac08aff7901c44686ad52ec33ebb9d1f
+  name_by_user: Living Room Floor Lamp
+- area_id: bedroom
+  id: b966252d167f43dcb2b94a6e35194ee3
+  name_by_user: Bedroom Window Light
+- area_id: living_room
+  id: bdcb71dd19e662d59efa0bac03c9d368
+- area_id: living_room
+  id: cecfd0c383c76c96602dd80303616c98
+  name_by_user: Apollo Light Strip
+- area_id: kitchen
+  id: d6b68f251301e3fd9fefb41254e1b548
   name_by_user: Dining Table Ceiling Light 2
+- area_id: bedroom
+  id: e0a2aee78ec665c88edce0d2cd9e4d46
+  name_by_user: Desk Lamp
+- area_id: bedroom
+  id: ed7094816e1dd39c94353413de571194
+  name_by_user: Floor Lamp
+- area_id: bedroom
+  id: fd51f50aa8ed7e5bb256fffaae8c0237
+  name_by_user: Light Strip
