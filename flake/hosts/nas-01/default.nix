@@ -193,6 +193,58 @@
     enable = true;
     openFirewall = true;
     package = pkgs.shairport-sync.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [
+        (pkgs.writeText "shairport-sync-pa-cork-delay.patch" ''
+          --- a/audio_pa.c
+          +++ b/audio_pa.c
+          @@ -639,31 +639,29 @@
+           }
+           
+           int pa_delay(long *the_delay) {
+          -  // debug(1, "pa delay");
+             check_pa_stream_status(stream, "audio_pa delay.");
+          -  // debug(1,"pa_delay");
+             long result = 0;
+          -  int reply = 0;
+          -  pa_usec_t latency;
+          -  int negative;
+          +  pa_usec_t latency = 0;
+          +  int negative = 0;
+          +  pa_sps_t *format_info =
+          +      sps_format_lookup(FORMAT_FROM_ENCODED_FORMAT(current_encoded_output_format));
+             pa_threaded_mainloop_lock(mainloop);
+          -  int gl = pa_stream_get_latency(stream, &latency, &negative);
+          +  int corked = (stream != NULL) ? pa_stream_is_corked(stream) : 1;
+          +  int gl = 0;
+          +  if (!corked) {
+          +    gl = pa_stream_get_latency(stream, &latency, &negative);
+          +  }
+             pa_threaded_mainloop_unlock(mainloop);
+          -  if (gl == -PA_ERR_NODATA) {
+          -    reply = -ENODEV;
+          -  } else if (gl != 0) {
+          -    reply = -EIO;
+          -  } else {
+          -    pa_sps_t *format_info =
+          -        sps_format_lookup(FORMAT_FROM_ENCODED_FORMAT(current_encoded_output_format));
+          -    // convert audio_occupancy bytes to frames and latency microseconds into frames
+          +  if (corked || gl == 0) {
+               result = (audio_occupancy / (format_info->bytes_per_sample *
+                                            CHANNELS_FROM_ENCODED_FORMAT(current_encoded_output_format))) +
+                        (latency * RATE_FROM_ENCODED_FORMAT(current_encoded_output_format)) / 1000000;
+          -    reply = 0;
+          +  } else {
+          +    result = (audio_occupancy / (format_info->bytes_per_sample *
+          +                                 CHANNELS_FROM_ENCODED_FORMAT(current_encoded_output_format)));
+             }
+             *the_delay = result;
+          -  return reply;
+          +  return 0;
+           }
+           
+           static void flush(void) {
+        '')
+      ];
       postPatch = (old.postPatch or "") + ''
         substituteInPlace shairport.c \
           --replace-fail "config.port = 5000;" "if (config.port == 0) config.port = 5000;"
@@ -208,6 +260,7 @@
         # available" and AirPlay sessions connect but never start. The PulseAudio
         # backend negotiates through pipewire-pulse, which does reach the speaker.
         output_backend = "pulseaudio";
+        audio_backend_buffer_desired_length_in_seconds = 0.5;
         # Left unset this resolves to a null mDNS backend, voluntary RAOP only.
         # iOS discovers the speaker through _airplay._tcp, so the phone sees a
         # cached device and then hangs on "connecting".
