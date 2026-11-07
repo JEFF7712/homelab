@@ -1,0 +1,5 @@
+alias: "Connect Bedroom Speaker"
+description: "Send command to nas-01 to connect to the bedroom Bose Bluetooth speaker."
+icon: mdi:bluetooth-connect
+sequence:
+  - action: rest_command.bose_speaker_connect
