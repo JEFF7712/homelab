@@ -1,7 +1,6 @@
 """Retro arcade simulation modes package."""
 
 from .arcade_renderer import RetroArcadeRenderer
-from .asteroids import AsteroidsGame
 from .base import ArcadeGame
 from .breakout import BreakoutGame
 from .donkey_kong import DonkeyKongGame
@@ -16,7 +15,6 @@ from .tetris import TetrisGame
 
 __all__ = [
     "ArcadeGame",
-    "AsteroidsGame",
     "BreakoutGame",
     "DonkeyKongGame",
     "DoodleJumpGame",

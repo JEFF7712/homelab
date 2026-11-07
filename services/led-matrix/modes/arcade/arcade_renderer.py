@@ -8,7 +8,6 @@ from PIL import Image, ImageDraw
 
 from modes.base import ModeRenderer, RenderContext
 
-from .asteroids import AsteroidsGame
 from .base import ArcadeGame
 from .breakout import BreakoutGame
 from .donkey_kong import DonkeyKongGame
@@ -33,7 +32,6 @@ class RetroArcadeRenderer(ModeRenderer):
             SpaceInvadersGame(),
             DonkeyKongGame(),
             FroggerGame(),
-            AsteroidsGame(),
             DoodleJumpGame(),
             QbertGame(),
         ]

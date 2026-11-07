@@ -137,7 +137,8 @@ class AutonomousArcadeTests(unittest.TestCase):
     def test_new_games_are_in_the_ai_rotation(self) -> None:
         renderer = RetroArcadeRenderer(randomize=False)
         names = {game.name for game in renderer.games}
-        self.assertTrue({"FROGGER", "ASTEROIDS", "DOODLE JUMP", "Q*BERT"} <= names)
+        self.assertTrue({"FROGGER", "DOODLE JUMP", "Q*BERT"} <= names)
+        self.assertNotIn("ASTEROIDS", names)
         for game in renderer.games:
             game.update(0.05)
             image = Image.new("RGB", (64, 64))
