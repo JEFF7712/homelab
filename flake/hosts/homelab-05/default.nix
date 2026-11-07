@@ -188,7 +188,9 @@ in
           # alsa_output.usb-Generic_USB_SPDIF_Adapter_202110200032-00.analog-stereo,
           # USB 0bda:4e27). The usb-*SPDIF* substring survives USB bus-path
           # renames. Placed after the generic onboard rule so it wins the
-          # priority for this one node.
+          # priority for this one node. Keep session.suspend-timeout-seconds at 0
+          # so the optical transmitter carrier stays active 24/7 and does not
+          # trigger the soundbar's auto-sleep timer.
           {
             matches = [
               { "node.name" = "~alsa_output.usb-*SPDIF*"; }
@@ -197,6 +199,7 @@ in
               update-props = {
                 "priority.driver" = 3000;
                 "priority.session" = 3000;
+                "session.suspend-timeout-seconds" = 0;
               };
             };
           }
