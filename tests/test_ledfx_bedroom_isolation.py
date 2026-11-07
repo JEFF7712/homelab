@@ -21,8 +21,8 @@ SHARED_AUTOMATION = REPO_ROOT / "home-assistant/automations/shared_music_mode.ya
 SHARED_HOST = "10.0.30.15"
 BEDROOM_HOST = "10.0.30.20"
 
-# Virtual sink monitor before the delayed bedroom Bluetooth output.
-BEDROOM_PULSE_SOURCE = "bedroom_music_pre_delay.monitor"
+# Bluetooth sink that carries all bedroom playback on the NAS.
+BEDROOM_PULSE_SOURCE = "bluez_output.E4_58_BC_10_CA_C9.1.monitor"
 
 BEDROOM_LIGHTS = (
     "light.desk_lamp_desk_lamp",
@@ -94,16 +94,13 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # bedroom instance must not reference it.
         self.assertNotIn("SPDIF", module)
 
-    def test_shairport_audio_is_split_before_the_delayed_bluetooth_output(self) -> None:
+    def test_shairport_audio_plays_directly_without_delay(self) -> None:
         host = NAS_HOST.read_text()
-        self.assertIn("module-null-sink sink_name=bedroom_music_pre_delay", host)
-        self.assertIn('PULSE_SINK = "bedroom_music_pre_delay"', host)
-        self.assertIn("pw-loopback", host)
-        self.assertIn("--capture=bedroom_music_pre_delay", host)
-        self.assertIn('"stream.capture.sink":true', host)
-        self.assertIn("--playback=bluez_output.E4_58_BC_10_CA_C9.1", host)
-        self.assertIn("--delay=0.45", host)
+        self.assertNotIn("bedroom_music_pre_delay", host)
+        self.assertNotIn("pw-loopback", host)
+        self.assertNotIn("--delay", host)
         self.assertIn('allow_session_interruption = "yes"', host)
+        self.assertIn("--target=bluez_output.E4_58_BC_10_CA_C9.1", host)
 
     def test_state_and_credentials_are_persistent(self) -> None:
         module = MODULE.read_text()
@@ -217,12 +214,14 @@ class BedroomIsolationTests(unittest.TestCase):
         self.assertNotIn("rest_command.ledfx_activate_scene", raw)
         self.assertNotIn("rest_command.ledfx_deactivate_scene", raw)
 
-    def test_bedroom_automation_never_references_shared_lights(self) -> None:
+    def test_bedroom_automation_never_references_lights(self) -> None:
         raw = BEDROOM_AUTOMATION.read_text()
         for light in SHARED_LIGHTS:
             self.assertNotIn(light, raw)
         for light in BEDROOM_LIGHTS:
-            self.assertIn(light, raw)
+            self.assertNotIn(light, raw)
+        self.assertNotIn("adaptive_lighting", raw)
+        self.assertIn("input_boolean.bedroom_matrix_power", raw)
 
     def test_shared_automation_never_references_bedroom_entities(self) -> None:
         raw = SHARED_AUTOMATION.read_text()

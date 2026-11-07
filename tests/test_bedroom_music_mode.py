@@ -75,20 +75,18 @@ class TestBedroomMusicMode(unittest.TestCase):
         self.assertNotIn("delay:", raw_text)
         self.assertNotIn("states.media_player", raw_text)
 
-        # Separate LedFx instance so nothing in shared spaces can reach it.
+        # Controls the matrix display and its separate LedFx instance only.
+        self.assertIn("input_boolean.bedroom_matrix_power", raw_text)
         self.assertIn("rest_command.ledfx_bedroom_activate_scene", raw_text)
         self.assertIn("rest_command.ledfx_bedroom_deactivate_scene", raw_text)
+        self.assertIn("rest_command.ledfx_bedroom_set_matrix_effect", raw_text)
         self.assertIn("bedroom-music-mode", raw_text)
         self.assertNotIn('"music-mode"', raw_text)
 
-        # Must lock and restore Adaptive Lighting properly.
-        self.assertIn("adaptive_lighting.set_manual_control", raw_text)
-        self.assertIn("adaptive_lighting.apply", raw_text)
-        self.assertIn("turn_on_lights: false", raw_text)
-
-        # Bedroom Roku bulbs only; shared Zigbee lights must stay untouched.
+        # Room lighting is NOT touched by bedroom music mode.
+        self.assertNotIn("adaptive_lighting", raw_text)
         for light in BEDROOM_LIGHTS:
-            self.assertIn(light, raw_text)
+            self.assertNotIn(light, raw_text)
         for light in SHARED_ZIGBEE_LIGHTS:
             self.assertNotIn(light, raw_text)
         self.assertIn("input_boolean.bedroom_music_mode", raw_text)

@@ -62,19 +62,16 @@ state, and the bedroom cannot reach living-room state.
 
 ```
 Shairport Sync on nas-01 (Music Assistant bedroom output)
-  ↓ Pulse virtual sink bedroom_music_pre_delay
-  ├─ monitor bedroom_music_pre_delay.monitor → LedFx instance (no added delay)
-  └─ PipeWire loopback, 450 ms → Bluetooth Bose Flex 2
-LedFx instance on nas-01 (scene bedroom-music-mode, effect energy)
-  ↓ OSC "All To One" [[R,G,B] x2] floats 0.0-1.0 to /bedroom, UDP 10.0.30.10:9000 @10Hz
-ledfx-roku-bridge on adguard-netbird-01   (shared transport only)
-  ↓ throttles, then roku/light/<slug>/set
-roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
+  ↓ Bluetooth Bose Flex 2 (direct playback, no delay)
+  ├─ monitor bluez_output.E4_58_BC_10_CA_C9.1.monitor → LedFx instance
+  └─ pw-record → bedroom-audio-fft → LED matrix display (DDP/FFT)
+LedFx instance on nas-01 (scene bedroom-music-mode, 2D matrix effects)
+  ↓ DDP to LED Matrix (10.0.40.15:4048)
 ```
 
 ### Audio tap requirements on nas-01
 
-The effect only produces colour if LedFx can capture the pre-delay virtual
+The effect only produces colour if LedFx can capture the Bluetooth sink
 monitor. Four things had to be true, and each one failed silently:
 
 - **Pulse protocol module loaded.** `services.pipewire.pulse.enable` only starts
@@ -102,15 +99,13 @@ source the computed level stays under `0.2`, so the effect renders pure black
 expected cycling palette. The shared instance keeps the default because its USB
 tap reports a higher level.
 
-Shairport Sync is routed to `bedroom_music_pre_delay`, and so is the laptop
-RTP feed (`bedroom-rtp-in`, pinned to that sink as its only path in, unicast
+Shairport Sync and the laptop RTP feed (`bedroom-rtp-in`, unicast
 UDP 46100; RTP, not RAOP, because PipeWire 1.6.8's RAOP sender aborts on this
-shairport-sync's handshake). LedFx listens to
-that sink's monitor, and `bedroom-audio-delay.service` copies it to the Bose
-sink with `pw-loopback --delay=0.45`. Other Pulse clients, including the Wyoming
-satellite, keep their normal default route. Adjust the loopback delay in
-`flake/hosts/nas-01/default.nix` in small increments after listening to the
-physical speaker and watching the bulbs together.
+shairport-sync's handshake) stream directly to the Bose Bluetooth sink without
+any artificial audio delay. LedFx listens to the Bluetooth sink's monitor,
+and `bedroom-audio-fft.service` streams real-time frequency analysis to the
+LED matrix display. Other Pulse clients, including the Wyoming satellite, keep
+their normal default route.
 
 Two things that look like faults but are not. A Bluetooth sink with no
 `PipeWire:Interface:Card` and `device.profile: None` is normal here: the A2DP
