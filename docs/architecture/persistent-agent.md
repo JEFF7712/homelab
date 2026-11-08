@@ -464,7 +464,7 @@ Remaining before a deployment request:
 
 | Priority | Work |
 | --- | --- |
-| P1 | Publish the Nix-built controller and worker images (`packages.orchestrator-*-image`) through a scoped `orchestrator-publish` operation and `publisher-orchestrator` identity |
+| P1 | Publish the controller and worker images: operator provisions the two scoped publishers, then `orchestrator-publish` ([orchestrator-release.md](../runbooks/orchestrator-release.md)) |
 | P1 | Credential-free rehearsal on homelab-02 with the rendered manifests, intake and a scripted loopback model |
 | Gate | Gate 3 third review pass; gate 4 negative tests against real pods, including denied Jobs under the admission policy and refused DNS and TLS names; worker credential provisioning |
 | Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key (capped in `config/spend.json` at 10 USD a month), Telegram |
