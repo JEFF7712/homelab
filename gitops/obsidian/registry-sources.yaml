@@ -16,4 +16,4 @@ metadata:
   name: obsidian-registry-sources
 items:
   # CouchDB (couchdb.yaml)
-  - image: docker.io/library/couchdb:3.5.2@sha256:199ff89f9a930df6032a216570ae0169fcc36c449bb02b40fafeb6efecdb606f
+  - image: docker.io/library/couchdb:3.5.3@sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda
