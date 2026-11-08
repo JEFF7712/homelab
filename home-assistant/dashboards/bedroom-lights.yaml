@@ -353,11 +353,6 @@ views:
             name: Mode
             icon: mdi:view-dashboard-outline
             icon_color: blue
-          - type: custom:mushroom-select-card
-            entity: input_select.bedroom_ledfx_effect
-            name: LedFx Effect
-            icon: mdi:music-note-outline
-            icon_color: purple
           - type: custom:mushroom-number-card
             entity: input_number.bedroom_matrix_vinyl_contrast
             name: Vinyl Contrast

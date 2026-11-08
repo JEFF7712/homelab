@@ -79,7 +79,6 @@ class TestBedroomMusicMode(unittest.TestCase):
         self.assertIn("input_boolean.bedroom_matrix_power", raw_text)
         self.assertIn("rest_command.ledfx_bedroom_activate_scene", raw_text)
         self.assertIn("rest_command.ledfx_bedroom_deactivate_scene", raw_text)
-        self.assertIn("rest_command.ledfx_bedroom_set_matrix_effect", raw_text)
         self.assertIn("bedroom-music-mode", raw_text)
         self.assertNotIn('"music-mode"', raw_text)
 
