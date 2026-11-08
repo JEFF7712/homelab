@@ -27,6 +27,9 @@ from scripts.ci.applications import load_catalog
 
 SCHEMA_VERSION = 1
 DEFAULT_REGISTRY = "registry.rupan.dev"
+# First-party repositories granted to their scoped publisher before their
+# first lock record exists (scripts/ci/orchestrator_release.py publishes them).
+RESERVED_FIRST_PARTY = ("apps/orchestrator", "apps/orchestrator-worker")
 # projectctl-pull reads the clone plugin plus every image a projectctl contract runs.
 PROJECTCTL_PULL_REPOSITORIES = frozenset(
     {"upstream/docker.io/woodpeckerci/plugin-git"}
@@ -2901,6 +2904,23 @@ def render_access_control(lock: Mapping[str, Any]) -> dict[str, Any]:
             ],
             "defaultPolicy": [],
         }
+    # First-party repositories whose first image is published by a protected
+    # operation rather than by hand: the grant must exist before any lock
+    # record does. Each gets the same scoped publisher a record would grant.
+    for repository in RESERVED_FIRST_PARTY:
+        repositories.setdefault(
+            repository,
+            {
+                "policies": [
+                    {"users": ["node"], "actions": read},
+                    {
+                        "users": [f"publisher-{repository.removeprefix('apps/')}"],
+                        "actions": write,
+                    },
+                ],
+                "defaultPolicy": [],
+            },
+        )
     return {
         "repositories": repositories,
         "adminPolicy": {"users": ["maintenance"], "actions": administer},
