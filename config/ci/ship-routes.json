@@ -191,6 +191,16 @@
         "switches-apply"
       ],
       "auto": true
+    },
+    {
+      "name": "registry-import",
+      "paths": [
+        "registry/images.lock.json"
+      ],
+      "operations": [
+        "registry-lock-import"
+      ],
+      "auto": true
     }
   ]
 }
