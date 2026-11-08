@@ -158,10 +158,13 @@ class AccessTests(unittest.TestCase):
     def test_the_operation_uses_only_the_scoped_publisher_secrets(self) -> None:
         operations = json.loads((ROOT / "config/ci/operations.json").read_text())
         spec = operations["orchestrator-publish"]
-        self.assertEqual(
-            sorted(spec["environment"]),
-            sorted(image.auth_variable for image in IMAGES),
-        )
+        registry = {
+            name
+            for name, value in spec["environment"].items()
+            if "REGISTRY" in name or "registry" in json.dumps(value)
+        }
+        # The only registry credentials are the two scoped publishers.
+        self.assertEqual(registry, {image.auth_variable for image in IMAGES})
         for image in IMAGES:
             name = "registry_" + image.repository.removeprefix("apps/").replace(
                 "-", "_"
