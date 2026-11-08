@@ -346,20 +346,6 @@ data:
           - "Physics"
           - "Homelab Dashboards"
         initial: "Auto"
-      bedroom_ledfx_effect:
-        name: Bedroom LedFx Effect
-        icon: mdi:music-note-outline
-        options:
-          - "equalizer2d"
-          - "plasma2d"
-          - "bands_matrix"
-          - "digitalrain2d"
-          - "fire"
-          - "spectrum"
-          - "energy"
-          - "wavelength"
-          - "keybeat2d"
-        initial: "equalizer2d"
 
     input_number:
       bedroom_matrix_vinyl_contrast:
