@@ -2015,6 +2015,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:36"
+      ],
+      "destination_repository": "upstream/ghcr.io/flaresolverr/flaresolverr",
+      "destination_tags": [
+        "retention-deployed-c80ae007ce2ccdcd",
+        "v3.5.2"
+      ],
+      "digest": "sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+      "id": "upstream-flaresolverr-flaresolverr-6c804d892a10",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+        "reference": "ghcr.io/flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+        "registry": "ghcr.io",
+        "repository": "flaresolverr/flaresolverr",
+        "tag": "v3.5.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:38"
       ],
       "destination_repository": "upstream/ghcr.io/flaresolverr/flaresolverr",
