@@ -157,12 +157,31 @@
         "docker"
       ],
       "matchPackageNames": [
-        "/(^|/)postgres$/"
+        "/(^|/)postgres$/",
+        "/(^|/)postgresql$/",
+        "/(^|/)cloudnative-vectorchord$/"
       ],
       "matchUpdateTypes": [
         "major"
       ],
       "enabled": false
+    },
+    {
+      "description": "A declaration bump must carry its lock record, or the registry check rejects the unlocked digest; this appends the new inventory and lock records to the branch so the merge's registry-lock-import mirrors the image (scripts/registry/declarations.py)",
+      "matchFileNames": [
+        "gitops/**/registry-sources.yaml",
+        "gitops/producer-base-images/base-images.yaml"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "python3 -m scripts.registry.declarations"
+        ],
+        "fileFilters": [
+          "registry/images.inventory.json",
+          "registry/images.lock.json"
+        ],
+        "executionMode": "branch"
+      }
     },
     {
       "description": "Review every Helm chart bump: post-renderers pin the app images, so the chart and its mirrored image digests move together by hand (docs/runbooks/local-registry.md)",

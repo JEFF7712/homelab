@@ -52,7 +52,10 @@ spec:
           ],
           "onboarding": false,
           "requireConfig": "optional",
-          "allowedCommands": ["^python3 scripts/ci/sync_providers\\.py$"]
+          "allowedCommands": [
+            "^python3 scripts/ci/sync_providers\\.py$",
+            "^python3 -m scripts\\.registry\\.declarations$"
+          ]
         }
     cronjob:
       schedule: "0 * * * *"
