@@ -41,6 +41,17 @@
       "auto": true
     },
     {
+      "name": "orchestrator-images",
+      "paths": [
+        "scripts/orchestrator/",
+        "flake/packages/orchestrator-images.nix"
+      ],
+      "operations": [
+        "orchestrator-publish"
+      ],
+      "auto": false
+    },
+    {
       "name": "home-assistant",
       "paths": [
         "home-assistant/"
@@ -189,6 +200,16 @@
       "operations": [
         "switches-plan",
         "switches-apply"
+      ],
+      "auto": true
+    },
+    {
+      "name": "registry-import",
+      "paths": [
+        "registry/images.lock.json"
+      ],
+      "operations": [
+        "registry-lock-import"
       ],
       "auto": true
     }

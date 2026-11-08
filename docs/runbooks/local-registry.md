@@ -158,6 +158,18 @@ or storage changes retain the [approval holds](approvals.md).
 
 `registry/images.lock.json` is the authoritative mapping for import, policy, update discovery, retention, and node mirror rewrites.
 
+### Import before reference
+
+An upstream image moves in two changes. The first adds its lock entry; its
+`just ship` routes `registry-lock-import` and waits for the import (route
+`registry-import` in `config/ci/ship-routes.json`). Only a later change may
+point a workload at the new digest. `scripts/registry/ordering.py`, run by
+`scripts/checks/registry.sh`, fails a pull request that references a
+`registry.rupan.dev/upstream/...@sha256:` digest absent from the lock at its
+merge base. Flux applies a merged manifest at once, so referencing a digest
+in the same change as its import let a Recreate deployment stop its old pod
+and then fail to pull the new one (Home Assistant, 2026-10-27).
+
 ### CI bootstrap image
 
 Normal Woodpecker validation and operation images are fixed by the deployed
