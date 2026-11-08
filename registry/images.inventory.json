@@ -3399,6 +3399,23 @@
         "repository": "valkey/valkey",
         "tag": "9.1.2"
       }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:36"
+      ],
+      "destination_repository": "upstream/ghcr.io/flaresolverr/flaresolverr",
+      "id": "upstream-flaresolverr-flaresolverr-6c804d892a10",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+        "reference": "ghcr.io/flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+        "registry": "ghcr.io",
+        "repository": "flaresolverr/flaresolverr",
+        "tag": "v3.5.2"
+      }
     }
   ],
   "kind": "registry-inventory",
