@@ -1738,6 +1738,44 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:38"
+      ],
+      "destination_repository": "upstream/docker.io/crocodilestick/calibre-web-automated",
+      "destination_tags": [
+        "retention-deployed-5e00373854247750",
+        "v4.0.8"
+      ],
+      "digest": "sha256:5e00373854247750cc3e4479b492ae09293ff5e06ed10177f226634d97888679",
+      "id": "upstream-crocodilestick-calibre-web-automated-2657d3aa00b4",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:5e00373854247750cc3e4479b492ae09293ff5e06ed10177f226634d97888679",
+        "reference": "docker.io/crocodilestick/calibre-web-automated:v4.0.8@sha256:5e00373854247750cc3e4479b492ae09293ff5e06ed10177f226634d97888679",
+        "registry": "docker.io",
+        "repository": "crocodilestick/calibre-web-automated",
+        "tag": "v4.0.8"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:40"
       ],
       "destination_repository": "upstream/docker.io/crocodilestick/calibre-web-automated",
@@ -1809,6 +1847,49 @@
         "registry": "docker.io",
         "repository": "deluan/navidrome",
         "tag": "0.63.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:40"
+      ],
+      "destination_repository": "upstream/docker.io/deluan/navidrome",
+      "destination_tags": [
+        "0.64.2",
+        "retention-deployed-38dc2727bfcfd5ed"
+      ],
+      "digest": "sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+      "id": "upstream-deluan-navidrome-c3e40e058ba3",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/riscv64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+        "reference": "docker.io/deluan/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+        "registry": "docker.io",
+        "repository": "deluan/navidrome",
+        "tag": "0.64.2"
       }
     },
     {
@@ -2330,6 +2411,45 @@
         "registry": "ghcr.io",
         "repository": "gameyfin/gameyfin",
         "tag": "2.6.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "destination_tags": [
+        "2.6.1",
+        "retention-deployed-af49f9120ac3ee59"
+      ],
+      "digest": "sha256:af49f9120ac3ee59ea87b461aa75fde86ce8315f65d306d1f44bc0ed6784adcb",
+      "id": "upstream-gameyfin-gameyfin-fa8b584a9516",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:af49f9120ac3ee59ea87b461aa75fde86ce8315f65d306d1f44bc0ed6784adcb",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.6.1@sha256:af49f9120ac3ee59ea87b461aa75fde86ce8315f65d306d1f44bc0ed6784adcb",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.6.1"
       }
     },
     {
@@ -6181,6 +6301,44 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:46"
+      ],
+      "destination_repository": "upstream/docker.io/seerr/seerr",
+      "destination_tags": [
+        "retention-deployed-d8fab675b55ad293",
+        "v3.5.1"
+      ],
+      "digest": "sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be",
+      "id": "upstream-seerr-seerr-ef09a951c289",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be",
+        "reference": "docker.io/seerr/seerr:v3.5.1@sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be",
+        "registry": "docker.io",
+        "repository": "seerr/seerr",
+        "tag": "v3.5.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:storage/nfs-subdir-external-provisioner-54bd59cbd-l4qvp/nfs-subdir-external-provisioner"
       ],
       "destination_repository": "upstream/registry.k8s.io/sig-storage/nfs-subdir-external-provisioner",
@@ -6214,6 +6372,46 @@
         "registry": "registry.k8s.io",
         "repository": "sig-storage/nfs-subdir-external-provisioner",
         "tag": "v4.0.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:55"
+      ],
+      "destination_repository": "upstream/docker.io/slskd/slskd",
+      "destination_tags": [
+        "0.26.2",
+        "retention-deployed-d0963a3e5b16facd"
+      ],
+      "digest": "sha256:d0963a3e5b16facd295bf4f2156dad0182f246b1b21a032cae12f5494c694843",
+      "id": "upstream-slskd-slskd-71085680e77e",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:d0963a3e5b16facd295bf4f2156dad0182f246b1b21a032cae12f5494c694843",
+        "reference": "docker.io/slskd/slskd:0.26.2@sha256:d0963a3e5b16facd295bf4f2156dad0182f246b1b21a032cae12f5494c694843",
+        "registry": "docker.io",
+        "repository": "slskd/slskd",
+        "tag": "0.26.2"
       }
     },
     {
@@ -7465,6 +7663,46 @@
         "registry": "docker.io",
         "repository": "valkey/valkey",
         "tag": "9.1.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/immich/registry-sources.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/valkey/valkey",
+      "destination_tags": [
+        "9.1.3",
+        "retention-deployed-3add1a336a920ea5"
+      ],
+      "digest": "sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7",
+      "id": "upstream-valkey-valkey-41f971f8eb7a",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7",
+        "reference": "docker.io/valkey/valkey:9.1.3@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7",
+        "registry": "docker.io",
+        "repository": "valkey/valkey",
+        "tag": "9.1.3"
       }
     },
     {
