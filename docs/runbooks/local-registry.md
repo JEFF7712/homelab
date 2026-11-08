@@ -292,6 +292,31 @@ Key rules:
 - **Declaration bumps carry their lock records:** a Renovate bump to a declaration file runs `python3 -m scripts.registry.declarations` as a post-upgrade task. It resolves each newly declared reference from its upstream registry and appends its inventory and lock records to the same branch, leaving every existing record in place, and omits a destination tag the mirror already holds on another digest. Without this, a bump fails the registry check ("consumer is not an exact locked local digest"), and declaration PRs piled up unmerged. Merging such a PR mirrors the image through the main push's `registry-lock-import`; moving the workload to the new mirror digest is still a separate change, made after that import succeeds. Run the same command locally after editing a declaration by hand.
 - **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
 
+### Advancing an upstream image (agents)
+
+Renovate's image PRs only change an upstream declaration, so they do nothing
+until the image is mirrored and its consumers move. An agent takes one over
+with `scripts/registry/advance.py`:
+
+1. Branch from the Renovate commit (not the Renovate branch, which Renovate
+   force-pushes), then run
+   `python -m scripts.registry.advance mirror --base origin/main`. It resolves
+   only the declarations the change added and merges their records into the
+   inventory and lock, keeping every other record ID. Commit and `just ship`;
+   the `registry-import` route waits for `registry-lock-import`. Renovate
+   closes its PR once main carries the update.
+2. Branch from the new main and run `python -m scripts.registry.advance adopt`.
+   It moves each consumer whose mirror digest is no longer declared to the one
+   locked declaration of that repository, and reports anything ambiguous
+   instead of guessing (exit 1). Commit and `just ship`.
+3. After Flux applies it, run
+   `python -m scripts.registry.advance verify <changed manifests>`. It waits
+   for each workload's rollout and requires its running pods, init containers
+   included, to report the new digests. On failure revert the adopt change with
+   `just ship`; the mirrored image stays harmlessly in the registry.
+
+Helm chart images and producer base images keep their own procedures below.
+
 ### Refreshing an image under the same tag
 
 `registry-lock-import` never repoints an existing destination tag ("refusing
