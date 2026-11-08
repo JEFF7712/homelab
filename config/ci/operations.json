@@ -2870,5 +2870,40 @@
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
+  },
+  "orchestrator-publish": {
+    "commands": [
+      "nix develop ./flake#ops -c python -m scripts.ci.orchestrator_release coordinate"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_ORCHESTRATOR_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_orchestrator_publisher_auth_file"
+      },
+      "REGISTRY_ORCHESTRATOR_WORKER_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_orchestrator_worker_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_ORCHESTRATOR_PUBLISHER_AUTH_FILE",
+      "REGISTRY_ORCHESTRATOR_WORKER_PUBLISHER_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [
+      "artifacts/orchestrator-release/"
+    ],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
   }
 }

@@ -41,6 +41,17 @@
       "auto": true
     },
     {
+      "name": "orchestrator-images",
+      "paths": [
+        "scripts/orchestrator/",
+        "flake/packages/orchestrator-images.nix"
+      ],
+      "operations": [
+        "orchestrator-publish"
+      ],
+      "auto": false
+    },
+    {
       "name": "home-assistant",
       "paths": [
         "home-assistant/"
