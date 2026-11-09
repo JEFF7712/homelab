@@ -137,6 +137,8 @@ in
   # so only ancestry of the Forgejo head is verified, not SHA equality.
   homelab.repoMonitor = {
     enable = true;
+    # The approvals dashboard runs on this host (port 8020).
+    approvalsUrl = "http://127.0.0.1:8020";
     specialMirrors = [
       {
         repository = "JEFF7712/homelab";
