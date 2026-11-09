@@ -37,7 +37,7 @@ SPOTIFY_VINYL_BRIGHTNESS = 0.7
 
 
 def effective_brightness(mode: str, configured_brightness: float) -> float:
-    if mode == "Off":
+    if mode == "Off" or mode == "Laptop":
         return 0.0
     if mode == "Spotify":
         return SPOTIFY_VINYL_BRIGHTNESS
@@ -313,6 +313,39 @@ def main() -> None:
                     except Exception:
                         pass
 
+            if active_mode == "Laptop":
+                if streamer.sock is not None:
+                    print(
+                        "[Matrix] Mode is Laptop: yielding TCP port 9999 to direct client",
+                        flush=True,
+                    )
+                    streamer.close()
+                if args.health_file and tick - last_health >= 2:
+                    write_private_file(
+                        args.health_file,
+                        json.dumps(
+                            {
+                                "updated_at": time.time(),
+                                "ready": source.connected,
+                                "mode": active_mode,
+                                "power": ha_state.power,
+                                "brightness": 0.0,
+                                "metadata_available": spotify_state.available,
+                                "artwork_ready": False,
+                                "frames": streamer.frames,
+                                "failures": streamer.failures,
+                                "max_frame_ms": round(max_frame_ms, 2),
+                                "provider": getattr(
+                                    source, "active_provider", "home_assistant"
+                                ),
+                            }
+                        ),
+                    )
+                    last_health = tick
+                last_tick = tick
+                stop.wait(max(0, 1 / args.fps - (time.monotonic() - tick)))
+                continue
+
             if active_mode == "Spotify":
                 if spotify_state.title != last_title:
                     provider = getattr(source, "active_provider", "ha").upper()
@@ -355,7 +388,8 @@ def main() -> None:
                     json.dumps(
                         {
                             "updated_at": time.time(),
-                            "ready": source.connected and last_ack > tick - 10,
+                            "ready": source.connected
+                            and (last_ack > tick - 10 or active_mode == "Laptop"),
                             "mode": active_mode,
                             "power": ha_state.power,
                             "brightness": brightness,

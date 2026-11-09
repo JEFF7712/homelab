@@ -338,6 +338,7 @@ input_select:
       - "LedFx"
       - "Physics"
       - "Homelab Dashboards"
+      - "Laptop"
     initial: "Auto"
 
 input_number:
