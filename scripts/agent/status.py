@@ -16,8 +16,8 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 def configured_targets(root: Path) -> dict[str, Any]:
     fleet = json.loads((root / "inventory/fleet.json").read_text(encoding="utf-8"))
-    ci = (root / ".gitlab-ci.yml").read_text(encoding="utf-8")
-    opnsense = re.search(r'OPNSENSE_URI:\s*"([^"]+)"', ci)
+    ci = (root / "config/ci/operations.json").read_text(encoding="utf-8")
+    opnsense = re.search(r'"OPNSENSE_URI":\s*"([^"]+)"', ci)
     return {
         "cluster_api": fleet["cluster_api"],
         "cluster_nodes": fleet["cluster_nodes"],

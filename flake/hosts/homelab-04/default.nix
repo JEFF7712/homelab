@@ -29,7 +29,6 @@ in
     ../../modules/approvals.nix
     ../../modules/merge-policy.nix
     ../../profiles/projectctl-pilot.nix
-    ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
     ../../modules/repo-monitor.nix
     ../../modules/release-mirror.nix

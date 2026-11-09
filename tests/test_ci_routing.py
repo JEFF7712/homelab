@@ -96,7 +96,6 @@ class ScopeTest(unittest.TestCase):
 
     def test_unknown_shared_and_mixed_changes_remain_exhaustive(self) -> None:
         for path in (
-            ".gitlab-ci.yml",
             "flake/flake.nix",
             "flake/modules/k3s.nix",
             "scripts/ci/scope.py",

@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def select(database: Path, authority: str) -> None:
-    if authority not in {"woodpecker", "gitlab", "disabled"}:
+    if authority not in {"woodpecker", "disabled"}:
         raise ValueError("Invalid production authority")
     with closing(sqlite3.connect(database, isolation_level="IMMEDIATE")) as db, db:
         db.execute("BEGIN IMMEDIATE")
@@ -22,7 +22,7 @@ def select(database: Path, authority: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--database", type=Path, required=True)
-    parser.add_argument("--select", choices=["woodpecker", "gitlab", "disabled"])
+    parser.add_argument("--select", choices=["woodpecker", "disabled"])
     args = parser.parse_args()
     if args.select:
         select(args.database, args.select)

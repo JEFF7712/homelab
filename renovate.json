@@ -27,8 +27,7 @@
     "registry/**",
     "schemas/**",
     "artifacts/**",
-    "secrets/**",
-    ".gitlab-ci.yml"
+    "secrets/**"
   ],
   "printConfig": false,
   "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
@@ -61,10 +60,9 @@
   },
   "packageRules": [
     {
-      "description": "Group GitLab CI and Dockerfile image updates",
+      "description": "Group Dockerfile image updates",
       "matchManagers": [
-        "dockerfile",
-        "gitlabci"
+        "dockerfile"
       ],
       "groupName": "CI and Docker image updates",
       "groupSlug": "ci-docker-images"
@@ -119,8 +117,7 @@
       "matchManagers": [
         "flux",
         "kubernetes",
-        "dockerfile",
-        "gitlabci"
+        "dockerfile"
       ],
       "automerge": false
     },

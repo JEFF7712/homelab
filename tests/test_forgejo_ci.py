@@ -29,7 +29,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from scripts.ci import build_users
 from scripts.ci.authority import select
-from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import SupersededSource, current_source, pack, unpack
 from scripts.ci.operation import main as operation_main
 from scripts.ci.platform_backup import snapshot_database
@@ -73,23 +72,6 @@ class CloneIdentityPreparationTest(unittest.TestCase):
         for token in ["", "\nOTHER=value", "token\rOTHER=value", "token value"]:
             with self.subTest(token=token), self.assertRaises(ValueError):
                 clone_environment(token)
-
-
-class GitLabRecoveryGraphTest(unittest.TestCase):
-    def test_apply_waits_for_both_plans_in_its_own_pipeline(self) -> None:
-        workflow = yaml.safe_load((ROOT / "config/ci/gitlab-dr.yml").read_text())
-        self.assertNotIn("environment", workflow["validate"])
-        self.assertEqual(
-            set(workflow["operate"]["needs"]),
-            {"validate", "opnsense-plan", "cloudflare-plan", "cloudflare-access-plan"},
-        )
-        for name in ["opnsense-plan", "cloudflare-plan", "cloudflare-access-plan"]:
-            job = workflow[name]
-            self.assertEqual(job["stage"], "plan")
-            self.assertEqual(job["extends"], ".production-operation")
-            self.assertTrue(job["script"][0].startswith(f"CI_OPERATION={name} "))
-            self.assertEqual(job["rules"][-1], {"when": "never"})
-            self.assertIn("CI_COMMIT_REF_PROTECTED", job["rules"][0]["if"])
 
 
 class CurrentSourceTest(unittest.TestCase):
@@ -190,14 +172,6 @@ class CurrentSourceTest(unittest.TestCase):
         ):
             current_source(environment)
         self.assertEqual(request.call_count, 1)
-
-    def test_recovery_tip_uses_native_gitlab_clone_authentication(self) -> None:
-        environment = {"CI_COMMIT_SHA": SHA, "CI_OPERATION_AUTHORITY": "gitlab"}
-        with patch(
-            "scripts.ci.operation.subprocess.check_output",
-            side_effect=[SHA, SHA + " refs/heads/main\n"],
-        ):
-            current_source(environment)
 
 
 class SupersededOperationTest(unittest.TestCase):
@@ -1618,7 +1592,7 @@ class ArtifactTest(unittest.TestCase):
 
 
 class NativeBackendTest(unittest.TestCase):
-    def test_opentofu_plan_apply_tls_locking_and_fallback_authority(self) -> None:
+    def test_opentofu_plan_apply_tls_locking_and_disabled_authority(self) -> None:
         if not shutil.which("tofu"):
             self.skipTest("OpenTofu is required for native backend integration")
         with tempfile.TemporaryDirectory() as temporary:
@@ -1644,11 +1618,6 @@ class NativeBackendTest(unittest.TestCase):
                     "password": "deploy-fixture",
                     "role": "deploy",
                     "authority": "woodpecker",
-                },
-                "gitlab-deploy": {
-                    "password": "dr-fixture",
-                    "role": "deploy",
-                    "authority": "gitlab",
                 },
             }
             cert, key = certificate("localhost")
@@ -1713,103 +1682,17 @@ class NativeBackendTest(unittest.TestCase):
                 self.assertEqual(updated["lineage"], original["lineage"])
                 self.assertGreater(updated["serial"], original["serial"])
                 self.assertEqual(updated["resources"][0]["type"], "terraform_data")
-                select(store.path, "gitlab")
+                select(store.path, "disabled")
                 tofu("plan", "-input=false", success=False)
-                environment.update(
-                    TF_HTTP_USERNAME="gitlab-deploy", TF_HTTP_PASSWORD="dr-fixture"
-                )
-                tofu("plan", "-input=false")
-                lock = b'{"ID":"active-dr-lock"}'
-                store.request(
-                    "LOCK", "opnsense", True, "gitlab-deploy", "deploy", lock, ""
-                )
+                select(store.path, "woodpecker")
+                lock = b'{"ID":"active-lock"}'
+                store.request("LOCK", "opnsense", True, "deploy", "deploy", lock, "")
                 with self.assertRaises(ValueError):
-                    select(store.path, "woodpecker")
+                    select(store.path, "disabled")
             finally:
                 server.shutdown()
                 server.server_close()
                 thread.join()
-
-
-class RecoveryMirrorTest(unittest.TestCase):
-    def test_owned_source_can_be_read_by_root_without_global_git_trust(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            source = Path(temporary)
-            subprocess.run(["git", "init", "-q", str(source)], check=True)
-            with patch.dict(os.environ, {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}):
-                rejected = subprocess.run(
-                    ["git", "-C", str(source), "status"],
-                    capture_output=True,
-                    check=False,
-                )
-                self.assertNotEqual(rejected.returncode, 0)
-                self.assertEqual(refs(source), {})
-
-    def test_normal_mirroring_rejects_divergence_without_deleting_recovery_commits(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source, destination = root / "source", root / "mirror.git"
-            source.mkdir()
-
-            def git(*args: str, cwd: Path = source) -> str:
-                return subprocess.check_output(
-                    ["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL
-                ).strip()
-
-            git("init", "-q", "-b", "main")
-            git("config", "user.name", "Test")
-            git("config", "user.email", "test@example.invalid")
-            (source / "file").write_text("initial")
-            git("add", "file")
-            git("commit", "-qm", "initial")
-            git("init", "--bare", "-q", str(destination))
-            mirror(source, str(destination))
-            base = git("rev-parse", "HEAD")
-            git("commit", "--allow-empty", "-qm", "recovery-only")
-            git("push", "-q", str(destination), "main")
-            recovery = git("rev-parse", "HEAD")
-            git("reset", "--hard", "-q", base)
-            git("commit", "--allow-empty", "-qm", "primary-only")
-            with self.assertRaises(subprocess.CalledProcessError):
-                mirror(source, str(destination))
-            self.assertEqual(
-                git("rev-parse", "refs/heads/main", cwd=destination), recovery
-            )
-
-    def test_rebased_renovate_branches_are_replaced(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source, destination = root / "source", root / "mirror.git"
-            source.mkdir()
-
-            def git(*args: str, cwd: Path = source) -> str:
-                return subprocess.check_output(
-                    ["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL
-                ).strip()
-
-            git("init", "-q", "-b", "main")
-            git("config", "user.name", "Test")
-            git("config", "user.email", "test@example.invalid")
-            git("commit", "--allow-empty", "-qm", "initial")
-            git("checkout", "-q", "-b", "renovate/dependency")
-            git("commit", "--allow-empty", "-qm", "bump")
-            git("init", "--bare", "-q", str(destination))
-            mirror(source, str(destination))
-            git("checkout", "-q", "main")
-            git("commit", "--allow-empty", "-qm", "main moves on")
-            git("checkout", "-q", "renovate/dependency")
-            git("rebase", "-q", "main")
-            mirror(source, str(destination))
-            self.assertEqual(
-                git("rev-parse", "refs/heads/renovate/dependency", cwd=destination),
-                git("rev-parse", "HEAD"),
-            )
-            self.assertEqual(
-                git("rev-parse", "refs/heads/main", cwd=destination),
-                git("rev-parse", "main"),
-            )
 
 
 if __name__ == "__main__":

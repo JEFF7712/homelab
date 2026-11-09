@@ -28,11 +28,11 @@ to discover the new server.
   - Self-hosted Forgejo instance running on `nas-01` (`10.0.30.20:3000`).
   - `origin` is the canonical read/fetch remote. Agents publish branches through
     the dedicated `git-agent` SSH alias documented in [Agent Forgejo access](ci-pipelines.md).
-  - The normal-push recovery mirror verifies GitLab heads and tags every five minutes.
+  - CI mirrors main to GitHub after each push; repo-monitor alerts on lag or divergence.
 - **CI System:** Woodpecker CI (`http://ci.internal:8000`) on `homelab-04`.
 - **GitOps:** Flux CD on `homelab-01` reconciles from Forgejo with sub-second webhook notifications.
 - **State Backend:** TLS HTTP service on NAS (`https://s3.internal:3902`) with durable locks and version history. Garage holds the frozen migration input.
-- Deployment and explicit GitLab fallback: [Forgejo disaster recovery](forgejo-disaster-recovery.md).
+- Deployment and recovery: [Forgejo disaster recovery](forgejo-disaster-recovery.md).
 
 
 ## Registry commands

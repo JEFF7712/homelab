@@ -96,7 +96,6 @@ def _route(path: str) -> list[tuple[str, str]]:
     if path in {
         "flake/flake.nix",
         "flake/flake.lock",
-        ".gitlab-ci.yml",
         "justfile",
     } or path.startswith(("scripts/checks/", "scripts/agent/checks.py")):
         return [("full", f"{path} changes validation infrastructure")]
