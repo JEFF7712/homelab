@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-06T06:22:21+00:00",
+  "generated_at": "2026-11-09T23:34:30+00:00",
   "images": [
     {
       "authenticity": {
@@ -701,10 +701,10 @@
       ],
       "destination_repository": "apps/nix-agent-site",
       "destination_tags": [
-        "0.0.1000056",
-        "retention-deployed-894cb8a2189d8c26"
+        "0.0.1000060",
+        "retention-deployed-e4f50b614153761c"
       ],
-      "digest": "sha256:894cb8a2189d8c26b022b72df63739846671d87de23d544f75b421b46e3d4cd4",
+      "digest": "sha256:e4f50b614153761c1215cafd7fc52291812752db9c750aceb44e7623b167a33e",
       "id": "first-party-jeff7712-nix-agent-site-6727a36d7b92",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -724,11 +724,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:894cb8a2189d8c26b022b72df63739846671d87de23d544f75b421b46e3d4cd4",
-        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000056@sha256:894cb8a2189d8c26b022b72df63739846671d87de23d544f75b421b46e3d4cd4",
+        "digest": "sha256:e4f50b614153761c1215cafd7fc52291812752db9c750aceb44e7623b167a33e",
+        "reference": "registry.rupan.dev/apps/nix-agent-site:0.0.1000060@sha256:e4f50b614153761c1215cafd7fc52291812752db9c750aceb44e7623b167a33e",
         "registry": "registry.rupan.dev",
         "repository": "apps/nix-agent-site",
-        "tag": "0.0.1000056"
+        "tag": "0.0.1000060"
       }
     },
     {
