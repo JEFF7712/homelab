@@ -33,9 +33,11 @@ authorization. Drain the scheduler before activation or authority changes.
    deploy identities. The mode-0600 JSON input to prepare_platform.py needs
    OPNSENSE_PLAN_API_KEY, OPNSENSE_PLAN_API_SECRET, OPNSENSE_DEPLOY_API_KEY,
    OPNSENSE_DEPLOY_API_SECRET, CLOUDFLARE_PLAN_API_TOKEN, and
-   CLOUDFLARE_DEPLOY_API_TOKEN plus other catalog-required credentials.
-   Missing explicit values fail preparation; never substitute broad write
-   credentials into read-only jobs.
+   CLOUDFLARE_DEPLOY_API_TOKEN plus every other catalog-required credential;
+   the file is the only credential source. The live copies are Woodpecker
+   repository secrets, restored with the Woodpecker database from the platform
+   backup. Missing explicit values fail preparation; never substitute broad
+   write credentials into read-only jobs.
 4. Freeze state writers. Run scripts.ci.prepare_platform in the pinned shell
    with its required --overrides and --output arguments. It reads current
    Garage objects and produces an age-encrypted archive. Compare recorded
@@ -69,9 +71,7 @@ authorization. Drain the scheduler before activation or authority changes.
 8. Regenerate homelab-values.sops.yaml with scripts.ci.migrate_secrets
    --overrides using the new Forgejo credentials. Verify every ExternalSecret
    property is present without printing values. Publish only encrypted data.
-   The helper preserves the existing encrypted values. Normal rotation does
-   not contact GitLab; `--import-gitlab` only adopts the remaining legacy
-   seed variables and is slated for removal.
+   The helper preserves the existing encrypted values.
 9. Provision dedicated encrypted offsite Restic storage on NAS and homelab-04.
    Store platform-backup.env, with RESTIC_REPOSITORY, RESTIC_PASSWORD and
    provider credentials, in secrets/shared/platform-backup.sops.yaml. Initialize a fresh repository

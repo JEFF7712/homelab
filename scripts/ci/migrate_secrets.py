@@ -3,35 +3,10 @@ import base64
 import json
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def variables() -> dict[str, str]:
-    result: dict[str, str] = {}
-    production: dict[str, str] = {}
-    for page in range(1, 100):
-        response: list[dict[str, Any]] = json.loads(
-            subprocess.check_output(
-                [
-                    "glab",
-                    "api",
-                    f"projects/85910419/variables?per_page=100&page={page}",
-                ],
-                text=True,
-            )
-        )
-        for entry in response:
-            if entry["environment_scope"] == "*":
-                result[entry["key"]] = entry["value"]
-            elif entry["environment_scope"] == "production":
-                production[entry["key"]] = entry["value"]
-        if len(response) < 100:
-            return result | production
-    raise ValueError("Variable pagination did not terminate")
 
 
 def encrypted_values(path: Path) -> dict[str, str]:
@@ -63,10 +38,7 @@ def references() -> set[str]:
             if not document or document.get("kind") != "ExternalSecret":
                 continue
             spec = document["spec"]
-            if spec["secretStoreRef"]["name"] not in {
-                "gitlab-project",
-                "homelab-secrets",
-            }:
+            if spec["secretStoreRef"]["name"] != "homelab-secrets":
                 continue
             for item in spec.get("data", []):
                 remote = item["remoteRef"]
@@ -77,12 +49,9 @@ def references() -> set[str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--overrides", type=Path)
-    parser.add_argument("--import-gitlab", action="store_true")
     args = parser.parse_args()
     target = ROOT / "gitops/secrets/homelab-values.sops.yaml"
     source = encrypted_values(target)
-    if args.import_gitlab:
-        source.update(variables())
     if args.overrides:
         source.update(json.loads(args.overrides.read_text()))
     keys = references()

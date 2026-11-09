@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from scripts.ci.authority import select
-from scripts.ci.migrate_secrets import ROOT, variables
+from scripts.ci.migrate_secrets import ROOT
 from scripts.ci.policy import SCHEDULES
 from scripts.ci.state import Store
 
@@ -97,14 +97,13 @@ def main() -> None:
         "--overrides",
         type=Path,
         required=True,
-        help="JSON credential overrides, including freshly provisioned Forgejo bot tokens",
+        help="JSON object of every catalog credential, including freshly provisioned Forgejo bot tokens",
     )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError("Refusing to overwrite a prepared recovery bundle")
-    source = variables()
-    source.update(json.loads(args.overrides.read_text()))
+    source = json.loads(args.overrides.read_text())
     catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
     cert, key = certificate()
     passwords = {name: secrets.token_urlsafe(48) for name in ["plan", "deploy"]}
