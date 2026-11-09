@@ -24,6 +24,7 @@ resources:
   - grafana/dashboard-gpu.yaml
   - grafana/dashboard-hosts.yaml
   - grafana/dashboard-repository-health.yaml
+  - grafana/dashboard-autonomy.yaml
   - grafana/dashboard-zfs.yaml
   - grafana/dashboard-omarchy-vm.yaml
   - ntfy/repository.yaml

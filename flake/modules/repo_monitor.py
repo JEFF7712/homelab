@@ -204,6 +204,41 @@ class Snapshot:
     projects_total: int = 0
     github_rate_remaining: float = -1.0
     github_rate_exhausted: bool = False
+    autonomy: dict[str, Any] | None = None
+
+
+AUTONOMY_REPOSITORY = "JEFF7712/homelab"
+AUTONOMY_WINDOW_SECONDS = 7 * 24 * 3600
+# Who opened a merged pull request. Agents ship as homelab-agent; scheduled
+# promotion and registry-advance publish as homelab-publisher.
+ACTORS = {
+    "homelab-agent": "agent",
+    "homelab-publisher": "automation",
+    "homelab-renovate": "renovate",
+}
+
+
+def autonomy(pulls: list[dict[str, Any]], now: float) -> dict[str, Any]:
+    """Merged pull requests in the window by actor, reverts and merge times."""
+    merged: dict[str, int] = {"agent": 0, "automation": 0, "renovate": 0, "operator": 0}
+    hours: dict[str, list[float]] = {actor: [] for actor in merged}
+    reverts = 0
+    for pull in pulls:
+        merged_at = _parse_time(pull.get("merged_at"))
+        if merged_at is None or now - merged_at > AUTONOMY_WINDOW_SECONDS:
+            continue
+        actor = ACTORS.get((pull.get("user") or {}).get("login", ""), "operator")
+        merged[actor] += 1
+        created = _parse_time(pull.get("created_at"))
+        if created is not None:
+            hours[actor].append((merged_at - created) / 3600)
+        if str(pull.get("title", "")).startswith("Revert"):
+            reverts += 1
+    median = {
+        actor: sorted(values)[len(values) // 2] if values else -1.0
+        for actor, values in hours.items()
+    }
+    return {"merged": merged, "reverts": reverts, "merge_hours_median": median}
 
 
 def load_projects(path: str) -> tuple[Project, ...]:
@@ -920,6 +955,26 @@ class Collector:
         snapshot.github_rate_exhausted = mirror_rate_limited > 0 or any(
             service.detail == "rate_limit" for service in snapshot.services
         )
+        try:
+            pulls: list[dict[str, Any]] = []
+            for page in range(1, 11):
+                batch = self.client.forgejo(
+                    f"repos/{AUTONOMY_REPOSITORY}/pulls"
+                    f"?state=closed&sort=recentupdate&limit=50&page={page}"
+                )
+                if not batch:
+                    break
+                pulls.extend(batch)
+                oldest = min(
+                    (_parse_time(item.get("updated_at")) or now for item in batch),
+                    default=now,
+                )
+                if now - oldest > AUTONOMY_WINDOW_SECONDS:
+                    break
+            snapshot.autonomy = autonomy(pulls, now)
+        except FetchError:
+            self._record_error("autonomy")
+            snapshot.errors = dict(self.errors)
         snapshot.finished_at = time.time()
         # Collection succeeds when every dependency answered, every credential
         # was accepted, and every repository check was verifiable. GitHub rate
@@ -1035,6 +1090,28 @@ def render(
             service.latency_seconds,
             {"service": service.service},
         )
+
+    if snapshot.autonomy is not None:
+        meta(
+            "homelab_autonomy_merged_prs",
+            "gauge",
+            "Pull requests merged into the homelab in the last 7 days, by who opened them.",
+        )
+        for actor, count in sorted(snapshot.autonomy["merged"].items()):
+            emit("homelab_autonomy_merged_prs", count, {"actor": actor})
+        meta(
+            "homelab_autonomy_reverts",
+            "gauge",
+            "Revert pull requests merged in the last 7 days.",
+        )
+        emit("homelab_autonomy_reverts", snapshot.autonomy["reverts"])
+        meta(
+            "homelab_autonomy_merge_hours_median",
+            "gauge",
+            "Median hours from opening to merge in the last 7 days, -1 when none.",
+        )
+        for actor, value in sorted(snapshot.autonomy["merge_hours_median"].items()):
+            emit("homelab_autonomy_merge_hours_median", value, {"actor": actor})
 
     meta(
         "repo_monitor_github_rate_limit_remaining",
