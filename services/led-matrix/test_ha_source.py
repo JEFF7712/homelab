@@ -2013,7 +2013,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes.base import HAState, PlaybackState, RenderContext
 
         physics = PhysicsRenderer()
-        self.assertEqual(physics.NUM_SCENES, 6)
+        self.assertEqual(physics.NUM_SCENES, 9)
         self.assertEqual(physics.current_scene, 0)
 
         ha_state = HAState(
@@ -2032,7 +2032,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         )
 
         # Verify each scene renders a valid (64, 64) RGB frame with non-zero pixels
-        for expected_scene in range(6):
+        for expected_scene in range(9):
             physics.current_scene = expected_scene
             frame = physics.render(ctx, size=64)
             self.assertEqual(frame.size, (64, 64))
@@ -2040,7 +2040,7 @@ class HubModeAndRendererTests(unittest.TestCase):
             arr = np.array(frame)
             self.assertGreater(int(np.sum(arr)), 0)
 
-        # Verify full rotation cycle advances sequentially 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0
+        # Verify full rotation cycle advances sequentially 0 -> 1 -> 2 -> ... -> 8 -> 0
         physics.current_scene = 0
         physics.scene_timer = 0.0
         advance_ctx = RenderContext(
@@ -2050,7 +2050,7 @@ class HubModeAndRendererTests(unittest.TestCase):
             spotify_state=PlaybackState(),
             spotify_art=None,
         )
-        for expected_scene in [1, 2, 3, 4, 5, 0]:
+        for expected_scene in [1, 2, 3, 4, 5, 6, 7, 8, 0]:
             physics.render(advance_ctx, size=64)
             self.assertEqual(physics.current_scene, expected_scene)
 
