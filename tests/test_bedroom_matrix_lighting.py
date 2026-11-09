@@ -130,6 +130,14 @@ class TestBedroomMatrixLighting(unittest.TestCase):
         )
         self.assertIn(dismissed, action_targets(automation, "input_boolean.turn_off"))
 
+    def test_wake_up_fade_ignores_phone_alarm_sensors(self) -> None:
+        """The only alarm sensor in HA is a housemate's phone; the helper is the source."""
+        raw = (HA_ROOT / "automations/bedroom_lights_morning_wake_up.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("next_alarm", raw)
+        self.assertIn("input_datetime.bedroom_wake_time", raw)
+
     def test_lighting_director_drives_the_bedroom_through_the_scripts(self) -> None:
         """The director must reuse the scripts so the matrix keeps following."""
         director = load("automations/lighting_director.yaml")

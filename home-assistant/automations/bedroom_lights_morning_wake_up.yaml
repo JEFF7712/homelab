@@ -2,7 +2,10 @@ id: bedroom_lights_morning_wake_up
 alias: "Bedroom Lights: Morning Wake-Up Fade"
 description: >-
   Ramp bedroom lamps from 1 to 30 percent warm over the 20 minutes before
-  the earlier of the Bedroom Wake Time helper and the phone's next alarm.
+  the Bedroom Wake Time helper. An iOS Shortcut on Rupan's iPhone copies the
+  next enabled Clock alarm into the helper at 03:00, since iOS exposes no
+  next-alarm sensor; no phone sensor is read here, so other household
+  members' alarms and calendar reminders never start the fade.
   Adaptive Lighting is paused during the fade so its interval adaptation
   does not fight the ramp, then restored when the fade ends. Plugs, the bus
   display, and the bedroom LED matrix display come on at fade start.
@@ -20,11 +23,8 @@ triggers:
   - trigger: template
     value_template: >-
       {% set wake = states('input_datetime.bedroom_wake_time') %}
-      {% set wake_ts = as_timestamp(today_at(wake), none)
+      {% set target_ts = as_timestamp(today_at(wake), none)
       if wake not in ('unknown', 'unavailable', '') else none %}
-      {% set alarm_ts = as_timestamp(states('sensor.sm_s948u1_next_alarm'), none) %}
-      {% set cands = [wake_ts, alarm_ts] | select('ne', none) | list %}
-      {% set target_ts = cands | min if cands | count > 0 else none %}
       {{ target_ts is not none and as_timestamp(now()) >= target_ts }}
     id: "fade_end"
   - trigger: state
@@ -50,11 +50,8 @@ actions:
   - variables:
       target_ts: >-
         {% set wake_raw = states('input_datetime.bedroom_wake_time') %}
-        {% set wake_ts = as_timestamp(today_at(wake_raw), none)
-        if wake_raw not in ('unknown', 'unavailable', '') else none %}
-        {% set alarm_ts = as_timestamp(states('sensor.sm_s948u1_next_alarm'), none) %}
-        {% set cands = [wake_ts, alarm_ts] | select('ne', none) | list %}
-        {{ cands | min if cands | count > 0 else 0 }}
+        {{ as_timestamp(today_at(wake_raw), 0)
+        if wake_raw not in ('unknown', 'unavailable', '') else 0 }}
       in_window: >-
         {% set t = target_ts | float(0) %}
         {{ t > 0 and (t - 1200) <= as_timestamp(now()) <= t }}
