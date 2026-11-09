@@ -7794,6 +7794,45 @@
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/obsidian/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/library/couchdb",
+      "destination_tags": [
+        "3.5.3",
+        "retention-deployed-907eab5b7e55ab7c"
+      ],
+      "digest": "sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+      "id": "upstream-library-couchdb-71c6e9eeff86",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+        "reference": "docker.io/library/couchdb:3.5.3@sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+        "registry": "docker.io",
+        "repository": "library/couchdb",
+        "tag": "3.5.3"
+      }
     }
   ],
   "kind": "registry-image-lock",
