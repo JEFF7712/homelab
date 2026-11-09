@@ -33,7 +33,30 @@ SAMPLE_RATE = 22050
 
 
 def find_default_monitor_sink() -> str:
-    """Detect the best audio monitor source (preferring Bose SoundLink Flex if active)."""
+    """Detect the active audio monitor source (headphones, Bluetooth speaker, or internal speaker)."""
+    # 1. Prefer current default playback sink monitor
+    try:
+        proc = subprocess.run(
+            ["pactl", "get-default-sink"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        def_sink = proc.stdout.strip()
+        if def_sink:
+            mon = f"{def_sink}.monitor"
+            sources_out = subprocess.run(
+                ["pactl", "list", "sources", "short"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            if mon in sources_out:
+                return mon
+    except Exception:
+        pass
+
+    # 2. Fall back to any active Bluetooth output monitor
     try:
         proc = subprocess.run(
             ["pactl", "list", "sources", "short"],
@@ -42,18 +65,15 @@ def find_default_monitor_sink() -> str:
             check=True,
         )
         lines = proc.stdout.strip().splitlines()
-        bose_sink = None
         first_monitor = None
         for line in lines:
             parts = line.split()
             if len(parts) >= 2:
                 name = parts[1]
-                if "bluez_output" in name and "monitor" in name:
-                    bose_sink = name
+                if "bluez_output" in name and name.endswith(".monitor"):
+                    return name
                 elif name.endswith(".monitor") and first_monitor is None:
                     first_monitor = name
-        if bose_sink:
-            return bose_sink
         if first_monitor:
             return first_monitor
     except Exception:
@@ -145,7 +165,8 @@ def sync_ledfx_recording_source(target_source: str) -> None:
                             check=False,
                         )
                         print(
-                            f"[LedFx] Synchronized LedFx audio stream to: {target_source}"
+                            f"[LedFx] Synchronized LedFx audio stream to: {target_source}",
+                            flush=True,
                         )
                         return
     except Exception:
@@ -438,20 +459,31 @@ def main() -> None:
 
             if tick - last_input_check >= 0.5:
                 last_input_check = tick
+                desired = active_input
                 if os.path.exists("/tmp/matrix_sync_input"):
                     try:
                         with open("/tmp/matrix_sync_input") as f:
-                            desired = f.read().strip().lower()
-                        if desired and desired != active_input:
-                            print(
-                                f"[Streamer] Input changed via UI from [{active_input}] to [{desired}]"
-                            )
-                            active_input = desired
-                            new_src = resolve_audio_device(active_input, args.device)
-                            tap.set_device(new_src)
-                            sync_ledfx_recording_source(new_src)
+                            read_val = f.read().strip().lower()
+                        if read_val:
+                            desired = read_val
                     except Exception:
                         pass
+
+                needed_src = resolve_audio_device(desired, args.device)
+                if desired != active_input or needed_src != tap.device:
+                    if desired != active_input:
+                        print(
+                            f"[Streamer] Input changed via UI from [{active_input}] to [{desired}]",
+                            flush=True,
+                        )
+                        active_input = desired
+                    else:
+                        print(
+                            f"[Streamer] Audio output sink changed; retargeting to: {needed_src}",
+                            flush=True,
+                        )
+                    tap.set_device(needed_src)
+                    sync_ledfx_recording_source(needed_src)
 
             ctx = RenderContext(
                 tick=tick,
