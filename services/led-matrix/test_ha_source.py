@@ -1484,11 +1484,11 @@ class HubModeAndRendererTests(unittest.TestCase):
         vis = VisualizerRenderer(cycle_interval=60.0)
         self.assertEqual(len(vis.effects), 5)
         names = [eff.name for eff in vis.effects]
-        self.assertIn("RADIAL SPECTRUM", names)
-        self.assertIn("HYPERSPACE TUNNEL", names)
-        self.assertIn("PARTICLE FOUNTAIN", names)
-        self.assertIn("GRAPHIC EQUALIZER", names)
-        self.assertIn("OSCILLOSCOPE RIBBON", names)
+        self.assertIn("FIBONACCI128", names)
+        self.assertIn("MARK ESTES PLASMA", names)
+        self.assertIn("AURORADROP MANDALA", names)
+        self.assertIn("SPECTRUM ANALYZER", names)
+        self.assertIn("BEAT WARP", names)
 
         ctx = RenderContext(
             tick=1.0,
