@@ -3550,16 +3550,16 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:577b4d78328b9e42db8d1ef13974b7f782a886555afe95ebf458642f1d8314a2",
-        "reference": "registry.rupan.dev/apps/orchestrator:ci-11600-1334c86d4ef9@sha256:577b4d78328b9e42db8d1ef13974b7f782a886555afe95ebf458642f1d8314a2",
+        "digest": "sha256:166330cd16345da351ee08cd9b7911eed1bf04801aa65f7227f561d2ff3e2220",
+        "reference": "registry.rupan.dev/apps/orchestrator:ci-11748-3ec8384c817d@sha256:166330cd16345da351ee08cd9b7911eed1bf04801aa65f7227f561d2ff3e2220",
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator",
-        "tag": "ci-11600-1334c86d4ef9"
+        "tag": "ci-11748-3ec8384c817d"
       },
-      "digest": "sha256:577b4d78328b9e42db8d1ef13974b7f782a886555afe95ebf458642f1d8314a2",
+      "digest": "sha256:166330cd16345da351ee08cd9b7911eed1bf04801aa65f7227f561d2ff3e2220",
       "destination_tags": [
-        "ci-11600-1334c86d4ef9",
-        "retention-candidate-577b4d78328b9e42"
+        "ci-11748-3ec8384c817d",
+        "retention-candidate-166330cd16345da3"
       ]
     },
     {
@@ -3576,16 +3576,16 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:21269bc1fb3e47e64fcb06dbc5154834fe6e40f397e025beb9bf6c2966185446",
-        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11600-1334c86d4ef9@sha256:21269bc1fb3e47e64fcb06dbc5154834fe6e40f397e025beb9bf6c2966185446",
+        "digest": "sha256:517ec1506b757c2bfda8da4a2c402f579ec5a9f9f9fa33cbba3466b75fc0711f",
+        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11748-3ec8384c817d@sha256:517ec1506b757c2bfda8da4a2c402f579ec5a9f9f9fa33cbba3466b75fc0711f",
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator-worker",
-        "tag": "ci-11600-1334c86d4ef9"
+        "tag": "ci-11748-3ec8384c817d"
       },
-      "digest": "sha256:21269bc1fb3e47e64fcb06dbc5154834fe6e40f397e025beb9bf6c2966185446",
+      "digest": "sha256:517ec1506b757c2bfda8da4a2c402f579ec5a9f9f9fa33cbba3466b75fc0711f",
       "destination_tags": [
-        "ci-11600-1334c86d4ef9",
-        "retention-candidate-21269bc1fb3e47e6"
+        "ci-11748-3ec8384c817d",
+        "retention-candidate-517ec1506b757c2b"
       ]
     },
     {
