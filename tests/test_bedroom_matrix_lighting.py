@@ -98,6 +98,38 @@ class TestBedroomMatrixLighting(unittest.TestCase):
             action_targets(automation, "input_boolean.turn_on"),
         )
 
+    def test_wake_up_fade_stops_after_a_manual_off(self) -> None:
+        """Turning a fade target off must stop the per-minute tick re-lighting it."""
+        automation = load("automations/bedroom_lights_morning_wake_up.yaml")
+        dismissed = "input_boolean.bedroom_wake_fade_dismissed"
+        self.assertTrue(
+            (HA_ROOT / "helpers" / f"{dismissed.replace('.', '_')}.yaml").is_file()
+        )
+        self.assertNotEqual(automation.get("mode"), "single")
+
+        watched: set[str] = set()
+        for trigger in automation["triggers"]:
+            if trigger.get("id") == "manual_off":
+                self.assertEqual(trigger.get("to"), "off")
+                watched.update(trigger["entity_id"])
+        lit = (
+            action_targets(automation, "switch.turn_on")
+            | action_targets(automation, "light.turn_on")
+            | action_targets(automation, "input_boolean.turn_on")
+        ) - {"switch.adaptive_lighting_all_dimmable_lights", dismissed}
+        self.assertEqual(lit, watched)
+
+        branches = automation["actions"][-1]["choose"]
+        lighting = [
+            b for b in branches if "light.turn_on" in {s.get("action") for s in walk(b)}
+        ]
+        self.assertEqual(len(lighting), 1)
+        self.assertIn(
+            {"condition": "state", "entity_id": dismissed, "state": "off"},
+            lighting[0]["conditions"],
+        )
+        self.assertIn(dismissed, action_targets(automation, "input_boolean.turn_off"))
+
     def test_lighting_director_drives_the_bedroom_through_the_scripts(self) -> None:
         """The director must reuse the scripts so the matrix keeps following."""
         director = load("automations/lighting_director.yaml")
