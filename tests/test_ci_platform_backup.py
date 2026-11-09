@@ -13,6 +13,7 @@ from scripts.ci.platform_backup import (
     run_backup,
     run_drill,
     run_maintenance,
+    snapshot_couchdb,
     snapshot_home_assistant_config,
     snapshot_sqlite_tree,
     stop_active_services,
@@ -294,12 +295,56 @@ class PlatformBackupVerifyRestoreTests(unittest.TestCase):
                 verify_restored_backup(root)
 
 
+class CouchDbBackupTests(unittest.TestCase):
+    def test_copies_databases_and_drops_compaction_and_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            shard = source / "shards/00000000-7fffffff"
+            shard.mkdir(parents=True)
+            (source / "_dbs.couch").write_bytes(b"dbs")
+            (shard / "main.1788762313.couch").write_bytes(b"notes")
+            (shard / "main.1788762313.couch.compact.data").write_bytes(b"partial")
+            (source / ".delete").mkdir()
+            (source / ".delete/old.couch").write_bytes(b"gone")
+            target = root / "stage"
+            snapshot_couchdb(source, target)
+            self.assertEqual(
+                (
+                    target / "shards/00000000-7fffffff/main.1788762313.couch"
+                ).read_bytes(),
+                b"notes",
+            )
+            self.assertTrue((target / "_dbs.couch").is_file())
+            self.assertFalse(any(target.rglob("*.compact*")))
+            self.assertFalse((target / ".delete").exists())
+
+    def test_symlinks_and_missing_metadata_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, "_dbs.couch"):
+                snapshot_couchdb(root, root / "stage")
+            (root / "_dbs.couch").write_bytes(b"dbs")
+            (root / "escape").symlink_to("/etc")
+            with self.assertRaisesRegex(ValueError, "symlinks"):
+                snapshot_couchdb(root, root / "stage")
+
+    def test_rejects_wrong_host_or_escaping_path(self) -> None:
+        with self.assertRaisesRegex(ValueError, "nas-01"):
+            run_backup("homelab-04", couchdb_data=Path("/tank/cluster/couch"))
+        for path in ("/tank/cluster/../persist", "/persist/couch", "/tank/cluster"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                run_backup("nas-01", couchdb_data=Path(path))
+
+
 class PlatformRestoreDrillTests(unittest.TestCase):
     """The weekly drill restores a sample per host and publishes evidence."""
 
     NOW = datetime.datetime(2026, 11, 8, 17, 0, tzinfo=datetime.UTC)
 
-    def fake_restic(self, snapshots: dict[str, list[dict]], broken: set[str]):
+    def fake_restic(
+        self, snapshots: dict[str, list[dict]], broken: set[str], couch: bool = False
+    ):
         real = subprocess.run
 
         def run(command, **kwargs):
@@ -322,6 +367,10 @@ class PlatformRestoreDrillTests(unittest.TestCase):
             if host == "nas-01":
                 repository = target / "tank/forgejo/repositories/jeff7712/homelab.git"
                 real(["git", "init", "-q", "--bare", str(repository)], check=True)
+                if couch:
+                    data = target / "persist/platform-backup/x/applications/couchdb"
+                    data.mkdir(parents=True)
+                    (data / "_dbs.couch").write_bytes(b"dbs")
             return subprocess.CompletedProcess(command, 0)
 
         return run
@@ -329,7 +378,7 @@ class PlatformRestoreDrillTests(unittest.TestCase):
     def snapshot(self, time: str) -> list[dict]:
         return [{"id": "a" * 64, "short_id": "aaaaaaaa", "time": time}]
 
-    def drill(self, snapshots, broken=(), state=None):
+    def drill(self, snapshots, broken=(), state=None, couch=False, couchdb=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             state_file = root / "state/drill.json"
@@ -340,10 +389,17 @@ class PlatformRestoreDrillTests(unittest.TestCase):
             error = None
             with patch(
                 "scripts.ci.platform_backup.subprocess.run",
-                side_effect=self.fake_restic(snapshots, set(broken)),
+                side_effect=self.fake_restic(snapshots, set(broken), couch),
             ):
                 try:
-                    run_drill("nas-01", root / "scratch", state_file, metrics, self.NOW)
+                    run_drill(
+                        "nas-01",
+                        root / "scratch",
+                        state_file,
+                        metrics,
+                        self.NOW,
+                        couchdb=couchdb,
+                    )
                 except SystemExit as exit_error:
                     error = exit_error
             self.assertEqual(list((root / "scratch").iterdir()), [], "scratch kept")
@@ -416,6 +472,73 @@ class PlatformRestoreDrillTests(unittest.TestCase):
         )
         self.assertIn('result="fail: Database error', line)
         self.assertEqual(line.count('"'), 4, line)
+
+    def couch_drill(self, couch, state=None, broken=(), verdict="pass: 1 databases"):
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        with patch(
+            "scripts.ci.platform_backup.verify_couchdb", return_value=verdict
+        ) as verify:
+            result = self.drill(
+                {"nas-01": recent, "homelab-04": recent},
+                broken,
+                state,
+                couch=couch,
+                couchdb=Path("/run/couchdb"),
+            )
+        return (*result, verify)
+
+    def test_couchdb_copy_is_opened_and_published_as_its_own_dataset(self) -> None:
+        error, state, metrics, verify = self.couch_drill(couch=True)
+        self.assertIsNone(error)
+        self.assertEqual(state["couchdb-obsidian"]["passed"], int(self.NOW.timestamp()))
+        self.assertIn(
+            'homelab_restore_drill_last_result{dataset="couchdb-obsidian"} 1', metrics
+        )
+        data, binary, _ = verify.call_args.args
+        self.assertEqual(data.name, "couchdb")
+        self.assertEqual(binary, Path("/run/couchdb"))
+
+    def test_couchdb_not_yet_backed_up_is_pending_and_unpublished(self) -> None:
+        error, state, metrics, verify = self.couch_drill(couch=False)
+        verify.assert_not_called()
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertTrue(state["couchdb-obsidian"]["result"].startswith("pending"))
+        self.assertNotIn('dataset="couchdb-obsidian"', metrics)
+        self.assertIn(
+            'homelab_restore_drill_last_result{dataset="platform-nas-01"} 1', metrics
+        )
+
+    def test_couchdb_missing_after_a_pass_is_a_failure(self) -> None:
+        previous = {"couchdb-obsidian": {"passed": 1, "result": "pass: old"}}
+        error, state, metrics, _ = self.couch_drill(couch=False, state=previous)
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertIn("not restored", state["couchdb-obsidian"]["result"])
+        self.assertIn(
+            'homelab_restore_drill_last_result{dataset="couchdb-obsidian"} 0', metrics
+        )
+        self.assertIn(
+            'last_success_timestamp_seconds{dataset="couchdb-obsidian"} 1', metrics
+        )
+
+    def test_couchdb_that_will_not_open_fails(self) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        with patch(
+            "scripts.ci.platform_backup.verify_couchdb",
+            side_effect=ValueError("CouchDB database main has no documents"),
+        ):
+            error, state, _ = self.drill(
+                {"nas-01": recent, "homelab-04": recent},
+                couch=True,
+                couchdb=Path("/run/couchdb"),
+            )
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertIn("no documents", state["couchdb-obsidian"]["result"])
+
+    def test_platform_restore_failure_fails_couchdb_too(self) -> None:
+        error, state, _, verify = self.couch_drill(couch=True, broken=("nas-01",))
+        verify.assert_not_called()
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertTrue(state["couchdb-obsidian"]["result"].startswith("fail"))
 
     def test_only_nas_01_runs_drills(self) -> None:
         with self.assertRaises(ValueError):

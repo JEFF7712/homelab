@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import datetime
 import json
+import os
 import re
+import secrets
 import shutil
+import signal
 import sqlite3
 import subprocess
 import tempfile
+import time
+import urllib.parse
+import urllib.request
 from builtins import ExceptionGroup
 from contextlib import closing
 from pathlib import Path
@@ -62,6 +69,129 @@ def snapshot_home_assistant_config(source: Path, target: Path) -> None:
         symlinks=True,
         ignore=shutil.ignore_patterns(*HOME_ASSISTANT_EXCLUDES),
     )
+
+
+# Compaction leftovers and deleted databases are not state a restore needs.
+COUCHDB_EXCLUDES = ("*.compact*", ".delete")
+
+
+def snapshot_couchdb(source: Path, target: Path) -> None:
+    """Copy a CouchDB data directory from a filesystem snapshot.
+
+    CouchDB files are append-only, so a copy of a ZFS snapshot is
+    crash-consistent and opens like a server restart.
+    """
+    if source.is_symlink() or any(path.is_symlink() for path in source.rglob("*")):
+        raise ValueError("CouchDB data must not contain symlinks")
+    if not (source / "_dbs.couch").is_file():
+        raise ValueError("CouchDB data is missing _dbs.couch")
+    shutil.copytree(source, target, ignore=shutil.ignore_patterns(*COUCHDB_EXCLUDES))
+
+
+# The live server runs without Erlang distribution (nonode@nohost), and shard
+# placement in _dbs.couch names that node, so the drill server must too. No
+# distribution also means no epmd daemon outliving the drill.
+COUCHDB_VM_ARGS = """-kernel error_logger silent
+-sasl sasl_error_logger false
++Bd -noinput
+"""
+
+
+def couchdb_request(base: str, password: str, path: str) -> Any:
+    request = urllib.request.Request(base + path)
+    credentials = base64.b64encode(f"drill:{password}".encode()).decode()
+    request.add_header("Authorization", f"Basic {credentials}")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.loads(response.read())
+
+
+def verify_couchdb(
+    data: Path, couchdb: Path, work: Path, startup: float = 120.0
+) -> str:
+    """Open restored CouchDB data with a throwaway loopback server.
+
+    Every user database must list a positive document count and return a
+    document body. Returns the pass detail.
+    """
+    if not (data / "_dbs.couch").is_file():
+        raise ValueError("CouchDB _dbs.couch not restored")
+    work.mkdir(mode=0o700)
+    password = secrets.token_urlsafe(24)
+    uri_file = work / "couch.uri"
+    local_ini = work / "local.ini"
+    local_ini.write_text(
+        "[couchdb]\n"
+        f"database_dir = {data}\n"
+        f"view_index_dir = {work / 'views'}\n"
+        f"uri_file = {uri_file}\n"
+        "single_node = true\n"
+        "[cluster]\nn = 1\n"
+        "[chttpd]\nbind_address = 127.0.0.1\nport = 0\n"
+        f"[admins]\ndrill = {password}\n"
+        "[log]\nlevel = warning\n"
+    )
+    vm_args = work / "vm.args"
+    vm_args.write_text(COUCHDB_VM_ARGS)
+    default_ini = couchdb.resolve().parent.parent / "etc/default.ini"
+    environment = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(work),
+        "ERL_FLAGS": f"-couch_ini {default_ini} {local_ini}",
+        "COUCHDB_ARGS_FILE": str(vm_args),
+    }
+    with (work / "couchdb.log").open("w") as log:
+        server = subprocess.Popen(
+            [str(couchdb)],
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    try:
+        deadline = time.monotonic() + startup
+        base = ""
+        while time.monotonic() < deadline:
+            if server.poll() is not None:
+                raise ValueError(f"CouchDB exited with {server.returncode}")
+            if uri_file.is_file() and uri_file.read_text().strip():
+                base = uri_file.read_text().split()[0].rstrip("/")
+                try:
+                    if couchdb_request(base, password, "/_up").get("status") == "ok":
+                        break
+                except OSError:
+                    pass
+            time.sleep(1)
+        else:
+            raise ValueError("CouchDB did not come up")
+        names = [
+            name
+            for name in couchdb_request(base, password, "/_all_dbs")
+            if not name.startswith("_")
+        ]
+        if not names:
+            raise ValueError("no CouchDB user databases restored")
+        documents = 0
+        for name in names:
+            quoted = "/" + urllib.parse.quote(name, safe="")
+            count = int(couchdb_request(base, password, quoted).get("doc_count", 0))
+            if count <= 0:
+                raise ValueError(f"CouchDB database {name} has no documents")
+            rows = couchdb_request(
+                base, password, quoted + "/_all_docs?limit=1&include_docs=true"
+            ).get("rows", [])
+            if not rows or "doc" not in rows[0]:
+                raise ValueError(f"CouchDB database {name} returned no document")
+            documents += count
+        return f"pass: {len(names)} databases, {documents} documents"
+    finally:
+        try:
+            os.killpg(server.pid, signal.SIGTERM)
+            server.wait(timeout=30)
+        except ProcessLookupError:
+            pass
+        except subprocess.TimeoutExpired:
+            os.killpg(server.pid, signal.SIGKILL)
+            server.wait()
 
 
 def cluster_pvc_relative(path: Path, label: str) -> Path:
@@ -138,9 +268,11 @@ def verify_restored_backup(restore_path: Path) -> None:
 
 DRILL_HOSTS = ("nas-01", "homelab-04")
 DRILL_MAX_AGE = datetime.timedelta(days=2)
-# Every SQLite database plus the homelab repository: a bounded sample that
-# exercises the state each host backs up without restoring bulk object data.
-DRILL_INCLUDES = ("*.sqlite", "*.db", "*/homelab.git")
+# Every SQLite database, the homelab repository and the CouchDB data: a
+# bounded sample that exercises the state each host backs up without
+# restoring bulk object data.
+DRILL_INCLUDES = ("*.sqlite", "*.db", "*/homelab.git", "*/applications/couchdb")
+COUCHDB_DATASET = "couchdb-obsidian"
 DRILL_STATE = Path("/var/lib/platform-backup/drill.json")
 # nas-01 node exporter textfile directory (flake/modules/zot-registry.nix).
 DRILL_METRICS = Path("/var/lib/zot-monitoring/platform-restore-drill.prom")
@@ -211,7 +343,30 @@ def drill_host(host: str, scratch: Path, now: datetime.datetime) -> str:
     return f"pass: {snapshot['short_id']} {len(databases)} databases"
 
 
+def drill_couchdb(scratch: Path, couchdb: Path, entry: dict[str, Any]) -> str:
+    """Verify the CouchDB copy in an already restored nas-01 sample."""
+    restored = [
+        path
+        for path in scratch.rglob("couchdb")
+        if path.is_dir() and path.parent.name == "applications"
+    ]
+    if not restored:
+        # Until a backup has carried CouchDB once, absence means the backup
+        # has not run yet rather than that it lost the data.
+        if "passed" not in entry:
+            return "pending: no snapshot carries CouchDB yet"
+        raise ValueError("CouchDB data not restored")
+    return verify_couchdb(restored[0], couchdb, scratch / "couchdb-drill")
+
+
 def drill_metrics(state: dict[str, dict[str, Any]]) -> str:
+    # A pending dataset has no verdict yet; publishing it would read as a
+    # failure and a never-passed drill.
+    state = {
+        dataset: entry
+        for dataset, entry in state.items()
+        if not str(entry.get("result", "")).startswith("pending")
+    }
     lines = [
         "# HELP homelab_restore_drill_last_success_timestamp_seconds Last passing restore drill.",
         "# TYPE homelab_restore_drill_last_success_timestamp_seconds gauge",
@@ -250,6 +405,7 @@ def run_drill(
     state_file: Path = DRILL_STATE,
     metrics_file: Path = DRILL_METRICS,
     now: datetime.datetime | None = None,
+    couchdb: Path | None = None,
 ) -> None:
     """Weekly proof that each host's platform backup restores.
 
@@ -277,6 +433,24 @@ def run_drill(
             except (ValueError, subprocess.CalledProcessError) as error:
                 entry["result"] = f"fail: {error}"
                 failed.append(dataset)
+            if drilled == "nas-01" and couchdb is not None:
+                couch = state.setdefault(COUCHDB_DATASET, {})
+                if dataset in failed:
+                    couch["result"] = "fail: platform sample did not restore"
+                    failed.append(COUCHDB_DATASET)
+                else:
+                    try:
+                        couch["result"] = drill_couchdb(Path(scratch), couchdb, couch)
+                        if couch["result"].startswith("pass"):
+                            couch["passed"] = int(now.timestamp())
+                        else:
+                            # Retry once a backup has carried the data.
+                            failed.append(COUCHDB_DATASET)
+                    except (ValueError, OSError) as error:
+                        couch["result"] = f"fail: {error}"
+                        failed.append(COUCHDB_DATASET)
+                couch["checked"] = int(now.timestamp())
+                print(f"{COUCHDB_DATASET}: {couch['result']}")
         entry["checked"] = int(now.timestamp())
         print(f"{dataset}: {entry['result']}")
     state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -333,9 +507,11 @@ def run_backup(
     persist_root: Path = Path("/persist"),
     bookshelf_config: Path | None = None,
     home_assistant_config: Path | None = None,
+    couchdb_data: Path | None = None,
 ) -> None:
     bookshelf_relative: Path | None = None
     home_assistant_relative: Path | None = None
+    couchdb_relative: Path | None = None
     if bookshelf_config is not None:
         if host != "nas-01":
             raise ValueError("Bookshelf NFS state backup must run on nas-01")
@@ -346,8 +522,13 @@ def run_backup(
         home_assistant_relative = cluster_pvc_relative(
             home_assistant_config, "Home Assistant"
         )
-    cluster_snapshot = bookshelf_relative is not None or (
-        home_assistant_relative is not None
+    if couchdb_data is not None:
+        if host != "nas-01":
+            raise ValueError("CouchDB NFS state backup must run on nas-01")
+        couchdb_relative = cluster_pvc_relative(couchdb_data, "CouchDB")
+    cluster_snapshot = any(
+        relative is not None
+        for relative in (bookshelf_relative, home_assistant_relative, couchdb_relative)
     )
     backup_base = persist_root / "platform-backup"
     backup_base.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -401,6 +582,11 @@ def run_backup(
                         / suffix
                         / home_assistant_relative,
                         stage / "applications/home-assistant",
+                    )
+                if couchdb_relative is not None:
+                    snapshot_couchdb(
+                        Path("/tank/cluster/.zfs/snapshot") / suffix / couchdb_relative,
+                        stage / "applications/couchdb",
                     )
 
                 snapshot_database(
@@ -466,6 +652,18 @@ def main() -> None:
         default=None,
     )
     parser.add_argument(
+        "--couchdb-data",
+        type=Path,
+        default=None,
+        help="NAS cluster PVC directory holding the CouchDB data to back up",
+    )
+    parser.add_argument(
+        "--couchdb",
+        type=Path,
+        default=None,
+        help="CouchDB executable the drill opens the restored data with",
+    )
+    parser.add_argument(
         "--mode",
         choices=["backup", "maintenance", "verify-restore", "drill"],
         default="backup",
@@ -483,11 +681,12 @@ def main() -> None:
             args.host,
             bookshelf_config=args.bookshelf_config,
             home_assistant_config=args.home_assistant_config,
+            couchdb_data=args.couchdb_data,
         )
     elif args.mode == "maintenance":
         run_maintenance(args.host)
     elif args.mode == "drill":
-        run_drill(args.host)
+        run_drill(args.host, couchdb=args.couchdb)
     elif args.mode == "verify-restore":
         if not args.restore_path:
             parser.error("--restore-path is required when --mode is verify-restore")

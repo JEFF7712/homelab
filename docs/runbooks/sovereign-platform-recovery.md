@@ -409,10 +409,21 @@ full-platform RTO remain untested in the recovered environment.
 `platform-restore-drill.service` on nas-01 (Sunday 05:00, after the 03:00
 prune and `restic check`, and 15 minutes after boot or a deploy that
 changes its timer) proves that both hosts' `sovereign-platform`
-snapshots restore. For nas-01 and homelab-04 it requires a snapshot from the
+snapshots restore, along with the CouchDB data described below. For nas-01 and homelab-04 it requires a snapshot from the
 last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
 `homelab.git`) into scratch space under `/persist/platform-backup`, runs
 `PRAGMA integrity_check` and `git fsck --full`, and deletes the scratch copy.
+
+The nas-01 snapshot also carries the Obsidian CouchDB data
+(`homelab.platformBackup.couchdbDataPath`, copied from the same ZFS snapshot
+without compaction files or deleted databases). The drill restores it and
+opens it with a throwaway nixpkgs CouchDB bound to 127.0.0.1 on a random
+port, with no Erlang distribution, which matches the live `nonode@nohost`
+shard placement. Every user database must report documents and return one.
+The result is its own dataset, `couchdb-obsidian`. Until a backup has carried
+CouchDB, the drill records `pending` and publishes nothing for it. Once it has
+passed, a missing copy is a failure. To check a CouchDB upgrade, open the
+restored copy with the candidate version the same way before rolling out.
 
 Results persist in `/var/lib/platform-backup/drill.json` (a failure keeps the
 last pass time) and reach Prometheus through node exporter's textfile
