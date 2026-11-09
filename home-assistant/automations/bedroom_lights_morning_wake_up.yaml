@@ -2,12 +2,19 @@ id: bedroom_lights_morning_wake_up
 alias: "Bedroom Lights: Morning Wake-Up Fade"
 description: >-
   Ramp bedroom lamps from 1 to 30 percent warm over the 20 minutes before
-  the earlier of the Bedroom Wake Time helper and the phone's next alarm.
+  the Bedroom Wake Time helper, which is held at 08:00 and shared with the
+  morning weather briefing. No phone sensor is read: iOS exposes no
+  next-alarm sensor, and the only one in HA belongs to a housemate's phone
+  and also reports calendar reminders.
   Adaptive Lighting is paused during the fade so its interval adaptation
   does not fight the ramp, then restored when the fade ends. Plugs, the bus
   display, and the bedroom LED matrix display come on at fade start.
   Brightness is computed from elapsed time each minute, so a restart
   mid-fade resumes at the correct level instead of restarting or stalling.
+  Turning any fade target off during the window (dashboard, voice, or
+  switch; the fade itself never turns targets off) dismisses the fade until
+  the window ends, so the next tick does not switch it back on. The dismissal clears on the first tick outside the
+  window, so it never suppresses the next morning.
   Unknown or malformed times fall back safely to no fade.
 triggers:
   - trigger: time_pattern
@@ -16,13 +23,22 @@ triggers:
   - trigger: template
     value_template: >-
       {% set wake = states('input_datetime.bedroom_wake_time') %}
-      {% set wake_ts = as_timestamp(today_at(wake), none)
+      {% set target_ts = as_timestamp(today_at(wake), none)
       if wake not in ('unknown', 'unavailable', '') else none %}
-      {% set alarm_ts = as_timestamp(states('sensor.sm_s948u1_next_alarm'), none) %}
-      {% set cands = [wake_ts, alarm_ts] | select('ne', none) | list %}
-      {% set target_ts = cands | min if cands | count > 0 else none %}
       {{ target_ts is not none and as_timestamp(now()) >= target_ts }}
     id: "fade_end"
+  - trigger: state
+    entity_id:
+      - switch.bedroom_window_plug
+      - switch.bedroom_mushroom_plug
+      - light.bus_display
+      - input_boolean.bedroom_matrix_power
+      - light.desk_lamp_desk_lamp
+      - light.floor_lamp_floor_lamp
+      - light.light_strip_light_strip
+    from: "on"
+    to: "off"
+    id: "manual_off"
 conditions:
   - condition: state
     entity_id: person.rupan_sunderapandyan
@@ -34,11 +50,11 @@ actions:
   - variables:
       target_ts: >-
         {% set wake_raw = states('input_datetime.bedroom_wake_time') %}
-        {% set wake_ts = as_timestamp(today_at(wake_raw), none)
-        if wake_raw not in ('unknown', 'unavailable', '') else none %}
-        {% set alarm_ts = as_timestamp(states('sensor.sm_s948u1_next_alarm'), none) %}
-        {% set cands = [wake_ts, alarm_ts] | select('ne', none) | list %}
-        {{ cands | min if cands | count > 0 else 0 }}
+        {{ as_timestamp(today_at(wake_raw), 0)
+        if wake_raw not in ('unknown', 'unavailable', '') else 0 }}
+      in_window: >-
+        {% set t = target_ts | float(0) %}
+        {{ t > 0 and (t - 1200) <= as_timestamp(now()) <= t }}
   - choose:
       - conditions:
           - condition: trigger
@@ -47,11 +63,39 @@ actions:
           - action: switch.turn_on
             target:
               entity_id: switch.adaptive_lighting_all_dimmable_lights
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.bedroom_wake_fade_dismissed
       - conditions:
+          - condition: trigger
+            id: "manual_off"
           - condition: template
             value_template: >-
-              {% set t = target_ts | float(0) %}
-              {{ t > 0 and (t - 1200) <= as_timestamp(now()) <= t }}
+              {{ in_window }}
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.bedroom_wake_fade_dismissed
+      - conditions:
+          - condition: trigger
+            id: "fade_tick"
+          - condition: template
+            value_template: "{{ not in_window }}"
+          - condition: state
+            entity_id: input_boolean.bedroom_wake_fade_dismissed
+            state: "on"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.bedroom_wake_fade_dismissed
+      - conditions:
+          - condition: trigger
+            id: "fade_tick"
+          - condition: template
+            value_template: "{{ in_window }}"
+          - condition: state
+            entity_id: input_boolean.bedroom_wake_fade_dismissed
+            state: "off"
         sequence:
           - action: switch.turn_off
             target:
@@ -79,4 +123,5 @@ actions:
                 {{ (((as_timestamp(now()) - (t - 1200)) / 1200 * 30)
                 | int | max(1)) | min(100) }}
               color_temp_kelvin: 2700
-mode: single
+mode: queued
+max: 10
