@@ -10,6 +10,7 @@ from scripts.ci.orchestrator_release import (
     INVENTORY,
     LOCK,
     PINS,
+    PUSH_POLICY,
     promotion_patch,
 )
 from scripts.registry.core import (
@@ -176,6 +177,12 @@ class AccessTests(unittest.TestCase):
         routes = json.loads((ROOT / "config/ci/ship-routes.json").read_text())
         [route] = [r for r in routes["routes"] if r["name"] == "orchestrator-images"]
         self.assertEqual(route["operations"], ["orchestrator-publish"])
+
+    def test_the_push_accepts_only_the_local_archive(self) -> None:
+        # The CI container has no system policy; this one admits nothing but
+        # the archive the job just built.
+        self.assertEqual(PUSH_POLICY["default"], [{"type": "reject"}])
+        self.assertEqual(set(PUSH_POLICY["transports"]), {"docker-archive"})
 
 
 if __name__ == "__main__":

@@ -257,10 +257,22 @@ def build(image: Image, output: Path) -> Path:
     return archive
 
 
+# The CI container has no system containers policy. The only source is the
+# archive this job just built, so accept that transport and reject the rest.
+PUSH_POLICY = {
+    "default": [{"type": "reject"}],
+    "transports": {"docker-archive": {"": [{"type": "insecureAcceptAnything"}]}},
+}
+
+
 def push(image: Image, archive: Path, tag: str) -> None:
+    policy = archive.with_name("policy.json")
+    policy.write_text(json.dumps(PUSH_POLICY))
     subprocess.run(
         [
             "skopeo",
+            "--policy",
+            str(policy),
             "copy",
             "--format",
             "oci",
