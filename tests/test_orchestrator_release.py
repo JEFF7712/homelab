@@ -161,7 +161,7 @@ class AccessTests(unittest.TestCase):
         registry = {
             name
             for name, value in spec["environment"].items()
-            if "REGISTRY" in name or "registry" in json.dumps(value)
+            if name.startswith("REGISTRY") or "registry_" in json.dumps(value)
         }
         # The only registry credentials are the two scoped publishers.
         self.assertEqual(registry, {image.auth_variable for image in IMAGES})

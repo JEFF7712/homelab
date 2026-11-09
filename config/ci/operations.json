@@ -2883,6 +2883,9 @@
       "STATE_CA_FILE": {
         "from_secret": "state_ca_file"
       },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
       "REGISTRY_ORCHESTRATOR_PUBLISHER_AUTH_FILE": {
         "from_secret": "registry_orchestrator_publisher_auth_file"
       },
