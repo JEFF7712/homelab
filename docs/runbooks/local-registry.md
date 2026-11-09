@@ -317,6 +317,18 @@ with `scripts/registry/advance.py`:
 
 Helm chart images and producer base images keep their own procedures below.
 
+The scheduled `registry-advance` operation (`promote` schedule,
+`scripts/ci/registry_advance.py`) does this without an agent for updates that
+cannot take a service down: the same major version, every consumer a
+RollingUpdate Deployment whose container has a readiness probe, outside the
+namespaces and repositories in `config/registry/advance-policy.json`. Each run
+takes one step: it adopts the first consumer left on an undeclared digest once
+the registry serves the replacement, otherwise it merges the oldest eligible
+Renovate image PR (which carries its own lock records) on the required checks.
+A bad image stalls its rollout while the old pod serves and
+`KubeDeploymentReplicasMismatch` fires; revert the adopt PR. Each run's log
+says why every other update waits.
+
 ### Refreshing an image under the same tag
 
 `registry-lock-import` never repoints an existing destination tag ("refusing
