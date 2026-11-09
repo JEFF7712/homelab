@@ -437,6 +437,12 @@ class OperationTests(unittest.TestCase):
                     environment.get("STATE_CA_FILE"), {"from_secret": "state_ca_file"}
                 )
                 self.assertIn("STATE_CA_FILE", operation["file_secrets"])
+                # The runner confirms the source is current main through the
+                # Forgejo API with this read-only token (scripts/ci/operation.py).
+                self.assertEqual(
+                    environment.get("FORGEJO_SOURCE_READ_TOKEN"),
+                    {"from_secret": "forgejo_source_read_token"},
+                )
 
 
 if __name__ == "__main__":
