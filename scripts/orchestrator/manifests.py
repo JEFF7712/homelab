@@ -669,15 +669,12 @@ def worker_egress(params: DeployParams) -> dict[str, Any]:
                 },
                 {
                     "toFQDNs": [{"matchName": host} for host in PROVIDER_HOSTS],
-                    # Provider IPs are shared (Cloudflare fronts OpenAI), so
-                    # the TLS server name is pinned too: another site on an
-                    # allowed address is refused.
-                    "toPorts": [
-                        {
-                            "ports": [{"port": "443", "protocol": "TCP"}],
-                            "serverNames": list(PROVIDER_HOSTS),
-                        }
-                    ],
+                    # No TLS server-name pinning: Envoy's upstream reply is
+                    # reverse-NATed by Cilium's BPF masquerade straight to the
+                    # pod and never reaches the proxy, so every connection was
+                    # reset (gate 4, 2026-11-09). Provider IPs are shared with
+                    # other sites on the same CDN; that limitation is accepted.
+                    "toPorts": [{"ports": [{"port": "443", "protocol": "TCP"}]}],
                 },
             ],
         },
