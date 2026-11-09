@@ -33,7 +33,30 @@ SAMPLE_RATE = 22050
 
 
 def find_default_monitor_sink() -> str:
-    """Detect the best audio monitor source (preferring Bose SoundLink Flex if active)."""
+    """Detect the active audio monitor source (headphones, Bluetooth speaker, or internal speaker)."""
+    # 1. Prefer current default playback sink monitor
+    try:
+        proc = subprocess.run(
+            ["pactl", "get-default-sink"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        def_sink = proc.stdout.strip()
+        if def_sink:
+            mon = f"{def_sink}.monitor"
+            sources_out = subprocess.run(
+                ["pactl", "list", "sources", "short"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            if mon in sources_out:
+                return mon
+    except Exception:
+        pass
+
+    # 2. Fall back to any active Bluetooth output monitor
     try:
         proc = subprocess.run(
             ["pactl", "list", "sources", "short"],
@@ -42,18 +65,15 @@ def find_default_monitor_sink() -> str:
             check=True,
         )
         lines = proc.stdout.strip().splitlines()
-        bose_sink = None
         first_monitor = None
         for line in lines:
             parts = line.split()
             if len(parts) >= 2:
                 name = parts[1]
-                if "bluez_output" in name and "monitor" in name:
-                    bose_sink = name
+                if "bluez_output" in name and name.endswith(".monitor"):
+                    return name
                 elif name.endswith(".monitor") and first_monitor is None:
                     first_monitor = name
-        if bose_sink:
-            return bose_sink
         if first_monitor:
             return first_monitor
     except Exception:
@@ -62,7 +82,7 @@ def find_default_monitor_sink() -> str:
 
 
 def find_default_mic_source() -> str:
-    """Detect the best microphone input source."""
+    """Detect the best microphone input source (preferring laptop internal Digital Mic1)."""
     try:
         proc = subprocess.run(
             ["pactl", "list", "sources", "short"],
@@ -71,13 +91,21 @@ def find_default_mic_source() -> str:
             check=True,
         )
         lines = proc.stdout.strip().splitlines()
+        # First priority: Digital Microphone (Mic1)
         for line in lines:
             parts = line.split()
             if len(parts) >= 2:
                 name = parts[1]
-                if "Mic1" in name or (
-                    "mic" in name.lower() and not name.endswith(".monitor")
-                ):
+                if "Mic1" in name:
+                    return name
+        # Second priority: Any other microphone, ignoring monitor and unplugged 3.5mm Mic2
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 2:
+                name = parts[1]
+                if name.endswith(".monitor") or "Mic2" in name:
+                    continue
+                if "mic" in name.lower() or "analog-stereo" in name.lower():
                     return name
     except Exception:
         pass
@@ -137,7 +165,8 @@ def sync_ledfx_recording_source(target_source: str) -> None:
                             check=False,
                         )
                         print(
-                            f"[LedFx] Synchronized LedFx audio stream to: {target_source}"
+                            f"[LedFx] Synchronized LedFx audio stream to: {target_source}",
+                            flush=True,
                         )
                         return
     except Exception:
@@ -232,6 +261,19 @@ class AudioTap:
         if self._thread:
             self._thread.join(timeout=1.0)
 
+    def set_device(self, new_device: str) -> None:
+        with self._lock:
+            if new_device == self.device:
+                return
+            print(f"[AudioTap] Switching audio source to: {new_device}", flush=True)
+            self.device = new_device
+        # Terminate running parec; the capture loop will automatically restart with the new device
+        if self._process:
+            try:
+                self._process.terminate()
+            except Exception:
+                pass
+
     def get_latest_audio(self, timeout: float = 2.0) -> AudioFrame | None:
         with self._lock:
             if self._latest_audio is not None and (
@@ -241,65 +283,76 @@ class AudioTap:
             return None
 
     def _capture_loop(self) -> None:
-        cmd = [
-            "parec",
-            f"--rate={SAMPLE_RATE}",
-            "--channels=1",
-            "--format=s16le",
-            f"--device={self.device}",
-        ]
-        try:
-            self._process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                bufsize=CHUNK_BYTES * 2,
-            )
-        except Exception as e:
-            print(f"[AudioTap] Failed to start parec ({cmd}): {e}", file=sys.stderr)
-            return
-
-        stdout = self._process.stdout
-        if stdout is None:
-            return
-
         while not self._stop.is_set():
+            with self._lock:
+                dev = self.device
+            cmd = [
+                "parec",
+                f"--rate={SAMPLE_RATE}",
+                "--channels=1",
+                "--format=s16le",
+                f"--device={dev}",
+            ]
             try:
-                raw = stdout.read(CHUNK_BYTES)
-                if not raw or len(raw) < CHUNK_BYTES:
-                    time.sleep(0.01)
-                    continue
+                self._process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    bufsize=CHUNK_BYTES * 2,
+                )
+            except Exception as e:
+                print(f"[AudioTap] Failed to start parec ({cmd}): {e}", file=sys.stderr)
+                time.sleep(0.5)
+                continue
 
-                samples = np.frombuffer(raw, dtype=np.int16)
-                float_samples = samples.astype(np.float32) / 32768.0
-                rms = float(np.sqrt(np.mean(float_samples**2)))
+            stdout = self._process.stdout
+            if stdout is None:
+                time.sleep(0.5)
+                continue
 
-                fft = np.abs(np.fft.rfft(float_samples * self.window))
-                bands: list[float] = []
-                for i in range(16):
-                    b_val = float(
-                        np.mean(
-                            fft[self.bins[i] : max(self.bins[i] + 1, self.bins[i + 1])]
+            while not self._stop.is_set():
+                try:
+                    raw = stdout.read(CHUNK_BYTES)
+                    if not raw or len(raw) < CHUNK_BYTES:
+                        break  # Process terminated (e.g. on device switch); restart with current device
+
+                    samples = np.frombuffer(raw, dtype=np.int16)
+                    float_samples = samples.astype(np.float32) / 32768.0
+                    rms = float(np.sqrt(np.mean(float_samples**2)))
+
+                    fft = np.abs(np.fft.rfft(float_samples * self.window))
+                    bands: list[float] = []
+                    for i in range(16):
+                        b_val = float(
+                            np.mean(
+                                fft[self.bins[i] : max(self.bins[i] + 1, self.bins[i + 1])]
+                            )
                         )
-                    )
-                    weight = 1.0 + (i / 16.0) * 2.0
-                    normalized = np.tanh(b_val * 4.0 * weight)
-                    bands.append(float(normalized))
+                        weight = 1.0 + (i / 16.0) * 2.0
+                        normalized = np.tanh(b_val * 4.0 * weight)
+                        bands.append(float(normalized))
 
-                bass = (bands[0] + bands[1] + bands[2]) / 3.0
-                energy_diff = max(0.0, bass - self.prev_energy)
-                beat = min(1.0, energy_diff * 3.5 + (1.0 if bass > 0.8 else 0.0))
-                self.prev_energy = bass * 0.85 + self.prev_energy * 0.15
+                    bass = (bands[0] + bands[1] + bands[2]) / 3.0
+                    energy_diff = max(0.0, bass - self.prev_energy)
+                    beat = min(1.0, energy_diff * 3.5 + (1.0 if bass > 0.8 else 0.0))
+                    self.prev_energy = bass * 0.85 + self.prev_energy * 0.15
 
-                with self._lock:
-                    self._latest_audio = AudioFrame(
-                        rms=rms,
-                        beat=beat,
-                        bands=bands,
-                        timestamp=time.monotonic(),
-                    )
-            except Exception:
-                break
+                    with self._lock:
+                        self._latest_audio = AudioFrame(
+                            rms=rms,
+                            beat=beat,
+                            bands=bands,
+                            timestamp=time.monotonic(),
+                        )
+                except Exception:
+                    break
+
+            if self._process:
+                try:
+                    self._process.kill()
+                except Exception:
+                    pass
+                self._process = None
 
 
 def main() -> None:
@@ -394,6 +447,8 @@ def main() -> None:
 
     print("=== Laptop LED Matrix Streamer Running (Ctrl+C to stop) ===")
     last_tick = time.monotonic()
+    last_input_check = time.monotonic()
+    active_input = args.input
     ha_dummy = HAState(power=True, mode="Laptop", brightness=args.brightness)
     pb_dummy = PlaybackState(available=True, playing=True)
 
@@ -401,6 +456,34 @@ def main() -> None:
         while not stop_event.is_set():
             tick = time.monotonic()
             dt = tick - last_tick
+
+            if tick - last_input_check >= 0.5:
+                last_input_check = tick
+                desired = active_input
+                if os.path.exists("/tmp/matrix_sync_input"):
+                    try:
+                        with open("/tmp/matrix_sync_input") as f:
+                            read_val = f.read().strip().lower()
+                        if read_val:
+                            desired = read_val
+                    except Exception:
+                        pass
+
+                needed_src = resolve_audio_device(desired, args.device)
+                if desired != active_input or needed_src != tap.device:
+                    if desired != active_input:
+                        print(
+                            f"[Streamer] Input changed via UI from [{active_input}] to [{desired}]",
+                            flush=True,
+                        )
+                        active_input = desired
+                    else:
+                        print(
+                            f"[Streamer] Audio output sink changed; retargeting to: {needed_src}",
+                            flush=True,
+                        )
+                    tap.set_device(needed_src)
+                    sync_ledfx_recording_source(needed_src)
 
             ctx = RenderContext(
                 tick=tick,
