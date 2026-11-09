@@ -47,7 +47,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_auth_consistency",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -82,7 +81,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_drift_check",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -111,7 +109,6 @@
     "outputs": [
       "artifacts/registry/gc-fixture-report.json"
     ],
-    "legacy_job": "registry_gc_fixture",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -150,7 +147,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_retention_reconcile",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -194,7 +190,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_resolve",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -240,7 +235,6 @@
     "outputs": [
       "promote-report.json"
     ],
-    "legacy_job": "registry_promote_first_party",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -287,7 +281,6 @@
     "outputs": [
       "promote-report.json"
     ],
-    "legacy_job": "registry_promote_nix_agent",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -323,7 +316,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_cve_audit",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -365,7 +357,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_update_import",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -405,7 +396,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_lock_import",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -456,7 +446,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "provision_jarvis_publisher",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
@@ -506,7 +495,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "provision_pod_agent_publisher",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
@@ -563,7 +551,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_platform",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -612,7 +599,6 @@
       "deploy-registry-platform"
     ],
     "outputs": [],
-    "legacy_job": "deploy_registry_dns",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -658,7 +644,6 @@
     "group": "zigbee-gateway",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_zigbee_gateway",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -712,7 +697,6 @@
     "group": "nas-ledfx-bedroom",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_nas_ledfx_bedroom",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -771,7 +755,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_01",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -830,7 +813,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_02",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -889,7 +871,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_03",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -948,7 +929,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_04",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1007,7 +987,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_05",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1058,7 +1037,6 @@
     "outputs": [
       "artifacts/opnsense/"
     ],
-    "legacy_job": "opnsense_inventory",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1116,7 +1094,6 @@
       "tofu/opnsense/desired.tfplan",
       "artifacts/opnsense/"
     ],
-    "legacy_job": "opnsense_plan",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1166,7 +1143,6 @@
       "opnsense-plan"
     ],
     "outputs": [],
-    "legacy_job": "opnsense_dataplane",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1197,7 +1173,6 @@
     "group": "ci-diagnostics",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1266,7 +1241,6 @@
       "artifacts/opnsense/agent-acl-apply.json",
       "artifacts/opnsense/agent-acl-check.json"
     ],
-    "legacy_job": "opnsense_apply",
     "automatic": false,
     "mutation": true,
     "prerequisite": "opnsense-plan",
@@ -1310,7 +1284,6 @@
     "outputs": [
       "tofu/cloudflare/desired.tfplan"
     ],
-    "legacy_job": "cloudflare_plan",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1351,7 +1324,6 @@
     "group": "cloudflare-tunnel",
     "needs": [],
     "outputs": [],
-    "legacy_job": "cloudflare_import",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1397,7 +1369,6 @@
     "outputs": [
       "config_version.txt"
     ],
-    "legacy_job": "cloudflare_apply",
     "automatic": false,
     "mutation": true,
     "prerequisite": "cloudflare-plan",
@@ -1425,7 +1396,6 @@
     "group": "ci-diagnostics",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nas_proof",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1481,7 +1451,6 @@
     "outputs": [
       "artifacts/deployment-report/deploy-fleet-dry-run/"
     ],
-    "legacy_job": "deploy_fleet_dry_run",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1533,7 +1502,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_fleet",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-fleet-dry-run",
@@ -1585,7 +1553,6 @@
     "outputs": [
       "artifacts/deployment-report/deploy-agent-workspace-host-dry-run/"
     ],
-    "legacy_job": "deploy_agent_workspace_host_dry_run",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1632,7 +1599,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_agent_workspace_host",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-agent-workspace-host-dry-run",
@@ -1671,7 +1637,6 @@
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_home_assistant_dry_run",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1712,7 +1677,6 @@
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_home_assistant",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-home-assistant-dry-run",
@@ -1751,7 +1715,6 @@
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1792,7 +1755,6 @@
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-home-assistant-matrix-dashboard-dry-run",
@@ -1823,7 +1785,6 @@
     "group": "github-mirror",
     "needs": [],
     "outputs": [],
-    "legacy_job": "sync_to_github",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1857,7 +1818,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nix_cache",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1885,7 +1845,6 @@
     "group": "ci-diagnostics",
     "needs": [],
     "outputs": [],
-    "legacy_job": "webhook_watchdog",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1935,7 +1894,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "provision_darkbit_publisher",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
@@ -1969,7 +1927,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "build-toplevel/build-iso",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2006,7 +1963,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nixos-lock-update",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2043,7 +1999,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nixos-deploy",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2092,7 +2047,6 @@
     "outputs": [
       "artifacts/native-asr/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2138,7 +2092,6 @@
     "outputs": [
       "artifacts/service-release/spotify-matrix/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2187,7 +2140,6 @@
     "outputs": [
       "artifacts/service-release/bus-display/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2233,7 +2185,6 @@
     "outputs": [
       "artifacts/service-release/lidarr-extended/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2285,7 +2236,6 @@
     "outputs": [
       "artifacts/deployment-report/deploy-ci-host-dry-run/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2332,7 +2282,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-ci-host-dry-run",
@@ -2365,7 +2314,6 @@
     "outputs": [
       "artifacts/node-supply/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2413,7 +2361,6 @@
         "from_secret": "forgejo_source_read_token"
       }
     },
-    "legacy_job": "cloudflare_access_plan",
     "mutation": false
   },
   "cloudflare-access-import": {
@@ -2456,7 +2403,6 @@
         "from_secret": "forgejo_source_read_token"
       }
     },
-    "legacy_job": "cloudflare_access_import",
     "mutation": true,
     "agent": true
   },
@@ -2500,7 +2446,6 @@
         "from_secret": "forgejo_source_read_token"
       }
     },
-    "legacy_job": "cloudflare_access_apply",
     "mutation": true,
     "agent": true
   },
@@ -2543,7 +2488,6 @@
         "from_secret": "forgejo_source_read_token"
       }
     },
-    "legacy_job": "cloudflare_access_drift",
     "mutation": false
   },
   "switches-plan": {
@@ -2579,7 +2523,6 @@
       "artifacts/switches/upstairs-plan.json",
       "artifacts/switches/downstairs-plan.json"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2621,7 +2564,6 @@
       "artifacts/switches/upstairs-verify.json",
       "artifacts/switches/downstairs-verify.json"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "switches-plan",
@@ -2666,7 +2608,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2710,7 +2651,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-switch-runtime-dry-run",
@@ -2749,7 +2689,6 @@
     "group": "opnsense-control-plane",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2787,7 +2726,6 @@
     "group": "opnsense-control-plane",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "agent": true,
@@ -2825,7 +2763,6 @@
     "outputs": [
       "artifacts/switches/drift.json"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2866,7 +2803,6 @@
     "outputs": [
       "artifacts/switches/drift.json"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2903,7 +2839,6 @@
     "outputs": [
       "artifacts/orchestrator-release/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
