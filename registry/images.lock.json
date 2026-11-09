@@ -91,6 +91,88 @@
         "status": "unsupported"
       },
       "consumers": [
+        "config/orchestrator/images.json:2"
+      ],
+      "destination_repository": "apps/orchestrator",
+      "destination_tags": [
+        "ci-11217-46ec2f6f5db2",
+        "retention-candidate-5bf39f480639c83a"
+      ],
+      "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+      "id": "first-party-apps-orchestrator",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "flake/packages/orchestrator-images.nix",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-ci-build-published"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+        "reference": "registry.rupan.dev/apps/orchestrator:ci-11217-46ec2f6f5db2@sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/orchestrator",
+        "tag": "ci-11217-46ec2f6f5db2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "config/orchestrator/images.json:3"
+      ],
+      "destination_repository": "apps/orchestrator-worker",
+      "destination_tags": [
+        "ci-11217-46ec2f6f5db2",
+        "retention-candidate-f51d68ec1063a89f"
+      ],
+      "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+      "id": "first-party-apps-orchestrator-worker",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "flake/packages/orchestrator-images.nix",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-ci-build-published"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11217-46ec2f6f5db2@sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/orchestrator-worker",
+        "tag": "ci-11217-46ec2f6f5db2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/websites/sovereign/deployment.yaml:26"
       ],
       "destination_repository": "apps/sovereign-site",
@@ -2818,6 +2900,41 @@
       ],
       "destination_repository": "upstream/ghcr.io/home-assistant/home-assistant",
       "destination_tags": [
+        "2026.11.0",
+        "retention-deployed-078222f9ea47cf47"
+      ],
+      "digest": "sha256:078222f9ea47cf47b172a301c2c45a1d2344b9d666827729b71fc3f7d7a57592",
+      "id": "upstream-home-assistant-home-assistant-512cb253bbf4",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:078222f9ea47cf47b172a301c2c45a1d2344b9d666827729b71fc3f7d7a57592",
+        "reference": "ghcr.io/home-assistant/home-assistant:2026.11.0@sha256:078222f9ea47cf47b172a301c2c45a1d2344b9d666827729b71fc3f7d7a57592",
+        "registry": "ghcr.io",
+        "repository": "home-assistant/home-assistant",
+        "tag": "2026.11.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/home-assistant/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/home-assistant/home-assistant",
+      "destination_tags": [
         "retention-deployed-21935614df6d9f24"
       ],
       "digest": "sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04",
@@ -3956,6 +4073,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/obsidian/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/library/couchdb",
+      "destination_tags": [
+        "3.5.3",
+        "retention-deployed-907eab5b7e55ab7c"
+      ],
+      "digest": "sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+      "id": "upstream-library-couchdb-71c6e9eeff86",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+        "reference": "docker.io/library/couchdb:3.5.3@sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
+        "registry": "docker.io",
+        "repository": "library/couchdb",
+        "tag": "3.5.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/obsidian/couchdb.yaml:49",
         "observed:rendered/obsidian/couchdb"
       ],
@@ -5056,6 +5212,45 @@
       ],
       "destination_repository": "upstream/ghcr.io/matter-js/matterjs-server",
       "destination_tags": [
+        "1.5.5",
+        "retention-deployed-ee149c7c67eff0e9"
+      ],
+      "digest": "sha256:ee149c7c67eff0e90f131e8f0d628f7b099591ec58473c8cda1209e8ae4df66e",
+      "id": "upstream-matter-js-matterjs-server-258edbb4468d",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:ee149c7c67eff0e90f131e8f0d628f7b099591ec58473c8cda1209e8ae4df66e",
+        "reference": "ghcr.io/matter-js/matterjs-server:1.5.5@sha256:ee149c7c67eff0e90f131e8f0d628f7b099591ec58473c8cda1209e8ae4df66e",
+        "registry": "ghcr.io",
+        "repository": "matter-js/matterjs-server",
+        "tag": "1.5.5"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/home-assistant/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/matter-js/matterjs-server",
+      "destination_tags": [
         "retention-deployed-54232d0d3e7dff5a"
       ],
       "digest": "sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236",
@@ -5203,6 +5398,51 @@
         "registry": "docker.io",
         "repository": "nginxinc/nginx-unprivileged",
         "tag": "1.29-alpine"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/nginxinc/nginx-unprivileged",
+      "destination_tags": [
+        "1.31-alpine",
+        "retention-deployed-b5047b9b76845eac"
+      ],
+      "digest": "sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+      "id": "upstream-nginxinc-nginx-unprivileged-96e48a5bd5c8",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+        "reference": "docker.io/nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+        "registry": "docker.io",
+        "repository": "nginxinc/nginx-unprivileged",
+        "tag": "1.31-alpine"
       }
     },
     {
@@ -7793,172 +8033,6 @@
         "registry": "docker.io",
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/obsidian/registry-sources.yaml:19"
-      ],
-      "destination_repository": "upstream/docker.io/library/couchdb",
-      "destination_tags": [
-        "3.5.3",
-        "retention-deployed-907eab5b7e55ab7c"
-      ],
-      "digest": "sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
-      "id": "upstream-library-couchdb-71c6e9eeff86",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/amd64",
-        "linux/arm64/v8",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
-        "reference": "docker.io/library/couchdb:3.5.3@sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda",
-        "registry": "docker.io",
-        "repository": "library/couchdb",
-        "tag": "3.5.3"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "config/orchestrator/images.json:2"
-      ],
-      "destination_repository": "apps/orchestrator",
-      "destination_tags": [
-        "ci-11217-46ec2f6f5db2",
-        "retention-candidate-5bf39f480639c83a"
-      ],
-      "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
-      "id": "first-party-apps-orchestrator",
-      "kind": "first-party",
-      "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "producer": {
-        "location": "flake/packages/orchestrator-images.nix",
-        "owner": "JEFF7712/homelab",
-        "pipeline_status": "verified-ci-build-published"
-      },
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "candidate",
-      "source": {
-        "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
-        "reference": "registry.rupan.dev/apps/orchestrator:ci-11217-46ec2f6f5db2@sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/orchestrator",
-        "tag": "ci-11217-46ec2f6f5db2"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "config/orchestrator/images.json:3"
-      ],
-      "destination_repository": "apps/orchestrator-worker",
-      "destination_tags": [
-        "ci-11217-46ec2f6f5db2",
-        "retention-candidate-f51d68ec1063a89f"
-      ],
-      "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
-      "id": "first-party-apps-orchestrator-worker",
-      "kind": "first-party",
-      "media_type": "application/vnd.oci.image.manifest.v1+json",
-      "platforms": [
-        "linux/amd64"
-      ],
-      "producer": {
-        "location": "flake/packages/orchestrator-images.nix",
-        "owner": "JEFF7712/homelab",
-        "pipeline_status": "verified-ci-build-published"
-      },
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "candidate",
-      "source": {
-        "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
-        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11217-46ec2f6f5db2@sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/orchestrator-worker",
-        "tag": "ci-11217-46ec2f6f5db2"
-      }
-    },
-    {
-      "authenticity": {
-        "reason": "no source verification policy is declared for this inventory record",
-        "status": "unsupported"
-      },
-      "consumers": [
-        "gitops/shared-images/registry-sources.yaml:25"
-      ],
-      "destination_repository": "upstream/docker.io/nginxinc/nginx-unprivileged",
-      "destination_tags": [
-        "1.31-alpine",
-        "retention-deployed-b5047b9b76845eac"
-      ],
-      "digest": "sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
-      "id": "upstream-nginxinc-nginx-unprivileged-96e48a5bd5c8",
-      "kind": "upstream",
-      "media_type": "application/vnd.oci.image.index.v1+json",
-      "platforms": [
-        "linux/386",
-        "linux/amd64",
-        "linux/arm/v6",
-        "linux/arm/v7",
-        "linux/arm64",
-        "linux/ppc64le",
-        "linux/riscv64",
-        "linux/s390x",
-        "unknown/unknown"
-      ],
-      "producer": null,
-      "referrers": {
-        "required": [],
-        "source_status": "not-enumerated"
-      },
-      "resolution": {
-        "status": "source-registry-verified"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
-        "reference": "docker.io/nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
-        "registry": "docker.io",
-        "repository": "nginxinc/nginx-unprivileged",
-        "tag": "1.31-alpine"
       }
     }
   ],

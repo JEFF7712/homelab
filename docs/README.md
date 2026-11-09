@@ -39,6 +39,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Node supply](runbooks/node-supply.md)
 - [Matrix releases](runbooks/matrix-release.md)
 - [Orchestrator image release](runbooks/orchestrator-release.md)
+- [Orchestrator rehearsal and gate 4](runbooks/orchestrator-rehearsal.md)
 - [NixOS host deployment](runbooks/nixos-host-deployment.md)
 - [NixOS artifact publication](runbooks/nixos-publication.md)
 - [GitHub release synchronization](runbooks/release-mirror.md)
