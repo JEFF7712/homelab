@@ -378,7 +378,6 @@ def refresh_live_snapshot(root: pathlib.Path) -> dict[str, Any]:
 def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
     root = root.resolve()
     candidates = [root / "gitops", root / "flake"]
-    top_level = [root / ".gitlab-ci.yml"]
     files: list[pathlib.Path] = []
     for candidate in candidates:
         if candidate.exists():
@@ -387,7 +386,6 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
                 for path in candidate.rglob("*")
                 if path.is_file() and path.suffix in {".yaml", ".yml", ".nix", ".json"}
             )
-    files.extend(path for path in top_level if path.is_file())
 
     found: dict[str, dict[str, Any]] = {}
     gaps: list[dict[str, Any]] = []
@@ -566,7 +564,6 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
             "sources": [
                 "gitops",
                 "flake",
-                ".gitlab-ci.yml",
                 "registry/observed-images.json",
             ],
             "exhaustive": False,

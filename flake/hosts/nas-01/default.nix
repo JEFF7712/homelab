@@ -17,7 +17,6 @@
     ../../modules/ledfx-bedroom.nix
     ../../modules/bedroom-bluetooth.nix
     ../../modules/forgejo.nix
-    ../../modules/git-dr-mirror.nix
     ../../modules/nas-s3.nix
     ../../modules/niks3-cache.nix
     ../../modules/tofu-state.nix

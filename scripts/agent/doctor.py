@@ -120,7 +120,7 @@ def run_doctor(root: Path, live: bool = False) -> dict[str, Any]:
                 else f"restore executable {relative} from git",
             }
         )
-    credential_refs = (root / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    credential_refs = (root / "config/ci/operations.json").read_text(encoding="utf-8")
     for name in (
         "OPNSENSE_API_KEY",
         "OPNSENSE_API_SECRET",

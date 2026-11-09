@@ -111,9 +111,3 @@ If only Access state is lost while live Cloudflare resources remain intact,
 the retained import blocks can adopt the original resources again. Inspect the
 inventory first and require the import-only gate. Newly created resources without
 import blocks need their observed IDs added before recovering an empty backend.
-
-For GitLab disaster recovery, provision the protected production variables
-`CLOUDFLARE_ACCESS_PLAN_API_TOKEN` and `CLOUDFLARE_ACCESS_DEPLOY_API_TOKEN` with the
-same separate scopes; the recovery pipeline includes the Access plan and uses
-the same catalog. The NAS backend, TLS verification and exclusive active
-production authority remain required.

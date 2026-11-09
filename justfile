@@ -287,7 +287,7 @@ ship *args:
 # Forgejo PR flow for agents. Requires `tea` login and the dedicated
 # git-agent SSH identity (see docs/runbooks/ci-pipelines.md). Publishing and
 # merging require explicit authorization. Merge only after validation-v2 is
-# green; prefer fast-forward so the Forgejo to GitLab mirror stays clean.
+# green.
 forgejo-pr title target="main":
     tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
 

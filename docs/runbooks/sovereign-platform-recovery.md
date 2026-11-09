@@ -66,8 +66,8 @@ These observations identify recovery inputs; they do not certify a complete set.
 Platform snapshots on NAS and runner have separate timestamps. They are not an
 atomic cross-host checkpoint. Reconcile Forgejo refs, package versions, CI
 records and state fingerprints before selecting an accepted checkpoint.
-The existing Forgejo GitLab failover procedure requires surviving NAS state and
-an external GitLab service; it is not the scenario C bootstrap route.
+The GitLab failover lane was retired on 2026-11-09; it was never the
+scenario C bootstrap route.
 
 ## Circular dependencies and the escape paths
 

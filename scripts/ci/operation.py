@@ -56,25 +56,13 @@ def current_source(
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if head != sha:
         raise ValueError("Operation source must be the current main commit")
-    if environment.get("CI_OPERATION_AUTHORITY") == "gitlab":
-        remote = subprocess.check_output(
-            ["git", "ls-remote", "origin", "refs/heads/main"], text=True
-        ).split()
-        current = remote[0] if remote else ""
-    else:
-        request = urllib.request.Request(
-            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
-            headers={
-                "Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]
-            },
-        )
-        current = json.loads(_fetch(request))["commit"]["id"]
+    request = urllib.request.Request(
+        "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
+        headers={"Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]},
+    )
+    current = json.loads(_fetch(request))["commit"]["id"]
     if current != sha:
-        if (
-            operation
-            and catalog is not None
-            and environment.get("CI_OPERATION_AUTHORITY") != "gitlab"
-        ):
+        if operation and catalog is not None:
             auth = base64.b64encode(
                 (
                     "homelab-ci-source:" + environment["FORGEJO_SOURCE_READ_TOKEN"]
@@ -224,12 +212,6 @@ def run(name: str, catalog: dict[str, Any]) -> None:
                     lambda match: environment[match[1]],
                     value,
                 )
-        if environment.get("CI_OPERATION_AUTHORITY") == "gitlab":
-            role = "deploy" if operation["mutation"] else "plan"
-            environment["TF_HTTP_USERNAME"] = "gitlab-" + role
-            environment["TF_HTTP_PASSWORD"] = environment[
-                "DR_STATE_" + role.upper() + "_PASSWORD"
-            ]
         if "STATE_CA_FILE" in environment:
             environment["TF_HTTP_CLIENT_CA_CERTIFICATE_PEM"] = Path(
                 environment["STATE_CA_FILE"]
