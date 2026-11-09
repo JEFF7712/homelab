@@ -59,6 +59,7 @@ class HomeAssistantTests(unittest.TestCase):
         self.assertEqual(effective_brightness("Spotify", 0.35), 0.7)
         self.assertEqual(effective_brightness("Clock & Weather", 0.35), 0.35)
         self.assertEqual(effective_brightness("Off", 0.35), 0.0)
+        self.assertEqual(effective_brightness("Laptop", 0.35), 0.0)
 
     def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
@@ -1593,6 +1594,15 @@ class HubModeAndRendererTests(unittest.TestCase):
         state_vis = HAState(mode="Visualizer", music_mode=True)
         active_mode = state_vis.mode if state_vis.mode != "Auto" else "LedFx"
         self.assertEqual(active_mode, "Visualizer")
+
+        # 4. When mode is explicitly Laptop -> respects Laptop regardless of music_mode or power
+        state_laptop = HAState(power=True, mode="Laptop", music_mode=True)
+        active_mode = (
+            state_laptop.mode
+            if (state_laptop.power and state_laptop.mode != "Auto")
+            else "Off"
+        )
+        self.assertEqual(active_mode, "Laptop")
 
     def test_ledfx_receiver_audio_packet(self) -> None:
         import struct
