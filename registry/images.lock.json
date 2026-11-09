@@ -95,10 +95,10 @@
       ],
       "destination_repository": "apps/orchestrator",
       "destination_tags": [
-        "ci-11477-55091dfed3fd",
-        "retention-candidate-b97b374e19db8e05"
+        "ci-11600-1334c86d4ef9",
+        "retention-candidate-577b4d78328b9e42"
       ],
-      "digest": "sha256:b97b374e19db8e05cff39e54c734da8d45f29c1abacde7c3bfb1546101082fde",
+      "digest": "sha256:577b4d78328b9e42db8d1ef13974b7f782a886555afe95ebf458642f1d8314a2",
       "id": "first-party-apps-orchestrator",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -119,11 +119,11 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:b97b374e19db8e05cff39e54c734da8d45f29c1abacde7c3bfb1546101082fde",
-        "reference": "registry.rupan.dev/apps/orchestrator:ci-11477-55091dfed3fd@sha256:b97b374e19db8e05cff39e54c734da8d45f29c1abacde7c3bfb1546101082fde",
+        "digest": "sha256:577b4d78328b9e42db8d1ef13974b7f782a886555afe95ebf458642f1d8314a2",
+        "reference": "registry.rupan.dev/apps/orchestrator:ci-11600-1334c86d4ef9@sha256:577b4d78328b9e42db8d1ef13974b7f782a886555afe95ebf458642f1d8314a2",
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator",
-        "tag": "ci-11477-55091dfed3fd"
+        "tag": "ci-11600-1334c86d4ef9"
       }
     },
     {
@@ -136,10 +136,10 @@
       ],
       "destination_repository": "apps/orchestrator-worker",
       "destination_tags": [
-        "ci-11477-55091dfed3fd",
-        "retention-candidate-80f287d408d601e4"
+        "ci-11600-1334c86d4ef9",
+        "retention-candidate-21269bc1fb3e47e6"
       ],
-      "digest": "sha256:80f287d408d601e4b33b90893e0193e3f3cd85b2d6f17a492a66cceb79e8306c",
+      "digest": "sha256:21269bc1fb3e47e64fcb06dbc5154834fe6e40f397e025beb9bf6c2966185446",
       "id": "first-party-apps-orchestrator-worker",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -160,11 +160,11 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:80f287d408d601e4b33b90893e0193e3f3cd85b2d6f17a492a66cceb79e8306c",
-        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11477-55091dfed3fd@sha256:80f287d408d601e4b33b90893e0193e3f3cd85b2d6f17a492a66cceb79e8306c",
+        "digest": "sha256:21269bc1fb3e47e64fcb06dbc5154834fe6e40f397e025beb9bf6c2966185446",
+        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11600-1334c86d4ef9@sha256:21269bc1fb3e47e64fcb06dbc5154834fe6e40f397e025beb9bf6c2966185446",
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator-worker",
-        "tag": "ci-11477-55091dfed3fd"
+        "tag": "ci-11600-1334c86d4ef9"
       }
     },
     {
