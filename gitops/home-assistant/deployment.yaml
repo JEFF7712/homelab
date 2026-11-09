@@ -122,7 +122,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: home-assistant
-          image: registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:21935614df6d9f24f680a1ef749f0570d2d6b7936c606c0a44253ae875865c04  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:078222f9ea47cf47b172a301c2c45a1d2344b9d666827729b71fc3f7d7a57592  # yamllint disable-line rule:line-length
           env:
             - name: TZ
               value: America/Chicago
@@ -176,7 +176,7 @@ spec:
               subPath: secrets.yaml
               readOnly: true
         - name: matter-server
-          image: registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:54232d0d3e7dff5a54759469d2753399270412b4c30c55b31750a4595e4cb236  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:ee149c7c67eff0e90f131e8f0d628f7b099591ec58473c8cda1209e8ae4df66e  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
