@@ -38,7 +38,8 @@ delivery run independently at 20 FPS.
 
 `input_select.bedroom_matrix_mode` controls the display. Physics rotates orbiting particles,
 bouncing particles, wave propagation, harmonic pendulum waves, granular sand dunes,
-and spiral galaxy accretion every 20 seconds. Homelab Dashboards
+spiral galaxy accretion, curl vector flow fields, convective fire, and volcanic
+particle fountains every 20 seconds. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only
 Prometheus queries run in a background thread. The panel shows `DATA OFFLINE`
