@@ -257,7 +257,7 @@ spec:
               mountPath: /state
       containers:
         - name: gameyfin
-          image: registry.rupan.dev/upstream/ghcr.io/gameyfin/gameyfin@sha256:c0c94f348c0cee5a72cf4fbf13b25ea37d2533360d4009a97d2693c17e19c138  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/gameyfin/gameyfin@sha256:af49f9120ac3ee59ea87b461aa75fde86ce8315f65d306d1f44bc0ed6784adcb  # yamllint disable-line rule:line-length
           # The entrypoint starts as root only to gosu to the gameyfin user
           # (1337) before launching the JVM.
           securityContext:
