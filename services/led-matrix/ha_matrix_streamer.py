@@ -242,7 +242,7 @@ def main() -> None:
         "Game of Life": LifeRenderer(),
         "Arcade": multiplayer_renderer,
         "2-Player Arcade": multiplayer_renderer,
-        "Visualizer": visualizer,
+        "Visualizer": ledfx_mode,
         "LedFx": ledfx_mode,
         "Physics": PhysicsRenderer(),
         "Homelab Dashboards": HomelabRenderer(prometheus),
