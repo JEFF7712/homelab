@@ -382,6 +382,10 @@ in
       defaults.email = cfg.acmeEmail;
       certs.${cfg.hostName} = {
         dnsProvider = "cloudflare";
+        # Check propagation against a public resolver: AdGuard rewrites
+        # *.rupan.dev to local addresses, so the local resolver never shows
+        # the challenge TXT and renewal times out.
+        dnsResolver = "1.1.1.1:53";
         credentialFiles.CF_DNS_API_TOKEN_FILE = cfg.cloudflareTokenFile;
         group = "nginx";
       };
