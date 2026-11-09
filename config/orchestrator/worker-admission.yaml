@@ -55,6 +55,7 @@ spec:
       message: worker Jobs use the worker ServiceAccount without a token
     - expression: >-
         has(object.spec.template.metadata.labels) &&
+        "app.kubernetes.io/name" in object.spec.template.metadata.labels &&
         object.spec.template.metadata.labels["app.kubernetes.io/name"] ==
         "orchestrator-worker"
       message: worker pods carry the worker label the network policies select
