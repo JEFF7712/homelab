@@ -22,7 +22,7 @@ items:
   # PostgreSQL 17 (home-assistant/postgres.yaml and its dumps in backups)
   - image: docker.io/library/postgres:17.6-alpine@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be  # yamllint disable-line rule:line-length
   # unprivileged nginx (websites/nix, CI)
-  - image: docker.io/nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6  # yamllint disable-line rule:line-length
+  - image: docker.io/nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e  # yamllint disable-line rule:line-length
   # Nix (config/ci/applications.json, services/voice-supply)
   - image: docker.io/nixos/nix:2.35.2@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
   # Intel GPU device plugin (platform/intel-gpu-plugin)
