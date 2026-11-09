@@ -241,6 +241,8 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
     "promote": (
         "registry-promote-first-party",
         "registry-promote-nix-agent",
+        # One upstream image step per run (scripts/ci/registry_advance.py).
+        "registry-advance",
     ),
     "nightly": (
         "registry-gc-fixture",
