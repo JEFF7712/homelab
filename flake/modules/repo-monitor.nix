@@ -130,6 +130,9 @@ in
         CI_GRACE_SECONDS = toString cfg.ciGraceSeconds;
         CI_STUCK_SECONDS = toString cfg.ciStuckSeconds;
         CI_LOOKBACK_SECONDS = toString cfg.ciLookbackSeconds;
+      }
+      // lib.optionalAttrs config.homelab.approvals.enable {
+        APPROVALS_URL = "http://127.0.0.1:${toString config.homelab.approvals.port}";
       };
       serviceConfig = {
         ExecStart =

@@ -1276,5 +1276,82 @@ class AutonomyMetricsTest(unittest.TestCase):
         self.assertIn("homelab_autonomy_reverts 0", body)
 
 
+class OperatorLoadTest(unittest.TestCase):
+    """Passkey requests the operator had to decide, and how long they waited."""
+
+    NOW = 1_800_000_000.0
+
+    def request(self, kind, state, hours_ago, waited=None):
+        created = self.NOW - hours_ago * 3600
+        return {
+            "kind": kind,
+            "state": state,
+            "created": created,
+            "decided": created + waited * 3600 if waited is not None else None,
+        }
+
+    def test_counts_requests_in_the_window_and_median_approval_wait(self) -> None:
+        requests = [
+            self.request("merge", "approved", 1, waited=0.5),
+            self.request("merge", "approved", 2, waited=1.5),
+            self.request("merge", "superseded", 3),
+            self.request("deploy", "approved", 4, waited=4.0),
+            self.request("grant", "expired", 5),
+            self.request("merge", "approving", 0.1),
+            self.request("merge", "approved", 24 * 8, waited=9),
+            {"kind": "unknown", "state": "approved", "created": self.NOW},
+            {"kind": "merge", "state": "approved"},
+        ]
+        result = rm.operator_load(requests, self.NOW)
+        counts = result["requests"]
+        self.assertEqual(counts[("merge", "approved")], 2)
+        self.assertEqual(counts[("merge", "superseded")], 1)
+        self.assertEqual(counts[("merge", "pending")], 1)
+        self.assertEqual(counts[("deploy", "approved")], 1)
+        self.assertEqual(counts[("grant", "expired")], 1)
+        self.assertEqual(sum(counts.values()), 6)
+        self.assertAlmostEqual(result["wait_hours_median"], 1.5)
+
+    def test_no_approvals_reports_minus_one_and_every_series(self) -> None:
+        result = rm.operator_load([], self.NOW)
+        self.assertEqual(result["wait_hours_median"], -1.0)
+        snapshot = rm.Snapshot(started_at=0.0, finished_at=0.0, success=True)
+        snapshot.operator = result
+        body = rm.render(snapshot, 0.0, 0.0)
+        self.assertIn(
+            'homelab_autonomy_operator_requests{kind="merge",state="approved"} 0', body
+        )
+        self.assertIn("homelab_autonomy_operator_wait_hours_median -1", body)
+        self.assertEqual(body.count("homelab_autonomy_operator_requests{"), 15)
+
+    def test_no_approvals_url_skips_the_summary(self) -> None:
+        self.assertEqual(rm.Settings().approvals_url, "")
+
+
+class OperatorCollectionTest(PatchedNetwork):
+    def collect(self, response):
+        self.net.add(lambda url: url.startswith("http://approvals.test/api/"), response)
+        settings = Settings(retries=0, approvals_url="http://approvals.test")
+        return rm.Collector(settings, (), frozenset()).run()
+
+    def test_reads_the_dashboard_listing(self) -> None:
+        created = time.time() - 3600
+        request = {
+            "kind": "merge",
+            "state": "approved",
+            "created": created,
+            "decided": created + 1800,
+        }
+        snapshot = self.collect(ok({"requests": [request]}))
+        self.assertEqual(snapshot.operator["requests"][("merge", "approved")], 1)
+        self.assertAlmostEqual(snapshot.operator["wait_hours_median"], 0.5)
+
+    def test_dashboard_outage_is_recorded_not_fatal(self) -> None:
+        with mock.patch.object(rm.time, "sleep"):
+            snapshot = self.collect(text(503))
+        self.assertIsNone(snapshot.operator)
+        self.assertIn("approvals", snapshot.errors)
+
+
 if __name__ == "__main__":
     unittest.main()

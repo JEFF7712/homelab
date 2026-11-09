@@ -149,6 +149,13 @@ Thresholds are set declaratively in `flake/hosts/homelab-04/default.nix` (see
 | `homelab_autonomy_merged_prs{actor}` | gauge | Homelab pull requests merged in the last 7 days by who opened them: `agent` (homelab-agent), `automation` (homelab-publisher: promotion, registry-advance), `renovate`, `operator` |
 | `homelab_autonomy_reverts` | gauge | Revert pull requests merged in the last 7 days |
 | `homelab_autonomy_merge_hours_median{actor}` | gauge | Median hours from opening to merge, `-1` when the actor merged nothing |
+| `homelab_autonomy_operator_requests{kind,state}` | gauge | Passkey requests filed on the approvals dashboard in the last 7 days. `kind` is `merge`, `deploy` or `grant`; `state` is `approved`, `declined`, `expired`, `superseded` or `pending` |
+| `homelab_autonomy_operator_wait_hours_median` | gauge | Median hours from filing to passkey approval, `-1` when nothing was approved |
+
+The operator series come from the approvals service's unauthenticated `GET /api/requests`
+on the same host (`APPROVALS_URL`, set when `homelab.approvals` is enabled). It lists the 50
+most recent requests. If the service is unreachable, the run records an `approvals` collection
+error and omits the series; the merge metrics are unaffected.
 
 The Grafana **Autonomy** dashboard (`gitops/observability/grafana/dashboard-autonomy.yaml`)
 combines these with firing alerts and the platform restore drills: the share
