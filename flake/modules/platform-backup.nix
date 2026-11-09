@@ -25,6 +25,11 @@ in
       default = "";
       description = "NAS cluster PVC directory containing the Home Assistant /config volume";
     };
+    couchdbDataPath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "NAS cluster PVC directory containing the CouchDB data volume; the drill opens its restored copy";
+    };
   };
   config = lib.mkIf cfg.enable {
     # homelab-04 and nas-01 write to the same Restic repository.
@@ -35,7 +40,7 @@ in
       unitConfig.RequiresMountsFor =
         "/persist"
         + lib.optionalString (
-          cfg.bookshelfConfigPath != "" || cfg.homeAssistantConfigPath != ""
+          cfg.bookshelfConfigPath != "" || cfg.homeAssistantConfigPath != "" || cfg.couchdbDataPath != ""
         ) " /tank/cluster";
       path = [
         pkgs.restic
@@ -53,7 +58,10 @@ in
           ) " --bookshelf-config ${lib.escapeShellArg cfg.bookshelfConfigPath}"
           + lib.optionalString (
             cfg.homeAssistantConfigPath != ""
-          ) " --home-assistant-config ${lib.escapeShellArg cfg.homeAssistantConfigPath}";
+          ) " --home-assistant-config ${lib.escapeShellArg cfg.homeAssistantConfigPath}"
+          + lib.optionalString (
+            cfg.couchdbDataPath != ""
+          ) " --couchdb-data ${lib.escapeShellArg cfg.couchdbDataPath}";
         EnvironmentFile = config.sops.secrets."platform-backup.env".path;
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
@@ -95,9 +103,10 @@ in
     };
 
     # Weekly proof that both hosts' platform snapshots restore: a bounded
-    # sample (databases and the homelab repository) is restored into scratch
-    # space and verified. node exporter publishes the result for the
-    # RestoreDrill alerts.
+    # sample (databases, the homelab repository and CouchDB) is restored into
+    # scratch space and verified; a throwaway loopback CouchDB opens the
+    # restored copy. node exporter publishes the result for the RestoreDrill
+    # alerts.
     systemd.services.platform-restore-drill = lib.mkIf (config.networking.hostName == "nas-01") {
       description = "Restore and verify a sample of the platform backups";
       after = [ "platform-backup-maintenance.service" ];
@@ -110,7 +119,9 @@ in
       environment.XDG_CACHE_HOME = "/var/cache/platform-backup";
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode drill";
+        ExecStart =
+          "${pkgs.python313}/bin/python -m scripts.ci.platform_backup --host ${config.networking.hostName} --mode drill"
+          + lib.optionalString (cfg.couchdbDataPath != "") " --couchdb ${pkgs.couchdb3}/bin/couchdb";
         EnvironmentFile = config.sops.secrets."platform-backup.env".path;
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
