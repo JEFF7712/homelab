@@ -2908,5 +2908,40 @@
     "mutation": true,
     "prerequisite": "",
     "agent": true
+  },
+  "registry-advance": {
+    "commands": [
+      "python -m scripts.ci.registry_advance"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "agent": true,
+    "prerequisite": ""
   }
 }
