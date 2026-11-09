@@ -1,6 +1,5 @@
 import json
 import pathlib
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -47,9 +46,20 @@ class PromotionTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = pathlib.Path(directory.name)
+        # Start from the real lock and inventory without the orchestrator
+        # records, so the tests model a first publication whether or not one
+        # has been promoted already.
+        self.before: dict[str, dict] = {}
         for name in (LOCK, INVENTORY):
             (self.root / name).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(ROOT / name, self.root / name)
+            document = json.loads((ROOT / name).read_text())
+            document["images"] = [
+                r
+                for r in document["images"]
+                if r["destination_repository"] not in RESERVED_FIRST_PARTY
+            ]
+            self.before[name] = document
+            (self.root / name).write_text(json.dumps(document, indent=2) + "\n")
         subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
 
     def apply(self, patch: str) -> None:
@@ -99,7 +109,7 @@ class PromotionTests(unittest.TestCase):
         )
 
     def test_republishing_updates_records_in_place_and_leaves_others(self) -> None:
-        before = json.loads((ROOT / LOCK).read_text())
+        before = self.before[LOCK]
         self.apply(promotion_patch(self.root, receipts(1)))
         self.apply(promotion_patch(self.root, receipts(5)))
         lock = self.lock()

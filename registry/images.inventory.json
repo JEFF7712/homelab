@@ -3535,6 +3535,58 @@
         "repository": "library/couchdb",
         "tag": "3.5.3"
       }
+    },
+    {
+      "consumers": [
+        "config/orchestrator/images.json:2"
+      ],
+      "destination_repository": "apps/orchestrator",
+      "id": "first-party-apps-orchestrator",
+      "kind": "first-party",
+      "producer": {
+        "location": "flake/packages/orchestrator-images.nix",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-ci-build-published"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+        "reference": "registry.rupan.dev/apps/orchestrator:ci-11217-46ec2f6f5db2@sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/orchestrator",
+        "tag": "ci-11217-46ec2f6f5db2"
+      },
+      "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+      "destination_tags": [
+        "ci-11217-46ec2f6f5db2",
+        "retention-candidate-5bf39f480639c83a"
+      ]
+    },
+    {
+      "consumers": [
+        "config/orchestrator/images.json:3"
+      ],
+      "destination_repository": "apps/orchestrator-worker",
+      "id": "first-party-apps-orchestrator-worker",
+      "kind": "first-party",
+      "producer": {
+        "location": "flake/packages/orchestrator-images.nix",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-ci-build-published"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11217-46ec2f6f5db2@sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/orchestrator-worker",
+        "tag": "ci-11217-46ec2f6f5db2"
+      },
+      "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+      "destination_tags": [
+        "ci-11217-46ec2f6f5db2",
+        "retention-candidate-f51d68ec1063a89f"
+      ]
     }
   ],
   "kind": "registry-inventory",
