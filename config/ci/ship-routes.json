@@ -49,7 +49,7 @@
       "operations": [
         "orchestrator-publish"
       ],
-      "auto": false
+      "auto": true
     },
     {
       "name": "home-assistant",

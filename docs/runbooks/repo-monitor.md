@@ -146,6 +146,15 @@ Thresholds are set declaratively in `flake/hosts/homelab-04/default.nix` (see
 | `repo_ci_stuck{repository}` | gauge | `1` when a validation is past the stuck threshold |
 | `repo_ci_pipeline_age_seconds{repository}` | gauge | Age of the latest validation |
 | `repo_ci_state{repository,state}` | gauge | Exactly one `state` series per repository is `1` (`success`, `failure`, `pending`, `missing`, `none`, `error`) |
+| `homelab_autonomy_merged_prs{actor}` | gauge | Homelab pull requests merged in the last 7 days by who opened them: `agent` (homelab-agent), `automation` (homelab-publisher: promotion, registry-advance), `renovate`, `operator` |
+| `homelab_autonomy_reverts` | gauge | Revert pull requests merged in the last 7 days |
+| `homelab_autonomy_merge_hours_median{actor}` | gauge | Median hours from opening to merge, `-1` when the actor merged nothing |
+
+The Grafana **Autonomy** dashboard (`gitops/observability/grafana/dashboard-autonomy.yaml`)
+combines these with firing alerts and the platform restore drills: the share
+of changes merged without the operator, reverts, merge time by actor, which
+alerts fired this week (recurring ones are candidates for a detector and a
+bounded remediation) and drill freshness.
 
 ## Alerts
 
