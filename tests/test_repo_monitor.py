@@ -64,7 +64,14 @@ class Network:
 
     def __init__(self):
         self.routes = []
-        self.fallbacks = []
+        # The autonomy summary lists merged pulls on every collection; tests
+        # that do not cover it see none.
+        self.fallbacks = [
+            (
+                lambda url: "/pulls?state=closed" in url,
+                HttpResponse(200, {}, "[]"),
+            )
+        ]
         self.calls = []
 
     def add(self, predicate, response):
@@ -1115,6 +1122,8 @@ class EndToEndTests(PatchedNetwork):
                 return text(200, "OK")
             if url.endswith("/rate_limit"):
                 return ok({"resources": {"core": {"remaining": 4999}}})
+            if "/pulls?state=closed" in url:
+                return ok([])
             if "/statuses" in url:
                 return ok(
                     [
@@ -1220,6 +1229,51 @@ def parse_metrics(body: str) -> dict:
             rest = line.split("}", 1)[1].strip()
         samples[(name, labels)] = float(rest)
     return samples
+
+
+class AutonomyMetricsTest(unittest.TestCase):
+    """Merged pull requests by who opened them: the lab's autonomy ratio."""
+
+    NOW = 1_800_000_000.0
+
+    def pull(self, login: str, hours_ago: float, took: float, title: str = "x") -> dict:
+        def stamp(seconds: float) -> str:
+            return datetime.datetime.fromtimestamp(seconds, datetime.UTC).isoformat()
+
+        merged = self.NOW - hours_ago * 3600
+        return {
+            "user": {"login": login},
+            "title": title,
+            "created_at": stamp(merged - took * 3600),
+            "merged_at": stamp(merged),
+        }
+
+    def test_counts_actors_reverts_and_median_merge_time_in_the_window(self) -> None:
+        pulls = [
+            self.pull("homelab-agent", 1, 0.5),
+            self.pull("homelab-agent", 2, 1.5),
+            self.pull("homelab-agent", 3, 2.5, title="Revert x"),
+            self.pull("homelab-publisher", 4, 0.2),
+            self.pull("homelab-renovate", 5, 30),
+            self.pull("JEFF7712", 6, 1),
+            self.pull("homelab-agent", 24 * 8, 1),
+            {"user": {"login": "homelab-agent"}, "merged_at": None},
+        ]
+        result = rm.autonomy(pulls, self.NOW)
+        self.assertEqual(
+            result["merged"],
+            {"agent": 3, "automation": 1, "renovate": 1, "operator": 1},
+        )
+        self.assertEqual(result["reverts"], 1)
+        self.assertAlmostEqual(result["merge_hours_median"]["agent"], 1.5)
+
+    def test_rendered_gauges_carry_the_actor_label(self) -> None:
+        snapshot = rm.Snapshot(started_at=0.0, finished_at=0.0, success=True)
+        snapshot.autonomy = rm.autonomy([self.pull("homelab-agent", 1, 1)], self.NOW)
+        body = rm.render(snapshot, 0.0, 0.0)
+        self.assertIn('homelab_autonomy_merged_prs{actor="agent"} 1', body)
+        self.assertIn('homelab_autonomy_merged_prs{actor="operator"} 0', body)
+        self.assertIn("homelab_autonomy_reverts 0", body)
 
 
 if __name__ == "__main__":
