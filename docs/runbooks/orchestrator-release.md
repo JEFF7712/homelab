@@ -39,8 +39,8 @@ deployment is requested.
    `registry_orchestrator_worker_publisher_auth_file`.
 3. Publish: `just ship --resume <main-sha> --deploy orchestrator-publish`.
    Ship merges the promotion PR it prints.
-4. Set the `orchestrator-images` route in `config/ci/ship-routes.json` to
-   `"auto": true`, so later changes to `scripts/orchestrator/` or the image
+4. The `orchestrator-images` route in `config/ci/ship-routes.json` is
+   `"auto": true` (since 2026-11-08), so changes to `scripts/orchestrator/` or the image
    package publish on merge.
 
 ## Failures
