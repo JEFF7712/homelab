@@ -459,13 +459,43 @@ The first tasks come from operations, not from a supervisor
   every tick, so such names are now a patch rejection that ends the
   attempt. With that fixed, the reviewer's remaining checks are gate 4's
   live ones; gate 3 closes once this fix is merged.
+- **Gate 4 (2026-11-09), passed.** A credential-free rehearsal on homelab-02
+  ([orchestrator-rehearsal.md](../runbooks/orchestrator-rehearsal.md)),
+  images `orchestrator@sha256:577b4d78…` and
+  `orchestrator-worker@sha256:21269bc1…`, then removed:
+  - admission, as the controller's ServiceAccount through the live API
+    server: the worker Job admitted, and 16 variants denied by the rule each
+    breaks (other or init-container image, a credential Secret named like
+    the Job, job Secret beyond `job.json`, controller Secret volume, env from
+    a Secret, other ServiceAccount, token mount, data claim, host network,
+    privilege escalation, no deadline, no limits, image pull Secret, a name
+    that is not an attempt, missing worker label);
+  - credential reach (`kubectl auth can-i` as the controller, 17 checks): no
+    Secret reads, no Pods or CronJobs, no admission or RBAC changes, no
+    impersonation, no reads in `pod-agent` or `kube-system`, no ConfigMaps;
+    pods and logs only in enrolled namespaces;
+  - worker network (`network_probe` in a pod with a worker's identity, 20
+    checks): the providers and the controller resolve; example.com, the
+    forge, the registry, a `.svc` name and the API server are refused; TLS
+    1.3 completes to all four provider hosts; the forge, the API service, a
+    control-plane node and 1.1.1.1 are unreachable; a foreign worker token
+    gets 403;
+  - intake ingress: a pod in `default` reaches neither 8092 nor 8090.
+
+  Found and fixed on the way: the k3s firewall dropped the DNS Cilium
+  redirects to its proxy, so homelab-02 accepts traffic with Cilium's proxy
+  mark; TLS server-name pinning cannot work on this datapath (Envoy's
+  upstream reply is reverse-NATed past its socket), so it is dropped and
+  shared provider IPs are accepted, by operator decision; a missing worker
+  label was denied by a CEL evaluation error rather than its rule, now
+  checked first.
 
 Remaining before a deployment request:
 
 | Priority | Work |
 | --- | --- |
-| P1 | Publish the controller and worker images: operator provisions the two scoped publishers, then `orchestrator-publish` ([orchestrator-release.md](../runbooks/orchestrator-release.md)) |
-| P1 | Credential-free rehearsal on homelab-02 with the rendered manifests, intake and a scripted loopback model |
-| Gate | Gate 3 third review pass; gate 4 negative tests against real pods, including denied Jobs under the admission policy and refused DNS and TLS names; worker credential provisioning |
+| Gate 5 | Operator provisions the credentials in the plan above: the Codex device login on the worker-auth volume, the Claude `setup-token`, the Forgejo `agent-publisher` and `agent-controller` users and the `agent-sandbox` repository, the ntfy publish credential, and the intake tokens |
+| Gate 6 | Live subscription checks once the worker logins exist |
+| Request | A deployment request: bind the rendered manifests into Flux, add the controller as a second Alertmanager receiver and the sentinel's second target, and the restore-drill dataset after the first snapshot |
 | Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key (capped in `config/spend.json` at 10 USD a month), Telegram |
 | Parallel | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs); not blocking |
