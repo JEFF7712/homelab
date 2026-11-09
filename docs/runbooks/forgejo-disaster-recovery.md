@@ -1,25 +1,26 @@
 # Forgejo deployment and disaster recovery
 
 For loss of the NAS and cluster without public services, use the
-[independent platform recovery plan](sovereign-platform-recovery.md). The GitLab
-failover below assumes surviving NAS state and external GitLab access; it does
-not establish independent bootstrap recovery.
+[independent platform recovery plan](sovereign-platform-recovery.md).
+
+There is no second CI forge. Recovery restores Forgejo, Garage state and the
+Woodpecker database from the drilled platform backup. The CI-driven GitHub
+mirror (`sync-to-github`, watched by [repo-monitor](repo-monitor.md)) is the
+off-site copy of source history if the backup itself is lost. The GitLab
+recovery lane was retired on 2026-11-09; its project is an inert historical
+copy that nothing reads from or writes to.
 
 ## Completion boundary
 
 Source checks do not establish live acceptance. Publication, API changes,
 credential provisioning and fleet deployment require shared-infrastructure
-authorization. Drain both schedulers before activation or authority changes.
+authorization. Drain the scheduler before activation or authority changes.
 
 ## Deployment transaction
 
-1. Inspect current Forgejo and GitLab heads and tags. Reconcile divergent
-   GitLab main through a normal merge preserving both histories. Refresh the
-   staged recovery merge in task evidence if either remote advances.
-2. Disable the GitLab maintenance schedule and pause old runners. Delete
-   Forgejo's built-in mirror record. The replacement runs every five minutes,
-   uses normal atomic pushes, verifies refs and rejects divergence.
-3. Provision repository-scoped publisher and Renovate identities. Supply
+1. Inspect current Forgejo heads and tags and confirm repo-monitor reports
+   the GitHub mirror healthy.
+2. Provision repository-scoped publisher and Renovate identities. Supply
    FORGEJO_PUBLISH_TOKEN and FORGEJO_RENOVATE_TOKEN through protected inputs.
    The Renovate token requires `write:repository`, `write:issue`, `read:user`,
    and `read:organization`. Verify authenticated `/api/v1/user` access before
@@ -28,26 +29,24 @@ authorization. Drain both schedulers before activation or authority changes.
    FORGEJO_SOURCE_READ_TOKEN for current-main checks in operation jobs.
    FORGEJO_DASHBOARD_APPROVAL_TOKEN must belong to an authorized human operator,
    scoped to repository reads and issue comments. A bot cannot approve itself.
-4. Provision read-only OPNsense and Cloudflare plan identities and separate
+3. Provision read-only OPNsense and Cloudflare plan identities and separate
    deploy identities. The mode-0600 JSON input to prepare_platform.py needs
    OPNSENSE_PLAN_API_KEY, OPNSENSE_PLAN_API_SECRET, OPNSENSE_DEPLOY_API_KEY,
    OPNSENSE_DEPLOY_API_SECRET, CLOUDFLARE_PLAN_API_TOKEN, and
    CLOUDFLARE_DEPLOY_API_TOKEN plus other catalog-required credentials.
    Missing explicit values fail preparation; never substitute broad write
    credentials into read-only jobs.
-5. Freeze state writers. Run scripts.ci.prepare_platform in the pinned shell
+4. Freeze state writers. Run scripts.ci.prepare_platform in the pinned shell
    with its required --overrides and --output arguments. It reads current
    Garage objects and produces an age-encrypted archive. Compare recorded
    fingerprints against the frozen objects. Import preserves exact bytes,
-   serials and lineages and starts with authority disabled. Old GitLab state
-   objects are historical copies, not current fallback state.
-6. Decrypt only into private temporary storage. Install nas-01/tofu-state
+   serials and lineages and starts with authority disabled.
+5. Decrypt only into private temporary storage. Install nas-01/tofu-state
    contents under /persist/tofu-state, directory mode 0700, owner tofu-state,
-   file mode 0600. Install its CA as state_ca_file in Woodpecker and the
-   matching protected GitLab file variable. Clients verify TLS at
-   https://s3.internal:3902. Rotate the certificate and client CA together
-   before its one-year expiry.
-7. Store the Woodpecker server, per-tier agent and policy (POLICY_API_TOKEN)
+   file mode 0600. Install its CA as state_ca_file in Woodpecker. Clients
+   verify TLS at https://s3.internal:3902. Rotate the certificate and client
+   CA together before its one-year expiry.
+6. Store the Woodpecker server, per-tier agent and policy (POLICY_API_TOKEN)
    environments in secrets/hosts/homelab-04.sops.yaml, and install
    signature-public.pem from the running server's public-key endpoint.
    Put the bundle's homelab-04/woodpecker/clone.env into
@@ -61,45 +60,37 @@ authorization. Drain both schedulers before activation or authority changes.
    Command steps require empty secret image filters. Restrict secrets by event;
    the exclusive signed policy admits secret-bearing jobs only from current
    protected main and gives PRs only secret-free validation.
-8. Verify repository identity before applying
+7. Verify repository identity before applying
    config/ci/woodpecker-repository.json to Woodpecker repository 1. This
    removes trusted permissions and per-repository extension overrides.
    Stage the main maintenance cron in a paused state. Stage
    config/ci/forgejo-protection.json for main, including administrators.
-   Apply protection only after the new validation context is proven in step 12.
-9. Regenerate homelab-values.sops.yaml with scripts.ci.migrate_secrets
+   Apply protection only after the new validation context is proven in step 10.
+8. Regenerate homelab-values.sops.yaml with scripts.ci.migrate_secrets
    --overrides using the new Forgejo credentials. Verify every ExternalSecret
    property is present without printing values. Publish only encrypted data.
-   The helper preserves the existing encrypted values. Use --import-gitlab
-   only for explicit legacy adoption; production-scoped inputs take precedence
-   over wildcard values. Normal secret rotation does not contact GitLab.
-10. Remove the direct GitLab GitOps-write step from the external Obsidian
-    workflow. The task evidence contains the reviewed patch. Preserve image
-    publication and retention; Woodpecker promotion now creates review PRs.
-11. Provision dedicated encrypted offsite Restic storage on NAS and homelab-04.
-    Store platform-backup.env, with RESTIC_REPOSITORY, RESTIC_PASSWORD and
-    provider credentials, in secrets/shared/platform-backup.sops.yaml. Initialize a fresh repository
-    prefix once and preserve recovery inputs in separate encrypted custody.
-    Backup snapshots stage under `/persist/platform-backup`, with private
-    temporary directories removed after each run. The backup service requires
-    `/persist` to be mounted. Keep enough free space there for the CI database
-    and the NAS source snapshots; the small ephemeral root is not staging storage.
-    Store dr-mirror.env, with GITLAB_MIRROR_TOKEN scoped to normal
-    repository writes, in secrets/hosts/nas-01.sops.yaml. GitLab main must permit this mirror's
-    fast-forward replication while remaining protected from other writers.
-12. Cancel queued pipelines compiled under the old CI policy. Deploy reviewed
+   The helper preserves the existing encrypted values. Normal rotation does
+   not contact GitLab; `--import-gitlab` only adopts the remaining legacy
+   seed variables and is slated for removal.
+9. Provision dedicated encrypted offsite Restic storage on NAS and homelab-04.
+   Store platform-backup.env, with RESTIC_REPOSITORY, RESTIC_PASSWORD and
+   provider credentials, in secrets/shared/platform-backup.sops.yaml. Initialize a fresh repository
+   prefix once and preserve recovery inputs in separate encrypted custody.
+   Backup snapshots stage under `/persist/platform-backup`, with private
+   temporary directories removed after each run. The backup service requires
+   `/persist` to be mounted. Keep enough free space there for the CI database
+   and the NAS source snapshots; the small ephemeral root is not staging storage.
+10. Cancel queued pipelines compiled under the old CI policy. Deploy reviewed
     NAS, homelab-04 and AdGuard configurations with fleet preflight while state
     authority remains disabled. Start the sandbox agent first, keeping trusted
     and deploy agents stopped. Publish the encrypted review branch and verify
     validation-v2 on its PR. Apply main protection, then merge normally.
     Flux owns Kubernetes changes. Verify the local ESO store and all
-    ExternalSecrets before retiring GitLab secret access. Remove the unused
-    GitLab ESO Secret and revoke its dedicated project reader token after
-    acceptance. Preserve its encrypted record for migration evidence.
-13. With executors drained, select woodpecker using NAS ci-authority. Start
+    ExternalSecrets.
+11. With executors drained, select woodpecker using NAS ci-authority. Start
     trusted and deploy agents, resume the maintenance cron, and run fresh
     current-main validation, both plans, a harmless manual diagnostic,
-    mirroring, an immediate backup and an isolated restore drill.
+    the GitHub mirror, an immediate backup and an isolated restore drill.
 
 ## Live acceptance
 
@@ -115,58 +106,38 @@ authorization. Drain both schedulers before activation or authority changes.
   Test exact-head Renovate approval through both PR comments and dashboard.
 - Verify all Flux Kustomizations and ExternalSecrets Ready, and actual
   Forgejo webhook delivery. Polling alone does not prove the webhook.
-- Verify the GitLab mirror matches heads and tags after a normal source update.
-  Exercise divergence only against an isolated repository.
+- Verify repo-monitor reports the GitHub mirror healthy after a normal
+  source update.
 - Verify offsite snapshots and actually restore them. A timer or Restic exit
   code alone is not restoration proof.
 
 ## Forgejo outage with NAS available
 
-1. Stop new Woodpecker work and drain operations. Suspend promotion and
-   external writers. Create /persist/forgejo/dr-freeze, then stop
-   git-dr-mirror.timer and git-dr-mirror.service. The persistent marker prevents
-   replication across NixOS activation and reboot until recovery history has
-   returned to Forgejo. Runtime systemd masks do not survive NixOS activation.
-   Record accepted source SHA,
-   state serials, and the latest verified recovery mirror.
-2. Confirm GitLab has that source and the recovery configuration. Register
-   fresh project-locked, tag-only runners: homelab-dr-validation accepts
-   unprotected branches; homelab-dr-operations is protected. Disable shared
-   and obsolete runners. Protect main and production, restricting deployers.
-3. Generate /persist/gitlab-dr/config.toml with scripts.ci.prepare_runner
-   using its two fresh token-file inputs. Keep the output root-owned mode
-   0600. Deploy homelab-04-dr and verify all Woodpecker agents stopped.
-4. Set GitLab's CI config path to config/ci/gitlab-dr.yml and CI_DR_ACTIVE=1.
-   Scope all provider, SSH, registry, state and publication variables to
-   protected production. Validation must receive no production secrets.
-   The helper maps catalog secret names to uppercase GitLab variable names;
-   file variables use GitLab file type. Use DR_STATE_PLAN_PASSWORD and
-   DR_STATE_DEPLOY_PASSWORD from the bundle and GITLAB_PUBLISH_TOKEN for
-   recovery merge-request publication. Never use stale legacy state.
-5. Select gitlab with NAS ci-authority. Active OpenTofu locks prevent the
-   switch. Drain non-OpenTofu operations first as well. Old credentials can
-   no longer lock, write state, upload artifacts or obtain operation permits.
-6. Run fresh validation and the two automatic production plan jobs. They save
-   both plans under this pipeline ID. Set CI_OPERATION to a catalog key when
-   creating the recovery pipeline, then play its protected manual operate job.
-   Set the project pipeline variable override minimum role to Owner;
-   disallowing all overrides blocks this operation selector. Do not rely on
-   retrying an already played job to replace its variables. Apply consumes the corresponding
-   saved plan from this pipeline. Promotion creates a GitLab MR rather than
-   writing main.
-7. Explicitly change the Flux GitRepository URL to the recovery GitLab SSH
-   remote and install matching known_hosts/private-key authentication through
-   recovery source. Preserve the original object and encrypted credentials.
-   Verify artifact SHA and every dependent Kustomization. The gitlab-push
-   receiver alone does not change the source.
+Existing workloads keep running; Flux serves its last fetched artifact and new
+reconciliations wait for the source. Do not point the Flux GitRepository at
+GitHub: the GitHub branch carries GitHub-only commits and sits behind no
+deploy gate.
 
-Existing workloads keep running during the outage; new reconciliations need
-an accessible source. Pause Renovate while recovering, since its platform is
-Forgejo. Operator-reviewed GitLab changes retain validation and manual operations.
+1. Stop new Woodpecker work, drain operations, and pause Renovate and
+   promotion. Record the accepted source SHA and state serials.
+2. Diagnose Forgejo with `just diag forgejo` and repair it in place. If its
+   data is damaged, restore Forgejo data from the latest verified platform
+   snapshot as below, leaving Garage and Woodpecker alone unless they are
+   damaged too.
+3. If the snapshot lacks commits that reached main afterwards, recover them
+   from the GitHub mirror. `scripts/ci/mirror.sh` pushes the Forgejo head plus
+   one "Automated: Add GitHub Mirror Warning" commit on top, sometimes
+   wrapped in an "Automated: Preserve public mirror history" merge. Fetch
+   GitHub main into a scratch clone and follow first parents past those
+   automated commits to reach the last mirrored Forgejo head. Push that commit
+   to Forgejo main as a fast-forward. Never push the automated GitHub-only
+   commits to Forgejo.
+4. Verify Flux readiness, webhook delivery, fresh validation and the GitHub
+   mirror before resuming Woodpecker, Renovate and promotion.
 
 ## NAS or state-service loss
 
-Freeze both schedulers. Never initialize a second empty backend. Restore the
+Freeze the scheduler. Never initialize a second empty backend. Restore the
 offsite snapshot into staging. Verify SQLite integrity, state lineages, serials
 and resource identities before installing authoritative data. Restore Forgejo
 data with its repositories, Garage metadata with object data, and Woodpecker
@@ -174,21 +145,13 @@ database with credential files. Re-create datasets and verify exact mounts.
 
 Backups run hourly with up to five minutes of delay. The recovery point is the
 last verified snapshot. Later writes require reconciliation against actual
-resources. Local state versions and Git mirrors alone cannot survive NAS loss.
+resources. Local state versions alone cannot survive NAS loss; the GitHub
+mirror covers source history only.
 
 For an isolated drill, restore into a mode-0700 directory. Run SQLite integrity
 checks, compare state bytes and lineages to recorded fingerprints, inspect Git
 refs and git fsck, and verify representative Garage objects against restored
 metadata. Start services with test ports and credentials. Never connect the
-restored scheduler to production during the drill.
-
-## Returning to Forgejo
-
-Drain GitLab, set CI_DR_ACTIVE=0 and pause recovery runners. Merge recovery
-history normally into Forgejo, preserving both main tips. With both schedulers
-stopped, select woodpecker and deploy normal homelab-04. Restore the Forgejo
-Flux URL and auth Secret. Verify fresh validation, new plans, Flux readiness,
-webhook delivery and replication before resuming timers. Remove
-/persist/forgejo/dr-freeze only after Forgejo main contains the GitLab recovery
-tip, then perform its
-first verified fast-forward mirror before resuming the timer. No force push.
+restored scheduler to production during the drill. The scheduled nas-01 drill
+(`platform_backup --mode drill`) does this automatically and publishes its
+result to Prometheus.

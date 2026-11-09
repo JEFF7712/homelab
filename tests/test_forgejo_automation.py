@@ -5,7 +5,6 @@ import json
 import os
 import subprocess
 import tempfile
-import tomllib
 import unittest
 from contextlib import chdir
 from pathlib import Path
@@ -13,8 +12,7 @@ from unittest.mock import Mock, patch
 
 import yaml
 
-from scripts.ci import gitlab_operation, promote_commit
-from scripts.ci.prepare_runner import configuration
+from scripts.ci import promote_commit
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
@@ -126,13 +124,13 @@ class AutomationTest(unittest.TestCase):
                 {"context": "policy/merge", "status": "failure", "updated_at": "1"},
             ]
         }
-        with patch.object(
-            promote_commit, "_api", side_effect=[{}, pull, pull, statuses]
+        with (
+            patch.object(
+                promote_commit, "_api", side_effect=[{}, pull, pull, statuses]
+            ),
+            self.assertRaisesRegex(ValueError, "Required homelab validation failed"),
         ):
-            with self.assertRaisesRegex(
-                ValueError, "Required homelab validation failed"
-            ):
-                promote_commit._auto_merge_pull("fixture-token", pull)
+            promote_commit._auto_merge_pull("fixture-token", pull)
 
     def test_auto_merge_rejects_a_failed_required_status(self) -> None:
         pull = {
@@ -268,89 +266,49 @@ class AutomationTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "unrelated lock policy"):
                     promote_commit._assert_nix_agent_only(changed)
 
-    def test_promotions_use_review_branches_and_correct_forge_credentials(self) -> None:
-        for recovery in [False, True]:
-            with tempfile.TemporaryDirectory() as directory, chdir(directory):
-                path = Path("registry/images.lock.json")
-                path.parent.mkdir()
-                path.write_text("{}")
-                response = {"web_url": "review", "html_url": "review"}
-                environment = {
-                    "CI_COMMIT_SHA": SHA,
-                    "CI_OPERATION_AUTHORITY": "gitlab" if recovery else "woodpecker",
-                    "GITLAB_PUBLISH_TOKEN": "gitlab-fixture",
-                    "FORGEJO_PUBLISH_TOKEN": "forgejo-fixture",
-                }
-                with (
-                    patch.dict(os.environ, environment, clear=True),
-                    patch.object(promote_commit, "current_source"),
-                    patch.object(
-                        promote_commit.subprocess,
-                        "check_output",
-                        return_value=str(path) + "\n",
-                    ),
-                    patch.object(promote_commit.subprocess, "run") as git,
-                    patch.object(
-                        promote_commit.urllib.request,
-                        "urlopen",
-                        side_effect=[
-                            io.BytesIO(b"[]"),
-                            io.BytesIO(json.dumps(response).encode()),
-                        ],
-                    ) as api,
-                ):
-                    promote_commit.main()
-                pushes = [call for call in git.call_args_list if "push" in call.args[0]]
-                self.assertEqual(len(pushes), 1)
-                command = pushes[0].args[0]
-                self.assertTrue(
-                    command[-1].startswith("HEAD:refs/heads/registry-promotion/")
-                )
-                self.assertFalse(any("--force" in word for word in command))
-                self.assertEqual(
-                    pushes[0].kwargs["env"]["CI_PUBLISH_USERNAME"],
-                    "oauth2" if recovery else "homelab-publisher",
-                )
-                request = api.call_args_list[-1].args[0]
-                body = json.loads(request.data)
-                self.assertEqual(body["target_branch" if recovery else "base"], "main")
-                self.assertIn(
-                    "gitlab.com" if recovery else "git.rupan.dev", request.full_url
-                )
-
-    def test_gitlab_maps_role_secrets_and_file_variables(self) -> None:
-        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
-        operation = catalog["cloudflare-plan"]
-        with tempfile.TemporaryDirectory() as directory:
-            ca = Path(directory) / "ca"
-            ca.write_text("ca-fixture")
+    def test_promotions_use_review_branches_and_forgejo_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, chdir(directory):
+            path = Path("registry/images.lock.json")
+            path.parent.mkdir()
+            path.write_text("{}")
+            response = {"html_url": "review"}
             environment = {
-                value["from_secret"].upper(): "secret-fixture"
-                for value in operation["environment"].values()
-                if isinstance(value, dict)
+                "CI_COMMIT_SHA": SHA,
+                "CI_OPERATION_AUTHORITY": "woodpecker",
+                "FORGEJO_PUBLISH_TOKEN": "forgejo-fixture",
             }
-            environment.update(
-                CI_OPERATION="cloudflare-plan",
-                CI_PIPELINE_ID="19",
-                STATE_CA_FILE=str(ca),
-                DR_STATE_PLAN_PASSWORD="dr-plan-fixture",
-                CLOUDFLARE_PLAN_API_TOKEN="plan-provider-fixture",
-            )
-            captured = {}
             with (
                 patch.dict(os.environ, environment, clear=True),
+                patch.object(promote_commit, "current_source"),
                 patch.object(
-                    gitlab_operation,
-                    "run",
-                    side_effect=lambda *args: captured.update(os.environ),
+                    promote_commit.subprocess,
+                    "check_output",
+                    return_value=str(path) + "\n",
                 ),
+                patch.object(promote_commit.subprocess, "run") as git,
+                patch.object(
+                    promote_commit.urllib.request,
+                    "urlopen",
+                    side_effect=[
+                        io.BytesIO(b"[]"),
+                        io.BytesIO(json.dumps(response).encode()),
+                    ],
+                ) as api,
             ):
-                gitlab_operation.main()
-            self.assertEqual(captured["CLOUDFLARE_API_TOKEN"], "plan-provider-fixture")
-            self.assertEqual(captured["STATE_CA_FILE"], "ca-fixture")
-            self.assertEqual(captured["TF_HTTP_USERNAME"], "gitlab-plan")
-            self.assertEqual(captured["TF_HTTP_PASSWORD"], "dr-plan-fixture")
-            self.assertEqual(captured["CI_OPERATION_PARENT"], "19")
+                promote_commit.main()
+            pushes = [call for call in git.call_args_list if "push" in call.args[0]]
+            self.assertEqual(len(pushes), 1)
+            command = pushes[0].args[0]
+            self.assertTrue(
+                command[-1].startswith("HEAD:refs/heads/registry-promotion/")
+            )
+            self.assertFalse(any("--force" in word for word in command))
+            self.assertEqual(
+                pushes[0].kwargs["env"]["CI_PUBLISH_USERNAME"], "homelab-publisher"
+            )
+            request = api.call_args_list[-1].args[0]
+            self.assertEqual(json.loads(request.data)["base"], "main")
+            self.assertIn("git.rupan.dev", request.full_url)
 
     def test_dashboard_preserves_ui_and_binds_approval_to_validated_head(self) -> None:
         scope = embedded("forgejo-dashboard-script.yaml", "dashboard.py")
@@ -418,20 +376,6 @@ class AutomationTest(unittest.TestCase):
                 self.assertEqual(merges[0].args[2]["head_commit_id"], SHA)
             receipt = json.loads(scope["patch_state"].call_args.args[1])
             self.assertEqual(receipt["approval"]["approved"], expected)
-
-    def test_dr_runners_have_separate_tokens_and_no_host_mounts(self) -> None:
-        config = tomllib.loads(
-            configuration("validation-fixture", "operations-fixture")
-        )
-        self.assertEqual(config["concurrent"], 2)
-        for runner in config["runners"]:
-            self.assertEqual(runner["executor"], "docker")
-            self.assertFalse(runner["docker"]["privileged"])
-            self.assertEqual(runner["docker"]["volumes"], [])
-        with self.assertRaises(ValueError):
-            configuration("same", "same")
-        with self.assertRaises(ValueError):
-            configuration("", "operations")
 
     def test_forgejo_https_configuration_contract(self) -> None:
         forgejo_nix = (ROOT / "flake/modules/forgejo.nix").read_text()

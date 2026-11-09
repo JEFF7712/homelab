@@ -51,8 +51,10 @@ class AgentStatusTest(unittest.TestCase):
                     }
                 )
             )
-            (root / ".gitlab-ci.yml").write_text(
-                'OPNSENSE_URI: "https://OPNsense.internal"\n'
+            (root / "config/ci").mkdir(parents=True)
+            (root / "config/ci/operations.json").write_text(
+                '{"opnsense-plan": {"environment": '
+                '{"OPNSENSE_URI": "https://OPNsense.internal"}}}\n'
             )
             targets = configured_targets(root)
             self.assertEqual(targets["cluster_api"], "https://10.0.30.21:6443")

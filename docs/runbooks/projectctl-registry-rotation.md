@@ -202,6 +202,5 @@ cutovers. Never replay an older complete account file after another identity has
 rotated. Discover the current account file, preserve unrelated entries, and use
 checked hash preconditions for every replacement.
 
-Any retained GitLab DR importer credential must be synchronized before DR use.
-The legacy pipeline is DR-only. Its live activation state and retained credential
-values were not inspected or changed during this rotation.
+The GitLab DR pipeline that held a copy of the importer credential was
+retired on 2026-11-09; no copy needs synchronizing.

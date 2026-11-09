@@ -252,10 +252,6 @@ class NixContractTests(unittest.TestCase):
             "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
         )
 
-    def test_ci_checks_new_service(self) -> None:
-        pipeline = (REPO_ROOT / ".gitlab-ci.yml").read_text()
-        self.assertIn("ledfx-roku-bridge", pipeline)
-
     def test_bedroom_bulbs_excluded_from_recorder(self) -> None:
         core = (
             REPO_ROOT / "home-assistant" / "core" / "configuration.yaml"

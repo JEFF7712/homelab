@@ -107,16 +107,9 @@ def main() -> None:
     source.update(json.loads(args.overrides.read_text()))
     catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
     cert, key = certificate()
-    passwords = {
-        name: secrets.token_urlsafe(48)
-        for name in ["plan", "deploy", "gitlab-plan", "gitlab-deploy"]
-    }
+    passwords = {name: secrets.token_urlsafe(48) for name in ["plan", "deploy"]}
     credentials = {
-        name: {
-            "password": password,
-            "role": name.removeprefix("gitlab-"),
-            "authority": "gitlab" if name.startswith("gitlab-") else "woodpecker",
-        }
+        name: {"password": password, "role": name, "authority": "woodpecker"}
         for name, password in passwords.items()
     }
     available = {key.lower(): value for key, value in source.items()}
@@ -189,12 +182,6 @@ def main() -> None:
                     }
                     for name in sorted(required)
                 ]
-            ).encode(),
-            "gitlab-state-passwords.json": json.dumps(
-                {
-                    "DR_STATE_PLAN_PASSWORD": passwords["gitlab-plan"],
-                    "DR_STATE_DEPLOY_PASSWORD": passwords["gitlab-deploy"],
-                }
             ).encode(),
             "state-fingerprints.json": json.dumps(fingerprints).encode(),
         }

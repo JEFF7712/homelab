@@ -51,7 +51,7 @@ Keep the restic password outside the backup repository as encrypted recovery mat
 
 The Woodpecker operation catalog (`config/ci/operations.json`) maps environment
 variables to protected secrets and lists `file_secrets`. Use the exact operation
-entry; GitLab variables apply only to explicit disaster recovery. Common inputs:
+entry. Common inputs:
 
 | Variable | Scope |
 | --- | --- |
@@ -173,9 +173,7 @@ and then fail to pull the new one (Home Assistant, 2026-10-27).
 ### CI bootstrap image
 
 Normal Woodpecker validation and operation images are fixed by the deployed
-policy and use the local registry. The legacy `.gitlab-ci.yml` retains a
-Docker Hub bootstrap exception for the explicit disaster-recovery lane.
-Kubernetes workloads must use locked local references unless the registry
+policy and use the local registry. Kubernetes workloads must use locked local references unless the registry
 policy records an explicit exception.
 
 ### CloudNativePG operator and PostgreSQL cluster images
@@ -252,9 +250,7 @@ copies and verifies only the candidate's upstream records under the serialized
 content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
 Git commit only after that operation succeeds. Registry operations run on
-Woodpecker in the normal path; the like-named GitLab jobs in the legacy
-`.gitlab-ci.yml` are retained only for the disaster-recovery lane and are
-not a scheduler for ordinary work (see docs/runbooks/ci-pipelines.md).
+Woodpecker (see docs/runbooks/ci-pipelines.md).
 
 The CI lock gate validates the lock before inspecting the live cluster. A
 rollout can briefly leave old pods running after the new digest is committed,
@@ -287,7 +283,7 @@ Key rules:
 - **Flavor preservation:** An image on `1.27-alpine` will only select candidates with the `-alpine` suffix (e.g., `1.28-alpine`), never cross-upgrading to `-debian` or unsuffixed variants.
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
-- **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, and `dockerfile` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
 - **No mirror lookups:** Renovate skips every `registry.rupan.dev/**` reference. Mirror tags never repoint (below), so a lookup could never find a newer digest, and Renovate holds no registry credential. An image is tracked only through its tagged upstream declaration in a `registry-sources.yaml` or `base-images.yaml`; images used across several areas are declared in `gitops/shared-images/registry-sources.yaml`. A pin whose upstream tag has since moved is declared under that tag with the pinned digest, so Renovate proposes the current build. Its lock record carries only the retention tag, because the digest is already mirrored and the floating tag may already point elsewhere. LinuxServer images use regex versioning in `renovate.json`, because docker versioning never moves past their `-lsN` suffix. PostgreSQL majors are disabled, including the CNPG `postgresql` and `cloudnative-vectorchord` images.
 - **Declaration bumps carry their lock records:** a Renovate bump to a declaration file runs `python3 -m scripts.registry.declarations` as a post-upgrade task. It resolves each newly declared reference from its upstream registry and appends its inventory and lock records to the same branch, leaving every existing record in place, and omits a destination tag the mirror already holds on another digest. Without this, a bump fails the registry check ("consumer is not an exact locked local digest"), and declaration PRs piled up unmerged. Merging such a PR mirrors the image through the main push's `registry-lock-import`; moving the workload to the new mirror digest is still a separate change, made after that import succeeds. Run the same command locally after editing a declaration by hand.
 - **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
@@ -442,8 +438,7 @@ scheduler. For the current scheduler, inspect `config/ci/operations.json` and
 read-only work also shares the bounded schedule group.
 
 Every ordinary Woodpecker operation requires successful `validation-v2` for its
-source and the catalog's declared prerequisite; stage names and GitLab `needs`
-are not the normal execution contract. `registry-lock-import` runs on
+source and the catalog's declared prerequisite. `registry-lock-import` runs on
 lock/inventory-changing main pushes and maintenance to restore the committed
 lock. `registry-update-import` is an explicitly selected candidate import.
 Drift checks notify and fail their own workflow; they do not replace source
@@ -493,7 +488,7 @@ python -m scripts.registry promote --lock registry/images.lock.json --inventory 
 
 The maintenance promotion uses the catalog's scoped Forgejo publication
 credential and `scripts/ci/promote_commit.py` to open and merge a promotion PR
-through required checks. It does not need a GitLab push token. The separate
+through required checks. The separate
 `registry-promote-nix-agent` operation owns the nix-agent promotion exception.
 
 ## Producer ownership

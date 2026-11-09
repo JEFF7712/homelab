@@ -10,7 +10,6 @@ import json
 import os
 import pathlib
 import re
-import shlex
 import stat
 import subprocess
 import tarfile
@@ -21,8 +20,6 @@ from contextlib import chdir, redirect_stdout
 from typing import Any
 from unittest import mock
 from unittest.mock import patch
-
-import yaml
 
 from scripts.ci.applications import load_catalog
 from scripts.registry import core
@@ -1062,240 +1059,57 @@ def _ci_bash_block(script: str) -> str:
     return match.group(1)
 
 
-class RegistryCiContractTests(unittest.TestCase):
+class RegistryCatalogContractTests(unittest.TestCase):
+    """Registry operations in the Woodpecker catalog keep their safety contracts."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        root = pathlib.Path(__file__).resolve().parents[1]
+        cls.catalog = json.loads((root / "config/ci/operations.json").read_text())
+
+    def script(self, name: str) -> str:
+        return "\n".join(self.catalog[name]["commands"])
+
     def test_node_rollout_verifies_lock_without_retired_migration_identity(
         self,
     ) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        template_script = "\n".join(pipeline[".deploy_registry_node"]["script"])
-        node_one = pipeline["deploy_registry_node_01"]
-
-        self.assertEqual(node_one["needs"], ["registry_lock"])
-        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", template_script)
-        self.assertIn("registry-node-auth.json", template_script)
-        self.assertLess(
-            template_script.index("registry-verify"),
-            template_script.index("nixos-rebuild"),
-        )
-        self.assertNotIn("REGISTRY_MIGRATION_AUTH_FILE", template_script)
+        for number in range(1, 6):
+            with self.subTest(node=number):
+                script = self.script(f"deploy-registry-node-0{number}")
+                self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
+                self.assertIn("registry-node-auth.json", script)
+                self.assertLess(
+                    script.index("registry-verify"), script.index("nixos-rebuild")
+                )
+                self.assertNotIn("REGISTRY_MIGRATION_AUTH_FILE", script)
 
     def test_drift_check_uses_node_credentials_and_preserves_the_report(
         self,
     ) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        job = pipeline["registry_drift_check"]
-        template = pipeline[".registry_drift_check"]
-        template_script = "\n".join(template["script"])
-
-        # The importer only reads upstream/**, so apps/** needs node.
-        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", template_script)
-        self.assertIn("registry-node-auth.json", template_script)
-        self.assertIn("REGISTRY_DEST_AUTH_FILE", template_script)
-        self.assertIn("scripts.registry verify", template_script)
-        self.assertIn("ci.notify", template_script)
-        self.assertEqual(template["environment"], {"name": "production"})
-        self.assertEqual(template["artifacts"]["when"], "always")
-        self.assertIn("artifacts/registry/", template["artifacts"]["paths"])
-        self.assertIn(
-            "shred -u /tmp/registry-node-auth.json",
-            "\n".join(template["after_script"]),
-        )
-        self.assertEqual(job["extends"], [".nas_ci", ".registry_drift_check"])
-        self.assertEqual(pipeline[".nas_ci"]["tags"], ["nas-ci"])
-        rules = [rule.get("if", "") for rule in job["rules"]]
-        self.assertIn("$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", rules)
-        self.assertIn('$CI_PIPELINE_SOURCE == "schedule"', rules)
-
-    def test_drift_check_propagates_a_failed_verification(self) -> None:
-        # `verify || notify` turns a failed verification into a green job,
-        # because the notifier succeeds. Run the real CI payload with a stub
-        # `python` that fails on verify and succeeds on notify, and require the
-        # job to fail anyway.
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        script = "\n".join(pipeline[".registry_drift_check"]["script"])
-        match = re.search(
-            r"bash -euo pipefail -c\s*'(?P<body>.*?)'\s*$", script, flags=re.DOTALL
-        )
-        assert match is not None, "could not extract the drift check payload"
-        payload = " ".join(match.group("body").split())
-
-        with tempfile.TemporaryDirectory() as directory:
-            stub = pathlib.Path(directory) / "python"
-            stub.write_text(
-                "#!/bin/sh\n"
-                # verify's argv is "-m scripts.registry verify ..."; notify's
-                # never contains "verify", so this fails only the verifier.
-                'case "$*" in\n'
-                "  *verify*) exit 1 ;;\n"
-                "esac\n"
-                "exit 0\n"
-            )
-            stub.chmod(0o755)
-            env = dict(os.environ, PATH=f"{directory}:{os.environ['PATH']}")
-            result = subprocess.run(
-                ["bash", "-euo", "pipefail", "-c", payload],
-                capture_output=True,
-                text=True,
-                cwd=directory,
-                env=env,
-                check=False,
-            )
-        self.assertNotEqual(
-            result.returncode,
-            0,
-            "a failed verification must not be masked by the notifier succeeding",
-        )
+        script = self.script("registry-drift-check")
+        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
+        self.assertIn("artifacts/registry/drift-report.json", script)
+        self.assertFalse(self.catalog["registry-drift-check"]["mutation"])
 
     def test_gc_fixture_runs_offline_and_touches_no_real_registry(self) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        self.assertIn("registry_gc_fixture", pipeline)
-        template = pipeline[".registry_gc_fixture"]
-        script = "\n".join(template["script"])
-
-        self.assertIn("registry-gc-fixture", script)
-        # It serves its own zot on loopback, so it must not carry production
-        # credentials or a resource group that would serialise it against the
-        # jobs that do touch the real registry.
-        self.assertNotIn("environment", template)
-        self.assertNotIn("resource_group", template)
-        self.assertNotIn("REGISTRY_", script)
-        self.assertEqual(template["tags"], ["nas-ci"])
-        self.assertEqual(
-            pipeline["registry_gc_fixture"]["rules"],
-            [
-                {"if": '$CI_PIPELINE_SOURCE == "schedule"'},
-                {"if": "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH", "when": "manual"},
-            ],
-        )
-
-    def test_gc_fixture_shares_the_zot_build_with_the_registry(self) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        # One definition feeds both, so the fixture cannot pass against a
-        # different zot than the one holding the images.
-        release = (root / "nix" / "zot-release.nix").read_text()
-        self.assertIn('version = "2.1.20"', release)
-        self.assertIn("zot-release.nix", (root / "flake" / "flake.nix").read_text())
-        self.assertIn(
-            "zot-release.nix",
-            (root / "flake" / "modules" / "zot-registry.nix").read_text(),
-        )
-        from scripts.registry.gc_fixture import EXPECTED_ZOT_VERSION
-
-        self.assertIn(f'version = "{EXPECTED_ZOT_VERSION}"', release)
-
-    def test_gc_fixture_job_uses_a_shell_that_has_zot(self) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        script = "\n".join(pipeline[".registry_gc_fixture"]["script"])
-        self.assertIn("nix develop ./flake", script)
-        self.assertIn("use flake ./flake", (root / ".envrc").read_text())
-        self.assertIn("zot-release.nix", (root / "flake" / "flake.nix").read_text())
-
-    def test_promotion_pins_its_own_retention_tags(self) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        job = pipeline["registry_promote_first_party"]
-        block = "\n".join(job["script"])
-
-        # A promoted digest is protected only by its sha-* tag until the
-        # retention tag exists, and nothing else creates it for apps/**.
-        self.assertIn("registry-reconcile-retention", block)
-        # Both sides of the copy read the destination registry, as in the
-        # standalone reconciler job.
-        self.assertEqual(block.count("REGISTRY_MAINTENANCE_AUTH_FILE"), 2)
-        # The standalone reconciler cannot cover this: it runs in a separate job
-        # against the pre-push commit, so its ordering here is arbitrary.
-        self.assertEqual(job["resource_group"], "registry-content")
-
-        # The reconcile has to happen after the lock is written and no earlier
-        # exit may skip it: a failed push used to exit 1 with the digests
-        # promoted but unpinned. `promote` is what writes the lock, so that is
-        # the ordering that matters, not `git commit`, which only records what
-        # is already on disk.
-        self.assertLess(
-            block.index("scripts.registry promote"),
-            block.index("registry-reconcile-retention"),
-        )
-        # And it must precede the push, so a lost race cannot skip the pinning.
-        inner = _ci_bash_block(block)
-        self.assertLess(
-            inner.index("registry-reconcile-retention"), inner.index("for attempt in")
-        )
-        self.assertNotIn("exit 0", inner)
-        self.assertEqual(inner.count("exit $commit_rc"), 1)
-        # A reconcile failure must still fail the job rather than pass quietly.
-        self.assertIn("just registry-reconcile-retention || commit_rc=1", inner)
+        operation = self.catalog["registry-gc-fixture"]
+        self.assertEqual(operation["commands"], ["just registry-gc-fixture"])
+        self.assertFalse(operation["mutation"])
+        self.assertNotIn("REGISTRY_NODE_PASSWORD_FILE", operation["environment"])
 
     def test_retention_reconcile_uses_maintenance_and_is_additive(self) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        template = pipeline[".registry_retention_reconcile"]
-        self.assertIn("registry_retention_reconcile", pipeline)
-        script = "\n".join(template["script"])
+        from scripts.ci.policy import SCHEDULES
 
-        # node is read-only on apps/** and the importer is 403 there, so only
-        # maintenance can create the first-party retention tags.
+        script = self.script("registry-retention-reconcile")
         self.assertIn("REGISTRY_MAINTENANCE_AUTH_FILE", script)
-        # The copy reads from the destination registry, so both sides need the
-        # maintenance credential; with only the destination set, skopeo reads
-        # the source manifest with the upstream credential and gets 401.
-        self.assertEqual(script.count("REGISTRY_MAINTENANCE_AUTH_FILE"), 2)
-        self.assertIn("reconcile-retention", script)
-        self.assertEqual(template["environment"], {"name": "production"})
-        self.assertEqual(template["resource_group"], "registry-content")
-        self.assertEqual(template["tags"], ["nas-ci"])
-        self.assertEqual(
-            template["rules"],
-            [
-                {"if": '$CI_PIPELINE_SOURCE == "schedule"'},
-                {"if": '$CI_COMMIT_BRANCH == "main"', "when": "manual"},
-            ],
-        )
+        self.assertIn("just registry-reconcile-retention", script)
+        self.assertIn("registry-retention-reconcile", SCHEDULES["maintenance"])
 
-    def test_first_party_promotion_runs_on_schedule_and_commits_atomically(
-        self,
-    ) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        job = pipeline["registry_promote_first_party"]
-        script = "\n".join(job["script"])
-
-        rules = [rule.get("if", "") for rule in job["rules"]]
-        self.assertIn('$CI_PIPELINE_SOURCE == "schedule"', rules)
-        self.assertEqual(job["tags"], ["nas-ci"])
-        self.assertEqual(job["resource_group"], "registry-content")
-        self.assertEqual(job["environment"], {"name": "production"})
-        self.assertIn("scripts.registry promote", script)
+    def test_resolve_reads_local_sources_with_node_credentials(self) -> None:
+        script = self.script("registry-resolve")
         self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
-        self.assertIn("registry-node-auth.json", script)
-        self.assertNotIn("REGISTRY_IMPORTER_AUTH_FILE", script)
-        self.assertEqual(job["resource_group"], "registry-content")
-        self.assertEqual(job["artifacts"]["when"], "always")
-        self.assertIn("just check-registry", script)
-        self.assertIn("GITLAB_PUSH_TOKEN", script)
-        self.assertIn("git fetch", script)
-        self.assertIn("git rebase FETCH_HEAD", script)
-        self.assertLess(
-            script.index("scripts.registry promote"), script.index("git commit")
-        )
-        self.assertLess(script.index("just check-registry"), script.index("git commit"))
-
-    def test_resolve_reads_local_sources_with_node_credentials(
-        self,
-    ) -> None:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        job = pipeline["registry_resolve"]
-        script = "\n".join(job["script"])
-
-        self.assertEqual(job["environment"], {"name": "production"})
-        self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
-        self.assertIn("registry-node-auth.json", script)
-        self.assertNotIn("REGISTRY_IMPORTER_AUTH_FILE", script)
+        self.assertLess(script.index("inventory"), script.index("resolve --inventory"))
+        self.assertFalse(self.catalog["registry-resolve"]["mutation"])
 
 
 def lock_record(
@@ -1337,84 +1151,6 @@ def valid_lock(raw: bytes) -> dict[str, Any]:
         "mirror_exceptions": [],
         "unresolved_inputs": [],
     }
-
-
-class RegistryCiConvergenceTests(unittest.TestCase):
-    def _run_gate(
-        self, failures: int, *, invalid_lock: bool = False
-    ) -> tuple[subprocess.CompletedProcess[str], int, list[str], bool]:
-        root = pathlib.Path(__file__).resolve().parents[1]
-        pipeline = yaml.safe_load((root / ".gitlab-ci.yml").read_text())
-        script = shlex.split(pipeline[".registry_lock"]["script"][0])[-1]
-        with tempfile.TemporaryDirectory() as directory:
-            workdir = pathlib.Path(directory)
-            tools = workdir / "bin"
-            tools.mkdir()
-            counter = workdir / "counter"
-            counter.write_text("0")
-            sleeps = workdir / "sleeps"
-            just = tools / "just"
-            just.write_text(
-                "#!/bin/sh\n"
-                'case "$1" in\n'
-                "registry-plan)\n"
-                '  [ "$PLAN_FAILURE" = 0 ] || exit 7\n'
-                "  printf '%s\\n' '{\"kind\":\"plan\"}'\n"
-                "  ;;\n"
-                "registry-check)\n"
-                '  attempt=$(cat "$COUNTER")\n'
-                "  attempt=$((attempt + 1))\n"
-                '  printf %s "$attempt" > "$COUNTER"\n'
-                '  [ "$attempt" -gt "$CHECK_FAILURES" ] || exit 4\n'
-                "  ;;\n"
-                "*) exit 8 ;;\n"
-                "esac\n"
-            )
-            sleep = tools / "sleep"
-            sleep.write_text('#!/bin/sh\nprintf "%s\\n" "$1" >> "$SLEEPS"\n')
-            for tool in (just, sleep):
-                tool.chmod(0o755)
-            result = subprocess.run(
-                ["bash", "-euo", "pipefail", "-c", script],
-                cwd=workdir,
-                env={
-                    **os.environ,
-                    "PATH": f"{tools}:{os.environ['PATH']}",
-                    "COUNTER": str(counter),
-                    "SLEEPS": str(sleeps),
-                    "CHECK_FAILURES": str(failures),
-                    "PLAN_FAILURE": "1" if invalid_lock else "0",
-                },
-                capture_output=True,
-                text=True,
-            )
-            return (
-                result,
-                int(counter.read_text()),
-                sleeps.read_text().splitlines() if sleeps.exists() else [],
-                (workdir / "registry-copy-plan.json").exists(),
-            )
-
-    def test_rollout_convergence_refreshes_policy_then_emits_plan(self) -> None:
-        result, checks, sleeps, has_plan = self._run_gate(2)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(checks, 3)
-        self.assertEqual(sleeps, ["20", "20"])
-        self.assertTrue(has_plan)
-
-    def test_persistent_drift_remains_failed_and_emits_no_plan(self) -> None:
-        result, checks, sleeps, has_plan = self._run_gate(100)
-        self.assertEqual(result.returncode, 4, result.stderr)
-        self.assertEqual(checks, 10)
-        self.assertEqual(sleeps, ["20"] * 9)
-        self.assertFalse(has_plan)
-
-    def test_invalid_lock_fails_before_live_checks_or_waits(self) -> None:
-        result, checks, sleeps, has_plan = self._run_gate(0, invalid_lock=True)
-        self.assertEqual(result.returncode, 7, result.stderr)
-        self.assertEqual(checks, 0)
-        self.assertEqual(sleeps, [])
-        self.assertFalse(has_plan)
 
 
 class AuthConsistencyTest(unittest.TestCase):

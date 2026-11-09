@@ -1,7 +1,7 @@
 # CI pipelines
 
-Forgejo is primary and Woodpecker runs on homelab-04. GitLab is a mirror kept
-for disaster recovery only; see
+Forgejo is the only forge and Woodpecker runs on homelab-04. CI mirrors main
+to GitHub as the off-site source copy; recovery is in
 [Forgejo disaster recovery](forgejo-disaster-recovery.md).
 
 ## Execution and authority
@@ -259,8 +259,8 @@ benchmark and the defect behind the patch are in
   signing key on first start and keeps them afterwards. The public key is
   `/persist/niks3/signing-key.pub`; the push token is
   `/persist/niks3/api-token`. CI holds a copy as the Woodpecker secret
-  `niks3_token` (cron and deployment events) and the GitLab production
-  variable `NIKS3_TOKEN`; after rotating the file, update both.
+  `niks3_token` (cron and deployment events); after rotating the file,
+  update it.
 - A niks3 error fails `cache-publish` once the Attic push has finished, so a
   niks3 fault shows as a red maintenance run without leaving Attic behind.
 - Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
@@ -579,10 +579,5 @@ after their parent becomes killed when no agent remains to report completion.
 Those rows do not establish slot usage; exclude terminal parents from active
 queue and utilization calculations. Do not cancel or restart unrelated work.
 
-GitLab CI is disabled by default. An offline runner or GitLab webhook is not
-failover. homelab-04-dr disables Woodpecker agents and enables fresh Docker
-GitLab runners. The scheduler must also match the state authority.
-
-Both Flux webhook receivers reference the same GitRepository. Changing
-receiver type does not change its source. Use the explicit cutover and
-restore procedure in [Forgejo disaster recovery](forgejo-disaster-recovery.md).
+There is no second scheduler. When Forgejo or Woodpecker is down, follow
+[Forgejo disaster recovery](forgejo-disaster-recovery.md).
