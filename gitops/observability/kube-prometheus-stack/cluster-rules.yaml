@@ -290,8 +290,9 @@ spec:
             description: "A standalone Job failed within the last day. CronJob runs alert through CronJobLastRunFailed."
 
     # Platform backups (Forgejo, Garage, Tofu state, Woodpecker, Bookshelf,
-    # Home Assistant config) are proven weekly by platform-restore-drill on
-    # nas-01. In-cluster drills alert through cluster-sentinel instead.
+    # Home Assistant config, Obsidian CouchDB) are proven weekly by
+    # platform-restore-drill on nas-01. In-cluster drills alert through
+    # cluster-sentinel instead.
     - name: restore-drill.rules
       rules:
         - alert: RestoreDrillFailed
