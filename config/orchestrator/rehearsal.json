@@ -1,0 +1,35 @@
+{
+  "node": "homelab-02",
+  "host_path": "/persist/persistent-agent",
+  "forge_url": "https://git.rupan.dev",
+  "forge_ip": "10.0.30.20",
+  "forge_owner": "JEFF7712",
+  "forge_repo": "agent-sandbox",
+  "project": "agent-sandbox",
+  "repository_url": "https://git.rupan.dev/JEFF7712/agent-sandbox.git",
+  "issue_url_prefix": "https://git.rupan.dev/JEFF7712/agent-sandbox/issues",
+  "backend": {
+    "kind": "pi",
+    "pi": "pi",
+    "provider": "openai",
+    "model": "gpt-5.6-sol"
+  },
+  "principal": "rupan",
+  "forge_login": "JEFF7712",
+  "required_contexts": ["ci/woodpecker/pr/validation"],
+  "ci_login": "woodpecker",
+  "api_endpoints": [
+    ["10.43.0.1", 443],
+    ["10.0.30.11", 6443],
+    ["10.0.30.12", 6443],
+    ["10.0.30.13", 6443]
+  ],
+  "ntfy_topic": "orchestrator-rehearsal",
+  "intake": {
+    "woodpecker_url": "http://ci.internal:8000",
+    "woodpecker_ip": "10.0.30.14",
+    "woodpecker_port": 8000,
+    "woodpecker_repo_id": 1
+  },
+  "backup": true
+}
