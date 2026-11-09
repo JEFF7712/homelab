@@ -37,7 +37,7 @@ kubectl -n persistent-agent rollout status deploy/orchestrator-controller
    `no`, and so is changing admission policies or RBAC.
 3. **Worker network.** `python -m scripts.orchestrator.rehearsal probe |
    kubectl apply -f -`, wait for the pod to finish, and read its log: a JSON
-   report with `"passed": true` (DNS allow and refuse, TLS server names,
+   report with `"passed": true` (DNS allow and refuse, TLS to the providers,
    private and API-server isolation, foreign worker token refused).
 4. **Intake ingress.** A pod outside `observability` and `automation` cannot
    reach `orchestrator-controller.persistent-agent:8092`.

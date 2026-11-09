@@ -166,10 +166,9 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(
             rule["toPorts"][0]["ports"], [{"port": "443", "protocol": "TCP"}]
         )
-        self.assertEqual(
-            rule["toPorts"][0]["serverNames"],
-            ["api.anthropic.com", "api.openai.com", "auth.openai.com", "chatgpt.com"],
-        )
+        # No serverNames: the Envoy path does not work on this datapath, and
+        # the shared-IP limitation is accepted (gate 4).
+        self.assertNotIn("serverNames", rule["toPorts"][0])
         self.assertFalse(
             any(key in json.dumps(fqdn) for key in ("toCIDR", "toEntities"))
         )
