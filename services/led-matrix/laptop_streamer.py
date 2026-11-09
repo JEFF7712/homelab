@@ -61,6 +61,89 @@ def find_default_monitor_sink() -> str:
     return "@DEFAULT_MONITOR@"
 
 
+def find_default_mic_source() -> str:
+    """Detect the best microphone input source."""
+    try:
+        proc = subprocess.run(
+            ["pactl", "list", "sources", "short"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        lines = proc.stdout.strip().splitlines()
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 2:
+                name = parts[1]
+                if "Mic1" in name or (
+                    "mic" in name.lower() and not name.endswith(".monitor")
+                ):
+                    return name
+    except Exception:
+        pass
+    return "@DEFAULT_SOURCE@"
+
+
+def find_speaker_monitor_sink() -> str:
+    """Detect internal laptop speaker monitor source."""
+    try:
+        proc = subprocess.run(
+            ["pactl", "list", "sources", "short"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        lines = proc.stdout.strip().splitlines()
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 2:
+                name = parts[1]
+                if "Speaker" in name and name.endswith(".monitor"):
+                    return name
+    except Exception:
+        pass
+    return "@DEFAULT_MONITOR@"
+
+
+def resolve_audio_device(choice: str | None, explicit_device: str | None = None) -> str:
+    if explicit_device:
+        return explicit_device
+    choice = (choice or "music").lower()
+    if choice in ("mic", "microphone"):
+        return find_default_mic_source()
+    if choice == "speaker":
+        return find_speaker_monitor_sink()
+    return find_default_monitor_sink()
+
+
+def sync_ledfx_recording_source(target_source: str) -> None:
+    """If LedFx is running, move its recording stream to target_source."""
+    try:
+        proc = subprocess.run(
+            ["pactl", "list", "source-outputs"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        blocks = proc.stdout.split("\n\n")
+        for block in blocks:
+            if "ledfx" in block or "ALSA plug-in" in block:
+                for line in block.splitlines():
+                    if "Source Output #" in line:
+                        out_id = line.split("#")[1].strip()
+                        subprocess.run(
+                            ["pactl", "move-source-output", out_id, target_source],
+                            capture_output=True,
+                            check=False,
+                        )
+                        print(
+                            f"[LedFx] Synchronized LedFx audio stream to: {target_source}"
+                        )
+                        return
+    except Exception:
+        pass
+
+
 def get_ha_token(token_arg: str | None = None) -> str | None:
     if token_arg:
         return token_arg
@@ -244,7 +327,13 @@ def main() -> None:
         "--brightness", type=float, default=0.7, help="Matrix brightness 0.0 - 1.0"
     )
     parser.add_argument(
-        "--device", default=None, help="Audio monitor source device name"
+        "--input",
+        choices=["music", "mic", "bose", "speaker", "auto"],
+        default="music",
+        help="Audio input source: 'music' (Bose Bluetooth), 'mic' (laptop microphone), or 'speaker'",
+    )
+    parser.add_argument(
+        "--device", default=None, help="Audio monitor source device name override"
     )
     parser.add_argument(
         "--ledfx-port",
@@ -266,8 +355,9 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    audio_device = args.device or find_default_monitor_sink()
-    print(f"[AudioTap] Capturing audio from monitor: {audio_device}")
+    audio_device = resolve_audio_device(args.input, args.device)
+    print(f"[AudioTap] Capturing audio from [{args.input}]: {audio_device}")
+    sync_ledfx_recording_source(audio_device)
 
     tap = AudioTap(audio_device)
     tap.start()
