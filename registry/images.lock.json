@@ -7915,6 +7915,51 @@
         "repository": "apps/orchestrator-worker",
         "tag": "ci-11217-46ec2f6f5db2"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/nginxinc/nginx-unprivileged",
+      "destination_tags": [
+        "1.31-alpine",
+        "retention-deployed-b5047b9b76845eac"
+      ],
+      "digest": "sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+      "id": "upstream-nginxinc-nginx-unprivileged-96e48a5bd5c8",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+        "reference": "docker.io/nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e",
+        "registry": "docker.io",
+        "repository": "nginxinc/nginx-unprivileged",
+        "tag": "1.31-alpine"
+      }
     }
   ],
   "kind": "registry-image-lock",
