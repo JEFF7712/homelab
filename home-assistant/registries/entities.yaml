@@ -97,6 +97,10 @@
   icon: mdi:music
   labels: []
   name: Bedroom Music Mode
+- entity_id: input_boolean.bedroom_wake_fade_dismissed
+  icon: mdi:alarm-off
+  labels: []
+  name: Bedroom Wake Fade Dismissed
 - entity_id: input_boolean.guest_mode
   icon: mdi:account-multiple
   labels: []
