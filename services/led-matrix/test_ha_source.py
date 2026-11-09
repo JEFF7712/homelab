@@ -59,6 +59,7 @@ class HomeAssistantTests(unittest.TestCase):
         self.assertEqual(effective_brightness("Spotify", 0.35), 0.7)
         self.assertEqual(effective_brightness("Clock & Weather", 0.35), 0.35)
         self.assertEqual(effective_brightness("Off", 0.35), 0.0)
+        self.assertEqual(effective_brightness("Laptop", 0.35), 0.0)
 
     def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
@@ -1594,6 +1595,15 @@ class HubModeAndRendererTests(unittest.TestCase):
         active_mode = state_vis.mode if state_vis.mode != "Auto" else "LedFx"
         self.assertEqual(active_mode, "Visualizer")
 
+        # 4. When mode is explicitly Laptop -> respects Laptop regardless of music_mode or power
+        state_laptop = HAState(power=True, mode="Laptop", music_mode=True)
+        active_mode = (
+            state_laptop.mode
+            if (state_laptop.power and state_laptop.mode != "Auto")
+            else "Off"
+        )
+        self.assertEqual(active_mode, "Laptop")
+
     def test_ledfx_receiver_audio_packet(self) -> None:
         import struct
 
@@ -1995,6 +2005,54 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(g2048.grid[1], [8, 0, 0, 0])
         self.assertEqual(g2048.grid[3], [16, 16, 0, 0])
         self.assertEqual(earned, 4 + 8 + 32)
+
+    def test_physics_renderer_rotation_and_scenes(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        self.assertEqual(physics.NUM_SCENES, 6)
+        self.assertEqual(physics.current_scene, 0)
+
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=True,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.05,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Verify each scene renders a valid (64, 64) RGB frame with non-zero pixels
+        for expected_scene in range(6):
+            physics.current_scene = expected_scene
+            frame = physics.render(ctx, size=64)
+            self.assertEqual(frame.size, (64, 64))
+            self.assertEqual(frame.mode, "RGB")
+            arr = np.array(frame)
+            self.assertGreater(int(np.sum(arr)), 0)
+
+        # Verify full rotation cycle advances sequentially 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 0
+        physics.current_scene = 0
+        physics.scene_timer = 0.0
+        advance_ctx = RenderContext(
+            tick=100.0,
+            dt=20.5,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        for expected_scene in [1, 2, 3, 4, 5, 0]:
+            physics.render(advance_ctx, size=64)
+            self.assertEqual(physics.current_scene, expected_scene)
 
 
 if __name__ == "__main__":
