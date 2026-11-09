@@ -40,6 +40,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Matrix releases](runbooks/matrix-release.md)
 - [Orchestrator image release](runbooks/orchestrator-release.md)
 - [Orchestrator rehearsal and gate 4](runbooks/orchestrator-rehearsal.md)
+- [Orchestrator credentials (gate 5)](runbooks/orchestrator-credentials.md)
 - [NixOS host deployment](runbooks/nixos-host-deployment.md)
 - [NixOS artifact publication](runbooks/nixos-publication.md)
 - [GitHub release synchronization](runbooks/release-mirror.md)
