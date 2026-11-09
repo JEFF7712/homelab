@@ -7833,6 +7833,88 @@
         "repository": "library/couchdb",
         "tag": "3.5.3"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "config/orchestrator/images.json:2"
+      ],
+      "destination_repository": "apps/orchestrator",
+      "destination_tags": [
+        "ci-11217-46ec2f6f5db2",
+        "retention-candidate-5bf39f480639c83a"
+      ],
+      "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+      "id": "first-party-apps-orchestrator",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "flake/packages/orchestrator-images.nix",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-ci-build-published"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+        "reference": "registry.rupan.dev/apps/orchestrator:ci-11217-46ec2f6f5db2@sha256:5bf39f480639c83af8f6a990aec47ab20a62941d468d9d87ce9e851c3e1dbd98",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/orchestrator",
+        "tag": "ci-11217-46ec2f6f5db2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "config/orchestrator/images.json:3"
+      ],
+      "destination_repository": "apps/orchestrator-worker",
+      "destination_tags": [
+        "ci-11217-46ec2f6f5db2",
+        "retention-candidate-f51d68ec1063a89f"
+      ],
+      "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+      "id": "first-party-apps-orchestrator-worker",
+      "kind": "first-party",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [
+        "linux/amd64"
+      ],
+      "producer": {
+        "location": "flake/packages/orchestrator-images.nix",
+        "owner": "JEFF7712/homelab",
+        "pipeline_status": "verified-ci-build-published"
+      },
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "candidate",
+      "source": {
+        "digest": "sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11217-46ec2f6f5db2@sha256:f51d68ec1063a89f08937f1e0bec2256fbe0fd90f1a9b8390d7b97977d56cf74",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/orchestrator-worker",
+        "tag": "ci-11217-46ec2f6f5db2"
+      }
     }
   ],
   "kind": "registry-image-lock",
