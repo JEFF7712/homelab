@@ -2,10 +2,10 @@ id: bedroom_lights_morning_wake_up
 alias: "Bedroom Lights: Morning Wake-Up Fade"
 description: >-
   Ramp bedroom lamps from 1 to 30 percent warm over the 20 minutes before
-  the Bedroom Wake Time helper. An iOS Shortcut on Rupan's iPhone copies the
-  next enabled Clock alarm into the helper at 03:00, since iOS exposes no
-  next-alarm sensor; no phone sensor is read here, so other household
-  members' alarms and calendar reminders never start the fade.
+  the Bedroom Wake Time helper, which is held at 08:00 and shared with the
+  morning weather briefing. No phone sensor is read: iOS exposes no
+  next-alarm sensor, and the only one in HA belongs to a housemate's phone
+  and also reports calendar reminders.
   Adaptive Lighting is paused during the fade so its interval adaptation
   does not fight the ramp, then restored when the fade ends. Plugs, the bus
   display, and the bedroom LED matrix display come on at fade start.
