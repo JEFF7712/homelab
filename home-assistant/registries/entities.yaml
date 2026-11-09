@@ -872,12 +872,6 @@
   labels:
     - shared_space
 - disabled_by: integration
-  entity_id: switch.govee_cloud_integration_pre_release
-  labels: []
-- disabled_by: integration
-  entity_id: switch.hacs_pre_release
-  labels: []
-- disabled_by: integration
   entity_id: switch.ios_themes_dark_mode_and_light_mode_pre_release
   labels: []
 - entity_id: switch.kitchen_mushroom_lamp
