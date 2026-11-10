@@ -31,6 +31,11 @@ Notifier = Callable[[str, str, str, list[str] | None], bool]
 
 
 APPLIANCE_SETTLE_ATTEMPTS = 20
+# Evictions are throttled client-side on a busy node, and a pod evicted while
+# it is still starting can take minutes to stop: on 2026-11-10 Home Assistant,
+# rescheduled from the previous node a minute earlier, stopped 128s after its
+# eviction and failed a 120s drain of homelab-03.
+DRAIN_TIMEOUT = 300.0
 
 
 class FleetDeploymentError(Exception):
@@ -377,7 +382,7 @@ class FleetDeployer:
         skip_drain: bool = False,
         skip_cooldown: bool = False,
         cooldown_seconds: float = 0.0,
-        drain_timeout: float = 120.0,
+        drain_timeout: float = DRAIN_TIMEOUT,
         ready_timeout: float = 180.0,
         ssh_user: str = "rupan",
         flake_path: str = "./flake",
@@ -1122,8 +1127,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--drain-timeout",
         type=float,
-        default=120.0,
-        help="Timeout in seconds for kubectl drain (default: 120.0).",
+        default=DRAIN_TIMEOUT,
+        help=f"Timeout in seconds for kubectl drain (default: {DRAIN_TIMEOUT}).",
     )
     parser.add_argument(
         "--ready-timeout",

@@ -49,6 +49,12 @@ class DeployFleetTest(unittest.TestCase):
 
         return FleetDeployer(**dict(kwargs, runner=with_systems))
 
+    def test_drain_outlasts_a_slow_pod_stop(self) -> None:
+        # Regression (2026-11-10): Home Assistant stopped 128s after its
+        # eviction and failed the 120s drain of homelab-03.
+        self.assertGreaterEqual(build_parser().parse_args([]).drain_timeout, 300.0)
+        self.assertGreaterEqual(FleetDeployer(targets=[]).drain_timeout, 300.0)
+
     def test_switch_survives_the_ci_job_that_drives_it(self) -> None:
         # Regression (2026-11-03): a switch of homelab-04 restarted Docker,
         # killed the deploying CI job and, inside its SSH session, stopped
