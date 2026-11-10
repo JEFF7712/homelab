@@ -1528,7 +1528,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {

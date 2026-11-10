@@ -220,6 +220,7 @@ class FleetDeploymentCatalogTests(unittest.TestCase):
                 self.assertIn("SSH_DEPLOY_KEY", operation["file_secrets"])
                 consumers.add(name)
         self.assertTrue(
-            {"deploy-fleet", "deploy-fleet-dry-run", "deploy-ci-host"} <= consumers
+            {"deploy-fleet", "deploy-fleet-dry-run", "deploy-ci-host", "fleet-reboot"}
+            <= consumers
         )
         self.assertNotIn('"from_secret": "ssh_deploy_key"', json.dumps(operations))
