@@ -1,4 +1,25 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  fleetInventory,
+  ...
+}:
+let
+  # Legacy deployment access is root-equivalent through passwordless sudo.
+  # Keep its network origin limited independently of operator workstation keys.
+  deploySources = [
+    fleetInventory.hosts.homelab-04.address
+    fleetInventory.hosts.nas-01.address
+  ];
+  # Only this host runs the trusted deploy tier. Docker bridge sources are
+  # visible for self-deployment; remote targets see the host's LAN address.
+  ciDeploySources = [
+    fleetInventory.hosts.homelab-04.address
+  ]
+  ++ lib.optionals (config.networking.hostName == "homelab-04") (
+    map (octet: "172.${toString octet}.0.0/16") (lib.range 17 30)
+  );
+in
 {
   imports = [ ./host-secrets.nix ];
 
@@ -11,6 +32,15 @@
   };
 
   config = {
+    sops.secrets.ci-fleet-deploy-key = lib.mkIf (config.networking.hostName == "homelab-04") {
+      sopsFile = ../../secrets/ci-fleet-deploy.sops.json;
+      format = "json";
+      key = "private_key";
+      mode = "0400";
+      owner = "root";
+      group = "root";
+    };
+
     boot.loader.grub.configurationLimit = lib.mkDefault 10;
     boot.loader.systemd-boot.configurationLimit = lib.mkDefault 10;
 
@@ -73,7 +103,8 @@
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILW7MVmIGzW4Eq1NJm4+gsGwQ+iL44bIfyAa/wdQ1srQ"
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFTXsL6q+O1d29vTd3TtK2F0MYPggS5KSHryvlIFBS1K"
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFWt07ttKX2X+E5CbwL4To1AuwuwuIaKWUePIrAwGrK0 homelab-nas-deploy"
+          ''restrict,from="${lib.concatStringsSep "," ciDeploySources}" ${lib.fileContents ../../config/ci/fleet-deploy.pub}''
+          ''restrict,from="${lib.concatStringsSep "," deploySources}" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFWt07ttKX2X+E5CbwL4To1AuwuwuIaKWUePIrAwGrK0 homelab-nas-deploy''
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICZzDfJQDvL6axeNiY0b+iObfhjkBxzut8cGfcxr9zva developer@agent-rupan"
         ];
       };
@@ -99,11 +130,9 @@
         ];
         extra-substituters = [
           "http://10.0.30.20:8090"
-          "http://10.0.30.20:8080/homelab"
         ];
         extra-trusted-public-keys = [
           "homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec="
-          "homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk="
         ];
         trusted-users = [
           "root"

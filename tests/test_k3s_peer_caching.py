@@ -53,6 +53,7 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
               homelab.k3s.registry.enable = true;
             }}).services.k3s.extraFlags;
             firewallRules = (evalWith {{}}).networking.firewall.extraInputRules;
+            auditPolicy = builtins.fromJSON (evalWith {{}}).environment.etc."rancher/k3s/audit-policy.json".text;
           }}
         """
         proc = subprocess.run(
@@ -88,6 +89,19 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
     def test_firewall_allows_tcp_5001_for_spegel_p2p_gossip(self) -> None:
         rules = self.evaluated["firewallRules"]
         self.assertIn("10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001,", rules)
+
+    def test_only_servers_encrypt_secrets_and_record_bounded_audit_logs(self) -> None:
+        for key in ("defaultFlags", "withRegistry", "withRegistryDisabledSpegel"):
+            flags = self.evaluated[key]
+            self.assertIn("--secrets-encryption", flags)
+            self.assertIn("--kube-apiserver-arg=audit-log-maxsize=50", flags)
+            self.assertIn("--kube-apiserver-arg=audit-log-maxbackup=5", flags)
+            self.assertIn("--kube-apiserver-arg=audit-log-maxage=7", flags)
+            content = self.evaluated["auditPolicy"]
+            self.assertEqual(content["omitStages"], ["RequestReceived"])
+            self.assertEqual(content["rules"][-1], {"level": "Metadata"})
+        self.assertNotIn("--secrets-encryption", self.evaluated["agentFlags"])
+        self.assertFalse(any("audit-" in f for f in self.evaluated["agentFlags"]))
 
 
 if __name__ == "__main__":

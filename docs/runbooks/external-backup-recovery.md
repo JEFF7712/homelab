@@ -28,7 +28,7 @@ This runbook documents the dedicated 1 TB external HDD backup architecture hoste
    - **CouchDB:** Crash-consistent at the filesystem snapshot level due to its append-only B-tree structure.
    - **Arr Applications (Sonarr, Radarr, Prowlarr, Bookshelf):** Backed up via the frozen ZFS snapshot and supplemented by internal native application scheduled backups (`Backups/scheduled/*.zip`).
    - **Woodpecker & Forgejo:** Created using online SQLite `.backup` APIs before files are pulled.
-6. **Cycle Verification Protocol (No Yesterday's Dumps):** Every source preparation job produces an atomic `backup-manifest.json` recording `status: "success"`, the current `cycle: "YYYYMMDD"`, dump file name, and file size. The backup runner strictly verifies that today's manifest matches the current cycle and was generated within the last 6 hours, failing closed if any source dump failed or is stale.
+6. **Cycle Verification Protocol (No Yesterday's Dumps):** Every source preparation job produces an atomic `backup-manifest.json` (k3s publishes it inside a frozen generation selected by `LATEST`) recording `status: "success"`, the current `cycle: "YYYYMMDD"`, dump file name, and file size. The backup runner strictly verifies that today's manifest matches the current cycle and was generated within the last 6 hours, failing closed if any source dump failed or is stale.
 7. **Timing Coordination:** The runner actively coordinates with `k3s-backup-prep` on `homelab-01`, polling for up to 5 minutes to confirm completion of the current cycle's etcd snapshot before Restic execution begins.
 8. **Separate Pruning & Mutual Exclusion:** Pruning runs in an independent service (`immich-external-backup-prune.service`, Sundays at 06:00) that strictly refuses to execute if a backup or check is active, if the mutual exclusion lock is held, or if the last successful backup is older than 36 hours. Automatic pruning enforces `--keep-last 3` alongside the 14-daily, 8-weekly, and 3-monthly policy.
 9. **Weekly Integrity Check:** A data verification check (`immich-external-backup-check.service`, Sundays at 08:00) validates pack integrity across repository subsets.
@@ -122,11 +122,42 @@ sudo -E restic restore latest --target /tmp/restore-k3s --include "*k3s*"
 ls -la /tmp/restore-k3s
 '
 ```
-To recover k3s on `homelab-01`:
-1. Stop k3s: `systemctl stop k3s`
-2. Restore snapshot: `k3s server --cluster-reset --cluster-reset-restore-path=/path/to/etcd-snapshot-latest`
-3. Restore token to `/var/lib/rancher/k3s/server/token`
-4. Start k3s: `systemctl start k3s`
+Each k3s export is an immutable directory under `generations/`, selected once
+by the `LATEST` pointer before the backup starts. Its `backup-manifest.json`
+binds a newly created etcd snapshot, its matching server token, encryption
+configuration when present, and the existing SSH host-key recovery member. The
+prep job refuses token/key changes during capture and validates the snapshot.
+The pull job preserves current-cycle and six-hour freshness checks and reads
+back every critical member from the independent Restic snapshot before recording
+success. The read-back streams only hashes into memory; no credentials appear in
+logs. A nonfatal Restic result for unrelated cache churn cannot hide a missing
+recovery member. Scheduled etcd snapshot permissions are unchanged.
+
+Restore all members of **one** generation together. Never pair a snapshot with
+an arbitrary newer token or encryption file. Use a root-only recovery directory
+on tmpfs for these credential-bearing artifacts. Before starting a replacement
+server, restore `server-token` to `/var/lib/rancher/k3s/server/token`, and restore
+`encryption-config.json`, when present, to
+`/var/lib/rancher/k3s/server/cred/encryption-config.json`. Use the pinned K3s
+version and saved token for `server --cluster-reset
+--cluster-reset-restore-path=<etcd-snapshot>` in the isolated recovery environment.
+Do not reset a production member for a drill.
+
+The source helper supports `verify --generation <restored-generation>
+--restore-runtime <private-tmpfs-directory>`. It verifies all member hashes and
+exercises offline `etcdutl snapshot restore` without starting a network member or
+changing the live K3s data directory. The runtime needs at least three times the
+snapshot size plus 64 MiB free. Success proves the artifact is structurally
+restorable; it does not establish independent decryption-key custody or a fully
+running restored cluster.
+
+Deploy the producer on homelab-01 and confirm a new `LATEST` generation before
+activating the pull runner on adguard-netbird-01. Prior generations and old loose
+files remain intact; no migration cleanup or generation pruning is performed.
+The old runner can still read its last published loose set during staged rollout,
+but that old set will eventually fail freshness checks until the new runner is
+activated. After both hosts are updated, run preparation then backup and require
+the final independent-copy verification before accepting the cycle.
 
 #### E. Restoring Woodpecker CI
 ```sh
@@ -218,3 +249,16 @@ To prevent a circular dependency where credentials needed to restore are trapped
   ./scripts/backups/export-offline-recovery-kit.sh /path/to/offline-usb
   ```
   This exports a standalone recovery bundle containing `emergency-restore.sh`, the decrypted repository password, and step-by-step restoration instructions ready for bare-metal rebuilds.
+
+
+## Independent cold-recovery acceptance
+
+Full independent platform recovery remains unproven until the existing gates in
+[the platform recovery contract](sovereign-platform-recovery.md) pass against an
+independently held checkpoint and key custody. The known checkpoint paths are
+not present in this audit workspace; the retained recovery-guest procedure needs
+a suitably isolated host with capacity for a 6 GiB VM. Do not run it inside the
+shared 8 GiB agent workspace or count live-cluster credentials as independent
+recovery evidence. The existing offline kit exporter can prepare operator-held
+media, but a kit export alone is not a restore receipt. Offsite backup expansion
+and physical display repair remain deferred for this audit task.

@@ -8,6 +8,24 @@
 let
   cfg = config.homelab.k3s;
   network = fleetInventory.networks.${fleetInventory.hosts.${config.networking.hostName}.network};
+  auditPolicy = {
+    apiVersion = "audit.k8s.io/v1";
+    kind = "Policy";
+    omitStages = [ "RequestReceived" ];
+    rules = [
+      {
+        level = "None";
+        nonResourceURLs = [
+          "/healthz*"
+          "/livez*"
+          "/readyz*"
+        ];
+      }
+      # Metadata records identity and resource access without Secret bodies,
+      # TokenRequest responses, or application request contents.
+      { level = "Metadata"; }
+    ];
+  };
 in
 {
   options.homelab.k3s = {
@@ -212,6 +230,12 @@ in
               "--disable=servicelb"
               "--disable=traefik"
               "--disable=local-storage"
+              "--secrets-encryption"
+              "--kube-apiserver-arg=audit-policy-file=/etc/rancher/k3s/audit-policy.json"
+              "--kube-apiserver-arg=audit-log-path=/persist/k3s-audit/audit.log"
+              "--kube-apiserver-arg=audit-log-maxage=7"
+              "--kube-apiserver-arg=audit-log-maxbackup=5"
+              "--kube-apiserver-arg=audit-log-maxsize=50"
             ]
           else
             [
@@ -235,6 +259,11 @@ in
         ++ lib.optional (
           cfg.role == "server" && cfg.registry.enable && cfg.registry.embeddedRegistry
         ) "--embedded-registry";
+    };
+
+    environment.etc."rancher/k3s/audit-policy.json" = lib.mkIf (cfg.role == "server") {
+      text = builtins.toJSON auditPolicy;
+      mode = "0600";
     };
 
     systemd.services.k3s = {
@@ -422,7 +451,8 @@ in
       "d /persist/etc/ssh 0700 root root -"
       "d /persist/secrets 0700 root root -"
       "d /persist/etcd-snapshots 0700 root root -"
-    ];
+    ]
+    ++ lib.optional (cfg.role == "server") "d /persist/k3s-audit 0700 root root -";
 
     environment.persistence."/persist" = {
       hideMounts = true;

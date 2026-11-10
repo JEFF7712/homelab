@@ -16,6 +16,7 @@ in
   imports = [
     ./hardware-configuration.nix
     ../../modules/common-base.nix
+    ../../modules/kubernetes-ci-credentials.nix
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
     ../../modules/k3s-registry-client.nix
@@ -37,6 +38,8 @@ in
   ];
 
   networking.hostName = "homelab-04";
+
+  homelab.kubernetesCiCredentials.client = true;
 
   # A boot service avoids restarting networkd and its dependent guests.
   systemd.services.onboard-ethernet-offloads = {

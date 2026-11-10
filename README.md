@@ -33,7 +33,7 @@ cert-manager for internal TLS.
 - **Automation**: cluster sentinel, Renovate agents, website monitors
 - **Backups**: database dumps to R2
 - **Self-hosted**: git (Forgejo), CI (Woodpecker), container registry (Zot),
-  and Nix binary cache (Attic)
+  and Nix binary cache (niks3)
 
 ## How it's managed
 

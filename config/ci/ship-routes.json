@@ -113,7 +113,12 @@
         "scripts/nas/",
         "scripts/ci/platform_backup.py",
         "scripts/ci/release_mirror.py",
-        "scripts/ci/authority.py"
+        "scripts/ci/authority.py",
+        "config/ci/fleet-deploy.pub",
+        "config/ci/ha-issuer.pub",
+        "config/ci/registry-issuer.pub",
+        "scripts/ci/kube_credentials.py",
+        "scripts/k3s_backup_source.py"
       ],
       "operations": [
         "deploy-fleet-dry-run",
@@ -168,7 +173,10 @@
         "scripts/ci/service_release.py",
         "scripts/ci/static_release.py",
         "scripts/ci/static_site.py",
-        "secrets/projectctl.sops.json"
+        "secrets/projectctl.sops.json",
+        "secrets/ci-fleet-deploy.sops.json",
+        "secrets/ha-ci-issuer.sops.json",
+        "secrets/registry-ci-issuer.sops.json"
       ],
       "operations": [
         "deploy-ci-host-dry-run",

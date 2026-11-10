@@ -33,6 +33,7 @@ evidence from that time, not permanent health or capacity guarantees.
 ### CI, releases and recovery
 
 - [CI pipelines](runbooks/ci-pipelines.md)
+- [Dedicated fleet CI SSH identity](runbooks/fleet-ci-identity.md)
 - [Application CI](runbooks/application-ci.md)
 - [Forgejo automation runtime](runbooks/forgejo-automation-runtime.md)
 - [Local container registry operations](runbooks/local-registry.md)
@@ -62,6 +63,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Monero onion P2P](runbooks/monero-onion.md)
 - [Network outage monitor](runbooks/network-monitor.md)
 - [Prometheus memory](runbooks/prometheus-memory.md)
+- [Prometheus local storage migration](runbooks/prometheus-storage.md)
 - [homelab-04 Ethernet transmit hang](runbooks/homelab04-network.md)
 - [homelab-05 Ethernet transmit hang](runbooks/homelab05-network.md)
 - [Pod Security](runbooks/pod-security.md)

@@ -45,7 +45,8 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("--host adguard-netbird-01", content)
         self.assertIn("--group-by host", content)
         # Source validations for expanded datasets
-        self.assertIn("etcd-snapshot-latest", content)
+        self.assertIn("K3S_GENERATION_DIR", content)
+        self.assertIn("k3s_backup_source.py} verify-repository", content)
         self.assertIn("WP_DB_FILE", content)
         self.assertIn("tofu-state/state.sqlite", content)
         self.assertIn("AdGuardHome.yaml", content)
@@ -96,7 +97,7 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn("users.users.backup-reader", content)
         self.assertIn("ForceCommand internal-sftp -R", content)
         self.assertIn("systemd.services.k3s-backup-prep", content)
-        self.assertIn("backup-manifest.json", content)
+        self.assertIn("k3s_backup_source.py} prepare", content)
         self.assertIn('OnCalendar = "03:15:00"', content)
         host_content = (REPO_ROOT / "flake/hosts/homelab-01/default.nix").read_text()
         self.assertIn("k3s-backup-source.nix", host_content)

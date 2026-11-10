@@ -2,7 +2,7 @@
 
 The protected `nixos-publish` operation builds Forgejo-authoritative
 `JEFF7712/nixos-config` source and publishes the laptop system and installer
-ISO, source inputs, and derivation closures to Attic. Both target sets must
+ISO, source inputs, and derivation closures to niks3. Both target sets must
 report successful publication before the operation receipt establishes
 acceptance. Existing narinfo records alone are insufficient.
 
@@ -25,7 +25,7 @@ or independent restoration acceptance.
 
 The laptop runs comin against `deploy/laptop` in `JEFF7712/nixos-config` with
 local builds disabled, so that branch may only name a commit whose laptop
-closure is already in Attic. `scripts/ci/nixos_deploy.py` owns it:
+closure is already in niks3. `scripts/ci/nixos_deploy.py` owns it:
 
 - `nixos-lock-update` (`weekly` cron) runs `nix flake update` on main, evaluates
   the laptop toplevel, and defers when `nix-cascade-guard` reports an uncached

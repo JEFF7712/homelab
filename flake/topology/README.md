@@ -49,7 +49,7 @@ Run `just topology` from the repository root. The result is exposed at
 The command builds documentation only and requires no fleet credentials.
 
 Full CI validation builds `checks.x86_64-linux.topology`. Its immutable Nix
-output is also included in the existing protected Attic cache publication.
+output is also included in the existing protected niks3 cache publication.
 Scoped host and OPNsense source checks also rebuild `artifacts/topology/`.
 Retrieve that artifact by building `packages.x86_64-linux.topology` from the
 desired source revision with the repository's configured cache. Sandbox PR
