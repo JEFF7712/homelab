@@ -359,9 +359,14 @@ Each run takes one step:
 
 The run reads cluster state through the read-only `registry-advance`
 ServiceAccount (`gitops/automation/registry-advance-access.yaml`). Its
-kubeconfig is the Woodpecker file secret `registry_advance_kubeconfig`, built
-from the `registry-advance-token` Secret. It can get, list and watch
-workloads, pods, CronJobs, Jobs and Flux Kustomizations, and nothing else.
+kubeconfig is fetched per job from the fixed `registry-advance` SSH credential
+issuer using the protected `registry_issuer_ssh_key`. It expires within one hour
+and is removed at job exit. The issuer cannot select another identity; see
+[Kubernetes CI credentials](kubernetes-ci-credentials.md) for the staged rollout.
+The existing role can get, list and watch workloads, pods, CronJobs, Jobs and Flux
+Kustomizations, and nothing else. The legacy `registry_advance_kubeconfig` and
+`registry-advance-token` are retained only until new issuance and scheduled-job
+acceptance pass, then must be revoked separately.
 Each run's log says why every other update waits.
 
 ### Refreshing an image under the same tag
