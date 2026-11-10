@@ -22,7 +22,7 @@ items:
   # JEFF7712/obsidian-vault quartz/Dockerfile (builder stage)
   - image: docker.io/library/node:24-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9
   # JEFF7712/rupanism Dockerfile (deps stage), JEFF7712/distrojeff-site Dockerfile (builder stage)
-  - image: docker.io/library/node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
+  - image: docker.io/library/node:24-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8
   # JEFF7712/rupanism Dockerfile (deps stage)
   - image: docker.io/oven/bun:1.4-debian@sha256:93d5032fe06d163427822dc1598f420363759bb18155c9cc90eb1be05a64a19e
   # JEFF7712/obsidian-vault quartz/Dockerfile (runner stage)
