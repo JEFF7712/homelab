@@ -50,6 +50,12 @@ metadata rather than assuming the instance suffix names the directory.
 Check health with `kubectl get clusters.postgresql.cnpg.io -A`. A healthy
 cluster reports `Cluster in healthy state` with `READY 2`.
 
+The Restic dump job uses stable host `homelab-db-dumps`, tag `db-dumps-v2`
+and `--group-by host,tags`; pod hostnames are not stable retention identities.
+Only newly tagged snapshots are aged out by the corrected policy. Existing
+legacy snapshots remain available for a separate reviewed cleanup. Inspect
+the configured `forget` command with `--dry-run` before any legacy migration.
+
 ---
 
 ## Scenario A: a replica will not rejoin

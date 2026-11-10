@@ -23,7 +23,7 @@ have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
 Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
-of 3.9 GiB), so an operation container copies far less from Attic before it
+of 3.9 GiB), so an operation container copies far less from niks3 before it
 starts. `cache-publish` pushes all three shells. On homelab-04 the trusted
 and deployment agents have two workflow slots each and the sandbox agent has
 one: a second concurrent validation pushed homelab-04's ci.slice to its limit
@@ -188,7 +188,7 @@ unrelated mutations without building a VM.
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
 and deployment work); `scripts/ci/cache.sh` and `just cache-populate` publish
-both shells to Attic. Inside the gate, `scripts/checks/all.sh` runs its
+both shells to niks3. Inside the gate, `scripts/checks/all.sh` runs its
 independent lanes (Python, registry, Nix, GitOps, OpenTofu, Home Assistant,
 docs, secrets, flake) concurrently with per-lane buffered output printed in
 lane order, aggregating every lane failure instead of stopping at the first;
@@ -225,27 +225,34 @@ merged certificates, empty module trees and inconsistent-version rejection.
 
 ### Dependency caching and timing visibility
 
-Attic stores its chunks on `zroot/attic` (`/srv/attic`), the system SSD
-mirror on nas-01, with a 120G quota. It moved off the single `tank` HDD on
-2026-10-19: CI containers fetch shells as many small random reads, and on a
-disk shared with media and NFS that held IO pressure above 80% and made
-every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
-remove it once the SSD store has run cleanly for a while.
+Cache stores live on nas-01's system SSD mirror, not the single `tank` HDD:
+CI containers fetch shells as many small random reads, and on a disk shared
+with media and NFS that held IO pressure above 80% and made every cold step
+crawl (moved 2026-10-19).
 
-### niks3 cache (staged rollout)
+### niks3 cache
 
-nas-01 runs a niks3 cache on port 8090 alongside Attic. The maintenance
+nas-01 runs the fleet's Nix cache, niks3, on port 8090. The maintenance
 `cache-publish` operation, and the laptop's `nixos-publish`,
-`nixos-lock-update` and `nixos-deploy` operations, push the same paths to
-niks3 after Attic. Hosts
+`nixos-lock-update` and `nixos-deploy` operations, push to it. Hosts
 (`flake/modules/common-base.nix`), the flake's `nixConfig` and CI jobs
-substitute from niks3 first and fall back to Attic: niks3 advertises
-priority 30 and Attic 41, and CI's `NIX_CONFIG` pins them at 30 and 35, all
-ahead of `cache.nixos.org` (40). A path niks3 lacks costs one 404 before
-Attic serves it. Fleet deployment verifies both caches after activating
-nas-01. The
+substitute from it at priority 30, ahead of `cache.nixos.org` (40). Fleet
+deployment verifies it after activating nas-01. The
 benchmark and the defect behind the patch are in
 `bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
+
+Attic, the previous cache on port 8080, was retired from substitution and
+publication on 2026-11-10, nine days into the planned 30-day overlap: it
+rejected the `python3-3.14.10` NAR ("Bad NAR Hash or Size"), and because
+`attic push` uploads closures, every batch depending on python3 failed and
+retried path by path. Cache publication ran for hours (pipeline #12539),
+held niks3 publication behind it, and blocked every later maintenance run.
+atticd and its data (`zroot/attic` at `/srv/attic`, the pre-move copy
+`tank/attic`, `/persist/attic`) stay untouched until about 2026-12-01; then
+decommission the service, its port, `attic-client` on nas-01 and the GitHub
+runner, the `attic_token` Woodpecker secret, and the laptop's Attic
+substituter in `JEFF7712/nixos-config`. Deleting the datasets is
+persistent-data destruction and follows that hold.
 
 - niks3 keeps metadata in a local PostgreSQL (`/var/lib/postgresql`,
   persisted) and objects in its own Garage instance (`garage-nix-cache`) on
@@ -261,8 +268,8 @@ benchmark and the defect behind the patch are in
   `/persist/niks3/api-token`. CI holds a copy as the Woodpecker secret
   `niks3_token` (cron and deployment events); after rotating the file,
   update it.
-- A niks3 error fails `cache-publish` once the Attic push has finished, so a
-  niks3 fault shows as a red maintenance run without leaving Attic behind.
+- A niks3 path error or exit status fails `cache-publish`, so a niks3 fault
+  shows as a red maintenance run.
 - Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
   Rotating `/persist/niks3/signing-key` needs the new public key in every
   substituter list above first.
@@ -272,9 +279,7 @@ benchmark and the defect behind the patch are in
   ships an equivalent fix.
 
 A CI-published nas-01 closure (1180 paths) restored into an empty store
-from niks3 alone, trusting only its key, on 2026-11-01. Remaining stage:
-retire Attic after about 30 days of niks3 serving the fleet, removing it
-from the substituter lists and `cache.sh`.
+from niks3 alone, trusting only its key, on 2026-11-01.
 
 ### Fleet cache builder
 
@@ -313,15 +318,12 @@ the operations tools, keeping its Python dependencies out of repository
 Python and its closure out of ordinary validation shells.
 
 All pipelines resolve the dev shell and build outputs from the local niks3
-cache (`http://10.0.30.20:8090?priority=30`), then Attic
-(`http://10.0.30.20:8080/homelab?priority=35`). Both priorities put the local
-caches ahead of `cache.nixos.org` (priority 40).
-`just cache-populate` and `scripts/ci/cache.sh` use `--ignore-upstream-cache-filter --jobs 8`
-to ensure all devShell dependencies are cached locally. `cache.sh` pushes in
-batches of 200 and retries a failed batch path by path, so one NAR Attic rejects
-("Bad NAR Hash or Size" on `python3-3.14.8` after the 2026-10-21 nixpkgs bump)
-is reported and skipped instead of aborting the whole upload. Push a rejected
-path from another machine to unblock it; the job fails only when nothing uploads.
+cache (`http://10.0.30.20:8090?priority=30`), ahead of `cache.nixos.org`
+(priority 40). `just cache-populate` and `scripts/ci/cache.sh` push every
+built output, flake source and build input to niks3, so devShell
+dependencies are cached locally; `just cache-populate` reads the push token
+from `NIKS3_TOKEN_FILE`. niks3 reports each path's result, and any error
+fails the publication with the rejected paths listed.
 
 Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report`:
 - `[PIPELINE AGE]` measures creation to the first timed command, including
@@ -330,14 +332,24 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   dependent workflows also require their prerequisites' finish timestamps.
 - Individual lanes (`fmt`, `jev`, `gate`) and every full-gate check report
   execution times under `[EXECUTION BREAKDOWN]`. Cgroup memory peaks,
-  OOM-kill deltas and CPU-throttling deltas distinguish resource limits
-  from slow checks. Concurrent checks share counters, so their values
-  overlap and must not be added together. SIGKILL alone does not establish
+  OOM-kill deltas, CPU usage and CPU-throttling deltas distinguish
+  resource limits from slow checks: usage near elapsed time multiplied by
+  the container's CPU quota means the gate is quota-bound, while usage well
+  below it means lanes are waiting on each other. Concurrent checks share
+  counters, so their values overlap and must not be added together.
+  SIGKILL alone does not establish
   OOM; missing cgroup files mean unavailable evidence.
 - Flake builds also report `flake-repository-contract`, `flake-topology`,
   and the other check names in the same breakdown. Each measures the Nix
   invocation, including substitution and dependencies, rather than only
-  the check's test process. They overlap host evaluation and sit inside
+  the check's test process. `scripts/checks/flake_jobs.py` builds VM tests
+  in their own pool, one per four CPUs of quota and at least one, because
+  CI guests run under TCG and two in a two-CPU container miss their boot
+  timeouts. Other checks build half the quota at once (at least two;
+  `CI_FLAKE_BUILD_JOBS` overrides), so rebuilt VM tests no longer queue the
+  unit suite behind them, and `repository-contract` splits the unit suite
+  by module across `NIX_BUILD_CORES` workers (`scripts.ci.tests --jobs`).
+  Builds overlap host evaluation and each other and sit inside
   `check-flake`; do not add their times to the parent lane. A quick invocation
   may indicate a cache hit; confirm substitution versus a build in the Nix
   log. Source changes still require a fresh contract build, and publication
@@ -422,7 +434,8 @@ green validation-v2 status. The external Obsidian publisher no longer writes
 homelab main; it publishes images only and the maintenance promotion PR
 carries the digest bump.
 
-Attic optimizes its SQLite query-planner statistics before startup. Missing
+Attic (retired from use; see the niks3 section) optimizes its SQLite
+query-planner statistics before startup. Missing
 statistics can make chunk hash lookups scan the valid-chunk index, stalling
 uploads as the cache grows. The bounded PRAGMA optimize pass preserves cache
 objects and lets the server load the appropriate hash-index query plan.

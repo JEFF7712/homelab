@@ -83,6 +83,9 @@ let
 
         echo "==> [2/5] Mounting remote sources via read-only SSHFS..."
         BASE_MOUNT_DIR="/run/backup-source"
+        # These mounts include recovery credentials; allow_other must not make
+        # their parent traversable by unrelated local service accounts.
+        ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root "$BASE_MOUNT_DIR"
         NAS_MOUNT="$BASE_MOUNT_DIR/nas"
         NAS_CLUSTER_MOUNT="$NAS_MOUNT/cluster"
         K3S_MOUNT="$BASE_MOUNT_DIR/k3s"
@@ -155,13 +158,17 @@ let
         MAX_MANIFEST_AGE=21600 # 6 hours max age
 
         # Coordination: Ensure k3s preparation has completed for current cycle (poll up to 300s)
-        K3S_MANIFEST="$K3S_MOUNT/backup-manifest.json"
+        K3S_GENERATION_DIR=""
+        K3S_MANIFEST=""
         WAIT_SECONDS=0
         while [ "$WAIT_SECONDS" -lt 300 ]; do
-          if [ -s "$K3S_MANIFEST" ]; then
+          if K3S_GENERATION_DIR=$(${pkgs.python3}/bin/python ${../../../scripts/k3s_backup_source.py} resolve --root "$K3S_MOUNT" 2>/dev/null); then
+            K3S_MANIFEST="$K3S_GENERATION_DIR/backup-manifest.json"
             K3S_CYCLE=$(${pkgs.jq}/bin/jq -r '.cycle // empty' "$K3S_MANIFEST" 2>/dev/null || true)
             K3S_STATUS=$(${pkgs.jq}/bin/jq -r '.status // empty' "$K3S_MANIFEST" 2>/dev/null || true)
-            if [ "$K3S_CYCLE" = "$CURRENT_CYCLE" ] && [ "$K3S_STATUS" = "success" ]; then
+            if [ "$K3S_CYCLE" = "$CURRENT_CYCLE" ] && [ "$K3S_STATUS" = "success" ] && \
+              ${pkgs.python3}/bin/python ${../../../scripts/k3s_backup_source.py} verify \
+                --generation "$K3S_GENERATION_DIR" --cycle "$CURRENT_CYCLE" --max-age-seconds "$MAX_MANIFEST_AGE"; then
               echo "k3s-backup-prep cycle $CURRENT_CYCLE confirmed ready."
               break
             fi
@@ -274,8 +281,8 @@ let
         if [ "$((NOW_EPOCH - K3S_TS))" -gt "$MAX_MANIFEST_AGE" ]; then
           fail "k3s backup prep manifest timestamp too old ($((NOW_EPOCH - K3S_TS))s > $MAX_MANIFEST_AGE s)"
         fi
-        if [ ! -s "$K3S_MOUNT/etcd-snapshot-latest" ]; then
-          fail "k3s etcd snapshot missing or empty at $K3S_MOUNT/etcd-snapshot-latest"
+        if [ ! -s "$K3S_GENERATION_DIR/etcd-snapshot" ]; then
+          fail "k3s etcd snapshot missing or empty at $K3S_GENERATION_DIR/etcd-snapshot"
         fi
         if [ "$K3S_SNAP_BYTES" -lt 10485760 ]; then
           fail "k3s etcd snapshot suspiciously small ($K3S_SNAP_BYTES bytes < 10MB)"
@@ -393,7 +400,7 @@ let
           "$PROWLARR_DIR"
           "$NAVIDROME_DIR"
           "$COUCHDB_DIR"
-          "$K3S_MOUNT"
+          "$K3S_GENERATION_DIR"
           "$WOODPECKER_MOUNT"
           "''${LOCAL_PATHS[@]}"
         )
@@ -434,6 +441,12 @@ let
           --exclude 'lost+found' \
           --exclude '*.tmp' \
           "''${SOURCES[@]}" || RC=$?
+
+        # RC=3 remains acceptable for unrelated cache churn only. Independently
+        # read back every critical recovery member before publishing success.
+        ${pkgs.python3}/bin/python ${../../../scripts/k3s_backup_source.py} verify-repository \
+          --generation "$K3S_GENERATION_DIR" --cycle "$CURRENT_CYCLE" --max-age-seconds "$MAX_MANIFEST_AGE" \
+          || fail "Independent k3s recovery read-back failed"
 
         if [ "$RC" -eq 0 ] || [ "$RC" -eq 3 ]; then
           NOW=$(date +%s)
@@ -591,6 +604,7 @@ in
       pkgs.sshfs
       pkgs.fuse
       pkgs.restic
+      pkgs.etcd
       pkgs.openssh
       pkgs.systemd
     ];

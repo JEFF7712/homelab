@@ -90,6 +90,40 @@ resource-budget policy. The existing dry-run still builds/copies candidates
 and executes dry-activation; only the separate report command is observational.
 Catalog updates become active after the CI-host deployment.
 
+## SSH deployment identities
+
+The common fleet module treats `homelab-nas-deploy` as a root-equivalent legacy
+automation identity: `rupan` retains passwordless sudo for system activation.
+Its authorized-key entry uses `restrict` (no PTY, forwarding or user startup
+scripts) and accepts connections only from the inventory addresses of the NAS
+and the trusted CI host, currently `10.0.30.20` and `10.0.30.14`. A stolen copy
+on another infrastructure machine cannot authenticate with this key. The key
+still executes noninteractive deployment commands from the trusted sources;
+this is source containment, not a forced-command deployment interface.
+
+The operator's two original keys and the personal `developer@agent-rupan`
+workstation key remain unrestricted. The development VM intentionally has the
+same operator authority as the laptop; see [agent workspaces](agent-workspaces.md).
+Do not revoke these operator identities to restrict an automation workflow.
+
+On 2026-11-04 the CI host's SSH journal showed current CI container connections
+using the first operator key, not the legacy `homelab-nas-deploy` key. Restricting
+the legacy key therefore does not remove the current CI/operator credential
+sharing. Replacing the protected CI `ssh_deploy_key` secret with a dedicated
+identity is a separate coordinated rotation; verify the public fingerprint and
+every consumer before doing so. A dedicated identity must also account for
+CI-host self-deployment: connections from its own Docker bridge retain a
+container source, whereas other fleet targets see the CI host's masqueraded
+address. Do not grant all RFC1918 or `172.16.0.0/12` sources: the latter also
+contains operator VM networks. The current legacy key needs no Docker exception.
+The secondary agent on homelab-05 provides sandbox execution only, not the deploy
+tier, and is not an allowed deployment-key source.
+
+After an approved activation, verify noninteractive deployment from NAS/CI,
+rejection of this specific key from another infrastructure host, and continued
+operator access. Changes to agent access controls follow the exact-change
+approval path; do not bypass it while recovering a failed deployment.
+
 ## Protected CI deployment
 
 The `deploy-fleet-dry-run` and `deploy-fleet` operations in
@@ -133,6 +167,40 @@ The deployer stops at the first failed host, restores its previous system after
 an activation failure, and uncordons only after successful host recovery. A drain
 failure also attempts to restore scheduling. It does not roll back hosts that already completed before
 a later host failed. Follow the affected host or service runbook for recovery.
+
+## Kernel reboots
+
+A switch installs a new kernel, initrd and modules but keeps running the old
+ones, so they take effect only after a reboot. `just fleet-reboot`
+(`scripts/fleet_reboot.py`, the `fleet-reboot` operation) reboots, one host at
+a time, each host whose booted kernel, initrd or modules differ from its
+running system. It only runs between 03:00 and 05:00 America/Chicago and
+starts no host after 04:30; outside the window it exits without doing anything.
+
+It never deploys: a host is rebooted only when its boot profile is the running
+system, which a gated deployment activated and verified. Order and checks:
+
+- k3s nodes and the DNS appliance in inventory order. k3s nodes are cordoned
+  and drained, then must boot the installed system with no newly failed unit,
+  report Ready (and Postgres primaries for homelab-01) before they are
+  uncordoned.
+- nas-01 next, only when a platform backup succeeded in the last two hours, no
+  backup, restore drill or repository maintenance is running and
+  `zpool status -x` is healthy. Otherwise it is deferred to the next night with
+  an ntfy notice. After its reboot the datasets, NFS and caches are checked.
+- homelab-04 last, because the CI job runs there. It is drained, a transient
+  `homelab-reboot-watch-homelab-04` unit on homelab-01 uncordons it once it
+  reports Ready on the installed kernel (within 20 minutes), and its reboot is
+  scheduled 90 seconds out. If the watcher gives up, the node stays cordoned:
+  check `journalctl -u homelab-reboot-watch-homelab-04` on homelab-01.
+
+The first failure stops the run, leaves that node cordoned and sends an urgent
+ntfy alert. Inspect the host, then `kubectl uncordon <node>` once it is
+healthy. Preview the plan at any time, read-only:
+
+```sh
+nix develop ./flake#ops -c just fleet-reboot --dry-run --ignore-window --no-notify
+```
 
 ## Acceptance
 

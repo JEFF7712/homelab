@@ -555,6 +555,14 @@ to encrypted Restic on `/mnt/backup-2tb/registry-restic`. It prunes with
 independently. This separate disk and local sanoid snapshots do not cover loss
 of the NAS site; see [independent platform recovery](sovereign-platform-recovery.md).
 
+New snapshots use host `nas-01`, tag `registry-v2` and `--group-by host,tags`
+for backup and retention. Grouping by the timestamped ZFS source path retains
+every run indefinitely. The corrected policy deliberately excludes legacy
+untagged snapshots. Review `restic forget --host nas-01 --tag registry-v2
+--group-by host,tags --keep-daily 7 --keep-weekly 5 --keep-monthly 6 --dry-run`
+before acceptance. Do not retag or delete legacy snapshots until an operator
+has reviewed the retained generations and a usable restore.
+
 Before accepting backup:
 
 1. Confirm `registry-backup.service` completed and `restic check` passed.

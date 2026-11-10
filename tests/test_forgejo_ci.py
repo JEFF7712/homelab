@@ -310,6 +310,11 @@ class PolicyTest(unittest.TestCase):
                 }
                 with self.subTest(workflow=item["name"], step=step["name"]):
                     self.assertEqual(settings["sandbox"], "false")
+                    # niks3 is the only local cache; Attic is retired.
+                    self.assertEqual(
+                        settings["extra-substituters"],
+                        "http://10.0.30.20:8090?priority=30",
+                    )
                     self.assertEqual(settings["build-users-group"], build_users.GROUP)
                     self.assertEqual(step["commands"][0], build_users.setup_command())
 
@@ -319,9 +324,10 @@ class PolicyTest(unittest.TestCase):
         self.assertTrue(operation["mutation"])
         self.assertEqual(operation["group"], "nix-cache")
         self.assertEqual(
-            operation["environment"]["ATTIC_TOKEN"],
-            {"from_secret": "attic_token"},
+            operation["environment"]["NIKS3_TOKEN"],
+            {"from_secret": "niks3_token"},
         )
+        self.assertNotIn("ATTIC_TOKEN", operation["environment"])
         self.assertEqual(
             operation["environment"]["FORGEJO_SOURCE_READ_TOKEN"],
             {"from_secret": "forgejo_source_read_token"},
