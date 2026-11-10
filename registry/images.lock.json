@@ -4810,6 +4810,50 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/shared-images/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-a18b20ad69e74df6"
+      ],
+      "digest": "sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894",
+      "id": "upstream-library-python-1dc04c82387d",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894",
+        "reference": "docker.io/library/python:3.14-alpine@sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.14-alpine"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:31"
       ],
       "destination_repository": "upstream/docker.io/library/python",

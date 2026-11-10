@@ -18,7 +18,7 @@ items:
   # busybox init containers (home-assistant, media, obsidian, platform)
   - image: docker.io/library/busybox:1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
   # Python job runtime (automation, media, observability, voice, websites, CI)
-  - image: docker.io/library/python:3.14-alpine@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc
+  - image: docker.io/library/python:3.14-alpine@sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894
   # PostgreSQL 17 (home-assistant/postgres.yaml and its dumps in backups)
   - image: docker.io/library/postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac  # yamllint disable-line rule:line-length
   # unprivileged nginx (websites/nix, CI)
