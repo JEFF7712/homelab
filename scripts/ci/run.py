@@ -25,6 +25,19 @@ def cgroup_root() -> Path | None:
     return Path("/sys/fs/cgroup") / relative
 
 
+def cpu_limit(root: Path | None = None) -> float | None:
+    """CPUs this cgroup may use per period (cpu.max), or None if unlimited."""
+    if root is None:
+        root = cgroup_root()
+        if root is None:
+            return None
+    try:
+        quota, period = (root / "cpu.max").read_text().split()
+        return int(quota) / int(period)
+    except (OSError, ValueError, ZeroDivisionError):
+        return None
+
+
 def anon_bytes(root: Path) -> int | None:
     try:
         lines = (root / "memory.stat").read_text().splitlines()
