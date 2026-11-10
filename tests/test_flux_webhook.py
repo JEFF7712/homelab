@@ -24,7 +24,8 @@ class FluxWebhookContract(unittest.TestCase):
         self.assertEqual(token["spec"]["target"]["name"], "receiver-token")
         store = token["spec"]["secretStoreRef"]
         self.assertEqual(
-            (store["kind"], store["name"]), ("ClusterSecretStore", "homelab-secrets")
+            (store["kind"], store["name"]),
+            ("ClusterSecretStore", "homelab-flux-system"),
         )
         keys = [entry["secretKey"] for entry in token["spec"]["data"]]
         self.assertIn("token", keys)
