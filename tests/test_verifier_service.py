@@ -296,12 +296,54 @@ class MergePolicyService(unittest.TestCase):
         run_once(forge, self.mirror, self.approvals, {})
         self.assertEqual(forge.statuses[-1][1]["state"], "success")
 
+        # A follow-up commit outside the gated files keeps the approval.
+        git(self.remote, "checkout", "-q", "pr7")
+        (self.remote / "docs.md").write_text("explained\n")
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-qm", "docs")
+        documented = git(self.remote, "rev-parse", "HEAD")
+        git(self.remote, "checkout", "-q", "main")
+        forge = FakeForge([self.pull(7, documented)])
+        run_once(forge, self.mirror, self.approvals, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
         git(self.remote, "checkout", "-q", "pr7")
         (self.remote / ".sops.yaml").write_text("y\n")
         git(self.remote, "commit", "-qam", "new change")
         changed = git(self.remote, "rev-parse", "HEAD")
         git(self.remote, "checkout", "-q", "main")
         forge = FakeForge([self.pull(7, changed)])
+        run_once(forge, self.mirror, self.approvals, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "failure")
+
+    def test_a_new_gated_file_after_approval_needs_a_new_approval(self) -> None:
+        def touch_policy(repo: Path) -> None:
+            (repo / ".sops.yaml").write_text("x\n")
+
+        approved = self.branch(8, touch_policy)
+        self.approvals.heads[8] = [approved]
+        git(self.remote, "checkout", "-q", "pr8")
+        (self.remote / "config/spend.json").parent.mkdir(parents=True, exist_ok=True)
+        (self.remote / "config/spend.json").write_text("{}\n")
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-qm", "raise a cap")
+        widened = git(self.remote, "rev-parse", "HEAD")
+        git(self.remote, "checkout", "-q", "main")
+        forge = FakeForge([self.pull(8, widened)])
+        run_once(forge, self.mirror, self.approvals, {})
+        self.assertEqual(forge.statuses[-1][1]["state"], "failure")
+
+    def test_an_unrelated_head_with_the_same_gated_diff_does_not_inherit(
+        self,
+    ) -> None:
+        # Carry-over requires the new head to build on the approved one.
+        def touch_policy(repo: Path) -> None:
+            (repo / ".sops.yaml").write_text("x\n")
+
+        approved = self.branch(9, touch_policy)
+        other = self.branch(10, touch_policy)
+        self.approvals.heads[10] = [approved]
+        forge = FakeForge([self.pull(10, other)])
         run_once(forge, self.mirror, self.approvals, {})
         self.assertEqual(forge.statuses[-1][1]["state"], "failure")
 
