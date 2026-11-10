@@ -45,7 +45,7 @@ items:
   # Seerr (frontend.yaml)
   - image: docker.io/seerr/seerr:v3.5.1@sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be
   # Jellyfin (jellyfin.yaml)
-  - image: lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls46@sha256:4f6d8dfc53ec5a1ddf7a90e4338972d57d7b0adff6dc88b53184f8285d0b594f  # yamllint disable-line rule:line-length
+  - image: lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls47@sha256:438e44330078e6b1a810fdec9dc0f4773e6595edb137c5eb4417a516da4c7f0e  # yamllint disable-line rule:line-length
   # qBittorrent (download.yaml)
   - image: lscr.io/linuxserver/qbittorrent:5.3.0_v2.1.2-ls487@sha256:3d4c4545d51a690a0df15a2ff99038823a88a9822df8e794526447b9afbd7384  # yamllint disable-line rule:line-length
   # Gluetun VPN sidecar (download.yaml, slskd.yaml); the pinned build has no
