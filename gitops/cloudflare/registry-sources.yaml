@@ -16,4 +16,4 @@ metadata:
   name: cloudflare-registry-sources
 items:
   # cloudflared (tunnel.yaml)
-  - image: docker.io/cloudflare/cloudflared:2026.10.2@sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2  # yamllint disable-line rule:line-length
+  - image: docker.io/cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba  # yamllint disable-line rule:line-length
