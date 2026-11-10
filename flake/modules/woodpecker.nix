@@ -73,7 +73,7 @@ let
       load_development_projects(Path("${../../config/ci/projects.json}"))
     ''}
   '';
-  agent = tier: count: {
+  agent = tier: count: cpus: {
     enable = true;
     extraGroups = [ "docker" ];
     environment = {
@@ -84,7 +84,7 @@ let
       WOODPECKER_MAX_WORKFLOWS = toString count;
       WOODPECKER_HEALTHCHECK = "false";
       WOODPECKER_BACKEND_DOCKER_LIMIT_MEM = "8589934592";
-      WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "200000";
+      WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = toString (cpus * 100000);
     };
     environmentFile = [ config.sops.secrets."woodpecker-agent-${tier}.env".path ];
   };
@@ -270,14 +270,17 @@ in
     };
     services.woodpecker-agents.agents = {
       # One sandbox slot: a second 8G validation overcommitted the host's
-      # memory; homelab-05 carries the other sandbox slot.
-      sandbox = agent "sandbox" 1;
+      # memory; homelab-05 carries the other sandbox slot. Four CPUs: at two,
+      # parallel gate lanes spent more time throttled than running (#12452:
+      # 1,098 s throttled in a 348 s gate). The ci slice caps all slots at
+      # ten CPUs and CPUWeight keeps pods ahead under contention.
+      sandbox = agent "sandbox" 1 4;
       # Two trusted slots: scheduled read-only work holds at most one (its
       # shared concurrency group), so pushes and operator plans keep the other.
-      trusted = agent "trusted" 2;
+      trusted = agent "trusted" 2 2;
       # Operations serialize per resource group, so a second deploy slot lets
       # unrelated mutations (a cache push and a Home Assistant apply) overlap.
-      deploy = agent "deploy" 2;
+      deploy = agent "deploy" 2 2;
     };
     systemd.services.woodpecker-agent-sandbox.serviceConfig.Restart = lib.mkForce "always";
     systemd.services.woodpecker-agent-trusted.serviceConfig.Restart = lib.mkForce "always";
