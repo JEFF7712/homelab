@@ -321,6 +321,14 @@ Deployment whose main container has a readiness probe, or a CronJob, and none
 uses the image in an init container. StatefulSets, DaemonSets, majors and
 floating tags stay with a person or the controller.
 
+Producer base images (`gitops/producer-base-images/base-images.yaml`) need no
+consumer to be mirrored. In this repository, their adopters are projectctl's
+CI step images (`config/ci/projectctl-contracts.json`), where a bad image fails
+a project build without touching a running service. Producer Dockerfiles in
+other repositories update there. The Woodpecker clone image pinned in
+`flake/modules/woodpecker.nix` is enforcement code: it is mirrored, but the
+pin moves only with the operator's approval.
+
 Each run takes one step:
 
 1. **Settle.** The newest adopt the schedule merged in the last day is checked

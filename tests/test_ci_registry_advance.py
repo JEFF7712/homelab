@@ -428,5 +428,85 @@ class SettleTest(unittest.TestCase):
                     )
 
 
+BASE = "gitops/producer-base-images/base-images.yaml"
+NODE = "upstream/docker.io/library/node"
+
+
+class BaseImageTest(unittest.TestCase):
+    """Producer base images mirror without a workload; projectctl's CI steps adopt."""
+
+    def test_a_base_images_bump_is_read(self) -> None:
+        diff = (
+            f"diff --git a/{BASE} b/{BASE}\n--- a/{BASE}\n+++ b/{BASE}\n@@ -1 +1 @@\n"
+            f"-  - image: docker.io/library/node:24-slim@{OLD}\n"
+            f"+  - image: docker.io/library/node:24-slim@{NEW}\n"
+        )
+        self.assertEqual(
+            renovate_bump([BASE, "registry/images.lock.json"], diff),
+            (
+                f"docker.io/library/node:24-slim@{OLD}",
+                f"docker.io/library/node:24-slim@{NEW}",
+            ),
+        )
+
+    def test_a_base_image_mirrors_without_a_consumer_but_not_across_majors(
+        self,
+    ) -> None:
+        reference = f"{NODE}@{OLD}"
+        self.assertIsNone(
+            ineligible(NODE, "24-slim", "24-slim", [], reference, POLICY, base=True)
+        )
+        self.assertIsNotNone(
+            ineligible(NODE, "24-slim", "26-slim", [], reference, POLICY, base=True)
+        )
+        self.assertEqual(
+            ineligible(NODE, "24-slim", "24-slim", [], reference, POLICY),
+            "no workload references the old mirror",
+        )
+
+    def test_projectctl_step_images_are_adopted(self) -> None:
+        contracts = (
+            f'{{"node-build-v1": {{"image": "registry.rupan.dev/{NODE}@{OLD}"' + "}}"
+        )
+        lock = {
+            "images": [
+                {
+                    "kind": "upstream",
+                    "id": "node-new",
+                    "digest": NEW,
+                    "destination_repository": NODE,
+                    "source": {"tag": "24-slim"},
+                },
+                {
+                    "kind": "upstream",
+                    "id": "node-old",
+                    "digest": OLD,
+                    "destination_repository": NODE,
+                    "source": {"tag": "24-slim"},
+                },
+            ]
+        }
+        candidates = adopt_candidates(
+            [(registry_advance.CONTRACTS, contracts)], {NODE: {NEW}}, lock, POLICY
+        )
+        self.assertEqual([c[0] for c in candidates], [NODE])
+
+    def test_the_rebuild_finds_a_base_image_declaration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / BASE).parent.mkdir(parents=True)
+            (root / BASE).write_text(
+                f"items:\n  - image: docker.io/library/node:24-slim@{OLD}\n"
+            )
+            self.assertEqual(
+                bump_declaration(
+                    root,
+                    f"docker.io/library/node:24-slim@{OLD}",
+                    f"docker.io/library/node:24-slim@{NEW}",
+                ),
+                BASE,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

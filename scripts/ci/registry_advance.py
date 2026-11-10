@@ -29,7 +29,12 @@ again. Nothing new is adopted while an adopt is unsettled.
 Eligible updates keep the same major version, outside the denied namespaces
 and repositories (config/registry/advance-policy.json). Every consumer is a
 Deployment whose main container has a readiness probe, or a CronJob, and
-none uses the image in an init container. A RollingUpdate keeps the old pod
+none uses the image in an init container. Producer base images
+(gitops/producer-base-images/base-images.yaml) need no workload to mirror;
+their consumers here are projectctl's CI step images
+(config/ci/projectctl-contracts.json), where a bad image fails a project's
+build without touching a running service. The Woodpecker clone image is
+enforcement code and stays with the operator. A RollingUpdate keeps the old pod
 serving; a Recreate restarts and is reverted if it does not come back; a
 CronJob's next run fails and alerts. StatefulSets, DaemonSets and everything
 else stay with a person or the controller.
@@ -66,7 +71,9 @@ FORGEJO = "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab"
 REGISTRY = "https://registry.rupan.dev"
 RENOVATE = "homelab-renovate"
 POLICY = Path("config/registry/advance-policy.json")
-DECLARATION = re.compile(r"^gitops/[^/]+/registry-sources\.ya?ml$")
+DECLARATION = re.compile(r"^gitops/[^/]+/(registry-sources|base-images)\.ya?ml$")
+BASE_IMAGES = Path("gitops/producer-base-images/base-images.yaml")
+CONTRACTS = "config/ci/projectctl-contracts.json"
 RECORDS = {"registry/images.inventory.json", "registry/images.lock.json"}
 IDENTITY = ["-c", "user.name=Homelab CI", "-c", "user.email=ci@rupan.dev"]
 ADOPT_BRANCH = "registry-advance/adopt-"
@@ -140,15 +147,21 @@ def ineligible(
     documents: list[tuple[str, dict]],
     old_reference: str,
     policy: Mapping[str, Any],
+    base: bool = False,
 ) -> str | None:
-    """None when the scheduled path may take this update, else the reason."""
+    """None when the scheduled path may take this update, else the reason.
+
+    A base image needs no consumer to be mirrored; whatever consumers it has
+    are still checked."""
     if repository in policy.get("deny_repositories", []):
         return "repository is denied"
     if major(old_tag) is None or major(old_tag) != major(new_tag):
         return f"not a same-major update ({old_tag} -> {new_tag})"
-    if not documents:
+    if not documents and not base:
         return "no workload references the old mirror"
     for path, document in documents:
+        if path == CONTRACTS:
+            continue
         metadata = document.get("metadata") or {}
         name = metadata.get("name")
         if metadata.get("namespace") in policy.get("deny_namespaces", []):
@@ -261,7 +274,11 @@ def bump_declaration(root: Path, old: str, new: str) -> str | None:
     None when no declaration still names the old reference: main already moved
     past it, and Renovate closes its PR once main declares the new one.
     """
-    for path in sorted((root / "gitops").glob("*/registry-sources.y*ml")):
+    candidates = [
+        *(root / "gitops").glob("*/registry-sources.y*ml"),
+        *(root / "gitops").glob("*/base-images.y*ml"),
+    ]
+    for path in sorted(candidates):
         text = path.read_text()
         if old in text:
             path.write_text(text.replace(old, new, 1))
@@ -541,7 +558,7 @@ def main() -> int:
         (path.relative_to(root).as_posix(), path.read_text())
         for path in sorted((root / "gitops").rglob("*"))
         if path.is_file() and path.suffix in (".yaml", ".yml")
-    ]
+    ] + [(CONTRACTS, (root / CONTRACTS).read_text())]
     closed = api(token, "/pulls?state=closed&sort=recentupdate&limit=50")
     pending = unsettled_adopt(
         closed,
@@ -589,6 +606,7 @@ def main() -> int:
             workloads_using(files, f"{repository}@{old_digest}"),
             f"{repository}@{old_digest}",
             policy,
+            base=old in (root / BASE_IMAGES).read_text(),
         )
         if reason:
             print(f"mirror #{number} {repository}: not eligible: {reason}")
