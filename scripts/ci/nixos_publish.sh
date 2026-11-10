@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Publish nixos-config artifacts (laptop toplevel and installer ISO) to Attic.
+# Publish nixos-config artifacts (laptop toplevel and installer ISO) to niks3.
 # Source is Forgejo-authoritative: the main tip is resolved via the read-only
 # API identity, cloned, and verified before anything builds, so a stale or
 # raced checkout fails closed instead of publishing the wrong tree.
 set -euo pipefail
 
 : "${FORGEJO_SOURCE_READ_TOKEN:?FORGEJO_SOURCE_READ_TOKEN is required}"
-: "${ATTIC_TOKEN:?ATTIC_TOKEN is required for publication}"
+: "${NIKS3_TOKEN:?NIKS3_TOKEN is required for publication}"
 forgejo="${FORGEJO_URL:-http://10.0.30.20:3000}"
 owner_repo="${NIXOS_REPOSITORY:-JEFF7712/nixos-config}"
 target_set="${NIXOS_TARGET_SET:-nixos-laptop}"
