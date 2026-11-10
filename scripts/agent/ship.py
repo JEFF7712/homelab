@@ -52,6 +52,7 @@ SUPERSEDED = "Operation source must be the current main commit"
 GRANT_PATTERN = re.compile(r"\(grant ([0-9a-f]{64})\): ([^<\n]*)")
 ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
+UNAUTHORIZED_RETRIES = 3
 # One ship at a time holds the merge lease from its final freshness check to
 # its merge, so main cannot move under a revalidation. The lease is a branch
 # holding one parentless commit that names the holder and its expiry; pushes
@@ -297,6 +298,13 @@ def http(
                 return response.status, json.loads(payload) if payload else None
         except urllib.error.HTTPError as error:
             if error.code in {502, 503, 504} and attempt + 1 < NETWORK_RETRIES:
+                time.sleep(RETRY_SECONDS)
+                continue
+            # Woodpecker answers a valid token with a bare 401 for a moment
+            # while main's pipeline starts (twice on 2026-11-09, stranding
+            # merged ships). A few retries of a read let it pass; a token
+            # that is really invalid still fails within a minute.
+            if error.code == 401 and method == "GET" and attempt < UNAUTHORIZED_RETRIES:
                 time.sleep(RETRY_SECONDS)
                 continue
             text = error.read().decode(errors="replace")
