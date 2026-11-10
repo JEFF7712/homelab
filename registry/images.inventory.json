@@ -3655,6 +3655,40 @@
         "repository": "cloudflare/cloudflared",
         "tag": "2026.10.7"
       }
+    },
+    {
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/postgres",
+      "id": "upstream-library-postgres-6b7b31026a1d",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac",
+        "reference": "docker.io/library/postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac",
+        "registry": "docker.io",
+        "repository": "library/postgres",
+        "tag": "17.11-alpine"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/backups/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/postgres",
+      "id": "upstream-library-postgres-b680f78bfb9f",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139",
+        "reference": "docker.io/library/postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139",
+        "registry": "docker.io",
+        "repository": "library/postgres",
+        "tag": "16.15-alpine"
+      }
     }
   ],
   "kind": "registry-inventory",
