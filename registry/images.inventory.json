@@ -3825,6 +3825,23 @@
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.12.1"
       }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:42"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/beets",
+      "id": "upstream-linuxserver-beets-df2b4df9eaed",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a",
+        "reference": "lscr.io/linuxserver/beets:2.14.1-ls359@sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a",
+        "registry": "lscr.io",
+        "repository": "linuxserver/beets",
+        "tag": "2.14.1-ls359"
+      }
     }
   ],
   "kind": "registry-inventory",

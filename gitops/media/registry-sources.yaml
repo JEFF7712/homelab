@@ -39,7 +39,7 @@ items:
   # Navidrome (music.yaml)
   - image: docker.io/deluan/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52
   # beets (music.yaml)
-  - image: lscr.io/linuxserver/beets:2.13.1-ls348@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c  # yamllint disable-line rule:line-length
+  - image: lscr.io/linuxserver/beets:2.14.1-ls359@sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a  # yamllint disable-line rule:line-length
   # File Browser (frontend.yaml)
   - image: docker.io/filebrowser/filebrowser:v2.63.23@sha256:a469ea076d4a1b4b1d86a41d130f2f536cd9da996a2b1fb39c0d7635f9d89b9a  # yamllint disable-line rule:line-length
   # Seerr (frontend.yaml)
