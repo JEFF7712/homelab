@@ -84,10 +84,14 @@ link and the policy comment point at it; `just ship` prints it and waits.
 - One request per head. A newer head supersedes a pending request for an older
   one; pending requests expire after seven days.
 - The policy asks `GET /api/merges/<pr>` on every judgement and passes a head
-  the operator approved, or a byte-identical update of an approved head (the
-  same patch-id from its merge base, which updating the branch from main
-  produces). Any new change, including a conflict resolution, files a new
-  request.
+  the operator approved, or a later head that builds on an approved one with
+  the same diff of the gated files: enforcement paths, the operation catalog
+  and `websites/`, the only files that can need an operator. The comparison
+  is the patch-id of that partial diff from the merge base. Updating from
+  main or adding commits that touch only other files keeps the approval. Any
+  new or different gated change, including in a conflict resolution, files a
+  new request. Non-gated files never needed the operator, so an approval
+  says nothing about them.
 - Approving merges nothing by itself: the policy re-judges within its interval
   and posts `success`, and ship merges.
 - The approval also covers deploying those file versions. When the CI policy

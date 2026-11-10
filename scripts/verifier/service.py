@@ -12,8 +12,9 @@ that judges merges and deployments. A head passes unless it changes
 enforcement code, unmarks a catalog mutation (which would take it out of the
 deployment gate), or crosses a website boundary
 (scripts/verifier/websites.py). Repair findings go back to the agent;
-authority findings need an operator's approval of that exact head (or of a
-byte-identical change) on the approvals dashboard, the one place the
+authority findings need an operator's approval of that exact head (or of an
+earlier head with a byte-identical diff of the gated files) on the approvals
+dashboard, the one place the
 operator approves anything. The policy files the request itself; Forgejo
 reviews grant nothing. Notices, such as granting an operation to agents,
 are recorded and do not block.
@@ -105,6 +106,11 @@ def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
                 )
             )
     return findings
+
+
+def gated(path: str) -> bool:
+    """Whether a change to path can need an operator in decide()."""
+    return enforcement(path) or path == CATALOG or path.startswith(WEBSITES + "/")
 
 
 def decide(
@@ -273,9 +279,25 @@ class Mirror:
         return self.git("merge-base", a, b).stdout.decode().strip()
 
     def patch_id(self, commit: str) -> str | None:
+        """Patch identity of the commit's operator-gated diff from main.
+
+        Only the files that can need an operator (gated) enter the diff, so
+        later edits elsewhere in the PR leave it unchanged.
+        """
         base = self.merge_base("refs/heads/main", commit)
+        paths = [path for path in self.changed(base, commit) if gated(path)]
+        if not paths:
+            return None
         diff = self.git(
-            "diff", "--no-ext-diff", "--binary", "--full-index", base, commit
+            "diff",
+            "--no-ext-diff",
+            "--no-renames",
+            "--binary",
+            "--full-index",
+            base,
+            commit,
+            "--",
+            *(f":(literal){path}" for path in paths),
         ).stdout
         if not diff:
             return None
@@ -283,7 +305,7 @@ class Mirror:
         return out.split()[0].decode() if out else None
 
     def same_change(self, approved: str, head: str) -> bool:
-        """Whether two heads carry the same diff from their merge bases."""
+        """Whether head builds on approved with the same operator-gated diff."""
         if self.git(
             "merge-base", "--is-ancestor", approved, head, check=False
         ).returncode:
@@ -321,12 +343,14 @@ class Mirror:
 
 
 def operator_approved(approved: list[str], head: str, same_change: Any = None) -> bool:
-    """Whether the operator approved this head, or an identical change.
+    """Whether the operator approved this head, or the same gated change.
 
-    An approval of an older head carries over only when same_change says the
-    PR's own diff from its merge base is byte-identical, which is what
-    updating a branch from main produces. Any new change, including a
-    conflict resolution, needs a fresh approval.
+    An approval of an older head carries over when same_change says the head
+    builds on it and the PR's diff of operator-gated files (enforcement code,
+    the operation catalog, websites) is byte-identical. Updating from main or
+    adding commits that touch only other files keeps the approval; any new or
+    different gated change, including in a conflict resolution, needs a
+    fresh one.
     """
     if head in approved:
         return True
