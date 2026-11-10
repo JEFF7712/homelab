@@ -1,22 +1,12 @@
 # The scheduled registry-advance operation (scripts/ci/registry_advance.py)
 # verifies the workloads it moved to a new image and reverts a failed rollout.
 # It reads workload, pod and Flux Kustomization status cluster-wide and
-# nothing else: no writes, no exec, no secrets. CI holds this identity's
-# kubeconfig as the Woodpecker file secret registry_advance_kubeconfig.
+# no other resources. CI requests a one-hour kubeconfig for each job.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: registry-advance
   namespace: automation
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: registry-advance-token
-  namespace: automation
-  annotations:
-    kubernetes.io/service-account.name: registry-advance
-type: kubernetes.io/service-account-token
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
