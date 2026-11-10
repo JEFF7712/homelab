@@ -318,6 +318,10 @@ class ReportsTest(unittest.TestCase):
                 {"tests": "7", "failures": "1", "errors": "1", "skipped": "1"},
             )
             self.assertIn("with 3 workers", result.stderr)
+            # Failing tests are named on the last lines a log tail keeps.
+            module_error, failure = result.stderr.rstrip().splitlines()[-2:]
+            self.assertIn("test_fixture", module_error)
+            self.assertEqual(failure, "  test_outcomes.Outcomes.test_fail")
 
     def test_parallel_runner_passes_when_every_module_passes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

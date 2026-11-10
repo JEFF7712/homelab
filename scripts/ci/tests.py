@@ -154,14 +154,22 @@ def run_parallel(suite: unittest.TestSuite, jobs: int) -> tuple[list[ET.Element]
             ran += count
             success = success and passed
     elapsed = time.perf_counter() - started
-    sys.stderr.write(
-        "".join(errors[index] for index in sorted(errors))
-        + f"{'-' * 70}\nRan {ran} tests in {elapsed:.3f}s with {jobs} workers\n\n"
-        f"{'OK' if success else 'FAILED'}\n"
-    )
     cases = [
         ET.fromstring(case) for index in sorted(reported) for case in reported[index]
     ]
+    # Name failing tests on the summary's last lines: a build log tail cut
+    # short of the tracebacks still shows them (pipeline #12524 did not).
+    failing = "".join(
+        f"  {case.get('classname')}.{case.get('name')}\n"
+        for case in cases
+        if case.find("failure") is not None or case.find("error") is not None
+    )
+    sys.stderr.write(
+        "".join(errors[index] for index in sorted(errors))
+        + f"{'-' * 70}\nRan {ran} tests in {elapsed:.3f}s with {jobs} workers\n\n"
+        + ("OK\n" if success else f"FAILED\n{failing}")
+    )
+    sys.stderr.flush()
     return cases, success
 
 

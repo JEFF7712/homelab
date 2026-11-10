@@ -340,8 +340,10 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
 - Flake builds also report `flake-repository-contract`, `flake-topology`,
   and the other check names in the same breakdown. Each measures the Nix
   invocation, including substitution and dependencies, rather than only
-  the check's test process. `scripts/checks/flake_jobs.py` builds half the
-  container's CPU quota of checks at once (at least two;
+  the check's test process. `scripts/checks/flake_jobs.py` builds VM tests
+  in their own pool, one per four CPUs of quota and at least one, because
+  CI guests run under TCG and two in a two-CPU container miss their boot
+  timeouts. Other checks build half the quota at once (at least two;
   `CI_FLAKE_BUILD_JOBS` overrides), so rebuilt VM tests no longer queue the
   unit suite behind them, and `repository-contract` splits the unit suite
   by module across `NIX_BUILD_CORES` workers (`scripts.ci.tests --jobs`).
