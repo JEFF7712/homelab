@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -408,6 +409,9 @@ def drill_metrics(state: dict[str, dict[str, Any]]) -> str:
 # A dataset is drilled again once its last pass is this old; failed and
 # pending datasets are retried on every timer run (every two hours).
 DRILL_INTERVAL = datetime.timedelta(days=6)
+# Datasets record the drill code that checked them, so a deploy that changes
+# the drill verifies the new code on the next run instead of days later.
+DRILL_CODE = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
 
 
 def drill_due(
@@ -419,6 +423,8 @@ def drill_due(
     for dataset in datasets:
         entry = state.get(dataset, {})
         if not str(entry.get("result", "")).startswith("pass"):
+            return True
+        if entry.get("code") != DRILL_CODE:
             return True
         if now.timestamp() - entry.get("passed", 0) > DRILL_INTERVAL.total_seconds():
             return True
@@ -491,8 +497,10 @@ def run_drill(
                         couch["result"] = f"fail: {error}"
                         failed.append(COUCHDB_DATASET)
                 couch["checked"] = int(now.timestamp())
+                couch["code"] = DRILL_CODE
                 print(f"{COUCHDB_DATASET}: {couch['result']}")
         entry["checked"] = int(now.timestamp())
+        entry["code"] = DRILL_CODE
         print(f"{dataset}: {entry['result']}")
     state_file.parent.mkdir(parents=True, exist_ok=True)
     state_file.write_text(json.dumps(state, indent=2, sort_keys=True))

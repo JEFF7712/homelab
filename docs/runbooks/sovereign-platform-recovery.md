@@ -408,8 +408,10 @@ full-platform RTO remain untested in the recovered environment.
 
 `platform-restore-drill.service` on nas-01 runs from a timer every two
 hours (and 15 minutes after boot or a deploy that changes its code), but
-drills only when something is due: a dataset that failed, is pending, or last
-passed more than six days ago. It proves that both hosts' `sovereign-platform`
+drills only when something is due: a dataset that failed, is pending, last
+passed more than six days ago, or was checked by different drill code. It
+always exits 0, because a failed unit fails every nas-01 activation; failures
+surface only through the metrics and alerts below. It proves that both hosts' `sovereign-platform`
 snapshots restore, along with the CouchDB data described below. For nas-01 and homelab-04 it requires a snapshot from the
 last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
 `homelab.git`) into scratch space under `/persist/platform-backup`, runs

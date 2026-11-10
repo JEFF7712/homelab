@@ -220,6 +220,19 @@ def bounded_handler(
                     self.wfile.write(
                         b"HTTP/1.0 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n"
                     )
+                    self.wfile.flush()
+                    # Closing with the unread request still buffered sends a
+                    # reset that can discard the 503 before the client reads
+                    # it, so the client saw UNREACHABLE instead of busy. Half
+                    # close, then drain briefly and boundedly.
+                    self.connection.shutdown(socket.SHUT_WR)
+                    self.connection.settimeout(0.2)
+                    drained = 0
+                    while drained < 65536:
+                        chunk = self.connection.recv(4096)
+                        if not chunk:
+                            break
+                        drained += len(chunk)
                 except OSError:
                     pass
                 return

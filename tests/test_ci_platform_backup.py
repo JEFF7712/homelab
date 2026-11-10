@@ -584,9 +584,11 @@ class PlatformRestoreDrillTests(unittest.TestCase):
         self.assertTrue(state["couchdb-obsidian"]["result"].startswith("fail"))
 
     def test_recent_passes_skip_the_drill_but_keep_publishing(self) -> None:
+        from scripts.ci.platform_backup import DRILL_CODE
+
         passed = int(self.NOW.timestamp()) - 86400
         state = {
-            dataset: {"passed": passed, "result": "pass: earlier"}
+            dataset: {"passed": passed, "result": "pass: earlier", "code": DRILL_CODE}
             for dataset in ("platform-nas-01", "platform-homelab-04")
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -612,20 +614,35 @@ class PlatformRestoreDrillTests(unittest.TestCase):
 
         fresh = int(self.NOW.timestamp()) - 3600
         week_old = int(self.NOW.timestamp()) - 7 * 86400
+        from scripts.ci.platform_backup import DRILL_CODE
+
         passing = {
-            "platform-nas-01": {"passed": fresh, "result": "pass: x"},
-            "platform-homelab-04": {"passed": fresh, "result": "pass: x"},
+            "platform-nas-01": {
+                "passed": fresh,
+                "result": "pass: x",
+                "code": DRILL_CODE,
+            },
+            "platform-homelab-04": {
+                "passed": fresh,
+                "result": "pass: x",
+                "code": DRILL_CODE,
+            },
         }
         self.assertFalse(drill_due(passing, self.NOW, couchdb=False))
         self.assertTrue(drill_due(passing, self.NOW, couchdb=True))
-        for result, stamp in (
-            ("fail: x", fresh),
-            ("pending: x", 0),
-            ("pass: x", week_old),
+        for result, stamp, code in (
+            ("fail: x", fresh, DRILL_CODE),
+            ("pending: x", 0, DRILL_CODE),
+            ("pass: x", week_old, DRILL_CODE),
+            ("pass: x", fresh, "older-drill-code"),
         ):
-            with self.subTest(result=result):
+            with self.subTest(result=result, code=code):
                 state = dict(passing)
-                state["platform-homelab-04"] = {"passed": stamp, "result": result}
+                state["platform-homelab-04"] = {
+                    "passed": stamp,
+                    "result": result,
+                    "code": code,
+                }
                 self.assertTrue(drill_due(state, self.NOW, couchdb=False))
 
     def test_only_nas_01_runs_drills(self) -> None:
