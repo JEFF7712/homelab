@@ -5,6 +5,7 @@ resources:
   - kube-prometheus-stack/repository.yaml
   - kube-prometheus-stack/secret.yaml
   - kube-prometheus-stack/release.yaml
+  - kube-prometheus-stack/local-storage.yaml
   - kube-prometheus-stack/registry-rules.yaml
   - kube-prometheus-stack/cluster-rules.yaml
   - kube-prometheus-stack/gpu-rules.yaml

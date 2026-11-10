@@ -4,11 +4,14 @@
     ./disk-config.nix
     ./hardware-configuration.nix
     ../../modules/common-base.nix
+    ../../modules/kubernetes-ci-credentials.nix
     ../../modules/k3s-server.nix
     ../../modules/k3s-backup-source.nix
   ];
 
   networking.hostName = "homelab-01";
+
+  homelab.kubernetesCiCredentials.issuer = true;
 
   homelab.k3s = {
     enable = true;

@@ -155,6 +155,7 @@
           # patchelf for registry, OPNsense, and zot fixtures.
           apacheHttpd
           nodejs
+          openssh
           patchelf
           php
           age
@@ -307,6 +308,7 @@
                 pkgs.kubectl
                 pkgs.libvirt
                 pkgs.nodejs
+                pkgs.openssh
                 pkgs.patchelf
                 pkgs.php
                 python

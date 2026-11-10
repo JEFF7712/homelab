@@ -28,6 +28,12 @@ in
 
   networking.hostName = "homelab-05";
 
+  # Retained local Prometheus TSDB; the PV binds only on this host.
+  systemd.tmpfiles.rules = [
+    "d /persist/prometheus 0750 1000 2000 -"
+    "d /persist/prometheus/prometheus-db 0750 1000 2000 -"
+  ];
+
   # The e1000e transmit queue hung on 2026-10-16 and never recovered.
   systemd.network.links."10-onboard-ethernet" = {
     matchConfig = {
