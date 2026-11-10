@@ -90,6 +90,10 @@ cache-populate:
 deploy-fleet *args:
     python -m scripts.deploy_fleet {{args}}
 
+# Reboot hosts onto their installed kernel (03:00-05:00 America/Chicago).
+fleet-reboot *args:
+    python -m scripts.fleet_reboot {{args}}
+
 [positional-arguments]
 deployment-report *args:
     python -m scripts.ci.deployment_report "$@"
