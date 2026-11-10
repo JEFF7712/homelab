@@ -601,6 +601,16 @@ class Shipper:
             text=True,
         ).stdout.strip()
 
+    def has_commit(self, commit: str) -> bool:
+        return (
+            subprocess.run(
+                ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+                cwd=ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+
     def fetch(self, cwd: Path | None = None) -> None:
         # Workspaces may configure origin to fetch main only. An explicit
         # wildcard refspec also prunes stale tracking refs from earlier fetches.
@@ -1209,6 +1219,10 @@ class Shipper:
         """
         try:
             commit = str(self.woodpecker.pipeline(parent)["commit"])
+            # The server-side merge commit is often not fetched yet; without it
+            # no identities go out and an approved merge cannot cover the grant.
+            if not self.has_commit(commit):
+                self.fetch()
             tree = self.git("ls-tree", "-r", "-z", commit, "--", *paths)
         except (ShipError, subprocess.CalledProcessError, KeyError, TypeError):
             return {}

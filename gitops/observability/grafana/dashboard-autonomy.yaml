@@ -96,29 +96,41 @@ data:
     \ {\n          \"unit\": \"d\"\n        },\n        \"overrides\": []\n      },\n\
     \      \"options\": {}\n    },\n    {\n      \"id\": 9,\n      \"type\": \"bargauge\"\
     ,\n      \"title\": \"Operator approval requests by kind and outcome (7 days)\"\
-    ,\n      \"description\": \"Passkey requests filed on the approvals dashboard.\
-    \ Only spending and enforcement code should appear here.\",\n      \"datasource\"\
-    : {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n    \
-    \  },\n      \"gridPos\": {\n        \"x\": 0,\n        \"y\": 16,\n        \"\
-    w\": 16,\n        \"h\": 6\n      },\n      \"targets\": [\n        {\n      \
-    \    \"datasource\": {\n            \"type\": \"prometheus\",\n            \"\
-    uid\": \"prometheus\"\n          },\n          \"expr\": \"homelab_autonomy_operator_requests\
-    \ > 0\",\n          \"legendFormat\": \"{{kind}} {{state}}\",\n          \"refId\"\
-    : \"A\"\n        }\n      ],\n      \"fieldConfig\": {\n        \"defaults\":\
-    \ {\n          \"unit\": \"none\"\n        },\n        \"overrides\": []\n   \
-    \   },\n      \"options\": {\n        \"displayMode\": \"basic\",\n        \"\
-    orientation\": \"horizontal\"\n      }\n    },\n    {\n      \"id\": 10,\n   \
-    \   \"type\": \"stat\",\n      \"title\": \"Median hours an approval waited (7\
-    \ days)\",\n      \"description\": \"From filing to passkey approval; -1 when\
-    \ nothing was approved.\",\n      \"datasource\": {\n        \"type\": \"prometheus\"\
-    ,\n        \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"\
-    x\": 16,\n        \"y\": 16,\n        \"w\": 8,\n        \"h\": 6\n      },\n\
-    \      \"targets\": [\n        {\n          \"datasource\": {\n            \"\
-    type\": \"prometheus\",\n            \"uid\": \"prometheus\"\n          },\n \
-    \         \"expr\": \"homelab_autonomy_operator_wait_hours_median\",\n       \
-    \   \"legendFormat\": \"\",\n          \"refId\": \"A\"\n        }\n      ],\n\
-    \      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"h\"\
-    ,\n          \"decimals\": 1\n        },\n        \"overrides\": []\n      },\n\
+    ,\n      \"description\": \"Requests filed on the approvals dashboard. approved\
+    \ took a passkey; carried was a deploy grant approved automatically because approved\
+    \ merges covered its exact files. Only spending and enforcement code should appear\
+    \ here.\",\n      \"datasource\": {\n        \"type\": \"prometheus\",\n     \
+    \   \"uid\": \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 0,\n\
+    \        \"y\": 16,\n        \"w\": 12,\n        \"h\": 6\n      },\n      \"\
+    targets\": [\n        {\n          \"datasource\": {\n            \"type\": \"\
+    prometheus\",\n            \"uid\": \"prometheus\"\n          },\n          \"\
+    expr\": \"homelab_autonomy_operator_requests > 0\",\n          \"legendFormat\"\
+    : \"{{kind}} {{state}}\",\n          \"refId\": \"A\"\n        }\n      ],\n \
+    \     \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\": \"none\"\
+    \n        },\n        \"overrides\": []\n      },\n      \"options\": {\n    \
+    \    \"displayMode\": \"basic\",\n        \"orientation\": \"horizontal\"\n  \
+    \    }\n    },\n    {\n      \"id\": 10,\n      \"type\": \"stat\",\n      \"\
+    title\": \"Median hours an approval waited (7 days)\",\n      \"description\"\
+    : \"From filing to passkey approval; -1 when nothing was approved.\",\n      \"\
+    datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"gridPos\": {\n        \"x\": 18,\n        \"y\": 16,\n   \
+    \     \"w\": 6,\n        \"h\": 6\n      },\n      \"targets\": [\n        {\n\
+    \          \"datasource\": {\n            \"type\": \"prometheus\",\n        \
+    \    \"uid\": \"prometheus\"\n          },\n          \"expr\": \"homelab_autonomy_operator_wait_hours_median\"\
+    ,\n          \"legendFormat\": \"\",\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"unit\"\
+    : \"h\",\n          \"decimals\": 1\n        },\n        \"overrides\": []\n \
+    \     },\n      \"options\": {}\n    },\n    {\n      \"id\": 11,\n      \"type\"\
+    : \"stat\",\n      \"title\": \"Passkeys used (7 days)\",\n      \"description\"\
+    : \"Approvals the operator gave with a passkey; carried-over grants are excluded.\"\
+    ,\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\"\
+    : \"prometheus\"\n      },\n      \"gridPos\": {\n        \"x\": 12,\n       \
+    \ \"y\": 16,\n        \"w\": 6,\n        \"h\": 6\n      },\n      \"targets\"\
+    : [\n        {\n          \"datasource\": {\n            \"type\": \"prometheus\"\
+    ,\n            \"uid\": \"prometheus\"\n          },\n          \"expr\": \"sum(homelab_autonomy_operator_requests{state=\\\
+    \"approved\\\"})\",\n          \"legendFormat\": \"\",\n          \"refId\": \"\
+    A\"\n        }\n      ],\n      \"fieldConfig\": {\n        \"defaults\": {\n\
+    \          \"unit\": \"none\"\n        },\n        \"overrides\": []\n      },\n\
     \      \"options\": {}\n    }\n  ],\n  \"refresh\": \"5m\",\n  \"schemaVersion\"\
     : 39,\n  \"tags\": [\n    \"homelab\",\n    \"autonomy\"\n  ],\n  \"time\": {\n\
     \    \"from\": \"now-7d\",\n    \"to\": \"now\"\n  },\n  \"title\": \"Autonomy\"\
