@@ -16,9 +16,9 @@ metadata:
 items:
   # kube-prometheus-stack 92.17.0
   - image: docker.io/grafana/grafana:13.3.0-distroless@sha256:540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df  # yamllint disable-line rule:line-length
-  - image: quay.io/kiwigrid/k8s-sidecar:2.14.1@sha256:092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7  # yamllint disable-line rule:line-length
-  - image: quay.io/prometheus-operator/prometheus-operator:v0.94.2@sha256:c7edf0379b7271ef1705dce258d2bb73820e299cc95559369e9f6fc3321639ec  # yamllint disable-line rule:line-length
-  - image: ghcr.io/jkroepke/kube-webhook-certgen:1.11.0@sha256:778d97dc3986355625e14392419b3364c487a7c807d4d86ddad1df369129b082  # yamllint disable-line rule:line-length
+  - image: quay.io/kiwigrid/k8s-sidecar:2.14.3@sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880  # yamllint disable-line rule:line-length
+  - image: quay.io/prometheus-operator/prometheus-operator:v0.95.1@sha256:9c2490af910d58ec2abd77642d340e30bd5e2de5c80fd19ab4b49e28dc7bbb83  # yamllint disable-line rule:line-length
+  - image: ghcr.io/jkroepke/kube-webhook-certgen:1.11.1@sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f  # yamllint disable-line rule:line-length
   # loki 7.5.0
   - image: docker.io/grafana/loki-canary:3.6.16@sha256:6d53ce040b436e558936fe05514729c230e9e04edf1fe411d02701025e515924  # yamllint disable-line rule:line-length
   # ntfy 1.7.0
