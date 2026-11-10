@@ -3859,6 +3859,23 @@
         "repository": "linuxserver/qbittorrent",
         "tag": "5.3.0_v2.1.2-ls487"
       }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:34"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/bazarr",
+      "id": "upstream-linuxserver-bazarr-7c44513ac0d5",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7ef0e58216900dbce30b123e0eb65f5cb30e36f126de9474acdd2022fb069c54",
+        "reference": "lscr.io/linuxserver/bazarr:v1.6.2-ls371@sha256:7ef0e58216900dbce30b123e0eb65f5cb30e36f126de9474acdd2022fb069c54",
+        "registry": "lscr.io",
+        "repository": "linuxserver/bazarr",
+        "tag": "v1.6.2-ls371"
+      }
     }
   ],
   "kind": "registry-inventory",
