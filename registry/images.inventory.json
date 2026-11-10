@@ -3791,6 +3791,23 @@
         "repository": "library/nginx",
         "tag": "1.31-alpine"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "id": "upstream-library-node-0cba81f5ebcd",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
+        "reference": "docker.io/library/node:24-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-alpine"
+      }
     }
   ],
   "kind": "registry-inventory",
