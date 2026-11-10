@@ -1,23 +1,38 @@
 """Advance eligible upstream image updates on a schedule, one step per run.
 
-Renovate's image PRs already carry the new declaration and its inventory and
-lock records (post-upgrade `scripts.registry.declarations`), so merging one
-mirrors the image through registry-lock-import. Workloads then move in a
-separate change (scripts/registry/ordering.py). Each run takes one step:
+Renovate proposes image updates as PRs that change one declaration and carry
+their own inventory and lock records. Those records overlap every other
+registry change, so a Renovate branch goes stale as soon as anything else
+merges and the merge policy refuses it (35 sat for a week in 2026-11). The
+schedule therefore takes only Renovate's declaration change and rebuilds it
+on current main, adding just that image's records (scripts/registry/advance.py
+`mirror`); merging that mirrors the image through registry-lock-import and
+Renovate closes its own PR. Workloads then move in a separate change
+(scripts/registry/ordering.py). Each run takes one step:
 
 - adopt: a consumer references an upstream mirror digest no longer declared,
   and the single declared replacement is locked and served by the registry:
   open a PR that moves that repository's consumers and merge it on the
   required checks;
-- mirror: otherwise merge the oldest eligible open Renovate image PR on its
-  required checks.
+- mirror: otherwise rebuild the oldest eligible open Renovate image bump on
+  current main as its own PR and merge it on the required checks. Every run
+  rebuilds from main and force-pushes the schedule's branch, so a PR left
+  stale by an interrupted run is refreshed rather than stuck.
 
-Only updates that cannot take a service down are eligible: the same major
-version, every consumer a RollingUpdate Deployment whose container (not an
-init container) has a readiness probe, outside the denied namespaces and
-repositories (config/registry/advance-policy.json). A bad image stalls its
-rollout while the old pod keeps serving, and KubeDeploymentReplicasMismatch
-fires. Everything else stays with a person or the controller.
+Before either step, a run settles the newest adopt it merged in the last day:
+once Flux has applied it, the moved workloads must roll out and run the new
+digests (scripts/registry/advance.py `verify`, through the read-only
+registry-advance identity). A healthy adopt is marked verified; a failed one
+is reverted by a PR that names the digest, and that digest is never adopted
+again. Nothing new is adopted while an adopt is unsettled.
+
+Eligible updates keep the same major version, outside the denied namespaces
+and repositories (config/registry/advance-policy.json). Every consumer is a
+Deployment whose main container has a readiness probe, or a CronJob, and
+none uses the image in an init container. A RollingUpdate keeps the old pod
+serving; a Recreate restarts and is reverted if it does not come back; a
+CronJob's next run fails and alerts. StatefulSets, DaemonSets and everything
+else stay with a person or the controller.
 """
 
 from __future__ import annotations
@@ -29,6 +44,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterable, Mapping
@@ -37,7 +53,14 @@ from typing import Any
 
 import yaml
 
-from scripts.registry.advance import SOURCE, adoptions, declarations, declared
+from scripts.registry.advance import (
+    SOURCE,
+    adoptions,
+    declarations,
+    declared,
+    mirror,
+    verify,
+)
 
 FORGEJO = "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab"
 REGISTRY = "https://registry.rupan.dev"
@@ -45,6 +68,14 @@ RENOVATE = "homelab-renovate"
 POLICY = Path("config/registry/advance-policy.json")
 DECLARATION = re.compile(r"^gitops/[^/]+/registry-sources\.ya?ml$")
 RECORDS = {"registry/images.inventory.json", "registry/images.lock.json"}
+IDENTITY = ["-c", "user.name=Homelab CI", "-c", "user.email=ci@rupan.dev"]
+ADOPT_BRANCH = "registry-advance/adopt-"
+REVERT_BRANCH = "registry-advance/revert-"
+VERIFIED = "<!-- registry-advance: verified -->"
+REVERTED = "<!-- registry-advance: reverted -->"
+SETTLE_WINDOW = 24 * 3600
+MIRROR_REFERENCE = re.compile(r"registry\.rupan\.dev/[^\s\"'@]+@sha256:[0-9a-f]{64}")
+REVERTED_DIGEST = re.compile(r"^reverted: (\S+@sha256:[0-9a-f]{64})$", re.MULTILINE)
 
 
 def repository_of(reference: str) -> str:
@@ -122,16 +153,23 @@ def ineligible(
         name = metadata.get("name")
         if metadata.get("namespace") in policy.get("deny_namespaces", []):
             return f"{path}: namespace {metadata.get('namespace')} is denied"
-        if document.get("kind") != "Deployment":
-            return f"{path}: {name} is a {document.get('kind')}"
+        kind = document.get("kind")
         spec = document.get("spec") or {}
-        if (spec.get("strategy") or {}).get("type", "RollingUpdate") != "RollingUpdate":
-            return f"{path}: {name} does not roll"
-        pod = (spec.get("template") or {}).get("spec") or {}
+        if kind == "CronJob":
+            template = ((spec.get("jobTemplate") or {}).get("spec") or {}).get(
+                "template"
+            ) or {}
+        elif kind == "Deployment":
+            template = spec.get("template") or {}
+        else:
+            return f"{path}: {name} is a {kind}"
+        pod = template.get("spec") or {}
         for container in pod.get("initContainers") or []:
             if old_reference in str(container.get("image", "")):
                 return f"{path}: {name} uses it in an init container"
         for container in pod.get("containers") or []:
+            if kind != "Deployment":
+                continue
             if old_reference in str(container.get("image", "")) and not container.get(
                 "readinessProbe"
             ):
@@ -217,41 +255,51 @@ def registry_serves(repository: str, digest: str) -> bool:
         raise
 
 
-def publish_adopt(token: str, repository: str, digest: str, changed: list[str]) -> None:
+def bump_declaration(root: Path, old: str, new: str) -> str | None:
+    """Apply a Renovate declaration bump to this tree; return the file changed.
+
+    None when no declaration still names the old reference: main already moved
+    past it, and Renovate closes its PR once main declares the new one.
+    """
+    for path in sorted((root / "gitops").glob("*/registry-sources.y*ml")):
+        text = path.read_text()
+        if old in text:
+            path.write_text(text.replace(old, new, 1))
+            return path.relative_to(root).as_posix()
+    return None
+
+
+def rebuild_mirror(root: Path, old: str, new: str) -> list[str] | None:
+    """Stage Renovate's bump plus only its new records, on the current tree.
+
+    `mirror` resolves the declarations a commit added, so the bump is
+    committed, mirrored against its parent, and the commit undone, leaving
+    the declaration and records staged for one clean commit.
+    """
+    changed = bump_declaration(root, old, new)
+    if changed is None:
+        return None
+    subprocess.run(["git", "add", "--", changed], cwd=root, check=True)
+    subprocess.run(
+        ["git", *IDENTITY, "commit", "-q", "-m", "declaration"], cwd=root, check=True
+    )
+    try:
+        mirror(root, "HEAD~1")
+    finally:
+        subprocess.run(["git", "reset", "-q", "--soft", "HEAD~1"], cwd=root, check=True)
+    paths = [changed, *sorted(RECORDS)]
+    subprocess.run(["git", "add", "--", *paths], cwd=root, check=True)
+    return paths
+
+
+def publish(token: str, branch: str, title: str, body: str, paths: list[str]) -> None:
+    """Commit paths on the current tree, force-push the schedule's branch, and
+    merge its PR on the required checks."""
     from scripts.ci.promote_commit import _auto_merge_pull
 
-    branch = f"registry-advance/adopt-{hashlib.sha256((repository + digest).encode()).hexdigest()[:12]}"
-    existing = next(
-        (
-            p
-            for p in api(token, "/pulls?state=open&limit=100")
-            if p["head"]["ref"] == branch
-        ),
-        None,
-    )
-    if existing:
-        print(f"adopt {repository}: awaiting {existing['html_url']}")
-        _auto_merge_pull(token, existing)
-        return
-    title = f"apps: move {repository.removeprefix('upstream/')} to {digest[:19]}"
-    body = (
-        "Point the consumers at the mirror main already imports "
-        "(scheduled registry-advance, scripts/ci/registry_advance.py)."
-    )
-    subprocess.run(["git", "add", "--", *changed], check=True)
+    subprocess.run(["git", "add", "--", *paths], check=True)
     subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=Homelab CI",
-            "-c",
-            "user.email=ci@rupan.dev",
-            "commit",
-            "-q",
-            "-m",
-            f"{title}\n\n{body}",
-        ],
-        check=True,
+        ["git", *IDENTITY, "commit", "-q", "-m", f"{title}\n\n{body}"], check=True
     )
     with tempfile.TemporaryDirectory(prefix="forgejo-publish-") as temporary:
         helper = Path(temporary) / "credential"
@@ -268,24 +316,217 @@ def publish_adopt(token: str, repository: str, digest: str, changed: list[str]) 
                 "-c",
                 f"credential.https://git.rupan.dev.helper={helper}",
                 "push",
+                "--force",
                 "https://git.rupan.dev/JEFF7712/homelab.git",
                 f"HEAD:refs/heads/{branch}",
             ],
             check=True,
             env=dict(os.environ, CI_PUBLISH_TOKEN=token),
         )
-    pull = api(
-        token,
-        "/pulls",
-        data={"base": "main", "head": branch, "title": title, "body": body},
+    pull = next(
+        (
+            p
+            for p in api(token, "/pulls?state=open&limit=100")
+            if p["head"]["ref"] == branch
+        ),
+        None,
     )
-    print(f"adopt {repository}: opened {pull['html_url']}")
+    if pull is None:
+        pull = api(
+            token,
+            "/pulls",
+            data={"base": "main", "head": branch, "title": title, "body": body},
+        )
+        print(f"opened {pull['html_url']}")
+    else:
+        print(f"refreshed {pull['html_url']}")
     _auto_merge_pull(token, pull)
+
+
+def publish_adopt(token: str, repository: str, digest: str, changed: list[str]) -> None:
+    branch = f"registry-advance/adopt-{hashlib.sha256((repository + digest).encode()).hexdigest()[:12]}"
+    title = f"apps: move {repository.removeprefix('upstream/')} to {digest[:19]}"
+    body = (
+        "Point the consumers at the mirror main already imports "
+        "(scheduled registry-advance, scripts/ci/registry_advance.py)."
+    )
+    publish(token, branch, title, body, changed)
+
+
+def publish_mirror(
+    token: str, number: int, old: str, new: str, paths: list[str]
+) -> None:
+    branch = f"registry-advance/mirror-{hashlib.sha256((old + new).encode()).hexdigest()[:12]}"
+    title = f"registry: declare {new.split('@')[0].removeprefix('docker.io/')}"
+    body = (
+        f"Renovate #{number}'s declaration change, rebuilt on current main with "
+        "only its new inventory and lock records (scheduled registry-advance, "
+        "scripts/ci/registry_advance.py). Renovate closes its PR once main "
+        "declares the new image."
+    )
+    publish(token, branch, title, body, paths)
+
+
+def mirror_pairs(diff: str) -> dict[str, dict[str, str]]:
+    """{path: {new mirror reference: old one}} from an adopt PR's diff."""
+    pairs: dict[str, dict[str, str]] = {}
+    path = ""
+    removed: list[str] = []
+    added: list[str] = []
+
+    def flush() -> None:
+        if path and removed and len(removed) == len(added):
+            pairs.setdefault(path, {}).update(dict(zip(added, removed, strict=True)))
+
+    for line in diff.splitlines():
+        if line.startswith("diff --git "):
+            flush()
+            path, removed, added = "", [], []
+        elif line.startswith("+++ b/"):
+            path = line[6:]
+        elif line.startswith("-") and not line.startswith("---"):
+            removed += MIRROR_REFERENCE.findall(line)
+        elif line.startswith("+") and not line.startswith("+++"):
+            added += MIRROR_REFERENCE.findall(line)
+    flush()
+    return pairs
+
+
+def reverted_digests(pulls: Iterable[Mapping[str, Any]]) -> set[str]:
+    """Mirror references a merged revert named; they are never adopted again."""
+    return {
+        reference
+        for pull in pulls
+        if str((pull.get("head") or {}).get("ref", "")).startswith(REVERT_BRANCH)
+        and pull.get("merged")
+        for reference in REVERTED_DIGEST.findall(pull.get("body") or "")
+    }
+
+
+def unsettled_adopt(
+    pulls: Iterable[Mapping[str, Any]], comments: Any, now: float
+) -> Mapping[str, Any] | None:
+    """The newest adopt merged in the window with no verdict yet."""
+    for pull in sorted(
+        pulls, key=lambda p: str(p.get("merged_at") or ""), reverse=True
+    ):
+        if not str((pull.get("head") or {}).get("ref", "")).startswith(ADOPT_BRANCH):
+            continue
+        merged = parse_time(pull.get("merged_at"))
+        if merged is None or now - merged > SETTLE_WINDOW:
+            return None
+        bodies = " ".join(c.get("body", "") for c in comments(pull["number"]))
+        if VERIFIED in bodies or REVERTED in bodies:
+            return None
+        return pull
+    return None
+
+
+def parse_time(value: Any) -> float | None:
+    if not value:
+        return None
+    import datetime
+
+    return datetime.datetime.fromisoformat(
+        str(value).replace("Z", "+00:00")
+    ).timestamp()
+
+
+def flux_applied(
+    kustomizations: list[Mapping[str, Any]],
+    paths: list[str],
+    merged_at: float,
+    committed: Any,
+) -> bool:
+    """Whether every Flux Kustomization owning a path applied a revision at
+    least as new as the merge. Main only moves forward through merges, so a
+    newer applied commit contains it."""
+    for path in paths:
+        owners = [
+            k
+            for k in kustomizations
+            if path.startswith(
+                str((k.get("spec") or {}).get("path", "")).lstrip("./") + "/"
+            )
+        ]
+        if not owners:
+            continue
+        owner = max(owners, key=lambda k: len(str(k["spec"]["path"])))
+        revision = str((owner.get("status") or {}).get("lastAppliedRevision", ""))
+        sha = revision.rsplit(":", 1)[-1]
+        applied = committed(sha) if sha else None
+        if applied is None or applied < merged_at:
+            return False
+    return True
+
+
+def settle(root: Path, token: str, pull: Mapping[str, Any]) -> str:
+    """Verify an adopt the schedule merged, or revert it. Returns the outcome."""
+    number = pull["number"]
+    diff = api(token, f"/pulls/{number}.diff", raw=True)
+    pairs = mirror_pairs(diff)
+    paths = sorted(pairs)
+    kubectl = os.environ.get("KUBECTL", "kubectl")
+    kustomizations = json.loads(
+        subprocess.run(
+            [kubectl, "-n", "flux-system", "get", "kustomizations", "-o", "json"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd="/tmp",
+        ).stdout
+    )["items"]
+
+    def committed(sha: str) -> float | None:
+        try:
+            commit = api(token, f"/git/commits/{sha}")
+        except urllib.error.HTTPError:
+            return None
+        return parse_time(
+            ((commit.get("commit") or {}).get("committer") or {}).get("date")
+        )
+
+    merged_at = parse_time(pull.get("merged_at")) or time.time()
+    if not flux_applied(kustomizations, paths, merged_at, committed):
+        print(f"settle #{number}: waiting for Flux to apply it")
+        return "waiting"
+    failures = verify(root, paths, timeout="5m")
+    if not failures:
+        api(
+            token,
+            f"/issues/{number}/comments",
+            data={"body": f"{VERIFIED}\nRolled out and running the new digests."},
+        )
+        print(f"settle #{number}: verified")
+        return "verified"
+    for path, rewrites in pairs.items():
+        text = (root / path).read_text()
+        for new, old in rewrites.items():
+            text = text.replace(new, old)
+        (root / path).write_text(text)
+    names = sorted({new for rewrites in pairs.values() for new in rewrites})
+    branch = f"{REVERT_BRANCH}{number}"
+    title = f"apps: revert #{number}, its rollout failed"
+    body = (
+        f"#{number} did not roll out (scheduled registry-advance):\n\n"
+        + "\n".join(f"- {failure}" for failure in failures)
+        + "\n\n"
+        + "\n".join(
+            f"reverted: {name.removeprefix('registry.rupan.dev/')}" for name in names
+        )
+    )
+    publish(token, branch, title, body, paths)
+    api(
+        token,
+        f"/issues/{number}/comments",
+        data={"body": f"{REVERTED}\nRollout failed; reverted by {branch}."},
+    )
+    print(f"settle #{number}: reverted")
+    return "reverted"
 
 
 def main() -> int:
     from scripts.ci.operation import SupersededSource, current_source
-    from scripts.ci.promote_commit import _auto_merge_pull
 
     try:
         current_source(dict(os.environ))
@@ -301,9 +542,23 @@ def main() -> int:
         for path in sorted((root / "gitops").rglob("*"))
         if path.is_file() and path.suffix in (".yaml", ".yml")
     ]
+    closed = api(token, "/pulls?state=closed&sort=recentupdate&limit=50")
+    pending = unsettled_adopt(
+        closed,
+        lambda number: api(token, f"/issues/{number}/comments"),
+        time.time(),
+    )
+    if pending is not None and settle(root, token, pending) != "verified":
+        return 0
+    blocked = reverted_digests(closed)
     for repository, rewrites, digest in adopt_candidates(
         files, declarations(root), lock, policy
     ):
+        if f"{repository}@{digest}" in blocked:
+            print(
+                f"adopt {repository}: {digest} was reverted; waiting for a newer image"
+            )
+            continue
         if not registry_serves(repository, digest):
             print(f"adopt {repository}: waiting for the import of {digest}")
             continue
@@ -338,8 +593,12 @@ def main() -> int:
         if reason:
             print(f"mirror #{number} {repository}: not eligible: {reason}")
             continue
-        print(f"mirror #{number} {repository}: merging on the required checks")
-        _auto_merge_pull(token, pull)
+        paths = rebuild_mirror(root, old, new)
+        if paths is None:
+            print(f"mirror #{number} {repository}: main no longer declares {old}")
+            continue
+        print(f"mirror #{number} {repository}: rebuilding on main")
+        publish_mirror(token, number, old, new, paths)
         return 0
     print("nothing to advance")
     return 0

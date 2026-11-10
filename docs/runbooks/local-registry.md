@@ -314,16 +314,38 @@ with `scripts/registry/advance.py`:
 Helm chart images and producer base images keep their own procedures below.
 
 The scheduled `registry-advance` operation (`promote` schedule,
-`scripts/ci/registry_advance.py`) does this without an agent for updates that
-cannot take a service down: the same major version, every consumer a
-RollingUpdate Deployment whose container has a readiness probe, outside the
-namespaces and repositories in `config/registry/advance-policy.json`. Each run
-takes one step: it adopts the first consumer left on an undeclared digest once
-the registry serves the replacement, otherwise it merges the oldest eligible
-Renovate image PR (which carries its own lock records) on the required checks.
-A bad image stalls its rollout while the old pod serves and
-`KubeDeploymentReplicasMismatch` fires; revert the adopt PR. Each run's log
-says why every other update waits.
+`scripts/ci/registry_advance.py`) does all three steps without an agent.
+Eligible updates keep the same major version, outside the namespaces and
+repositories in `config/registry/advance-policy.json`. Every consumer is a
+Deployment whose main container has a readiness probe, or a CronJob, and none
+uses the image in an init container. StatefulSets, DaemonSets, majors and
+floating tags stay with a person or the controller.
+
+Each run takes one step:
+
+1. **Settle.** The newest adopt the schedule merged in the last day is checked
+   once the Flux Kustomization owning each changed path has applied a revision
+   at least as new as the merge. `verify` must pass. A healthy adopt gets a
+   `registry-advance: verified` comment. A failed one is reverted by a
+   `registry-advance/revert-<pr>` PR, merged on the required checks, whose body
+   names the digest (`reverted: <mirror>@<digest>`). That digest is never
+   adopted again, so the next release is tried fresh. Nothing else runs while
+   an adopt is unsettled.
+2. **Adopt.** The first consumer left on an undeclared digest moves once the
+   registry serves the replacement.
+3. **Mirror.** The oldest eligible Renovate image bump is rebuilt on current
+   main: only Renovate's declaration change, plus that image's records from
+   `advance mirror`. It lands on a `registry-advance/mirror-*` branch and is
+   merged on the required checks. Renovate's own branch carries a lock that
+   overlaps every other registry change, so it is never merged; Renovate
+   closes it once main declares the new image.
+
+The run reads cluster state through the read-only `registry-advance`
+ServiceAccount (`gitops/automation/registry-advance-access.yaml`). Its
+kubeconfig is the Woodpecker file secret `registry_advance_kubeconfig`, built
+from the `registry-advance-token` Secret. It can get, list and watch
+workloads, pods, CronJobs, Jobs and Flux Kustomizations, and nothing else.
+Each run's log says why every other update waits.
 
 ### Refreshing an image under the same tag
 
