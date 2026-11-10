@@ -3808,6 +3808,23 @@
         "repository": "library/node",
         "tag": "24-alpine"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:34"
+      ],
+      "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
+      "id": "upstream-woodpeckerci-plugin-git-439b5e4552d7",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205",
+        "reference": "docker.io/woodpeckerci/plugin-git:2.12.1@sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205",
+        "registry": "docker.io",
+        "repository": "woodpeckerci/plugin-git",
+        "tag": "2.12.1"
+      }
     }
   ],
   "kind": "registry-inventory",

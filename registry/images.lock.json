@@ -8367,6 +8367,51 @@
       ],
       "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
       "destination_tags": [
+        "2.12.1",
+        "retention-deployed-b8d2401997be68ec"
+      ],
+      "digest": "sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205",
+      "id": "upstream-woodpeckerci-plugin-git-439b5e4552d7",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205",
+        "reference": "docker.io/woodpeckerci/plugin-git:2.12.1@sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205",
+        "registry": "docker.io",
+        "repository": "woodpeckerci/plugin-git",
+        "tag": "2.12.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:34"
+      ],
+      "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
+      "destination_tags": [
         "2.11.0",
         "retention-deployed-9802cb7852dcf31f"
       ],
