@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -405,6 +406,40 @@ def drill_metrics(state: dict[str, dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+# A dataset is drilled again once its last pass is this old; failed and
+# pending datasets are retried on every timer run (every two hours).
+DRILL_INTERVAL = datetime.timedelta(days=6)
+# Datasets record the drill code that checked them, so a deploy that changes
+# the drill verifies the new code on the next run instead of days later.
+DRILL_CODE = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+
+
+def drill_due(
+    state: dict[str, dict[str, Any]], now: datetime.datetime, couchdb: bool
+) -> bool:
+    datasets = [f"platform-{host}" for host in DRILL_HOSTS]
+    if couchdb:
+        datasets.append(COUCHDB_DATASET)
+    for dataset in datasets:
+        entry = state.get(dataset, {})
+        if not str(entry.get("result", "")).startswith("pass"):
+            return True
+        if entry.get("code") != DRILL_CODE:
+            return True
+        if now.timestamp() - entry.get("passed", 0) > DRILL_INTERVAL.total_seconds():
+            return True
+    return False
+
+
+def write_drill_metrics(state: dict[str, dict[str, Any]], metrics_file: Path) -> None:
+    metrics_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary = metrics_file.with_suffix(".tmp")
+    temporary.write_text(drill_metrics(state))
+    # The service runs with UMask 0077; node exporter reads as its own user.
+    temporary.chmod(0o644)
+    temporary.replace(metrics_file)
+
+
 def run_drill(
     host: str,
     scratch_root: Path = Path("/persist/platform-backup"),
@@ -412,11 +447,13 @@ def run_drill(
     metrics_file: Path = DRILL_METRICS,
     now: datetime.datetime | None = None,
     couchdb: Path | None = None,
-) -> None:
-    """Weekly proof that each host's platform backup restores.
+) -> list[str]:
+    """Prove that each host's platform backup restores, when a proof is due.
 
     Results persist in state_file so a failure keeps the last pass time; the
-    node exporter publishes them for the RestoreDrill alerts.
+    node exporter publishes them for the RestoreDrill alerts, which are the
+    only failure signal. Returns the failed or pending datasets but never
+    fails the unit: a failed unit fails every nas-01 activation (2026-11-10).
     """
     if host != "nas-01":
         raise ValueError(f"Platform restore drills run on nas-01, got {host}")
@@ -425,6 +462,10 @@ def run_drill(
         state = json.loads(state_file.read_text())
     except (OSError, ValueError):
         state = {}
+    if not drill_due(state, now, couchdb is not None):
+        write_drill_metrics(state, metrics_file)
+        print("restore drill not due: every dataset passed recently")
+        return []
     failed = []
     scratch_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     for drilled in DRILL_HOSTS:
@@ -456,19 +497,17 @@ def run_drill(
                         couch["result"] = f"fail: {error}"
                         failed.append(COUCHDB_DATASET)
                 couch["checked"] = int(now.timestamp())
+                couch["code"] = DRILL_CODE
                 print(f"{COUCHDB_DATASET}: {couch['result']}")
         entry["checked"] = int(now.timestamp())
+        entry["code"] = DRILL_CODE
         print(f"{dataset}: {entry['result']}")
     state_file.parent.mkdir(parents=True, exist_ok=True)
     state_file.write_text(json.dumps(state, indent=2, sort_keys=True))
-    metrics_file.parent.mkdir(parents=True, exist_ok=True)
-    temporary = metrics_file.with_suffix(".tmp")
-    temporary.write_text(drill_metrics(state))
-    # The service runs with UMask 0077; node exporter reads as its own user.
-    temporary.chmod(0o644)
-    temporary.replace(metrics_file)
+    write_drill_metrics(state, metrics_file)
     if failed:
-        raise SystemExit(f"restore drill failed: {', '.join(failed)}")
+        print(f"restore drill failed: {', '.join(failed)}; retrying next run")
+    return failed
 
 
 def run_maintenance(host: str, partition_state_file: Path | None = None) -> None:

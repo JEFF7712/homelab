@@ -406,9 +406,12 @@ full-platform RTO remain untested in the recovered environment.
 
 ## Weekly platform restore drill
 
-`platform-restore-drill.service` on nas-01 (Sunday 05:00, after the 03:00
-prune and `restic check`, and 15 minutes after boot or a deploy that
-changes its timer) proves that both hosts' `sovereign-platform`
+`platform-restore-drill.service` on nas-01 runs from a timer every two
+hours (and 15 minutes after boot or a deploy that changes its code), but
+drills only when something is due: a dataset that failed, is pending, last
+passed more than six days ago, or was checked by different drill code. It
+always exits 0, because a failed unit fails every nas-01 activation; failures
+surface only through the metrics and alerts below. It proves that both hosts' `sovereign-platform`
 snapshots restore, along with the CouchDB data described below. For nas-01 and homelab-04 it requires a snapshot from the
 last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
 `homelab.git`) into scratch space under `/persist/platform-backup`, runs
@@ -434,8 +437,10 @@ last pass time) and reach Prometheus through node exporter's textfile
 directory as `homelab_restore_drill_last_success_timestamp_seconds`,
 `homelab_restore_drill_last_result` and `homelab_restore_drill_result_info`,
 whose `result` label carries the failure reason, so agents without host
-access read it from Prometheus. A failed drill retries every two hours, and a
-deploy that changes the drill's code reruns it 15 minutes later. `RestoreDrillFailed`,
+access read it from Prometheus. Metrics are the only failure signal: the
+unit always exits 0. A failed unit fails every nas-01 activation, and on
+2026-11-10 a failing drill blocked a fleet deploy and its rollback. A failed
+dataset therefore retries on the next two-hourly run. `RestoreDrillFailed`,
 `RestoreDrillStale` (no pass in eight days) and `RestoreDrillMissing` page
 through ntfy. Run it now with
 `HOMELAB_AUTHORIZED=1 ssh nas-01 systemctl start platform-restore-drill`.
