@@ -332,14 +332,24 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   dependent workflows also require their prerequisites' finish timestamps.
 - Individual lanes (`fmt`, `jev`, `gate`) and every full-gate check report
   execution times under `[EXECUTION BREAKDOWN]`. Cgroup memory peaks,
-  OOM-kill deltas and CPU-throttling deltas distinguish resource limits
-  from slow checks. Concurrent checks share counters, so their values
-  overlap and must not be added together. SIGKILL alone does not establish
+  OOM-kill deltas, CPU usage and CPU-throttling deltas distinguish
+  resource limits from slow checks: usage near elapsed time multiplied by
+  the container's CPU quota means the gate is quota-bound, while usage well
+  below it means lanes are waiting on each other. Concurrent checks share
+  counters, so their values overlap and must not be added together.
+  SIGKILL alone does not establish
   OOM; missing cgroup files mean unavailable evidence.
 - Flake builds also report `flake-repository-contract`, `flake-topology`,
   and the other check names in the same breakdown. Each measures the Nix
   invocation, including substitution and dependencies, rather than only
-  the check's test process. They overlap host evaluation and sit inside
+  the check's test process. `scripts/checks/flake_jobs.py` builds VM tests
+  in their own pool, one per four CPUs of quota and at least one, because
+  CI guests run under TCG and two in a two-CPU container miss their boot
+  timeouts. Other checks build half the quota at once (at least two;
+  `CI_FLAKE_BUILD_JOBS` overrides), so rebuilt VM tests no longer queue the
+  unit suite behind them, and `repository-contract` splits the unit suite
+  by module across `NIX_BUILD_CORES` workers (`scripts.ci.tests --jobs`).
+  Builds overlap host evaluation and each other and sit inside
   `check-flake`; do not add their times to the parent lane. A quick invocation
   may indicate a cache hit; confirm substitution versus a build in the Nix
   log. Source changes still require a fresh contract build, and publication

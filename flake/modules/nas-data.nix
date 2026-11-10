@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  fleetInventory,
   ...
 }:
 {
@@ -82,11 +83,20 @@
 
   services.nfs.server = {
     enable = true;
-    exports = ''
-      /tank/media     10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash,mountpoint) 10.0.10.0/24(ro,sync,no_subtree_check,mountpoint)
-      /tank/backups   10.0.30.0/24(rw,sync,no_subtree_check,mountpoint)
-      /tank/cluster   10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash,mountpoint)
-    '';
+    exports =
+      let
+        # Only Kubernetes nodes mount shared application state. AUTH_SYS still
+        # trusts those nodes: the provisioner and existing root-owned service
+        # data require UID 0. Do not broaden this exception to the whole VLAN.
+        nodes = lib.filter (host: host.k3s or false) (lib.attrValues fleetInventory.hosts);
+        nodeExports = lib.concatMapStringsSep " " (
+          host: "${host.address}(rw,sync,no_subtree_check,no_root_squash,mountpoint)"
+        ) nodes;
+      in
+      ''
+        /tank/media ${nodeExports} 10.0.10.0/24(ro,sync,no_subtree_check,root_squash,mountpoint)
+        /tank/cluster ${nodeExports}
+      '';
   };
 
   systemd.services.nfs-server = {
@@ -284,8 +294,12 @@
       }
       trap cleanup EXIT
 
-      restic backup "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
-      restic forget --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
+      # Timestamped snapshot paths are not a stable retention identity. Tag new
+      # backups and leave legacy snapshots outside this policy for audited cleanup.
+      restic backup --host nas-01 --tag registry-v2 --group-by host,tags \
+        "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
+      restic forget --host nas-01 --tag registry-v2 --group-by host,tags \
+        --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
       restic check --read-data-subset=5%
       date +%s > /persist/zot/status/backup-last-success.tmp
       sync -f /persist/zot/status/backup-last-success.tmp

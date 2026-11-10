@@ -90,6 +90,40 @@ resource-budget policy. The existing dry-run still builds/copies candidates
 and executes dry-activation; only the separate report command is observational.
 Catalog updates become active after the CI-host deployment.
 
+## SSH deployment identities
+
+The common fleet module treats `homelab-nas-deploy` as a root-equivalent legacy
+automation identity: `rupan` retains passwordless sudo for system activation.
+Its authorized-key entry uses `restrict` (no PTY, forwarding or user startup
+scripts) and accepts connections only from the inventory addresses of the NAS
+and the trusted CI host, currently `10.0.30.20` and `10.0.30.14`. A stolen copy
+on another infrastructure machine cannot authenticate with this key. The key
+still executes noninteractive deployment commands from the trusted sources;
+this is source containment, not a forced-command deployment interface.
+
+The operator's two original keys and the personal `developer@agent-rupan`
+workstation key remain unrestricted. The development VM intentionally has the
+same operator authority as the laptop; see [agent workspaces](agent-workspaces.md).
+Do not revoke these operator identities to restrict an automation workflow.
+
+On 2026-11-04 the CI host's SSH journal showed current CI container connections
+using the first operator key, not the legacy `homelab-nas-deploy` key. Restricting
+the legacy key therefore does not remove the current CI/operator credential
+sharing. Replacing the protected CI `ssh_deploy_key` secret with a dedicated
+identity is a separate coordinated rotation; verify the public fingerprint and
+every consumer before doing so. A dedicated identity must also account for
+CI-host self-deployment: connections from its own Docker bridge retain a
+container source, whereas other fleet targets see the CI host's masqueraded
+address. Do not grant all RFC1918 or `172.16.0.0/12` sources: the latter also
+contains operator VM networks. The current legacy key needs no Docker exception.
+The secondary agent on homelab-05 provides sandbox execution only, not the deploy
+tier, and is not an allowed deployment-key source.
+
+After an approved activation, verify noninteractive deployment from NAS/CI,
+rejection of this specific key from another infrastructure host, and continued
+operator access. Changes to agent access controls follow the exact-change
+approval path; do not bypass it while recovering a failed deployment.
+
 ## Protected CI deployment
 
 The `deploy-fleet-dry-run` and `deploy-fleet` operations in

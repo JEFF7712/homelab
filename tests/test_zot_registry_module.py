@@ -222,7 +222,15 @@ class ZotRegistryModuleTests(unittest.TestCase):
 
         self.assertIn('"/mnt/backup-2tb/registry-restic"', nas_data)
         self.assertIn('"/persist/zot/status"', nas_data)
-        self.assertIn("restic forget --prune", nas_data)
+        import shlex
+
+        command = next(
+            line.strip()
+            for line in nas_data.replace("\\\n", " ").splitlines()
+            if line.strip().startswith("restic forget ")
+        )
+        self.assertIn("--prune", shlex.split(command))
+        self.assertIn("--group-by", shlex.split(command))
 
     def test_background_gc_reclaims_blobs_daily(self) -> None:
         module = MODULE.read_text()

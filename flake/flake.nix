@@ -152,6 +152,7 @@
           # patchelf for registry, OPNsense, and zot fixtures.
           apacheHttpd
           nodejs
+          openssh
           patchelf
           php
           age
@@ -304,6 +305,7 @@
                 pkgs.kubectl
                 pkgs.libvirt
                 pkgs.nodejs
+                pkgs.openssh
                 pkgs.patchelf
                 pkgs.php
                 python
@@ -311,7 +313,7 @@
             }
             ''
               cd ${../.}
-              python -m scripts.ci.tests --output "$out/tests.xml" --log-report --exclude-module test_zot_registry_module
+              python -m scripts.ci.tests --output "$out/tests.xml" --log-report --exclude-module test_zot_registry_module --jobs "$NIX_BUILD_CORES"
             '';
 
         checks.agent-workspace-network =
