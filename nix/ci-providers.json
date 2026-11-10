@@ -74,37 +74,37 @@
   {
     "system": "x86_64-linux",
     "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
-    "version": "0.32.7",
+    "version": "0.34.0",
     "platform": "linux_amd64",
-    "filename": "terraform-provider-tplinkeasysmart_0.32.7_linux_amd64.zip",
-    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.7/terraform-provider-tplinkeasysmart_0.32.7_linux_amd64.zip",
-    "hash": "sha256-+7ex4I00JY1cOgkjR34RMJRoTW2NV/cYuzba6Q7b0bk="
+    "filename": "terraform-provider-tplinkeasysmart_0.34.0_linux_amd64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.34.0/terraform-provider-tplinkeasysmart_0.34.0_linux_amd64.zip",
+    "hash": "sha256-lMFZe09wfyHjMd2N7pV119GF1idWbDPO8+y4DDJsxLM="
   },
   {
     "system": "aarch64-linux",
     "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
-    "version": "0.32.7",
+    "version": "0.34.0",
     "platform": "linux_arm64",
-    "filename": "terraform-provider-tplinkeasysmart_0.32.7_linux_arm64.zip",
-    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.7/terraform-provider-tplinkeasysmart_0.32.7_linux_arm64.zip",
-    "hash": "sha256-dGD/00d1zXAioBetWV3fcxyUFAVY+RWf+PgsFHxTQHQ="
+    "filename": "terraform-provider-tplinkeasysmart_0.34.0_linux_arm64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.34.0/terraform-provider-tplinkeasysmart_0.34.0_linux_arm64.zip",
+    "hash": "sha256-X3OFxY+rz7/jEPAfG1WzUjtHSpxeBsmfDU/NrU7D/18="
   },
   {
     "system": "x86_64-darwin",
     "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
-    "version": "0.32.7",
+    "version": "0.34.0",
     "platform": "darwin_amd64",
-    "filename": "terraform-provider-tplinkeasysmart_0.32.7_darwin_amd64.zip",
-    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.7/terraform-provider-tplinkeasysmart_0.32.7_darwin_amd64.zip",
-    "hash": "sha256-0JJB9Cl5yxtJk91I9/aUaNWp6PhJovYqtOzn3XExRps="
+    "filename": "terraform-provider-tplinkeasysmart_0.34.0_darwin_amd64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.34.0/terraform-provider-tplinkeasysmart_0.34.0_darwin_amd64.zip",
+    "hash": "sha256-yeva6LxdVxVcLKCijIsLknDVGxEFdN2D5WySlbvQxzc="
   },
   {
     "system": "aarch64-darwin",
     "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
-    "version": "0.32.7",
+    "version": "0.34.0",
     "platform": "darwin_arm64",
-    "filename": "terraform-provider-tplinkeasysmart_0.32.7_darwin_arm64.zip",
-    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.32.7/terraform-provider-tplinkeasysmart_0.32.7_darwin_arm64.zip",
-    "hash": "sha256-r8lac3lT/g1xyYMIh6XpAdw2BI0M5Fq8zNsoszbpECk="
+    "filename": "terraform-provider-tplinkeasysmart_0.34.0_darwin_arm64.zip",
+    "url": "https://github.com/davidlukac/terraform-provider-tplinkeasysmart/releases/download/v0.34.0/terraform-provider-tplinkeasysmart_0.34.0_darwin_arm64.zip",
+    "hash": "sha256-6BmG64qBIQfDz4pNuZfPHuzwAVYe2SwdLIH+H7Me3Kk="
   }
 ]
