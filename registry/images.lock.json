@@ -5388,6 +5388,45 @@
     },
     {
       "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:42"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/beets",
+      "destination_tags": [
+        "2.14.1-ls359",
+        "retention-deployed-01e4d6177968a831"
+      ],
+      "digest": "sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a",
+      "id": "upstream-linuxserver-beets-df2b4df9eaed",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a",
+        "reference": "lscr.io/linuxserver/beets:2.14.1-ls359@sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a",
+        "registry": "lscr.io",
+        "repository": "linuxserver/beets",
+        "tag": "2.14.1-ls359"
+      }
+    },
+    {
+      "authenticity": {
         "reason": "surgical import for whisper GPU migration; publisher policy check deferred to review",
         "status": "unsupported"
       },
