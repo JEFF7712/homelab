@@ -413,6 +413,10 @@ snapshots restore, along with the CouchDB data described below. For nas-01 and h
 last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
 `homelab.git`) into scratch space under `/persist/platform-backup`, runs
 `PRAGMA integrity_check` and `git fsck --full`, and deletes the scratch copy.
+fsck runs with `core.commitGraph=false`. The commit-graph is a regenerable
+cache, and after Forgejo prunes unreachable commits it keeps listing them,
+which `fsck --full` reports as unreadable even though every reachable object
+is present (seen on 2026-11-09). A truly missing object still fails the drill.
 
 The nas-01 snapshot also carries the Obsidian CouchDB data
 (`homelab.platformBackup.couchdbDataPath`, copied from the same ZFS snapshot
