@@ -1,5 +1,6 @@
 import datetime
 import json
+import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -455,7 +456,51 @@ class PlatformRestoreDrillTests(unittest.TestCase):
                 verify_restored_backup(Path(directory))
             command = run.call_args.args[0]
             self.assertEqual(command[1:3], ["-c", f"safe.directory={repository}"])
+            self.assertEqual(command[3:5], ["-c", "core.commitGraph=false"])
             self.assertEqual(command[-2:], ["fsck", "--full"])
+
+    def test_fsck_ignores_a_stale_commit_graph_but_not_missing_objects(
+        self,
+    ) -> None:
+        # A prune leaves the commit-graph listing removed commits; fsck --full
+        # reads it and fails although every reachable object is present.
+        def git(repository: Path, *command: str) -> str:
+            return subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *command],
+                cwd=repository,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory) / "work"
+            work.mkdir()
+            git(work, "init", "-q", "-b", "main")
+            (work / "a").write_text("a\\n")
+            git(work, "add", "a")
+            git(work, "commit", "-q", "-m", "kept")
+            git(work, "checkout", "-q", "-b", "superseded")
+            (work / "b").write_text("b\\n")
+            git(work, "add", "b")
+            git(work, "commit", "-q", "-m", "pruned later")
+            pruned = git(work, "rev-parse", "HEAD")
+            git(work, "checkout", "-q", "main")
+            git(work, "commit-graph", "write", "--reachable", "--split")
+            git(work, "branch", "-q", "-D", "superseded")
+            (work / ".git/objects" / pruned[:2] / pruned[2:]).unlink()
+            restore = Path(directory) / "restore"
+            (restore / "repositories").mkdir(parents=True)
+            repository = restore / "repositories/homelab.git"
+            (work / ".git").rename(repository)
+            # Forgejo's bare repositories keep no reflog of the pruned head.
+            shutil.rmtree(repository / "logs")
+            verify_restored_backup(restore)
+
+            kept = git(repository, "rev-parse", "main:a")
+            (repository / "objects" / kept[:2] / kept[2:]).unlink()
+            with self.assertRaisesRegex(ValueError, "git fsck failed"):
+                verify_restored_backup(restore)
 
     def test_failure_reason_is_published_as_a_safe_label(self) -> None:
         recent = self.snapshot("2026-11-08T09:05:03Z")

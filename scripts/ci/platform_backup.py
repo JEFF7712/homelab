@@ -248,12 +248,16 @@ def verify_restored_backup(restore_path: Path) -> None:
     for git_dir in restore_path.rglob("*.git"):
         if git_dir.is_dir():
             # A root restore keeps the repository's owner, and git refuses
-            # another user's repository as dubious ownership.
+            # another user's repository as dubious ownership. The commit-graph
+            # is a regenerable cache that keeps listing commits a prune
+            # removed, so fsck checks the object database without it.
             res = subprocess.run(
                 [
                     "git",
                     "-c",
                     f"safe.directory={git_dir}",
+                    "-c",
+                    "core.commitGraph=false",
                     "-C",
                     str(git_dir),
                     "fsck",
