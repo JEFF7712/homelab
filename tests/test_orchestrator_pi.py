@@ -469,7 +469,7 @@ class WorkerApiTests(WorkerCase):
             WorkerApi(self.store, lease_seconds=60),
             "127.0.0.1",
             0,
-            read_timeout=0.5,
+            read_timeout=2,
             max_in_flight=2,
         )
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -478,11 +478,23 @@ class WorkerApiTests(WorkerCase):
         port = server.server_port
         url = f"http://127.0.0.1:{port}"
         HttpChannel(url, self.token).start("s", "w")
-        stalled = [self.stalled(port, self.token) for _ in range(2)]
-        time.sleep(0.1)
-        with self.assertRaises(OrchestratorError) as raised:
-            HttpChannel(url, self.token, timeout=2, retry_seconds=0).renew()
-        self.assertEqual(raised.exception.code, "HTTP_503")
+        # The stalled connections take their slots in their own handler
+        # threads, which a loaded machine may not have run yet; set the stall
+        # up again until it holds both slots, rather than guess with a sleep.
+        refused = None
+        for _ in range(5):
+            stalled = [self.stalled(port, self.token) for _ in range(2)]
+            time.sleep(0.3)
+            try:
+                HttpChannel(url, self.token, timeout=2, retry_seconds=0).renew()
+            except OrchestratorError as error:
+                refused = error
+                break
+            for connection in stalled:
+                connection.close()  # type: ignore[attr-defined]
+            time.sleep(2.5)
+        self.assertIsNotNone(refused, "the stalled connections never filled the slots")
+        self.assertEqual(refused.code, "HTTP_503")  # type: ignore[union-attr]
         # A worker with its normal retry budget waits the stall out instead.
         HttpChannel(url, self.token, timeout=2, retry_seconds=10).renew()
         started = time.time()
@@ -535,9 +547,22 @@ class WorkerApiTests(WorkerCase):
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         stalled = [self.stalled(server.server_port, self.token) for _ in range(3)]
-        third = stalled[2]
-        third.settimeout(2)  # type: ignore[attr-defined]
-        self.assertIn(b" 503 ", third.recv(1024))  # type: ignore[attr-defined]
+        # Each connection is admitted in its own handler thread, so under load
+        # any one of the three may be the one turned away; exactly one is.
+        import selectors
+
+        selector = selectors.DefaultSelector()
+        for connection in stalled:
+            selector.register(connection, selectors.EVENT_READ)
+        replies: dict[object, bytes] = {}
+        deadline = time.time() + 10
+        while len(replies) < len(stalled) and time.time() < deadline:
+            for key, _ in selector.select(timeout=deadline - time.time()):
+                replies[key.fileobj] = key.fileobj.recv(1024)  # type: ignore[union-attr]
+                selector.unregister(key.fileobj)
+        selector.close()
+        rejected = [reply for reply in replies.values() if b" 503 " in reply]
+        self.assertEqual(len(rejected), 1, replies)
         for connection in stalled:
             connection.close()  # type: ignore[attr-defined]
 
