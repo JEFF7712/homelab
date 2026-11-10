@@ -421,7 +421,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -470,7 +470,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -526,7 +526,7 @@
         "from_secret": "registry_htpasswd_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -576,7 +576,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -623,7 +623,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -672,7 +672,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -733,7 +733,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -791,7 +791,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -849,7 +849,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -907,7 +907,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -965,7 +965,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1428,7 +1428,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -1481,7 +1481,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1581,7 +1581,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -1629,7 +1629,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1917,7 +1917,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2057,7 +2057,7 @@
         "from_secret": "state_ca_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2252,7 +2252,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -2300,7 +2300,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2535,7 +2535,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2572,7 +2572,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2626,7 +2626,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -2669,7 +2669,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2776,7 +2776,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2812,7 +2812,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
