@@ -24,6 +24,7 @@ class SandboxConfigurationTest(unittest.TestCase):
             worker = flake.nixosConfigurations.homelab-05.config;
           in {
             serverAgents = lib.mapAttrs (_: agent: agent.environment.WOODPECKER_MAX_WORKFLOWS) server.services.woodpecker-agents.agents;
+            serverCpuQuota = lib.mapAttrs (_: agent: agent.environment.WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA) server.services.woodpecker-agents.agents;
             workerAgent = worker.services.woodpecker-agents.agents.sandbox.environment;
             workerLimits = worker.systemd.slices.ci.sliceConfig;
             workerDocker = worker.virtualisation.docker.daemon.settings;
@@ -60,7 +61,11 @@ class SandboxConfigurationTest(unittest.TestCase):
         self.assertEqual(worker["WOODPECKER_BACKEND"], "docker")
         self.assertIn("tier=sandbox", worker["WOODPECKER_AGENT_LABELS"])
         self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_MEM"], "8589934592")
-        self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA"], "200000")
+        self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA"], "300000")
+        self.assertEqual(
+            self.config["serverCpuQuota"],
+            {"sandbox": "400000", "trusted": "200000", "deploy": "200000"},
+        )
         self.assertEqual(self.config["workerDocker"]["cgroup-parent"], "ci.slice")
         self.assertEqual(self.config["workerLimits"]["MemoryMax"], "10G")
         self.assertEqual(self.config["workerLimits"]["CPUQuota"], "300%")

@@ -49,7 +49,7 @@ NIX_CONFIG = (
     "sandbox = false\n"
     f"{build_users.NIX_SETTING}\n"
     "max-jobs = 2\n"
-    "cores = 2\n"
+    "cores = 4\n"
     "connect-timeout = 5\n"
     "download-attempts = 3\n"
     "extra-substituters = http://10.0.30.20:8090?priority=30 http://10.0.30.20:8080/homelab?priority=35\n"

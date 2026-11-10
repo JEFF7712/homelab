@@ -111,7 +111,9 @@ in
           WOODPECKER_MAX_WORKFLOWS = "1";
           WOODPECKER_HEALTHCHECK = "false";
           WOODPECKER_BACKEND_DOCKER_LIMIT_MEM = "8589934592";
-          WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "200000";
+          # The whole ci slice: its 300% is what homelab-05's kubelet
+          # reserves for CI, so growing it would shrink pod allocatable.
+          WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "300000";
         };
         environmentFile = [ config.sops.secrets."woodpecker-sandbox-agent.env".path ];
       };
