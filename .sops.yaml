@@ -17,6 +17,15 @@ creation_rules:
       - age: [*operator_flux, *agent_rupan]
   - path_regex: gitops/secrets/.*\.sops\.yaml$
     age: age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl
+  - path_regex: secrets/ci-fleet-deploy\.sops\.json$
+    key_groups:
+      - age: [*operator_flux, *operator_recovery, *homelab-04]
+  - path_regex: secrets/registry-ci-issuer\.sops\.json$
+    key_groups:
+      - age: [*operator_flux, *operator_recovery, *homelab-04]
+  - path_regex: secrets/ha-ci-issuer\.sops\.json$
+    key_groups:
+      - age: [*operator_flux, *operator_recovery, *homelab-04]
   - path_regex: secrets/woodpecker-clone\.sops\.env$
     key_groups:
       - age: [*operator_flux, *operator_recovery, *homelab-04]
