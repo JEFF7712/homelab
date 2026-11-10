@@ -1294,6 +1294,45 @@
       ],
       "destination_repository": "upstream/ghcr.io/astral-sh/uv",
       "destination_tags": [
+        "0.13.7",
+        "retention-deployed-96f40d3904aad8d0"
+      ],
+      "digest": "sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490",
+      "id": "upstream-astral-sh-uv-8a529ed98732",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490",
+        "reference": "ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490",
+        "registry": "ghcr.io",
+        "repository": "astral-sh/uv",
+        "tag": "0.13.7"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:33"
+      ],
+      "destination_repository": "upstream/ghcr.io/astral-sh/uv",
+      "destination_tags": [
         "0.12.11",
         "retention-deployed-79c6f4776b851471"
       ],
