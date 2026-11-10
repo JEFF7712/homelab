@@ -22,7 +22,7 @@ let
       s3_region = "homelab";
     };
   };
-  garage = "${lib.getExe pkgs.garage} -c ${garageConfig}";
+  garage = "${lib.getExe (import ../../nix/garage.nix pkgs)} -c ${garageConfig}";
 in
 {
   options.homelab.niks3Cache = {
