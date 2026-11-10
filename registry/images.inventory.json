@@ -3551,14 +3551,14 @@
       "retention_class": "candidate",
       "source": {
         "digest": "sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
-        "reference": "registry.rupan.dev/apps/orchestrator:ci-11918-4860a1a6ec1c@sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
+        "reference": "registry.rupan.dev/apps/orchestrator:ci-11923-02d1fe901074@sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator",
-        "tag": "ci-11918-4860a1a6ec1c"
+        "tag": "ci-11923-02d1fe901074"
       },
       "digest": "sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
       "destination_tags": [
-        "ci-11918-4860a1a6ec1c",
+        "ci-11923-02d1fe901074",
         "retention-candidate-65a5205a07d8be3f"
       ]
     },
@@ -3577,14 +3577,14 @@
       "retention_class": "candidate",
       "source": {
         "digest": "sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9",
-        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11918-4860a1a6ec1c@sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9",
+        "reference": "registry.rupan.dev/apps/orchestrator-worker:ci-11923-02d1fe901074@sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9",
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator-worker",
-        "tag": "ci-11918-4860a1a6ec1c"
+        "tag": "ci-11923-02d1fe901074"
       },
       "digest": "sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9",
       "destination_tags": [
-        "ci-11918-4860a1a6ec1c",
+        "ci-11923-02d1fe901074",
         "retention-candidate-67fb70edc6fcda7c"
       ]
     },
