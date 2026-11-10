@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import subprocess
 import tempfile
@@ -147,6 +148,43 @@ class ShipNetworkTest(unittest.TestCase):
             self.assertRaisesRegex(ShipError, "unreachable"),
         ):
             ship.http("GET", "http://x", {})
+
+    def test_a_transient_unauthorized_read_is_retried_but_not_a_write(self) -> None:
+        def unauthorized() -> urllib.error.HTTPError:
+            return urllib.error.HTTPError(
+                "http://x", 401, "Unauthorized", {}, io.BytesIO(b'{"message": ""}')
+            )
+
+        response = unittest.mock.MagicMock()
+        response.__enter__.return_value.status = 200
+        response.__enter__.return_value.read.return_value = b'{"ok": true}'
+        with (
+            patch.object(
+                ship.urllib.request,
+                "urlopen",
+                side_effect=[unauthorized(), unauthorized(), response],
+            ),
+            patch.object(ship.time, "sleep"),
+        ):
+            self.assertEqual(ship.http("GET", "http://x", {}), (200, {"ok": True}))
+        with (
+            patch.object(
+                ship.urllib.request,
+                "urlopen",
+                side_effect=[unauthorized() for _ in range(10)],
+            ) as opened,
+            patch.object(ship.time, "sleep"),
+        ):
+            self.assertEqual(ship.http("GET", "http://x", {})[0], 401)
+        self.assertEqual(opened.call_count, ship.UNAUTHORIZED_RETRIES + 1)
+        with (
+            patch.object(
+                ship.urllib.request, "urlopen", side_effect=[unauthorized(), response]
+            ) as opened,
+            patch.object(ship.time, "sleep"),
+        ):
+            self.assertEqual(ship.http("POST", "http://x", {})[0], 401)
+        self.assertEqual(opened.call_count, 1)
 
 
 class ShipOperatorTest(unittest.TestCase):
