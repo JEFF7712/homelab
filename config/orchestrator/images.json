@@ -1,4 +1,4 @@
 {
-  "controller": "registry.rupan.dev/apps/orchestrator@sha256:166330cd16345da351ee08cd9b7911eed1bf04801aa65f7227f561d2ff3e2220",
-  "worker": "registry.rupan.dev/apps/orchestrator-worker@sha256:517ec1506b757c2bfda8da4a2c402f579ec5a9f9f9fa33cbba3466b75fc0711f"
+  "controller": "registry.rupan.dev/apps/orchestrator@sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
+  "worker": "registry.rupan.dev/apps/orchestrator-worker@sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9"
 }
