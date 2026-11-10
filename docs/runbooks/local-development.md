@@ -55,11 +55,10 @@ gate within the shared-workspace memory budget described in `AGENTS.md`.
 ## Nix input retention
 
 `scripts/ci/cache.sh` publishes host, check and development-shell closures to
-Attic. Before publication it also runs `nix flake archive` and includes the
+niks3. Before publication it also runs `nix flake archive` and includes the
 root source plus every recursive pinned input in the publication roots.
 Malformed or incomplete archive metadata fails before publication. Without
-`ATTIC_TOKEN`, the job builds the closures but skips publication; without
-`NIKS3_TOKEN`, it publishes to Attic only.
+`NIKS3_TOKEN`, the job builds the closures but skips publication.
 
 The job also retains every declared build root's available input graph,
 including derivation metadata and already valid outputs. This covers the
@@ -71,8 +70,9 @@ package outputs or guarantee availability of inputs that were never fetched.
 
 For current cache endpoints, trust keys, publication lanes and rollout status,
 use [CI dependency caching](ci-pipelines.md#dependency-caching-and-timing-visibility).
-The fleet and development flake declare niks3 alongside Attic; a historical
-Attic-only download receipt does not describe current client selection.
+The fleet and development flake declare niks3 as their only local cache;
+Attic was retired on 2026-11-10, so a historical Attic download receipt
+does not describe current client selection.
 
 Successful publication and local source availability are prerequisites for a
 clean offline CI test. They do not prove it: a disposable builder must resolve

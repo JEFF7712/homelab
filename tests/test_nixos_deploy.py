@@ -215,8 +215,9 @@ class CatalogTests(unittest.TestCase):
                 {"from_secret": "forgejo_publish_token"},
             )
             self.assertEqual(
-                operation["environment"]["ATTIC_TOKEN"], {"from_secret": "attic_token"}
+                operation["environment"]["NIKS3_TOKEN"], {"from_secret": "niks3_token"}
             )
+            self.assertNotIn("ATTIC_TOKEN", operation["environment"])
 
 
 if __name__ == "__main__":

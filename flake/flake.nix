@@ -4,11 +4,9 @@
   nixConfig = {
     extra-substituters = [
       "http://10.0.30.20:8090"
-      "http://10.0.30.20:8080/homelab"
     ];
     extra-trusted-public-keys = [
       "homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec="
-      "homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk="
     ];
   };
 
@@ -134,7 +132,6 @@
           ]
         );
         opsPackages = with pkgs; [
-          attic-client
           cosign
           curl
           dnsutils
@@ -264,7 +261,7 @@
         # Protected CI operations: the CI tools plus registry, cache, and
         # release clients, without the virtualization and GUI closure (qemu,
         # libvirt, cloud-utils) that every operation container would
-        # otherwise copy from Attic before doing any work.
+        # otherwise copy from the cache before doing any work.
         devShells.ops = pkgs.mkShell {
           HOMELAB_DEV_SHELL = "ops";
           MATRIX_LD_LIBRARY_PATH = matrixLibraryPath;

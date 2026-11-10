@@ -536,7 +536,7 @@ class DeployFleetTest(unittest.TestCase):
         ]
         self.assertEqual(len(nfs), 1)
         self.assertEqual(nfs[0][-2], "rupan@10.0.30.20")
-        self.assertIn("http://10.0.30.20:8080/", checked_urls)
+        self.assertNotIn("http://10.0.30.20:8080/", checked_urls)
         self.assertIn("http://10.0.30.20:8090/nix-cache-info", checked_urls)
 
     def test_nas_probes_wait_for_activation_to_settle(self) -> None:
