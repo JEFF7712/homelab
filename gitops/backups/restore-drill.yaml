@@ -158,7 +158,7 @@ spec:
                 - name: tmp
                   mountPath: /tmp
             - name: verify-postgres
-              image: registry.rupan.dev/upstream/docker.io/library/postgres@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/docker.io/library/postgres@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac  # yamllint disable-line rule:line-length
               resources:
                 requests:
                   cpu: 250m
