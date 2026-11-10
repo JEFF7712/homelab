@@ -1281,13 +1281,14 @@ class OperatorLoadTest(unittest.TestCase):
 
     NOW = 1_800_000_000.0
 
-    def request(self, kind, state, hours_ago, waited=None):
+    def request(self, kind, state, hours_ago, waited=None, by="passkey"):
         created = self.NOW - hours_ago * 3600
         return {
             "kind": kind,
             "state": state,
             "created": created,
             "decided": created + waited * 3600 if waited is not None else None,
+            "decided_by": by if waited is not None else None,
         }
 
     def test_counts_requests_in_the_window_and_median_approval_wait(self) -> None:
@@ -1297,6 +1298,9 @@ class OperatorLoadTest(unittest.TestCase):
             self.request("merge", "superseded", 3),
             self.request("deploy", "approved", 4, waited=4.0),
             self.request("grant", "expired", 5),
+            self.request(
+                "grant", "approved", 2, waited=0, by="approved merge of PR #1 abc"
+            ),
             self.request("merge", "approving", 0.1),
             self.request("merge", "approved", 24 * 8, waited=9),
             {"kind": "unknown", "state": "approved", "created": self.NOW},
@@ -1309,7 +1313,9 @@ class OperatorLoadTest(unittest.TestCase):
         self.assertEqual(counts[("merge", "pending")], 1)
         self.assertEqual(counts[("deploy", "approved")], 1)
         self.assertEqual(counts[("grant", "expired")], 1)
-        self.assertEqual(sum(counts.values()), 6)
+        self.assertEqual(counts[("grant", "carried")], 1)
+        self.assertEqual(counts[("grant", "approved")], 0)
+        self.assertEqual(sum(counts.values()), 7)
         self.assertAlmostEqual(result["wait_hours_median"], 1.5)
 
     def test_no_approvals_reports_minus_one_and_every_series(self) -> None:
@@ -1322,7 +1328,7 @@ class OperatorLoadTest(unittest.TestCase):
             'homelab_autonomy_operator_requests{kind="merge",state="approved"} 0', body
         )
         self.assertIn("homelab_autonomy_operator_wait_hours_median -1", body)
-        self.assertEqual(body.count("homelab_autonomy_operator_requests{"), 15)
+        self.assertEqual(body.count("homelab_autonomy_operator_requests{"), 18)
 
     def test_no_approvals_url_skips_the_summary(self) -> None:
         self.assertEqual(rm.Settings().approvals_url, "")
@@ -1341,6 +1347,7 @@ class OperatorCollectionTest(PatchedNetwork):
             "state": "approved",
             "created": created,
             "decided": created + 1800,
+            "decided_by": "passkey",
         }
         snapshot = self.collect(ok({"requests": [request]}))
         self.assertEqual(snapshot.operator["requests"][("merge", "approved")], 1)

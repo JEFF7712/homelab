@@ -287,6 +287,41 @@ class ShipOperatorTest(unittest.TestCase):
             shipper.run_operation(10, "deploy-ci-host")
         self.assertEqual(http.call_args_list[0].args[3]["files"], files)
 
+    def test_identities_fetch_a_merge_commit_made_on_the_server(self) -> None:
+        # Ship merges through the API, so the deployed merge commit is often
+        # missing locally. Without fetching it no identities go out, and the
+        # operator approves at deploy what they already approved at merge.
+        def git(cwd: Path, *command: str) -> str:
+            return subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *command],
+                cwd=cwd,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as directory:
+            origin, clone = Path(directory) / "origin", Path(directory) / "clone"
+            origin.mkdir()
+            git(origin, "init", "-q", "-b", "main")
+            (origin / "policy.py").write_text("v1\n")
+            git(origin, "add", ".")
+            git(origin, "commit", "-q", "-m", "one")
+            git(Path(directory), "clone", "-q", str(origin), str(clone))
+            (origin / "policy.py").write_text("v2\n")
+            git(origin, "commit", "-q", "-am", "server-side merge")
+            merge = git(origin, "rev-parse", "HEAD")
+            blob = git(origin, "rev-parse", "HEAD:policy.py")
+            shipper = self.shipper()
+            shipper.woodpecker.pipeline.side_effect = None
+            shipper.woodpecker.pipeline.return_value = {"commit": merge}
+            with patch.object(ship, "ROOT", clone):
+                self.assertFalse(shipper.has_commit(merge))
+                files = shipper.tree_identities(10, ["policy.py", "absent.py"])
+            self.assertEqual(
+                files, {"policy.py": f"100644 {blob}", "absent.py": "absent"}
+            )
+
     def test_a_granted_digest_rejected_again_fails_instead_of_looping(self) -> None:
         shipper = self.approval_shipper()
         shipper.woodpecker.deploy.side_effect = [

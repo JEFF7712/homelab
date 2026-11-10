@@ -245,10 +245,19 @@ def autonomy(pulls: list[dict[str, Any]], now: float) -> dict[str, Any]:
 
 
 # Passkey requests the operator is asked to decide, by kind (merge, deploy,
-# grant) and outcome. The dashboard lists the 50 most recent, which covers a
-# week at the current rate.
+# grant) and outcome. "carried" is a deploy grant the service approved itself
+# because approved merges already covered its exact files; only "approved"
+# took a passkey. The dashboard lists the 50 most recent, which covers a week
+# at the current rate.
 OPERATOR_KINDS = ("merge", "deploy", "grant")
-OPERATOR_STATES = ("approved", "declined", "expired", "superseded", "pending")
+OPERATOR_STATES = (
+    "approved",
+    "carried",
+    "declined",
+    "expired",
+    "superseded",
+    "pending",
+)
 
 
 def operator_load(requests: list[dict[str, Any]], now: float) -> dict[str, Any]:
@@ -266,6 +275,8 @@ def operator_load(requests: list[dict[str, Any]], now: float) -> dict[str, Any]:
         state = str(request.get("state", ""))
         if state == "approving":
             state = "pending"
+        if state == "approved" and request.get("decided_by") != "passkey":
+            state = "carried"
         if (kind, state) not in counts:
             continue
         counts[(kind, state)] += 1
