@@ -3706,6 +3706,23 @@
         "repository": "library/python",
         "tag": "3.14-alpine"
       }
+    },
+    {
+      "consumers": [
+        "gitops/automation/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/alpine/k8s",
+      "id": "upstream-alpine-k8s-d20fd43b3d51",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042",
+        "reference": "docker.io/alpine/k8s:1.37.2@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042",
+        "registry": "docker.io",
+        "repository": "alpine/k8s",
+        "tag": "1.37.2"
+      }
     }
   ],
   "kind": "registry-inventory",
