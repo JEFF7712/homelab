@@ -52,7 +52,7 @@ rec {
   _file = "generated tplinkeasysmart provider";
   config.terraform.required_providers.tplinkeasysmart = {
     source = "registry.terraform.io/davidlukac/tplinkeasysmart";
-    version = "0.32.7";
+    version = "0.34.0";
   };
   config.generated.provider."tplinkeasysmart" = mkUnsetOption {
     type = types.attrsOf (
@@ -68,7 +68,7 @@ rec {
             _version = mkOption {
               internal = true;
               type = types.str;
-              default = "0.32.7";
+              default = "0.34.0";
             };
             alias = mkUnsetOption {
               type = types.str;
@@ -96,11 +96,15 @@ rec {
             };
             "mac" = mkUnsetOption {
               type = (types.either referenceType (types.str));
-              description = "MAC address of the switch (`aa:bb:cc:dd:ee:ff`, colons or hyphens, any case; `system_info` reports it as `mac_address`). It pins the identity: a device with another MAC at `host` is never written to. Without `host`, or when `host` does not answer, the switch is found by a layer-2 discovery on the first request, so its address may change (for example under DHCP). Discovery needs the same layer-2 segment; use `host` as well when Terraform runs elsewhere. Falls back to TPLINK_EASYSMART_MAC. ";
+              description = "MAC address of the switch (`aa:bb:cc:dd:ee:ff`, colons or hyphens, any case; `system_info` reports it as `mac_address`). It pins the identity: a device with another MAC at `host` is never written to. Without `host` the switch is found by a layer-2 discovery on the first request, so its address may change (for example under DHCP); with `host` the client keeps to that address unless `relocate_by_mac` is set. Discovery needs the same layer-2 segment; use `host` as well when Terraform runs elsewhere. Falls back to TPLINK_EASYSMART_MAC. ";
             };
             "password" = mkUnsetOption {
               type = (types.either referenceType (types.str));
               description = "Admin password. Falls back to TPLINK_EASYSMART_PASSWORD. ";
+            };
+            "relocate_by_mac" = mkUnsetOption {
+              type = (types.either referenceType (types.bool));
+              description = "When a switch has both `host` and `mac` and nothing answers at `host`, look the switch up by its MAC and follow it to the address it answers from (a DHCP lease that changed). Off by default: the client keeps to `host`, and a switch that is not there is an error. Needs `mac`. Defaults to false. Falls back to TPLINK_EASYSMART_RELOCATE_BY_MAC (`true` or `false`). Can be overridden per switch in the `switches` map. ";
             };
             "switches" = mkUnsetOption {
               type = (
@@ -118,15 +122,19 @@ rec {
                         };
                         "mac" = mkUnsetOption {
                           type = (types.either referenceType (types.str));
-                          description = "MAC address of the switch (`aa:bb:cc:dd:ee:ff`, colons or hyphens, any case; `system_info` reports it as `mac_address`). It pins the identity: a device with another MAC at `host` is never written to. Without `host`, or when `host` does not answer, the switch is found by a layer-2 discovery on the first request, so its address may change (for example under DHCP). Discovery needs the same layer-2 segment; use `host` as well when Terraform runs elsewhere. ";
+                          description = "MAC address of the switch (`aa:bb:cc:dd:ee:ff`, colons or hyphens, any case; `system_info` reports it as `mac_address`). It pins the identity: a device with another MAC at `host` is never written to. Without `host` the switch is found by a layer-2 discovery on the first request, so its address may change (for example under DHCP); with `host` the client keeps to that address unless `relocate_by_mac` is set. Discovery needs the same layer-2 segment; use `host` as well when Terraform runs elsewhere. ";
                         };
                         "password" = mkOption {
                           type = (types.either referenceType (types.str));
                           description = "Admin password. ";
                         };
+                        "relocate_by_mac" = mkUnsetOption {
+                          type = (types.either referenceType (types.bool));
+                          description = "Overrides the provider-level `relocate_by_mac` for this switch. When a switch has both `host` and `mac` and nothing answers at `host`, look the switch up by its MAC and follow it to the address it answers from (a DHCP lease that changed). Off by default: the client keeps to `host`, and a switch that is not there is an error. Needs `mac`. ";
+                        };
                         "timeout_seconds" = mkUnsetOption {
                           type = (types.either referenceType (types.number));
-                          description = "Seconds to wait for a reply before retrying a request. Defaults to the provider-level `timeout_seconds`, then 3. ";
+                          description = "Seconds to wait for a reply before retrying a request, 1 to 30 (the longest the library takes). Defaults to the provider-level `timeout_seconds`, then 3. ";
                         };
                         "username" = mkOption {
                           type = (types.either referenceType (types.str));
@@ -138,11 +146,11 @@ rec {
                   )
                 )
               );
-              description = ''Switches managed by this provider, by name. Select one on a resource or data source with `switch = "<name>"`. May be combined with `host`, which then names the default switch used when `switch` is omitted. '';
+              description = ''Switches managed by this provider, by name. Select one on a resource or data source with `switch = "<name>"`. With a `switches` map every resource and data source must set `switch`. It may be combined with `host` (the provider's own switch), which is then selected with `switch = "default"`; `default` cannot be a key of this map. '';
             };
             "timeout_seconds" = mkUnsetOption {
               type = (types.either referenceType (types.number));
-              description = "Seconds to wait for a reply before retrying a request. Defaults to 3. ";
+              description = "Seconds to wait for a reply before retrying a request, 1 to 30 (the longest the library takes). Defaults to 3. ";
             };
             "username" = mkUnsetOption {
               type = (types.either referenceType (types.str));
@@ -325,7 +333,7 @@ rec {
                 };
                 "switch" = mkUnsetOption {
                   type = (types.either referenceType (types.str));
-                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Omit it to use the provider's own switch (`host`), or the only configured switch. Changing it replaces the resource. ";
+                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Required when the provider has a `switches` map; `default` is the provider's own switch (`host`) beside it. Omit it when the provider has only its own switch. Changing it replaces the resource. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
 
@@ -481,7 +489,7 @@ rec {
                 };
                 "switch" = mkUnsetOption {
                   type = (types.either referenceType (types.str));
-                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Omit it to use the provider's own switch (`host`), or the only configured switch. Changing it replaces the resource. ";
+                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Required when the provider has a `switches` map; `default` is the provider's own switch (`host`) beside it. Omit it when the provider has only its own switch. Changing it replaces the resource. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
 
@@ -637,7 +645,7 @@ rec {
                 };
                 "switch" = mkUnsetOption {
                   type = (types.either referenceType (types.str));
-                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Omit it to use the provider's own switch (`host`), or the only configured switch. Changing it replaces the resource. ";
+                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Required when the provider has a `switches` map; `default` is the provider's own switch (`host`) beside it. Omit it when the provider has only its own switch. Changing it replaces the resource. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
                 "tagged_ports" = mkUnsetOption {
@@ -660,7 +668,7 @@ rec {
             }
           )
         );
-        description = "An 802.1Q VLAN (VLAN > 802.1Q VLAN): its name and its tagged and untagged member ports. Import with the VLAN id. The 802.1Q mode must already be active (see `tplinkeasysmart_vlan_mode`); the provider refuses to manage VLANs in another mode. Unlike port-based groups, a port can be a member of several 802.1Q VLANs. **Safety:** the provider refuses to create, change or destroy a VLAN when any port involved (old or new members) has a link up or belongs to a LAG, and when the change would leave a port in no VLAN at all, because that can cut connectivity or management access; set `allow_disruptive = true` to override. Keep VLAN 1 (the default) under `lifecycle { prevent_destroy = true }`. ";
+        description = "An 802.1Q VLAN (VLAN > 802.1Q VLAN): its name and its tagged and untagged member ports. Import with the VLAN id; creating a VLAN that already exists (VLAN 1 always does) is refused, import it instead. The 802.1Q mode must already be active (see `tplinkeasysmart_vlan_mode`); the provider refuses to manage VLANs in another mode. Unlike port-based groups, a port can be a member of several 802.1Q VLANs. **Safety:** the provider refuses to create, change or destroy a VLAN when any port involved (old or new members) has a link up or belongs to a LAG, and when the change would leave a port in no VLAN at all, because that can cut connectivity or management access; set `allow_disruptive = true` to override. Keep VLAN 1 (the default) under `lifecycle { prevent_destroy = true }`. ";
       };
       "tplinkeasysmart_vlan_8021q_pvid" = mkUnsetOption {
         type = types.attrsOf (
@@ -813,7 +821,7 @@ rec {
                 };
                 "switch" = mkUnsetOption {
                   type = (types.either referenceType (types.str));
-                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Omit it to use the provider's own switch (`host`), or the only configured switch. Changing it replaces the resource. ";
+                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Required when the provider has a `switches` map; `default` is the provider's own switch (`host`) beside it. Omit it when the provider has only its own switch. Changing it replaces the resource. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
 
@@ -979,7 +987,7 @@ rec {
                 };
                 "switch" = mkUnsetOption {
                   type = (types.either referenceType (types.str));
-                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Omit it to use the provider's own switch (`host`), or the only configured switch. Changing it replaces the resource. ";
+                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Required when the provider has a `switches` map; `default` is the provider's own switch (`host`) beside it. Omit it when the provider has only its own switch. Changing it replaces the resource. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
 
@@ -987,7 +995,7 @@ rec {
             }
           )
         );
-        description = "The VLAN mode of the switch (VLAN > MTU VLAN, Port Based VLAN, 802.1Q VLAN): exactly one of the three is active. Singleton; import with id `vlan_mode`. **Safety:** switching the mode discards the VLAN settings of the other modes and can cut every connection, including the management path, so the provider refuses to change the mode unless `allow_disruptive = true`. Applying the mode the switch already has writes nothing. Destroying only removes it from state. ";
+        description = "The VLAN mode of the switch (VLAN > MTU VLAN, Port Based VLAN, 802.1Q VLAN): exactly one of the three is active. Singleton; import with id `vlan_mode`. **Safety:** switching the mode discards the VLAN settings of the other modes and can cut every connection, including the management path, so the provider refuses to change the mode unless `allow_disruptive = true`. The MTU VLAN uplink must be a port that has a link and is in no LAG: anything else is refused even with `allow_disruptive`, because it would cut the management path. Applying the mode the switch already has writes nothing. Destroying only removes it from state. ";
       };
 
     };
@@ -1100,7 +1108,7 @@ rec {
                 };
                 "switch" = mkUnsetOption {
                   type = (types.either referenceType (types.str));
-                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Omit it to use the provider's own switch (`host`), or the only configured switch. ";
+                  description = "Name of the switch (a key of the provider's `switches` map) this object lives on. Required when the provider has a `switches` map; `default` is the provider's own switch (`host`) beside it. Omit it when the provider has only its own switch. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
 

@@ -18,7 +18,7 @@
     name = "tplinkeasysmart";
     source = "registry.terraform.io/davidlukac/tplinkeasysmart";
     address = "registry.terraform.io/davidlukac/tplinkeasysmart";
-    version = "0.32.7";
+    version = "0.34.0";
     resources = [
       "tplinkeasysmart_vlan_mode"
       "tplinkeasysmart_system"
