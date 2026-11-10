@@ -5316,6 +5316,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:34"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/bazarr",
+      "destination_tags": [
+        "retention-deployed-7ef0e58216900dbc",
+        "v1.6.2-ls371"
+      ],
+      "digest": "sha256:7ef0e58216900dbce30b123e0eb65f5cb30e36f126de9474acdd2022fb069c54",
+      "id": "upstream-linuxserver-bazarr-7c44513ac0d5",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7ef0e58216900dbce30b123e0eb65f5cb30e36f126de9474acdd2022fb069c54",
+        "reference": "lscr.io/linuxserver/bazarr:v1.6.2-ls371@sha256:7ef0e58216900dbce30b123e0eb65f5cb30e36f126de9474acdd2022fb069c54",
+        "registry": "lscr.io",
+        "repository": "linuxserver/bazarr",
+        "tag": "v1.6.2-ls371"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:36"
       ],
       "destination_repository": "upstream/lscr.io/linuxserver/bazarr",
