@@ -3757,6 +3757,23 @@
         "repository": "library/python",
         "tag": "3.12-slim-bookworm"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "id": "upstream-library-node-fbda79793801",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9",
+        "reference": "docker.io/library/node:24-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-slim"
+      }
     }
   ],
   "kind": "registry-inventory",
