@@ -135,12 +135,39 @@ spec:
             memory: 2Gi
         storageSpec:
           volumeClaimTemplate:
+            metadata:
+              name: prometheus-local-db
             spec:
-              storageClassName: nfs-cluster
+              storageClassName: local-nvme
               accessModes: [ReadWriteOnce]
+              selector:
+                matchLabels:
+                  homelab.rupan.dev/storage: prometheus-local
               resources:
                 requests:
                   storage: 20Gi
+        # A new claim name retains the NFS claim for rollback. Refuse to start
+        # an empty TSDB before the cold-copy migration has passed its checks.
+        initContainers:
+          - name: require-tsdb-migration
+            image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+            command: [/bin/sh, -ec, 'test -f /prometheus/.migration-complete']
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: [ALL]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+            volumeMounts:
+              - name: prometheus-local-db
+                mountPath: /prometheus
+                subPath: prometheus-db
+                readOnly: true
     kubelet:
       serviceMonitor:
         metricRelabelings:
