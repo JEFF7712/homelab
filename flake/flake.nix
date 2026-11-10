@@ -316,7 +316,7 @@
             }
             ''
               cd ${../.}
-              python -m scripts.ci.tests --output "$out/tests.xml" --log-report --exclude-module test_zot_registry_module
+              python -m scripts.ci.tests --output "$out/tests.xml" --log-report --exclude-module test_zot_registry_module --jobs "$NIX_BUILD_CORES"
             '';
 
         checks.agent-workspace-network =
