@@ -3689,6 +3689,23 @@
         "repository": "library/postgres",
         "tag": "16.15-alpine"
       }
+    },
+    {
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "id": "upstream-library-python-1dc04c82387d",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894",
+        "reference": "docker.io/library/python:3.14-alpine@sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.14-alpine"
+      }
     }
   ],
   "kind": "registry-inventory",
