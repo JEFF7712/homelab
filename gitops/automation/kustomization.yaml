@@ -8,6 +8,7 @@ resources:
   - config.yaml
   - state.yaml
   - rbac.yaml
+  - registry-advance-access.yaml
   - cluster-sentinel-script.yaml
   - cluster-sentinel.yaml
   - dockerhub-retention-script.yaml
