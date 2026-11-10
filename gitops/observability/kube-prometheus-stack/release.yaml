@@ -5,10 +5,16 @@ metadata:
   namespace: observability
 spec:
   interval: 1h
+  # The operator and its CRDs move together: Helm's default leaves CRDs
+  # untouched on upgrade, which would run a new operator on old schemas.
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: 92.17.0
+      version: 93.1.1
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -21,16 +27,16 @@ spec:
             digest: sha256:540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df
           - name: ghcr.io/jkroepke/kube-webhook-certgen
             newName: registry.rupan.dev/upstream/ghcr.io/jkroepke/kube-webhook-certgen  # yamllint disable-line rule:line-length
-            digest: sha256:778d97dc3986355625e14392419b3364c487a7c807d4d86ddad1df369129b082
+            digest: sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f
           - name: quay.io/kiwigrid/k8s-sidecar
             newName: registry.rupan.dev/upstream/quay.io/kiwigrid/k8s-sidecar  # yamllint disable-line rule:line-length
-            digest: sha256:092dbe0c335fba9af414a27630ca68f34df6185784fa847d9954187e69dbfdd7
+            digest: sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880
           - name: quay.io/prometheus-operator/prometheus-config-reloader
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-config-reloader  # yamllint disable-line rule:line-length
             digest: sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7
           - name: quay.io/prometheus-operator/prometheus-operator
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-operator  # yamllint disable-line rule:line-length
-            digest: sha256:c7edf0379b7271ef1705dce258d2bb73820e299cc95559369e9f6fc3321639ec
+            digest: sha256:9c2490af910d58ec2abd77642d340e30bd5e2de5c80fd19ab4b49e28dc7bbb83
           - name: quay.io/prometheus/alertmanager
             newName: registry.rupan.dev/upstream/quay.io/prometheus/alertmanager  # yamllint disable-line rule:line-length
             digest: sha256:51a825c2a40acc3e338fdd00d622e01ec090f72be2b3ea46be0839cd47a4d286
