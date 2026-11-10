@@ -49,7 +49,7 @@ _REPOSITORY_RE = re.compile(
 )
 _TAG_RE = re.compile(r"[\w][\w.-]{0,127}\Z", re.ASCII)
 _IMAGE_FIELD_RE = re.compile(
-    r"^\s*(?:-\s*)?image:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE
+    r"^\s*(?:-\s*)?(?:image|imageName):\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE
 )
 _KIND_RE = re.compile(r"^kind:\s*HelmRelease\s*$", re.MULTILINE)
 _INDEX_MEDIA_TYPES = frozenset(

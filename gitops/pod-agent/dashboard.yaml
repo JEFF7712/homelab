@@ -15,6 +15,7 @@ spec:
       labels:
         app: pod-agent-dashboard
     spec:
+      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/hostname: homelab-01
       securityContext:
@@ -64,7 +65,7 @@ spec:
               containerPort: 3010
           envFrom:
             - secretRef:
-                name: pod-agent-env
+                name: pod-agent-dashboard-env
             - configMapRef:
                 name: pod-agent-config
           resources:

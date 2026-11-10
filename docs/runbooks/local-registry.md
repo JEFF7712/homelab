@@ -178,11 +178,20 @@ policy records an explicit exception.
 
 ### CloudNativePG operator and PostgreSQL cluster images
 
-CloudNativePG operator and its managed database cluster instances (`home-assistant-cluster`,
-`immich-cluster`) pull controller and database images directly from `ghcr.io`
-(`ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1`, `ghcr.io/cloudnative-pg/postgresql:17`, and
-`ghcr.io/tensorchord/cloudnative-vectorchord:16`). These operator-managed upstream images
-are declared as tested mirror exceptions until integrated into the local registry mirroring lane.
+CloudNativePG's manager/bootstrap image and all three PostgreSQL clusters use
+local digest-pinned references. The chart image tag includes the digest so its
+`OPERATOR_IMAGE_NAME` environment variable, which selects bootstrap init
+containers, matches the manager container exactly. Database references retain
+major-version tags alongside their digests for the operator's version parsing.
+`gitops/platform/cnpg/registry-sources.yaml` declares the upstream source digests
+for inventory and import. Image discovery includes CNPG `imageName` fields.
+
+Import and verify the lock's destination manifests with `registry-lock-import`
+before promoting their desired references. A missing local database image can
+stall an otherwise healthy replica replacement. The initial migration preserves
+the exact digests observed running in the cluster; it changes the pull source,
+not PostgreSQL versions or data formats. Verify the manager and every database
+instance, including bootstrap init containers, use local images after rollout.
 
 
 `just check` and `just check-changed` validate the saved snapshot offline without

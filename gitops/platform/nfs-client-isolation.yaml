@@ -1,0 +1,22 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: prevent-direct-pod-nfs
+spec:
+  description: Only node-managed NFS mounts may speak the storage protocol.
+  endpointSelector: {}
+  enableDefaultDeny:
+    ingress: false
+    egress: false
+  # A pod can forge AUTH_SYS identities without mounting a filesystem. The
+  # kubelet's host NFS client provides PVC mounts outside these pod endpoints.
+  # Deny rules take precedence over existing namespace allow policies, without
+  # changing their default-deny behavior or granting any new connectivity.
+  egressDeny:
+    - toEntities: [all]
+      toPorts:
+        - ports:
+            - {port: "111", protocol: TCP}
+            - {port: "111", protocol: UDP}
+            - {port: "2049", protocol: TCP}
+            - {port: "2049", protocol: UDP}
