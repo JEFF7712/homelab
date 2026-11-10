@@ -130,20 +130,18 @@ in
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";
         UMask = "0077";
-        # A failed drill retries every two hours instead of waiting a week,
-        # so a fixed backup clears its alert on its own.
-        Restart = "on-failure";
-        RestartSec = "2h";
       };
-      unitConfig.StartLimitIntervalSec = 0;
     };
     systemd.timers.platform-restore-drill = lib.mkIf (config.networking.hostName == "nas-01") {
       wantedBy = [ "timers.target" ];
       # A deploy that changes the drill's code restarts the timer, so the new
-      # code runs OnActiveSec later instead of next Sunday.
+      # code runs OnActiveSec later.
       restartTriggers = [ source ];
       timerConfig = {
-        OnCalendar = "Sun *-*-* 05:00:00";
+        # Every two hours; the drill itself skips until a dataset failed, is
+        # pending, or last passed six days ago, so failures retry quickly and
+        # passes recur weekly without the unit ever ending up failed.
+        OnCalendar = "*-*-* 00/2:30:00";
         # Also after boot and after a deploy changes the timer, so evidence
         # exists before RestoreDrillMissing fires and a rebuilt NAS proves
         # its backups straight away.

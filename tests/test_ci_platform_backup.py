@@ -387,22 +387,20 @@ class PlatformRestoreDrillTests(unittest.TestCase):
                 state_file.parent.mkdir()
                 state_file.write_text(json.dumps(state))
             metrics = root / "metrics/drill.prom"
-            error = None
             with patch(
                 "scripts.ci.platform_backup.subprocess.run",
                 side_effect=self.fake_restic(snapshots, set(broken), couch),
             ):
-                try:
-                    run_drill(
-                        "nas-01",
-                        root / "scratch",
-                        state_file,
-                        metrics,
-                        self.NOW,
-                        couchdb=couchdb,
-                    )
-                except SystemExit as exit_error:
-                    error = exit_error
+                # Never raises: a failed unit would fail nas-01 activation.
+                failed = run_drill(
+                    "nas-01",
+                    root / "scratch",
+                    state_file,
+                    metrics,
+                    self.NOW,
+                    couchdb=couchdb,
+                )
+            error = failed or None
             self.assertEqual(list((root / "scratch").iterdir()), [], "scratch kept")
             self.assertEqual(metrics.stat().st_mode & 0o777, 0o644)
             return error, json.loads(state_file.read_text()), metrics.read_text()
@@ -584,6 +582,51 @@ class PlatformRestoreDrillTests(unittest.TestCase):
         verify.assert_not_called()
         self.assertIn("couchdb-obsidian", str(error))
         self.assertTrue(state["couchdb-obsidian"]["result"].startswith("fail"))
+
+    def test_recent_passes_skip_the_drill_but_keep_publishing(self) -> None:
+        passed = int(self.NOW.timestamp()) - 86400
+        state = {
+            dataset: {"passed": passed, "result": "pass: earlier"}
+            for dataset in ("platform-nas-01", "platform-homelab-04")
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_file = root / "drill.json"
+            state_file.write_text(json.dumps(state))
+            metrics = root / "drill.prom"
+            with patch("scripts.ci.platform_backup.subprocess.run") as run:
+                self.assertEqual(
+                    run_drill(
+                        "nas-01", root / "scratch", state_file, metrics, self.NOW
+                    ),
+                    [],
+                )
+            run.assert_not_called()
+            self.assertIn(
+                'homelab_restore_drill_last_result{dataset="platform-nas-01"} 1',
+                metrics.read_text(),
+            )
+
+    def test_a_failure_pending_or_week_old_pass_makes_the_drill_due(self) -> None:
+        from scripts.ci.platform_backup import drill_due
+
+        fresh = int(self.NOW.timestamp()) - 3600
+        week_old = int(self.NOW.timestamp()) - 7 * 86400
+        passing = {
+            "platform-nas-01": {"passed": fresh, "result": "pass: x"},
+            "platform-homelab-04": {"passed": fresh, "result": "pass: x"},
+        }
+        self.assertFalse(drill_due(passing, self.NOW, couchdb=False))
+        self.assertTrue(drill_due(passing, self.NOW, couchdb=True))
+        for result, stamp in (
+            ("fail: x", fresh),
+            ("pending: x", 0),
+            ("pass: x", week_old),
+        ):
+            with self.subTest(result=result):
+                state = dict(passing)
+                state["platform-homelab-04"] = {"passed": stamp, "result": result}
+                self.assertTrue(drill_due(state, self.NOW, couchdb=False))
 
     def test_only_nas_01_runs_drills(self) -> None:
         with self.assertRaises(ValueError):
