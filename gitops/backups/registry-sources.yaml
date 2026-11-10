@@ -18,4 +18,4 @@ items:
   # restic (dumps-to-r2.yaml, library-local.yaml)
   - image: docker.io/restic/restic:0.19.1@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510
   # pg_dump client (db-dump.yaml)
-  - image: docker.io/library/postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685  # yamllint disable-line rule:line-length
+  - image: docker.io/library/postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139  # yamllint disable-line rule:line-length
