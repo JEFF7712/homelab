@@ -6,11 +6,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.checks.flake_jobs import Check, nix_build, run
+from scripts.checks.flake_jobs import Check, build_jobs, nix_build, run
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,6 +57,47 @@ class FlakeJobsTest(unittest.TestCase):
                 "/nix/store/b-topology.drv^*: build failed",
             ],
         )
+
+    def test_checks_build_concurrently_up_to_the_job_count(self) -> None:
+        # Both builds must be in flight at once for the barrier to release;
+        # a single builder would time out on the first build.
+        barrier = threading.Barrier(2, timeout=5)
+        lock = threading.Lock()
+        active = 0
+        peak = 0
+
+        def build(target: Check) -> bool:
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            try:
+                if target.attr != "checks.fail":
+                    barrier.wait()
+                return target.attr != "checks.fail"
+            finally:
+                with lock:
+                    active -= 1
+
+        count, failures = run(
+            [
+                line(attr="checks.repository-contract", drvPath="/nix/store/a.drv"),
+                line(attr="checks.packet-flow", drvPath="/nix/store/b.drv"),
+                line(attr="checks.fail", drvPath="/nix/store/c.drv"),
+            ],
+            build,
+            jobs=2,
+        )
+        self.assertEqual(count, 3)
+        self.assertEqual(failures, ["/nix/store/c.drv^*: build failed"])
+        self.assertEqual(peak, 2)
+
+    def test_build_jobs_follow_the_cpu_quota_with_an_override(self) -> None:
+        self.assertEqual(build_jobs({}, cpus=2.0), 2)
+        self.assertEqual(build_jobs({}, cpus=1.0), 2)
+        self.assertEqual(build_jobs({}, cpus=6.0), 3)
+        self.assertEqual(build_jobs({"CI_FLAKE_BUILD_JOBS": "1"}, cpus=6.0), 1)
+        self.assertEqual(build_jobs({"CI_FLAKE_BUILD_JOBS": "x"}, cpus=6.0), 3)
 
     def test_no_checks_is_a_failure(self) -> None:
         _, failures = run(
