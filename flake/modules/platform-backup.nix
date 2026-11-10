@@ -110,6 +110,10 @@ in
     systemd.services.platform-restore-drill = lib.mkIf (config.networking.hostName == "nas-01") {
       description = "Restore and verify a sample of the platform backups";
       after = [ "platform-backup-maintenance.service" ];
+      # Activation must not run the drill inline: a failing or pending drill
+      # would fail every nas-01 deploy and its rollback (2026-11-10). The
+      # timer below reruns it after a deploy instead.
+      restartIfChanged = false;
       unitConfig.RequiresMountsFor = "/persist";
       path = [
         pkgs.git

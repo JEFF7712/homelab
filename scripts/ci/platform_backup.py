@@ -275,7 +275,9 @@ DRILL_MAX_AGE = datetime.timedelta(days=2)
 # Every SQLite database, the homelab repository and the CouchDB data: a
 # bounded sample that exercises the state each host backs up without
 # restoring bulk object data.
-DRILL_INCLUDES = ("*.sqlite", "*.db", "*/homelab.git", "*/applications/couchdb")
+# The stage is backed up as the snapshot root, so its applications sit at
+# /applications; restic's "*" does not match that empty leading component.
+DRILL_INCLUDES = ("*.sqlite", "*.db", "*/homelab.git", "/applications/couchdb")
 COUCHDB_DATASET = "couchdb-obsidian"
 DRILL_STATE = Path("/var/lib/platform-backup/drill.json")
 # nas-01 node exporter textfile directory (flake/modules/zot-registry.nix).
