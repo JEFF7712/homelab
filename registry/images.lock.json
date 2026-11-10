@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-09T23:34:30+00:00",
+  "generated_at": "2026-11-10T04:33:58+00:00",
   "images": [
     {
       "authenticity": {
@@ -973,10 +973,10 @@
       ],
       "destination_repository": "apps/rupan-dev",
       "destination_tags": [
-        "0.0.1000070",
-        "retention-deployed-fe3704a75b7390e8"
+        "0.0.1000081",
+        "retention-deployed-6bbd99fc731a8861"
       ],
-      "digest": "sha256:fe3704a75b7390e8e916cfd9eee97b05be03e13de7a9f856cbc00fa08f922c1b",
+      "digest": "sha256:6bbd99fc731a8861ddcc80a99abdd5f62ac5140dbce59e1f35636b34890fe7b6",
       "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -996,11 +996,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:fe3704a75b7390e8e916cfd9eee97b05be03e13de7a9f856cbc00fa08f922c1b",
-        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000070@sha256:fe3704a75b7390e8e916cfd9eee97b05be03e13de7a9f856cbc00fa08f922c1b",
+        "digest": "sha256:6bbd99fc731a8861ddcc80a99abdd5f62ac5140dbce59e1f35636b34890fe7b6",
+        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000081@sha256:6bbd99fc731a8861ddcc80a99abdd5f62ac5140dbce59e1f35636b34890fe7b6",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
-        "tag": "0.0.1000070"
+        "tag": "0.0.1000081"
       }
     },
     {
