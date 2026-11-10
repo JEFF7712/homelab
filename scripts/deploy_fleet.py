@@ -787,29 +787,30 @@ class FleetDeployer:
     def wait_postgres_ready(self) -> None:
         if self.dry_run:
             logger.info(
-                "[homelab-01] [DRY RUN] Would wait for PostgreSQL deployments to be Ready"
+                "[homelab-01] [DRY RUN] Would wait for PostgreSQL clusters to be Ready"
             )
             return
 
         logger.info(
-            "[homelab-01] Waiting for PostgreSQL workloads to report Ready (timeout=%.0fs)...",
+            "[homelab-01] Waiting for PostgreSQL clusters to report Ready (timeout=%.0fs)...",
             self.ready_timeout,
         )
-        pg_deployments = [
-            ("home-assistant-postgres", "home-assistant"),
-            ("immich-postgres", "immich"),
-        ]
-        for dep, ns in pg_deployments:
+        for namespace, cluster in (
+            ("home-assistant", "home-assistant-cluster"),
+            ("immich", "immich-cluster"),
+        ):
             logger.info(
-                "[homelab-01] Waiting for rollout status of %s in %s...", dep, ns
+                "[homelab-01] Waiting for PostgreSQL cluster %s in %s...",
+                cluster,
+                namespace,
             )
             cmd = [
                 "kubectl",
-                "rollout",
-                "status",
-                f"deployment/{dep}",
+                "wait",
+                "--for=condition=Ready",
+                f"clusters.postgresql.cnpg.io/{cluster}",
                 "-n",
-                ns,
+                namespace,
                 f"--timeout={int(self.ready_timeout)}s",
             ]
             run_command(cmd, runner=self.runner, timeout=self.ready_timeout + 5.0)
