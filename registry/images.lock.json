@@ -1175,6 +1175,44 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/automation/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/alpine/k8s",
+      "destination_tags": [
+        "1.37.2",
+        "retention-deployed-dcb7185e112a453a"
+      ],
+      "digest": "sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042",
+      "id": "upstream-alpine-k8s-d20fd43b3d51",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042",
+        "reference": "docker.io/alpine/k8s:1.37.2@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042",
+        "registry": "docker.io",
+        "repository": "alpine/k8s",
+        "tag": "1.37.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/voice/registry-sources.yaml:25"
       ],
       "destination_repository": "upstream/ghcr.io/astral-sh/uv",
