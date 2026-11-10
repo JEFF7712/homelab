@@ -17,6 +17,7 @@ spec:
       labels:
         app: pod-agent-discord-bot
     spec:
+      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/hostname: homelab-01
       securityContext:
@@ -36,7 +37,7 @@ spec:
           workingDir: /data
           envFrom:
             - secretRef:
-                name: pod-agent-env
+                name: pod-agent-discord-bot-env
             - configMapRef:
                 name: pod-agent-config
           resources:
