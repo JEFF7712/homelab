@@ -225,7 +225,7 @@ spec:
                   readOnly: true
           containers:
             - name: record
-              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
               resources:
                 requests:
                   cpu: 50m
