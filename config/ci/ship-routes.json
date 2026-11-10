@@ -106,7 +106,14 @@
         "flake/hosts/",
         "flake/modules/",
         "flake/flake.nix",
-        "flake/flake.lock"
+        "flake/flake.lock",
+        "nix/",
+        "secrets/hosts/",
+        "secrets/shared/",
+        "scripts/nas/",
+        "scripts/ci/platform_backup.py",
+        "scripts/ci/release_mirror.py",
+        "scripts/ci/authority.py"
       ],
       "operations": [
         "deploy-fleet-dry-run",
@@ -144,7 +151,24 @@
         "flake/profiles/projectctl-pilot.nix",
         "scripts/projectctl/",
         "flake/modules/projectctl.nix",
-        "config/ci/projectctl-contracts.json"
+        "config/ci/projectctl-contracts.json",
+        "config/ci/ship-routes.json",
+        "secrets/woodpecker-clone.sops.env",
+        "scripts/ci/build_users.py",
+        "scripts/ci/container_release.py",
+        "scripts/ci/deployment_source.py",
+        "scripts/ci/dockerfile_supply.py",
+        "scripts/ci/dotnet_release.py",
+        "scripts/ci/dotnet_service.py",
+        "scripts/ci/firmware.py",
+        "scripts/ci/nixos_config.py",
+        "scripts/ci/node_release.py",
+        "scripts/ci/node_service.py",
+        "scripts/ci/python_service.py",
+        "scripts/ci/service_release.py",
+        "scripts/ci/static_release.py",
+        "scripts/ci/static_site.py",
+        "secrets/projectctl.sops.json"
       ],
       "operations": [
         "deploy-ci-host-dry-run",
