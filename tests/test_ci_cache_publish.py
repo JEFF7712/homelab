@@ -22,7 +22,8 @@ esac
 """,
     "nix-store": f"printf '%s\\n' {OUTPUT} {DEPENDENCY}\n",
     "python": "exit 0\n",
-    "attic": 'if [ "$1" = push ]; then cat >> "$RECEIPT/attic"; fi\n',
+    # Attic is retired; any call is recorded so tests can prove there is none.
+    "attic": 'printf "%s\\n" "$*" >> "$RECEIPT/attic"\n',
     "niks3": """
 token=""
 previous=""
@@ -65,7 +66,6 @@ class CachePublishTests(unittest.TestCase):
                 **os.environ,
                 "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
                 "HOMELAB_CACHE_BUILDER": "native",
-                "ATTIC_TOKEN": "test-attic-token",
                 "RECEIPT": str(receipt),
                 "NIKS3_MODE": mode,
                 "FAIL_PATH": DEPENDENCY,
@@ -89,20 +89,18 @@ class CachePublishTests(unittest.TestCase):
             }
             return result, receipts
 
-    def test_pushes_every_unique_path_to_attic_and_niks3(self) -> None:
+    def test_pushes_every_unique_path_to_niks3_only(self) -> None:
         result, receipts = self.publish("test-niks3-token")
         self.assertEqual(result.returncode, 0, result.stderr)
-        expected = f"{OUTPUT}\n{DEPENDENCY}\n"
-        self.assertEqual(receipts["attic"], expected)
-        self.assertEqual(receipts["niks3"], expected)
+        self.assertEqual(receipts["niks3"], f"{OUTPUT}\n{DEPENDENCY}\n")
         self.assertEqual(receipts["niks3-token"], "test-niks3-token")
+        self.assertIsNone(receipts["attic"])
         self.assertIn("niks3 push: ok=2", result.stdout)
         self.assertNotIn("test-niks3-token", result.stdout + result.stderr)
 
-    def test_niks3_path_error_fails_after_attic_push(self) -> None:
-        result, receipts = self.publish("test-niks3-token", mode="error")
+    def test_niks3_path_error_fails_the_publication(self) -> None:
+        result, _ = self.publish("test-niks3-token", mode="error")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(receipts["attic"], f"{OUTPUT}\n{DEPENDENCY}\n")
         self.assertIn("niks3 failed 1 path(s) (exit 0)", result.stderr)
         self.assertIn(f"{DEPENDENCY}: upload refused", result.stderr)
 
@@ -111,12 +109,12 @@ class CachePublishTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("niks3 failed 0 path(s) (exit 3)", result.stderr)
 
-    def test_missing_niks3_token_keeps_attic_only_publication(self) -> None:
+    def test_missing_niks3_token_builds_without_uploading(self) -> None:
         result, receipts = self.publish(None)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(receipts["attic"], f"{OUTPUT}\n{DEPENDENCY}\n")
         self.assertIsNone(receipts["niks3"])
-        self.assertIn("NIKS3_TOKEN is not set", result.stdout)
+        self.assertIsNone(receipts["attic"])
+        self.assertIn("NIKS3_TOKEN is not set, so upload is skipped", result.stdout)
 
 
 class CachePublishOperationTests(unittest.TestCase):

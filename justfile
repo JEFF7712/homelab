@@ -85,7 +85,7 @@ cache-populate:
       ./flake#devShells.x86_64-linux.default \
       ./flake#devShells.x86_64-linux.ci \
       ./flake#devShells.x86_64-linux.ops \
-      | attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
+      | niks3 push --stdin --server-url http://10.0.30.20:8090 --auth-token-path "${NIKS3_TOKEN_FILE:?set NIKS3_TOKEN_FILE to the niks3 push token file}"
 
 deploy-fleet *args:
     python -m scripts.deploy_fleet {{args}}

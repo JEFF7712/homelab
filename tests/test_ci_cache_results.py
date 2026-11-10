@@ -105,14 +105,17 @@ class CacheResultsTest(unittest.TestCase):
                 "assert len(sys.argv[4:]) == 26\n"
                 "print('/nix/store/build-input')\n"
             )
-            attic = directory / "attic"
-            attic.write_text(
+            niks3 = directory / "niks3"
+            niks3.write_text(
                 f"#!{sys.executable}\n"
-                "import os, pathlib, sys\n"
+                "import json, os, pathlib, sys\n"
                 "if sys.argv[1] == 'push':\n"
-                " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(sys.stdin.read())\n"
+                " paths = sys.stdin.read()\n"
+                " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(paths)\n"
+                " for path in paths.split():\n"
+                "  print(json.dumps({'path': path, 'status': 'ok'}))\n"
             )
-            for binary in (fast, nix, nix_store, attic):
+            for binary in (fast, nix, nix_store, niks3):
                 binary.chmod(0o755)
             receipt = directory / "pushed"
             environment = dict(os.environ)
@@ -126,7 +129,7 @@ class CacheResultsTest(unittest.TestCase):
                         env={
                             **environment,
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
-                            "ATTIC_TOKEN": "test-only",
+                            "NIKS3_TOKEN": "test-only",
                             "FAST_STATUS": str(status),
                             "PUSH_RECEIPT": str(receipt),
                         },

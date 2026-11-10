@@ -75,7 +75,7 @@ class CacheNixConfigTest(unittest.TestCase):
             env = dict(
                 os.environ,
                 PATH=f"{binaries}:{os.environ['PATH']}",
-                ATTIC_TOKEN="",
+                NIKS3_TOKEN="",
                 HOMELAB_CACHE_BUILDER="native",
                 NIX_CONFIG="sandbox = false",
                 CONFIG_LOG=str(repo / "config.log"),
