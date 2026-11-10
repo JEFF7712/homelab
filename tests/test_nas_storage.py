@@ -90,6 +90,29 @@ class NasStorageTest(unittest.TestCase):
         for path in ("/tank/photos", "/tank/documents", "/mnt/backup-2tb"):
             self.assertIn(path, backup_mounts)
 
+    def test_nfs_writes_are_limited_to_explicit_storage_consumers(self) -> None:
+        exports = {
+            fields[0]: {
+                client.split("(", 1)[0]: set(
+                    client.split("(", 1)[1].rstrip(")").split(",")
+                )
+                for client in fields[1:]
+            }
+            for line in self.configuration["exports"].splitlines()
+            if (fields := line.split())
+        }
+        nodes = {f"10.0.30.{number}" for number in range(11, 16)}
+        for path in ("/tank/media", "/tank/cluster"):
+            clients = exports[path]
+            self.assertEqual(
+                {host for host, options in clients.items() if "rw" in options}, nodes
+            )
+            self.assertNotIn("10.0.30.0/24", clients)
+        self.assertNotIn("/tank/backups", exports)
+        management = exports["/tank/media"]["10.0.10.0/24"]
+        self.assertIn("ro", management)
+        self.assertIn("root_squash", management)
+
     def test_nfs_orders_mount_attempts_without_requiring_all_exports(self) -> None:
         service = self.configuration["services"]["nfs-server"]
         for name in ("media", "backups", "cluster"):
