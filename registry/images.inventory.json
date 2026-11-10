@@ -3893,6 +3893,57 @@
         "repository": "linuxserver/jellyfin",
         "tag": "10.11.11ubu2604-ls47"
       }
+    },
+    {
+      "consumers": [
+        "gitops/observability/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/jkroepke/kube-webhook-certgen",
+      "id": "upstream-jkroepke-kube-webhook-certgen-31bf39a05ce0",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f",
+        "reference": "ghcr.io/jkroepke/kube-webhook-certgen:1.11.1@sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f",
+        "registry": "ghcr.io",
+        "repository": "jkroepke/kube-webhook-certgen",
+        "tag": "1.11.1"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/observability/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/quay.io/kiwigrid/k8s-sidecar",
+      "id": "upstream-kiwigrid-k8s-sidecar-6a75916bf565",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880",
+        "reference": "quay.io/kiwigrid/k8s-sidecar:2.14.3@sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880",
+        "registry": "quay.io",
+        "repository": "kiwigrid/k8s-sidecar",
+        "tag": "2.14.3"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/observability/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/quay.io/prometheus-operator/prometheus-operator",
+      "id": "upstream-prometheus-operator-prometheus-operator-c1ae4d471743",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:9c2490af910d58ec2abd77642d340e30bd5e2de5c80fd19ab4b49e28dc7bbb83",
+        "reference": "quay.io/prometheus-operator/prometheus-operator:v0.95.1@sha256:9c2490af910d58ec2abd77642d340e30bd5e2de5c80fd19ab4b49e28dc7bbb83",
+        "registry": "quay.io",
+        "repository": "prometheus-operator/prometheus-operator",
+        "tag": "v0.95.1"
+      }
     }
   ],
   "kind": "registry-inventory",
