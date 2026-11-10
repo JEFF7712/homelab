@@ -5,12 +5,10 @@
     "home-assistant",
     "music-assistant",
     "voice",
-    "obsidian",
     "flux-system",
     "kube-system"
   ],
   "deny_repositories": [
-    "upstream/docker.io/library/postgres",
-    "upstream/docker.io/library/couchdb"
+    "upstream/docker.io/library/postgres"
   ]
 }
