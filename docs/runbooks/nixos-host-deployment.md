@@ -134,6 +134,40 @@ an activation failure, and uncordons only after successful host recovery. A drai
 failure also attempts to restore scheduling. It does not roll back hosts that already completed before
 a later host failed. Follow the affected host or service runbook for recovery.
 
+## Kernel reboots
+
+A switch installs a new kernel, initrd and modules but keeps running the old
+ones, so they take effect only after a reboot. `just fleet-reboot`
+(`scripts/fleet_reboot.py`, the `fleet-reboot` operation) reboots, one host at
+a time, each host whose booted kernel, initrd or modules differ from its
+running system. It only runs between 03:00 and 05:00 America/Chicago and
+starts no host after 04:30; outside the window it exits without doing anything.
+
+It never deploys: a host is rebooted only when its boot profile is the running
+system, which a gated deployment activated and verified. Order and checks:
+
+- k3s nodes and the DNS appliance in inventory order. k3s nodes are cordoned
+  and drained, then must boot the installed system with no newly failed unit,
+  report Ready (and Postgres primaries for homelab-01) before they are
+  uncordoned.
+- nas-01 next, only when a platform backup succeeded in the last two hours, no
+  backup, restore drill or repository maintenance is running and
+  `zpool status -x` is healthy. Otherwise it is deferred to the next night with
+  an ntfy notice. After its reboot the datasets, NFS and caches are checked.
+- homelab-04 last, because the CI job runs there. It is drained, a transient
+  `homelab-reboot-watch-homelab-04` unit on homelab-01 uncordons it once it
+  reports Ready on the installed kernel (within 20 minutes), and its reboot is
+  scheduled 90 seconds out. If the watcher gives up, the node stays cordoned:
+  check `journalctl -u homelab-reboot-watch-homelab-04` on homelab-01.
+
+The first failure stops the run, leaves that node cordoned and sends an urgent
+ntfy alert. Inspect the host, then `kubectl uncordon <node>` once it is
+healthy. Preview the plan at any time, read-only:
+
+```sh
+nix develop ./flake#ops -c just fleet-reboot --dry-run --ignore-window --no-notify
+```
+
 ## Acceptance
 
 After deployment, verify the selected hosts and dependent workloads using
