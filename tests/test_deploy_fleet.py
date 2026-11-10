@@ -485,12 +485,21 @@ class DeployFleetTest(unittest.TestCase):
         result = deployer.execute()
         self.assertEqual(result["status"], "success")
 
-        rollout_cmds = [
-            " ".join(c) for c in executed_commands if "rollout" in c and "status" in c
-        ]
-        self.assertEqual(len(rollout_cmds), 2)
-        self.assertTrue(any("home-assistant-postgres" in cmd for cmd in rollout_cmds))
-        self.assertTrue(any("immich-postgres" in cmd for cmd in rollout_cmds))
+        self.assertEqual(
+            [cmd for cmd in executed_commands if cmd[:2] == ["kubectl", "wait"]],
+            [
+                [
+                    "kubectl",
+                    "wait",
+                    "--for=condition=Ready",
+                    f"clusters.postgresql.cnpg.io/{namespace}-cluster",
+                    "-n",
+                    namespace,
+                    "--timeout=180s",
+                ]
+                for namespace in ("home-assistant", "immich")
+            ],
+        )
 
     def test_deployer_appliances(self) -> None:
         executed_commands: list[list[str]] = []
