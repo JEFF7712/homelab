@@ -192,6 +192,7 @@ class ShipOperatorTest(unittest.TestCase):
         shipper = ship.Shipper.__new__(ship.Shipper)
         shipper.woodpecker = unittest.mock.Mock()
         shipper.woodpecker.deploy.side_effect = ShipError("stop after deploy")
+        shipper.woodpecker.inflight.return_value = None
         return shipper
 
     def approval_shipper(self) -> ship.Shipper:
@@ -260,6 +261,45 @@ class ShipOperatorTest(unittest.TestCase):
         ):
             shipper.approved(10, "provision-darkbit-publisher")
         shipper.woodpecker.pipeline.assert_not_called()
+
+    def finished(self, shipper, status: str, log: str) -> list[str]:
+        """Run an operation whose pipeline ends in status; return what ship said."""
+        said: list[str] = []
+        shipper.say = said.append
+        shipper.remaining = lambda: 60.0
+        shipper.woodpecker.pipeline.return_value = {"number": 88, "status": status}
+        shipper.woodpecker.failure_report.return_value = log
+        with patch.object(ship.time, "sleep"):
+            try:
+                shipper.run_operation(10, "deploy-fleet")
+            except ShipError:
+                pass
+        return said
+
+    def test_another_ships_run_is_followed_not_duplicated(self) -> None:
+        # Regression (2026-11-11): two ships each dispatched deploy-fleet for
+        # the same validation, and one reported the refused duplicate as a
+        # failure.
+        shipper = self.shipper()
+        shipper.woodpecker.inflight.return_value = 88
+        said = self.finished(shipper, "success", "")
+        shipper.woodpecker.deploy.assert_not_called()
+        shipper.woodpecker.inflight.assert_called_once_with(10, "deploy-fleet")
+        self.assertIn("following pipeline #88", said[0])
+
+    def test_a_refused_duplicate_is_not_reported_as_a_failure(self) -> None:
+        for log in (ship.ALREADY_COMPLETED, ship.SUPERSEDED):
+            with self.subTest(log=log):
+                shipper = self.shipper()
+                shipper.woodpecker.deploy.side_effect = None
+                shipper.woodpecker.deploy.return_value = {"number": 88}
+                said = self.finished(shipper, "failure", f"ValueError: {log}")
+                self.assertFalse(any(line.endswith(": failure") for line in said))
+        shipper = self.shipper()
+        shipper.woodpecker.deploy.side_effect = None
+        shipper.woodpecker.deploy.return_value = {"number": 88}
+        said = self.finished(shipper, "failure", "drain timed out")
+        self.assertIn("deploy-fleet: failure", said)
 
     def test_held_operations_use_the_operator_token(self) -> None:
         shipper = self.shipper()
