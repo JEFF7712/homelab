@@ -30,7 +30,7 @@ let
       '';
       forced = pkgs.writeShellScript "restricted-${profile}-kubeconfig" ''
         test -z "''${SSH_ORIGINAL_COMMAND:-}" || exit 64
-        exec ${pkgs.sudo}/bin/sudo -n ${issue}
+        exec ${config.security.wrapperDir}/sudo -n ${issue}
       '';
     in
     identity // { inherit issue forced; }
