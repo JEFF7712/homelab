@@ -2091,6 +2091,105 @@ class HubModeAndRendererTests(unittest.TestCase):
         # Base rows should be hot
         self.assertGreater(float(physics.fire_heat[60:, :].mean()), 180.0)
 
+    def test_physics_volcano_spark_height(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 8
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.033,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        min_spark_y = 64.0
+        for _ in range(60):
+            frame = physics.render(ctx, size=64)
+            min_spark_y = min(min_spark_y, float(physics.volcano_pos[:, 1].min()))
+
+        # Sparks should erupt high into the top half (y < 20)
+        self.assertLess(min_spark_y, 20.0)
+        # Upper half of the frame should contain active sparks
+        arr = np.array(frame)
+        self.assertGreater(int(np.sum(arr[:32, :, :])), 0)
+
+    def test_physics_pendulum_wave_bounds_and_height(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 3
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.05,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Step through full cycle
+        for step in range(100):
+            physics.scene_timer = (step * 0.2) % physics.PERIOD
+            frame = physics.render(ctx, size=64)
+            self.assertEqual(frame.size, (64, 64))
+
+        # Bottom rows should receive pendulum trails/bobs (deep swing)
+        self.assertGreater(int(np.sum(physics.pendulum_trail[50:, :, :])), 0)
+
+    def test_physics_bouncing_particles_sustained_motion(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 1
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.033,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Run 350 frames (~12 seconds, well past kinetic death threshold of legacy code)
+        for _ in range(350):
+            physics.render(ctx, size=64)
+
+        speed = float(np.linalg.norm(physics.vel, axis=1).mean())
+        # Particles should remain lively and bouncing, not dead on the floor
+        self.assertGreater(speed, 10.0)
+        # Particles should not all be clumped at row 61
+        self.assertLess(float(physics.pos[:, 1].min()), 55.0)
+
 
 if __name__ == "__main__":
     unittest.main()
