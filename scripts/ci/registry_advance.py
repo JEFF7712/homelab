@@ -36,7 +36,8 @@ their consumers here are projectctl's CI step images
 build without touching a running service. The Woodpecker clone image is
 enforcement code and stays with the operator. A RollingUpdate keeps the old pod
 serving; a Recreate restarts and is reverted if it does not come back; a
-CronJob's next run fails and alerts. StatefulSets, DaemonSets and everything
+CronJob, which must run at least daily, is verified by its next scheduled run
+and reverted if that run fails (it is never run off schedule). StatefulSets, DaemonSets and everything
 else stay with a person or the controller.
 """
 
@@ -64,6 +65,7 @@ from scripts.registry.advance import (
     declarations,
     declared,
     mirror,
+    scheduled_runs,
     verify,
 )
 
@@ -169,6 +171,17 @@ def ineligible(
         kind = document.get("kind")
         spec = document.get("spec") or {}
         if kind == "CronJob":
+            # Its next scheduled run verifies it within the settle window, so
+            # it must run at least daily and not be suspended.
+            schedule = str(spec.get("schedule", ""))
+            fields = schedule.split()
+            daily = schedule in ("@hourly", "@daily", "@midnight") or (
+                len(fields) == 5 and fields[2:] == ["*", "*", "*"]
+            )
+            if spec.get("suspend"):
+                return f"{path}: {name} is suspended, so no run can verify it"
+            if not daily:
+                return f"{path}: {name} runs less often than daily ({schedule})"
             template = ((spec.get("jobTemplate") or {}).get("spec") or {}).get(
                 "template"
             ) or {}
@@ -508,6 +521,11 @@ def settle(root: Path, token: str, pull: Mapping[str, Any]) -> str:
         print(f"settle #{number}: waiting for Flux to apply it")
         return "waiting"
     failures = verify(root, paths, timeout="5m")
+    cron_failures, waiting = scheduled_runs(root, paths, merged_at)
+    failures += cron_failures
+    if waiting and not failures:
+        print(f"settle #{number}: waiting for {'; '.join(waiting)}")
+        return "waiting"
     if not failures:
         api(
             token,
