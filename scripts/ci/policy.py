@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import threading
 import time
@@ -253,11 +254,21 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         "opnsense-inventory",
         "nas-proof",
         "deploy-fleet-dry-run",
+        # Delivers main to the fleet after its dry run, including the night's
+        # nixpkgs update. It runs only when the deployed authorization
+        # baseline admits main (held_schedule_targets).
+        "deploy-fleet",
         "deploy-agent-workspace-host-dry-run",
         "deploy-home-assistant-dry-run",
         # Retries the open laptop lock update and delivers new main commits.
         "nixos-deploy",
     ),
+    # Proposes the fleet's nixpkgs update early enough for its PR to merge
+    # before the nightly delivery.
+    "fleet-lock": ("fleet-lock-update",),
+    # Reboots hosts onto the installed kernel; the operation only acts inside
+    # 03:00-05:00 America/Chicago, so two UTC runs cover daylight saving.
+    "fleet-reboot": ("fleet-reboot",),
     "weekly": ("nixos-lock-update", "registry-cve-audit"),
 }
 
@@ -524,6 +535,7 @@ def configuration(
     authority_changes: list[str] | None = None,
     authority_grant: str = "",
     source_compatible: bool = False,
+    held_targets: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -599,7 +611,9 @@ def configuration(
         # Operations serialize on the resource they act on (the catalog
         # group), so unrelated work runs in parallel. Scheduled read-only
         # work shares one group, so maintenance never holds more than one
-        # trusted slot or queues an operator's plan behind it.
+        # trusted slot or queues an operator's plan behind it. Woodpecker
+        # ignores this concurrency setting; mutations are serialized by the
+        # group lock operation.py takes from scripts/ci/oplock.py.
         if event == "cron" and not operation["mutation"]:
             group = "scheduled-read-only"
         else:
@@ -759,14 +773,48 @@ def configuration(
                         )
                     return {"configs": configs}
                 # An operation unpacks its needs' artifacts from this
-                # pipeline, so it must start after they finish.
+                # pipeline, so it must start after they finish, and after its
+                # prerequisite when the schedule runs that too.
+                held = held_targets or {}
                 for target in schedule:
-                    if target != "webhook-watchdog":
-                        operation_workflow(
-                            target,
-                            "${CI_PIPELINE_NUMBER}",
-                            gate + list(operations[target]["needs"]),
+                    if target == "webhook-watchdog":
+                        continue
+                    if target in held:
+                        # A host deployment that would activate unapproved
+                        # authorization or storage changes waits for the
+                        # operator, as an agent deployment would; the rest of
+                        # the schedule still runs.
+                        reason = "awaiting operator approval: " + ", ".join(
+                            held[target][:12]
                         )
+                        add(
+                            f"{target}-held",
+                            {
+                                "when": [{"event": "cron"}],
+                                "labels": {"tier": "sandbox", "type": "docker"},
+                                "steps": [
+                                    {
+                                        "name": f"{target}-held",
+                                        "image": IMAGE,
+                                        "commands": [
+                                            "echo " + shlex.quote(f"{target} {reason}")
+                                        ],
+                                    }
+                                ],
+                            },
+                        )
+                        continue
+                    prerequisite = operations[target]["prerequisite"]
+                    ordered = (
+                        [prerequisite]
+                        if prerequisite in schedule and prerequisite not in held
+                        else []
+                    )
+                    operation_workflow(
+                        target,
+                        "${CI_PIPELINE_NUMBER}",
+                        gate + list(operations[target]["needs"]) + ordered,
+                    )
         return {"configs": configs}
 
     if not main or pipeline.get("author") not in DEPLOY_AUTHORS:
@@ -815,6 +863,42 @@ def configuration(
         )
     operation_workflow(target, str(parent["number"]))
     return {"configs": configs}
+
+
+def held_schedule_targets(
+    request: dict[str, Any],
+    operations: dict[str, Any],
+    mirror: Any,
+    authority_baseline: dict[str, str] | None,
+    grant_lookup: Callable[[str], bool],
+) -> dict[str, list[str]]:
+    """Scheduled host deployments that must wait, with the changes holding them.
+
+    A cron run skips the agent deployment check, so a scheduled deploy-fleet
+    gets the same one: the commit's authorization and storage sources against
+    the deployed baseline, unless the operator granted their exact content.
+    """
+    pipeline = request["pipeline"]
+    if pipeline.get("event") != "cron" or pipeline.get("cron") not in SCHEDULES:
+        return {}
+    held: dict[str, list[str]] = {}
+    for target in SCHEDULES[pipeline["cron"]]:
+        operation = operations.get(target, {})
+        if not (operation.get("mutation") and host_operation(operation)):
+            continue
+        if mirror is None or authority_baseline is None:
+            held[target] = ["cannot verify the deployed authorization baseline"]
+            continue
+        changes, grant = mirror.authority_changes(
+            pipeline.get("commit", ""),
+            request.get("netrc", {}),
+            authority_baseline,
+            protected_paths(target, True),
+            True,
+        )
+        if changes and not grant_lookup(grant):
+            held[target] = changes
+    return held
 
 
 def resolve_configuration(
@@ -901,6 +985,9 @@ def resolve_configuration(
             host,
         )
         authority_changes = [] if changes and grant_lookup(authority_grant) else changes
+    held_targets = held_schedule_targets(
+        request, operations, mirror, authority_baseline, grant_lookup
+    )
     if request["pipeline"].get("ref") == "refs/heads/main":
         credentials = request["netrc"]
         tip = api(
@@ -962,6 +1049,7 @@ def resolve_configuration(
         authority_changes=authority_changes,
         authority_grant=authority_grant,
         source_compatible=source_compatible,
+        held_targets=held_targets,
     )
 
 
