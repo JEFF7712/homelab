@@ -46,7 +46,7 @@ in
 
     services.garage = {
       enable = true;
-      package = import ../../nix/garage.nix pkgs;
+      package = pkgs.garage_2;
       environmentFile = cfg.environmentFile;
       settings = {
         metadata_dir = "/persist/garage/meta";
