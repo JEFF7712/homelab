@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+import json
+import pathlib
+import subprocess
+import tempfile
 import unittest
+from datetime import UTC, datetime
+from unittest.mock import patch
 
+from scripts.registry import advance
 from scripts.registry.advance import (
     added_sources,
     adoptions,
@@ -107,6 +114,91 @@ class AdoptStepTest(unittest.TestCase):
                 )
                 self.assertEqual(rewrites, {})
                 self.assertEqual(len(skipped), 1)
+
+
+class ScheduledRunTest(unittest.TestCase):
+    """A CronJob is checked by its next scheduled run, never run off schedule."""
+
+    OLD = "sha256:" + "1" * 64
+    NEW = "sha256:" + "2" * 64
+    IMAGE = "registry.rupan.dev/upstream/ghcr.io/example/tool"
+    SINCE = 1794300000.0
+
+    def job(self, name, digest, created, condition=None, owner="sweep"):
+        stamp = datetime.fromtimestamp(created, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "metadata": {
+                "name": name,
+                "creationTimestamp": stamp,
+                "ownerReferences": [{"kind": "CronJob", "name": owner}],
+            },
+            "spec": {
+                "template": {
+                    "spec": {"containers": [{"image": f"{self.IMAGE}@{digest}"}]}
+                }
+            },
+            "status": {
+                "conditions": [{"type": condition, "status": "True"}]
+                if condition
+                else []
+            },
+        }
+
+    def check(self, jobs):
+        manifest = (
+            "apiVersion: batch/v1\nkind: CronJob\nmetadata:\n  name: sweep\n"
+            "  namespace: media\nspec:\n  schedule: '0 * * * *'\n  jobTemplate:\n"
+            "    spec:\n      template:\n        spec:\n          containers:\n"
+            f"            - name: sweep\n              image: {self.IMAGE}@{self.NEW}\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "cron.yaml").write_text(manifest)
+            listing = subprocess.CompletedProcess(
+                [], 0, stdout=json.dumps({"items": jobs})
+            )
+            with patch.object(advance.subprocess, "run", return_value=listing):
+                return advance.scheduled_runs(root, ["cron.yaml"], self.SINCE)
+
+    def test_no_run_on_the_new_image_yet_waits(self) -> None:
+        after = self.SINCE + 60
+        for jobs in (
+            [],
+            # A run still on the old image (before Flux applied the change).
+            [self.job("a", self.OLD, after, "Complete")],
+            # A run on the new image from before this adopt merged.
+            [self.job("b", self.NEW, self.SINCE - 60, "Complete")],
+            # Another CronJob's run.
+            [self.job("c", self.NEW, after, "Complete", owner="other")],
+        ):
+            with self.subTest(jobs=[job["metadata"]["name"] for job in jobs]):
+                failures, waiting = self.check(jobs)
+                self.assertEqual(failures, [])
+                self.assertIn("no scheduled run", waiting[0])
+
+    def test_a_running_job_waits(self) -> None:
+        failures, waiting = self.check([self.job("a", self.NEW, self.SINCE + 60)])
+        self.assertEqual(failures, [])
+        self.assertIn("still running", waiting[0])
+
+    def test_a_completed_run_verifies_and_a_failed_one_fails(self) -> None:
+        after = self.SINCE + 60
+        self.assertEqual(
+            self.check([self.job("a", self.NEW, after, "Complete")]), ([], [])
+        )
+        failures, waiting = self.check([self.job("a", self.NEW, after, "Failed")])
+        self.assertIn("media/cronjob/sweep", failures[0])
+        self.assertEqual(waiting, [])
+        # A later run that completed outweighs an earlier failure.
+        self.assertEqual(
+            self.check(
+                [
+                    self.job("a", self.NEW, after, "Failed"),
+                    self.job("b", self.NEW, after + 3600, "Complete"),
+                ]
+            ),
+            ([], []),
+        )
 
 
 class VerifyStepTest(unittest.TestCase):

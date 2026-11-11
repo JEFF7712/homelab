@@ -16,7 +16,7 @@ metadata:
   name: immich-registry-sources
 items:
   # Immich server (server.yaml)
-  - image: ghcr.io/immich-app/immich-server:v3.1.0@sha256:b434cb9287eea1471c9974845914d4dd328c9c2d652e446ed4930f99944f0ceb  # yamllint disable-line rule:line-length
+  - image: ghcr.io/immich-app/immich-server:v3.4.0@sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5  # yamllint disable-line rule:line-length
   # Immich machine learning (machine-learning.yaml)
   - image: ghcr.io/immich-app/immich-machine-learning:v3.1.0@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e  # yamllint disable-line rule:line-length
   # Immich PostgreSQL (postgres.yaml)

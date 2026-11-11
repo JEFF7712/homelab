@@ -128,8 +128,8 @@ class PhysicsRenderer(ModeRenderer):
         # Stagger initial life so sparks don't all erupt simultaneously on frame 0
         self.volcano_temp = np.linspace(0.05, 1.0, len(self.volcano_temp))
         for i in range(len(self.volcano_temp)):
-            self.volcano_vel[i, 0] = self.rng.normal(0, 11.0)
-            self.volcano_vel[i, 1] = self.rng.uniform(-54.0, -38.0)
+            self.volcano_vel[i, 0] = self.rng.normal(0, 12.0)
+            self.volcano_vel[i, 1] = self.rng.uniform(-78.0, -52.0)
         self.volcano_trail.fill(0)
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
@@ -199,7 +199,7 @@ class PhysicsRenderer(ModeRenderer):
             radius = np.maximum(np.linalg.norm(delta, axis=1), 5)
             self.vel += delta / radius[:, None] * (220 / radius[:, None]) * dt
         else:
-            self.vel[:, 1] += 42 * dt
+            self.vel[:, 1] += 36.0 * dt
         self.pos += self.vel * dt
         if scene == 0:
             center = np.array([size / 2, size / 2])
@@ -217,7 +217,19 @@ class PhysicsRenderer(ModeRenderer):
             high = self.pos[:, axis] > size - 3
             self.pos[low, axis] = 2
             self.pos[high, axis] = size - 3
-            self.vel[low | high, axis] *= -0.88
+            if scene == 1 and axis == 1:
+                floor_hit = high
+                if np.any(floor_hit):
+                    rebound = np.abs(self.vel[floor_hit, 1]) * 0.92
+                    too_slow = rebound < 18.0
+                    rebound[too_slow] = self.rng.uniform(28.0, 48.0, np.sum(too_slow))
+                    self.vel[floor_hit, 1] = -rebound
+                    self.vel[floor_hit, 0] += self.rng.normal(0, 3.0, np.sum(floor_hit))
+                ceil_hit = low
+                if np.any(ceil_hit):
+                    self.vel[ceil_hit, 1] = np.abs(self.vel[ceil_hit, 1]) * 0.90
+            else:
+                self.vel[low | high, axis] *= -0.88
         if scene == 1:
             delta = self.pos[:, None, :] - self.pos[None, :, :]
             dist2 = np.sum(delta * delta, axis=2)
@@ -228,9 +240,9 @@ class PhysicsRenderer(ModeRenderer):
                 ),
                 axis=1,
             )
-            self.vel += push * 20 * dt
+            self.vel += push * 25 * dt
         if scene == 1:
-            self.vel *= 0.998
+            self.vel *= 0.999
         frame = Image.new("RGB", (size, size), (2, 5, 13))
         draw = ImageDraw.Draw(frame)
         if scene == 0:
@@ -265,23 +277,27 @@ class PhysicsRenderer(ModeRenderer):
     def _pendulum_wave(self, size: int, dt: float) -> Image.Image:
         """Harmonic pendulum wave simulation (SmartMatrix Aurora PatternPendulumWave)."""
         num_pendulums = 16
-        anchor_y = 3
-        anchors_x = np.linspace(6, size - 7, num_pendulums)
+        anchor_y = 2
+        anchors_x = np.linspace(12, size - 13, num_pendulums)
         base_cycles = 10
-        amplitude = 0.48
+        amplitude = 0.20
+        lengths = np.linspace(26.0, 56.0, num_pendulums)
 
         self.pendulum_trail *= 0.86
         trail_uint8 = np.clip(self.pendulum_trail, 0, 255).astype(np.uint8)
         frame = Image.fromarray(trail_uint8, mode="RGB")
         draw = ImageDraw.Draw(frame)
 
-        draw.line((4, anchor_y, size - 5, anchor_y), fill=(24, 32, 48))
+        draw.line(
+            (int(anchors_x[0]) - 3, anchor_y, int(anchors_x[-1]) + 3, anchor_y),
+            fill=(24, 32, 48),
+        )
 
         t = self.scene_timer
         for i in range(num_pendulums):
             freq = 2 * np.pi * (base_cycles + i) / self.PERIOD
             theta = amplitude * np.sin(freq * t)
-            length = 21.0 + i * 1.55
+            length = lengths[i]
 
             bx = anchors_x[i] + length * np.sin(theta)
             by = anchor_y + length * np.cos(theta)
@@ -496,10 +512,10 @@ class PhysicsRenderer(ModeRenderer):
         nozzle_y = size - 2.0
 
         # Gravity and ballistic physics
-        self.volcano_vel[:, 1] += 44.0 * dt
-        self.volcano_vel[:, 0] *= 0.992
+        self.volcano_vel[:, 1] += 55.0 * dt
+        self.volcano_vel[:, 0] *= 0.994
         self.volcano_pos += self.volcano_vel * dt
-        self.volcano_temp -= 0.40 * dt
+        self.volcano_temp -= 0.28 * dt
 
         # Ground collision and splash rebound
         hit_ground = (self.volcano_pos[:, 1] >= nozzle_y) & (self.volcano_vel[:, 1] > 0)
@@ -521,8 +537,8 @@ class PhysicsRenderer(ModeRenderer):
             num_dead = int(np.sum(dead))
             self.volcano_pos[dead, 0] = center_x + self.rng.normal(0, 1.8, num_dead)
             self.volcano_pos[dead, 1] = nozzle_y
-            self.volcano_vel[dead, 0] = self.rng.normal(0, 11.5, num_dead)
-            self.volcano_vel[dead, 1] = self.rng.uniform(-54.0, -38.0, num_dead)
+            self.volcano_vel[dead, 0] = self.rng.normal(0, 12.0, num_dead)
+            self.volcano_vel[dead, 1] = self.rng.uniform(-78.0, -52.0, num_dead)
             self.volcano_temp[dead] = self.rng.uniform(0.85, 1.0, num_dead)
 
         # Decay particle trails
