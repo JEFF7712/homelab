@@ -27,6 +27,14 @@ class K3sBackupSourceTests(unittest.TestCase):
 
     def runner(self, snapshots: Path):
         def execute(command, **kwargs):
+            if command[:2] == ["k3s", "etcd-snapshot"] and command[2] in {
+                "save",
+                "delete",
+            }:
+                self.assertIn("--etcd-snapshot-dir", command)
+                self.assertEqual(
+                    command[command.index("--etcd-snapshot-dir") + 1], str(snapshots)
+                )
             if command[:3] == ["k3s", "etcd-snapshot", "save"]:
                 (snapshots / "external-backup-test").write_bytes(b"fake-etcd-database")
             return subprocess.CompletedProcess(command, 0, b"")

@@ -119,7 +119,15 @@ def prepare(
     captured = inputs(server, host_key)
     started = dt.datetime.now(dt.UTC)
     subprocess.run(
-        ["k3s", "etcd-snapshot", "save", "--name", "external-backup"],
+        [
+            "k3s",
+            "etcd-snapshot",
+            "save",
+            "--name",
+            "external-backup",
+            "--etcd-snapshot-dir",
+            str(snapshots),
+        ],
         check=True,
         capture_output=True,
     )
@@ -181,7 +189,14 @@ def prepare(
     # Only the newly copied intermediate snapshot is removed. Existing
     # scheduled snapshots and earlier immutable generations remain untouched.
     subprocess.run(
-        ["k3s", "etcd-snapshot", "delete", snapshot.name],
+        [
+            "k3s",
+            "etcd-snapshot",
+            "delete",
+            snapshot.name,
+            "--etcd-snapshot-dir",
+            str(snapshots),
+        ],
         check=True,
         capture_output=True,
     )
