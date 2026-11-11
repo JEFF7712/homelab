@@ -200,3 +200,27 @@ class FleetDeployKeyTests(unittest.TestCase):
                 "age1z65e9nyzje93st4ms247d6604fgux2fmc5dxzt6daks40tp0ze3qqvv7jq",
             },
         )
+
+
+class FleetDeploymentCatalogTests(unittest.TestCase):
+    def test_deployments_use_dedicated_file_secret_and_keep_runtime_interface(
+        self,
+    ) -> None:
+        root = Path(__file__).resolve().parents[1]
+        operations = json.loads((root / "config/ci/operations.json").read_text())
+        consumers = set()
+        for name, operation in operations.items():
+            environment = operation.get("environment", {})
+            if "SSH_DEPLOY_KEY" not in environment:
+                continue
+            with self.subTest(operation=name):
+                self.assertEqual(
+                    environment["SSH_DEPLOY_KEY"], {"from_secret": fleet.NAME}
+                )
+                self.assertIn("SSH_DEPLOY_KEY", operation["file_secrets"])
+                consumers.add(name)
+        self.assertTrue(
+            {"deploy-fleet", "deploy-fleet-dry-run", "deploy-ci-host", "fleet-reboot"}
+            <= consumers
+        )
+        self.assertNotIn('"from_secret": "ssh_deploy_key"', json.dumps(operations))
