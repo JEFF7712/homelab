@@ -7,6 +7,9 @@ only a root-owned helper with no arguments. The helper requests a one-hour token
 for `home-assistant/ha-deployer` and returns a kubeconfig with the real cluster CA.
 It cannot select another ServiceAccount or token lifetime.
 
+The manifests retain both fixed ServiceAccounts and their existing RBAC for
+TokenRequests. They declare no long-lived token Secret for either CI profile.
+
 The encrypted issuer private key is in `secrets/ha-ci-issuer.sops.json` and is
 available only to the existing operator recovery identities and homelab-04.
 sops-nix installs it as root-owned mode 0400 `/run/secrets/ha-ci-issuer-key` on
