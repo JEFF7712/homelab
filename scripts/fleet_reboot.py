@@ -49,6 +49,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from scripts.deploy_fleet import (
+    CORDON_MARK,
     FLEET_HOSTS,
     ClusterLease,
     FleetDeployer,
@@ -321,6 +322,8 @@ class FleetRebooter(FleetDeployer):
                     self.wait_postgres_ready()
             self.cooldown(host.name)
         except Exception as err:
+            if cordoned:
+                self.hold_cordon(host.name)
             raise FleetDeploymentError(
                 f"reboot of {host.name} failed: {err}"
                 + ("; the node stays cordoned" if cordoned else "")
@@ -344,7 +347,9 @@ class FleetRebooter(FleetDeployer):
             f"kernel=$(k3s kubectl get node {node} -o "
             "jsonpath='{.status.nodeInfo.kernelVersion}' 2>/dev/null); "
             f'if [ "$ready" = True ] && [ "$kernel" = {shlex.quote(version)} ]; then '
-            f"k3s kubectl uncordon {node}; exit 0; fi; sleep 15; done; exit 1"
+            f"k3s kubectl uncordon {node} && k3s kubectl annotate --overwrite "
+            f"node {node} {shlex.quote(CORDON_MARK + '-')}; exit; fi; "
+            "sleep 15; done; exit 1"
         )
         run_command(
             self.ssh_command(
