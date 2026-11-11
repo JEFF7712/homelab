@@ -4080,6 +4080,23 @@
         "repository": "library/node",
         "tag": "24-slim"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "id": "upstream-library-node-f25fddea8f55",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:61cf3202592df80f42ff3a595636e97039b351d1bd2a1c475f897f328e4870ed",
+        "reference": "docker.io/library/node:24-alpine@sha256:61cf3202592df80f42ff3a595636e97039b351d1bd2a1c475f897f328e4870ed",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-alpine"
+      }
     }
   ],
   "kind": "registry-inventory",
