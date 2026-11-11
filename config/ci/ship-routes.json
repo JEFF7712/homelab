@@ -168,6 +168,7 @@
         "scripts/ci/firmware.py",
         "scripts/ci/nixos_config.py",
         "scripts/ci/node_release.py",
+        "scripts/ci/oplock.py",
         "scripts/ci/node_service.py",
         "scripts/ci/python_service.py",
         "scripts/ci/service_release.py",
