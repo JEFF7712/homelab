@@ -52,6 +52,8 @@ actions:
         {% set wake_raw = states('input_datetime.bedroom_wake_time') %}
         {{ as_timestamp(today_at(wake_raw), 0)
         if wake_raw not in ('unknown', 'unavailable', '') else 0 }}
+  # Separate steps preserve dependency order when deployment sorts mapping keys.
+  - variables:
       in_window: >-
         {% set t = target_ts | float(0) %}
         {{ t > 0 and (t - 1200) <= as_timestamp(now()) <= t }}
@@ -120,8 +122,8 @@ actions:
             data:
               brightness_pct: >-
                 {% set t = target_ts | float(0) %}
-                {{ (((as_timestamp(now()) - (t - 1200)) / 1200 * 30)
-                | int | max(1)) | min(100) }}
+                {% set level = ((as_timestamp(now()) - (t - 1200)) / 1200 * 30) | int %}
+                {{ [100, [1, level] | max] | min }}
               color_temp_kelvin: 2700
 mode: queued
 max: 10
