@@ -1,7 +1,6 @@
 # The database is the CloudNativePG cluster (postgres-cluster.yaml). This
 # Service keeps the name Immich and the nightly dump connect to and follows
-# the cluster's primary. The legacy single-instance Deployment is gone; its
-# volume (postgres-volume.yaml) is retained and not pruned.
+# the cluster's primary.
 apiVersion: v1
 kind: Service
 metadata:
