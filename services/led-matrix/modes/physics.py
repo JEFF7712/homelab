@@ -168,9 +168,12 @@ class PhysicsRenderer(ModeRenderer):
                 self.flow_pos = self.rng.uniform(4.0, size - 5.0, self.flow_pos.shape)
                 self.flow_trail.fill(0)
             elif scene == 7:
-                self.fire_heat.fill(0)
+                if self.fire_heat.shape != (size, size):
+                    self.fire_heat = np.zeros((size, size), dtype=np.float32)
+                else:
+                    self.fire_heat.fill(0)
                 # Seed base sparks so fire ignites immediately
-                self.fire_heat[size - 2 :, :] = self.rng.uniform(180.0, 255.0, (2, size))
+                self.fire_heat[size - 4 :, :] = self.rng.uniform(180.0, 255.0, (4, size))
             elif scene == 8:
                 self._reset_volcano(size)
 
@@ -451,26 +454,36 @@ class PhysicsRenderer(ModeRenderer):
 
     def _fire(self, size: int, dt: float) -> Image.Image:
         """Convective heat diffusion and buoyancy simulation (FastLED Fire2012 / Fire2018)."""
-        # Convection: heat drifts upward with horizontal diffusion
-        drift = (
-            self.fire_heat[1:, :] * 2.0
-            + np.roll(self.fire_heat[1:, :], 1, axis=1)
-            + np.roll(self.fire_heat[1:, :], -1, axis=1)
-        ) * 0.24
-        self.fire_heat[:-1, :] = drift
+        if self.fire_heat.shape != (size, size):
+            self.fire_heat = np.zeros((size, size), dtype=np.float32)
 
-        # Vertical radiative cooling gradient (cooler near top)
-        cooling = np.linspace(0.92, 0.74, size)[:, None]
-        self.fire_heat *= cooling
+        # Convection: heat drifts upward with lateral jitter and smoothing
+        offsets = self.rng.choice([-1, 0, 0, 1], size=(size - 1, size))
+        cols = (np.arange(size) + offsets) % size
+        rows = np.arange(1, size)[:, None]
+
+        advected = self.fire_heat[rows, cols]
+        smoothed = (
+            advected * 0.70
+            + np.roll(advected, 1, axis=1) * 0.15
+            + np.roll(advected, -1, axis=1) * 0.15
+        )
+
+        # Subtle cooling gradient: flames taper gracefully near the top
+        decay = self.rng.uniform(1.2, 4.4, size=(size - 1, size))
+        cooling_gradient = np.linspace(1.25, 0.75, size - 1)[:, None]
+        self.fire_heat[:-1, :] = np.maximum(smoothed - decay * cooling_gradient, 0.0)
 
         # Base ignition: nozzles spark fresh heat at the bottom
-        base_sparks = self.rng.random(size) < 0.65
-        self.fire_heat[size - 1, base_sparks] = self.rng.uniform(
-            200.0, 255.0, np.sum(base_sparks)
+        base = self.rng.uniform(210.0, 255.0, size)
+        sparks = self.rng.random(size) < 0.80
+        self.fire_heat[size - 1, :] = np.where(
+            sparks, base, self.fire_heat[size - 1, :] * 0.85
         )
-        mid_sparks = self.rng.random(size) < 0.35
-        self.fire_heat[size - 2, mid_sparks] = self.rng.uniform(
-            170.0, 240.0, np.sum(mid_sparks)
+
+        flare = self.rng.random(size) < 0.25
+        self.fire_heat[size - 2, flare] = self.rng.uniform(
+            190.0, 250.0, np.sum(flare)
         )
 
         heat_indices = np.clip(self.fire_heat, 0, 255).astype(np.uint8)
