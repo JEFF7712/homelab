@@ -3995,6 +3995,23 @@
         "repository": "linuxserver/sonarr",
         "tag": "4.0.20.3014-ls329"
       }
+    },
+    {
+      "consumers": [
+        "gitops/immich/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/immich-app/immich-machine-learning",
+      "id": "upstream-immich-app-immich-machine-learning-fb588e2b3ea4",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454",
+        "reference": "ghcr.io/immich-app/immich-machine-learning:v3.4.0@sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454",
+        "registry": "ghcr.io",
+        "repository": "immich-app/immich-machine-learning",
+        "tag": "v3.4.0"
+      }
     }
   ],
   "kind": "registry-inventory",
