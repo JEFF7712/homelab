@@ -1,3 +1,0 @@
-# Task requests authorize delivery without mandatory human review.
-# Automated validation and policy/merge remain required by branch protection.
-# Keep this file free of automatic operator-review requests.
