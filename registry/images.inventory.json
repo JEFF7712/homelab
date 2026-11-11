@@ -4029,6 +4029,23 @@
         "repository": "linuxserver/prowlarr",
         "tag": "2.7.0.5723-ls168"
       }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:30"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/radarr",
+      "id": "upstream-linuxserver-radarr-31c6c16434ff",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2",
+        "reference": "lscr.io/linuxserver/radarr:6.4.4.10685-ls326@sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2",
+        "registry": "lscr.io",
+        "repository": "linuxserver/radarr",
+        "tag": "6.4.4.10685-ls326"
+      }
     }
   ],
   "kind": "registry-inventory",
