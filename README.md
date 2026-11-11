@@ -16,9 +16,9 @@ live; router figures come from [HARDWARE.md](HARDWARE.md).
 | k3s — 5 nodes | 32 / 52 | 112 GiB | 3.68 TB |
 | NAS | 6 / 12 | 16 GiB | 12.51 TB |
 | AdGuard / NetBird | 4 / 4 | 8 GiB | 1.06 TB |
-| **NixOS subtotal — 7 hosts** | **46 / 72** | **136 GiB** | **17.25 TB** |
+| **NixOS subtotal — 7 hosts** | **42 / 68** | **136 GiB** | **17.25 TB** |
 | OPNsense router (inventory) | 4 / 4 | 8 GiB | 32 GB |
-| **Total — 8 machines** | **50 / 76** | **144 GiB** | **17.29 TB** |
+| **Total — 8 machines** | **46 / 72** | **144 GiB** | **17.29 TB** |
 
 - **GPUs:** NVIDIA T1000 + T600, 4 GiB VRAM each (8 GiB combined),
   plus integrated graphics for media acceleration.
