@@ -58,6 +58,11 @@ in
       "mosquitto.service"
     ];
     wants = [ "network-online.target" ];
+    # Stop and start with the broker, like roku-bridge: with only ordering, a
+    # switch that restarts mosquitto leaves the bridge failed at the end of
+    # activation, and the failed unit rolls the host back.
+    requires = [ "mosquitto.service" ];
+    partOf = [ "mosquitto.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       User = "ledfx-roku-bridge";
