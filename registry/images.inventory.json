@@ -3961,6 +3961,23 @@
         "repository": "immich-app/immich-server",
         "tag": "v3.4.0"
       }
+    },
+    {
+      "consumers": [
+        "gitops/automation/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
+      "id": "upstream-renovatebot-renovate-9242bce1f82c",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:55257c9f54eff5382abacb0a119ba2357566cb01cdbf0a35f152e24729ab8e64",
+        "reference": "ghcr.io/renovatebot/renovate:42.99.0@sha256:55257c9f54eff5382abacb0a119ba2357566cb01cdbf0a35f152e24729ab8e64",
+        "registry": "ghcr.io",
+        "repository": "renovatebot/renovate",
+        "tag": "42.99.0"
+      }
     }
   ],
   "kind": "registry-inventory",
