@@ -3944,6 +3944,23 @@
         "repository": "prometheus-operator/prometheus-operator",
         "tag": "v0.95.1"
       }
+    },
+    {
+      "consumers": [
+        "gitops/immich/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/immich-app/immich-server",
+      "id": "upstream-immich-app-immich-server-edbf83ee3d55",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5",
+        "reference": "ghcr.io/immich-app/immich-server:v3.4.0@sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5",
+        "registry": "ghcr.io",
+        "repository": "immich-app/immich-server",
+        "tag": "v3.4.0"
+      }
     }
   ],
   "kind": "registry-inventory",
