@@ -3,7 +3,7 @@
   hosts = {
     adguard-netbird-01 = {
       deploymentType = "appliance-dns";
-      deploymentOrder = 6;
+      deploymentOrder = 5;
       address = "10.0.30.10";
       network = "infrastructure";
     };
@@ -28,23 +28,25 @@
       network = "infrastructure";
       k3s = true;
     };
+    # The CI host deploys itself last: its switch restarts Docker and kills
+    # the deploy job driving it, so no host may wait behind it.
     homelab-04 = {
       deploymentType = "k3s-worker";
-      deploymentOrder = 4;
+      deploymentOrder = 7;
       address = "10.0.30.14";
       network = "infrastructure";
       k3s = true;
     };
     homelab-05 = {
       deploymentType = "k3s-worker";
-      deploymentOrder = 5;
+      deploymentOrder = 4;
       address = "10.0.30.15";
       network = "infrastructure";
       k3s = true;
     };
     nas-01 = {
       deploymentType = "appliance-nas";
-      deploymentOrder = 7;
+      deploymentOrder = 6;
       address = "10.0.30.20";
       network = "infrastructure";
     };

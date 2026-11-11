@@ -168,7 +168,11 @@ class FleetRebootTest(unittest.TestCase):
         # primaries are checked after the stateful node.
         kubectl = [remote for name, remote in fleet.commands if name == "kubectl"]
         self.assertEqual(
-            [entry for entry in kubectl if entry != "get nodes"],
+            [
+                entry
+                for entry in kubectl
+                if entry not in ("get nodes", "annotate --overwrite")
+            ],
             [
                 "cordon homelab-02",
                 "drain homelab-02",
@@ -194,6 +198,8 @@ class FleetRebootTest(unittest.TestCase):
         name, remote = watch[0]
         self.assertEqual(name, "homelab-01")
         self.assertIn("6.18.62", remote)
+        # The watcher's uncordon also clears the deployer's cordon mark.
+        self.assertIn("homelab.fleet/deploy-cordon-", remote)
         self.assertIn("uncordon homelab-04", remote)
         # The reboot is scheduled after the watcher, with time for the job to
         # exit, and this run never waits for it.
@@ -255,6 +261,9 @@ class FleetRebootTest(unittest.TestCase):
             rebooter.maintain()
         self.assertEqual(fleet.reboots(), ["homelab-02"])
         self.assertNotIn(("kubectl", "uncordon homelab-02"), fleet.commands)
+        # Held unmarked, so a later deployment does not release it.
+        kubectl = [remote for name, remote in fleet.commands if name == "kubectl"]
+        self.assertEqual(kubectl[-1], "annotate --overwrite")
         title, _, priority, _ = rebooter.notifier.call_args.args
         self.assertEqual((title, priority), ("[ALERT] Fleet reboot halted", "urgent"))
 

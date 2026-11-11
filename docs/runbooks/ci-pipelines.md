@@ -130,8 +130,13 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   and registry code (`registry.sh`), agent tooling (`agent-workflows.sh`), and
   single-host Nix changes under `flake/hosts/<host>/` (`nix.sh <host>`). Mixed
   narrow changes run the union of their checks. Validation infrastructure
-  (`scripts/ci/`, `scripts/checks/`, CI config, flake inputs), shared Nix
-  modules, and any unmapped path still force the full gate.
+  (`scripts/checks/`, CI config, flake inputs, and the gate's own
+  `scripts/ci/` modules), shared Nix modules, and any unmapped path still force
+  the full gate. The gate's modules are those that select, run or report
+  validation or generate pipelines, plus everything they import
+  (`_GATE_MODULES` in `scripts/ci/scope.py`, kept closed by a test), and the
+  `scripts/ci/` shell scripts. The other `scripts/ci/` modules are deploy and
+  release helpers and take the Python lane.
 - **Main pushes** use the policy mirror's complete first-parent Git diff with
   rename detection disabled, preserving both sides of moved files. The same
   scoped classification applies as on branches. API display-list truncation
