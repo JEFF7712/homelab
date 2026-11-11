@@ -69,7 +69,17 @@ class ScopeTest(unittest.TestCase):
             ),
             (["schemas/kubernetes/example.json"], ("gitops",), ()),
             (["tofu/opnsense/main.tf"], ("tofu",), ()),
-            (["registry/images.lock.json"], ("registry",), ()),
+            (
+                ["registry/images.lock.json"],
+                ("python", "registry"),
+                ("tests.test_service_release",),
+            ),
+            (
+                ["registry/images.inventory.json"],
+                ("python", "registry"),
+                ("tests.test_service_release",),
+            ),
+            (["registry/observed-images.json"], ("registry",), ()),
             (
                 ["scripts/registry/__init__.py"],
                 ("python", "registry"),
