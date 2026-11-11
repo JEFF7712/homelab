@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fcntl
 import json
 import logging
@@ -11,6 +12,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -129,6 +131,182 @@ class FleetLock:
                     self.lock_path.unlink()
             except OSError:
                 pass
+
+
+class ClusterLease:
+    """Holds the fleet-wide Kubernetes Lease while hosts are changed.
+
+    FleetLock is a file in the job's own container, and the CI deploy agent
+    runs two jobs at once without enforcing the policy's per-resource limit,
+    so on 2026-11-10 three fleet deployments of one commit switched hosts
+    concurrently. Every run that changes hosts (deploy and reboot, not dry
+    runs) takes this Lease first. A heartbeat renews it; a job killed
+    mid-run (the CI host restarting its own agent) stops renewing, and the
+    next run takes the Lease over once it has expired.
+    """
+
+    NAMESPACE = "kube-system"
+    NAME = "homelab-fleet"
+
+    def __init__(
+        self,
+        holder: str,
+        *,
+        runner: Runner = subprocess.run,
+        duration_seconds: int = 300,
+        renew_seconds: float = 60.0,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        self.holder = holder
+        self.runner = runner
+        self.duration_seconds = duration_seconds
+        self.renew_seconds = renew_seconds
+        self.clock = clock
+        self._stop = threading.Event()
+        self._heartbeat: threading.Thread | None = None
+
+    def __enter__(self) -> ClusterLease:
+        self.acquire()
+        self._heartbeat = threading.Thread(target=self._renew_loop, daemon=True)
+        self._heartbeat.start()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        self._stop.set()
+        if self._heartbeat is not None:
+            self._heartbeat.join(timeout=5.0)
+        self.release()
+
+    @staticmethod
+    def timestamp(moment: datetime) -> str:
+        return moment.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+    def manifest(self, resource_version: str | None = None) -> dict[str, Any]:
+        now = self.timestamp(self.clock())
+        metadata: dict[str, Any] = {"name": self.NAME, "namespace": self.NAMESPACE}
+        if resource_version is not None:
+            metadata["resourceVersion"] = resource_version
+        return {
+            "apiVersion": "coordination.k8s.io/v1",
+            "kind": "Lease",
+            "metadata": metadata,
+            "spec": {
+                "holderIdentity": self.holder,
+                "leaseDurationSeconds": self.duration_seconds,
+                "acquireTime": now,
+                "renewTime": now,
+            },
+        }
+
+    def kubectl(self, *args: str, body: dict[str, Any] | None = None):
+        if body is None:
+            return run_command(
+                ["kubectl", *args], runner=self.runner, timeout=30.0, check=False
+            )
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
+            json.dump(body, handle)
+            handle.flush()
+            return run_command(
+                ["kubectl", *args, "-f", handle.name],
+                runner=self.runner,
+                timeout=30.0,
+                check=False,
+            )
+
+    def acquire(self) -> None:
+        created = self.kubectl("create", body=self.manifest())
+        if created.returncode == 0:
+            logger.info("Acquired fleet lease %s as %s", self.NAME, self.holder)
+            return
+        if "AlreadyExists" not in created.stderr:
+            raise FleetDeploymentError(
+                f"Cannot create fleet lease: {created.stderr.strip()}"
+            )
+        current = self.kubectl(
+            "-n", self.NAMESPACE, "get", "lease", self.NAME, "-o", "json"
+        )
+        if current.returncode != 0:
+            raise FleetDeploymentError(
+                f"Cannot read fleet lease: {current.stderr.strip()}"
+            )
+        lease = json.loads(current.stdout)
+        spec = lease.get("spec", {})
+        holder = spec.get("holderIdentity", "unknown")
+        try:
+            renewed = datetime.strptime(
+                spec["renewTime"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=UTC)
+            age = (self.clock() - renewed).total_seconds()
+            expired = age > int(spec.get("leaseDurationSeconds", 0))
+        except (KeyError, ValueError):
+            age, expired = float("nan"), True
+        if not expired:
+            raise LockContentionError(
+                f"Fleet lease is held by {holder} (renewed {age:.0f}s ago)"
+            )
+        # resourceVersion makes the takeover fail if another run renewed or
+        # took the Lease since it was read.
+        replaced = self.kubectl(
+            "replace",
+            body=self.manifest(lease["metadata"]["resourceVersion"]),
+        )
+        if replaced.returncode != 0:
+            raise LockContentionError(
+                f"Fleet lease changed while taking it over from {holder}: "
+                + replaced.stderr.strip()
+            )
+        logger.warning(
+            "Took over the fleet lease from %s, expired %.0fs ago",
+            holder,
+            age - int(spec.get("leaseDurationSeconds", 0)),
+        )
+
+    def renew(self) -> None:
+        patch = json.dumps({"spec": {"renewTime": self.timestamp(self.clock())}})
+        result = self.kubectl(
+            "-n",
+            self.NAMESPACE,
+            "patch",
+            "lease",
+            self.NAME,
+            "--type",
+            "merge",
+            "-p",
+            patch,
+        )
+        if result.returncode != 0:
+            logger.warning("Could not renew the fleet lease: %s", result.stderr.strip())
+
+    def _renew_loop(self) -> None:
+        while not self._stop.wait(self.renew_seconds):
+            self.renew()
+
+    def release(self) -> None:
+        current = self.kubectl(
+            "-n", self.NAMESPACE, "get", "lease", self.NAME, "-o", "json"
+        )
+        if current.returncode != 0:
+            return
+        if (
+            json.loads(current.stdout).get("spec", {}).get("holderIdentity")
+            != self.holder
+        ):
+            logger.warning(
+                "Fleet lease is no longer held by %s; leaving it", self.holder
+            )
+            return
+        self.kubectl("-n", self.NAMESPACE, "delete", "lease", self.NAME)
+
+
+def lease_holder(operation: str) -> str:
+    pipeline = os.getenv("CI_PIPELINE_NUMBER")
+    origin = f"pipeline {pipeline}" if pipeline else socket.gethostname()
+    return f"{operation} {origin} pid {os.getpid()}"
 
 
 def run_command(
@@ -1219,7 +1397,11 @@ def main(
     )
 
     try:
-        with lock:
+        with lock, contextlib.ExitStack() as held:
+            if not args.dry_run:
+                held.enter_context(
+                    ClusterLease(lease_holder("deploy-fleet"), runner=runner)
+                )
             deployer = FleetDeployer(
                 targets,
                 dry_run=args.dry_run,
