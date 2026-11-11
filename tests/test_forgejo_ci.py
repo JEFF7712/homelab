@@ -43,6 +43,7 @@ from scripts.ci.policy import (
     defers_to_branch_push,
     find_reusable_validation,
     grant_approved,
+    held_schedule_targets,
     resolve_configuration,
     schedule_state,
     verify_request,
@@ -414,6 +415,90 @@ class PolicyTest(unittest.TestCase):
         self.assertEqual(workflow["depends_on"], [VALIDATION])
         self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
 
+    def nightly_workflows(self, **kwargs) -> dict[str, dict]:
+        self.request["pipeline"].update(event="cron", cron="nightly")
+        result = configuration(self.request, self.catalog, current=SHA, **kwargs)
+        return {
+            item["name"].removesuffix(".yaml"): yaml.safe_load(item["data"])
+            for item in result["configs"]
+        }
+
+    def test_scheduled_fleet_deployment_follows_its_dry_run(self) -> None:
+        workflows = self.nightly_workflows()
+        self.assertIn("deploy-fleet-dry-run", workflows["deploy-fleet"]["depends_on"])
+        self.assertNotIn(
+            "deploy-fleet", workflows["deploy-fleet-dry-run"]["depends_on"]
+        )
+
+    def test_held_scheduled_deployment_reports_and_the_rest_runs(self) -> None:
+        workflows = self.nightly_workflows(
+            held_targets={"deploy-fleet": ["flake/modules/approvals.nix"]}
+        )
+        self.assertNotIn("deploy-fleet", workflows)
+        held = workflows["deploy-fleet-held"]
+        self.assertEqual(held["labels"]["tier"], "sandbox")
+        self.assertIn("flake/modules/approvals.nix", held["steps"][0]["commands"][0])
+        self.assertIn("deploy-fleet-dry-run", workflows)
+        self.assertIn("nixos-deploy", workflows)
+
+    def test_scheduled_host_deployments_get_the_agent_authority_check(self) -> None:
+        # A cron run skips the agent deployment check; without this, the
+        # nightly deploy-fleet would activate changes awaiting the operator.
+        class Mirror:
+            def __init__(self, changes, grant="g"):
+                self.changes, self.grant, self.calls = changes, grant, []
+
+            def authority_changes(self, commit, netrc, baseline, paths, host):
+                self.calls.append((commit, paths, host))
+                return self.changes, self.grant
+
+        request = {"pipeline": {"event": "cron", "cron": "nightly", "commit": SHA}}
+        mirror = Mirror(["flake/modules/approvals.nix"])
+        held = held_schedule_targets(
+            request, self.catalog, mirror, {}, lambda grant: False
+        )
+        self.assertEqual(held, {"deploy-fleet": ["flake/modules/approvals.nix"]})
+        # Only host deployments are checked, not the dry runs or the laptop.
+        self.assertEqual([call[2] for call in mirror.calls], [True])
+        self.assertEqual(
+            held_schedule_targets(
+                request, self.catalog, mirror, {}, lambda grant: True
+            ),
+            {},
+        )
+        self.assertEqual(
+            held_schedule_targets(
+                request, self.catalog, Mirror([]), {}, lambda g: False
+            ),
+            {},
+        )
+        self.assertIn(
+            "deploy-fleet",
+            held_schedule_targets(request, self.catalog, None, None, lambda g: False),
+        )
+        self.assertEqual(
+            held_schedule_targets(
+                {"pipeline": {"event": "cron", "cron": "promote", "commit": SHA}},
+                self.catalog,
+                mirror,
+                {},
+                lambda grant: False,
+            ),
+            {},
+        )
+
+    def test_fleet_schedules_cover_the_reboot_window_through_daylight_saving(
+        self,
+    ) -> None:
+        crons = json.loads((ROOT / "config/ci/woodpecker-crons.json").read_text())
+        self.assertEqual(SCHEDULES["fleet-reboot"], ("fleet-reboot",))
+        self.assertEqual(SCHEDULES["fleet-lock"], ("fleet-lock-update",))
+        # 03:05 and 04:05 CST, 04:05 and 05:05 CDT: one run lands in the
+        # 03:00-04:30 start window either way.
+        self.assertEqual(crons["fleet-reboot"]["schedule"], "5 9,10 * * *")
+        # The lock PR has hours to merge before the 08:17 UTC delivery.
+        self.assertEqual(crons["fleet-lock"]["schedule"], "23 5 * * *")
+
     def test_schedules_split_fast_maintenance_from_nightly_work(self) -> None:
         for name, targets in SCHEDULES.items():
             self.request["pipeline"].update(event="cron", cron=name)
@@ -460,12 +545,16 @@ class PolicyTest(unittest.TestCase):
             for item in result["configs"][1:]:
                 target = item["name"].removesuffix(".yaml")
                 needs = self.catalog[target]["needs"]
+                # A prerequisite the same schedule runs goes first, so the
+                # nightly deploy-fleet follows its own dry run.
+                prerequisite = self.catalog[target]["prerequisite"]
+                ordered = [prerequisite] if prerequisite in targets else []
                 with self.subTest(schedule=name, operation=target):
                     self.assertTrue(set(needs) <= set(targets))
                     if target != "webhook-watchdog":
                         self.assertEqual(
                             yaml.safe_load(item["data"])["depends_on"],
-                            [VALIDATION, *needs],
+                            [VALIDATION, *needs, *ordered],
                         )
         self.assertIn("opnsense-plan", self.catalog["opnsense-dataplane"]["needs"])
 

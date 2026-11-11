@@ -115,6 +115,21 @@ class AgentCheckSelectionTest(unittest.TestCase):
                 self.assertIn(check, [item.name for item in selection.checks])
                 self.assertTrue(all(item.reasons for item in selection.checks))
 
+    def test_local_full_gate_leaves_fleet_evaluation_to_ci(self) -> None:
+        # Flake check builds and the full unit suite do not fit the shared
+        # agent workspace memory.
+        (full,) = self.select("unknown/code.go").checks
+        self.assertEqual(
+            full.command,
+            (
+                "env",
+                "SKIP_FLAKE_CHECK=1",
+                "CI_UNIT_TESTS_EXTERNAL=1",
+                "bash",
+                "scripts/checks/all.sh",
+            ),
+        )
+
     def test_workspace_changes_select_narrow_checks(self) -> None:
         expected = {
             "scripts/agent_workspaces/core.py": (
@@ -130,6 +145,8 @@ class AgentCheckSelectionTest(unittest.TestCase):
                 "nix-all-hosts",
                 "workspace-validate",
             ),
+            "inventory/hosts.nix": ("nix-all-hosts", "tofu", "python"),
+            "inventory/fleet.json": ("nix-all-hosts", "tofu", "python"),
         }
         for path, checks in expected.items():
             with self.subTest(path=path):

@@ -2034,6 +2034,36 @@
     "prerequisite": "",
     "agent": true
   },
+  "fleet-lock-update": {
+    "commands": [
+      "python -m scripts.ci.fleet_lock_update"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "fleet-lock",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
+  },
   "nixos-deploy": {
     "commands": [
       "python -m scripts.ci.nixos_deploy nightly"

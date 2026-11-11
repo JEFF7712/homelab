@@ -22,6 +22,16 @@ let
     cd /persist/service-release-ci
     exec env PYTHONPATH=${serviceReleaseSource} ${pkgs.python3}/bin/python3 -m scripts.ci.service_release worker
   '';
+  # Deploy-tier jobs take their catalog group's lock from this service
+  # (scripts/ci/oplock.py); only their Docker network may reach it.
+  oplockSource = pkgs.runCommand "woodpecker-oplock-source" { } ''
+    mkdir -p $out/scripts/ci
+    cp ${../../scripts/ci/oplock.py} $out/scripts/ci/oplock.py
+    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
+  '';
+  deployNetwork = "ci-deploy";
+  deployBridge = "br-cideploy";
+  oplockPort = 8031;
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
     mkdir -p $out/scripts/ci $out/scripts/verifier $out/config/ci
     cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py
@@ -280,18 +290,61 @@ in
       trusted = agent "trusted" 2 2;
       # Operations serialize per resource group, so a second deploy slot lets
       # unrelated mutations (a cache push and a Home Assistant apply) overlap.
-      deploy = agent "deploy" 2 2;
+      # Its containers also join the deploy network, the only one that
+      # reaches the operation lock service.
+      deploy = lib.recursiveUpdate (agent "deploy" 2 2) {
+        environment.WOODPECKER_BACKEND_DOCKER_NETWORK = deployNetwork;
+      };
     };
     systemd.services.woodpecker-agent-sandbox.serviceConfig.Restart = lib.mkForce "always";
     systemd.services.woodpecker-agent-trusted.serviceConfig.Restart = lib.mkForce "always";
-    systemd.services.woodpecker-agent-deploy.serviceConfig.Restart = lib.mkForce "always";
+    systemd.services.woodpecker-agent-deploy = {
+      serviceConfig.Restart = lib.mkForce "always";
+      requires = [ "ci-deploy-network.service" ];
+      after = [ "ci-deploy-network.service" ];
+    };
+    systemd.services.ci-deploy-network = {
+      description = "Docker network for deploy-tier CI containers";
+      requires = [ "docker.service" ];
+      after = [ "docker.service" ];
+      path = [ config.virtualisation.docker.package ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        docker network inspect ${deployNetwork} >/dev/null 2>&1 || docker network create \
+          --driver bridge --subnet 10.255.31.0/24 --gateway 10.255.31.1 \
+          -o com.docker.network.bridge.name=${deployBridge} ${deployNetwork}
+      '';
+    };
+    # Woodpecker cannot limit a catalog group to one running operation, so
+    # operations hold the group's lock here for the life of a connection.
+    systemd.services.woodpecker-oplock = {
+      description = "Per-group locks for CI operations";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
+      environment.PYTHONPATH = toString oplockSource;
+      serviceConfig = {
+        ExecStart = "${python}/bin/python -m scripts.ci.oplock --port ${toString oplockPort}";
+        DynamicUser = true;
+        Restart = "always";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+      };
+    };
     networking.firewall.allowedTCPPorts = [ 8000 ];
     # deploy-ci-host steps SSH to this host's own address. That traffic is
     # delivered locally from the step's Docker bridge with a container source
     # address, so the 10.0.30.0/24 SSH rule never matches it. Steps already
     # reach SSH on every other fleet host through the masquerade.
+    # Only deploy-tier containers may take operation locks, so sandbox jobs
+    # running pull request code cannot hold one to stall deployments.
     networking.firewall.extraInputRules = ''
       iifname { "docker0", "br-*" } tcp dport 22 accept
+      iifname "${deployBridge}" tcp dport ${toString oplockPort} accept
     '';
     # CI containers masquerade as this host, which every NFS export trusts
     # with AUTH_SYS and no_root_squash. No job needs NFS, so a sandbox step
