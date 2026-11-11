@@ -38,6 +38,10 @@ APPLIANCE_SETTLE_ATTEMPTS = 20
 # rescheduled from the previous node a minute earlier, stopped 128s after its
 # eviction and failed a 120s drain of homelab-03.
 DRAIN_TIMEOUT = 300.0
+# Marks a cordon the deployer placed. The CI host's switch kills the deploy
+# job before it can uncordon, so the next run releases a marked cordon once
+# the node runs the desired system healthily. Operator cordons carry no mark.
+CORDON_MARK = "homelab.fleet/deploy-cordon"
 
 
 class FleetDeploymentError(Exception):
@@ -665,6 +669,7 @@ class FleetDeployer:
         if self.dry_run:
             cmd.append("--dry-run=client")
         run_command(cmd, runner=self.runner, timeout=30.0)
+        self.mark_cordon(node_name, True)
 
     def uncordon_node(self, node_name: str) -> None:
         logger.info("[%s] Uncordoning node...", node_name)
@@ -672,6 +677,59 @@ class FleetDeployer:
         if self.dry_run:
             cmd.append("--dry-run=client")
         run_command(cmd, runner=self.runner, timeout=30.0)
+        self.mark_cordon(node_name, False)
+
+    def mark_cordon(self, node_name: str, marked: bool) -> None:
+        cmd = ["kubectl", "annotate", "--overwrite", "node", node_name]
+        cmd.append(f"{CORDON_MARK}=true" if marked else f"{CORDON_MARK}-")
+        if self.dry_run:
+            cmd.append("--dry-run=client")
+        run_command(cmd, runner=self.runner, timeout=30.0)
+
+    def hold_cordon(self, node_name: str) -> None:
+        """Keep a failed host cordoned for the operator; runs never release it."""
+        try:
+            self.mark_cordon(node_name, False)
+        except FleetDeploymentError as error:
+            logger.error("[%s] Could not clear the cordon mark: %s", node_name, error)
+
+    def release_stale_cordon(self, host: HostConfig) -> None:
+        """Uncordon a node a killed run left cordoned, once it is healthy.
+
+        Only called for hosts already running the desired system.
+        """
+        result = run_command(
+            ["kubectl", "get", "node", host.name, "-o", "json"],
+            runner=self.runner,
+            timeout=30.0,
+            check=False,
+        )
+        try:
+            node = json.loads(result.stdout) if result.returncode == 0 else {}
+        except ValueError:
+            node = {}
+        if not isinstance(node, dict) or not node.get("spec", {}).get("unschedulable"):
+            return
+        if node.get("metadata", {}).get("annotations", {}).get(CORDON_MARK) != "true":
+            return
+        ready = any(
+            c.get("type") == "Ready" and c.get("status") == "True"
+            for c in node.get("status", {}).get("conditions", [])
+        )
+        failed = self.failed_units(host)
+        if not ready or failed:
+            logger.warning(
+                "[%s] Left cordoned by an earlier deployment but not healthy "
+                "(ready=%s, failed units: %s); leaving it cordoned",
+                host.name,
+                ready,
+                ", ".join(sorted(failed)) or "none",
+            )
+            return
+        logger.info(
+            "[%s] Releasing the cordon an interrupted deployment left", host.name
+        )
+        self.uncordon_node(host.name)
 
     def drain_node(self, node_name: str) -> None:
         logger.info(
@@ -1176,6 +1234,8 @@ class FleetDeployer:
                     if is_k3s and not cordoned:
                         self.cordon_node(host.name)
                         cordoned = True
+                    if is_k3s:
+                        self.hold_cordon(host.name)
                     raise FleetDeploymentError(
                         f"Deployment failed on {host.name}: {err}; recovery failed: {recovery_error}. "
                         f"Host remains cordoned when applicable; restore {previous} before continuing."
@@ -1211,6 +1271,11 @@ class FleetDeployer:
                 if self.prepare_host(host):
                     changed.append(host)
                 else:
+                    if not self.dry_run and host.host_type in (
+                        "k3s-worker",
+                        "k3s-stateful",
+                    ):
+                        self.release_stale_cordon(host)
                     results.append(
                         {
                             "host": host.name,

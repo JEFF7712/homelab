@@ -168,6 +168,17 @@ an activation failure, and uncordons only after successful host recovery. A drai
 failure also attempts to restore scheduling. It does not roll back hosts that already completed before
 a later host failed. Follow the affected host or service runbook for recovery.
 
+homelab-04, the CI host, deploys last. Its switch restarts Docker and kills the
+deploy job driving it. The switch itself finishes in the transient
+`homelab-fleet-switch` unit (`journalctl -u homelab-fleet-switch`), but the job
+never verifies or uncordons the node, and the pipeline fails. The deployer
+annotates every cordon it places with `homelab.fleet/deploy-cordon`. A later
+run that finds such a node already on the desired system, Ready and without
+failed units uncordons it. Recover with
+`just ship --resume <main sha> --deploy deploy-fleet` after the fleet Lease
+expires (5 minutes). A failed host recovery or reboot keeps its cordon without
+the mark, and only a person releases it.
+
 ## Kernel reboots
 
 A switch installs a new kernel, initrd and modules but keeps running the old
