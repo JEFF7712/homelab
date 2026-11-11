@@ -89,6 +89,11 @@ _CHECK_ORDER = (
 )
 
 
+_RELEASE_RECORDS = frozenset(
+    {"registry/images.inventory.json", "registry/images.lock.json"}
+)
+
+
 def _test_module(name: str) -> str:
     return "tests." + PurePosixPath(name).stem
 
@@ -145,6 +150,12 @@ def classify(paths: Sequence[str]) -> Scope:
             continue
         if name.startswith("registry/"):
             checks.add("registry")
+            if name in _RELEASE_RECORDS:
+                # Service releases find their inventory and lock records by
+                # exact ID; a regenerated inventory renamed them and broke
+                # main twice (#570, 2026-11-11) with only this check run.
+                checks.add("python")
+                test_modules.add("tests.test_service_release")
             continue
         if name.startswith("scripts/registry/") or name.startswith(
             "tests/test_registry_"
