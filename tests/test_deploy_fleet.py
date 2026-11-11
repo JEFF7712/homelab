@@ -2,12 +2,14 @@ import json
 import subprocess
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from scripts.deploy_fleet import (
     APPLIANCE_SETTLE_ATTEMPTS,
     FLEET_HOSTS,
+    ClusterLease,
     FleetDeployer,
     FleetDeploymentError,
     FleetLock,
@@ -1036,6 +1038,169 @@ class FleetClosureTest(unittest.TestCase):
         self.assertFalse(
             any(cmd[:2] == ["kubectl", "uncordon"] for cmd in self.commands)
         )
+
+
+class LeaseApi:
+    """The Lease part of the Kubernetes API, with its create and replace rules."""
+
+    def __init__(self) -> None:
+        self.lease: dict | None = None
+        self.version = 0
+        self.calls: list[list[str]] = []
+
+    def store(self, body: dict) -> None:
+        self.version += 1
+        body["metadata"]["resourceVersion"] = str(self.version)
+        self.lease = body
+
+    def hold(self, holder: str, renewed: datetime, duration: int = 300) -> None:
+        stamp = renewed.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        self.store(
+            {
+                "metadata": {"name": "homelab-fleet", "namespace": "kube-system"},
+                "spec": {
+                    "holderIdentity": holder,
+                    "leaseDurationSeconds": duration,
+                    "renewTime": stamp,
+                },
+            }
+        )
+
+    def __call__(self, argv, **options):
+        self.calls.append(argv)
+        if argv[0] != "kubectl":
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        verb = next(a for a in argv[1:] if not a.startswith("-") and a != "kube-system")
+        body = json.loads(Path(argv[-1]).read_text()) if "-f" in argv else None
+        if verb == "create":
+            if self.lease is not None:
+                return subprocess.CompletedProcess(argv, 1, "", "AlreadyExists")
+            self.store(body)
+        elif verb == "replace":
+            if body["metadata"].get("resourceVersion") != str(self.version):
+                return subprocess.CompletedProcess(argv, 1, "", "Conflict")
+            self.store(body)
+        elif verb == "get":
+            if self.lease is None:
+                return subprocess.CompletedProcess(argv, 1, "", "NotFound")
+            return subprocess.CompletedProcess(argv, 0, json.dumps(self.lease), "")
+        elif verb == "patch":
+            self.lease["spec"].update(json.loads(argv[argv.index("-p") + 1])["spec"])
+        elif verb == "delete":
+            self.lease = None
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+
+class ClusterLeaseTest(unittest.TestCase):
+    NOW = datetime(2026, 11, 11, 9, 30, tzinfo=UTC)
+
+    def lease(
+        self, api: LeaseApi, holder: str = "deploy-fleet pipeline 2"
+    ) -> ClusterLease:
+        return ClusterLease(
+            holder, runner=api, clock=lambda: self.NOW, renew_seconds=3600
+        )
+
+    def test_free_lease_is_taken_and_released(self) -> None:
+        api = LeaseApi()
+        with self.lease(api):
+            self.assertEqual(
+                api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 2"
+            )
+        self.assertIsNone(api.lease)
+
+    def test_a_live_holder_blocks_a_second_run(self) -> None:
+        # Regression (2026-11-10): three fleet deployments of one commit ran
+        # at once on the CI host's two deploy slots.
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", self.NOW - timedelta(seconds=90))
+        with self.assertRaisesRegex(LockContentionError, "pipeline 1"):
+            with self.lease(api):
+                self.fail("entered while another run held the lease")
+        self.assertEqual(api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 1")
+
+    def test_an_expired_holder_is_taken_over(self) -> None:
+        # A job killed mid-run (the CI host restarting its own agent) stops
+        # renewing; the next run must not wait on it forever.
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", self.NOW - timedelta(seconds=301))
+        with self.lease(api):
+            self.assertEqual(
+                api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 2"
+            )
+        self.assertIsNone(api.lease)
+
+    def test_takeover_loses_to_a_concurrent_change(self) -> None:
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", self.NOW - timedelta(seconds=600))
+        original = api.__call__
+
+        def renewed_meanwhile(argv, **options):
+            if "replace" in argv:
+                api.hold("fleet-reboot pipeline 3", self.NOW)
+            return original(argv, **options)
+
+        with self.assertRaisesRegex(LockContentionError, "changed while"):
+            ClusterLease(
+                "deploy-fleet pipeline 2",
+                runner=renewed_meanwhile,
+                clock=lambda: self.NOW,
+            ).acquire()
+        self.assertEqual(api.lease["spec"]["holderIdentity"], "fleet-reboot pipeline 3")
+
+    def test_release_leaves_a_lease_someone_else_took(self) -> None:
+        api = LeaseApi()
+        lease = self.lease(api)
+        lease.acquire()
+        api.hold("fleet-reboot pipeline 3", self.NOW)
+        lease.release()
+        self.assertEqual(api.lease["spec"]["holderIdentity"], "fleet-reboot pipeline 3")
+
+    def test_renew_moves_the_renew_time(self) -> None:
+        api = LeaseApi()
+        lease = self.lease(api)
+        lease.acquire()
+        later = self.NOW + timedelta(minutes=1)
+        lease.clock = lambda: later
+        lease.renew()
+        self.assertEqual(
+            api.lease["spec"]["renewTime"], later.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
+
+    def test_deployment_stops_when_another_run_holds_the_lease(self) -> None:
+        api = LeaseApi()
+        api.hold("fleet-reboot pipeline 1", datetime.now(UTC))
+        with tempfile.TemporaryDirectory() as directory:
+            code = main(
+                [
+                    "--target",
+                    "homelab-02",
+                    "--no-notify",
+                    "--lock-file",
+                    str(Path(directory) / "lock"),
+                ],
+                runner=api,
+            )
+        self.assertEqual(code, 3)
+        self.assertFalse(any(argv[0] == "ssh" for argv in api.calls))
+
+    def test_dry_runs_do_not_take_the_lease(self) -> None:
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", datetime.now(UTC))
+        with tempfile.TemporaryDirectory() as directory:
+            main(
+                [
+                    "--dry-run",
+                    "--skip-preflight",
+                    "--target",
+                    "homelab-02",
+                    "--no-notify",
+                    "--lock-file",
+                    str(Path(directory) / "lock"),
+                ],
+                runner=api,
+            )
+        self.assertFalse(any("lease" in " ".join(argv) for argv in api.calls))
 
 
 if __name__ == "__main__":
