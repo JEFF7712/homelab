@@ -179,6 +179,16 @@ failed units uncordons it. Recover with
 expires (5 minutes). A failed host recovery or reboot keeps its cordon without
 the mark, and only a person releases it.
 
+## Nightly nixpkgs update
+
+The `fleet-lock-update` operation (`scripts/ci/fleet_lock_update.py`) moves
+only the fleet's `nixpkgs` input to the current nixos-unstable and publishes
+`flake/flake.lock` on the `flake-lock/nixpkgs` branch, whose PR merges on the
+required checks. It refuses an update that moves any other input. A lock that
+fails validation leaves the PR open; fix the failure on that branch or let the
+next night refresh it. The merged update is delivered by `deploy-fleet` and
+takes effect on a new kernel at the next kernel reboot.
+
 ## Kernel reboots
 
 A switch installs a new kernel, initrd and modules but keeps running the old
