@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-11T20:20:58+00:00",
+  "generated_at": "2026-11-11T20:33:21+00:00",
   "images": [
     {
       "consumers": [
@@ -643,6 +643,29 @@
     },
     {
       "consumers": [
+        "gitops/websites/rupan-dev/deployment.yaml:24",
+        "gitops/websites/rupan-dev/site.yaml:2"
+      ],
+      "destination_repository": "apps/rupan-dev",
+      "id": "first-party-apps-rupan-dev-4da841ba490c",
+      "kind": "first-party",
+      "producer": {
+        "local_publisher": "forgejo-rupan-dev",
+        "location": "forgejo:JEFF7712/rupan.dev",
+        "owner": "jeff7712",
+        "pipeline_status": "configured-local"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:1047d2ced104b350c23ceb2098c5ea1703b8b10668fb0d326f160d75b9ac825a",
+        "reference": "registry.rupan.dev/apps/rupan-dev@sha256:1047d2ced104b350c23ceb2098c5ea1703b8b10668fb0d326f160d75b9ac825a",
+        "registry": "registry.rupan.dev",
+        "repository": "apps/rupan-dev",
+        "tag": null
+      }
+    },
+    {
+      "consumers": [
         "observed:rupan-dev/website-deploy-55fb8bd8d4-lrxqg/web"
       ],
       "destination_repository": "apps/rupan-dev",
@@ -658,29 +681,6 @@
       "source": {
         "digest": "sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
         "reference": "registry.rupan.dev/apps/rupan-dev@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
-        "registry": "registry.rupan.dev",
-        "repository": "apps/rupan-dev",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
-        "gitops/websites/rupan-dev/deployment.yaml:24",
-        "gitops/websites/rupan-dev/site.yaml:2"
-      ],
-      "destination_repository": "apps/rupan-dev",
-      "id": "first-party-apps-rupan-dev-ce395150b5fe",
-      "kind": "first-party",
-      "producer": {
-        "local_publisher": "forgejo-rupan-dev",
-        "location": "forgejo:JEFF7712/rupan.dev",
-        "owner": "jeff7712",
-        "pipeline_status": "configured-local"
-      },
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:425f95dd899592957cfed5c4e1d6be74195df33690a93f7bc861ce5e683d0b54",
-        "reference": "registry.rupan.dev/apps/rupan-dev@sha256:425f95dd899592957cfed5c4e1d6be74195df33690a93f7bc861ce5e683d0b54",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
         "tag": null
@@ -3936,7 +3936,7 @@
       "registry/observed-images.json"
     ]
   },
-  "source_revision": "792c322f7d44953cb9c7febdce25b6a2219d806b",
+  "source_revision": "1d2f16bd4a74099df25781361b6b20036bbdede1",
   "unresolved_inputs": [
     {
       "blocking": false,
@@ -4149,17 +4149,17 @@
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "observed:rupan-dev/website-deploy-55fb8bd8d4-lrxqg/web",
-      "id": "producer:first-party-apps-rupan-dev-6881ac2d1b3b",
-      "input": "registry.rupan.dev/apps/rupan-dev@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
+      "consumer": "gitops/websites/rupan-dev/deployment.yaml:24,gitops/websites/rupan-dev/site.yaml:2",
+      "id": "producer:first-party-apps-rupan-dev-4da841ba490c",
+      "input": "registry.rupan.dev/apps/rupan-dev@sha256:1047d2ced104b350c23ceb2098c5ea1703b8b10668fb0d326f160d75b9ac825a",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
       "blocking": false,
       "class": "producer-pipeline",
-      "consumer": "gitops/websites/rupan-dev/deployment.yaml:24,gitops/websites/rupan-dev/site.yaml:2",
-      "id": "producer:first-party-apps-rupan-dev-ce395150b5fe",
-      "input": "registry.rupan.dev/apps/rupan-dev@sha256:425f95dd899592957cfed5c4e1d6be74195df33690a93f7bc861ce5e683d0b54",
+      "consumer": "observed:rupan-dev/website-deploy-55fb8bd8d4-lrxqg/web",
+      "id": "producer:first-party-apps-rupan-dev-6881ac2d1b3b",
+      "input": "registry.rupan.dev/apps/rupan-dev@sha256:fdd4a9297cbc5b7733cdd9728cb9f3494b410992414337ca3813c87df4b5f1d8",
       "reason": "producer pipeline location and local-registry publication are not proven by this repository"
     },
     {
