@@ -27,7 +27,7 @@ items:
   # Sonarr (arr.yaml)
   - image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls329@sha256:44b06045a98bc1f237b9ffefc4b28dab64cb29305e4a2a94875ae93b5224e4cc  # yamllint disable-line rule:line-length
   # Radarr (arr.yaml)
-  - image: lscr.io/linuxserver/radarr:6.3.0.10514-ls314@sha256:119aaa4a4f7349bcd2a136c5373a0d7925b5479915c7dfe0c0ad352db2a6d438  # yamllint disable-line rule:line-length
+  - image: lscr.io/linuxserver/radarr:6.4.4.10685-ls326@sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2  # yamllint disable-line rule:line-length
   # Prowlarr (arr.yaml)
   - image: lscr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef  # yamllint disable-line rule:line-length
   # Bazarr (arr.yaml)
