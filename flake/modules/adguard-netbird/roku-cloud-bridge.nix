@@ -55,6 +55,12 @@ in
       "mosquitto.service"
     ];
     wants = [ "network-online.target" ];
+    # Stop and start with the broker. With only ordering, a switch that
+    # restarted mosquitto left the bridge crash-restarting against the
+    # stopped broker, failed at the end of activation, and the failed unit
+    # rolled back the nixpkgs update of this host (2026-11-10).
+    requires = [ "mosquitto.service" ];
+    partOf = [ "mosquitto.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       User = "roku-cloud-bridge";
