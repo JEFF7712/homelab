@@ -14,3 +14,7 @@ ee44d0ce103f60c4d5a08d31fa6a61ede4e46be3:tests/test_registry_supply.py:generic-a
 b14d77c887de576d874cd7a1a860ffa2ec8cd7bb:.gitleaksignore:generic-api-key:7
 # Vendored Kubernetes schema inventory maps filenames to public SHA256 hashes; the retention test verifies it.
 0681ed1afdf0be1e09361b37e6659b5bd7eb0e41:schemas/kubernetes-core/retention.json:generic-api-key:27
+# Fleet SSH access test pinned the CI deploy public key (an ssh-ed25519 public key, not a secret) on one line.
+7c7c4f113092274ff3229cc3bffde5e641b116da:tests/test_fleet_ssh_access.py:generic-api-key:12
+bb76e169a777dd921fbaf5db234377b46edf8836:tests/test_fleet_ssh_access.py:generic-api-key:12
+32f43367b04b0febdc9930d52a1a8d6c3afacef4:tests/test_fleet_ssh_access.py:generic-api-key:12

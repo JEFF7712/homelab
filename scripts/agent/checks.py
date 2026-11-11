@@ -86,7 +86,17 @@ COMMANDS = {
         "tests",
     ),
     "nix-all-hosts": ("bash", "scripts/checks/nix.sh", "all"),
-    "full": ("bash", "scripts/checks/all.sh"),
+    # Every lane without the flake check builds or the full unit suite: both
+    # evaluate the whole fleet, which outgrows the shared agent workspace
+    # memory (evaluations were killed on 2026-11-10 and 2026-11-11). CI
+    # validation runs them; the suite runs inside its repository-contract.
+    "full": (
+        "env",
+        "SKIP_FLAKE_CHECK=1",
+        "CI_UNIT_TESTS_EXTERNAL=1",
+        "bash",
+        "scripts/checks/all.sh",
+    ),
 }
 
 
@@ -119,6 +129,9 @@ def _route(path: str) -> list[tuple[str, str]]:
         return [(f"nix-host-{host}", f"{path} changes host {host}")]
     if path.startswith("flake/modules/") and path.endswith(".nix"):
         return [("nix-all-hosts", f"{path} is consumed by multiple hosts")]
+    if path.startswith("inventory/"):
+        reason = f"{path} feeds hosts, firewall policy and the fleet tools"
+        return [("nix-all-hosts", reason), ("tofu", reason), ("python", reason)]
     if path.startswith("opnsense_reconciler/") and path.endswith(".py"):
         return [("python", f"{path} changes Python reconciliation")]
     if path.startswith("gitops/"):
