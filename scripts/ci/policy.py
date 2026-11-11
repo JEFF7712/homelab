@@ -599,7 +599,9 @@ def configuration(
         # Operations serialize on the resource they act on (the catalog
         # group), so unrelated work runs in parallel. Scheduled read-only
         # work shares one group, so maintenance never holds more than one
-        # trusted slot or queues an operator's plan behind it.
+        # trusted slot or queues an operator's plan behind it. Woodpecker
+        # ignores this concurrency setting; mutations are serialized by the
+        # group lock operation.py takes from scripts/ci/oplock.py.
         if event == "cron" and not operation["mutation"]:
             group = "scheduled-read-only"
         else:
