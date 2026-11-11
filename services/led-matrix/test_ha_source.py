@@ -2054,6 +2054,43 @@ class HubModeAndRendererTests(unittest.TestCase):
             physics.render(advance_ctx, size=64)
             self.assertEqual(physics.current_scene, expected_scene)
 
+    def test_physics_fire_height_distribution(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 7
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.033,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Run 60 frames so fire propagates upward across matrix
+        for _ in range(60):
+            frame = physics.render(ctx, size=64)
+
+        arr = np.array(frame)
+        self.assertEqual(arr.shape, (64, 64, 3))
+        # Fire should occupy the upper half of the matrix instead of being trapped in bottom 1/6th
+        upper_half = arr[:32, :, :]
+        self.assertGreater(int(np.sum(upper_half)), 0)
+        # Check heat in upper rows (row 16-24 should be distinctly warm)
+        self.assertGreater(float(physics.fire_heat[16:24, :].mean()), 40.0)
+        # Base rows should be hot
+        self.assertGreater(float(physics.fire_heat[60:, :].mean()), 180.0)
+
 
 if __name__ == "__main__":
     unittest.main()
