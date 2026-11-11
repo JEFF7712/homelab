@@ -49,6 +49,7 @@ POLL_SECONDS = 5
 # Outage, log-storage, and mergeability retries keep their original window.
 RETRY_SECONDS = 15
 SUPERSEDED = "Operation source must be the current main commit"
+TERMINAL_FAILURES = {"failure", "error", "killed", "declined"}
 GRANT_PATTERN = re.compile(r"\(grant ([0-9a-f]{64})\): ([^<\n]*)")
 ALREADY_COMPLETED = "Operation already completed for this validation"
 NETWORK_RETRIES = 20
@@ -437,6 +438,20 @@ class Woodpecker:
 
     def restart(self, number: int) -> dict[str, Any]:
         return self.call("POST", f"/repos/{WOODPECKER_REPO}/pipelines/{number}")
+
+    def inflight(self, parent: int, operation: str) -> int | None:
+        """A deployment of operation for parent that is pending or running."""
+        for item in (
+            self.call("GET", f"/repos/{WOODPECKER_REPO}/pipelines?perPage=50") or []
+        ):
+            if (
+                item.get("event") == "deployment"
+                and item.get("parent") == parent
+                and item.get("deploy_to") == operation
+                and item.get("status") in {"pending", "running"}
+            ):
+                return int(item["number"])
+        return None
 
     def deploy(self, parent: int, operation: str) -> dict[str, Any]:
         query = urllib.parse.urlencode({"event": "deployment", "deploy_to": operation})
@@ -1248,7 +1263,16 @@ class Shipper:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
         spec = catalog.get(operation, {})
         operator = bool(spec.get("mutation") and not spec.get("agent"))
-        if operator:
+        # Agents shipping at once each deploy the same validation; following
+        # the run already in flight saves a duplicate that CI would refuse.
+        joined = self.woodpecker.inflight(parent, operation)
+        if joined is not None:
+            number = joined
+            self.say(
+                f"{operation}: following pipeline #{number}, already deploying "
+                f"main pipeline #{parent}"
+            )
+        elif operator:
             token = self.operator_token()
             number = (
                 int(Woodpecker(token).deploy(parent, operation)["number"])
@@ -1265,7 +1289,9 @@ class Shipper:
             self.remaining()
             pipeline = self.woodpecker.pipeline(number)
             state = pipeline.get("status", "")
-            if state != last:
+            # A failed state is reported once its log is read: a duplicate or
+            # superseded run is not a failure, and run_plan says what it was.
+            if state != last and state not in TERMINAL_FAILURES:
                 self.say(f"{operation}: {state}")
                 last = state
             if state == "success":
@@ -1296,8 +1322,10 @@ class Shipper:
                     "log": logs,
                     "timings": timings,
                 }
-            if state in {"failure", "error", "killed", "declined"}:
+            if state in TERMINAL_FAILURES:
                 report = self.woodpecker.failure_report(pipeline)
+                if ALREADY_COMPLETED not in report and SUPERSEDED not in report:
+                    self.say(f"{operation}: {state}")
                 if not operator and APPROVAL_REQUIRED in report:
                     self.say(f"{operation}: saved plan requires human approval")
                     operator = True
