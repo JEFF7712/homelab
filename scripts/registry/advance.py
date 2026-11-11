@@ -321,6 +321,87 @@ def verify(root: pathlib.Path, paths: list[str], timeout: str = "10m") -> list[s
     return failures
 
 
+def cronjobs(text: str) -> list[tuple[str, str, set[str]]]:
+    """(namespace, name, mirror digests) for each CronJob in a manifest."""
+    import yaml
+
+    found = []
+    for document in yaml.safe_load_all(text):
+        if not isinstance(document, dict) or document.get("kind") != "CronJob":
+            continue
+        metadata = document.get("metadata") or {}
+        digests = {match[2] for match in MIRROR.finditer(yaml.safe_dump(document))}
+        if digests:
+            found.append(
+                (metadata.get("namespace", "default"), metadata["name"], digests)
+            )
+    return found
+
+
+def scheduled_runs(
+    root: pathlib.Path, paths: list[str], since: float
+) -> tuple[list[str], list[str]]:
+    """Failures and pending checks for each changed CronJob's runs on its new image.
+
+    A CronJob is never run off schedule: several delete, upload or take hours.
+    Its next scheduled run after the change is the check. A run counts when
+    the CronJob created it after `since` with every new digest in its pod
+    template; one that completed verifies the CronJob, and failed runs with
+    none completed fail it.
+    """
+    import datetime
+    import os
+
+    kubectl = os.environ.get("KUBECTL", "kubectl")
+    failures: list[str] = []
+    waiting: list[str] = []
+    for path in paths:
+        for namespace, name, digests in cronjobs((root / path).read_text()):
+            jobs = json.loads(
+                subprocess.run(
+                    [kubectl, "-n", namespace, "get", "jobs", "-o", "json"],
+                    capture_output=True,
+                    text=True,
+                    cwd="/tmp",
+                    check=True,
+                ).stdout
+            )["items"]
+            runs = []
+            for job in jobs:
+                metadata = job.get("metadata") or {}
+                owners = metadata.get("ownerReferences") or []
+                if not any(
+                    owner.get("kind") == "CronJob" and owner.get("name") == name
+                    for owner in owners
+                ):
+                    continue
+                created = datetime.datetime.fromisoformat(
+                    str(metadata.get("creationTimestamp", ""))
+                ).timestamp()
+                template = json.dumps((job.get("spec") or {}).get("template") or {})
+                ran = {match[2] for match in MIRROR.finditer(template)}
+                if created >= since and digests <= ran:
+                    runs.append(job)
+            states = [
+                {
+                    condition.get("type")
+                    for condition in (job.get("status") or {}).get("conditions") or []
+                    if condition.get("status") == "True"
+                }
+                for job in runs
+            ]
+            target = f"{namespace}/cronjob/{name}"
+            if any("Complete" in state for state in states):
+                continue
+            if any("Failed" in state for state in states):
+                failures.append(f"{target}: its run on the new image failed")
+            elif runs:
+                waiting.append(f"{target}: its run on the new image is still running")
+            else:
+                waiting.append(f"{target}: no scheduled run on the new image yet")
+    return failures, waiting
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=pathlib.Path, default=pathlib.Path.cwd())

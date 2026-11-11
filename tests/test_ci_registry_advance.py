@@ -71,12 +71,20 @@ def deployment(
     )
 
 
-def cronjob(*, init: bool = False, digest: str = OLD) -> str:
+def cronjob(
+    *,
+    init: bool = False,
+    digest: str = OLD,
+    schedule: str = "0 * * * *",
+    suspend: bool = False,
+) -> str:
     image = f"registry.rupan.dev/{REPOSITORY}@{digest}"
     key = "initContainers" if init else "containers"
+    suspended = "  suspend: true\n" if suspend else ""
     return (
         "apiVersion: batch/v1\nkind: CronJob\nmetadata:\n  name: sweep\n"
-        "  namespace: media\nspec:\n  schedule: '0 * * * *'\n  jobTemplate:\n"
+        f"  namespace: media\nspec:\n  schedule: '{schedule}'\n{suspended}"
+        "  jobTemplate:\n"
         "    spec:\n      template:\n        spec:\n"
         f"          {key}:\n            - name: sweep\n              image: {image}\n"
     )
@@ -146,10 +154,19 @@ class EligibilityTest(unittest.TestCase):
     def test_recreate_deployments_and_cronjobs_are_taken_with_a_backstop(
         self,
     ) -> None:
-        # A Recreate restart is verified and reverted if it fails; a CronJob's
-        # next run fails and alerts. Neither needs a readiness probe on a job.
+        # A Recreate restart is verified and reverted if it fails; a CronJob
+        # is verified by its next scheduled run. Neither needs a probe.
         self.assertIsNone(check(deployment(strategy="Recreate")))
         self.assertIsNone(check(cronjob()))
+        self.assertIsNone(check(cronjob(schedule="30 2 * * *")))
+        self.assertIsNone(check(cronjob(schedule="@daily")))
+
+    def test_cronjobs_no_run_can_verify_in_a_day_are_refused(self) -> None:
+        # The settle window is a day, and a CronJob is never run off
+        # schedule (backups, drills and deletions among them).
+        self.assertIn("less often than daily", check(cronjob(schedule="0 6 * * 0")))
+        self.assertIn("less often than daily", check(cronjob(schedule="0 0 1 * *")))
+        self.assertIn("suspended", check(cronjob(suspend=True)))
 
     def test_an_update_nothing_uses_is_not_taken(self) -> None:
         self.assertEqual(
@@ -375,6 +392,58 @@ class SettleTest(unittest.TestCase):
         other = merged(7, "renovate/foo", 1, body)
         self.assertEqual(reverted_digests([revert]), {f"{REPOSITORY}@{NEW}"})
         self.assertEqual(reverted_digests([unmerged, other]), set())
+
+    def test_a_cronjob_settles_on_its_next_scheduled_run(self) -> None:
+        pull = merged(5, "registry-advance/adopt-aaa", 1)
+        for runs, outcome in (
+            (
+                ([], ["media/cronjob/sweep: no scheduled run on the new image yet"]),
+                "waiting",
+            ),
+            (([], []), "verified"),
+            (
+                (["media/cronjob/sweep: its run on the new image failed"], []),
+                "reverted",
+            ),
+        ):
+            with (
+                self.subTest(outcome=outcome),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                (root / "gitops/media").mkdir(parents=True)
+                (root / "gitops/media/arr.yaml").write_text(
+                    f"image: {MIRRORED_NEW}  # yamllint disable-line rule:line-length\n"
+                )
+                comments = []
+
+                def fake_api(token, path, *, data=None, raw=False, comments=comments):
+                    if data:
+                        comments.append(data["body"])
+                    return ADOPT_DIFF if raw else {}
+
+                kustomizations = subprocess.CompletedProcess(
+                    [], 0, stdout='{"items": []}'
+                )
+                with (
+                    patch.object(registry_advance, "api", side_effect=fake_api),
+                    patch.object(registry_advance, "verify", return_value=[]),
+                    patch.object(registry_advance, "scheduled_runs", return_value=runs),
+                    patch.object(registry_advance, "publish") as publish,
+                    patch.object(
+                        registry_advance.subprocess, "run", return_value=kustomizations
+                    ),
+                ):
+                    self.assertEqual(registry_advance.settle(root, "t", pull), outcome)
+                if outcome == "waiting":
+                    # Neither marked nor reverted: the next run checks again.
+                    self.assertEqual(comments, [])
+                    publish.assert_not_called()
+                elif outcome == "verified":
+                    self.assertIn(VERIFIED, comments[0])
+                else:
+                    self.assertIn(REVERTED, comments[0])
+                    publish.assert_called_once()
 
     def test_a_failed_rollout_is_reverted_and_a_healthy_one_verified(self) -> None:
         pull = merged(5, "registry-advance/adopt-aaa", 1)

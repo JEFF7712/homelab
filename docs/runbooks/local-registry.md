@@ -326,8 +326,9 @@ The scheduled `registry-advance` operation (`promote` schedule,
 `scripts/ci/registry_advance.py`) does all three steps without an agent.
 Eligible updates keep the same major version, outside the namespaces and
 repositories in `config/registry/advance-policy.json`. Every consumer is a
-Deployment whose main container has a readiness probe, or a CronJob, and none
-uses the image in an init container. StatefulSets, DaemonSets, majors and
+Deployment whose main container has a readiness probe, or a CronJob that runs
+at least daily and is not suspended, and none uses the image in an init
+container. StatefulSets, DaemonSets, weekly or rarer CronJobs, majors and
 floating tags stay with a person or the controller.
 
 Producer base images (`gitops/producer-base-images/base-images.yaml`) need no
@@ -342,7 +343,10 @@ Each run takes one step:
 
 1. **Settle.** The newest adopt the schedule merged in the last day is checked
    once the Flux Kustomization owning each changed path has applied a revision
-   at least as new as the merge. `verify` must pass. A healthy adopt gets a
+   at least as new as the merge. `verify` must pass for Deployments. A CronJob
+   is never run off schedule: its first scheduled run on the new image after
+   the merge decides (`scheduled_runs`), and until it has completed or failed
+   the adopt stays unsettled. A healthy adopt gets a
    `registry-advance: verified` comment. A failed one is reverted by a
    `registry-advance/revert-<pr>` PR, merged on the required checks, whose body
    names the digest (`reverted: <mirror>@<digest>`). That digest is never
