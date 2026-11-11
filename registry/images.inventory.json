@@ -4063,6 +4063,23 @@
         "repository": "library/node",
         "tag": "24-slim"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "id": "upstream-library-node-9cbecc9a5583",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54",
+        "reference": "docker.io/library/node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-slim"
+      }
     }
   ],
   "kind": "registry-inventory",
