@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from scripts.deploy_fleet import (
     APPLIANCE_SETTLE_ATTEMPTS,
+    CORDON_MARK,
     FLEET_HOSTS,
     ClusterLease,
     FleetDeployer,
@@ -187,10 +188,11 @@ class DeployFleetTest(unittest.TestCase):
                 "homelab-02",
                 "homelab-03",
                 "homelab-01",
-                "homelab-04",
                 "homelab-05",
                 "adguard-netbird-01",
                 "nas-01",
+                # The CI host's switch kills the deploy job, so it goes last.
+                "homelab-04",
             ],
         )
 
@@ -931,6 +933,8 @@ class FleetClosureTest(unittest.TestCase):
         build_failure=False,
         failed_health=False,
         recovery_failure=False,
+        node=None,
+        failed_units="",
     ):
         self.commands = []
         self.build_directories = []
@@ -957,11 +961,15 @@ class FleetClosureTest(unittest.TestCase):
                     and self.active == self.NEW
                 ):
                     output = "application.service loaded failed failed Application\n"
+                elif remote == "systemctl --failed --no-legend --plain":
+                    output = failed_units
                 elif "/bin/switch-to-configuration switch" in remote:
                     if self.OLD in remote and recovery_failure:
                         code = 1
                     else:
                         self.active = self.OLD if self.OLD in remote else self.NEW
+            elif argv[:3] == ["kubectl", "get", "node"] and argv[-1] == "json":
+                output = json.dumps(node or {})
             elif argv[:3] == ["kubectl", "get", "node"]:
                 output = "True"
             return subprocess.CompletedProcess(
@@ -981,7 +989,11 @@ class FleetClosureTest(unittest.TestCase):
         result = self.run_deployment(unchanged=True)
         self.assertEqual(result["hosts"][0]["status"], "unchanged")
         self.assertFalse(
-            any(cmd[0] in {"kubectl", "nixos-rebuild"} for cmd in self.commands)
+            any(
+                cmd[0] == "nixos-rebuild" or cmd[:2] != ["kubectl", "get"]
+                for cmd in self.commands
+                if cmd[0] in {"kubectl", "nixos-rebuild"}
+            )
         )
         self.assertFalse(
             any(
@@ -1038,6 +1050,63 @@ class FleetClosureTest(unittest.TestCase):
         self.assertFalse(
             any(cmd[:2] == ["kubectl", "uncordon"] for cmd in self.commands)
         )
+        # The held cordon loses its mark, so later runs leave it alone.
+        self.assertEqual(self.kubectl_mutations()[-1], ("annotate", f"{CORDON_MARK}-"))
+
+    def kubectl_mutations(self):
+        return [
+            (cmd[1], cmd[-1] if cmd[1] == "annotate" else cmd[2])
+            for cmd in self.commands
+            if cmd[0] == "kubectl" and cmd[1] != "get"
+        ]
+
+    @staticmethod
+    def node(*, cordoned=True, marked=True, ready=True):
+        annotations = {CORDON_MARK: "true"} if marked else {}
+        return {
+            "metadata": {"name": "homelab-02", "annotations": annotations},
+            "spec": {"unschedulable": True} if cordoned else {},
+            "status": {
+                "conditions": [
+                    {"type": "Ready", "status": "True" if ready else "False"}
+                ]
+            },
+        }
+
+    def test_deploy_marks_its_cordon_and_clears_the_mark_on_uncordon(self):
+        self.run_deployment()
+        self.assertEqual(
+            self.kubectl_mutations(),
+            [
+                ("cordon", "homelab-02"),
+                ("annotate", f"{CORDON_MARK}=true"),
+                ("drain", "homelab-02"),
+                ("uncordon", "homelab-02"),
+                ("annotate", f"{CORDON_MARK}-"),
+            ],
+        )
+
+    def test_unchanged_healthy_node_left_cordoned_by_a_killed_run_is_released(self):
+        result = self.run_deployment(unchanged=True, node=self.node())
+        self.assertEqual(result["hosts"][0]["status"], "unchanged")
+        self.assertEqual(
+            self.kubectl_mutations(),
+            [("uncordon", "homelab-02"), ("annotate", f"{CORDON_MARK}-")],
+        )
+
+    def test_stale_cordon_is_kept_unless_marked_ready_and_without_failed_units(self):
+        for case in (
+            {"node": self.node(marked=False)},
+            {"node": self.node(ready=False)},
+            {
+                "node": self.node(),
+                "failed_units": "application.service loaded failed failed A\n",
+            },
+            {"node": self.node(cordoned=False)},
+        ):
+            with self.subTest(case):
+                self.run_deployment(unchanged=True, **case)
+                self.assertEqual(self.kubectl_mutations(), [])
 
 
 class LeaseApi:
