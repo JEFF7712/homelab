@@ -42,6 +42,13 @@ DRAIN_TIMEOUT = 300.0
 # job before it can uncordon, so the next run releases a marked cordon once
 # the node runs the desired system healthily. Operator cordons carry no mark.
 CORDON_MARK = "homelab.fleet/deploy-cordon"
+# Every CloudNativePG cluster, as (namespace, name); test_deploy_fleet checks
+# this against gitops so a new cluster is not left out of the post-switch wait.
+POSTGRES_CLUSTERS = (
+    ("home-assistant", "home-assistant-cluster"),
+    ("immich", "immich-cluster"),
+    ("analytics", "umami-cluster"),
+)
 
 
 class FleetDeploymentError(Exception):
@@ -1031,10 +1038,7 @@ class FleetDeployer:
             "[homelab-01] Waiting for PostgreSQL clusters to report Ready (timeout=%.0fs)...",
             self.ready_timeout,
         )
-        for namespace, cluster in (
-            ("home-assistant", "home-assistant-cluster"),
-            ("immich", "immich-cluster"),
-        ):
+        for namespace, cluster in POSTGRES_CLUSTERS:
             logger.info(
                 "[homelab-01] Waiting for PostgreSQL cluster %s in %s...",
                 cluster,

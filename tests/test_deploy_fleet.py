@@ -10,6 +10,7 @@ from scripts.deploy_fleet import (
     APPLIANCE_SETTLE_ATTEMPTS,
     CORDON_MARK,
     FLEET_HOSTS,
+    POSTGRES_CLUSTERS,
     ClusterLease,
     FleetDeployer,
     FleetDeploymentError,
@@ -496,14 +497,34 @@ class DeployFleetTest(unittest.TestCase):
                     "kubectl",
                     "wait",
                     "--for=condition=Ready",
-                    f"clusters.postgresql.cnpg.io/{namespace}-cluster",
+                    f"clusters.postgresql.cnpg.io/{cluster}",
                     "-n",
                     namespace,
                     "--timeout=180s",
                 ]
-                for namespace in ("home-assistant", "immich")
+                for namespace, cluster in POSTGRES_CLUSTERS
             ],
         )
+
+    def test_every_cloudnativepg_cluster_is_awaited(self) -> None:
+        # umami-cluster was missing from the post-switch wait (2026-11-11).
+        import yaml
+
+        declared = set()
+        for path in (Path(__file__).resolve().parents[1] / "gitops").rglob("*.yaml"):
+            if "postgresql.cnpg.io" not in path.read_text():
+                continue
+            for document in yaml.safe_load_all(path.read_text()):
+                if (
+                    isinstance(document, dict)
+                    and document.get("kind") == "Cluster"
+                    and str(document.get("apiVersion", "")).startswith(
+                        "postgresql.cnpg.io/"
+                    )
+                ):
+                    metadata = document["metadata"]
+                    declared.add((metadata["namespace"], metadata["name"]))
+        self.assertEqual(declared, set(POSTGRES_CLUSTERS))
 
     def test_deployer_appliances(self) -> None:
         executed_commands: list[list[str]] = []
