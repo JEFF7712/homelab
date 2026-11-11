@@ -88,9 +88,19 @@ class FleetDeployKeyTests(unittest.TestCase):
         real_run = subprocess.run
 
         def run(argv, **kwargs):
+            self.assertNotIn("pass_fds", kwargs)
             if argv[0] == "ssh-keygen":
-                self.assertTrue(argv[-1].startswith("/proc/self/fd/"))
+                self.assertTrue(argv[-1].startswith(f"/proc/{os.getpid()}/fd/"))
                 return real_run(argv, **kwargs)
+            key_path = argv[argv.index("-i") + 1]
+            config = real_run(
+                ["ssh", "-F", "/dev/null", "-G", "-i", key_path, "localhost"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertNotIn("not accessible", config.stderr)
+            self.assertIn(f"identityfile {key_path}", config.stdout)
             self.assertIn("StrictHostKeyChecking=yes", argv)
             self.assertIn("IdentityAgent=none", argv)
             self.assertIn("IdentitiesOnly=yes", argv)

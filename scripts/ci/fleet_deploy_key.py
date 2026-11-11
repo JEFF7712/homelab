@@ -131,16 +131,17 @@ def verify_hosts(root: Path, private: bytes, known_hosts: Path) -> None:
         raise ValueError("A pinned SSH known-hosts file is required")
     expected, _ = public_identity(root)
     # The descriptor is anonymous RAM. No workspace or persistent private copy.
-    descriptor = os.memfd_create("homelab-ci-fleet-deploy", flags=0)
+    descriptor = os.memfd_create("homelab-ci-fleet-deploy", flags=os.MFD_CLOEXEC)
     try:
         os.fchmod(descriptor, 0o600)
         with os.fdopen(os.dup(descriptor), "wb") as output:
             output.write(private)
             output.flush()
-        key = f"/proc/self/fd/{descriptor}"
+        # OpenSSH closes inherited descriptors at startup. Its own process
+        # can open the key through the parent, which holds it until SSH exits.
+        key = f"/proc/{os.getpid()}/fd/{descriptor}"
         derived = subprocess.run(
             ["ssh-keygen", "-y", "-f", key],
-            pass_fds=(descriptor,),
             capture_output=True,
             text=True,
             check=False,
@@ -181,7 +182,6 @@ def verify_hosts(root: Path, private: bytes, known_hosts: Path) -> None:
                     f"rupan@{host['ip']}",
                     "sudo -n true",
                 ],
-                pass_fds=(descriptor,),
                 capture_output=True,
                 check=False,
                 timeout=30,
