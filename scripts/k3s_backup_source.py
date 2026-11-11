@@ -119,7 +119,15 @@ def prepare(
     captured = inputs(server, host_key)
     started = dt.datetime.now(dt.UTC)
     subprocess.run(
-        ["k3s", "etcd-snapshot", "save", "--name", "external-backup"],
+        [
+            "k3s",
+            "etcd-snapshot",
+            "save",
+            "--name",
+            "external-backup",
+            "--etcd-snapshot-dir",
+            str(snapshots),
+        ],
         check=True,
         capture_output=True,
     )
@@ -142,6 +150,7 @@ def prepare(
     generations = root / "generations"
     generations.mkdir(exist_ok=True, mode=0o750)
     os.chown(generations, -1, group)
+    generations.chmod(0o750)
     name = started.strftime("generation-%Y%m%dT%H%M%S%fZ")
     destination = generations / name
     with tempfile.TemporaryDirectory(prefix=".prepare-", dir=root) as temporary:
@@ -181,7 +190,14 @@ def prepare(
     # Only the newly copied intermediate snapshot is removed. Existing
     # scheduled snapshots and earlier immutable generations remain untouched.
     subprocess.run(
-        ["k3s", "etcd-snapshot", "delete", snapshot.name],
+        [
+            "k3s",
+            "etcd-snapshot",
+            "delete",
+            "--etcd-snapshot-dir",
+            str(snapshots),
+            snapshot.name,
+        ],
         check=True,
         capture_output=True,
     )
