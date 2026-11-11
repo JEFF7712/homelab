@@ -160,6 +160,30 @@ class Rig:
         self.jobs = LocalProcessJobManager(
             case.root / "jobs", env={"PATH": case.path_env}
         )
+        token_file = case.root / "publisher-token"
+        token_file.write_text(PUBLISHER_TOKEN)
+        self.publisher = Publisher(
+            str(case.bare), "main", case.root / "publisher", token_file
+        )
+        # The first rig takes kernel-assigned ports and a restarted rig reuses
+        # them. Probing for free ports and binding later let a parallel test
+        # worker take a port in between.
+        self.worker_server = serve(
+            WorkerApi(self.store, lease_seconds=60, source=self.publisher.archive),
+            "127.0.0.1",
+            case.worker_port,
+        )
+        self.client_server = serve_clients(
+            ClientApi(
+                self.store,
+                "sandbox",
+                {client_digest(CLIENT_TOKEN): Client("letta", PRINCIPAL)},
+            ),
+            "127.0.0.1",
+            case.client_port,
+        )
+        case.worker_port = self.worker_server.server_address[1]
+        case.client_port = self.client_server.server_address[1]
         config = ControllerConfig(
             owner="controller",
             project="sandbox",
@@ -182,11 +206,6 @@ class Rig:
             poll_seconds=0.05,
             work_root=str(case.root / "work"),
         )
-        token_file = case.root / "publisher-token"
-        token_file.write_text(PUBLISHER_TOKEN)
-        self.publisher = Publisher(
-            str(case.bare), "main", case.root / "publisher", token_file
-        )
         self.controller = Controller(
             self.store,
             self.jobs,
@@ -197,20 +216,6 @@ class Rig:
             ],
             config,
             self.publisher,
-        )
-        self.worker_server = serve(
-            WorkerApi(self.store, lease_seconds=60, source=self.publisher.archive),
-            "127.0.0.1",
-            case.worker_port,
-        )
-        self.client_server = serve_clients(
-            ClientApi(
-                self.store,
-                "sandbox",
-                {client_digest(CLIENT_TOKEN): Client("letta", PRINCIPAL)},
-            ),
-            "127.0.0.1",
-            case.client_port,
         )
         for server in (self.worker_server, self.client_server):
             threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -243,15 +248,10 @@ class SliceCase(unittest.TestCase):
         self.fake_pi.write_text(f"#!{sys.executable}\n{FAKE_PI}")
         self.fake_pi.chmod(0o755)
         import os
-        import socket
 
         self.path_env = os.environ["PATH"]
-        ports = []
-        for _ in range(2):
-            with socket.socket() as probe:
-                probe.bind(("127.0.0.1", 0))
-                ports.append(probe.getsockname()[1])
-        self.worker_port, self.client_port = ports
+        # Assigned by the first rig's servers.
+        self.worker_port = self.client_port = 0
         self.rigs: list[Rig] = []
 
     def rig(self, forge_class: type[ForgejoForge] = ForgejoForge) -> Rig:

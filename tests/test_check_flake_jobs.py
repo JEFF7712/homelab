@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
@@ -11,7 +12,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.checks.flake_jobs import Check, build_jobs, nix_build, run
+from scripts.checks.flake_jobs import (
+    Check,
+    build_jobs,
+    failure_report,
+    nix_build,
+    run,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -195,6 +202,80 @@ class FlakeJobsTest(unittest.TestCase):
                 [("flake-repository-contract", 0), ("flake-topology", 5)],
             )
             self.assertTrue(all(entry["elapsed_seconds"] > 0 for entry in records))
+
+    UNIT_LOG = "\n".join(
+        [
+            "running 3 tests",
+            "=" * 70,  # printed by a test, not a failure
+            "test_a (test_m.Case.test_a) ... ok",
+            "test_b (test_m.Case.test_b) ... FAIL",
+            "test_c (test_n.Case.test_c) ... ERROR",
+            "=" * 70,
+            "FAIL: test_b (test_m.Case.test_b)",
+            "-" * 70,
+            "Traceback (most recent call last):",
+            "AssertionError: 1 != 2",
+            "=" * 70,
+            "ERROR: test_c (test_n.Case.test_c)",
+            "FileNotFoundError: receipt",
+            "-" * 70,
+            "Ran 3 tests in 1.0s with 4 workers",
+            "",
+            "FAILED",
+            "  test_m.Case.test_b",
+        ]
+    )
+
+    def test_failure_report_keeps_every_traceback_of_a_unit_suite(self) -> None:
+        report = failure_report(self.UNIT_LOG).splitlines()
+        self.assertEqual(report[1], "FAIL: test_b (test_m.Case.test_b)")
+        self.assertIn("AssertionError: 1 != 2", report)
+        self.assertIn("FileNotFoundError: receipt", report)
+        self.assertNotIn("test_a (test_m.Case.test_a) ... ok", report)
+        self.assertFalse([line for line in report if line.startswith("Ran ")])
+
+    def test_failure_report_tails_other_logs_and_bounds_its_size(self) -> None:
+        other = "\n".join(f"line {n}" for n in range(500))
+        self.assertEqual(failure_report(other).splitlines()[0], "line 420")
+        huge = self.UNIT_LOG.replace(
+            "AssertionError: 1 != 2", "\n".join(["frame"] * 1000)
+        )
+        report = failure_report(huge).splitlines()
+        self.assertEqual(len(report), 401)
+        self.assertRegex(report[-1], r"^\.\.\. \d+ more lines$")
+
+    def test_failed_build_prints_the_tracebacks_from_its_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "build.log").write_text(self.UNIT_LOG)
+            nix = directory / "nix"
+            nix.write_text(
+                f"#!{sys.executable}\n"
+                "import sys\n"
+                "if sys.argv[1] == 'log':\n"
+                "    assert sys.argv[2] == '/nix/store/failed.drv', sys.argv\n"
+                f"    print(open({str(directory / 'build.log')!r}).read())\n"
+                "    sys.exit(0)\n"
+                "sys.exit(1)\n"
+            )
+            nix.chmod(0o755)
+            stderr = io.StringIO()
+            with (
+                patch.dict(
+                    os.environ,
+                    PATH=f"{directory}:{os.environ['PATH']}",
+                    CI_TIMING_DIR=str(directory),
+                ),
+                patch("sys.stderr", stderr),
+            ):
+                ok = nix_build(
+                    Check("checks.repository-contract", "/nix/store/failed.drv^*")
+                )
+        self.assertFalse(ok)
+        output = stderr.getvalue()
+        self.assertIn("===== flake-repository-contract failure =====", output)
+        self.assertIn("ERROR: test_c (test_n.Case.test_c)", output)
+        self.assertIn("FileNotFoundError: receipt", output)
 
 
 @unittest.skipUnless(shutil.which("nix"), "requires Nix source evaluation")

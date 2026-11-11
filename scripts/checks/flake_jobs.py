@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
+import subprocess
 import sys
 import threading
 from collections.abc import Callable, Iterable
@@ -113,20 +115,59 @@ def run(
     return built, failures
 
 
-def nix_build(check: Check) -> bool:
-    return (
-        timed_command(
-            [
-                f"flake-{check.attr.removeprefix('checks.')}",
-                "--",
-                "nix",
-                "build",
-                "--no-link",
-                check.target,
-            ]
-        )
-        == 0
+REPORT_LINES = 400
+TAIL_LINES = 80
+# A verbose unittest result line, e.g. "test_x (module.Case.test_x) ... ok".
+RESULT = re.compile(r" \.\.\. (ok|FAIL|ERROR|skipped\b.*|expected failure)$")
+
+
+def failure_report(log: str) -> str:
+    """The part of a failed build's log that names the cause.
+
+    Nix prints only the last lines of a failed build, which for the unit
+    suite is its summary: the tracebacks of flaky tests were lost with the
+    build log (#12662, #12774). A unittest log yields its error blocks;
+    anything else its tail.
+    """
+    lines = log.splitlines()
+    # The error blocks follow the last per-test result line and end at the
+    # final "Ran N tests"; tests can print separators of their own earlier.
+    end = max((i for i, line in enumerate(lines) if line.startswith("Ran ")), default=0)
+    last_result = max(
+        (i for i, line in enumerate(lines[:end]) if RESULT.search(line)), default=-1
     )
+    start = next(
+        (i for i in range(last_result + 1, end) if lines[i].startswith("=" * 70)),
+        None,
+    )
+    if start is None:
+        return "\n".join(lines[-TAIL_LINES:])
+    report = lines[start:end]
+    if len(report) > REPORT_LINES:
+        omitted = len(report) - REPORT_LINES
+        report = [*report[:REPORT_LINES], f"... {omitted} more lines"]
+    return "\n".join(report)
+
+
+def nix_build(check: Check) -> bool:
+    name = f"flake-{check.attr.removeprefix('checks.')}"
+    command = [name, "--", "nix", "build", "--no-link", check.target]
+    if timed_command(command) == 0:
+        return True
+    # Read the log now: a retry of the same derivation replaces it.
+    log = subprocess.run(
+        ["nix", "log", check.target.removesuffix("^*")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if log.returncode == 0 and log.stdout.strip():
+        print(
+            f"===== {name} failure =====\n{failure_report(log.stdout)}",
+            file=sys.stderr,
+            flush=True,
+        )
+    return False
 
 
 def main() -> int:
