@@ -999,22 +999,29 @@ class FleetDeployer:
             return
 
         logger.info("Verifying DNS responsiveness on %s:53...", ip)
+        # AdGuard Home takes seconds to listen again after the switch restarts
+        # it; one immediate probe rolled back healthy deploys of the appliance
+        # (pipeline #12632, 2026-11-10).
+        if not self.settled(lambda: self.dns_answers(ip)):
+            raise FleetDeploymentError(
+                f"DNS verification failed on {ip}: port 53 not reachable"
+            )
+
+    def dns_answers(self, ip: str) -> bool:
         cmd = ["dig", f"@{ip}", "homelab.internal", "+short", "+timeout=2"]
         try:
             res = run_command(cmd, runner=self.runner, timeout=5.0, check=False)
             if res.returncode == 0 and res.stdout.strip():
                 logger.info("DNS verification passed via dig for %s", ip)
-                return
+                return True
         except FleetDeploymentError as err:
             logger.warning(
                 "DNS verification via dig failed, falling back to socket check: %s", err
             )
-
-        if not self.socket_checker(ip, 53, 3.0):
-            raise FleetDeploymentError(
-                f"DNS verification failed on {ip}: port 53 not reachable"
-            )
-        logger.info("DNS verification passed via port 53 socket check for %s", ip)
+        if self.socket_checker(ip, 53, 3.0):
+            logger.info("DNS verification passed via port 53 socket check for %s", ip)
+            return True
+        return False
 
     def settled(self, check: Callable[[], bool]) -> bool:
         """Retry a post-switch probe while activation restarts its services.

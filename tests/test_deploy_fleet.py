@@ -593,6 +593,40 @@ class DeployFleetTest(unittest.TestCase):
                     * (2 if failures >= APPLIANCE_SETTLE_ATTEMPTS else 1),
                 )
 
+    def test_dns_verification_waits_for_adguard_to_listen(self) -> None:
+        # Regression (2026-11-10): AdGuard Home was still restarting when the
+        # single probe ran, and a healthy switch was rolled back.
+        for failures in (0, 3, APPLIANCE_SETTLE_ATTEMPTS):
+            with self.subTest(failures=failures):
+                probes: list[list[str]] = []
+
+                def runner(
+                    argv: list[str], **kwargs: object
+                ) -> subprocess.CompletedProcess[str]:
+                    del kwargs
+                    if argv[0] == "dig":
+                        probes.append(argv)
+                        answered = len(probes) > failures
+                        return subprocess.CompletedProcess(
+                            argv, 0, "10.0.30.10\n" if answered else "", ""
+                        )
+                    return subprocess.CompletedProcess(argv, 0, "", "")
+
+                deployer = FleetDeployer(
+                    targets=[],
+                    runner=runner,
+                    socket_checker=lambda host, port, timeout: False,
+                    sleeper=lambda seconds: None,
+                )
+                if failures < APPLIANCE_SETTLE_ATTEMPTS:
+                    deployer.verify_dns_appliance("10.0.30.10")
+                else:
+                    with self.assertRaisesRegex(FleetDeploymentError, "port 53"):
+                        deployer.verify_dns_appliance("10.0.30.10")
+                self.assertEqual(
+                    len(probes), min(failures + 1, APPLIANCE_SETTLE_ATTEMPTS)
+                )
+
     def test_nas_verification_fails_when_niks3_stays_down(self) -> None:
         def runner(
             argv: list[str], **kwargs: object
