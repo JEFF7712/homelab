@@ -32,6 +32,7 @@ stops the run, leaves the host cordoned and sends an urgent ntfy alert.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -49,6 +50,7 @@ from zoneinfo import ZoneInfo
 
 from scripts.deploy_fleet import (
     FLEET_HOSTS,
+    ClusterLease,
     FleetDeployer,
     FleetDeploymentError,
     FleetLock,
@@ -57,6 +59,7 @@ from scripts.deploy_fleet import (
     Notifier,
     Runner,
     Sleeper,
+    lease_holder,
     parse_targets,
     run_command,
     verify_k3s_nodes_ready,
@@ -482,7 +485,14 @@ def main(
         else NIGHTLY
     )
     try:
-        with FleetLock(Path(args.lock_file), metadata={"operation": "fleet-reboot"}):
+        with (
+            FleetLock(Path(args.lock_file), metadata={"operation": "fleet-reboot"}),
+            contextlib.ExitStack() as held,
+        ):
+            if not args.dry_run:
+                held.enter_context(
+                    ClusterLease(lease_holder("fleet-reboot"), runner=runner)
+                )
             rebooter = FleetRebooter(
                 targets,
                 window=window,
