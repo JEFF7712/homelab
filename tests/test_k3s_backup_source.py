@@ -14,6 +14,26 @@ from scripts import k3s_backup_source as backup
 
 
 class K3sBackupSourceTests(unittest.TestCase):
+    def test_backup_reader_can_traverse_generations_under_service_umask(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            server, snapshots, root, key = self.setup_tree(Path(directory))
+            previous_umask = os.umask(0o077)
+            try:
+                with patch.object(
+                    backup.subprocess, "run", side_effect=self.runner(snapshots)
+                ):
+                    generation = backup.prepare(
+                        root, server, snapshots, key, os.getgid()
+                    )
+            finally:
+                os.umask(previous_umask)
+            for path in (root, root / "generations", generation):
+                self.assertEqual(path.stat().st_mode & 0o777, 0o750)
+                self.assertEqual(path.stat().st_gid, os.getgid())
+            self.assertEqual(
+                (generation / "backup-manifest.json").stat().st_mode & 0o777, 0o640
+            )
+
     def setup_tree(self, root: Path) -> tuple[Path, Path, Path, Path]:
         server, snapshots, source, key = (
             root / name for name in ("server", "snapshots", "source", "host-key")

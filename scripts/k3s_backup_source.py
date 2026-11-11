@@ -150,6 +150,7 @@ def prepare(
     generations = root / "generations"
     generations.mkdir(exist_ok=True, mode=0o750)
     os.chown(generations, -1, group)
+    generations.chmod(0o750)
     name = started.strftime("generation-%Y%m%dT%H%M%S%fZ")
     destination = generations / name
     with tempfile.TemporaryDirectory(prefix=".prepare-", dir=root) as temporary:
