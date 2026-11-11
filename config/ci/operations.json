@@ -421,7 +421,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -470,7 +470,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -526,7 +526,7 @@
         "from_secret": "registry_htpasswd_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -576,7 +576,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -623,7 +623,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -672,7 +672,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -733,7 +733,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -791,7 +791,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -849,7 +849,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -907,7 +907,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -965,7 +965,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1428,7 +1428,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -1481,7 +1481,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1528,7 +1528,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1581,7 +1581,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -1629,7 +1629,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1658,7 +1658,9 @@
   "deploy-home-assistant-dry-run": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "rc=0; python -m scripts.home_assistant diff --instance homelab-01 || rc=$?; test \"$rc\" -le 1"
@@ -1677,13 +1679,17 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
@@ -1695,7 +1701,9 @@
   "deploy-home-assistant": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "python -m scripts.home_assistant plan --instance homelab-01 --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
@@ -1717,13 +1725,17 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
@@ -1736,7 +1748,9 @@
   "deploy-home-assistant-matrix-dashboard-dry-run": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "python -m scripts.home_assistant plan --instance homelab-01 --select dashboard/bedroom-lights --json"
@@ -1755,13 +1769,17 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
@@ -1773,7 +1791,9 @@
   "deploy-home-assistant-matrix-dashboard": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "python -m scripts.home_assistant plan --instance homelab-01 --select dashboard/bedroom-lights --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
@@ -1795,13 +1815,17 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
@@ -1917,7 +1941,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2087,7 +2111,7 @@
         "from_secret": "state_ca_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2282,7 +2306,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -2330,7 +2354,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2565,7 +2589,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2602,7 +2626,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2656,7 +2680,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -2699,7 +2723,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2806,7 +2830,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2842,7 +2866,7 @@
     ],
     "environment": {
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2916,7 +2940,9 @@
   "registry-advance": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$REGISTRY_ADVANCE_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/registry-advance-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --profile registry-advance --key-file \"$REGISTRY_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "python -m scripts.ci.registry_advance"
     ],
     "environment": {
@@ -2936,14 +2962,18 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "REGISTRY_ADVANCE_KUBECONFIG": {
-        "from_secret": "registry_advance_kubeconfig"
+      "REGISTRY_ISSUER_SSH_KEY": {
+        "from_secret": "registry_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "REGISTRY_ADVANCE_KUBECONFIG",
       "REGISTRY_NODE_PASSWORD_FILE",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "REGISTRY_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "registry-content",
     "needs": [],

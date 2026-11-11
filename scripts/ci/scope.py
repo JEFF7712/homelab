@@ -58,6 +58,7 @@ _GATE_MODULES = {
     "dotnet_release.py",
     "node_release.py",
     "offline.py",
+    "oplock.py",
     "operation.py",
     "policy.py",
     "run.py",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import json
 import os
 import re
@@ -14,6 +15,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from scripts.ci import oplock
 from scripts.ci.deployment_risk import require_plan_approval
 from scripts.ci.deployment_source import compatible_changes
 
@@ -191,7 +193,26 @@ def unpack(
         destination.chmod(0o600)
 
 
+def group_lock(
+    name: str, operation: dict[str, Any]
+) -> contextlib.AbstractContextManager[None]:
+    """The catalog group's lock for a mutation; read-only work runs freely.
+
+    It is taken before the source and completion checks, so a duplicate run
+    that waited behind the first finds the work done or main moved on.
+    """
+    if not operation["mutation"]:
+        return contextlib.nullcontext()
+    holder = f"{name} pipeline {os.environ.get('CI_PIPELINE_NUMBER', 'local')}"
+    return oplock.held(operation["group"], holder)
+
+
 def run(name: str, catalog: dict[str, Any]) -> None:
+    with group_lock(name, catalog[name]):
+        run_operation(name, catalog)
+
+
+def run_operation(name: str, catalog: dict[str, Any]) -> None:
     operation = catalog[name]
     environment = dict(os.environ)
     current_source(environment, name, catalog)
