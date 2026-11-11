@@ -35,6 +35,8 @@ class K3sBackupSourceTests(unittest.TestCase):
                 self.assertEqual(
                     command[command.index("--etcd-snapshot-dir") + 1], str(snapshots)
                 )
+                if command[2] == "delete":
+                    self.assertEqual(command[-1], "external-backup-test")
             if command[:3] == ["k3s", "etcd-snapshot", "save"]:
                 (snapshots / "external-backup-test").write_bytes(b"fake-etcd-database")
             return subprocess.CompletedProcess(command, 0, b"")
