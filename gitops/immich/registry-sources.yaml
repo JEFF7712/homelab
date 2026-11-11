@@ -18,7 +18,7 @@ items:
   # Immich server (server.yaml)
   - image: ghcr.io/immich-app/immich-server:v3.4.0@sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5  # yamllint disable-line rule:line-length
   # Immich machine learning (machine-learning.yaml)
-  - image: ghcr.io/immich-app/immich-machine-learning:v3.1.0@sha256:5a0839dc5303cd7215bcd2180a26aed3af41675aefb3e75e5157e9f10ad16e6e  # yamllint disable-line rule:line-length
+  - image: ghcr.io/immich-app/immich-machine-learning:v3.4.0@sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454  # yamllint disable-line rule:line-length
   # Immich PostgreSQL (postgres.yaml)
   - image: ghcr.io/immich-app/postgres:16-vectorchord0.4.3-pgvector0.8.1-pgvectors0.2.0@sha256:1a078b237c1d9b420b0ee59147386b4aa60d3a07a8e6a402fc84a57e41b043a4  # yamllint disable-line rule:line-length
   # Valkey (valkey.yaml)
