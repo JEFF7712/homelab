@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 from scripts.ci import kube_credentials as credentials
 
 
@@ -77,3 +79,31 @@ printf '%s' "$output" > "$KUBE_TEST_PATH"
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
                 self.assertTrue(record.is_file(), result.stderr)
                 self.assertFalse(Path(record.read_text()).exists())
+
+
+class CiTokenManifestTests(unittest.TestCase):
+    def test_fixed_service_accounts_have_no_long_lived_token_secrets(self) -> None:
+        for namespace, account, filename in (
+            ("home-assistant", "ha-deployer", "deployer-access.yaml"),
+            ("automation", "registry-advance", "registry-advance-access.yaml"),
+        ):
+            with self.subTest(account=account):
+                path = credentials.ROOT / "gitops" / namespace / filename
+                documents = list(yaml.safe_load_all(path.read_text()))
+                accounts = [
+                    item["metadata"]["name"]
+                    for item in documents
+                    if item["kind"] == "ServiceAccount"
+                ]
+                self.assertIn(account, accounts)
+                static_tokens = [
+                    item["metadata"]["name"]
+                    for item in documents
+                    if item["kind"] == "Secret"
+                    and item.get("type") == "kubernetes.io/service-account-token"
+                    and item["metadata"]
+                    .get("annotations", {})
+                    .get("kubernetes.io/service-account.name")
+                    == account
+                ]
+                self.assertEqual(static_tokens, [])
