@@ -12,6 +12,9 @@ from scripts.ci import operation, oplock
 class LockServerTest(unittest.TestCase):
     """A real lock server on loopback, driven by the operation client."""
 
+    server: asyncio.Server
+    address: tuple[str, int]
+
     def setUp(self) -> None:
         self.loop = asyncio.new_event_loop()
         started = threading.Event()
@@ -145,17 +148,19 @@ class LockServerTest(unittest.TestCase):
         holder = socket.create_connection(self.address, timeout=5)
         holder.sendall(b'{"group": "g", "holder": "first"}\n')
         holder.makefile().readline()
-        with self.assertRaisesRegex(oplock.LockError, "waited"):
-            with oplock.held(
+        with (
+            self.assertRaisesRegex(oplock.LockError, "waited"),
+            oplock.held(
                 "g", "second", address=self.address, wait_seconds=1, log=lambda _: None
-            ):
-                self.fail("entered while the lock was held")
+            ),
+        ):
+            self.fail("entered while the lock was held")
         holder.close()
 
     def test_invalid_group_is_refused(self) -> None:
-        with self.assertRaisesRegex(oplock.LockError, "invalid group"):
-            with oplock.held("../etc", "x", address=self.address, log=lambda _: None):
-                self.fail("entered with an invalid group")
+        refused = oplock.held("../etc", "x", address=self.address, log=lambda _: None)
+        with self.assertRaisesRegex(oplock.LockError, "invalid group"), refused:
+            self.fail("entered with an invalid group")
 
 
 class ClientTest(unittest.TestCase):

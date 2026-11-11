@@ -67,9 +67,9 @@ class LockServer:
         try:
             line = await asyncio.wait_for(reader.readline(), timeout=10)
             request = json.loads(line)
-            if not isinstance(request, dict):
-                raise ValueError("request is not an object")
         except (TimeoutError, ValueError):
+            request = None
+        if not isinstance(request, dict):
             writer.close()
             return
         if request.get("status"):
@@ -204,7 +204,9 @@ def held(
 
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description="Per-resource locks for CI operations."
+    )
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=PORT)
     args = parser.parse_args(argv)
