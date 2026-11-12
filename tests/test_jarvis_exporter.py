@@ -5,21 +5,13 @@ from pathlib import Path
 
 import yaml
 
+from tests.gitops_render import config_map
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def load_exporter_module() -> dict:
-    docs = list(
-        yaml.safe_load_all(
-            (REPO_ROOT / "gitops" / "voice" / "exporter.yaml").read_text()
-        )
-    )
-    code = next(
-        doc["data"]["exporter.py"]
-        for doc in docs
-        if doc.get("kind") == "ConfigMap"
-        and doc["metadata"]["name"] == "jarvis-exporter-code"
-    )
+    code = config_map("voice", "jarvis-exporter-code")["data"]["exporter.py"]
     module: dict = {"__name__": "jarvis_exporter_under_test"}
     exec(compile(code, "exporter.py", "exec"), module)  # noqa: S102
     return module
