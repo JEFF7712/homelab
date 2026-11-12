@@ -57,19 +57,24 @@ brightness.
    and BPM.
 4. Last.fm top tags for the track, then the artist, when no genre is known.
 
-The cover palette takes the most vivid well-represented colour of the album
-art (clustered in OKLab) plus a contrasting accent. Skin tones, browns and
-olives (`palette.muddy`) count for 0.15 of their score, so portrait covers do
-not turn the room amber. When no cover colour scores at least
+The cover palette merges colour clusters of similar hue (so a cover-wide
+tint such as Dawn FM's muted blue counts as one colour), then takes the most
+vivid well-represented group plus a contrasting accent. Skin tones, browns
+and olives (`palette.muddy`) count for 0.15 of their score, so portrait
+covers do not turn the room amber. When no group scores at least
 `MIN_COVER_SCORE`, the palette comes from the song's vibe
-(`palette.vibe_palette`): the genre's base hue, moved warmer and lighter for
-positive valence and cooler and darker for negative valence, with energy (or
-tempo) raising saturation and brightness, after the music-colour findings of
-Palmer et al. (PNAS 2013). On output, yellows and oranges get a lightness
-floor so nothing renders as mustard, olive or brown, as Material's
-DislikeAnalyzer does. `sensor.music_director` attributes `metadata_sources`
-and `palette_source` (`cover`, `vibe` or `default`) show what each decision
-used.
+(`palette.vibe_palette`): valence picks a point on a deep blue (sad) to
+purple to deep red (happy) axis, the genre pulls it 30% toward its own hue,
+energy (or tempo) raises saturation and brightness, and the accent is the
+other end of the axis, after Palmer et al. (PNAS 2013).
+
+On output the lights favour vivid blues and reds (`palette.steer`): oranges
+and yellows become reds and corals, yellow-greens become green, and sky blues
+become deep blue. Blues and reds have a lightness ceiling so they stay deep,
+and the yellow-green band keeps a lightness floor so nothing renders as
+mustard or olive, as Material's DislikeAnalyzer does. `sensor.music_director`
+attributes `metadata_sources` and `palette_source` (`cover`, `vibe` or
+`default`) show what each decision used.
 
 ## Effects
 
