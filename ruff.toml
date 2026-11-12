@@ -1,0 +1,8 @@
+# Shared by `just fmt`, `just fmt-check` and scripts/checks/python.sh, which
+# pass the rule selection on the command line. services/* subprojects carry
+# their own [tool.ruff] table in pyproject.toml.
+extend-exclude = [
+  # Vendored from roku-bulb-local; tests/test_roku_bridge_contract.py pins
+  # its hash, so it must stay byte-identical to the upstream revision.
+  "flake/modules/adguard-netbird/roku-bridge.py",
+]

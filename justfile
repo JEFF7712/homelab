@@ -4,6 +4,10 @@
 # sets), from latency-bounded hooks, or outside a checkout carrying the flake.
 set shell := ["bash", "-c", 'if [[ -n "${HOMELAB_DEV_SHELL:-}" || -n "${AGENT_HOOK_ACTIVE:-}" || ! -f flake/flake.nix ]]; then exec bash -c "$@"; fi; exec nix develop ./flake -c bash -c "$@"', "just-shell"]
 
+# Python under the ruff lint and format gates; scripts/checks/python.sh lists
+# the same paths (tests/test_python_gate_paths.py keeps them equal).
+python_paths := "scripts opnsense_reconciler tests flake/modules services/bus-display services/led-matrix gitops/observability/network-monitor"
+
 agent-context *args:
     python -m scripts.agent context {{args}}
 
@@ -41,12 +45,12 @@ check:
     bash scripts/checks/all.sh
 
 fmt:
-    ruff format scripts opnsense_reconciler tests
+    ruff format {{python_paths}}
     nixfmt $(git ls-files -co --exclude-standard '*.nix')
     for stack in tofu/*/; do tofu -chdir="$stack" fmt; done
 
 fmt-check:
-    ruff format --check scripts opnsense_reconciler tests
+    ruff format --check {{python_paths}}
     yamllint gitops home-assistant
     nixfmt --check $(git ls-files -co --exclude-standard '*.nix')
     for stack in tofu/*/; do tofu -chdir="$stack" fmt -check; done

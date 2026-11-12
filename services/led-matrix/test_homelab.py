@@ -5,9 +5,10 @@ from __future__ import annotations
 import time
 import unittest
 
+from PIL import Image
+
 from modes.base import HAState, PlaybackState, RenderContext
 from modes.homelab import QUERIES, HomelabRenderer, PrometheusSource
-from PIL import Image
 
 
 class HomelabDashboardTests(unittest.TestCase):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import socket
 import struct
 import sys
+
 import numpy as np
 
 TARGET_IP = "10.0.40.15"

@@ -38,11 +38,14 @@ class Tron2P(MultiplayerGame):
 
     @staticmethod
     def draw_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
-        draw.line([(cx - 7, cy + 5), (cx - 7, cy - 3), (cx + 1, cy - 3)], fill=(0, 190, 230))
+        draw.line(
+            [(cx - 7, cy + 5), (cx - 7, cy - 3), (cx + 1, cy - 3)], fill=(0, 190, 230)
+        )
         draw.point((cx + 1, cy - 3), fill=(255, 255, 255))
-        draw.line([(cx + 7, cy - 5), (cx + 7, cy + 3), (cx - 2, cy + 3)], fill=(220, 110, 0))
+        draw.line(
+            [(cx + 7, cy - 5), (cx + 7, cy + 3), (cx - 2, cy + 3)], fill=(220, 110, 0)
+        )
         draw.point((cx - 2, cy + 3), fill=(255, 180, 50))
-
 
     def __init__(self, solo_vs_ai: bool = False, winning_rounds: int = 2) -> None:
         super().__init__(solo_vs_ai=solo_vs_ai)
@@ -66,7 +69,9 @@ class Tron2P(MultiplayerGame):
         self.step_interval = 0.075  # seconds per step (~13 moves/sec)
         self.round_delay = 0.0
 
-        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
+        self.particles: list[
+            tuple[float, float, float, float, tuple[int, int, int], float]
+        ] = []
 
         self.reset()
 
@@ -113,7 +118,9 @@ class Tron2P(MultiplayerGame):
         for px, py, pvx, pvy, color, life in self.particles:
             life -= dt
             if life > 0:
-                new_particles.append((px + pvx * dt, py + pvy * dt, pvx, pvy, color, life))
+                new_particles.append(
+                    (px + pvx * dt, py + pvy * dt, pvx, pvy, color, life)
+                )
         self.particles = new_particles
 
         if self.is_game_over():
@@ -140,7 +147,11 @@ class Tron2P(MultiplayerGame):
                     break
         else:
             for direction in ("up", "down", "left", "right"):
-                if direction in p1_inputs and OPPOSITE[direction] != self.p1_dir and direction != self.p1_dir:
+                if (
+                    direction in p1_inputs
+                    and OPPOSITE[direction] != self.p1_dir
+                    and direction != self.p1_dir
+                ):
                     self.p1_next_dir = direction
                     break
 
@@ -154,7 +165,11 @@ class Tron2P(MultiplayerGame):
                         break
             else:
                 for direction in ("up", "down", "left", "right"):
-                    if direction in p2_inputs and OPPOSITE[direction] != self.p2_dir and direction != self.p2_dir:
+                    if (
+                        direction in p2_inputs
+                        and OPPOSITE[direction] != self.p2_dir
+                        and direction != self.p2_dir
+                    ):
                         self.p2_next_dir = direction
                         break
 
@@ -183,7 +198,11 @@ class Tron2P(MultiplayerGame):
 
         if (
             self.p2_dir in safe_dirs
-            and (0 < front_x < 63 and 0 < front_y < 63 and self.grid[front_y, front_x] == 0)
+            and (
+                0 < front_x < 63
+                and 0 < front_y < 63
+                and self.grid[front_y, front_x] == 0
+            )
             and random.random() < 0.85
         ):
             self.p2_next_dir = self.p2_dir
@@ -221,12 +240,18 @@ class Tron2P(MultiplayerGame):
 
         # Check P1 collision
         p1_hit = False
-        if not (0 < next_p1[0] < 63 and 0 < next_p1[1] < 63) or self.grid[next_p1[1], next_p1[0]] != 0:
+        if (
+            not (0 < next_p1[0] < 63 and 0 < next_p1[1] < 63)
+            or self.grid[next_p1[1], next_p1[0]] != 0
+        ):
             p1_hit = True
 
         # Check P2 collision
         p2_hit = False
-        if not (0 < next_p2[0] < 63 and 0 < next_p2[1] < 63) or self.grid[next_p2[1], next_p2[0]] != 0:
+        if (
+            not (0 < next_p2[0] < 63 and 0 < next_p2[1] < 63)
+            or self.grid[next_p2[1], next_p2[0]] != 0
+        ):
             p2_hit = True
 
         if p1_hit and p2_hit:
@@ -254,7 +279,6 @@ class Tron2P(MultiplayerGame):
             self.p2_pos = next_p2
             self.grid[self.p1_pos[1], self.p1_pos[0]] = 1
             self.grid[self.p2_pos[1], self.p2_pos[0]] = 2
-
 
     def _explode(self, x: int, y: int, color: tuple[int, int, int]) -> None:
         for _ in range(24):
@@ -300,4 +324,6 @@ class Tron2P(MultiplayerGame):
             draw.rectangle([40 + i * 4, 2, 42 + i * 4, 3], fill=(255, 145, 0))
 
     def get_status_text(self) -> str:
-        return f"ROUNDS: P1 {self.p1_rounds} - {self.p2_rounds} P2 (R{self.current_round})"
+        return (
+            f"ROUNDS: P1 {self.p1_rounds} - {self.p2_rounds} P2 (R{self.current_round})"
+        )
