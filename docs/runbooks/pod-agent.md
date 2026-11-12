@@ -11,6 +11,22 @@ token rotation races.
 
 ## Layout
 
+ChatGPT catalog export runs daily at 08:15 America/Chicago through
+`pod-agent-feed`. It shares production token custody and writes an atomic
+OpenAI Stable CSV gzip snapshot to `/data/chatgpt-feeds/chatgpt.csv.gz`.
+The dedicated server mounts only that directory, read-only, and receives no
+secrets. It serves `https://distrojeff.com/feeds/chatgpt.csv.gz` through an
+exact-path tunnel rule before the storefront catch-all. Unknown shipping is
+omitted, checkout and Ads are disabled, and removed variants are explicitly
+ineligible for search. The server returns 503 when the file is over 36 hours
+old; the application watchdog monitors the daily export task.
+
+After the application image containing `pod-agent feed` is released and
+promoted, run the CronJob once and check its audit result, readiness, and the
+public gzip CSV before entering the URL in Business Hub. Account-side ingestion
+is a separate check. Rollback removes the path rule and feed workloads; existing
+Etsy listings and the main storefront are unaffected.
+
 - `gitops/pod-agent/namespace.yaml` — `pod-agent` namespace.
 - `gitops/pod-agent/volume.yaml` — PV `pod-agent-data-nvme`
   (`/persist/pod-agent` on `homelab-01`, 5Gi) + bound PVC. Same pattern as
@@ -119,6 +135,13 @@ grant is not a base-image read grant. For a 401, verify the exact repository's
 Woodpecker secret against the intended Zot identity before rotating it. Follow
 [registry credential rotation](local-registry.md#rotating-a-publisher-credential)
 for recovery; do not restore the retired laptop/GitHub publication workflow.
+
+Application repository 19 uses the push-scoped `pod-agent_registry_password`
+secret for the `publisher-pod-agent` identity. The homelab's separate
+`registry_pod_agent_publisher_auth_file` secret contains OCI auth for that same
+identity. A rotation must update both bindings while preserving their event and
+image filters. `registry-provision-publisher` updates the homelab binding and
+the backing htpasswd secret; the application password must also be updated.
 
 ### 3. Seed the volume (before Flux enables the namespace)
 

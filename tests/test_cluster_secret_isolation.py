@@ -167,6 +167,43 @@ class ClusterSecretIsolation(unittest.TestCase):
         self.assertNotIn("DARKBIT_PRINTIFY_API_TOKEN", exposure)
         self.assertEqual(exposure["DISCORD_OWNER_USER_IDS"], {"discord-bot"})
 
+    def test_public_product_feed_has_no_credentials_or_database_mount(self) -> None:
+        deployment = next(
+            d
+            for d in self.pod
+            if d["kind"] == "Deployment" and d["metadata"]["name"] == "pod-agent-feed"
+        )
+        spec = deployment["spec"]["template"]["spec"]
+        self.assertFalse(spec["automountServiceAccountToken"])
+        self.assertNotIn("initContainers", spec)
+        self.assertEqual(len(spec["containers"]), 1)
+        container = spec["containers"][0]
+        self.assertFalse(container.get("envFrom"))
+        self.assertFalse(container.get("env"))
+        self.assertEqual(
+            container["volumeMounts"],
+            [
+                {
+                    "name": "data",
+                    "mountPath": "/feeds",
+                    "subPath": "chatgpt-feeds",
+                    "readOnly": True,
+                }
+            ],
+        )
+        self.assertTrue(container["securityContext"]["readOnlyRootFilesystem"])
+        self.assertFalse(container["securityContext"]["allowPrivilegeEscalation"])
+        feed_secret = next(
+            d
+            for d in self.pod
+            if d["kind"] == "ExternalSecret"
+            and d["metadata"]["name"] == "pod-agent-feed-env"
+        )
+        self.assertEqual(
+            {item["secretKey"] for item in feed_secret["spec"]["data"]},
+            {"DISTROJEFF_ETSY_KEYSTRING", "DISTROJEFF_ETSY_SHARED_SECRET"},
+        )
+
     def test_cnpg_local_promotion_removes_only_after_desired_refs_are_local(
         self,
     ) -> None:

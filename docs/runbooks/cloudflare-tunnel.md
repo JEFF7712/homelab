@@ -67,6 +67,7 @@ Cloudflare Access public bypass configured.
 24. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
 25. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
 26. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
+27. `distrojeff.com -> http://pod-agent-feed.pod-agent:80` (only `^/feeds/chatgpt[.]csv[.]gz$`)
 27. `distrojeff.com -> http://distrojeff-site-svc.distrojeff:80`
 28. `apollinestore.com -> http://apolline-svc.apolline:80`
 29. `darkbitapparel.com -> http://darkbit-svc.darkbit:80`
