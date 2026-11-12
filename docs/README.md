@@ -78,6 +78,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Jarvis voice runbook](runbooks/jarvis-voice.md)
 - [Kiosk display](runbooks/kiosk-display.md)
 - [Roku Bulb Bridge Architecture](runbooks/roku-bridge-architecture.md)
+- [Shared music mode](runbooks/shared-music-mode.md)
 - [Web analytics (Umami)](runbooks/analytics.md)
 - [Media download-chain credentials](runbooks/arr-credentials.md)
 - [Lidarr queue hygiene](runbooks/arr-queue-hygiene.md)

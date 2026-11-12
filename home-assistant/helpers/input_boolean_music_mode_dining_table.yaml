@@ -1,0 +1,3 @@
+name: 'Music Mode: Dining Table'
+icon: mdi:ceiling-light-multiple
+entity_id: input_boolean.music_mode_dining_table

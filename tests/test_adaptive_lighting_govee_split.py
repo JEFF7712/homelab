@@ -63,10 +63,27 @@ class AdaptiveLightingSwitchSplitTests(unittest.TestCase):
             lights = data.get("lights")
             if not isinstance(switch, str) or not lights:
                 continue
+            if "{{" in switch:
+                # Templated calls take the pair from an area map, checked below.
+                continue
             self.assertIn(switch, SWITCH_LIGHTS, where)
             self.assertLessEqual(set(lights), SWITCH_LIGHTS[switch], where)
             checked += 1
         self.assertGreater(checked, 0)
+
+    def test_shared_music_area_map_pairs_lights_with_their_switch(self) -> None:
+        script = yaml.safe_load(
+            (HA / "scripts/shared_music_area.yaml").read_text(encoding="utf-8")
+        )
+        areas = script["sequence"][0]["variables"]["areas"]
+        managed = set().union(*SWITCH_LIGHTS.values())
+        for name, area in areas.items():
+            switch = area["adaptive"]
+            if switch:
+                self.assertIn(switch, SWITCH_LIGHTS, name)
+                self.assertLessEqual(set(area["lights"]), SWITCH_LIGHTS[switch], name)
+            else:
+                self.assertFalse(set(area["lights"]) & managed, name)
 
     def test_late_night_sleep_mode_covers_both_entries(self) -> None:
         data = yaml.safe_load(

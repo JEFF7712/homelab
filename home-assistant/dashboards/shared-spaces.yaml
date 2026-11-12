@@ -546,6 +546,55 @@ views:
             features:
               - type: toggle
             type: tile
+          - entity: input_boolean.music_mode_led_strip
+            name: LED Strip
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
+          - entity: input_boolean.music_mode_kitchen_ceiling
+            name: Kitchen Ceiling
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
+          - entity: input_boolean.music_mode_dining_table
+            name: Dining Table
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
+          - entity: input_boolean.music_mode_floor_lamp
+            name: Floor Lamp
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
+          - entity: input_boolean.music_mode_tulip_lamp
+            name: Tulip Lamp
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
+          - entity: input_boolean.music_mode_ceiling_strip
+            name: Ceiling Strip
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
+          - entity: input_boolean.music_mode_mushroom_lamp
+            name: Mushroom Lamp
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: 6
+            type: tile
           - entity: switch.shared_spaces_sleep_mode
             name: Sleep Mode
             features:

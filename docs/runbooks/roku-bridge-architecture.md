@@ -179,10 +179,11 @@ Live LedFx objects. The bedroom trio lives on the **nas-01** instance
 - virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1)
 - scene `bedroom-music-mode` (energy)
 
-The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) is
-reserved for future LED strips. Shared bulbs are owned by Home Assistant's
-`shared_music_mode` automation and `shared_music_album_color` script: one
-album-art colour per track, gated by `input_boolean.shared_music_mode`.
+The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) drives
+only the living room WLED strip (virtual `living-room-led-strip`), set per
+track by the `music_director` integration. Shared bulbs are owned by Home
+Assistant's `shared_music_mode` automation and `shared_music_area` script;
+see [Shared music mode](shared-music-mode.md).
 
 The obsolete `ledfx-zigbee-bridge` has been removed from the gateway, along
 with its UDP 9001 firewall allowance. Its LedFx `music-mode-bulbs` virtual was

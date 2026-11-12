@@ -1,0 +1,3 @@
+name: 'Music Mode: LED Strip'
+icon: mdi:led-strip-variant
+entity_id: input_boolean.music_mode_led_strip

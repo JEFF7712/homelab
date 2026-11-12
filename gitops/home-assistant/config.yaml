@@ -25,17 +25,7 @@ data:
     frontend:
       themes: !include_dir_merge_named themes
     rest_command:
-      # Shared-spaces LedFx (homelab-05) drives the shared music mode only.
-      ledfx_activate_scene:
-        url: "http://10.0.30.15:8888/api/scenes"
-        method: put
-        content_type: "application/json"
-        payload: '{"id": "{{ scene_id }}", "action": "activate"}'
-      ledfx_deactivate_scene:
-        url: "http://10.0.30.15:8888/api/scenes"
-        method: put
-        content_type: "application/json"
-        payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'
+      # Shared-spaces LedFx (homelab-05) is driven by music_director.
       # Bedroom LedFx (nas-01) is a separate instance with its own audio tap. Kept
       # deliberately separate so nothing in shared spaces can reach bedroom state.
       ledfx_bedroom_activate_scene:
@@ -320,6 +310,25 @@ data:
                   entity_id:
                     - switch.adaptive_lighting_all_dimmable_lights_adapt_color
                     - switch.adaptive_lighting_govee_dining_bulbs_adapt_color
+    # Shared music mode: per-track album-art palette and LedFx effect for the
+    # living room strip; the shared_music_mode automation paints bulb areas from
+    # sensor.music_director. Area order sets which shade each area gets.
+    music_director:
+      player: media_player.homelab_05_satellite_media_player_2
+      spotify: media_player.spotify_rupan
+      enabled: input_boolean.shared_music_mode
+      strip: input_boolean.music_mode_led_strip
+      ledfx_url: http://10.0.30.15:8888
+      ledfx_virtual: living-room-led-strip
+      library_url: http://navidrome-lookup.media.svc.cluster.local:4534
+      areas:
+        - kitchen_ceiling
+        - dining_table
+        - floor_lamp
+        - tulip_lamp
+        - ceiling_strip
+        - mushroom_lamp
+
     input_boolean:
       bedroom_matrix_power:
         name: Bedroom Matrix Display
@@ -2422,3 +2431,981 @@ data:
         }
       }
     }
+  component.music_director.__init__.py: |
+    """music_director: album-art colours and genre-aware LedFx effects per track."""
+
+    from __future__ import annotations
+
+    import os
+
+    import homeassistant.helpers.config_validation as cv
+    import voluptuous as vol
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+    from homeassistant.core import Event, HomeAssistant, ServiceCall
+    from homeassistant.helpers.typing import ConfigType
+
+    from .director import Director, DirectorConfig
+
+    DOMAIN = "music_director"
+
+    CONFIG_SCHEMA = vol.Schema(
+        {
+            DOMAIN: vol.Schema(
+                {
+                    vol.Required("player"): cv.entity_id,
+                    vol.Required("spotify"): cv.entity_id,
+                    vol.Required("enabled"): cv.entity_id,
+                    vol.Required("strip"): cv.entity_id,
+                    vol.Required("ledfx_url"): cv.url,
+                    vol.Required("ledfx_virtual"): cv.string,
+                    vol.Required("library_url"): cv.url,
+                    vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
+                }
+            )
+        },
+        extra=vol.ALLOW_EXTRA,
+    )
+
+
+    async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+        conf = config[DOMAIN]
+        director = Director(
+            hass,
+            DirectorConfig(
+                player=conf["player"],
+                spotify=conf["spotify"],
+                enabled=conf["enabled"],
+                strip=conf["strip"],
+                ledfx_url=conf["ledfx_url"].rstrip("/"),
+                ledfx_virtual=conf["ledfx_virtual"],
+                library_url=conf["library_url"].rstrip("/"),
+                areas=tuple(conf["areas"]),
+                lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
+            ),
+        )
+        hass.data[DOMAIN] = director
+
+        async def refresh(_call: ServiceCall) -> None:
+            director.schedule(force=True)
+
+        hass.services.async_register(DOMAIN, "refresh", refresh)
+
+        if hass.is_running:
+            director.async_start()
+        else:
+
+            async def start(_event: Event) -> None:
+                director.async_start()
+
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start)
+        return True
+  component.music_director.director.py: |
+    """Home Assistant side of music_director: watch the player, gather metadata,
+    decide a palette and LedFx effect once per track, and publish the result.
+
+    The LED strip is driven here through the LedFx API. Bulb areas are painted
+    by the shared music mode automation from sensor.music_director, so all
+    snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
+    """
+
+    from __future__ import annotations
+
+    import asyncio
+    import io
+    import logging
+    from collections import OrderedDict
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    import aiohttp
+    from homeassistant.const import STATE_ON
+    from homeassistant.core import (
+        Event,
+        EventStateChangedData,
+        HomeAssistant,
+        State,
+        callback,
+    )
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+    from homeassistant.helpers.event import async_track_state_change_event
+
+    from .metadata import (
+        TrackInfo,
+        apply_lastfm,
+        apply_library,
+        apply_reccobeats,
+        same_track,
+        spotify_track_id,
+    )
+    from .palette import Palette, area_colors, extract_palette, genre_palette, gradient
+    from .rules import choose_effect, classify, effect_config
+
+    _LOGGER = logging.getLogger(__name__)
+
+    SENSOR = "sensor.music_director"
+    RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
+    LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
+    HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
+    SPOTIFY_ATTEMPTS = 3
+    SPOTIFY_RETRY_SECONDS = 1.5
+    ART_SIZE = 48
+    MAX_ART_BYTES = 5_000_000
+    CACHE_SIZE = 256
+
+
+    @dataclass(frozen=True)
+    class DirectorConfig:
+        player: str
+        spotify: str
+        enabled: str
+        strip: str
+        ledfx_url: str
+        ledfx_virtual: str
+        library_url: str
+        areas: tuple[str, ...]
+        lastfm_key: str | None = field(default=None, repr=False)
+
+
+    @dataclass(frozen=True)
+    class Decision:
+        title: str
+        artist: str
+        info: TrackInfo
+        palette: Palette
+        family: str
+        effect: str
+        config: dict[str, Any]
+
+
+    def _track_key(state: State | None) -> str | None:
+        if state is None or state.state != "playing":
+            return None
+        title = state.attributes.get("media_title")
+        if not title:
+            return None
+        artist = state.attributes.get("media_artist") or ""
+        album = state.attributes.get("media_album_name") or ""
+        return f"{artist}\n{title}\n{album}"
+
+
+    def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
+        from PIL import Image  # Home Assistant ships Pillow; import off the event loop.
+
+        with Image.open(io.BytesIO(data)) as image:
+            raw = image.convert("RGB").resize((ART_SIZE, ART_SIZE)).tobytes()
+        return [(raw[i], raw[i + 1], raw[i + 2]) for i in range(0, len(raw), 3)]
+
+
+    def _cover_palette(data: bytes) -> Palette | None:
+        return extract_palette(_decode_pixels(data))
+
+
+    class Director:
+        def __init__(self, hass: HomeAssistant, config: DirectorConfig) -> None:
+            self.hass = hass
+            self.config = config
+            self._session = async_get_clientsession(hass)
+            self._cache: OrderedDict[str, tuple[TrackInfo, Palette | None]] = OrderedDict()
+            self._task: asyncio.Task[None] | None = None
+            self._track_key: str | None = None
+            self._last_effect: str | None = None
+            self._decision: Decision | None = None
+
+        @callback
+        def async_start(self) -> None:
+            async_track_state_change_event(
+                self.hass,
+                [self.config.player, self.config.enabled, self.config.strip],
+                self._on_change,
+            )
+            if self._is_on(self.config.enabled):
+                self.schedule(force=True)
+
+        def _is_on(self, entity_id: str) -> bool:
+            state = self.hass.states.get(entity_id)
+            return state is not None and state.state == STATE_ON
+
+        @callback
+        def _on_change(self, event: Event[EventStateChangedData]) -> None:
+            entity_id = event.data["entity_id"]
+            new_state = event.data["new_state"]
+            if entity_id == self.config.enabled:
+                if new_state is not None and new_state.state == STATE_ON:
+                    self.schedule(force=True)
+                else:
+                    self._cancel()
+                    self.hass.async_create_task(self._stop())
+                return
+            if not self._is_on(self.config.enabled):
+                return
+            if entity_id == self.config.strip:
+                if new_state is not None and new_state.state == STATE_ON:
+                    if self._decision is not None:
+                        self.hass.async_create_task(self._push_strip(self._decision))
+                else:
+                    self.hass.async_create_task(self._clear_strip())
+                return
+            key = _track_key(new_state)
+            if key is not None and key != self._track_key:
+                self.schedule(force=False)
+
+        def _cancel(self) -> None:
+            if self._task is not None and not self._task.done():
+                self._task.cancel()
+            self._task = None
+
+        @callback
+        def schedule(self, force: bool) -> None:
+            self._cancel()
+            self._task = self.hass.async_create_task(self._run(force))
+
+        async def _run(self, force: bool) -> None:
+            player = self.hass.states.get(self.config.player)
+            key = _track_key(player)
+            if key is None:
+                if self._decision is not None and not force:
+                    return
+                decision = self._idle_decision()
+                self._track_key = None
+            else:
+                if key == self._track_key and not force:
+                    return
+                self._track_key = key
+                assert player is not None
+                decision = await self._decide(player, key)
+            self._decision = decision
+            self._last_effect = decision.effect
+            self._publish(decision)
+            if self._is_on(self.config.strip):
+                await self._push_strip(decision)
+
+        def _idle_decision(self) -> Decision:
+            info = TrackInfo()
+            palette = genre_palette(())
+            return Decision(
+                "", "", info, palette, "default", "energy", effect_config("energy", palette)
+            )
+
+        async def _decide(self, player: State, key: str) -> Decision:
+            cached = self._cache.get(key)
+            if cached is None:
+                info, cover = await asyncio.gather(
+                    self._gather_info(player), self._fetch_cover(player)
+                )
+                cached = (info, cover)
+                self._cache[key] = cached
+                while len(self._cache) > CACHE_SIZE:
+                    self._cache.popitem(last=False)
+            else:
+                self._cache.move_to_end(key)
+            info, cover = cached
+            palette = cover or genre_palette(info.genres)
+            family = classify(info.features())
+            effect = choose_effect(family, key, self._last_effect)
+            title = player.attributes.get("media_title") or ""
+            artist = player.attributes.get("media_artist") or ""
+            _LOGGER.info(
+                "%s - %s: %s/%s, palette %s (hue %.0f), sources %s",
+                artist,
+                title,
+                family,
+                effect,
+                palette.source,
+                palette.hue,
+                ",".join(info.sources) or "none",
+            )
+            return Decision(
+                title, artist, info, palette, family, effect, effect_config(effect, palette)
+            )
+
+        async def _get_json(self, url: str, params: dict[str, str], label: str) -> Any:
+            try:
+                async with self._session.get(
+                    url, params=params, timeout=HTTP_TIMEOUT
+                ) as response:
+                    if response.status != 200:
+                        _LOGGER.debug("%s lookup returned HTTP %s", label, response.status)
+                        return None
+                    return await response.json(content_type=None)
+            except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+                # The exception text can carry request URLs, and Last.fm's has the key.
+                _LOGGER.debug("%s lookup failed: %s", label, type(error).__name__)
+                return None
+
+        async def _spotify_id(self, title: str, artist: str) -> str | None:
+            for attempt in range(SPOTIFY_ATTEMPTS):
+                state = self.hass.states.get(self.config.spotify)
+                if state is not None and same_track(
+                    title,
+                    artist,
+                    state.attributes.get("media_title") or "",
+                    state.attributes.get("media_artist") or "",
+                ):
+                    return spotify_track_id(state.attributes.get("media_content_id"))
+                if attempt == SPOTIFY_ATTEMPTS - 1:
+                    break
+                try:
+                    await self.hass.services.async_call(
+                        "homeassistant",
+                        "update_entity",
+                        {"entity_id": self.config.spotify},
+                        blocking=True,
+                    )
+                except Exception as error:  # noqa: BLE001 - polling is best effort
+                    _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
+                await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+            return None
+
+        async def _gather_info(self, player: State) -> TrackInfo:
+            info = TrackInfo()
+            title = player.attributes.get("media_title") or ""
+            artist = player.attributes.get("media_artist") or ""
+            duration = player.attributes.get("media_duration")
+            spotify_id = await self._spotify_id(title, artist)
+            if spotify_id:
+                apply_reccobeats(
+                    info,
+                    await self._get_json(RECCOBEATS_URL, {"ids": spotify_id}, "ReccoBeats"),
+                )
+            params = {"artist": artist, "title": title, "isrc": info.isrc or ""}
+            if isinstance(duration, (int, float)) and duration > 0:
+                params["duration"] = str(duration)
+            apply_library(
+                info,
+                await self._get_json(
+                    f"{self.config.library_url}/lookup", params, "Library"
+                ),
+            )
+            if not info.genres and self.config.lastfm_key:
+                for method, extra in (
+                    ("track.gettoptags", {"track": title}),
+                    ("artist.gettoptags", {}),
+                ):
+                    body = await self._get_json(
+                        LASTFM_URL,
+                        {
+                            "method": method,
+                            "artist": artist,
+                            "autocorrect": "1",
+                            "api_key": self.config.lastfm_key,
+                            "format": "json",
+                            **extra,
+                        },
+                        "Last.fm",
+                    )
+                    apply_lastfm(info, body, artist)
+                    if info.genres:
+                        break
+            return info
+
+        async def _fetch_cover(self, player: State) -> Palette | None:
+            picture = player.attributes.get("entity_picture")
+            if not picture:
+                return None
+            if not picture.startswith("http"):
+                picture = f"http://127.0.0.1:{self.hass.http.server_port}{picture}"
+            try:
+                async with self._session.get(picture, timeout=HTTP_TIMEOUT) as response:
+                    if response.status != 200:
+                        return None
+                    data = await response.content.read(MAX_ART_BYTES)
+                return await self.hass.async_add_executor_job(_cover_palette, data)
+            except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as error:
+                _LOGGER.debug("Cover art unavailable: %s", type(error).__name__)
+                return None
+
+        def _publish(self, decision: Decision) -> None:
+            colours = area_colors(decision.palette, len(self.config.areas))
+            info = decision.info
+            self.hass.states.async_set(
+                SENSOR,
+                decision.effect,
+                {
+                    "friendly_name": "Music Director",
+                    "icon": "mdi:palette",
+                    "title": decision.title,
+                    "artist": decision.artist,
+                    "genres": list(info.genres),
+                    "bpm": round(info.bpm) if info.bpm else None,
+                    "energy": info.energy,
+                    "family": decision.family,
+                    "effect": decision.effect,
+                    "palette_source": decision.palette.source,
+                    "metadata_sources": list(info.sources),
+                    "area_colors": {
+                        area: list(colour)
+                        for area, colour in zip(self.config.areas, colours, strict=True)
+                    },
+                    "gradient": gradient(decision.palette),
+                },
+            )
+
+        async def _ledfx(self, method: str, payload: dict[str, Any] | None = None) -> None:
+            url = (
+                f"{self.config.ledfx_url}/api/virtuals/{self.config.ledfx_virtual}/effects"
+            )
+            try:
+                async with self._session.request(
+                    method, url, json=payload, timeout=HTTP_TIMEOUT
+                ) as response:
+                    if response.status >= 400:
+                        _LOGGER.warning(
+                            "LedFx %s returned HTTP %s: %s",
+                            method,
+                            response.status,
+                            (await response.text())[:200],
+                        )
+            except (aiohttp.ClientError, TimeoutError) as error:
+                _LOGGER.warning("LedFx %s failed: %s", method, error)
+
+        async def _push_strip(self, decision: Decision) -> None:
+            await self._ledfx("POST", {"type": decision.effect, "config": decision.config})
+
+        async def _clear_strip(self) -> None:
+            await self._ledfx("DELETE")
+
+        async def _stop(self) -> None:
+            self._track_key = None
+            self._decision = None
+            self.hass.states.async_set(
+                SENSOR, "off", {"friendly_name": "Music Director", "icon": "mdi:palette"}
+            )
+            await self._clear_strip()
+  component.music_director.manifest.json: |
+    {
+      "domain": "music_director",
+      "name": "Music Director",
+      "codeowners": ["@JEFF7712"],
+      "dependencies": ["http"],
+      "documentation": "https://gitlab.com/JEFF7712/homelab",
+      "integration_type": "service",
+      "iot_class": "local_push",
+      "requirements": [],
+      "version": "0.1.0"
+    }
+  component.music_director.metadata.py: |
+    """Track metadata parsing and merging for music_director.
+
+    Pure functions over the JSON bodies of the local library lookup, ReccoBeats
+    and Last.fm, so the precedence rules can be tested without the network.
+    """
+
+    from __future__ import annotations
+
+    import re
+    import unicodedata
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    from .rules import Features
+
+    LASTFM_MIN_TAG_COUNT = 10
+    LASTFM_MAX_TAGS = 5
+    SPOTIFY_TRACK_URI = re.compile(r"^spotify:track:([A-Za-z0-9]{22})$")
+    # Tags that describe listening habits or eras rather than a genre.
+    LASTFM_NOISE = re.compile(
+        r"^(seen live|favou?rites?|my favou?rites?|love|loved|awesome|beautiful|"
+        r"cool|best|amazing|\d{2,4}s?|under \d+ listeners)$"
+    )
+
+
+    def normalize(value: str) -> str:
+        decomposed = unicodedata.normalize("NFKD", value)
+        ascii_only = decomposed.encode("ascii", "ignore").decode("ascii")
+        return re.sub(r"[^a-z0-9]", "", ascii_only.lower())
+
+
+    def same_track(title: str, artist: str, other_title: str, other_artist: str) -> bool:
+        """True when two players report the same song; Spotify Connect titles can
+        differ from the account entity only in punctuation and featuring."""
+        if not title or not other_title:
+            return False
+        first, second = normalize(title), normalize(other_title)
+        if first != second and not (first.startswith(second) or second.startswith(first)):
+            return False
+        a, b = normalize(artist), normalize(other_artist)
+        return not a or not b or a in b or b in a
+
+
+    def spotify_track_id(content_id: str | None) -> str | None:
+        match = SPOTIFY_TRACK_URI.match(content_id or "")
+        return match.group(1) if match else None
+
+
+    @dataclass
+    class TrackInfo:
+        """Everything known about the playing track, with where it came from."""
+
+        genres: tuple[str, ...] = ()
+        bpm: float | None = None
+        energy: float | None = None
+        danceability: float | None = None
+        acousticness: float | None = None
+        isrc: str | None = None
+        sources: list[str] = field(default_factory=list)
+
+        def features(self) -> Features:
+            return Features(
+                genres=self.genres,
+                bpm=self.bpm,
+                energy=self.energy,
+                danceability=self.danceability,
+                acousticness=self.acousticness,
+            )
+
+
+    def _number(value: Any) -> float | None:
+        return float(value) if isinstance(value, (int, float)) and value > 0 else None
+
+
+    def apply_reccobeats(info: TrackInfo, body: Any) -> None:
+        content = body.get("content") if isinstance(body, dict) else None
+        if not content or not isinstance(content[0], dict):
+            return
+        item = content[0]
+        info.bpm = _number(item.get("tempo")) or info.bpm
+        info.energy = _number(item.get("energy"))
+        info.danceability = _number(item.get("danceability"))
+        info.acousticness = _number(item.get("acousticness"))
+        isrc = item.get("isrc")
+        if isinstance(isrc, str) and isrc:
+            info.isrc = isrc.upper()
+        info.sources.append("reccobeats")
+
+
+    def apply_library(info: TrackInfo, body: Any) -> None:
+        match = body.get("match") if isinstance(body, dict) else None
+        if not isinstance(match, dict):
+            return
+        genres = tuple(g for g in match.get("genres") or () if isinstance(g, str) and g)
+        if genres:
+            info.genres = genres
+        if info.bpm is None:
+            info.bpm = _number(match.get("bpm"))
+        info.sources.append(f"library:{body.get('matched_by') or 'match'}")
+
+
+    def lastfm_genres(body: Any, artist: str = "") -> tuple[str, ...]:
+        tags = (
+            (body or {}).get("toptags", {}).get("tag", []) if isinstance(body, dict) else []
+        )
+        if isinstance(tags, dict):
+            tags = [tags]
+        artist_key = normalize(artist)
+        genres: list[str] = []
+        for tag in tags:
+            name = str(tag.get("name", "")).strip().lower()
+            try:
+                count = int(tag.get("count", 0))
+            except (TypeError, ValueError):
+                count = 0
+            if count < LASTFM_MIN_TAG_COUNT or not name or LASTFM_NOISE.match(name):
+                continue
+            if artist_key and normalize(name) == artist_key:
+                continue
+            if name not in genres:
+                genres.append(name)
+            if len(genres) == LASTFM_MAX_TAGS:
+                break
+        return tuple(genres)
+
+
+    def apply_lastfm(info: TrackInfo, body: Any, artist: str) -> None:
+        genres = lastfm_genres(body, artist)
+        if genres and not info.genres:
+            info.genres = genres
+            info.sources.append("lastfm")
+  component.music_director.palette.py: |
+    """Album-art palettes for music lighting.
+
+    Pure functions only: callers decode the image and pass RGB pixels. Colours
+    are clustered and shaded in OKLab/OKLCH so hue shifts and lightness ramps
+    look even on LEDs. Mostly grey or monochrome covers yield no palette, and
+    the caller falls back to a genre hue.
+    """
+
+    from __future__ import annotations
+
+    import math
+    import random
+    from dataclasses import dataclass
+
+    RGB = tuple[int, int, int]
+    Lab = tuple[float, float, float]
+
+    CLUSTERS = 6
+    ITERATIONS = 12
+    VIVID_CHROMA = 0.06
+    ACCENT_MIN_HUE_GAP = 40.0
+    LED_LIGHTNESS = 0.70
+    LED_MAX_CHROMA = 0.22
+
+    # Hues (OKLCH degrees) for covers without a usable colour.
+    GENRE_HUES: tuple[tuple[tuple[str, ...], float], ...] = (
+        (("hip hop", "hip-hop", "rap", "trap", "drill", "grime"), 300.0),
+        (("r&b", "rnb", "soul", "neo soul", "funk"), 350.0),
+        (("house", "techno", "edm", "electro", "electronic", "dance", "trance"), 215.0),
+        (("metal", "rock", "punk", "grunge"), 30.0),
+        (("pop",), 0.0),
+        (("jazz", "blues", "swing", "big band"), 70.0),
+        (("reggae", "reggaeton", "latin", "dancehall", "afro"), 140.0),
+        (("ambient", "classical", "acoustic", "folk", "soundtrack", "score"), 180.0),
+    )
+    DEFAULT_HUE = 265.0
+
+
+    @dataclass(frozen=True)
+    class Palette:
+        """A primary hue with an optional contrasting accent, in OKLCH degrees."""
+
+        hue: float
+        chroma: float
+        accent_hue: float | None
+        source: str
+
+
+    def _to_linear(channel: float) -> float:
+        c = channel / 255.0
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+    def _to_srgb(channel: float) -> float:
+        if channel <= 0.0031308:
+            return 12.92 * channel
+        return 1.055 * channel ** (1 / 2.4) - 0.055
+
+
+    def rgb_to_oklab(rgb: RGB) -> Lab:
+        r, g, b = (_to_linear(c) for c in rgb)
+        l_ = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+        m_ = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+        s_ = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+        l_, m_, s_ = (math.copysign(abs(v) ** (1 / 3), v) for v in (l_, m_, s_))
+        return (
+            0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+            1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+            0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+        )
+
+
+    def _oklab_to_linear(lab: Lab) -> tuple[float, float, float]:
+        lightness, a, b = lab
+        l_ = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+        m_ = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+        s_ = (lightness - 0.0894841775 * a - 1.2914855480 * b) ** 3
+        return (
+            4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
+            -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
+            -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_,
+        )
+
+
+    def oklch_to_rgb(lightness: float, chroma: float, hue: float) -> RGB:
+        """Convert OKLCH to sRGB, lowering chroma until the colour is in gamut."""
+        radians = math.radians(hue)
+        linear = _oklab_to_linear((lightness, 0.0, 0.0))
+        for _ in range(40):
+            candidate = _oklab_to_linear(
+                (lightness, chroma * math.cos(radians), chroma * math.sin(radians))
+            )
+            if all(-1e-4 <= c <= 1.0001 for c in candidate):
+                linear = candidate
+                break
+            chroma *= 0.92
+        channels = (min(1.0, max(0.0, _to_srgb(max(0.0, c)))) for c in linear)
+        r, g, b = (round(c * 255) for c in channels)
+        return (r, g, b)
+
+
+    def _hue(lab: Lab) -> float:
+        return math.degrees(math.atan2(lab[2], lab[1])) % 360.0
+
+
+    def _chroma(lab: Lab) -> float:
+        return math.hypot(lab[1], lab[2])
+
+
+    def hue_distance(first: float, second: float) -> float:
+        delta = abs(first - second) % 360.0
+        return min(delta, 360.0 - delta)
+
+
+    def _distance(first: Lab, second: Lab) -> float:
+        return sum((x - y) ** 2 for x, y in zip(first, second, strict=True))
+
+
+    def kmeans(points: list[Lab], k: int = CLUSTERS) -> list[tuple[Lab, int]]:
+        """Deterministic k-means++; returns (centroid, member count) pairs."""
+        if not points:
+            return []
+        rng = random.Random(0)
+        centroids = [points[rng.randrange(len(points))]]
+        while len(centroids) < min(k, len(points)):
+            weights = [min(_distance(p, c) for c in centroids) for p in points]
+            total = sum(weights)
+            if total <= 0:
+                break
+            centroids.append(rng.choices(points, weights=weights)[0])
+        counts = [0] * len(centroids)
+        for _ in range(ITERATIONS):
+            sums = [[0.0, 0.0, 0.0] for _ in centroids]
+            counts = [0] * len(centroids)
+            for point in points:
+                index = min(
+                    range(len(centroids)), key=lambda i: _distance(point, centroids[i])
+                )
+                counts[index] += 1
+                for axis in range(3):
+                    sums[index][axis] += point[axis]
+            updated = [
+                (s[0] / n, s[1] / n, s[2] / n) if n else centroids[i]
+                for i, (s, n) in enumerate(zip(sums, counts, strict=True))
+            ]
+            if updated == centroids:
+                break
+            centroids = updated
+        return [(c, n) for c, n in zip(centroids, counts, strict=True) if n]
+
+
+    def extract_palette(pixels: list[RGB]) -> Palette | None:
+        """Pick the most vivid well-represented colour, plus a contrasting accent."""
+        if not pixels:
+            return None
+        clusters = kmeans([rgb_to_oklab(p) for p in pixels])
+        total = sum(n for _, n in clusters)
+        vivid = []
+        for centroid, count in clusters:
+            chroma = _chroma(centroid)
+            if chroma < VIVID_CHROMA or not 0.25 <= centroid[0] <= 0.96:
+                continue
+            score = math.sqrt(count / total) * min(chroma, 0.25)
+            vivid.append((score, _hue(centroid), chroma))
+        if not vivid:
+            return None
+        vivid.sort(reverse=True)
+        best_score, hue, chroma = vivid[0]
+        accent = next(
+            (
+                h
+                for s, h, _ in vivid[1:]
+                if s >= best_score * 0.3 and hue_distance(h, hue) >= ACCENT_MIN_HUE_GAP
+            ),
+            None,
+        )
+        return Palette(hue=hue, chroma=chroma, accent_hue=accent, source="cover")
+
+
+    def genre_palette(genres: tuple[str, ...]) -> Palette:
+        for genre in genres:
+            lowered = genre.lower()
+            for keywords, hue in GENRE_HUES:
+                if any(keyword in lowered for keyword in keywords):
+                    return Palette(hue=hue, chroma=0.18, accent_hue=None, source="genre")
+        return Palette(hue=DEFAULT_HUE, chroma=0.18, accent_hue=None, source="default")
+
+
+    def _led(palette: Palette, hue: float, lightness: float = LED_LIGHTNESS) -> RGB:
+        chroma = min(LED_MAX_CHROMA, max(palette.chroma * 1.4, 0.14))
+        return oklch_to_rgb(lightness, chroma, hue)
+
+
+    def area_colors(palette: Palette, count: int) -> list[RGB]:
+        """Distinct shades for neighbouring areas: hue steps around the primary,
+        every third area on the accent when the cover has one."""
+        colours: list[RGB] = []
+        spread = 28.0
+        for index in range(count):
+            offset = (index - (count - 1) / 2) * (spread / max(1, count - 1)) * 2
+            lightness = (0.64, 0.74, 0.69)[index % 3]
+            if palette.accent_hue is not None and index % 3 == 1:
+                colours.append(_led(palette, palette.accent_hue, lightness))
+            else:
+                colours.append(_led(palette, (palette.hue + offset) % 360.0, lightness))
+        return colours
+
+
+    def triad(palette: Palette) -> tuple[RGB, RGB, RGB]:
+        """Low, mid and high colours for three-colour LedFx effects."""
+        accent = (
+            palette.accent_hue
+            if palette.accent_hue is not None
+            else (palette.hue + 35.0) % 360.0
+        )
+        return (
+            _led(palette, palette.hue, 0.58),
+            _led(palette, accent, 0.70),
+            _led(palette, (palette.hue - 20.0) % 360.0, 0.84),
+        )
+
+
+    def gradient(palette: Palette) -> str:
+        """A CSS linear-gradient in the format LedFx gradient effects accept."""
+        accent = (
+            palette.accent_hue
+            if palette.accent_hue is not None
+            else (palette.hue + 30.0) % 360.0
+        )
+        stops = (
+            (_led(palette, (palette.hue - 15.0) % 360.0, 0.55), 0),
+            (_led(palette, palette.hue, 0.70), 35),
+            (_led(palette, accent, 0.72), 70),
+            (_led(palette, (palette.hue + 10.0) % 360.0, 0.82), 100),
+        )
+        parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
+        return f"linear-gradient(90deg, {parts})"
+
+
+    def to_hex(rgb: RGB) -> str:
+        return "#{:02x}{:02x}{:02x}".format(*rgb)
+  component.music_director.rules.py: |
+    """Choose a LedFx effect for a track from its genre and audio features.
+
+    Each track maps to a family of effects; the effect within a family is a
+    stable hash of the track, so a replay gets the same look, and consecutive
+    tracks never repeat the same effect when the family has an alternative.
+    """
+
+    from __future__ import annotations
+
+    import zlib
+    from dataclasses import dataclass
+    from typing import Any
+
+    from .palette import Palette, gradient, to_hex, triad
+
+    FAMILIES: dict[str, tuple[str, ...]] = {
+        "calm": ("melt", "lava_lamp"),
+        "smooth": ("melt", "energy"),
+        "bass": ("power", "energy"),
+        "drive": ("scroll", "bands"),
+        "rock": ("wavelength", "bands"),
+        "default": ("energy",),
+    }
+
+    # Ordered: within one genre string the first matching family wins.
+    GENRE_FAMILIES: tuple[tuple[tuple[str, ...], str], ...] = (
+        (
+            (
+                "ambient",
+                "classical",
+                "acoustic",
+                "folk",
+                "soundtrack",
+                "film score",
+                "lo-fi",
+                "lofi",
+                "chill",
+                "new age",
+                "piano",
+            ),
+            "calm",
+        ),
+        (
+            (
+                "house",
+                "techno",
+                "edm",
+                "electronic",
+                "electro",
+                "dance",
+                "trance",
+                "dubstep",
+                "drum and bass",
+                "garage",
+                "disco",
+            ),
+            "drive",
+        ),
+        (("metal", "rock", "punk", "grunge", "hardcore"), "rock"),
+        (
+            (
+                "hip hop",
+                "hip-hop",
+                "rap",
+                "trap",
+                "drill",
+                "grime",
+                "reggaeton",
+                "dancehall",
+            ),
+            "bass",
+        ),
+        (("r&b", "rnb", "soul", "funk", "jazz", "reggae", "blues"), "smooth"),
+    )
+
+    GRADIENT_EFFECTS = frozenset({"melt", "lava_lamp", "power", "bands", "wavelength"})
+    TRIAD_EFFECTS = frozenset({"energy", "scroll"})
+
+
+    @dataclass(frozen=True)
+    class Features:
+        genres: tuple[str, ...] = ()
+        bpm: float | None = None
+        energy: float | None = None
+        danceability: float | None = None
+        acousticness: float | None = None
+
+
+    def genre_family(genres: tuple[str, ...]) -> str | None:
+        """Family of the first genre that maps to one; sources list the primary
+        genre first, and the keyword table breaks ties within one genre."""
+        for genre in genres:
+            lowered = genre.lower()
+            for keywords, family in GENRE_FAMILIES:
+                if any(keyword in lowered for keyword in keywords):
+                    return family
+        return None
+
+
+    def classify(features: Features) -> str:
+        family = genre_family(features.genres)
+        energy = features.energy
+        if energy is not None:
+            acoustic = features.acousticness or 0.0
+            if energy < 0.35 or (acoustic > 0.7 and energy < 0.5):
+                return "calm"
+            if family == "bass" and energy < 0.5:
+                return "smooth"
+            danceable = (features.danceability or 0.0) >= 0.6
+            in_club_tempo = features.bpm is not None and 110 <= features.bpm <= 140
+            if family in (None, "smooth") and energy > 0.75 and in_club_tempo and danceable:
+                return "drive"
+        if family is not None:
+            return family
+        if energy is not None and energy > 0.7:
+            return "drive"
+        if features.bpm is not None and features.bpm < 85 and energy is not None:
+            return "calm"
+        return "default"
+
+
+    def choose_effect(family: str, track_key: str, previous: str | None) -> str:
+        candidates = FAMILIES[family]
+        index = zlib.crc32(track_key.encode("utf-8")) % len(candidates)
+        if candidates[index] == previous and len(candidates) > 1:
+            index = (index + 1) % len(candidates)
+        return candidates[index]
+
+
+    def effect_config(effect: str, palette: Palette) -> dict[str, Any]:
+        """Colour settings for the effect; LedFx fills every other key with its
+        schema default."""
+        if effect in GRADIENT_EFFECTS:
+            config: dict[str, Any] = {"gradient": gradient(palette)}
+            if effect == "power":
+                config["sparks_color"] = to_hex(triad(palette)[2])
+            return config
+        if effect in TRIAD_EFFECTS:
+            lows, mids, high = triad(palette)
+            return {
+                "color_lows": to_hex(lows),
+                "color_mids": to_hex(mids),
+                "color_high": to_hex(high),
+            }
+        raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
+  component.music_director.services.yaml: |
+    refresh:
+      name: Refresh
+      description: >-
+        Re-decide the palette and LedFx effect for the playing track and apply
+        them again.

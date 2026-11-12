@@ -1,0 +1,137 @@
+alias: "Lighting: Shared Music Area"
+description: >-
+  Join, leave or repaint one shared music mode area. Joining snapshots the
+  area to scene.pre_music_<area>, takes it off Adaptive Lighting and paints
+  it; leaving restores the snapshot and hands it back to Adaptive Lighting.
+  Painting uses the area's shade from sensor.music_director at a fixed
+  brightness, one write per track. On/off-only lights (the mushroom lamp)
+  switch off while they take part.
+mode: parallel
+max: 20
+fields:
+  area:
+    description: Area key, matching input_boolean.music_mode_<area>.
+    required: true
+    example: kitchen_ceiling
+    selector:
+      select:
+        options:
+          - kitchen_ceiling
+          - dining_table
+          - floor_lamp
+          - tulip_lamp
+          - ceiling_strip
+          - mushroom_lamp
+  step:
+    description: join, leave or paint.
+    required: true
+    example: join
+    selector:
+      select:
+        options:
+          - join
+          - leave
+          - paint
+sequence:
+  - variables:
+      areas:
+        kitchen_ceiling:
+          lights:
+            - light.kitchen_ceiling_light_1
+            - light.kitchen_ceiling_light_2
+          adaptive: switch.adaptive_lighting_all_dimmable_lights
+          colour: true
+        dining_table:
+          lights:
+            - light.kitchen_dining_table_ceiling_light_1
+            - light.kitchen_dining_table_ceiling_light_2
+          adaptive: switch.adaptive_lighting_govee_dining_bulbs
+          colour: true
+        floor_lamp:
+          lights:
+            - light.living_room_floor_lamp
+          adaptive: switch.adaptive_lighting_all_dimmable_lights
+          colour: true
+        tulip_lamp:
+          lights:
+            - light.living_room_tulip_lamp
+          adaptive: switch.adaptive_lighting_all_dimmable_lights
+          colour: true
+        ceiling_strip:
+          lights:
+            - light.apollo_led_strip_apollo_led_strip
+          adaptive: ""
+          colour: true
+        mushroom_lamp:
+          lights:
+            - light.kitchen_mushroom_lamp
+          adaptive: ""
+          colour: false
+      config: "{{ areas.get(area) }}"
+      snapshot: "scene.pre_music_{{ area }}"
+      rgb: "{{ (state_attr('sensor.music_director', 'area_colors') or {}).get(area) }}"
+  - condition: template
+    value_template: "{{ config is mapping and step in ['join', 'leave', 'paint'] }}"
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ step == 'join' }}"
+        sequence:
+          - action: scene.create
+            data:
+              scene_id: "pre_music_{{ area }}"
+              snapshot_entities: "{{ config.lights }}"
+          - if:
+              - condition: template
+                value_template: "{{ config.adaptive != '' }}"
+            then:
+              - action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: "{{ config.adaptive }}"
+                  lights: "{{ config.lights }}"
+                  manual_control: true
+      - conditions:
+          - condition: template
+            value_template: "{{ step == 'leave' }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ state_attr(snapshot, 'entity_id') is not none }}"
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ snapshot }}"
+          - if:
+              - condition: template
+                value_template: "{{ config.adaptive != '' }}"
+            then:
+              - action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: "{{ config.adaptive }}"
+                  lights: "{{ config.lights }}"
+                  manual_control: false
+              - action: adaptive_lighting.apply
+                data:
+                  entity_id: "{{ config.adaptive }}"
+                  lights: "{{ config.lights }}"
+                  turn_on_lights: false
+          - stop: Area restored
+  - if:
+      - condition: template
+        value_template: "{{ not config.colour }}"
+    then:
+      - action: light.turn_off
+        target:
+          entity_id: "{{ config.lights }}"
+    else:
+      - if:
+          - condition: template
+            value_template: "{{ rgb is sequence and rgb is not string and rgb | length == 3 }}"
+        then:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ config.lights }}"
+            data:
+              rgb_color: "{{ rgb }}"
+              brightness_pct: 70
+              transition: 2
