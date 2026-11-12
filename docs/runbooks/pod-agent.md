@@ -15,11 +15,16 @@ ChatGPT catalog export runs daily at 08:15 America/Chicago through
 `pod-agent-feed`. It shares production token custody and writes an atomic
 OpenAI Stable CSV gzip snapshot to `/data/chatgpt-feeds/chatgpt.csv.gz`.
 The dedicated server mounts only that directory, read-only, and receives no
-secrets. It serves `https://distrojeff.com/feeds/chatgpt.csv.gz` through an
+secrets. It serves `https://rupan.dev/feeds/chatgpt.csv.gz` through an
 exact-path tunnel rule before the storefront catch-all. Unknown shipping is
 omitted, checkout and Ads are disabled, and removed variants are explicitly
 ineligible for search. The server returns 503 when the file is over 36 hours
 old; the application watchdog monitors the daily export task.
+
+Use the rupan.dev URL for Business Hub: that existing public zone accepts
+backend fetchers without browser headers. The distrojeff.com mirror may reject
+default library user agents with Cloudflare error 1010. This route changes no
+WAF rules or credentials.
 
 After the application image containing `pod-agent feed` is released and
 promoted, run the CronJob once and check its audit result, readiness, and the

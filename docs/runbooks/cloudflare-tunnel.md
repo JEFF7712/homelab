@@ -64,6 +64,7 @@ Cloudflare Access public bypass configured.
 21. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
 22. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
 23. `ledfx-bedroom.rupan.dev -> http://ledfx-bedroom.music-assistant:8888`
+24. `rupan.dev -> http://pod-agent-feed.pod-agent:80` (only `^/feeds/chatgpt[.]csv[.]gz$`)
 24. `rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
 25. `www.rupan.dev -> http://rupan-dev-svc.rupan-dev:80`
 26. `grafana.rupan.dev -> http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80`
