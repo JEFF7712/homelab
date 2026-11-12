@@ -8,6 +8,7 @@ from scripts.registry.provision_publisher import (
     auth_file,
     htpasswd_secret,
     publisher_identity,
+    publisher_secret,
     replace_entry,
     secret_name,
 )
@@ -28,6 +29,21 @@ def policy(users: list[str]) -> dict:
 
 
 class ProvisionPublisherTest(unittest.TestCase):
+    def test_rotation_preserves_cron_eligibility_and_image_filters(self) -> None:
+        existing = {
+            "events": ["cron", "deployment"],
+            "images": ["trusted-image"],
+            "note": "scheduled authentication audit",
+        }
+        body = publisher_secret("publisher", "new-auth", existing)
+        self.assertEqual(body["events"], ["cron", "deployment"])
+        self.assertEqual(body["images"], ["trusted-image"])
+        self.assertEqual(body["note"], existing["note"])
+        self.assertEqual(body["value"], "new-auth")
+        self.assertEqual(
+            publisher_secret("publisher", "auth", None)["events"], ["deployment"]
+        )
+
     def test_only_an_existing_single_publisher_grant_is_provisioned(self) -> None:
         self.assertEqual(
             publisher_identity(policy(["publisher-bus-display"]), "apps/bus-display"),
