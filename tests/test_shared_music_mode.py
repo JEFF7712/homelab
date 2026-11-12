@@ -180,7 +180,7 @@ class TestSharedMusicMode(unittest.TestCase):
             "adaptive_lighting.apply",
             "turn_on_lights: false",
             "state_attr('sensor.music_director', 'area_colors')",
-            "brightness_pct: 70",
+            "state_attr('sensor.music_director', 'brightness_pct') | int(70)",
         ):
             self.assertIn(needle, raw)
         self.assertNotIn("delay:", raw)
@@ -205,6 +205,8 @@ class TestSharedMusicMode(unittest.TestCase):
         # The LED strip is the director's; scenes are no longer activated here.
         self.assertNotIn("rest_command.ledfx", raw)
         self.assertNotIn("music_mode_led_strip", yaml.safe_dump(triggers))
+        # Brightness-only changes repaint too.
+        self.assertIn("brightness_pct", raw)
 
     def test_music_snapshots_are_watchman_exempt(self) -> None:
         raw = (
@@ -275,6 +277,12 @@ class TestSharedMusicMode(unittest.TestCase):
         )
         entities = [card.get("entity") for card in music]
         self.assertEqual(entities[1], "input_boolean.shared_music_mode")
+        # Colour is picked on the integration's light; brightness on its number.
+        colour = music[entities.index("light.music_mode_colour")]
+        self.assertEqual(colour["type"], "custom:mushroom-light-card")
+        self.assertTrue(colour["show_color_control"])
+        self.assertIn("number.music_mode_brightness", entities)
+        self.assertNotIn("input_select.music_mode_color", entities)
         for area in ("led_strip", *AREAS):
             entity = f"input_boolean.music_mode_{area}"
             card = music[entities.index(entity)]

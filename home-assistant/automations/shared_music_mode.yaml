@@ -5,7 +5,7 @@ description: >-
   input_boolean.music_mode_<area> toggle is on takes part:
   script.shared_music_area snapshots it, takes it off Adaptive Lighting and
   paints it with its shade of the track's palette from sensor.music_director,
-  repainting on every new track. Areas whose toggle is off are left alone.
+  repainting on every new track and on colour or brightness changes. Areas whose toggle is off are left alone.
   Toggling an area while Music Mode is on joins or restores it immediately,
   and turning Music Mode off restores every area still taking part. The
   toggles keep their last values between sessions. The mushroom lamp has no
@@ -111,11 +111,11 @@ actions:
             state: "on"
           - condition: template
             value_template: >-
-              {{ trigger.to_state is not none
-                 and trigger.to_state.attributes.area_colors is defined
-                 and (trigger.from_state is none
-                      or trigger.from_state.attributes.get('area_colors')
-                         != trigger.to_state.attributes.area_colors) }}
+              {% set new = trigger.to_state.attributes if trigger.to_state else {} %}
+              {% set old = trigger.from_state.attributes if trigger.from_state else {} %}
+              {{ new.area_colors is defined
+                 and (old.get('area_colors') != new.area_colors
+                      or old.get('brightness_pct') != new.get('brightness_pct')) }}
         sequence:
           - repeat:
               for_each: "{{ taking_part }}"

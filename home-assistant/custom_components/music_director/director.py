@@ -4,6 +4,10 @@ decide a palette and LedFx effect once per track, and publish the result.
 The LED strip is driven here through the LedFx API. Bulb areas are painted
 by the shared music mode automation from sensor.music_director, so all
 snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
+
+The manual colour and the music brightness live here and are set by the
+integration's light (Music Mode Colour) and number (Music Mode Brightness)
+entities.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .metadata import (
@@ -40,6 +45,7 @@ from .metadata import (
 from .palette import (
     Palette,
     area_colors,
+    chosen_palette,
     extract_palette,
     gradient,
     named_palette,
@@ -57,7 +63,13 @@ from .rules import (
 
 _LOGGER = logging.getLogger(__name__)
 
+DOMAIN = "music_director"
 SENSOR = "sensor.music_director"
+# Dispatcher signal for the light and number entities to refresh their state.
+CONTROLS_UPDATED = f"{DOMAIN}_controls_updated"
+MIN_BRIGHTNESS = 10
+MAX_BRIGHTNESS = 100
+DEFAULT_BRIGHTNESS = 70
 RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
 LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
@@ -79,7 +91,6 @@ class DirectorConfig:
     library_url: str
     areas: tuple[str, ...]
     effect_select: str
-    color_select: str
     transition_time: float
     overrides: tuple[SongOverride, ...] = ()
     lastfm_key: str | None = field(default=None, repr=False)
@@ -136,6 +147,9 @@ class Director:
         self._last_effect: str | None = None
         self._decision: Decision | None = None
         self._transition_set = False
+        # Chosen colour (Music Mode Colour light on), or None for Auto.
+        self.manual_rgb: tuple[int, int, int] | None = None
+        self.brightness_pct = DEFAULT_BRIGHTNESS
 
     @callback
     def async_start(self) -> None:
@@ -146,7 +160,6 @@ class Director:
                 self.config.enabled,
                 self.config.strip,
                 self.config.effect_select,
-                self.config.color_select,
             ],
             self._on_change,
         )
@@ -170,11 +183,8 @@ class Director:
             return
         if not self._is_on(self.config.enabled):
             return
-        if entity_id in (self.config.effect_select, self.config.color_select):
-            if self._decision is not None:
-                self.hass.async_create_task(
-                    self._apply(self._recompose(self._decision))
-                )
+        if entity_id == self.config.effect_select:
+            self._reapply()
             return
         if entity_id == self.config.strip:
             if new_state is not None and new_state.state == STATE_ON:
@@ -186,6 +196,26 @@ class Director:
         key = _track_key(new_state)
         if key is not None and key != self._track_key:
             self.schedule(force=False)
+
+    @callback
+    def _reapply(self) -> None:
+        """Recompose the current track's decision after a manual control
+        changed, without fetching anything again."""
+        if self._decision is not None and self._is_on(self.config.enabled):
+            self.hass.async_create_task(self._apply(self._recompose(self._decision)))
+
+    @callback
+    def set_colour(self, rgb: tuple[int, int, int] | None) -> None:
+        """Hold a chosen colour on every light, or None to go back to Auto."""
+        self.manual_rgb = rgb
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+        self._reapply()
+
+    @callback
+    def set_brightness(self, pct: int) -> None:
+        self.brightness_pct = min(MAX_BRIGHTNESS, max(MIN_BRIGHTNESS, pct))
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+        self._reapply()
 
     def _cancel(self) -> None:
         if self._task is not None and not self._task.done():
@@ -204,9 +234,8 @@ class Director:
         return option if option in EFFECTS else None
 
     def _colour_override(self) -> Palette | None:
-        """The colour dropdown's palette, or None for Auto."""
-        state = self.hass.states.get(self.config.color_select)
-        return named_palette(state.state, "manual") if state else None
+        """The Music Mode Colour light's palette, or None for Auto."""
+        return chosen_palette(self.manual_rgb) if self.manual_rgb else None
 
     def _compose(
         self,
@@ -219,7 +248,10 @@ class Director:
     ) -> Decision:
         palette = self._colour_override() or auto_palette
         effect = self._override() or auto_effect
-        config = effect_config(effect, palette, info.features())
+        config = {
+            **effect_config(effect, palette, info.features()),
+            "brightness": round(self.brightness_pct / 100, 2),
+        }
         return Decision(
             title,
             artist,
@@ -442,6 +474,8 @@ class Director:
                     k: v for k, v in decision.config.items() if k != "gradient"
                 },
                 "palette_source": decision.palette.source,
+                "colour_mode": "manual" if self.manual_rgb else "auto",
+                "brightness_pct": self.brightness_pct,
                 "auto_palette_source": decision.auto_palette.source,
                 "intensity": decision.auto_palette.intensity,
                 "metadata_sources": list(info.sources),

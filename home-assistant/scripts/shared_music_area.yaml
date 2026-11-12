@@ -3,8 +3,9 @@ description: >-
   Join, leave or repaint one shared music mode area. Joining snapshots the
   area to scene.pre_music_<area>, takes it off Adaptive Lighting and paints
   it; leaving restores the snapshot and hands it back to Adaptive Lighting.
-  Painting uses the area's shade from sensor.music_director at a fixed
-  brightness, one write per track.
+  Painting uses the area's shade and brightness_pct from
+  sensor.music_director (number.music_mode_brightness), one write per track
+  or brightness change.
 mode: parallel
 max: 20
 fields:
@@ -113,5 +114,5 @@ sequence:
           entity_id: "{{ config.lights }}"
         data:
           rgb_color: "{{ rgb }}"
-          brightness_pct: 70
+          brightness_pct: "{{ state_attr('sensor.music_director', 'brightness_pct') | int(70) }}"
           transition: 2

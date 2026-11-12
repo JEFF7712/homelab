@@ -258,6 +258,21 @@ class TestPalette(unittest.TestCase):
             palette.hue_distance(hue_of(palette.area_colors(amber, 1)[0]), 72.0), 15
         )
 
+    def test_wheel_colours_keep_their_hue(self) -> None:
+        for rgb in (
+            (255, 0, 0),
+            (255, 140, 0),
+            (0, 80, 255),
+            (180, 0, 255),
+            (0, 200, 120),
+        ):
+            chosen = palette.chosen_palette(rgb)
+            self.assertEqual(chosen.source, "manual")
+            for out in palette.area_colors(chosen, 5):
+                self.assertLess(
+                    palette.hue_distance(hue_of(out), hue_of(rgb)), 8, (rgb, out)
+                )
+
     def test_named_colours_keep_their_hue(self) -> None:
         for name, hue in palette.NAMED_HUES.items():
             named = palette.named_palette(name.title())
@@ -463,16 +478,14 @@ class TestIntensity(unittest.TestCase):
             orange,
         )
 
-    def test_configured_overrides_and_colour_dropdown_are_valid(self) -> None:
+    def test_configured_overrides_are_valid(self) -> None:
         core = yaml.load(
             (ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(),
             Loader=DuplicateKeySafeLoader,
         )
         director = core["music_director"]
-        self.assertEqual(director["color_select"], "input_select.music_mode_color")
-        options = core["input_select"]["music_mode_color"]["options"]
-        self.assertEqual(options[0], "Auto")
-        self.assertEqual({o.lower() for o in options[1:]}, set(palette.NAMED_HUES))
+        self.assertNotIn("color_select", director)
+        self.assertNotIn("music_mode_color", core["input_select"])
         for item in director["overrides"]:
             self.assertTrue({"artist", "album", "title"} & set(item), item)
             if "color" in item:

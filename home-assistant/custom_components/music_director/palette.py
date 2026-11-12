@@ -370,6 +370,12 @@ def named_palette(name: str, source: str = "manual") -> Palette | None:
     return Palette(hue=hue, chroma=0.18, source=source, intensity=0.0)
 
 
+def chosen_palette(rgb: RGB, source: str = "manual") -> Palette:
+    """A single-colour palette for a colour picked on the colour wheel."""
+    lab = rgb_to_oklab(rgb)
+    return Palette(hue=_hue(lab), chroma=_chroma(lab), source=source, intensity=0.0)
+
+
 def with_intensity(palette: Palette, intensity: float) -> Palette:
     return replace(palette, intensity=min(1.0, max(0.0, intensity)))
 
