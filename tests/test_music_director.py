@@ -101,14 +101,21 @@ class TestPalette(unittest.TestCase):
     def test_vibe_follows_mood_and_energy(self) -> None:
         happy = palette.vibe_palette(("R&B",), energy=0.9, valence=0.9)
         sad = palette.vibe_palette(("R&B",), energy=0.2, valence=0.1)
-        # Happy drifts toward warm, sad toward blue (Palmer et al. 2013).
+        # Happy sits toward deep red, sad toward deep blue (Palmer et al. 2013).
         self.assertLess(
-            palette.hue_distance(happy.hue, palette.WARM_HUE),
-            palette.hue_distance(sad.hue, palette.WARM_HUE),
+            palette.hue_distance(happy.hue, palette.RED_HUE),
+            palette.hue_distance(sad.hue, palette.RED_HUE),
         )
         self.assertLess(
-            palette.hue_distance(sad.hue, palette.COOL_HUE),
-            palette.hue_distance(happy.hue, palette.COOL_HUE),
+            palette.hue_distance(sad.hue, palette.BLUE_HUE),
+            palette.hue_distance(happy.hue, palette.BLUE_HUE),
+        )
+        # Blue palettes take a red accent and red ones a blue accent.
+        self.assertEqual(sad.accent_hue, palette.RED_HUE)
+        self.assertEqual(happy.accent_hue, palette.BLUE_HUE)
+        # Synthpop is synth (deep blue), not pop.
+        self.assertEqual(
+            palette.genre_hue(("Synthpop",)), palette.genre_hue(("New Wave",))
         )
         self.assertGreater(happy.chroma, sad.chroma)
         self.assertGreater(happy.lift, sad.lift)
@@ -151,13 +158,35 @@ class TestPalette(unittest.TestCase):
                 self.assertFalse(brown or olive, (hue, rgb))
 
     def test_area_shades_are_distinct_valid_and_near_the_primary(self) -> None:
-        base = palette.Palette(hue=30.0, chroma=0.15, accent_hue=None, source="cover")
+        base = palette.Palette(hue=160.0, chroma=0.15, accent_hue=None, source="cover")
         colours = palette.area_colors(base, 6)
         self.assertEqual(len(colours), 6)
         self.assertEqual(len(set(colours)), 6)
         for colour in colours:
             self.assertTrue(all(0 <= channel <= 255 for channel in colour))
-            self.assertLess(palette.hue_distance(hue_of(colour), 30.0), 40)
+            self.assertLess(palette.hue_distance(hue_of(colour), 160.0), 40)
+
+    def test_output_avoids_orange_and_yellow(self) -> None:
+        for hue in range(0, 360, 5):
+            base = palette.Palette(
+                hue=float(hue), chroma=0.15, accent_hue=None, source="cover"
+            )
+            for rgb in (*palette.area_colors(base, 5), *palette.triad(base)):
+                out = hue_of(rgb)
+                self.assertFalse(52 <= out <= 100, (hue, rgb, round(out)))
+
+    def test_muted_tint_across_a_dark_cover_counts_as_its_colour(self) -> None:
+        # Like Dawn FM: black with several muted navy-to-slate blues.
+        tinted = cover(
+            ((0, 0, 0), 900),
+            ((22, 30, 44), 500),
+            ((38, 50, 70), 320),
+            ((60, 74, 96), 260),
+            ((88, 102, 124), 200),
+        )
+        result = palette.extract_palette(tinted)
+        assert result is not None
+        self.assertLess(palette.hue_distance(result.hue, palette.BLUE_HUE), 35)
 
     def test_accent_reaches_some_areas(self) -> None:
         base = palette.Palette(hue=30.0, chroma=0.15, accent_hue=250.0, source="cover")

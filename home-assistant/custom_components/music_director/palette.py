@@ -4,13 +4,19 @@ Pure functions only: callers decode the image and pass RGB pixels. Colours
 are clustered and shaded in OKLab/OKLCH so hue shifts and lightness ramps
 look even on LEDs.
 
-Cover clusters that read as skin, brown or olive count for much less, so a
-portrait cover does not turn the room amber. When no cover colour scores
-well enough, the caller falls back to vibe_palette: a genre hue moved warmer
-and lighter for happy, energetic songs and cooler and darker for sad, slow
-ones, following music-colour association research (Palmer et al., PNAS
-2013). On output, yellows and oranges get a lightness floor so they never
-render as mustard, olive or brown (as Material's DislikeAnalyzer does).
+Clusters of similar hue are scored together, so a cover-wide tint (a
+muted blue across a dark cover) counts as one colour. Groups that read as
+skin, brown or olive count for much less, so a portrait cover does not turn
+the room amber. When no cover colour scores well enough, the caller falls
+back to vibe_palette: a mood axis from deep blue (sad) through purple to
+deep red (happy), nudged by genre, after music-colour association research
+(Palmer et al., PNAS 2013).
+
+On output the lights favour vivid blues and reds over orange and yellow:
+oranges and yellows are steered into reds and corals, yellow-greens into
+green, sky blues into deep blue, blues and reds are kept deep, and anything
+left in the yellow-green band gets a lightness floor so it never renders as
+mustard or olive (as Material's DislikeAnalyzer does).
 """
 
 from __future__ import annotations
@@ -24,10 +30,14 @@ Lab = tuple[float, float, float]
 
 CLUSTERS = 6
 ITERATIONS = 12
-VIVID_CHROMA = 0.04
+VIVID_CHROMA = 0.03
+# Clusters at least this colourful join hue groups; greys and blacks do not.
+TINT_CHROMA = 0.025
+GROUP_HUE_WIDTH = 30.0
 ACCENT_MIN_HUE_GAP = 40.0
 LED_LIGHTNESS = 0.70
-LED_MAX_CHROMA = 0.22
+LED_MIN_CHROMA = 0.19
+LED_MAX_CHROMA = 0.25
 # A cover colour must score at least this (sqrt(share) * chroma * penalty) to
 # beat the vibe fallback: about 1% of the cover in a vivid colour, or a tenth
 # of it in a muted one.
@@ -36,20 +46,23 @@ MIN_COVER_SCORE = 0.015
 MUDDY_WEIGHT = 0.15
 
 # Hues (OKLCH degrees) for covers without a usable colour.
+# Within one genre string the first match wins, so synthpop is synth, not pop.
 GENRE_HUES: tuple[tuple[tuple[str, ...], float], ...] = (
+    (("synth", "new wave", "retrowave", "outrun", "80s"), 262.0),
     (("hip hop", "hip-hop", "rap", "trap", "drill", "grime"), 300.0),
-    (("r&b", "rnb", "soul", "neo soul", "funk"), 350.0),
-    (("house", "techno", "edm", "electro", "electronic", "dance", "trance"), 215.0),
-    (("metal", "rock", "punk", "grunge"), 30.0),
-    (("pop",), 0.0),
-    (("jazz", "blues", "swing", "big band"), 70.0),
-    (("reggae", "reggaeton", "latin", "dancehall", "afro"), 140.0),
-    (("ambient", "classical", "acoustic", "folk", "soundtrack", "score"), 180.0),
+    (("r&b", "rnb", "soul", "neo soul", "funk"), 340.0),
+    (("house", "techno", "edm", "electro", "electronic", "dance", "trance"), 235.0),
+    (("metal", "rock", "punk", "grunge"), 18.0),
+    (("pop",), 350.0),
+    (("jazz", "blues", "swing", "big band"), 255.0),
+    (("reggae", "reggaeton", "latin", "dancehall", "afro"), 145.0),
+    (("ambient", "classical", "acoustic", "folk", "soundtrack", "score"), 210.0),
 )
 DEFAULT_HUE = 265.0
-# Vibe targets: happy songs drift toward coral/amber, sad songs toward blue.
-WARM_HUE = 40.0
-COOL_HUE = 255.0
+# The vibe mood axis runs from deep blue (sad) through purple to deep red (happy).
+BLUE_HUE = 258.0
+RED_HUE = 20.0
+GENRE_PULL = 0.3
 
 
 @dataclass(frozen=True)
@@ -175,22 +188,56 @@ def muddy(lightness: float, chroma: float, hue: float) -> bool:
     return skin or brown or olive
 
 
+def _hue_groups(
+    clusters: list[tuple[Lab, int]],
+) -> list[tuple[float, float, float, float]]:
+    """Merge colourful clusters of similar hue. Returns (share, lightness,
+    chroma, hue) per group, weighted by member share."""
+    total = sum(n for _, n in clusters)
+    members = [
+        (n / total, c[0], _chroma(c), _hue(c))
+        for c, n in clusters
+        if _chroma(c) >= TINT_CHROMA and 0.15 <= c[0] <= 0.96
+    ]
+    # Seed groups from the most colourful-and-common clusters first.
+    members.sort(key=lambda m: m[0] * m[2], reverse=True)
+    groups: list[list[tuple[float, float, float, float]]] = []
+    for member in members:
+        for group in groups:
+            if hue_distance(member[3], group[0][3]) <= GROUP_HUE_WIDTH:
+                group.append(member)
+                break
+        else:
+            groups.append([member])
+    merged = []
+    for group in groups:
+        share = sum(m[0] for m in group)
+        x = sum(m[0] * math.cos(math.radians(m[3])) for m in group)
+        y = sum(m[0] * math.sin(math.radians(m[3])) for m in group)
+        merged.append(
+            (
+                share,
+                sum(m[0] * m[1] for m in group) / share,
+                sum(m[0] * m[2] for m in group) / share,
+                math.degrees(math.atan2(y, x)) % 360.0,
+            )
+        )
+    return merged
+
+
 def extract_palette(pixels: list[RGB]) -> Palette | None:
-    """Pick the most vivid well-represented colour, plus a contrasting accent.
-    Returns None when nothing on the cover is vivid and clean enough."""
+    """Pick the most vivid well-represented colour group, plus a contrasting
+    accent. Returns None when nothing on the cover is vivid and clean enough."""
     if not pixels:
         return None
-    clusters = kmeans([rgb_to_oklab(p) for p in pixels])
-    total = sum(n for _, n in clusters)
     vivid = []
-    for centroid, count in clusters:
-        chroma = _chroma(centroid)
-        if chroma < VIVID_CHROMA or not 0.25 <= centroid[0] <= 0.96:
+    for share, lightness, chroma, hue in _hue_groups(
+        kmeans([rgb_to_oklab(p) for p in pixels])
+    ):
+        if chroma < VIVID_CHROMA:
             continue
-        hue = _hue(centroid)
-        weight = MUDDY_WEIGHT if muddy(centroid[0], chroma, hue) else 1.0
-        score = math.sqrt(count / total) * min(chroma, 0.25) * weight
-        vivid.append((score, hue, chroma))
+        weight = MUDDY_WEIGHT if muddy(lightness, chroma, hue) else 1.0
+        vivid.append((math.sqrt(share) * min(chroma, 0.25) * weight, hue, chroma))
     vivid.sort(reverse=True)
     if not vivid or vivid[0][0] < MIN_COVER_SCORE:
         return None
@@ -227,25 +274,28 @@ def vibe_palette(
     valence: float | None = None,
     tempo: float | None = None,
 ) -> Palette:
-    """Colour from the song instead of the cover. Energy (or tempo, 0-1)
-    raises saturation and lightness; valence moves the hue warmer when
-    positive and cooler when negative. Unknown values sit at neutral."""
+    """Colour from the song instead of the cover. Valence picks a point on
+    the mood axis (deep blue, purple, magenta, deep red) and the genre pulls
+    it part way toward its own hue; without valence the genre hue is used
+    as is. Energy (or tempo, 0-1) raises saturation and brightness. The
+    accent is the opposite end of the axis, so palettes pair blue with red."""
     base = genre_hue(genres)
-    source = "vibe" if base is not None or energy is not None else "default"
-    hue = DEFAULT_HUE if base is None else base
     drive = energy if energy is not None else tempo
     drive = 0.5 if drive is None else min(1.0, max(0.0, drive))
-    mood = 0.5 if valence is None else min(1.0, max(0.0, valence))
-    if mood >= 0.5:
-        hue = _toward(hue, WARM_HUE, (mood - 0.5) * 0.7)
+    if valence is not None:
+        mood = min(1.0, max(0.0, valence))
+        hue = (BLUE_HUE + mood * (RED_HUE + 360.0 - BLUE_HUE)) % 360.0
+        if base is not None:
+            hue = _toward(hue, base, GENRE_PULL)
     else:
-        hue = _toward(hue, COOL_HUE, (0.5 - mood) * 0.7)
+        hue = DEFAULT_HUE if base is None else base
+    known = base is not None or energy is not None or valence is not None
     return Palette(
         hue=hue,
-        chroma=0.12 + 0.08 * drive,
-        accent_hue=(hue + 40.0) % 360.0,
-        source=source,
-        lift=round((drive - 0.5) * 0.10 + (mood - 0.5) * 0.06, 3),
+        chroma=0.13 + 0.08 * drive,
+        accent_hue=RED_HUE if 180.0 <= hue < 300.0 else BLUE_HUE,
+        source="vibe" if known else "default",
+        lift=round((drive - 0.5) * 0.08, 3),
     )
 
 
@@ -260,9 +310,34 @@ def lightness_floor(hue: float) -> float:
     return 0.86 - 0.20 * (hue - 100.0) / 50.0
 
 
+def steer(hue: float) -> float:
+    """Output hue preference: oranges and yellows (30-105) become reds and
+    corals (22-40), yellow-greens (105-135) become green (135-140), and
+    azure and sky blues (200-255) become deep blue (240-262)."""
+    if 30.0 < hue <= 105.0:
+        return 22.0 + (hue - 30.0) * 18.0 / 75.0
+    if 105.0 < hue < 135.0:
+        return 135.0 + (hue - 105.0) * 5.0 / 30.0
+    if 200.0 <= hue <= 255.0:
+        return 240.0 + (hue - 200.0) * 22.0 / 55.0
+    return hue
+
+
+def lightness_ceiling(hue: float) -> float:
+    """Blues and reds stay deep: pale blue reads as lavender and pale red as
+    pink on LEDs."""
+    if 220.0 <= hue <= 290.0:
+        return 0.60
+    if hue <= 30.0 or hue >= 350.0:
+        return 0.64
+    return 0.9
+
+
 def _led(palette: Palette, hue: float, lightness: float = LED_LIGHTNESS) -> RGB:
-    chroma = min(LED_MAX_CHROMA, max(palette.chroma * 1.4, 0.14))
-    lightness = min(0.9, max(lightness + palette.lift, lightness_floor(hue)))
+    hue = steer(hue % 360.0)
+    chroma = min(LED_MAX_CHROMA, max(palette.chroma * 1.4, LED_MIN_CHROMA))
+    lightness = max(lightness + palette.lift, lightness_floor(hue))
+    lightness = min(lightness, lightness_ceiling(hue))
     return oklch_to_rgb(lightness, chroma, hue)
 
 
